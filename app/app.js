@@ -345,4 +345,4 @@ async function registerOAuthUser(email, firstName, lastName, res, realEmail, has
     }
 }
 
-module.exports.handler = serverless(app);
+module.exports.lambdaHandler = serverless(app);
