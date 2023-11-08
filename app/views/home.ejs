@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title><%= title %></title>
+<style>
+body, html {
+background-color: #f1ecf6;
+height: 100%;
+margin: 0;
+padding: 0;
+display: flex;
+justify-content: center;
+align-items: center;
+position: relative;
+}
+
+#centered-image {
+position: absolute;
+top: 50%;
+left: 50%;
+transform: translate(-50%, -50%);
+object-fit: contain;
+max-width: calc(100vh - 80px);
+max-height: calc(100vh - 80px);
+height: calc(100vh - 80px);
+width: calc(100vw - 80px);
+object-fit: contain;    
+justify-content: center;
+align-items: center;
+display: flex;      
+}
+
+#top-right-image {
+position: fixed; 
+top: 15px;
+right: 20px;
+width: 250px;
+object-fit: contain;
+z-index: 2;  /* Ensuring it"s on top of other content if needed */
+}
+
+@keyframes grow-shrink5 {
+    0% {
+        r: 0px;
+    }
+    41% {
+        r: 0px;
+    }
+    60% {
+        r: calc(var(--target-radius)*1.3);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+}
+@keyframes grow-shrink4 {
+    0% {
+        r: 0px;
+    }
+    31% {
+        r: 0px;
+    }
+    50% {
+        r: calc(var(--target-radius)*1.3);
+    }
+    90% {
+        r: var(--target-radius);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+}
+@keyframes grow-shrink3 {
+    0% {
+        r: 0px;
+    }
+    21% {
+        r: 0px;
+    }
+    40% {
+        r: calc(var(--target-radius)*1.3);
+    }
+    80% {
+        r: var(--target-radius);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+}
+@keyframes grow-shrink2 {
+    0% {
+        r: 0px;
+    }
+    11% {
+        r: 0px;
+    }
+    30% {
+        r: calc(var(--target-radius)*1.3);
+    }
+    70% {
+        r: var(--target-radius);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+}
+@keyframes grow-shrink1 {
+    0% {
+        r: 0px;
+    }
+    1% {
+        r: 0px;
+    }
+    20% {
+        r: calc(var(--target-radius)*1.3);
+    }
+    60% {
+        r: var(--target-radius);
+    }
+    100% {
+        r: var(--target-radius);
+    }
+}
+
+.row5 {
+    transform-origin: center;
+    animation-name: grow-shrink5;
+    animation-duration: var(--animation-duration);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+}
+.row4 {
+    transform-origin: center;
+    animation-name: grow-shrink4;
+    animation-duration: var(--animation-duration);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+}
+.row3 {
+    transform-origin: center;
+    animation-name: grow-shrink3;
+    animation-duration: var(--animation-duration);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+}
+.row2 {
+    transform-origin: center;
+    animation-name: grow-shrink2;
+    animation-duration: var(--animation-duration);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+}
+.row1 {
+    transform-origin: center;
+    animation-name: grow-shrink1;
+    animation-duration: var(--animation-duration);
+    animation-timing-function: ease;
+    animation-fill-mode: forwards;
+}
+      .cls-1 {
+fill: #00b9bc;
+}
+
+.cls-2 {
+fill: #00b595;
+}
+
+.cls-3 {
+fill: #00b7d6;
+}
+
+.cls-4 {
+fill: #e97d58;
+}
+
+.cls-5 {
+fill: #e9be1e;
+}
+
+.cls-6 {
+fill: #e9a432;
+}
+
+.cls-7 {
+fill: #ec506c;
+}
+
+.cls-8 {
+fill: #e90e74;
+}
+
+.cls-9 {
+fill: #734b9e;
+}
+
+.cls-10 {
+fill: #6864ad;
+}
+
+.cls-11 {
+fill: #b73a92;
+}
+
+.cls-12 {
+fill: #b2ca41;
+}
+
+.cls-13 {
+fill: #d52d88;
+}
+
+.cls-14 {
+fill: #d6ca27;
+}
+
+.cls-15 {
+fill: #954499;
+}
+
+.cls-16 {
+fill: #2bb673;
+}
+
+.cls-17 {
+fill: #4797d2;
+}
+
+.cls-18 {
+fill: #5c7ebf;
+}
+
+.cls-19 {
+fill: #79c262;
+}
+#centered-image svg {
+    background-image: url("https://onevarwebsite.s3.amazonaws.com/images/website-hero.png");
+    background-position: center;
+    background-size: 42% 42%;
+    background-repeat: no-repeat;
+width:100%;
+height:auto;
+}
+
+
+
+</style>
+</head>
+<body>
+<img id="top-right-image" src="https://onevarwebsite.s3.amazonaws.com/images/coming-soon.png" alt="1 VAR">
+<div id="centered-image">
+<svg class="svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000">
+
+<g id="row5">
+<circle id="row5-cir20" class="row5 cls-10" cx="354.82" cy="53.19" r="0"/>
+<circle id="row5-cir19" class="row5 cls-18" cx="223.86" cy="119.92" r="0"/>
+<circle id="row5-cir18" class="row5 cls-17" cx="119.92" cy="223.86" r="0"/>
+<circle id="row5-cir17" class="row5 cls-17" cx="53.19" cy="354.82" r="0"/>
+<circle id="row5-cir16" class="row5 cls-3" cx="30.2" cy="500" r="0"/>
+<circle id="row5-cir15" class="row5 cls-1" cx="53.19" cy="645.18" r="0"/>
+<circle id="row5-cir14" class="row5 cls-2" cx="119.92" cy="776.14" r="0"/>
+<circle id="row5-cir13" class="row5 cls-16" cx="223.86" cy="880.08" r="0"/>
+<circle id="row5-cir12" class="row5 cls-19" cx="354.82" cy="946.81" r="0"/>
+<circle id="row5-cir11" class="row5 cls-12" cx="500" cy="969.8" r="0"/>
+<circle id="row5-cir10" class="row5 cls-14" cx="645.18" cy="946.81" r="0"/>
+<circle id="row5-cir9" class="row5 cls-5" cx="776.14" cy="880.08" r="0"/>
+<circle id="row5-cir8" class="row5 cls-6" cx="880.08" cy="776.14" r="0"/>
+<circle id="row5-cir7" class="row5 cls-4" cx="946.81" cy="645.18" rx="5" ry="0"/>
+<circle id="row5-cir6" class="row5 cls-7" cx="969.8" cy="500" r="0"/>
+<circle id="row5-cir5" class="row5 cls-8" cx="946.81" cy="354.82" r="0"/>
+<circle id="row5-cir4" class="row5 cls-13" cx="880.08" cy="223.86" r="0"/>
+<circle id="row5-cir3" class="row5 cls-11" cx="776.14" cy="119.92" r="0"/>
+<circle id="row5-cir2" class="row5 cls-15" cx="645.18" cy="53.19" r="0"/>
+<circle id="row5-cir1" class="row5 cls-9" cx="500" cy="30.2" r="0"/>
+</g>
+<g id="row4">
+<circle id="row4-cir20" class="row4 cls-10" cx="370.88" cy="102.61" r="0"/>
+<circle id="row4-cir19" class="row4 cls-18" cx="254.4" cy="161.96" r="0"/>
+<circle id="row4-cir18" class="row4 cls-17" cx="161.96" cy="254.4" r="0"/>
+<circle id="row4-cir17" class="row4 cls-17" cx="102.61" cy="370.88" r="0"/>
+<circle id="row4-cir16" class="row4 cls-3" cx="82.16" cy="500" r="0"/>
+<circle id="row4-cir15" class="row4 cls-1" cx="102.61" cy="629.12" r="0"/>
+<circle id="row4-cir14" class="row4 cls-2" cx="161.96" cy="745.6" r="0"/>
+<circle id="row4-cir13" class="row4 cls-16" cx="254.4" cy="838.04" r="0"/>
+<circle id="row4-cir12" class="row4 cls-19" cx="370.88" cy="897.39" r="0"/>
+<circle id="row4-cir11" class="row4 cls-12" cx="500" cy="917.84" r="0"/>
+<circle id="row4-cir10" class="row4 cls-14" cx="629.12" cy="897.39" r="0"/>
+<circle id="row4-cir9" class="row4 cls-5" cx="745.6" cy="838.04" r="0"/>
+<circle id="row4-cir8" class="row4 cls-6" cx="838.04" cy="745.6" r="0"/>
+<circle id="row4-cir7" class="row4 cls-4" cx="897.39" cy="629.12" r="0"/>
+<circle id="row4-cir6" class="row4 cls-7" cx="917.84" cy="500" r="0"/>
+<circle id="row4-cir5" class="row4 cls-8" cx="897.39" cy="370.88" r="0"/>
+<circle id="row4-cir4" class="row4 cls-13" cx="838.04" cy="254.4" r="0"/>
+<circle id="row4-cir3" class="row4 cls-11" cx="745.6" cy="161.96" r="0"/>
+<circle id="row4-cir2" class="row4 cls-15" cx="629.12" cy="102.61" r="0"/>
+<circle id="row4-cir1" class="row4 cls-9" cx="500" cy="82.16" r="0"/>
+</g>
+<g id="row3">
+<circle id="row3-cir20" class="row3 cls-10" cx="386.94" cy="152.03" r="0"/>
+<circle id="row3-cir19" class="row3 cls-18" cx="284.94" cy="204" r="0"/>
+<circle id="row3-cir18" class="row3 cls-17" cx="204" cy="284.94" r="0"/>
+<circle id="row3-cir17" class="row3 cls-17" cx="152.03" cy="386.94" r="0"/>
+<circle id="row3-cir16" class="row3 cls-3" cx="134.12" cy="500" r="0"/>
+<circle id="row3-cir15" class="row3 cls-1" cx="152.03" cy="613.06" r="0"/>
+<circle id="row3-cir14" class="row3 cls-2" cx="204" cy="715.06" r="0"/>
+<circle id="row3-cir13" class="row3 cls-16" cx="284.94" cy="796" r="0"/>
+<circle id="row3-cir12" class="row3 cls-19" cx="386.94" cy="847.97" r="0"/>
+<circle id="row3-cir11" class="row3 cls-12" cx="500" cy="865.88" r="0"/>
+<circle id="row3-cir10" class="row3 cls-14" cx="613.06" cy="847.97" r="0"/>
+<circle id="row3-cir9" class="row3 cls-5" cx="715.06" cy="796" r="0"/>
+<circle id="row3-cir8" class="row3 cls-6" cx="796" cy="715.06" r="0"/>
+<circle id="row3-cir7" class="row3 cls-4" cx="847.97" cy="613.06" r="0"/>
+<circle id="row3-cir6" class="row3 cls-7" cx="865.88" cy="500" r="0"/>
+<circle id="row3-cir5" class="row3 cls-8" cx="847.97" cy="386.94" r="0"/>
+<circle id="row3-cir4" class="row3 cls-13" cx="796" cy="284.94" r="0"/>
+<circle id="row3-cir3" class="row3 cls-11" cx="715.06" cy="204" r="0"/>
+<circle id="row3-cir2" class="row3 cls-15" cx="613.06" cy="152.03" r="0"/>
+<circle id="row3-cir1" class="row3 cls-9" cx="500" cy="134.12" r="0"/>
+</g>
+<g id="row2">
+<circle id="row2-cir20" class="row2 cls-10" cx="402.99" cy="201.45" r="0"/>
+<circle id="row2-cir19" class="row2 cls-18" cx="315.49" cy="246.04" r="0"/>
+<circle id="row2-cir18" class="row2 cls-17" cx="246.04" cy="315.49" r="0"/>
+<circle id="row2-cir17" class="row2 cls-17" cx="201.45" cy="402.99" r="0"/>
+<circle id="row2-cir16" class="row2 cls-3" cx="186.08" cy="500" r="0"/>
+<circle id="row2-cir15" class="row2 cls-1" cx="201.45" cy="597.01" r="0"/>
+<circle id="row2-cir14" class="row2 cls-2" cx="246.04" cy="684.51" r="0"/>
+<circle id="row2-cir13" class="row2 cls-16" cx="315.49" cy="753.96" r="0"/>
+<circle id="row2-cir12" class="row2 cls-19" cx="402.99" cy="798.55" r="0"/>
+<circle id="row2-cir11" class="row2 cls-12" cx="500" cy="813.92" r="0"/>
+<circle id="row2-cir10" class="row2 cls-14" cx="597.01" cy="798.55" r="0"/>
+<circle id="row2-cir9" class="row2 cls-5" cx="684.51" cy="753.96" r="0"/>
+<circle id="row2-cir8" class="row2 cls-6" cx="753.96" cy="684.51" r="0"/>
+<circle id="row2-cir7" class="row2 cls-4" cx="798.55" cy="597.01" r="0"/>
+<circle id="row2-cir6" class="row2 cls-7" cx="813.92" cy="500" r="0"/>
+<circle id="row2-cir5" class="row2 cls-8" cx="798.55" cy="402.99" r="0"/>
+<circle id="row2-cir4" class="row2 cls-13" cx="753.96" cy="315.49" r="0"/>
+<circle id="row2-cir3" class="row2 cls-11" cx="684.51" cy="246.04" r="0"/>
+<circle id="row2-cir2" class="row2 cls-15" cx="597.01" cy="201.45" r="0"/>
+<circle id="row2-cir1" class="row2 cls-9" cx="500" cy="186.08" r="0"/>
+</g>
+<g id="row1">
+<circle id="row1-cir20" class="row1 cls-10" cx="419.05" cy="250.87" r="0"/>
+<circle id="row1-cir19" class="row1 cls-18" cx="346.03" cy="288.08" r="0"/>
+<circle id="row1-cir18" class="row1 cls-17" cx="288.08" cy="346.03" r="0"/>
+<circle id="row1-cir17" class="row1 cls-17" cx="250.87" cy="419.05" r="0"/>
+<circle id="row1-cir16" class="row1 cls-3" cx="238.05" cy="500" r="0"/>
+<circle id="row1-cir15" class="row1 cls-1" cx="250.87" cy="580.95" r="0"/>
+<circle id="row1-cir14" class="row1 cls-2" cx="288.08" cy="653.97" r="0"/>
+<circle id="row1-cir13" class="row1 cls-16" cx="346.03" cy="711.92" r="0"/>
+<circle id="row1-cir12" class="row1 cls-19" cx="419.05" cy="749.13" r="0"/>
+<circle id="row1-cir11" class="row1 cls-12" cx="500" cy="761.95" r="0"/>
+<circle id="row1-cir10" class="row1 cls-14" cx="580.95" cy="749.13" r="0"/>
+<circle id="row1-cir9" class="row1 cls-5" cx="653.97" cy="711.92" r="0"/>
+<circle id="row1-cir8" class="row1 cls-6" cx="711.92" cy="653.97" r="0"/>
+<circle id="row1-cir7" class="row1 cls-4" cx="749.13" cy="580.95" r="0"/>
+<circle id="row1-cir6" class="row1 cls-7" cx="761.95" cy="500" r="0"/>
+<circle id="row1-cir5" class="row1 cls-8" cx="749.13" cy="419.05" r="0"/>
+<circle id="row1-cir4" class="row1 cls-13" cx="711.92" cy="346.03" r="0"/>
+<circle id="row1-cir3" class="row1 cls-11" cx="653.97" cy="288.08" r="0"/>
+<circle id="row1-cir2" class="row1 cls-15" cx="580.95" cy="250.87" r="0"/>
+<circle id="row1-cir1" class="row1 cls-9" cx="500" cy="238.05" r="0"/>
+</g>
+</svg>
+</div>
+<script>
+const row5 = document.querySelectorAll(".row5");
+const row4 = document.querySelectorAll(".row4");
+const row3 = document.querySelectorAll(".row3");
+const row2 = document.querySelectorAll(".row2");
+const row1 = document.querySelectorAll(".row1");
+
+const finalRadii5 = [ 9,  9,  0,  0,  7,  0,  0,  7,  7,  0,  0,  0,  0,  0,  0,  7,  0,  0,  0,  0];  // Final radius sizes for each circle
+const finalRadii4 = [15,  7,  0,  0,  9,  0,  9,  9,  9, 15,  0,  0, 15,  0,  0, 15,  9,  0,  0,  0];  // Final radius sizes for each circle
+const finalRadii3 = [11, 11, 12,  0, 11,  0, 15, 11, 11, 11,  0,  0, 11,  0,  0, 11, 11,  0, 11,  0];  // Final radius sizes for each circle
+const finalRadii2 = [13,  7, 13,  0, 13, 13, 13, 13, 13,  9, 13,  0, 13,  0,  0,  7, 13, 11, 13,  0];  // Final radius sizes for each circle
+const finalRadii1 = [15, 15,  9, 15, 15,  9,  9, 15, 15, 13, 15, 15, 15,  0, 15, 15, 15, 13,  9, 15];  // Final radius sizes for each circle
+
+const durations5 = ["2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s"]; 
+const durations4 = ["2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s"]; 
+const durations3 = ["2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s"]; 
+const durations2 = ["2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s"]; 
+const durations1 = ["2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s", "2s"]; 
+
+row5.forEach((circle, index) => {
+    circle.style.setProperty("--target-radius", `${finalRadii5[index]}px`);
+    circle.style.setProperty("--animation-duration", durations5[index]);
+});
+
+row4.forEach((circle, index) => {
+    circle.style.setProperty("--target-radius", `${finalRadii4[index]}px`);
+    circle.style.setProperty("--animation-duration", durations4[index]);
+});
+
+row3.forEach((circle, index) => {
+    circle.style.setProperty("--target-radius", `${finalRadii3[index]}px`);
+    circle.style.setProperty("--animation-duration", durations3[index]);
+});
+
+row2.forEach((circle, index) => {
+    circle.style.setProperty("--target-radius", `${finalRadii2[index]}px`);
+    circle.style.setProperty("--animation-duration", durations2[index]);
+});
+
+row1.forEach((circle, index) => {
+    circle.style.setProperty("--target-radius", `${finalRadii1[index]}px`);
+    circle.style.setProperty("--animation-duration", durations1[index]);
+});
+</script>
+</body>
+</html>
