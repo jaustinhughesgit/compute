@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Setup DynamoDB</title>
+    <style>
+        html, body {
+            background-color: #000000;
+            color:white;
+        }
+    </style>
+</head>
+<body>
+
+<h1>Setup DynamoDB</h1>
+
+<form action="/setupdb/createCounterW" method="POST">
+    <button type="submit">Create Counter W</button>
+</form>
+
+<form action="/setupdb/createCounterE" method="POST">
+    <button type="submit">Create Counter E</button>
+</form>
+
+<form action="/setupdb/createWordsTable" method="POST">
+    <button type="submit">Create Item Table</button>
+</form>
+
+<form action="/setupdb/createEntityTable" method="POST">
+    <button type="submit">Create Entity Table</button>
+</form>
+
+<form action="/setupdb/createVersionTable" method="POST">
+    <button type="submit">Create Version Table</button>
+</form>
+
+<form action="/setupdb/addItem" method="POST">
+    <button type="submit">Add Data</button>
+</form>
+
+<form action="/setupdb/addVersion" method="POST">
+    <button type="submit">Add version</button>
+</form>
+
+<% if (locals.results) { %>
+    <h2>Results</h2>
+    <pre><%= results %></pre>
+<% } %>
+
+</body>
+</html>

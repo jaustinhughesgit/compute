@@ -1,0 +1,25 @@
+<!-- Your HTML form -->
+<form id="myForm">
+    <input name="name" type="text" required>
+    <button type="submit">Submit</button>
+</form>
+
+<script>
+document.getElementById('myForm').addEventListener('submit', function(e) {
+    e.preventDefault();  // Prevent default form submission
+
+    const formData = new FormData(this);
+
+    fetch('/api', {
+        method: 'POST',
+        body: formData,
+    })
+    .then(response => response.json())
+    .then(data => {
+        console.log('Success:', data);
+    })
+    .catch((error) => {
+        console.error('Error:', error);
+    });
+});
+</script>
