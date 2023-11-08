@@ -1,7 +1,7 @@
 {
   "name": "app",
   "version": "1.0.0",
-  "description": "hello world sample for NodeJS",
+  "description": "compute sample for NodeJS",
   "main": "app.js",
   "repository": "https://github.com/jaustinhughesgit/aws",
   "author": "SAM CLI",
