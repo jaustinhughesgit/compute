@@ -60,7 +60,7 @@ router.get('/', async function(req, res, next) {
         res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true });
     }
 
-    res.render('home', { title: 'Test' });
+    res.render('cookies', { title: 'Test' });
 });
 
 module.exports = router;
