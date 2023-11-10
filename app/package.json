@@ -17,13 +17,7 @@
     "express-validator": "^7.0.1",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
-    "passport": "^0.6.0",
-    "passport-apple": "^2.0.2",
-    "passport-google-oauth20": "^2.0.0",
-    "passport-local": "^1.0.0",
-    "passport-microsoft": "^1.0.0",
-    "serverless-http": "^3.2.0",
-    "uuid": "^9.0.1"
+    "serverless-http": "^3.2.0"
   },
   "scripts": {}
 }
