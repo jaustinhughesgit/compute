@@ -38,7 +38,7 @@ const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
 
 router.get('/', async function(req, res, next) {
     // URL of the object in CloudFront
-    const url = "https://public.1var.com/test.txt";
+    const url = "https://public.1var.com/test2.txt";
 
     // Set the signing parameters
     const twoMinutes = 1 * 30 * 1000; // .5 minutes in milliseconds
