@@ -57,7 +57,7 @@ router.get('/', async function(req, res, next) {
 
     // Set the signed cookies in the response
     for (const cookieName in cookies) {
-        res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true });
+        res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
     }
 
     res.render('cookies', { title: 'Test' });
