@@ -41,7 +41,7 @@ router.get('/', async function(req, res, next) {
     const url = "https://d1y7wzqctzeac0.cloudfront.net/test.txt";
 
     // Set the signing parameters
-    const twoMinutes = 2 * 60 * 1000; // Two minutes in milliseconds
+    const twoMinutes = 1 * 30 * 1000; // .5 minutes in milliseconds
     const policy = JSON.stringify({
         Statement: [
             {
