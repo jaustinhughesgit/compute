@@ -42,7 +42,7 @@ router.get('/', async function(req, res, next) {
     const policy = JSON.stringify({
         Statement: [
             {
-                Resource: 'https://d1y7wzqctzeac0.cloudfront.net/*', // The URL pattern to allow
+                Resource: 'https://public.1var.com/*', // The URL pattern to allow
                 Condition: {
                     DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
                 }
