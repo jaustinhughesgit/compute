@@ -41,7 +41,7 @@ router.get('/', async function(req, res, next) {
     const policy = JSON.stringify({
         Statement: [
             {
-                Resource: 'https://public.1var.com/test3.txt', // The URL pattern to allow
+                Resource: 'https://public.1var.com/test4.txt', // The URL pattern to allow
                 Condition: {
                     DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
                 }
