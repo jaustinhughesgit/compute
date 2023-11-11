@@ -3,7 +3,7 @@ var router = express.Router();
 const AWS = require('aws-sdk');
 
 // Your CloudFront key pair ID and private key
-const keyPairId = 'APKAXZ7FJUVFX7SYUO77'; // Replace with your key pair ID 123
+const keyPairId = 'K2LZRHRSYZRU3Y'; // Replace with your key pair ID 123
 const privateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAyqcY3cxlKen6cQhkdMdY6rmT8NmKOsC1gC3pdj37jowCKa0u
 UV5uyotiGDOOKAcuT6GA7btPUtJ+sexhFeZFCWOA+uHP+LqHCyRFieozkBWZm5PP
@@ -41,7 +41,7 @@ router.get('/', async function(req, res, next) {
     const policy = JSON.stringify({
         Statement: [
             {
-                Resource: 'https://public.1var.com/test6.txt', // The URL pattern to allow
+                Resource: 'https://public.1var.com/test.txt', // The URL pattern to allow
                 Condition: {
                     DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
                 }
@@ -59,7 +59,7 @@ router.get('/', async function(req, res, next) {
         res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
     }
 
-    res.render('cookies6', { title: 'Test' });
+    res.render('cookies', { title: 'Test' });
 });
 
 module.exports = router;
