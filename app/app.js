@@ -10,5 +10,5 @@ app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
 var cookiesRouter = require('./routes/cookies2');
 app.use('/', indexRouter);
-app.use('/cookies', cookiesRouter);
+app.use('/cookies2', cookiesRouter);
 module.exports.lambdaHandler = serverless(app);
