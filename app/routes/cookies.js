@@ -3,7 +3,7 @@ var router = express.Router();
 const AWS = require('aws-sdk');
 
 // Your CloudFront key pair ID and private key
-const keyPairId = 'APKAXZ7FJUVFX7SYUO77'; // Replace with your key pair ID --
+const keyPairId = 'APKAXZ7FJUVFX7SYUO77'; // Replace with your key pair ID 123
 const privateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAyqcY3cxlKen6cQhkdMdY6rmT8NmKOsC1gC3pdj37jowCKa0u
 UV5uyotiGDOOKAcuT6GA7btPUtJ+sexhFeZFCWOA+uHP+LqHCyRFieozkBWZm5PP
@@ -30,7 +30,7 @@ IDf68nZEDGVk82dl9KrLMiSKZBFXgtKWdqPtfa4kENoxiSplJtoIT+F5KUBqQFBa
 5amFCQKBgG3BYOqWK6OvyHtlXtU42t7p4rHn/UxBcSC3HAIqaG+0uRIulINMXgdY
 lTKQv68uE/g5Q/TJakS84cH8+Y1MsONSO/7ePfEkhYKge9esPqm4T01pbTFnLQTy
 pRleuzod+Uyss2+pgG2FiI/DjbWBIBE9Pn2zhPiCchUE7DCMb341
------END RSA PRIVATE KEY-----`; // Replace with your private key --
+-----END RSA PRIVATE KEY-----`; // Replace with your private key 123
 
 // Create a CloudFront signer
 const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
