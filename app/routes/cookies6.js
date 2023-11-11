@@ -41,7 +41,7 @@ router.get('/', async function(req, res, next) {
     const policy = JSON.stringify({
         Statement: [
             {
-                Resource: 'https://d37vus6tk1h6ib.cloudfront.net/test5.txt', // The URL pattern to allow
+                Resource: 'https://d37vus6tk1h6ib.cloudfront.net/test6.txt', // The URL pattern to allow
                 Condition: {
                     DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
                 }
@@ -59,7 +59,7 @@ router.get('/', async function(req, res, next) {
         res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
     }
 
-    res.render('cookies5', { title: 'Test' });
+    res.render('cookies6', { title: 'Test' });
 });
 
 module.exports = router;
