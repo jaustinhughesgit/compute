@@ -8,7 +8,7 @@ app.use(express.urlencoded({ extended: true }));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
-var cookiesRouter = require('./routes/cookies');
+var cookiesRouter = require('./routes/cookies2');
 app.use('/', indexRouter);
 app.use('/cookies', cookiesRouter);
 module.exports.lambdaHandler = serverless(app);
