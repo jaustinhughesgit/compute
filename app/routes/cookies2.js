@@ -41,7 +41,7 @@ router.get('/', async function(req, res, next) {
     const policy = JSON.stringify({
         Statement: [
             {
-                Resource: 'https://public.1var.com/test4.txt', // The URL pattern to allow
+                Resource: 'https://d37vus6tk1h6ib.cloudfront.net/test4.txt', // The URL pattern to allow
                 Condition: {
                     DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
                 }
@@ -56,7 +56,7 @@ router.get('/', async function(req, res, next) {
 
     // Set the signed cookies in the response
     for (const cookieName in cookies) {
-        res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+        res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '*.1var.com', secure: true, sameSite: 'None' });
     }
 
     res.render('cookies2', { title: 'Test' });
