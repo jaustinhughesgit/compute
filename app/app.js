@@ -17,15 +17,15 @@ const client = new SecretsManagerClient({ region });
 
 async function getSecret() {
     console.log("4")
-    //try {
+    try {
         const response = await client.send(new GetSecretValueCommand({ SecretId: secretName }));
         console.log("5")
         return response.SecretString;
-    //} catch (error) {
-    //    console.log("6")
-     //   console.error("Error fetching secret:", error);
-    //    throw error;
-    //}
+    } catch (error) {
+        console.log("6")
+        console.error("Error fetching secret:", error);
+        throw error;
+    }
 }
 
 let privateKey;
@@ -34,7 +34,7 @@ console.log("1")
 
 async function setup() {
     console.log("2")
-    //try {
+    try {
         const secretString = await getSecret();
         console.log("3")
         const secret = JSON.parse(secretString);
@@ -47,11 +47,11 @@ async function setup() {
         app.use('/', indexRouter);
         app.use('/cookies', cookiesRouter);
 
-    //} catch (error) {
-    //    console.log("8")
-    //    console.error("Error in setup:", error);
+    } catch (error) {
+        console.log("8")
+        console.error("Error in setup:", error);
         // Handle initialization error
-    //}
+    }
 }
 
 setup();
