@@ -12,11 +12,9 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 console.log("start");
-const client = new SecretsManagerClient({ region: "us-east-1" });
 
 async function retrieveSecret() {
     try {
-        console.log("client", client)
         const response = await SM.getSecretValue({ SecretId: "public/1var/s3" }).promise();
         console.log("response", response)
         const secretString = response.SecretString;
