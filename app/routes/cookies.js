@@ -28,7 +28,7 @@ async function fetchSecret() {
 }
 
 // Fetch the secret when the module is loaded
-await fetchSecret().catch(console.error);
+fetchSecret().catch(console.error);
 
 // Middleware to ensure secret is loaded
 function ensureSecretLoaded(req, res, next) {
@@ -38,7 +38,7 @@ function ensureSecretLoaded(req, res, next) {
     next();
 }
 
-await router.use(ensureSecretLoaded);
+router.use(ensureSecretLoaded);
 
 router.get('/', async function(req, res, next) {
     if (!privateKey) {
