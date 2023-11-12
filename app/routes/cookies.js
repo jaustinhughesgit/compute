@@ -14,9 +14,11 @@ async function fetchSecret() {
         const response = await client.send(new GetSecretValueCommand({ SecretId: secretName }));
         if (response.SecretString) {
             privateKey = JSON.parse(response.SecretString).privateKey; // Adjust based on your secret's structure
+            console.log("1",privateKey);
         } else {
             let buff = Buffer.from(response.SecretBinary, 'base64');
             privateKey = buff.toString('ascii');
+            console.log("2", privateKey);
         }
         isSecretFetched = true;
     } catch (error) {
@@ -26,7 +28,7 @@ async function fetchSecret() {
 }
 
 // Fetch the secret when the module is loaded
-fetchSecret().catch(console.error);
+await fetchSecret().catch(console.error);
 
 // Middleware to ensure secret is loaded
 function ensureSecretLoaded(req, res, next) {
@@ -36,7 +38,7 @@ function ensureSecretLoaded(req, res, next) {
     next();
 }
 
-router.use(ensureSecretLoaded);
+await router.use(ensureSecretLoaded);
 
 router.get('/', async function(req, res, next) {
     if (!privateKey) {
