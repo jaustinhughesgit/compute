@@ -1,37 +1,35 @@
 var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
-import {
-    SecretsManagerClient,
-    GetSecretValueCommand,
-  } from "@aws-sdk/client-secrets-manager";
+const secretsManager = new AWS.SecretsManager();
+let privateKey;
 
-  const secret_name = "public/1var/s3";
-  
-  const client = new SecretsManagerClient({
-    region: "us-east-1",
-  });
-  
-  let response;
-  
-  try {
-    response = await client.send(
-      new GetSecretValueCommand({
-        SecretId: secret_name,
-        VersionStage: "AWSCURRENT", // VersionStage defaults to AWSCURRENT if unspecified
-      })
-    );
-  } catch (error) {
-    // For a list of exceptions thrown, see
-    // https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_GetSecretValue.html
-    throw error;
-  }
-  
-  const secret = response.SecretString;
+async function getSecret() {
+    const secretName = 'public/1var/s3'; // Replace with your secret name
+    const data = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
+
+    if ('SecretString' in data) {
+        return data.SecretString;
+    } else {
+        let buff = new Buffer(data.SecretBinary, 'base64');
+        return buff.toString('ascii');
+    }
+}
+
+(async () => {
+    try {
+        const secret = await getSecret();
+        privateKey = JSON.parse(secret).privateKey; // Ensure this matches how you've stored the key
+    } catch (err) {
+        console.error(err);
+    }
+})();
+
+
 
 // Your CloudFront key pair ID and private key
 const keyPairId = 'K2LZRHRSYZRU3Y'; // Replace with your key pair ID 123
-const privateKey = secret; // Replace with your private key 123
+//const privateKey = secret; // Replace with your private key 123
 
 // Use this code snippet in your app.
 // If you need more information about configurations or implementing the sample code, visit the AWS docs:
