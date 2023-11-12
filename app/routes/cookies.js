@@ -16,12 +16,15 @@ async function getSecret() {
     }
 }
 
-(async () => {
+await (async () => {
     try {
         const secret = await getSecret();
         privateKey = JSON.parse(secret).privateKey; // Ensure this matches how you've stored the key
+    } catch (err) {
+        console.error(err);
+    }
+})();
 
-console.log(privateKey);
 
 
 // Your CloudFront key pair ID and private key
@@ -80,8 +83,5 @@ router.get('/', async function(req, res, next) {
 
     res.render('cookies', { title: 'Test' });
 });
-} catch (err) {
-    console.error(err);
-}
-})();
+
 module.exports = router;
