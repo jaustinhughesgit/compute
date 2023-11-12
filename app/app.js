@@ -16,7 +16,7 @@ const client = new SecretsManagerClient({ region: "us-east-1" });
 async function retrieveSecret() {
     try {
         console.log("client", client)
-        const command = await new GetSecretValueCommand({ SecretId: "public/1var/s3" });
+        const command = await new GetSecretValueCommand({ SecretId: "public/1var/s3" }).promise();
         console.log("command", command)
         const response = await client.send(command);
         console.log("response", response)
