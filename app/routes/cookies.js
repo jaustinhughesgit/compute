@@ -1,22 +1,28 @@
 const express = require('express');
 const router = express.Router();
-const AWS = require('aws-sdk');
-const secretsManager = new AWS.SecretsManager();
+const { SecretsManagerClient, GetSecretValueCommand } = require("@aws-sdk/client-secrets-manager");
+
+const secretName = 'public/1var/s3'; // Replace with your secret name
+const region = 'us-east-1'; // Replace with your region
+const client = new SecretsManagerClient({ region });
 
 let privateKey;
 let isSecretFetched = false;
 
 async function fetchSecret() {
-    const secretName = 'public/1var/s3'; // Replace with your secret name
-    const data = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
-
-    if ('SecretString' in data) {
-        privateKey = JSON.parse(data.SecretString).privateKey;
-    } else {
-        let buff = new Buffer(data.SecretBinary, 'base64');
-        privateKey = buff.toString('ascii');
+    try {
+        const response = await client.send(new GetSecretValueCommand({ SecretId: secretName }));
+        if (response.SecretString) {
+            privateKey = JSON.parse(response.SecretString).privateKey; // Adjust based on your secret's structure
+        } else {
+            let buff = Buffer.from(response.SecretBinary, 'base64');
+            privateKey = buff.toString('ascii');
+        }
+        isSecretFetched = true;
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
     }
-    isSecretFetched = true;
 }
 
 // Fetch the secret when the module is loaded
@@ -33,6 +39,17 @@ function ensureSecretLoaded(req, res, next) {
 router.use(ensureSecretLoaded);
 
 router.get('/', async function(req, res, next) {
+    if (!privateKey) {
+        return res.status(500).send('Private key not loaded');
+    }
+
+    // Your CloudFront key pair ID
+    const keyPairId = 'K2LZRHRSYZRU3Y'; // Replace with your key pair ID
+
+    // Create a CloudFront signer using the retrieved private key
+    const AWS = require('aws-sdk');
+    const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
+
     // Set the policy for the signed cookies
     const twoMinutes = 30000; // .5 minutes in milliseconds
     const policy = JSON.stringify({
