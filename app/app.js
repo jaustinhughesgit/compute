@@ -12,17 +12,26 @@ app.set('view engine', 'ejs');
 
 console.log("1");
 const client = new SecretsManagerClient({ region: "us-east-1" });
-const response = await client.send(new GetSecretValueCommand({ SecretId: "public/1var/s3" }));
-const secretString = response.SecretString;
-console.log("3")
-const secret = JSON.parse(secretString);
-console.log("7")
-privateKey = secret.privateKey; // Adjust according to your secret's structure
-console.log(privateKey)
-// Setup your routes here
-var indexRouter = require('./routes/index');
-var cookiesRouter = require('./routes/cookies')(privateKey); // Pass privateKey to your router
-app.use('/', indexRouter);
-app.use('/cookies', cookiesRouter);
+
+async function retrieveSecret() {
+    try {
+        const response = await client.send(new GetSecretValueCommand({ SecretId: "public/1var/s3" }));
+        const secretString = response.SecretString;
+        console.log("3");
+        const secret = JSON.parse(secretString);
+        console.log("7");
+        privateKey = secret.privateKey; // Adjust according to your secret's structure
+        console.log(privateKey);
+        // Setup your routes here
+        var indexRouter = require('./routes/index');
+        var cookiesRouter = require('./routes/cookies')(privateKey); // Pass privateKey to your router
+        app.use('/', indexRouter);
+        app.use('/cookies', cookiesRouter);
+    } catch (error) {
+        console.error("Error retrieving secret:", error);
+    }
+}
+
+retrieveSecret();
 
 module.exports.lambdaHandler = serverless(app);
