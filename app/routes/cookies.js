@@ -1,61 +1,62 @@
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 const AWS = require('aws-sdk');
 const secretsManager = new AWS.SecretsManager();
 
-async function getSecret() {
+let privateKey;
+let isSecretFetched = false;
+
+async function fetchSecret() {
     const secretName = 'public/1var/s3'; // Replace with your secret name
     const data = await secretsManager.getSecretValue({ SecretId: secretName }).promise();
 
     if ('SecretString' in data) {
-        return data.SecretString;
+        privateKey = JSON.parse(data.SecretString).privateKey;
     } else {
         let buff = new Buffer(data.SecretBinary, 'base64');
-        return buff.toString('ascii');
+        privateKey = buff.toString('ascii');
     }
+    isSecretFetched = true;
 }
 
-async function setupRoutes() {
-    try {
-        const secret = await getSecret();
-        const privateKey = JSON.parse(secret).privateKey; // Ensure this matches how you've stored the key
+// Fetch the secret when the module is loaded
+fetchSecret().catch(console.error);
 
-        // Your CloudFront key pair ID
-        const keyPairId = 'K2LZRHRSYZRU3Y'; // Replace with your key pair ID
+// Middleware to ensure secret is loaded
+function ensureSecretLoaded(req, res, next) {
+    if (!isSecretFetched) {
+        return res.status(503).send('Service not ready');
+    }
+    next();
+}
 
-        // Create a CloudFront signer using the retrieved private key
-        const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
+router.use(ensureSecretLoaded);
 
-        router.get('/', async function(req, res, next) {
-            const twoMinutes = 30000; // .5 minutes in milliseconds
-            const policy = JSON.stringify({
-                Statement: [
-                    {
-                        Resource: 'https://public.1var.com/test.txt', // The URL pattern to allow
-                        Condition: {
-                            DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
-                        }
-                    }
-                ]
-            });
-
-            const cookies = signer.getSignedCookie({
-                policy: policy
-            });
-
-            for (const cookieName in cookies) {
-                res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+router.get('/', async function(req, res, next) {
+    // Set the policy for the signed cookies
+    const twoMinutes = 30000; // .5 minutes in milliseconds
+    const policy = JSON.stringify({
+        Statement: [
+            {
+                Resource: 'https://public.1var.com/test.txt', // The URL pattern to allow
+                Condition: {
+                    DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + twoMinutes) / 1000) }
+                }
             }
+        ]
+    });
 
-            res.render('cookies', { title: 'Test' });
-        });
+    // Generate signed cookies
+    const cookies = signer.getSignedCookie({
+        policy: policy
+    });
 
-    } catch (err) {
-        console.error(err);
-        // Handle error appropriately
+    // Set the signed cookies in the response
+    for (const cookieName in cookies) {
+        res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
     }
-}
 
-setupRoutes();
+    res.render('cookies', { title: 'Test' });
+});
 
 module.exports = router;
