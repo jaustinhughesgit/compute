@@ -16,10 +16,13 @@ const region = process.env.AWS_REGION || "us-east-1"; // Use environment variabl
 const client = new SecretsManagerClient({ region });
 
 async function getSecret() {
+    console.log("4")
     try {
         const response = await client.send(new GetSecretValueCommand({ SecretId: secretName }));
+        console.log("5")
         return response.SecretString;
     } catch (error) {
+        console.log("6")
         console.error("Error fetching secret:", error);
         throw error;
     }
@@ -27,10 +30,15 @@ async function getSecret() {
 
 let privateKey;
 
+console.log("1")
+
 async function setup() {
+    console.log("2")
     try {
         const secretString = await getSecret();
+        console.log("3")
         const secret = JSON.parse(secretString);
+        console.log("7")
         privateKey = secret.privateKey; // Adjust according to your secret's structure
         console.log(privateKey)
         // Setup your routes here
@@ -40,6 +48,7 @@ async function setup() {
         app.use('/cookies', cookiesRouter);
 
     } catch (error) {
+        console.log("8")
         console.error("Error in setup:", error);
         // Handle initialization error
     }

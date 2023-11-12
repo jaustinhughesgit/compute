@@ -37,8 +37,8 @@ router.get('/', async function(req, res, next) {
     }
         // Render the 'cookies' view with the title 'Test'
         res.render('cookies', { title: 'Test' });
-    });
+});
 
-    return router;
+return router;
 
 }
