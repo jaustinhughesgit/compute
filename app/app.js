@@ -1,78 +1,40 @@
-/*let privateKey = `-----BEGIN RSA PRIVATE KEY-----
-MIIEowIBAAKCAQEAyqcY3cxlKen6cQhkdMdY6rmT8NmKOsC1gC3pdj37jowCKa0u
-UV5uyotiGDOOKAcuT6GA7btPUtJ+sexhFeZFCWOA+uHP+LqHCyRFieozkBWZm5PP
-o3iTuz7rQXBLNokC1o41cPHmRFtFWRrp5lsiZx61pFdQ6XPBACuHcTZK7cMo24Xt
-wSnhzXXwy/jnd4p+X6VsoWJy8EaHupR00cs6JcLmOTVPJrddJFVV29DZ9Ht88Wxq
-Z7+C+Qr8soOJz/D7bzJHcwDUEoDp75vjByfjTpS0Q5bvWD8XXAiuDOmR8sQa9+Cf
-Ph4mykvTDiWPiSiqc9rt8v2lJLiizIu8HwaOZQIDAQABAoIBAAM5xVcOdakaTNQM
-w/s/NbvyvUHvAdjCkCux+g6EQ7ihTjgsm1lMjVXoVw+Mjog2PmH3xPjDwP+lUxfw
-68YF9suvS50dXV/s/tD0wFicI5BOZQtevxuFLqYjL7/IZ6IUFzlOuoIJj6vp31Y2
-QUqF4SvOsinOAVSIn6X+4LaIHImL851RqtMpsud/RdKQi4ZArYt1Sg0278i66qcg
-gwNwND+35TYwAOtLBid3855BjA9jVE9eo7GzNmETeXl7ijcAEGNOJoA2dqueqOxA
-2lWhC8TbifmK0OSacVj4X2LDrPI8CzJq2SYHIpVf+MpuV2+FfQF6ITY0/OUjnfuY
-l8elJMcCgYEA69JVau7+XHFQ6IQRs1G0YMUW5kZ6uuW/1JbooQdtTT2kExi1so+P
-kQ5KdqIbDix1FxopHCDIApDVjMr/Yq+vZx5XlOPTS9Es5HNHhyheS7ICKC5mjRqD
-cRxXwrNUIAwjFFIMeiKrYV6tB/PNMur5p4YXeyEsUVyNv2pfFrDxEb8CgYEA2/4z
-ImCAAZHDchdN4m+ndM/5MUekw524i8gikdRLGxpks3L77MP/PHvxKi/k6xYsWKmr
-q3LLePlcm6NfFsF19dCzpMSvbANSqUZlJc2t4uSv9JCuDD71nktgLMyKrVotVWRV
-vo7CvxQJlh5xlu+DgaYcxWXpmPSVSHBOv02LoNsCgYA6Ryyc1Js/tTFNhPXq3tI4
-5/wUxG4oKgcSPokW4oL8h7M4lO6yRhAwxNtaHg2ZnxsArpJiRSeomqprtO8QMGKk
-lTcHsJXTMsppWqPenvdOtZsa2vy0+kxpc5usniy4DsfMicpTlKXN1lvkjzey0acI
-43aCE1ykbr8JAvyk2u14eQKBgQCLR4DwPtBMLhDjZsW0mqQWXKWUAZvbDTwNo4Pf
-d9ylKCyhQCcnW194169z2ibAf6VL7P/26BLSYG21S9Wj/o/ENYHGy4+UfvYSnbLk
-IDf68nZEDGVk82dl9KrLMiSKZBFXgtKWdqPtfa4kENoxiSplJtoIT+F5KUBqQFBa
-5amFCQKBgG3BYOqWK6OvyHtlXtU42t7p4rHn/UxBcSC3HAIqaG+0uRIulINMXgdY
-lTKQv68uE/g5Q/TJakS84cH8+Y1MsONSO/7ePfEkhYKge9esPqm4T01pbTFnLQTy
-pRleuzod+Uyss2+pgG2FiI/DjbWBIBE9Pn2zhPiCchUE7DCMb341
------END RSA PRIVATE KEY-----`*/
-
 const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
 const path = require('path');
-const app = express();
 
 // Initialize AWS Secrets Manager
 const SM = new AWS.SecretsManager();
 
-// Function to retrieve the private key from AWS Secrets Manager
 async function getPrivateKey() {
     const secretName = "tutorialSecretManager"; // Replace with your secret name
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
-        const secret = JSON.parse(data.SecretString); // Parse the secret string as JSON
-        return secret.privateKey; // Access the privateKey field
+        const secret = JSON.parse(data.SecretString);
+        return secret.privateKey;
     } catch (error) {
         console.error("Error fetching secret:", error);
         throw error;
     }
 }
 
-// Main handler function
-async function main() {
-    let privateKey;
-    try {
-        privateKey = await getPrivateKey();
-    } catch (error) {
-        // Handle the error appropriately
-        console.error("Failed to retrieve private key:", error);
-        // You might want to stop the initialization of your app or handle this scenario appropriately
-        return;
-    }
+const app = express();
 
-    app.use(express.json());
-    app.use(express.urlencoded({ extended: true }));
-    app.set('views', path.join(__dirname, 'views'));
-    app.set('view engine', 'ejs');
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-    var indexRouter = require('./routes/index');
-    var cookiesRouter = require('./routes/cookies')(privateKey); // Pass privateKey to your router
+var indexRouter = require('./routes/index');
+var cookiesRouter;
+
+getPrivateKey().then(privateKey => {
+    cookiesRouter = require('./routes/cookies')(privateKey);
     app.use('/', indexRouter);
     app.use('/cookies', cookiesRouter);
+}).catch(error => {
+    console.error("Failed to retrieve private key:", error);
+    // Handle the error appropriately
+});
 
-    // Start the server or export the handler, depending on your use case
-    module.exports.lambdaHandler = serverless(app);
-}
-
-// Start the application
-main().catch(error => console.error("Failed to start the application:", error));
+module.exports.lambdaHandler = serverless(app);
