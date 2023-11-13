@@ -18,26 +18,33 @@ async function getPrivateKey() {
     }
 }
 
-(async () => {
-    try {
-        const privateKey = await getPrivateKey();
-        const app = express();
+const app = express();
 
-        app.use(express.json());
-        app.use(express.urlencoded({ extended: true }));
-        app.set('views', path.join(__dirname, 'views'));
-        app.set('view engine', 'ejs');
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-        var indexRouter = require('./routes/index');
-        var cookiesRouter = require('./routes/cookies')(privateKey);
+var indexRouter = require('./routes/index');
+var cookiesRouter;
 
-        app.use('/', indexRouter);
-        app.use('/cookies', cookiesRouter);
-
-        module.exports.lambdaHandler = serverless(app);
-    } catch (error) {
-        console.error("Failed to start the application due to an error in retrieving the private key:", error);
-        // Handle initialization error
-        // Note: You might need to handle this differently depending on your deployment environment
+// Middleware to ensure privateKey is loaded
+app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey);
+            app.use('/cookies', cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
     }
-})();
+});
+
+app.use('/', indexRouter);
+
+module.exports.lambdaHandler = serverless(app);
