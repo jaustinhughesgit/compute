@@ -11,7 +11,7 @@ async function getPrivateKey() {
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n");
+        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
         console.log(pKey)
         return pKey //JSON.stringify(secret.privateKey).replace("###", "\n");
     } catch (error) {
