@@ -1,10 +1,4 @@
-const AWS = require('aws-sdk');
-const express = require('express');
-const serverless = require('serverless-http');
-const path = require('path');
-const app = express();
-
-let privateKey = `-----BEGIN RSA PRIVATE KEY-----
+/*let privateKey = `-----BEGIN RSA PRIVATE KEY-----
 MIIEowIBAAKCAQEAyqcY3cxlKen6cQhkdMdY6rmT8NmKOsC1gC3pdj37jowCKa0u
 UV5uyotiGDOOKAcuT6GA7btPUtJ+sexhFeZFCWOA+uHP+LqHCyRFieozkBWZm5PP
 o3iTuz7rQXBLNokC1o41cPHmRFtFWRrp5lsiZx61pFdQ6XPBACuHcTZK7cMo24Xt
@@ -30,16 +24,55 @@ IDf68nZEDGVk82dl9KrLMiSKZBFXgtKWdqPtfa4kENoxiSplJtoIT+F5KUBqQFBa
 5amFCQKBgG3BYOqWK6OvyHtlXtU42t7p4rHn/UxBcSC3HAIqaG+0uRIulINMXgdY
 lTKQv68uE/g5Q/TJakS84cH8+Y1MsONSO/7ePfEkhYKge9esPqm4T01pbTFnLQTy
 pRleuzod+Uyss2+pgG2FiI/DjbWBIBE9Pn2zhPiCchUE7DCMb341
------END RSA PRIVATE KEY-----`
+-----END RSA PRIVATE KEY-----`*/
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
-var indexRouter = require('./routes/index');
-var cookiesRouter = require('./routes/cookies')(privateKey); // Pass privateKey to your router
-app.use('/', indexRouter);
-app.use('/cookies', cookiesRouter);
+const AWS = require('aws-sdk');
+const express = require('express');
+const serverless = require('serverless-http');
+const path = require('path');
+const app = express();
 
+// Initialize AWS Secrets Manager
+const SM = new AWS.SecretsManager();
 
-module.exports.lambdaHandler = serverless(app);
+// Function to retrieve the private key from AWS Secrets Manager
+async function getPrivateKey() {
+    const secretName = "tutorialSecretManager"; // Replace with your secret name
+    try {
+        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
+        const secret = JSON.parse(data.SecretString); // Parse the secret string as JSON
+        return secret.privateKey; // Access the privateKey field
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
+    }
+}
+
+// Main handler function
+async function main() {
+    let privateKey;
+    try {
+        privateKey = await getPrivateKey();
+    } catch (error) {
+        // Handle the error appropriately
+        console.error("Failed to retrieve private key:", error);
+        // You might want to stop the initialization of your app or handle this scenario appropriately
+        return;
+    }
+
+    app.use(express.json());
+    app.use(express.urlencoded({ extended: true }));
+    app.set('views', path.join(__dirname, 'views'));
+    app.set('view engine', 'ejs');
+
+    var indexRouter = require('./routes/index');
+    var cookiesRouter = require('./routes/cookies')(privateKey); // Pass privateKey to your router
+    app.use('/', indexRouter);
+    app.use('/cookies', cookiesRouter);
+
+    // Start the server or export the handler, depending on your use case
+    module.exports.lambdaHandler = serverless(app);
+}
+
+// Start the application
+main().catch(error => console.error("Failed to start the application:", error));
