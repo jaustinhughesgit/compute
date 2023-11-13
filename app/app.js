@@ -5,12 +5,16 @@ const path = require('path');
 
 // Initialize AWS Secrets Manager
 const SM = new AWS.SecretsManager();
-
+console.log("1")
 async function getPrivateKey() {
-    const secretName = "tutorialSecretManager"; // Replace with your secret name
+    console.log("2")
+    const secretName = "public/1var/s3"; // Replace with your secret name
     try {
+        console.log("3")
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
+        console.log("data", data)
         const secret = JSON.parse(data.SecretString);
+        console.log("secret", secret)
         return secret.privateKey;
     } catch (error) {
         console.error("Error fetching secret:", error);
