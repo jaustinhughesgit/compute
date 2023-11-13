@@ -5,16 +5,12 @@ const path = require('path');
 
 // Initialize AWS Secrets Manager
 const SM = new AWS.SecretsManager();
-console.log("1")
+
 async function getPrivateKey() {
-    console.log("2")
     const secretName = "public/1var/s3"; // Replace with your secret name
     try {
-        console.log("3")
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
-        console.log("data", data)
         const secret = JSON.parse(data.SecretString);
-        console.log("secret", secret)
         return secret.privateKey;
     } catch (error) {
         console.error("Error fetching secret:", error);
@@ -22,23 +18,26 @@ async function getPrivateKey() {
     }
 }
 
-const app = express();
+(async () => {
+    try {
+        const privateKey = await getPrivateKey();
+        const app = express();
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
+        app.use(express.json());
+        app.use(express.urlencoded({ extended: true }));
+        app.set('views', path.join(__dirname, 'views'));
+        app.set('view engine', 'ejs');
 
-var indexRouter = require('./routes/index');
-var cookiesRouter;
+        var indexRouter = require('./routes/index');
+        var cookiesRouter = require('./routes/cookies')(privateKey);
 
-getPrivateKey().then(privateKey => {
-    cookiesRouter = require('./routes/cookies')(privateKey);
-    app.use('/', indexRouter);
-    app.use('/cookies', cookiesRouter);
-}).catch(error => {
-    console.error("Failed to retrieve private key:", error);
-    // Handle the error appropriately
-});
+        app.use('/', indexRouter);
+        app.use('/cookies', cookiesRouter);
 
-module.exports.lambdaHandler = serverless(app);
+        module.exports.lambdaHandler = serverless(app);
+    } catch (error) {
+        console.error("Failed to start the application due to an error in retrieving the private key:", error);
+        // Handle initialization error
+        // Note: You might need to handle this differently depending on your deployment environment
+    }
+})();
