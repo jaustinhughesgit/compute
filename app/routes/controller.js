@@ -10,6 +10,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     });
     
     router.post('/createCounterE', function(req, res) {
+        console.log("1")
         const tableParams = {
             AttributeDefinitions: [
                 {
@@ -28,7 +29,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         };
 
         dynamodbLL.createTable(tableParams, (err, data) => {
+            console.log("2")
             if (err) {
+                console.log("3")
                 console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
                 return res.status(500).send(err); // You might want to handle error differently
             } else {
@@ -41,50 +44,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     });
 
     router.post('/createEntityTable', function(req, res) {
-        const tableParams = {
-            AttributeDefinitions: [
-                {
-                    AttributeName: 'e',
-                    AttributeType: 'S'
-                },
-                {
-                    AttributeName: 'v',
-                    AttributeType: 'S'
-                }
-            ],
-            KeySchema: [
-                {
-                    AttributeName: 'e',
-                    KeyType: 'HASH'
-                }
-            ],
-            GlobalSecondaryIndexes: [ 
-                {
-                    IndexName: 'vIndex',
-                    KeySchema: [
-                        {
-                            AttributeName: 'v',
-                            KeyType: 'HASH'
-                        }
-                    ],
-                    Projection: {
-                        ProjectionType: 'ALL'
-                    }
-                }
-            ],
-            BillingMode: 'PAY_PER_REQUEST',  // You're using on-demand capacity, so you don't specify ProvisionedThroughput
-            TableName: 'entities'
-        };
-    
-        dynamodbLL.createTable(tableParams, (err, data) => {
-            if (err) {
-                console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
-                return res.status(500).send(err); // You might want to handle error differently
-            } else {
-                console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
-                res.render('setupdb', {results: JSON.stringify(data)});
-            }
-        });
+
+                res.render('controller', {results: {}});
+
         });
 
     return router;
