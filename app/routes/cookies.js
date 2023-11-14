@@ -22,12 +22,12 @@ module.exports = function(privateKey) {
             ]
         });
 
-        if (false){
-            const url = signer.getSignedUrl({
-                url: 'https://public.1var.com/test.txt',
+        if (req.routeType === 'url'){
+            const signedUrl = signer.getSignedUrl({
+                url: url,
                 policy: policy
             });
-            res.json({ signedUrl: url });
+            res.json({ signedUrl: signedUrl });
         } else {
             const cookies = signer.getSignedCookie({
                 policy: policy

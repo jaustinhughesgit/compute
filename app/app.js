@@ -26,7 +26,17 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 var indexRouter = require('./routes/index');
-var cookiesRouter;
+
+app.use('/cookies', async (req, res, next) => {
+    req.routeType = 'cookies';
+    next();
+}, cookiesRouter);
+
+app.use('/url', async (req, res, next) => {
+    req.routeType = 'url';
+    next();
+}, cookiesRouter);
+/*var cookiesRouter;
 
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
@@ -42,7 +52,7 @@ app.use(async (req, res, next) => {
     } else {
         next();
     }
-});
+});*/
 
 app.use('/', indexRouter);
 
