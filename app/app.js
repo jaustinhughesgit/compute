@@ -2,7 +2,12 @@ const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
 const path = require('path');
+const app = express();
+const { v4: uuidv4 } = require('uuid');
 
+AWS.config.update({ region: 'us-east-1' });
+const dynamodbLL = new AWS.DynamoDB();
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 
 async function getPrivateKey() {
@@ -18,7 +23,7 @@ async function getPrivateKey() {
     }
 }
 
-const app = express();
+
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -26,6 +31,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 var indexRouter = require('./routes/index');
+var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 
 var cookiesRouter;
 
@@ -33,7 +39,7 @@ app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey);
+            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
             app.use('/:type(cookies|url)', function(req, res, next) {
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
@@ -49,5 +55,6 @@ app.use(async (req, res, next) => {
 });
 
 app.use('/', indexRouter);
+app.use('/controller', controllerRouter);
 
 module.exports.lambdaHandler = serverless(app);

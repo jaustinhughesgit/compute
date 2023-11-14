@@ -17,7 +17,8 @@
     "express-validator": "^7.0.1",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
-    "serverless-http": "^3.2.0"
+    "serverless-http": "^3.2.0",
+    "uuid": "^9.0.1"
   },
   "scripts": {}
 }
