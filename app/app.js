@@ -28,32 +28,10 @@ app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
 var cookiesRouter = require('./routes/cookies')
 
-app.use('/cookies', async (req, res, next) => {
-    req.routeType = 'cookies';
-    next();
+app.use('/:type(cookies|url)', function(req, res, next) {
+    req.type = req.params.type; // Capture the type (cookies or url)
+    next('route'); // Pass control to the next route
 }, cookiesRouter);
-
-app.use('/url', async (req, res, next) => {
-    req.routeType = 'url';
-    next();
-}, cookiesRouter);
-/*var cookiesRouter;
-
-app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey);
-            app.use('/cookies', cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});*/
 
 app.use('/', indexRouter);
 
