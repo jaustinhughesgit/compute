@@ -3,6 +3,7 @@ const express = require('express');
 const serverless = require('serverless-http');
 const path = require('path');
 const app = express();
+const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 
 AWS.config.update({ region: 'us-east-1' });
@@ -22,21 +23,15 @@ async function getPrivateKey() {
         throw error;
     }
 }
-
-
-
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true })); 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
-
 var cookiesRouter;
-
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
