@@ -29,6 +29,13 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
+app.use('/controller', controllerRouter);
+app.use('/', indexRouter);
+
+
+
+
+// leave at bottom as catch-all
 var cookiesRouter;
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
@@ -48,6 +55,4 @@ app.use(async (req, res, next) => {
         next();
     }
 });
-app.use('/controller', controllerRouter);
-app.use('/', indexRouter);
 module.exports.lambdaHandler = serverless(app);
