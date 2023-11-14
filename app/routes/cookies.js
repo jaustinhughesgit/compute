@@ -21,7 +21,6 @@ module.exports = function(privateKey) {
                 }
             ]
         });
-        console.log(req.type)
         if (req.type === 'url'){
             const signedUrl = signer.getSignedUrl({
                 url: url,

@@ -29,16 +29,12 @@ var indexRouter = require('./routes/index');
 
 var cookiesRouter;
 
-console.log("1")
 app.use(async (req, res, next) => {
-    console.log("2")
     if (!cookiesRouter) {
         try {
-            console.log("3")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey);
             app.use('/:type(cookies|url)', function(req, res, next) {
-                console.log(req.params.type)
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
             }, cookiesRouter);
