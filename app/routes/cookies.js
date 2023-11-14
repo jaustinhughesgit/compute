@@ -21,8 +21,8 @@ module.exports = function(privateKey) {
                 }
             ]
         });
-        console.log(req.routeType)
-        if (req.routeType === 'url'){
+        console.log(req.type)
+        if (req.type === 'url'){
             const signedUrl = signer.getSignedUrl({
                 url: url,
                 policy: policy
