@@ -10,7 +10,7 @@ module.exports = function(privateKey) {
 
     router.get('/', async function(req, res, next) {
         const expires = 30000; // .5 minutes in milliseconds
-        const url = "https://public.1var.com/test2.txt";
+        const url = "https://public.1var.com/test.txt";
         const policy = JSON.stringify({
             Statement: [
                 {
