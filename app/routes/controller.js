@@ -45,7 +45,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
     router.post('/createEntityTable', function(req, res) {
 
-                res.render('controller', {results: {}});
+                res.render('controller', {results: JSON.stringify({})});
 
         });
 
