@@ -5,7 +5,7 @@ const AWS = require('aws-sdk');
 module.exports = function(privateKey) {
     var router = express.Router();
 
-    const keyPairId = 'K2LZRHRSYZRU3Y';
+    const keyPairId = 'K2LZRHRSYZRU3Y'; 
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
 
     router.get('/', async function(req, res, next) {
@@ -22,15 +22,13 @@ module.exports = function(privateKey) {
             ]
         });
 
-        // Check if the request accepts JSON (RESTful API request)
-        if (false) {
+        if (false){
             const url = signer.getSignedUrl({
                 url: 'https://public.1var.com/test.txt',
                 policy: policy
             });
             res.json({ signedUrl: url });
         } else {
-            // Handle as a web request, set cookies
             const cookies = signer.getSignedCookie({
                 policy: policy
             });
@@ -39,7 +37,7 @@ module.exports = function(privateKey) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
             res.render('cookies', { title: 'Test' });
-        }
+        }   
     });
 
     return router;
