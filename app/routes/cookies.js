@@ -34,7 +34,7 @@ module.exports = function(privateKey) {
             });
 
             for (const cookieName in cookies) {
-                res.cookie(cookieName, cookies[cookieName], { maxAge: twoMinutes, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+                res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
             res.render('cookies', { title: 'Test' });
         }   
