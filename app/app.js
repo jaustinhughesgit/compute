@@ -3,11 +3,8 @@ const express = require('express');
 const serverless = require('serverless-http');
 const path = require('path');
 const app = express();
-const bodyParser = require('body-parser');
-const { v4: uuidv4 } = require('uuid');
+const session = require('express-session');
 AWS.config.update({ region: 'us-east-1' });
-const dynamodbLL = new AWS.DynamoDB();
-const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -21,10 +18,22 @@ async function getPrivateKey() {
         throw error;
     }
 }
+const bodyParser = require('body-parser');
+const { v4: uuidv4 } = require('uuid');
+const dynamodbLL = new AWS.DynamoDB();
+const dynamodb = new AWS.DynamoDB.DocumentClient();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true })); 
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
+
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
