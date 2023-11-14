@@ -33,7 +33,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 return res.status(500).send(err); // You might want to handle error differently
             } else {
                 console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
-                        res.render('setupdb', {results: JSON.stringify({data})});
+                        res.render('controller', {results: JSON.stringify({data})});
                    
             }
         });
