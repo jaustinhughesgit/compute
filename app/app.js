@@ -3,17 +3,15 @@ const express = require('express');
 const serverless = require('serverless-http');
 const path = require('path');
 
-// Initialize AWS Secrets Manager
 const SM = new AWS.SecretsManager();
 
 async function getPrivateKey() {
-    const secretName = "public/1var/s3"; // Replace with your secret name
+    const secretName = "public/1var/s3";
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
         let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
-        console.log(pKey)
-        return pKey //JSON.stringify(secret.privateKey).replace("###", "\n");
+        return pKey
     } catch (error) {
         console.error("Error fetching secret:", error);
         throw error;
@@ -30,7 +28,6 @@ app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
 var cookiesRouter;
 
-// Middleware to ensure privateKey is loaded
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
