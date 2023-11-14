@@ -26,12 +26,27 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 var indexRouter = require('./routes/index');
-var cookiesRouter = require('./routes/cookies')
 
-app.use('/:type(cookies|url)', function(req, res, next) {
-    req.type = req.params.type; // Capture the type (cookies or url)
-    next('route'); // Pass control to the next route
-}, cookiesRouter);
+var cookiesRouter;
+
+app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey);
+            app.use('/:type(cookies|url)', function(req, res, next) {
+                req.type = req.params.type; // Capture the type (cookies or url)
+                next('route'); // Pass control to the next route
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
+});
 
 app.use('/', indexRouter);
 
