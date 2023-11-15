@@ -406,7 +406,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1";
-            let forceC = "1"; // Assuming forceC is passed in the request body
+            let forceC = null; // Assuming forceC is passed in the request body
     
             let newCValue = forceC !== null && forceC !== undefined ? forceC : "1"; // Use forceC for c if provided
             let newSValue;
