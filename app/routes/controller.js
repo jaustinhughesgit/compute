@@ -407,11 +407,12 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1";
-            let forceC = "2"; // Assuming forceC is passed in the request body
+            let forceC = null; // Assuming forceC is passed in the request body
     
             let newCValue;
             let newSValue = 1; // Default value for s
             let previousVersionId; // To store the v of the last record
+            let previousVersionDate; // To store the d (sort key) of the last record
     
             // Query the database to find the latest record for the given e
             const queryResult = await dynamodb.query({
@@ -428,6 +429,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             if (queryResult.Items.length > 0) {
                 const latestRecord = queryResult.Items[0];
                 previousVersionId = latestRecord.v; // Store the v of the last record
+                previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
     
                 // Increment s only if forceC is provided and there are existing records
                 const latestSValue = parseInt(latestRecord.s);
@@ -453,10 +455,13 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }).promise();
     
             // Update the last record with the n attribute
-            if (previousVersionId) {
+            if (previousVersionId && previousVersionDate) {
                 await dynamodb.update({
                     TableName: 'versions',
-                    Key: { v: previousVersionId },
+                    Key: {
+                        v: previousVersionId,
+                        d: previousVersionDate // Include the sort key in the key object
+                    },
                     UpdateExpression: 'set n = :newV',
                     ExpressionAttributeValues: {
                         ':newV': id.toString()
@@ -470,6 +475,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             res.status(500).send(error);
         }
     });
+    
     
 
 
