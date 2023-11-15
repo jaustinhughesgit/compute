@@ -383,7 +383,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     status.added.push(word)
                 }
             }
-            res.render('controller', {results: JSON.stringify(wStatus)});
+            res.render('controller', {results: JSON.stringify(status)});
         } catch (e) {
             console.error(e);
             return {
