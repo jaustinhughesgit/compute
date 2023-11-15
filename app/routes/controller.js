@@ -113,7 +113,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     };
 
-    //const createVersion = async (entityid, column, value)
+    const createVersion = async (entityid, column, value)
 
 
     // gets -----------------------------------------------
@@ -124,7 +124,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
 
     // posts ----------------------------------------------
-    
+    if (true){
     router.post('/createCounterE', function(req, res) {
         console.log("1")
         const tableParams = {
@@ -327,6 +327,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     AttributeType: 'S'
                 },
                 {
+                    AttributeName: 'c',
+                    AttributeType: 'S'
+                },
+                {
                     AttributeName: 'e',
                     AttributeType: 'S'
                 },
@@ -377,6 +381,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }
         });
     });
+    }
 
     router.post('/addWords', async (req, res) => {
         try {
@@ -402,6 +407,47 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 statusCode: 500,
                 body: JSON.stringify('An error occurred!'),
             };
+        }
+    });
+
+    router.post('/addRecord', async function(req, res) {
+        try {
+            let newE = "1"
+            // Step 1: Query the table to find the latest record with e = "1234"
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
+    
+            let newCValue = 1; // default if no records are found
+            if (queryResult.Items.length > 0) {
+                const latestCValue = parseInt(queryResult.Items[0].c);
+                newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
+            }
+    
+            // Step 2: Insert the new record with the incremented c value
+            const newRecord = {
+                // ... other record data ...
+                c: newCValue.toString(),
+                e: newE,
+                // ... other record data ...
+            };
+    
+            await dynamodb.put({
+                TableName: 'versions',
+                Item: newRecord
+            }).promise();
+    
+            res.send('Record added successfully');
+        } catch (error) {
+            console.error("Error adding record:", error);
+            res.status(500).send(error);
         }
     });
 
