@@ -411,30 +411,29 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             let newCValue;
             let newSValue;
     
-            if (forceC !== null && forceC !== undefined) {
-                // Use forceC directly if provided
-                newCValue = forceC;
-            } else {
-                // If forceC is not provided, find the latest c value for the given e and increment it
-                const queryResult = await dynamodb.query({
-                    TableName: 'versions',
-                    IndexName: 'eIndex',
-                    KeyConditionExpression: 'e = :eValue',
-                    ExpressionAttributeValues: {
-                        ':eValue': newE
-                    },
-                    ScanIndexForward: false, // false for descending order
-                    Limit: 1 // we only need the latest record
-                }).promise();
+            // Query the database to find the latest record for the given e
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
     
-                if (queryResult.Items.length > 0) {
-                    const latestCValue = parseInt(queryResult.Items[0].c);
-                    newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
-                } else {
-                    newCValue = 1; // default if no records are found
-                }
+            // Determine newCValue based on forceC or incrementing the latest c value
+            if (forceC !== null && forceC !== undefined) {
+                newCValue = forceC;
+            } else if (queryResult.Items.length > 0) {
+                const latestCValue = parseInt(queryResult.Items[0].c);
+                newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
+            } else {
+                newCValue = 1; // default if no records are found
             }
     
+            // Determine newSValue by incrementing the latest s value
             if (queryResult.Items.length > 0) {
                 const latestSValue = parseInt(queryResult.Items[0].s);
                 newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
@@ -447,7 +446,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 v: id.toString(),
                 c: newCValue.toString(),
                 e: newE,
-                s: newSValue.toString(), // Incremented s value
+                s: newSValue.toString(),
                 d: Date.now()
             };
     
