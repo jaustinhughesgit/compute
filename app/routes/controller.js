@@ -528,9 +528,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }
         });
     });
-
-    const AWS = require('aws-sdk');
-    const dynamodb = new AWS.DynamoDB.DocumentClient();
     
     const createEntity = async (e, a, v) => {
         const params = {
