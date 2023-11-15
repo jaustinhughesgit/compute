@@ -73,27 +73,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         return response.Attributes.x;
     };
 
-    const createWord = async (id, word) => {
-        const lowerCaseWord = word.toLowerCase();
-    
-        // Check if the word already exists in the database
-        const checkResult = await wordExists(lowerCaseWord);
-        if (checkResult.exists) {
-            return { success: false, message: 'Word already exists in the database.', existingId: checkResult.id };
-        }
-    
-        // If the word does not exist, insert it
-        await dynamodb.put({
-            TableName: 'words',
-            Item: {
-                a: id,
-                r: word,
-                s: lowerCaseWord
-            }
-        }).promise();
-    
-        return { success: true, message: 'Word added successfully.' };
-    };
+
 
     const wordExists = async (word) => {
         const params = {
@@ -110,6 +90,85 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             return { exists: true, id: result.Items[0].a };
         } else {
             return { exists: false };
+        }
+    };
+
+    async function addVersion(newE, forceC){
+        try {
+            const id = await incrementCounterAndGetNewValue('vCounter');
+            //let newE = "2";
+            //let forceC = null; // Assuming forceC is passed in the request body or it's null
+    
+            let newCValue;
+            let newSValue; // s value to be determined based on forceC
+    
+            // Query the database to find the latest record for the given e
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
+    
+            if (forceC !== null && forceC !== undefined) {
+                newCValue = forceC;
+                // Increment s only if forceC is provided and there are existing records
+                if (queryResult.Items.length > 0) {
+                    const latestSValue = parseInt(queryResult.Items[0].s);
+                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+                } else {
+                    newSValue = 1; // default if no records are found
+                }
+            } else {
+                newSValue = 1; // Set s to 1 if forceC is null
+                newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
+            }
+    
+            let previousVersionId, previousVersionDate;
+            if (queryResult.Items.length > 0) {
+                const latestRecord = queryResult.Items[0];
+                previousVersionId = latestRecord.v; // Store the v of the last record
+                previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
+            }
+    
+            // Insert the new record with the c, s, and p values
+            const newRecord = {
+                v: id.toString(),
+                c: newCValue.toString(),
+                e: newE,
+                s: newSValue.toString(),
+                p: previousVersionId, // Set the p attribute to the v of the last record
+                d: Date.now()
+            };
+    
+            await dynamodb.put({
+                TableName: 'versions',
+                Item: newRecord
+            }).promise();
+    
+            // Update the last record with the n attribute
+            if (previousVersionId && previousVersionDate) {
+                await dynamodb.update({
+                    TableName: 'versions',
+                    Key: {
+                        v: previousVersionId,
+                        d: previousVersionDate
+                    },
+                    UpdateExpression: 'set n = :newV',
+                    ExpressionAttributeValues: {
+                        ':newV': id.toString()
+                    }
+                }).promise();
+            }
+    
+            res.send('Record added successfully');
+        } catch (error) {
+            console.error("Error adding record:", error);
+            res.status(500).send(error);
         }
     };
 
@@ -402,85 +461,44 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
+    const createWord = async (id, word) => {
+        const lowerCaseWord = word.toLowerCase();
+    
+        // Check if the word already exists in the database
+        const checkResult = await wordExists(lowerCaseWord);
+        if (checkResult.exists) {
+            return checkResult.id;
+        }
+    
+        // If the word does not exist, insert it
+        await dynamodb.put({
+            TableName: 'words',
+            Item: {
+                a: id,
+                r: word,
+                s: lowerCaseWord
+            }
+        }).promise();
+    
+        return id;
+    };
 
-    router.post('/addVersion', async function(req, res) {
+    router.post('/createEntity', async function(req, res) {
         try {
-            const id = await incrementCounterAndGetNewValue('vCounter');
-            let newE = "2";
-            let forceC = null; // Assuming forceC is passed in the request body or it's null
-    
-            let newCValue;
-            let newSValue; // s value to be determined based on forceC
-    
-            // Query the database to find the latest record for the given e
-            const queryResult = await dynamodb.query({
-                TableName: 'versions',
-                IndexName: 'eIndex',
-                KeyConditionExpression: 'e = :eValue',
-                ExpressionAttributeValues: {
-                    ':eValue': newE
-                },
-                ScanIndexForward: false, // false for descending order
-                Limit: 1 // we only need the latest record
-            }).promise();
-    
-            if (forceC !== null && forceC !== undefined) {
-                newCValue = forceC;
-                // Increment s only if forceC is provided and there are existing records
-                if (queryResult.Items.length > 0) {
-                    const latestSValue = parseInt(queryResult.Items[0].s);
-                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
-                } else {
-                    newSValue = 1; // default if no records are found
-                }
-            } else {
-                newSValue = 1; // Set s to 1 if forceC is null
-                newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
-            }
-    
-            let previousVersionId, previousVersionDate;
-            if (queryResult.Items.length > 0) {
-                const latestRecord = queryResult.Items[0];
-                previousVersionId = latestRecord.v; // Store the v of the last record
-                previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
-            }
-    
-            // Insert the new record with the c, s, and p values
-            const newRecord = {
-                v: id.toString(),
-                c: newCValue.toString(),
-                e: newE,
-                s: newSValue.toString(),
-                p: previousVersionId, // Set the p attribute to the v of the last record
-                d: Date.now()
+            const word = "Laptop"
+            const id = await incrementCounterAndGetNewValue('wCounter');
+            const realId = await createWord(id, word);
+            await addVersion(realId, null);
+        } catch (e) {
+            console.error(e);
+            return {
+                statusCode: 500,
+                body: JSON.stringify('An error occurred!'),
             };
-    
-            await dynamodb.put({
-                TableName: 'versions',
-                Item: newRecord
-            }).promise();
-    
-            // Update the last record with the n attribute
-            if (previousVersionId && previousVersionDate) {
-                await dynamodb.update({
-                    TableName: 'versions',
-                    Key: {
-                        v: previousVersionId,
-                        d: previousVersionDate
-                    },
-                    UpdateExpression: 'set n = :newV',
-                    ExpressionAttributeValues: {
-                        ':newV': id.toString()
-                    }
-                }).promise();
-            }
-    
-            res.send('Record added successfully');
-        } catch (error) {
-            console.error("Error adding record:", error);
-            res.status(500).send(error);
         }
     });
+
+
     
     
     
