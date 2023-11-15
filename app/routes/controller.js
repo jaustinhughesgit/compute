@@ -402,7 +402,76 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
+
     router.post('/addVersion', async function(req, res) {
+        try {
+            const id = await incrementCounterAndGetNewValue('vCounter');
+            let newE = "1";
+            let forceC = null; // Assuming forceC is passed in the request body
+    
+            let newCValue;
+            let newSValue = 1; // Default value for s
+            let previousVersionId; // To store the v of the last record
+    
+            // Query the database to find the latest record for the given e
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
+    
+            if (queryResult.Items.length > 0) {
+                const latestRecord = queryResult.Items[0];
+                previousVersionId = latestRecord.v; // Store the v of the last record
+    
+                // Logic for newCValue and newSValue...
+                // (Your existing logic for determining newCValue and newSValue goes here)
+            } else {
+                newCValue = 1; // default if no records are found
+            }
+    
+            // Insert the new record with the c, s, and p values
+            const newRecord = {
+                v: id.toString(),
+                c: newCValue.toString(),
+                e: newE,
+                s: newSValue.toString(),
+                p: previousVersionId, // Set the p attribute to the v of the last record
+                d: Date.now()
+            };
+    
+            await dynamodb.put({
+                TableName: 'versions',
+                Item: newRecord
+            }).promise();
+    
+            // Update the last record with the n attribute
+            if (previousVersionId) {
+                await dynamodb.update({
+                    TableName: 'versions',
+                    Key: { v: previousVersionId },
+                    UpdateExpression: 'set n = :newV',
+                    ExpressionAttributeValues: {
+                        ':newV': id.toString()
+                    }
+                }).promise();
+            }
+    
+            res.send('Record added successfully');
+        } catch (error) {
+            console.error("Error adding record:", error);
+            res.status(500).send(error);
+        }
+    });
+
+
+    //WORKING VERSION OF v,c,e,s,d
+    /*router.post('/addVersion', async function(req, res) {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1";
@@ -458,7 +527,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             console.error("Error adding record:", error);
             res.status(500).send(error);
         }
-    });
+    });*/
     
 
     /*router.post('/addversion', async (req, res) => {});*/
