@@ -551,7 +551,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
     router.post('/createEntity', async function(req, res) {
         try {
-            const word = "Laptop";
+            const word = "Key";
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), word);
