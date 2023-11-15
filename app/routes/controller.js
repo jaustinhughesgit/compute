@@ -93,7 +93,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     };
 
-    async function addVersion(newE, realId, forceC){
+    async function addVersion(newE, col, val, forceC){
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
     
@@ -140,7 +140,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 e: newE,
                 s: newSValue.toString(),
                 p: previousVersionId, // Set the p attribute to the v of the last record
-                a: realId,
+                [col]: val,
                 d: Date.now()
             };
     
@@ -555,7 +555,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), word);
-            const v = await addVersion(e.toString(), a.toString(), null);
+            const v = await addVersion(e.toString(), "a", a.toString(), null);
             const result = await createEntity(e.toString(), a.toString(), v);
     
             res.render('controller', {results: result});
@@ -565,7 +565,20 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
-
+    router.post('/updateEntity', async function(req, res) {
+        try {
+            const e = "1";
+            const c = null;
+            const col = "g";
+            const val = "1";
+            const v = await addVersion(e.toString(), col, val, c);
+    
+            res.render('controller', {results: result});
+        } catch (err) {
+            console.error(err);
+            res.status(500).render('controller', {results: 'An error occurred!'});
+        }
+    });
     
     
     
