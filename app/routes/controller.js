@@ -113,9 +113,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     };
 
-    const createVersion = async (entityid, column, value)
-
-
     // gets -----------------------------------------------
 
     router.get('/', async function(req, res, next) {
@@ -124,7 +121,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
 
     // posts ----------------------------------------------
-    if (true){
+
     router.post('/createCounterE', function(req, res) {
         console.log("1")
         const tableParams = {
@@ -381,7 +378,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }
         });
     });
-    }
 
     router.post('/addWords', async (req, res) => {
         try {
