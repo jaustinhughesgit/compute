@@ -407,12 +407,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1";
-            let forceC = null; // Assuming forceC is passed in the request body
+            let forceC = null; // Assuming forceC is passed in the request body or it's null
     
             let newCValue;
-            let newSValue = 1; // Default value for s
-            let previousVersionId; // To store the v of the last record
-            let previousVersionDate; // To store the d (sort key) of the last record
+            let newSValue; // s value to be determined based on forceC
     
             // Query the database to find the latest record for the given e
             const queryResult = await dynamodb.query({
@@ -426,18 +424,26 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 Limit: 1 // we only need the latest record
             }).promise();
     
+            if (forceC !== null && forceC !== undefined) {
+                newCValue = forceC;
+                // Increment s only if forceC is provided and there are existing records
+                if (queryResult.Items.length > 0) {
+                    const latestSValue = parseInt(queryResult.Items[0].s);
+                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+                } else {
+                    newSValue = 1; // default if no records are found
+                }
+            } else {
+                newSValue = 1; // Set s to 1 if forceC is null
+                newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
+            }
+    
+            let previousVersionId, previousVersionDate;
             if (queryResult.Items.length > 0) {
                 const latestRecord = queryResult.Items[0];
                 previousVersionId = latestRecord.v; // Store the v of the last record
                 previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
-    
-                // Increment s only if forceC is provided and there are existing records
-                const latestSValue = parseInt(latestRecord.s);
-                newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
             }
-    
-            // Determine newCValue based on forceC or incrementing the latest c value
-            newCValue = forceC !== null && forceC !== undefined ? forceC : (previousVersionId ? newSValue : 1);
     
             // Insert the new record with the c, s, and p values
             const newRecord = {
@@ -460,7 +466,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     TableName: 'versions',
                     Key: {
                         v: previousVersionId,
-                        d: previousVersionDate // Include the sort key in the key object
+                        d: previousVersionDate
                     },
                     UpdateExpression: 'set n = :newV',
                     ExpressionAttributeValues: {
@@ -475,6 +481,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             res.status(500).send(error);
         }
     });
+    
     
     
 
