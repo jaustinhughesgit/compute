@@ -408,35 +408,32 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             let newE = "1";
             let forceC = "1"; // Assuming forceC is passed in the request body
     
+            let newCValue = forceC !== null && forceC !== undefined ? forceC : "1"; // Use forceC for c if provided
             let newSValue;
-            if (forceC !== null && forceC !== undefined) {
-                // If forceC is provided, use it as the s value
-                newSValue = forceC;
-            } else {
-                // If forceC is not provided, find the latest s value and increment it
-                const queryResult = await dynamodb.query({
-                    TableName: 'versions',
-                    IndexName: 'eIndex',
-                    KeyConditionExpression: 'e = :eValue',
-                    ExpressionAttributeValues: {
-                        ':eValue': newE
-                    },
-                    ScanIndexForward: false, // false for descending order
-                    Limit: 1 // we only need the latest record
-                }).promise();
     
-                if (queryResult.Items.length > 0) {
-                    const latestSValue = parseInt(queryResult.Items[0].s);
-                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
-                } else {
-                    newSValue = 1; // default if no records are found
-                }
+            // Find the latest s value and increment it
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
+    
+            if (queryResult.Items.length > 0) {
+                const latestSValue = parseInt(queryResult.Items[0].s);
+                newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+            } else {
+                newSValue = 1; // default if no records are found
             }
     
-            // Insert the new record with the s value
+            // Insert the new record with the c and s values
             const newRecord = {
                 v: id.toString(),
-                c: newSValue.toString(), // Assuming you still want to store this value in 'c'
+                c: newCValue.toString(),
                 e: newE,
                 s: newSValue.toString(), // Incremented s value
                 d: Date.now()
