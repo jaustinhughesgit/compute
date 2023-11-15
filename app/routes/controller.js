@@ -573,7 +573,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             const val = "1";
             const v = await addVersion(e.toString(), col, val, c);
     
-            res.render('controller', {results: result});
+            res.render('controller', {results: "done"});
         } catch (err) {
             console.error(err);
             res.status(500).render('controller', {results: 'An error occurred!'});
