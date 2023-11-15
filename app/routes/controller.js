@@ -410,7 +410,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
-    router.post('/addRecord', async function(req, res) {
+    router.post('/addVersion', async function(req, res) {
         try {
             let newE = "1"
             // Step 1: Query the table to find the latest record with e = "1234"
