@@ -409,7 +409,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     router.post('/addVersion', async function(req, res) {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
-            let newE = "1"
+            let newE = "2"
             // Step 1: Query the table to find the latest record with e = "1234"
             const queryResult = await dynamodb.query({
                 TableName: 'versions',
