@@ -164,11 +164,8 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     }
                 }).promise();
             }
-    
-            res.send('Record added successfully');
         } catch (error) {
             console.error("Error adding record:", error);
-            res.status(500).send(error);
         }
     };
 
@@ -487,8 +484,8 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         try {
             const word = "Laptop"
             const id = await incrementCounterAndGetNewValue('wCounter');
-            const realId = await createWord(id, word);
-            await addVersion(realId, null);
+            const realId = await createWord(id.toString(), word);
+            await addVersion(realId.toString(), null);
         } catch (e) {
             console.error(e);
             return {
