@@ -332,6 +332,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     AttributeType: 'S'
                 },
                 {
+                    AttributeName: 's',
+                    AttributeType: 'S'
+                },
+                {
                     AttributeName: 'd',
                     AttributeType: 'N'
                 }
@@ -409,30 +413,40 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     router.post('/addVersion', async function(req, res) {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
-            let newE = "2"
-            // Step 1: Query the table to find the latest record with e = "1234"
-            const queryResult = await dynamodb.query({
-                TableName: 'versions',
-                IndexName: 'eIndex',
-                KeyConditionExpression: 'e = :eValue',
-                ExpressionAttributeValues: {
-                    ':eValue': newE
-                },
-                ScanIndexForward: false, // false for descending order
-                Limit: 1 // we only need the latest record
-            }).promise();
+            let newE = "1";
+            let forceC = null; // Assuming forceC is passed in the request body
     
-            let newCValue = 1; // default if no records are found
-            if (queryResult.Items.length > 0) {
-                const latestCValue = parseInt(queryResult.Items[0].c);
-                newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
+            let newSValue;
+            if (forceC !== null && forceC !== undefined) {
+                // If forceC is provided, use it as the s value
+                newSValue = forceC;
+            } else {
+                // If forceC is not provided, find the latest s value and increment it
+                const queryResult = await dynamodb.query({
+                    TableName: 'versions',
+                    IndexName: 'eIndex',
+                    KeyConditionExpression: 'e = :eValue',
+                    ExpressionAttributeValues: {
+                        ':eValue': newE
+                    },
+                    ScanIndexForward: false, // false for descending order
+                    Limit: 1 // we only need the latest record
+                }).promise();
+    
+                if (queryResult.Items.length > 0) {
+                    const latestSValue = parseInt(queryResult.Items[0].s);
+                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+                } else {
+                    newSValue = 1; // default if no records are found
+                }
             }
     
-            // Step 2: Insert the new record with the incremented c value
+            // Insert the new record with the s value
             const newRecord = {
                 v: id.toString(),
-                c: newCValue.toString(),
+                c: newSValue.toString(), // Assuming you still want to store this value in 'c'
                 e: newE,
+                s: newSValue.toString(), // Incremented s value
                 d: Date.now()
             };
     
