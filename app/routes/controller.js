@@ -329,12 +329,20 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 {
                     AttributeName: 'e',
                     AttributeType: 'S'
+                },
+                {
+                    AttributeName: 'd',
+                    AttributeType: 'N'
                 }
             ],
             KeySchema: [
                 {
                     AttributeName: 'v',
                     KeyType: 'HASH'
+                },
+                {
+                    AttributeName: 'd',
+                    KeyType: 'RANGE'
                 }
             ],
             GlobalSecondaryIndexes: [ 
@@ -344,6 +352,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                         {
                             AttributeName: 'e',
                             KeyType: 'HASH'
+                        },
+                        {
+                            AttributeName: 'd',
+                            KeyType: 'RANGE'
                         }
                     ],
                     Projection: {
@@ -351,14 +363,14 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     }
                 }
             ],
-            BillingMode: 'PAY_PER_REQUEST',  // You're using on-demand capacity, so you don't specify ProvisionedThroughput
+            BillingMode: 'PAY_PER_REQUEST',
             TableName: 'versions'
         };
 
         dynamodbLL.createTable(tableParams, (err, data) => {
             if (err) {
                 console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
-                return res.status(500).send(err); // You might want to handle error differently
+                return res.status(500).send(err);
             } else {
                 console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
                 res.render('controller', {results: JSON.stringify(data)});
@@ -368,7 +380,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
     router.post('/addWords', async (req, res) => {
         try {
-            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River", "New"];
+            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River","New"];
             await initializeCounter();
             let status = {
                 added:[],
