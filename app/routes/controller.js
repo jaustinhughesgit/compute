@@ -493,6 +493,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 body: JSON.stringify('An error occurred!'),
             };
         }
+        res.render('controller', {results: ""});
     });
 
 
