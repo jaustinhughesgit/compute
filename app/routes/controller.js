@@ -251,7 +251,45 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         });
     });
 
+    function readyJSON(wordList){
+        const items = []
+        for (x=0; x<wordList.length; x++){
+            items.push({
+                's': wordList[x].toLowerCase(),
+                'a': uuidv4(),
+                'r': wordList[x]
+            })
+        };
 
+        let params = {
+            RequestItems: {
+                'words': items.map(item => {
+                    return {
+                        PutRequest: {
+                            Item: item
+                        }
+                    };
+                })
+            }
+        };
+        return params;
+    }
+
+    router.post('/addItem', async (req, res) => {
+    
+        // Prepare the item to add to the DynamoDB table
+        let addItems = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River"]
+
+        let params = readyJson(addItems);
+    
+        try {
+            const data = await dynamodb.batchWrite(params).promise();
+            res.render('setupdb', { results: JSON.stringify(data) }); 
+        } catch (error) {
+            console.error("Unable to add item. Error JSON:", JSON.stringify(error, null, 2));
+            res.status(500).send(error); 
+        }
+    });
 
 
 
