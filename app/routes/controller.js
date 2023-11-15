@@ -251,6 +251,87 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         });
     });
 
+    
+    
+    const initializeCounter = async () => {
+        try {
+            await dynamodb.put({
+                TableName: "wCounter",
+                Item: {
+                    pk: 'wCounter',
+                    x: 0  // Initialize the counter value to 0
+                },
+                ConditionExpression: "attribute_not_exists(wCounter)"  // Only put the item if it doesn't already exist
+            }).promise();
+        } catch (e) {
+            if (e.code === 'ConditionalCheckFailedException') {
+                // The item already exists, so no action is needed
+            } else {
+                throw e;  // Re-throw any other errors
+            }
+        }
+
+        try {
+            await dynamodb.put({
+                TableName: "eCounter",
+                Item: {
+                    pk: 'eCounter',
+                    x: 0  // Initialize the counter value to 0
+                },
+                ConditionExpression: "attribute_not_exists(eCounter)"  // Only put the item if it doesn't already exist
+            }).promise();
+        } catch (e) {
+            if (e.code === 'ConditionalCheckFailedException') {
+                // The item already exists, so no action is needed
+            } else {
+                throw e;  // Re-throw any other errors
+            }
+        }
+    };
+
+    const incrementCounterAndGetNewValue = async () => {
+        const response = await dynamodb.update({
+            TableName: "wCounter",
+            Key: { pk: 'wCounter' },
+            UpdateExpression: "ADD #cnt :val",
+            ExpressionAttributeNames: { '#cnt': 'x' },
+            ExpressionAttributeValues: { ':val': 1 },
+            ReturnValues: "UPDATED_NEW"
+        }).promise();
+    
+        return response.Attributes.x;
+    };
+
+    const createWord = async (id, word) => {
+        await dynamodb.put({
+            TableName: 'words',
+            Item: {
+                a: id,
+                r: word,
+                s: word.toLowerCase()
+            }
+        }).promise();
+        
+    };
+
+    router.post('/addWords', async (req, res) => {
+        try {
+            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River"];
+            await initializeCounter();
+            for (const word of words) {
+                const id = await incrementCounterAndGetNewValue();
+                await createWord(id, word);
+            }
+            res.render('controller', {results: "{}"});
+        } catch (e) {
+            console.error(e);
+            return {
+                statusCode: 500,
+                body: JSON.stringify('An error occurred!'),
+            };
+        }
+    });
+
     function readyJSON(wordList){
         const items = []
         for (x=0; x<wordList.length; x++){
@@ -284,7 +365,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
         try {
             const data = await dynamodb.batchWrite(params).promise();
-            res.render('setupdb', { results: JSON.stringify(data) }); 
+            res.render('controller', { results: JSON.stringify(data) }); 
         } catch (error) {
             console.error("Unable to add item. Error JSON:", JSON.stringify(error, null, 2));
             res.status(500).send(error); 
