@@ -60,10 +60,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     };
 
-    const incrementCounterAndGetNewValue = async () => {
+    const incrementCounterAndGetNewValue = async (tableName) => {
         const response = await dynamodb.update({
-            TableName: "wCounter",
-            Key: { pk: 'wCounter' },
+            TableName: tableName,
+            Key: { pk: tableName },
             UpdateExpression: "ADD #cnt :val",
             ExpressionAttributeNames: { '#cnt': 'x' },
             ExpressionAttributeValues: { ':val': 1 },
@@ -388,7 +388,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 existed:[]
             }
             for (const word of words) {
-                const id = await incrementCounterAndGetNewValue();
+                const id = await incrementCounterAndGetNewValue('wCounter');
                 const wStatus = await createWord(id, word);
                 if (wStatus.success == false){
                     status.existed.push(word)
@@ -408,6 +408,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
     router.post('/addVersion', async function(req, res) {
         try {
+            const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1"
             // Step 1: Query the table to find the latest record with e = "1234"
             const queryResult = await dynamodb.query({
@@ -429,7 +430,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
             // Step 2: Insert the new record with the incremented c value
             const newRecord = {
-                v: "1",
+                v: id,
                 c: newCValue.toString(),
                 e: newE,
                 d: Date.now()
