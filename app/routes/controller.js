@@ -406,8 +406,8 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     router.post('/addVersion', async function(req, res) {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
-            let newE = "1";
-            let forceC = "5"; // Assuming forceC is passed in the request body or it's null
+            let newE = "2";
+            let forceC = null; // Assuming forceC is passed in the request body or it's null
     
             let newCValue;
             let newSValue; // s value to be determined based on forceC
