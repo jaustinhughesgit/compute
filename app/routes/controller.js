@@ -407,7 +407,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
             let newE = "1";
-            let forceC = null; // Assuming forceC is passed in the request body
+            let forceC = "2"; // Assuming forceC is passed in the request body
     
             let newCValue;
             let newSValue = 1; // Default value for s
@@ -429,11 +429,13 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 const latestRecord = queryResult.Items[0];
                 previousVersionId = latestRecord.v; // Store the v of the last record
     
-                // Logic for newCValue and newSValue...
-                // (Your existing logic for determining newCValue and newSValue goes here)
-            } else {
-                newCValue = 1; // default if no records are found
+                // Increment s only if forceC is provided and there are existing records
+                const latestSValue = parseInt(latestRecord.s);
+                newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
             }
+    
+            // Determine newCValue based on forceC or incrementing the latest c value
+            newCValue = forceC !== null && forceC !== undefined ? forceC : (previousVersionId ? newSValue : 1);
     
             // Insert the new record with the c, s, and p values
             const newRecord = {
@@ -468,6 +470,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             res.status(500).send(error);
         }
     });
+    
 
 
     //WORKING VERSION OF v,c,e,s,d
