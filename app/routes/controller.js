@@ -429,10 +429,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
             // Step 2: Insert the new record with the incremented c value
             const newRecord = {
-                // ... other record data ...
+                v: "1",
                 c: newCValue.toString(),
                 e: newE,
-                // ... other record data ...
+                d: Date.now()
             };
     
             await dynamodb.put({
