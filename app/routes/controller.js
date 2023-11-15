@@ -163,8 +163,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     }
                 }).promise();
             }
+            return id.toString();
         } catch (error) {
             console.error("Error adding record:", error);
+            return null
         }
     };
 
@@ -440,7 +442,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }
             for (const word of words) {
                 const id = await incrementCounterAndGetNewValue('wCounter');
-                const wStatus = await createWord(id, word);
+                const wStatus = await createWord(id.toString(), word);
                 if (wStatus.success == false){
                     status.existed.push(word)
                 } else {
@@ -479,21 +481,91 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         return id;
     };
 
+
+    router.post('/createEntityTable', function(req, res) {
+        const tableParams = {
+            AttributeDefinitions: [
+                {
+                    AttributeName: 'e',
+                    AttributeType: 'S'
+                },
+                {
+                    AttributeName: 'v',
+                    AttributeType: 'S'
+                }
+            ],
+            KeySchema: [
+                {
+                    AttributeName: 'e',
+                    KeyType: 'HASH'
+                }
+            ],
+            GlobalSecondaryIndexes: [ 
+                {
+                    IndexName: 'vIndex',
+                    KeySchema: [
+                        {
+                            AttributeName: 'v',
+                            KeyType: 'HASH'
+                        }
+                    ],
+                    Projection: {
+                        ProjectionType: 'ALL'
+                    }
+                }
+            ],
+            BillingMode: 'PAY_PER_REQUEST',  // You're using on-demand capacity, so you don't specify ProvisionedThroughput
+            TableName: 'entities'
+        };
+    
+        dynamodbLL.createTable(tableParams, (err, data) => {
+            if (err) {
+                console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
+                return res.status(500).send(err); // You might want to handle error differently
+            } else {
+                console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
+                res.render('controller', {results: JSON.stringify(data)});
+            }
+        });
+    });
+
+    const AWS = require('aws-sdk');
+    const dynamodb = new AWS.DynamoDB.DocumentClient();
+    
+    const createEntity = async (e, a, v) => {
+        const params = {
+            TableName: 'entities',
+            Item: {
+                e: e,
+                a: a,
+                v: v
+            }
+        };
+    
+        try {
+            await dynamodb.put(params).promise();
+            console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
+            return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
+        } catch (error) {
+            console.error("Error creating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+    
     router.post('/createEntity', async function(req, res) {
         try {
-            const word = "Laptop"
-            const eId = await incrementCounterAndGetNewValue('eCounter');
-            const wId = await incrementCounterAndGetNewValue('wCounter');
-            const realId = await createWord(wId.toString(), word);
-            await addVersion(eId.toString(), realId.toString(), null);
-        } catch (e) {
-            console.error(e);
-            return {
-                statusCode: 500,
-                body: JSON.stringify('An error occurred!'),
-            };
+            const word = "Laptop";
+            const e = await incrementCounterAndGetNewValue('eCounter');
+            const aNew = await incrementCounterAndGetNewValue('wCounter');
+            const a = await createWord(aNew.toString(), word);
+            const v = await addVersion(e.toString(), a.toString(), null);
+            const result = await createEntity(e.toString(), a.toString(), v);
+    
+            res.render('controller', {results: result});
+        } catch (err) {
+            console.error(err);
+            res.status(500).render('controller', {results: 'An error occurred!'});
         }
-        res.render('controller', {results: ""});
     });
 
 
