@@ -2,13 +2,128 @@ var express = require('express');
 var router = express.Router();
 
 module.exports = (dynamodb, dynamodbLL, uuidv4) => {
-    console.log("dynamodb",dynamodb);
-    console.log("dynamodbLL",dynamodbLL);
-    console.log("uuidv4",uuidv4);
+
+
+    // functions ------------------------------------------
+    
+    const initializeCounter = async () => {
+        try {
+            await dynamodb.put({
+                TableName: "wCounter",
+                Item: {
+                    pk: 'wCounter',
+                    x: 0  // Initialize the counter value to 0
+                },
+                ConditionExpression: "attribute_not_exists(wCounter)"  // Only put the item if it doesn't already exist
+            }).promise();
+        } catch (e) {
+            if (e.code === 'ConditionalCheckFailedException') {
+                // The item already exists, so no action is needed
+            } else {
+                throw e;  // Re-throw any other errors
+            }
+        }
+
+        try {
+            await dynamodb.put({
+                TableName: "eCounter",
+                Item: {
+                    pk: 'eCounter',
+                    x: 0  // Initialize the counter value to 0
+                },
+                ConditionExpression: "attribute_not_exists(eCounter)"  // Only put the item if it doesn't already exist
+            }).promise();
+        } catch (e) {
+            if (e.code === 'ConditionalCheckFailedException') {
+                // The item already exists, so no action is needed
+            } else {
+                throw e;  // Re-throw any other errors
+            }
+        }
+
+
+        try {
+            await dynamodb.put({
+                TableName: "vCounter",
+                Item: {
+                    pk: 'vCounter',
+                    x: 0  // Initialize the counter value to 0
+                },
+                ConditionExpression: "attribute_not_exists(vCounter)"  // Only put the item if it doesn't already exist
+            }).promise();
+        } catch (e) {
+            if (e.code === 'ConditionalCheckFailedException') {
+                // The item already exists, so no action is needed
+            } else {
+                throw e;  // Re-throw any other errors
+            }
+        }
+    };
+
+    const incrementCounterAndGetNewValue = async () => {
+        const response = await dynamodb.update({
+            TableName: "wCounter",
+            Key: { pk: 'wCounter' },
+            UpdateExpression: "ADD #cnt :val",
+            ExpressionAttributeNames: { '#cnt': 'x' },
+            ExpressionAttributeValues: { ':val': 1 },
+            ReturnValues: "UPDATED_NEW"
+        }).promise();
+    
+        return response.Attributes.x;
+    };
+
+    const createWord = async (id, word) => {
+        const lowerCaseWord = word.toLowerCase();
+    
+        // Check if the word already exists in the database
+        const checkResult = await wordExists(lowerCaseWord);
+        if (checkResult.exists) {
+            return { success: false, message: 'Word already exists in the database.', existingId: checkResult.id };
+        }
+    
+        // If the word does not exist, insert it
+        await dynamodb.put({
+            TableName: 'words',
+            Item: {
+                a: id,
+                r: word,
+                s: lowerCaseWord
+            }
+        }).promise();
+    
+        return { success: true, message: 'Word added successfully.' };
+    };
+
+    const wordExists = async (word) => {
+        const params = {
+            TableName: 'words',
+            IndexName: 'sIndex', // Using the secondary index
+            KeyConditionExpression: 's = :s',
+            ExpressionAttributeValues: {
+                ':s': word
+            }
+        };
+    
+        const result = await dynamodb.query(params).promise();
+        if (result.Items.length > 0) {
+            return { exists: true, id: result.Items[0].a };
+        } else {
+            return { exists: false };
+        }
+    };
+
+    //const createVersion = async (entityid, column, value)
+
+
+    // gets -----------------------------------------------
 
     router.get('/', async function(req, res, next) {
         res.render('controller', {title:'controller'})
     });
+
+
+    // posts ----------------------------------------------
     
     router.post('/createCounterE', function(req, res) {
         console.log("1")
@@ -251,78 +366,24 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         });
     });
 
-    
-    
-    const initializeCounter = async () => {
-        try {
-            await dynamodb.put({
-                TableName: "wCounter",
-                Item: {
-                    pk: 'wCounter',
-                    x: 0  // Initialize the counter value to 0
-                },
-                ConditionExpression: "attribute_not_exists(wCounter)"  // Only put the item if it doesn't already exist
-            }).promise();
-        } catch (e) {
-            if (e.code === 'ConditionalCheckFailedException') {
-                // The item already exists, so no action is needed
-            } else {
-                throw e;  // Re-throw any other errors
-            }
-        }
-
-        try {
-            await dynamodb.put({
-                TableName: "eCounter",
-                Item: {
-                    pk: 'eCounter',
-                    x: 0  // Initialize the counter value to 0
-                },
-                ConditionExpression: "attribute_not_exists(eCounter)"  // Only put the item if it doesn't already exist
-            }).promise();
-        } catch (e) {
-            if (e.code === 'ConditionalCheckFailedException') {
-                // The item already exists, so no action is needed
-            } else {
-                throw e;  // Re-throw any other errors
-            }
-        }
-    };
-
-    const incrementCounterAndGetNewValue = async () => {
-        const response = await dynamodb.update({
-            TableName: "wCounter",
-            Key: { pk: 'wCounter' },
-            UpdateExpression: "ADD #cnt :val",
-            ExpressionAttributeNames: { '#cnt': 'x' },
-            ExpressionAttributeValues: { ':val': 1 },
-            ReturnValues: "UPDATED_NEW"
-        }).promise();
-    
-        return response.Attributes.x;
-    };
-
-    const createWord = async (id, word) => {
-        await dynamodb.put({
-            TableName: 'words',
-            Item: {
-                a: id,
-                r: word,
-                s: word.toLowerCase()
-            }
-        }).promise();
-        
-    };
-
     router.post('/addWords', async (req, res) => {
         try {
-            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River"];
+            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River", "New"];
             await initializeCounter();
+            let status = {
+                added:[],
+                existed:[]
+            }
             for (const word of words) {
                 const id = await incrementCounterAndGetNewValue();
-                await createWord(id, word);
+                const wStatus = await createWord(id, word);
+                if (wStatus.success == false){
+                    status.existed.push(word)
+                } else {
+                    status.added.push(word)
+                }
             }
-            res.render('controller', {results: "{}"});
+            res.render('controller', {results: JSON.stringify(wStatus)});
         } catch (e) {
             console.error(e);
             return {
@@ -332,48 +393,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
-    function readyJSON(wordList){
-        const items = []
-        for (x=0; x<wordList.length; x++){
-            items.push({
-                's': wordList[x].toLowerCase(),
-                'a': uuidv4(),
-                'r': wordList[x]
-            })
-        };
-
-        let params = {
-            RequestItems: {
-                'words': items.map(item => {
-                    return {
-                        PutRequest: {
-                            Item: item
-                        }
-                    };
-                })
-            }
-        };
-        return params;
-    }
-
-    router.post('/addItem', async (req, res) => {
-    
-        // Prepare the item to add to the DynamoDB table
-        let addItems = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River"]
-
-        let params = readyJson(addItems);
-    
-        try {
-            const data = await dynamodb.batchWrite(params).promise();
-            res.render('controller', { results: JSON.stringify(data) }); 
-        } catch (error) {
-            console.error("Unable to add item. Error JSON:", JSON.stringify(error, null, 2));
-            res.status(500).send(error); 
-        }
-    });
-
-
-
+    /*router.post('/addversion', async (req, res) => {});*/
 
     return router;
 };
