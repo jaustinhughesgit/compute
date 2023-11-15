@@ -408,20 +408,32 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             let newE = "1";
             let forceC = null; // Assuming forceC is passed in the request body
     
-            let newCValue = forceC !== null && forceC !== undefined ? forceC : "1"; // Use forceC for c if provided
+            let newCValue;
             let newSValue;
     
-            // Find the latest s value and increment it
-            const queryResult = await dynamodb.query({
-                TableName: 'versions',
-                IndexName: 'eIndex',
-                KeyConditionExpression: 'e = :eValue',
-                ExpressionAttributeValues: {
-                    ':eValue': newE
-                },
-                ScanIndexForward: false, // false for descending order
-                Limit: 1 // we only need the latest record
-            }).promise();
+            if (forceC !== null && forceC !== undefined) {
+                // Use forceC directly if provided
+                newCValue = forceC;
+            } else {
+                // If forceC is not provided, find the latest c value for the given e and increment it
+                const queryResult = await dynamodb.query({
+                    TableName: 'versions',
+                    IndexName: 'eIndex',
+                    KeyConditionExpression: 'e = :eValue',
+                    ExpressionAttributeValues: {
+                        ':eValue': newE
+                    },
+                    ScanIndexForward: false, // false for descending order
+                    Limit: 1 // we only need the latest record
+                }).promise();
+    
+                if (queryResult.Items.length > 0) {
+                    const latestCValue = parseInt(queryResult.Items[0].c);
+                    newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
+                } else {
+                    newCValue = 1; // default if no records are found
+                }
+            }
     
             if (queryResult.Items.length > 0) {
                 const latestSValue = parseInt(queryResult.Items[0].s);
