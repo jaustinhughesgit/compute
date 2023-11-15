@@ -409,7 +409,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             let forceC = null; // Assuming forceC is passed in the request body
     
             let newCValue;
-            let newSValue;
+            let newSValue = 1; // Default value for s
     
             // Query the database to find the latest record for the given e
             const queryResult = await dynamodb.query({
@@ -426,19 +426,17 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             // Determine newCValue based on forceC or incrementing the latest c value
             if (forceC !== null && forceC !== undefined) {
                 newCValue = forceC;
+    
+                // Increment s only if forceC is provided and there are existing records
+                if (queryResult.Items.length > 0) {
+                    const latestSValue = parseInt(queryResult.Items[0].s);
+                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+                }
             } else if (queryResult.Items.length > 0) {
                 const latestCValue = parseInt(queryResult.Items[0].c);
                 newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
             } else {
                 newCValue = 1; // default if no records are found
-            }
-    
-            // Determine newSValue by incrementing the latest s value
-            if (queryResult.Items.length > 0) {
-                const latestSValue = parseInt(queryResult.Items[0].s);
-                newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
-            } else {
-                newSValue = 1; // default if no records are found
             }
     
             // Insert the new record with the c and s values
@@ -461,6 +459,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             res.status(500).send(error);
         }
     });
+    
 
     /*router.post('/addversion', async (req, res) => {});*/
 
