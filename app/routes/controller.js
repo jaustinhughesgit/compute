@@ -93,11 +93,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     };
 
-    async function addVersion(newE, forceC){
+    async function addVersion(newE, realId, forceC){
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
-            //let newE = "2";
-            //let forceC = null; // Assuming forceC is passed in the request body or it's null
     
             let newCValue;
             let newSValue; // s value to be determined based on forceC
@@ -142,6 +140,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 e: newE,
                 s: newSValue.toString(),
                 p: previousVersionId, // Set the p attribute to the v of the last record
+                a: realId,
                 d: Date.now()
             };
     
@@ -483,9 +482,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     router.post('/createEntity', async function(req, res) {
         try {
             const word = "Laptop"
-            const id = await incrementCounterAndGetNewValue('wCounter');
-            const realId = await createWord(id.toString(), word);
-            await addVersion(realId.toString(), null);
+            const eId = await incrementCounterAndGetNewValue('eCounter');
+            const wId = await incrementCounterAndGetNewValue('wCounter');
+            const realId = await createWord(wId.toString(), word);
+            await addVersion(eId.toString(), realId.toString(), null);
         } catch (e) {
             console.error(e);
             return {
