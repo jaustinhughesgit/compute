@@ -132,6 +132,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 previousVersionId = latestRecord.v; // Store the v of the last record
                 previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
             }
+
+            // Initialize col as an array and add val to it
+            const colArray = [val];
     
             // Insert the new record with the c, s, and p values
             const newRecord = {
@@ -140,7 +143,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 e: newE,
                 s: newSValue.toString(),
                 p: previousVersionId, // Set the p attribute to the v of the last record
-                [col]: val,
+                [col]: colArray,
                 d: Date.now()
             };
     
@@ -555,9 +558,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             Key: {
                 e: e
             },
-            UpdateExpression: `set ${col} = :val, v = :v, c = :c`,
+            UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
             ExpressionAttributeValues: {
-                ':val': val,
+                ':val': [val], // Wrap val in an array
+                ':empty_list': [], // An empty list to initialize if col does not exist
                 ':v': v,
                 ':c': c
             }
@@ -591,9 +595,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
     router.post('/updateEntity', async function(req, res) {
         try {
-            const e = "1";
+            const e = "2";
             const c = null;
-            const col = "g";
+            const col = "f";
             const val = "1";
             const details = await addVersion(e.toString(), col, val, c);
             const result = await updateEntity(e,col,val,details.v,details.c)
