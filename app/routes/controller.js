@@ -163,7 +163,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     }
                 }).promise();
             }
-            return id.toString();
+            return {v:id.toString(), c:newCValue.toString()};
         } catch (error) {
             console.error("Error adding record:", error);
             return null
@@ -548,6 +548,30 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             throw error; // Rethrow the error for the caller to handle
         }
     };
+
+    const updateEntity = async (e, col, val, v, c) => {
+        const params = {
+            TableName: 'entities',
+            Key: {
+                e: e
+            },
+            UpdateExpression: `set ${col} = :val, v = :v, c = :c`,
+            ExpressionAttributeValues: {
+                ':val': val,
+                ':v': v,
+                ':c': c
+            }
+        };
+    
+        try {
+            await dynamodb.update(params).promise();
+            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
+            return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
+        } catch (error) {
+            console.error("Error updating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
     
     router.post('/createEntity', async function(req, res) {
         try {
@@ -555,8 +579,8 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), word);
-            const v = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), v);
+            const details = await addVersion(e.toString(), "a", a.toString(), null);
+            const result = await createEntity(e.toString(), a.toString(), details.v);
     
             res.render('controller', {results: result});
         } catch (err) {
@@ -571,9 +595,9 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             const c = null;
             const col = "g";
             const val = "1";
-            const v = await addVersion(e.toString(), col, val, c);
-    
-            res.render('controller', {results: "done"});
+            const details = await addVersion(e.toString(), col, val, c);
+            const result = await updateEntity(e,col,val,details.v,details.c)
+            res.render('controller', {results: result});
         } catch (err) {
             console.error(err);
             res.status(500).render('controller', {results: 'An error occurred!'});
