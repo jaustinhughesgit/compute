@@ -4,21 +4,90 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><%= title %></title>
+<style>
+    body {
+    font-family: Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background-color: #f0f0f0;
+}
+
+.tree {
+    text-align: center;
+    position: relative;
+}
+
+.box {
+    border: 2px solid #333;
+    padding: 10px;
+    margin: 10px;
+    background-color: white;
+}
+
+.parent {
+    position: relative;
+}
+
+.children {
+    display: flex;
+    justify-content: center;
+    position: relative;
+}
+
+.child {
+    position: relative;
+    margin: 0 20px;
+}
+
+</style>
 </head>
 <body>
-    Home
-    <svg width="500" height="200" xmlns="http://www.w3.org/2000/svg">
-        <!-- Define the arrow marker -->
-        <defs>
-            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
-            refX="0" refY="3.5" orient="auto">
-                <polygon points="0 0, 10 3.5, 0 7" />
-            </marker>
-        </defs>
+    <div class="tree">
+        <div class="box parent" id="parent">Parent</div>
+        <svg class="lines" width="100%" height="200px"></svg>
+        <div class="children">
+            <div class="child" id="child1">
+                <div class="box">Child 1</div>
+            </div>
+            <div class="child" id="child2">
+                <div class="box">Child 2</div>
+            </div>
+            <div class="child" id="child3">
+                <div class="box">Child 3</div>
+            </div>
+        </div>
+    </div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {
+    const parent = document.getElementById('parent');
+    const children = document.querySelectorAll('.child');
+    const svg = document.querySelector('.lines');
 
-        <!-- Draw the curved line -->
-        <path d="M10,100 Q250,10 490,100" stroke="black" stroke-width="2" 
-        fill="none" marker-end="url(#arrowhead)" />
-    </svg>
+    const parentRect = parent.getBoundingClientRect();
+
+    children.forEach(child => {
+        const childRect = child.getBoundingClientRect();
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+        const startX = parentRect.left + parentRect.width / 2;
+        const startY = parentRect.bottom;
+        const endX = childRect.left + childRect.width / 2;
+        const endY = childRect.top;
+
+        const d = `M ${startX} ${startY} C ${startX} ${(startY + endY) / 2}, ${endX} ${(startY + endY) / 2}, ${endX} ${endY}`;
+
+        path.setAttribute('d', d);
+        path.setAttribute('stroke', 'black');
+        path.setAttribute('stroke-width', '2');
+        path.setAttribute('fill', 'none');
+
+        svg.appendChild(path);
+    });
+});
+
+    </script>
 </body>
 </html>
