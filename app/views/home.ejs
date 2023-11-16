@@ -7,5 +7,18 @@
 </head>
 <body>
     Home
+    <svg width="500" height="200" xmlns="http://www.w3.org/2000/svg">
+        <!-- Define the arrow marker -->
+        <defs>
+            <marker id="arrowhead" markerWidth="10" markerHeight="7" 
+            refX="0" refY="3.5" orient="auto">
+                <polygon points="0 0, 10 3.5, 0 7" />
+            </marker>
+        </defs>
+
+        <!-- Draw the curved line -->
+        <path d="M10,100 Q250,10 490,100" stroke="black" stroke-width="2" 
+        fill="none" marker-end="url(#arrowhead)" />
+    </svg>
 </body>
 </html>

@@ -4,7 +4,7 @@ var router = express.Router();
 module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
 
-    // functions ------------------------------------------
+    // helper functions -----------------------------------
     
     const initializeCounter = async () => {
         try {
@@ -72,8 +72,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
         return response.Attributes.x;
     };
-
-
 
     const wordExists = async (word) => {
         const params = {
@@ -171,6 +169,73 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             console.error("Error adding record:", error);
             return null
         }
+    };
+    
+    const createEntity = async (e, a, v) => {
+        const params = {
+            TableName: 'entities',
+            Item: {
+                e: e,
+                a: a,
+                v: v
+            }
+        };
+    
+        try {
+            await dynamodb.put(params).promise();
+            console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
+            return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
+        } catch (error) {
+            console.error("Error creating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+
+    const updateEntity = async (e, col, val, v, c) => {
+        const params = {
+            TableName: 'entities',
+            Key: {
+                e: e
+            },
+            UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
+            ExpressionAttributeValues: {
+                ':val': [val], // Wrap val in an array
+                ':empty_list': [], // An empty list to initialize if col does not exist
+                ':v': v,
+                ':c': c
+            }
+        };
+    
+        try {
+            await dynamodb.update(params).promise();
+            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
+            return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
+        } catch (error) {
+            console.error("Error updating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+
+    const createWord = async (id, word) => {
+        const lowerCaseWord = word.toLowerCase();
+    
+        // Check if the word already exists in the database
+        const checkResult = await wordExists(lowerCaseWord);
+        if (checkResult.exists) {
+            return checkResult.id;
+        }
+    
+        // If the word does not exist, insert it
+        await dynamodb.put({
+            TableName: 'words',
+            Item: {
+                a: id,
+                r: word,
+                s: lowerCaseWord
+            }
+        }).promise();
+    
+        return id;
     };
 
     // gets -----------------------------------------------
@@ -462,29 +527,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         }
     });
 
-    const createWord = async (id, word) => {
-        const lowerCaseWord = word.toLowerCase();
-    
-        // Check if the word already exists in the database
-        const checkResult = await wordExists(lowerCaseWord);
-        if (checkResult.exists) {
-            return checkResult.id;
-        }
-    
-        // If the word does not exist, insert it
-        await dynamodb.put({
-            TableName: 'words',
-            Item: {
-                a: id,
-                r: word,
-                s: lowerCaseWord
-            }
-        }).promise();
-    
-        return id;
-    };
-
-
     router.post('/createEntityTable', function(req, res) {
         const tableParams = {
             AttributeDefinitions: [
@@ -532,51 +574,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
         });
     });
     
-    const createEntity = async (e, a, v) => {
-        const params = {
-            TableName: 'entities',
-            Item: {
-                e: e,
-                a: a,
-                v: v
-            }
-        };
-    
-        try {
-            await dynamodb.put(params).promise();
-            console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
-            return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
-        } catch (error) {
-            console.error("Error creating entity:", error);
-            throw error; // Rethrow the error for the caller to handle
-        }
-    };
-
-    const updateEntity = async (e, col, val, v, c) => {
-        const params = {
-            TableName: 'entities',
-            Key: {
-                e: e
-            },
-            UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
-            ExpressionAttributeValues: {
-                ':val': [val], // Wrap val in an array
-                ':empty_list': [], // An empty list to initialize if col does not exist
-                ':v': v,
-                ':c': c
-            }
-        };
-    
-        try {
-            await dynamodb.update(params).promise();
-            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
-            return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
-        } catch (error) {
-            console.error("Error updating entity:", error);
-            throw error; // Rethrow the error for the caller to handle
-        }
-    };
-    
     router.post('/createEntity', async function(req, res) {
         try {
             const word = "Key";
@@ -607,72 +604,6 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             res.status(500).render('controller', {results: 'An error occurred!'});
         }
     });
-    
-    
-    
-
-
-    //WORKING VERSION OF v,c,e,s,d
-    /*router.post('/addVersion', async function(req, res) {
-        try {
-            const id = await incrementCounterAndGetNewValue('vCounter');
-            let newE = "1";
-            let forceC = "2"; // Assuming forceC is passed in the request body
-    
-            let newCValue;
-            let newSValue = 1; // Default value for s
-    
-            // Query the database to find the latest record for the given e
-            const queryResult = await dynamodb.query({
-                TableName: 'versions',
-                IndexName: 'eIndex',
-                KeyConditionExpression: 'e = :eValue',
-                ExpressionAttributeValues: {
-                    ':eValue': newE
-                },
-                ScanIndexForward: false, // false for descending order
-                Limit: 1 // we only need the latest record
-            }).promise();
-    
-            // Determine newCValue based on forceC or incrementing the latest c value
-            if (forceC !== null && forceC !== undefined) {
-                newCValue = forceC;
-    
-                // Increment s only if forceC is provided and there are existing records
-                if (queryResult.Items.length > 0) {
-                    const latestSValue = parseInt(queryResult.Items[0].s);
-                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
-                }
-            } else if (queryResult.Items.length > 0) {
-                const latestCValue = parseInt(queryResult.Items[0].c);
-                newCValue = isNaN(latestCValue) ? 1 : latestCValue + 1;
-            } else {
-                newCValue = 1; // default if no records are found
-            }
-    
-            // Insert the new record with the c and s values
-            const newRecord = {
-                v: id.toString(),
-                c: newCValue.toString(),
-                e: newE,
-                s: newSValue.toString(),
-                d: Date.now()
-            };
-    
-            await dynamodb.put({
-                TableName: 'versions',
-                Item: newRecord
-            }).promise();
-    
-            res.send('Record added successfully');
-        } catch (error) {
-            console.error("Error adding record:", error);
-            res.status(500).send(error);
-        }
-    });*/
-    
-
-    /*router.post('/addversion', async (req, res) => {});*/
 
     return router;
 };
