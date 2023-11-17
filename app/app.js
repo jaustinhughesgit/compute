@@ -50,7 +50,7 @@ app.use(passport.initialize());
 // You can place this in a separate config file and require it in your main server file
 var strategiesConfig = {
     "microsoft": {
-        strategyModule: 'passport-microsoft',
+        strategyModule: 'passport-azure-ad',
         strategyName: 'OIDCStrategy',
         config: {
             identityMetadata: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
