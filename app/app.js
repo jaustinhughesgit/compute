@@ -108,6 +108,7 @@ app.get('/auth/:strategy/callback', (req, res, next) => {
 });
 
 var indexRouter = require('./routes/index');
+var loginRouter = require('./routes/login');
 var dashboardRouter = require('./routes/dashboard');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var cookiesRouter;
@@ -131,6 +132,7 @@ app.use(async (req, res, next) => {
 });
 
 app.use('/', indexRouter);
+app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', authenticateToken, dashboardRouter);
 
