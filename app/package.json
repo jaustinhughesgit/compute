@@ -18,6 +18,7 @@
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
     "passport": "^0.6.0",
+    "passport-azure-ad": "^4.3.5",
     "passport-microsoft": "^1.0.0",
     "serverless-http": "^3.2.0",
     "uuid": "^9.0.1"
