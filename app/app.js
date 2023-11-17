@@ -5,6 +5,8 @@ const path = require('path');
 const app = express();
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
+var passport = require('passport');
+const jwt = require('jsonwebtoken');
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
@@ -23,13 +25,90 @@ async function getPrivateKey() {
         throw error;
     }
 }
+
+function authenticateToken(req, res, next) {
+    const token = req.cookies.jwt; // If you're sending the token in a cookie
+    if (token == null) return res.sendStatus(401);
+
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+        if (err) return res.sendStatus(403);
+        req.user = user;
+        next();
+    });
+}
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true })); 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
+
+// Initialize Passport
+app.use(passport.initialize());
+
+// You can place this in a separate config file and require it in your main server file
+var strategiesConfig = {
+    "microsoft": {
+        strategyModule: 'passport-microsoft',
+        strategyName: 'OIDCStrategy',
+        config: {
+            identityMetadata: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
+            clientID: process.env.MICROSOFT_CLIENT_ID,
+            responseType: 'code id_token',
+            responseMode: 'form_post',
+            redirectUrl: 'https://compute.1var.com/auth/microsoft/callback', // Update with your redirect URL
+            allowHttpForRedirectUrl: true,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+            validateIssuer: false,
+            passReqToCallback: true,
+            scope: ['profile', 'offline_access', 'https://graph.microsoft.com/mail.read']
+        }
+    }
+    // Add other strategies here
+};
+
+app.get('/auth/:strategy', async (req, res, next) => {
+    const strategy = req.params.strategy;
+    try {
+        if (!strategiesConfig[strategy]) {
+            throw new Error(`Configuration for ${strategy} not found`);
+        }
+
+        const strategyConfig = strategiesConfig[strategy];
+        const StrategyModule = require(strategyConfig.strategyModule);
+        const Strategy = StrategyModule[strategyConfig.strategyName];
+
+        passport.use(new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
+            // Your verification logic here
+            // Create a JWT token after successful authentication
+            const userPayload = { email: profile.email, id: profile.id }; // Adjust according to your user profile structure
+            const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
+            return done(null, profile, { token });
+        }));
+
+        passport.authenticate(strategy, {
+            // Authentication options
+        })(req, res, next);
+    } catch (error) {
+        res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
+    }
+});
+
+app.get('/auth/:strategy/callback', (req, res, next) => {
+    const strategy = req.params.strategy;
+    passport.authenticate(strategy, (err, user, info) => {
+        if (err || !user) {
+            return res.redirect('/login?error=true');
+        }
+        // Set the JWT as a cookie
+        res.cookie('jwt', info.token, { httpOnly: true, secure: true }); // As a secure HTTP-only cookie
+        res.redirect('/dashboard'); // Redirect to the desired page
+    })(req, res, next);
+});
+
 var indexRouter = require('./routes/index');
+var dashboardRouter = require('./routes/dashboard');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var cookiesRouter;
 app.use(async (req, res, next) => {
@@ -53,5 +132,12 @@ app.use(async (req, res, next) => {
 
 app.use('/', indexRouter);
 app.use('/controller', controllerRouter);
+app.use('/dashboard', authenticateToken, dashboardRouter);
+
+
+
+app.get('/protected-route', authenticateToken, (req, res) => {
+    // Handle the request
+});
 
 module.exports.lambdaHandler = serverless(app);
