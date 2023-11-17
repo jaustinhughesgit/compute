@@ -95,7 +95,7 @@ app.get('/auth/:strategy', async (req, res, next) => {
     }
 });
 
-app.get('/auth/:strategy/callback', (req, res, next) => {
+app.all('/auth/:strategy/callback', (req, res, next) => {
     const strategy = req.params.strategy;
     passport.authenticate(strategy, (err, user, info) => {
         if (err || !user) {
