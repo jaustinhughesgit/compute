@@ -49,7 +49,7 @@ app.use(passport.initialize());
 
 // You can place this in a separate config file and require it in your main server file
 var strategiesConfig = {
-    "microsoft": {
+    "azure-ad": {
         strategyModule: 'passport-azure-ad',
         strategyName: 'OIDCStrategy',
         config: {
