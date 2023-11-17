@@ -57,7 +57,7 @@ var strategiesConfig = {
             clientID: process.env.MICROSOFT_CLIENT_ID,
             responseType: 'code id_token',
             responseMode: 'form_post',
-            redirectUrl: 'https://compute.1var.com/auth/microsoft/callback', // Update with your redirect URL
+            redirectUrl: 'https://compute.1var.com/auth/azure-ad/callback', // Update with your redirect URL
             allowHttpForRedirectUrl: true,
             clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
             validateIssuer: false,
