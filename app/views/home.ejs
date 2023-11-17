@@ -3,164 +3,187 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><%= title %></title>
-<style>
-    body, html {
-        margin: 0;
-        height: 100%;
-        overflow: hidden;
-    }
+    <title><%= title %></title>
+    <style>
+        body, html {
+            margin: 0;
+            height: 100%;
+            overflow: hidden;
+        }
 
-    #board-container {
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        position: relative;
-        cursor: grab;
-    }
+        #board-container {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+        }
 
-    #board {
-        position: absolute;
-        width: 2000px; /* Large width for demonstration */
-        height: 2000px; /* Large height for demonstration */
-        background-color: #f3f3f3; /* Light grey background */
-        border: 1px solid #d3d3d3;
-        cursor: grab;
-    }
-</style>
+        #board {
+            position: absolute;
+            width: 2000px;
+            height: 2000px;
+            background-color: #f3f3f3;
+            border: 1px solid #d3d3d3;
+        }
+
+        #toolbar {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        }
+
+        button {
+            margin-right: 10px;
+        }
+    </style>
 </head>
 <body>
-<div id="board-container">
-    <div id="board">
-        <canvas id="myCanvas" width="2000" height="2000"></canvas>
+    <div id="toolbar">
+        <button id="dragMode">Drag</button>
+        <button id="clickMode">Click</button>
     </div>
-</div>
+    <div id="board-container">
+        <div id="board">
+            <canvas id="myCanvas" width="2000" height="2000"></canvas>
+        </div>
+    </div>
 
-<script>
-    var canvas = document.getElementById('myCanvas');
-    var ctx = canvas.getContext('2d');
+    <script>
+        var canvas = document.getElementById('myCanvas');
+        var ctx = canvas.getContext('2d');
+        var board = document.getElementById('board');
+        var dragModeButton = document.getElementById('dragMode');
+        var clickModeButton = document.getElementById('clickMode');
+        var boxes = [];
 
-    // Array to store box data
-    var boxes = [];
+        function drawBox(x, y, text) {
+            ctx.beginPath();
+            ctx.rect(x, y, 100, 50);
+            ctx.stroke();
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, x + 50, y + 25);
+            boxes.push({ x: x, y: y, width: 100, height: 50, text: text });
+        }
 
-    // Function to draw a box and store its data
-    function drawBox(x, y, text) {
-        ctx.beginPath();
-        ctx.rect(x, y, 100, 50); // Draw the rectangle
-        ctx.stroke();
+        function drawSLine(x1, y1, x2, y2) {
+            var midY = (y1 + y2) / 2;
+            ctx.beginPath();
+            ctx.moveTo(x1, y1);
+            ctx.quadraticCurveTo(x1, midY, x2, midY);
+            ctx.quadraticCurveTo(x2, midY, x2, y2);
+            ctx.stroke();
+        }
 
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(text, x + 50, y + 25); // Add text
+        var parentX = 1000;
+        var parentY = 55;
+        var childY = 145;
+        drawBox(parentX - 50, parentY, 'Parent');
+        var childOffsets = [-100, 0, 100];
+        childOffsets.forEach(function(offset) {
+            var childX = parentX + offset;
+            drawBox(childX - 50, childY, 'Child');
+            drawSLine(parentX, parentY + 50, childX, childY);
+        });
 
-        // Store box data
-        boxes.push({ x: x, y: y, width: 100, height: 50, text: text });
-    }
+        // Function to calculate the bounding box
+function calculateBoundingBox(boxes) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
-    // Function to draw an "S" shaped line
-    function drawSLine(x1, y1, x2, y2) {
-        var midY = (y1 + y2) / 2;
-        var controlDist = 0; // Distance of control points from the start/end points
-
-        ctx.beginPath();
-        ctx.moveTo(x1, y1);
-        ctx.quadraticCurveTo(x1 + controlDist, midY, x1, midY);
-        ctx.quadraticCurveTo(x1 - controlDist, midY, x2, y2);
-        ctx.stroke();
-    }
-
-    // Calculate positions
-    var parentX = 1000; // Center X
-    var parentY = 25;   // Top Y
-    var childY = 115;   // Child Y
-
-    // Draw parent box
-    drawBox(parentX - 50, parentY, 'Parent');
-
-    // Draw child boxes and lines
-    var childOffsets = [-100, 0, 100];
-    childOffsets.forEach(function(offset) {
-        var childX = parentX + offset;
-        drawBox(childX - 50, childY, 'Child');
-        drawSLine(parentX, parentY + 50, childX, childY);
+    boxes.forEach(box => {
+        minX = Math.min(minX, box.x);
+        minY = Math.min(minY, box.y);
+        maxX = Math.max(maxX, box.x + box.width);
+        maxY = Math.max(maxY, box.y + box.height);
     });
 
-
-    const board = document.getElementById('board');
-    let isDragging = false;
-    let dragStartX, dragStartY;
-
-    // Function to check if a point is inside a box
-function isInsideBox(x, y, box) {
-    return x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+    return { minX, minY, maxX, maxY };
 }
 
-// Click event listener for the canvas
-canvas.addEventListener('click', function(e) {
-    var rect = canvas.getBoundingClientRect();
-    var x = e.clientX - rect.left;
-    var y = e.clientY - rect.top;
+// Function to draw a dashed line box
+function drawDashedBox(boundingBox) {
+    ctx.setLineDash([10, 5]); // Set dash style
+    ctx.beginPath();
+    ctx.rect(boundingBox.minX - 10, boundingBox.minY - 10, boundingBox.maxX - boundingBox.minX + 20, boundingBox.maxY - boundingBox.minY + 20);
+    ctx.stroke();
+    ctx.setLineDash([]); // Reset to solid line
+}
+// Function to draw the label for the group
+function drawGroupLabel(boundingBox) {
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText("Group", boundingBox.minX, boundingBox.minY - 20);
+}
 
-    // Check each box to see if it was clicked
-    for (var i = 0; i < boxes.length; i++) {
-        if (isInsideBox(x, y, boxes[i])) {
-            alert(boxes[i].text);
-            break;
+// After drawing all boxes and lines
+let boundingBox = calculateBoundingBox(boxes);
+drawDashedBox(boundingBox);
+drawGroupLabel(boundingBox);
+
+
+
+        let isDragging = false;
+        let dragStartX, dragStartY;
+        let mode = 'dragging';
+
+        function enableDragging() {
+            mode = 'dragging';
+            board.style.cursor = 'grab';
         }
-    }
-});
 
-board.addEventListener('contextmenu', function(e) {
-    e.preventDefault(); // Prevent context menu from opening
-});
+        function enableClicking() {
+            mode = 'clicking';
+            board.style.cursor = 'default';
+        }
 
-board.addEventListener('mousedown', function(e) {
-    if (e.button === 2) { // Check if right mouse button was pressed
-        isDragging = true;
-        dragStartX = e.pageX - board.offsetLeft;
-        dragStartY = e.pageY - board.offsetTop;
-        board.style.cursor = 'grabbing';
-    }
-});
+        dragModeButton.addEventListener('click', enableDragging);
+        clickModeButton.addEventListener('click', enableClicking);
 
-let touchStartX, touchStartY, isTwoFingerTouch = false;
+        board.addEventListener('mousedown', function(e) {
+            if (mode === 'dragging') {
+                isDragging = true;
+                dragStartX = e.pageX - board.offsetLeft;
+                dragStartY = e.pageY - board.offsetTop;
+                board.style.cursor = 'grabbing';
+            }
+        });
 
-board.addEventListener('touchstart', function(e) {
-    if (e.touches.length === 2) { // Check for two fingers
-        isTwoFingerTouch = true;
-        touchStartX = e.touches[0].pageX - board.offsetLeft;
-        touchStartY = e.touches[0].pageY - board.offsetTop;
-    }
-});
+        document.addEventListener('mouseup', function() {
+            if (mode === 'dragging') {
+                isDragging = false;
+                board.style.cursor = 'grab';
+            }
+        });
 
-board.addEventListener('touchmove', function(e) {
-    if (isTwoFingerTouch) {
-        e.preventDefault(); // Prevent scrolling and zooming
-        const newX = e.touches[0].pageX - touchStartX;
-        const newY = e.touches[0].pageY - touchStartY;
-        board.style.left = newX + 'px';
-        board.style.top = newY + 'px';
-    }
-});
+        document.addEventListener('mousemove', function(e) {
+            if (!isDragging || mode !== 'dragging') return;
+            const newX = e.pageX - dragStartX;
+            const newY = e.pageY - dragStartY;
+            board.style.left = newX + 'px';
+            board.style.top = newY + 'px';
+        });
 
-board.addEventListener('touchend', function(e) {
-    if (e.touches.length < 2) {
-        isTwoFingerTouch = false;
-    }
-});
+        function isInsideBox(x, y, box) {
+            return x >= box.x && x <= box.x + box.width && y >= box.y && y <= box.y + box.height;
+        }
 
-    document.addEventListener('mouseup', function() {
-        isDragging = false;
-        board.style.cursor = 'grab';
-    });
+        canvas.addEventListener('click', function(e) {
+            if (mode === 'clicking') {
+                var rect = canvas.getBoundingClientRect();
+                var x = e.clientX - rect.left;
+                var y = e.clientY - rect.top;
+                for (var i = 0; i < boxes.length; i++) {
+                    if (isInsideBox(x, y, boxes[i])) {
+                        alert(boxes[i].text);
+                        break;
+                    }
+                }
+            }
+        });
 
-    document.addEventListener('mousemove', function(e) {
-        if (!isDragging) return;
-        const newX = e.pageX - dragStartX;
-        const newY = e.pageY - dragStartY;
-        board.style.left = newX + 'px';
-        board.style.top = newY + 'px';
-    });
-</script>
+        // Initialize in dragging mode
+        enableDragging();
+    </script>
 </body>
 </html>
