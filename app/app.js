@@ -79,7 +79,7 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const StrategyModule = require(strategyConfig.strategyModule);
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
-        passport.use(new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
+        passport.use(strategy, new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
             // Your verification logic here
             // Create a JWT token after successful authentication
             const userPayload = { email: profile.email, id: profile.id }; // Adjust according to your user profile structure
