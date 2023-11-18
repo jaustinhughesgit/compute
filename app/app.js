@@ -87,7 +87,7 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const strategyConfig = strategiesConfig[strategy];
         const Strategy = StrategyModule[strategyConfig.strategyName];
         console.log("1")
-        await passport.use(strategy, new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
+        await passport.use(strategy, new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
             //const email = profile._json.email || profile._json.preferred_username || '';
             //const firstName = profile.name.givenName || '';
             //const lastName = profile.name.familyName || '';
