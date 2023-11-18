@@ -110,9 +110,10 @@ app.get('/auth/:strategy', async (req, res, next) => {
 
 app.all('/auth/:strategy/callback', (req, res, next) => {
     const strategy = req.params.strategy;
+    console.log("strategy", strategy)
     passport.authenticate(strategy, (err, user) => {
-        console.log(err)
-        console.log(user)
+        console.log("err", err)
+        console.log("user". user)
         if (err || !user) {
             return res.redirect('/login?error=true');
         }
