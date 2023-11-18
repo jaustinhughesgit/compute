@@ -86,12 +86,13 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
         passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
-            const email = profile._json.email || profile._json.preferred_username || '';
-            const firstName = profile.name.givenName || '';
-            const lastName = profile.name.familyName || '';
-            const realEmail = true; 
+            //const email = profile._json.email || profile._json.preferred_username || '';
+            //const firstName = profile.name.givenName || '';
+            //const lastName = profile.name.familyName || '';
+            //const realEmail = true; 
         
             try {
+                console.log("profile",profile);
                 //await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
                 return done(null, profile);
             } catch (error) {
