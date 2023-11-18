@@ -92,7 +92,7 @@ app.get('/auth/:strategy', async (req, res, next) => {
             const realEmail = true; 
         
             try {
-                await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
+                //await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
                 return done(null, profile);
             } catch (error) {
                 return done(error);
@@ -196,6 +196,7 @@ async function registerOAuthUser(email, firstName, lastName, res, realEmail, has
             await dynamodb.put(insertParams).promise();
             //res.redirect('/dashboard');
             //res.send("Account Created!");
+            return
         } catch (error) {
             res.status(500).json({ error: "Error inserting into DynamoDB" });
         }
