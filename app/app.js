@@ -8,11 +8,14 @@ const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 var passport = require('passport');
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
+var cookieParser = require('cookie-parser');
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
+
+app.use(cookieParser());
 
 function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
@@ -88,7 +91,9 @@ passport.use(new MicrosoftStrategy({
     state: false,
     type: 'Web',
     scope: ['user.read']
-  }, (token, tokenSecret, profile, done) => {
+},
+async function(accessToken, refreshToken, profile, done) {
+    console.log(JSON.stringify(profile))
     const userId = profile.id;
     const newUser = {
         id: userId,
@@ -117,7 +122,14 @@ passport.use(new MicrosoftStrategy({
     done(null, user);
   });
 app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
-app.all('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+
+// Callback route
+app.get('/auth/microsoft/callback',
+  passport.authenticate('microsoft', { failureRedirect: '/login' }),
+  function(req, res) {
+    res.redirect('/dashboard');
+  }
+);
 app.use('/', indexRouter);
 app.use('/controller', controllerRouter);
 
