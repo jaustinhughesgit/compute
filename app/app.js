@@ -60,15 +60,14 @@ var strategiesConfig = {
         strategyModule: 'passport-azure-ad',
         strategyName: 'OIDCStrategy',
         config: {
-            identityMetadata: `https://login.microsoftonline.com/${process.env.MICROSOFT_TENANT_ID}/v2.0/.well-known/openid-configuration`,
             clientID: process.env.MICROSOFT_CLIENT_ID,
-            responseType: 'code id_token',
-            responseMode: 'form_post',
-            redirectUrl: 'https://compute.1var.com/auth/azure-ad/callback',
-            allowHttpForRedirectUrl: true,
             clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-            validateIssuer: false,
-            passReqToCallback: true,
+            callbackURL: 'https://compute.1var.com/auth/azure-ad/callback',
+            resource: 'https://graph.microsoft.com/',
+            tenant: process.env.MICROSOFT_TENANT_ID,
+            prompt: 'login',
+            state: false,
+            type: 'Web',
             scope: ['user.read']
         }
     }
