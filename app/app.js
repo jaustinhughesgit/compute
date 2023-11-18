@@ -99,7 +99,7 @@ var dashboardRouter = require('./routes/dashboard');
 var strategiesConfig = {
     "microsoft": {
         strategyModule: 'passport-microsoft',
-        strategyName: 'OIDCStrategy',
+        strategyName: 'Strategy', // Adjust this based on how the strategy is actually exported
         config: {
             clientID: process.env.MICROSOFT_CLIENT_ID,
             clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
@@ -110,40 +110,29 @@ var strategiesConfig = {
             state: false,
             type: 'Web',
             scope: ['user.read'],
-          }
+        }
     }
 };
+
 app.get('/auth/:strategy', async (req, res, next) => {
     const strategy = req.params.strategy;
     try {
         if (!strategiesConfig[strategy]) {
-            console.log("0")
             throw new Error(`Configuration for ${strategy} not found`);
         }
         const strategyConfig = strategiesConfig[strategy];
         const StrategyModule = require(strategyConfig.strategyModule);
         const Strategy = StrategyModule[strategyConfig.strategyName];
-        passport.use(strategy, new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
-            console.log("profile",profile)
-            const userId = profile.id;
-            const newUser = {
-                id: userId,
-                name: profile.displayName,
-                provider: 'microsoft'
-            };
-                try {
-                console.log("newUser",newUser)
-            } catch (error) {
-                    console.error(error);
-            }
-            done(null, newUser);
+        passport.use(new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
+            // Your authentication logic
+            done(null, profile);
         }));
         passport.authenticate(strategy)(req, res, next);
     } catch (error) {
-        console.log("404")
         res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
     }
 });
+
 
 // Callback route
 app.get('/auth/microsoft/callback*', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
