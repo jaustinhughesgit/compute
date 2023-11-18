@@ -77,15 +77,8 @@ app.set('view engine', 'ejs');
               console.error(error);
       }
       done(null, newUser);
-  }));
+  }));*/
 
-  passport.serializeUser(function(user, done) {
-    done(null, user);
-});*/
-
-passport.deserializeUser(function(obj, done) {
-    done(null, obj);
-});
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 
@@ -135,7 +128,29 @@ app.get('/auth/:strategy', async (req, res, next) => {
 
 
 // Callback route
-app.get('/auth/microsoft/callback*', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+//app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+app.all('/auth/:strategy/callback', (req, res, next) => {
+    const strategy = req.params.strategy;
+    passport.authenticate(strategy, (err, user) => {
+        if (err || !user) {
+            return res.redirect('/login?error=true');
+        }
+        req.login(user, (err) => {
+            if (err) {
+                return next(err);
+            }
+            return res.redirect('/dashboard');
+        });
+    })(req, res, next);
+});
+
+passport.serializeUser(function(user, done) {
+    done(null, user);
+});
+
+passport.deserializeUser(function(obj, done) {
+    done(null, obj);
+});
 
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
