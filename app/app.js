@@ -6,6 +6,7 @@ const path = require('path');
 const app = express();
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
+var passport = require('passport');
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 AWS.config.update({ region: 'us-east-1' });
