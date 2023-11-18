@@ -77,7 +77,7 @@ app.use(async (req, res, next) => {
 });
 
 app.use('/login', loginRouter);
-app.use('/dashboard', ensureAuthenticated, dashboardRouter);
+app.use('/dashboard', dashboardRouter);
 passport.use(new MicrosoftStrategy({
     clientID: process.env.MICROSOFT_CLIENT_ID,
     clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
