@@ -1,17 +1,17 @@
 const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
+const session = require('express-session');
 const path = require('path');
-const app = express();
 const bodyParser = require('body-parser');
-const { v4: uuidv4 } = require('uuid');
-var passport = require('passport');
-const jwt = require('jsonwebtoken');
+const passport = require('passport');
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
+
+const app = express();
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -26,15 +26,25 @@ async function getPrivateKey() {
     }
 }
 
-function authenticateToken(req, res, next) {
-    const token = req.cookies.jwt; // If you're sending the token in a cookie
-    if (token == null) return res.sendStatus(401);
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: {
+        secure: true, 
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+    }
+}));
 
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
-        if (err) return res.sendStatus(403);
-        req.user = user;
-        next();
-    });
+
+
+// Middleware to ensure user is authenticated
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.redirect('/login');
 }
 
 app.use(express.json());
@@ -44,10 +54,9 @@ app.use(bodyParser.urlencoded({ extended: true }));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-// Initialize Passport
 app.use(passport.initialize());
+app.use(passport.session());
 
-// You can place this in a separate config file and require it in your main server file
 var strategiesConfig = {
     "azure-ad": {
         strategyModule: 'passport-azure-ad',
@@ -65,7 +74,6 @@ var strategiesConfig = {
             scope: ['profile', 'offline_access', 'https://graph.microsoft.com/mail.read']
         }
     }
-    // Add other strategies here
 };
 
 app.get('/auth/:strategy', async (req, res, next) => {
@@ -80,16 +88,11 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
         passport.use(strategy, new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
-            // Your verification logic here
-            // Create a JWT token after successful authentication
-            const userPayload = { email: profile.email, id: profile.id }; // Adjust according to your user profile structure
-            const token = jwt.sign(userPayload, process.env.JWT_SECRET, { expiresIn: '1h' });
-            return done(null, profile, { token });
+            // Simply return the user profile
+            return done(null, profile);
         }));
 
-        passport.authenticate(strategy, {
-            // Authentication options
-        })(req, res, next);
+        passport.authenticate(strategy)(req, res, next);
     } catch (error) {
         res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
     }
@@ -97,13 +100,16 @@ app.get('/auth/:strategy', async (req, res, next) => {
 
 app.all('/auth/:strategy/callback', (req, res, next) => {
     const strategy = req.params.strategy;
-    passport.authenticate(strategy, (err, user, info) => {
+    passport.authenticate(strategy, (err, user) => {
         if (err || !user) {
             return res.redirect('/login?error=true');
         }
-        // Set the JWT as a cookie
-        res.cookie('jwt', info.token, { httpOnly: true, secure: true }); // As a secure HTTP-only cookie
-        res.redirect('/dashboard'); // Redirect to the desired page
+        req.login(user, (err) => {
+            if (err) {
+                return next(err);
+            }
+            return res.redirect('/dashboard');
+        });
     })(req, res, next);
 });
 
@@ -134,7 +140,7 @@ app.use(async (req, res, next) => {
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
-app.use('/dashboard', authenticateToken, dashboardRouter);
+app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 
 
 
