@@ -1,6 +1,7 @@
 const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
+const session = require('express-session');
 const path = require('path');
 const app = express();
 const bodyParser = require('body-parser');
