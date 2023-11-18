@@ -1,28 +1,18 @@
 const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
-const session = require('express-session');
 const path = require('path');
 const app = express();
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 var passport = require('passport');
+const session = require('express-session');
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
-var cookieParser = require('cookie-parser');
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
-
-app.use(cookieParser());
-
-function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.redirect('/login');
-  }
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -51,16 +41,9 @@ app.use(passport.session());
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
-var indexRouter = require('./routes/index');
-var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
-var cookiesRouter;
-
-var dashboardRouter = require('./routes/dashboard');
-var loginRouter = require('./routes/login');
 
 
-app.use('/login', loginRouter);
-app.use('/dashboard', dashboardRouter);
+
 passport.use(new MicrosoftStrategy({
     clientID: process.env.MICROSOFT_CLIENT_ID,
     clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
@@ -70,10 +53,8 @@ passport.use(new MicrosoftStrategy({
     prompt: 'login',
     state: false,
     type: 'Web',
-    scope: ['user.read']
-},
-async function(accessToken, refreshToken, profile, done) {
-    console.log(JSON.stringify(profile))
+    scope: ['user.read'],
+  }, (token, tokenSecret, profile, done) => {
     const userId = profile.id;
     const newUser = {
         id: userId,
@@ -88,70 +69,16 @@ async function(accessToken, refreshToken, profile, done) {
       done(null, newUser);
   }));
 
-
-  passport.serializeUser((user, done) => {
-    console.log("serializeUser", user);
-    done(null, user);  // Serialize using the user id for now.
-  });
-
-  passport.deserializeUser((user, done) => {
-    console.log("deserializeUser for ID:", user);
-    
-    // You would typically fetch the user from your database here using the id.
-    // But for troubleshooting purposes, just return an example user object.
+  passport.serializeUser(function(user, done) {
     done(null, user);
-  });
-app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
+});
 
-// Callback route
-app.get('/auth/microsoft/callback',
-  passport.authenticate('microsoft', { failureRedirect: '/login' }),
-  function(req, res) {
-    res.redirect('/dashboard');
-  }
-);
-app.use('/', indexRouter);
-app.use('/controller', controllerRouter);
-
-
-async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
-    console.log("inside regOAuth", email)
-    const params = { TableName: 'account', Key: { "email": email } };
-    console.log(params)
-    const coll = await dynamodb.get(params).promise();
-    console.log(coll)
-    if (coll.hasOwnProperty("Item")) {
-        res.send("Email already registered through another method.");
-    } else {
-        const uniqueId = uuidv4();
-        const currentDate = new Date();
-        const isoFormat = currentDate.toISOString();
-        const item = {
-            id: uniqueId,
-            email: email,
-            first: firstName,
-            last: lastName,
-            creationDate: isoFormat,
-            proxyEmail: realEmail,
-            verified: false,
-            password: hasPass
-            // No password is saved for OAuth users
-        };
-
-        const insertParams = {
-            TableName: 'account',
-            Item: item
-        };
-        try {
-            await dynamodb.put(insertParams).promise();
-            res.redirect('/dashboard');
-            //res.send("Account Created!");
-        } catch (error) {
-            res.status(500).json({ error: "Error inserting into DynamoDB" });
-        }
-    }
-}
-
+passport.deserializeUser(function(obj, done) {
+    done(null, obj);
+});
+var indexRouter = require('./routes/index');
+var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
+var cookiesRouter;
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
@@ -170,4 +97,28 @@ app.use(async (req, res, next) => {
         next();
     }
 });
+
+
+
+// Authentication route
+app.get('/auth/microsoft',
+  passport.authenticate('microsoft', {
+    // Optionally define any authentication parameters here
+    // For example, the ones in https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow
+    prompt: 'select_account',
+  })
+);
+
+// Callback route
+app.get('/auth/microsoft/callback',
+  passport.authenticate('microsoft', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+  }
+);
+
+app.use('/', indexRouter);
+app.use('/controller', controllerRouter);
+
 module.exports.lambdaHandler = serverless(app);
