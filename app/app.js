@@ -57,7 +57,7 @@ app.use(passport.session());
 
 var strategiesConfig = {
     "azure-ad": {
-        strategyModule: 'passport-azure-ad',
+        strategyModule: 'microsoft',
         strategyName: 'OIDCStrategy',
         config: {
             clientID: process.env.MICROSOFT_CLIENT_ID,
