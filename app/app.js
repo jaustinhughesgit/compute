@@ -86,13 +86,11 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
         passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
-            // Extracting information from the profile object
             const email = profile._json.email || profile._json.preferred_username || '';
             const firstName = profile.name.givenName || '';
             const lastName = profile.name.familyName || '';
-            const realEmail = email; // Assuming realEmail is the same as email, adjust if necessary
+            const realEmail = true; 
         
-            // Now call registerOAuthUser with the extracted information
             try {
                 await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
                 return done(null, profile);
