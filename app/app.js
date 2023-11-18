@@ -72,7 +72,7 @@ var strategiesConfig = {
         }
     }
 };
-const StrategyModule = require('passport-azure-ad');
+const StrategyModule = require('passport-microsoft');
 
 app.get('/auth/:strategy', async (req, res, next) => {
     const strategy = req.params.strategy;
