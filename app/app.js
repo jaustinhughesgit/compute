@@ -1,18 +1,16 @@
 const AWS = require('aws-sdk');
 const express = require('express');
 const serverless = require('serverless-http');
-const session = require('express-session');
 const path = require('path');
+const app = express();
 const bodyParser = require('body-parser');
-const passport = require('passport');
+const { v4: uuidv4 } = require('uuid');
+const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
-
-const app = express();
-const { v4: uuidv4 } = require('uuid');
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -26,125 +24,30 @@ async function getPrivateKey() {
         throw error;
     }
 }
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true })); 
 
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
-    cookie: {
-        secure: true, 
-        httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000
-    }
+    cookie: { secure: true } 
 }));
-
-function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.redirect('/login');
-}
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use(bodyParser.json());
-app.use(bodyParser.urlencoded({ extended: true })); 
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
 
 app.use(passport.initialize());
 app.use(passport.session());
 
-var strategiesConfig = {
-    "microsoft": {
-        strategyModule: 'passport-microsoft',
-        strategyName: 'OIDCStrategy',
-        config: {
-            clientID: process.env.MICROSOFT_CLIENT_ID,
-            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-            callbackURL: 'https://compute.1var.com/auth/microsoft/callback',
-            resource: 'https://graph.microsoft.com/',
-            tenant: process.env.MICROSOFT_TENANT_ID,
-            prompt: 'login',
-            state: false,
-            type: 'Web',
-            scope: ['user.read']
-        }
-    }
-};
-const StrategyModule = require('passport-microsoft');
-
-app.get('/auth/:strategy', async (req, res, next) => {
-    const strategy = req.params.strategy;
-    console.log("strategy",strategy)
-    try {
-        if (!strategiesConfig[strategy]) {
-            console.log("0")
-            throw new Error(`Configuration for ${strategy} not found`);
-        }
-
-        const strategyConfig = strategiesConfig[strategy];
-        const Strategy = StrategyModule[strategyConfig.strategyName];
-        console.log("1")
-        await passport.use(strategy, new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
-            //const email = profile._json.email || profile._json.preferred_username || '';
-            //const firstName = profile.name.givenName || '';
-            //const lastName = profile.name.familyName || '';
-            //const realEmail = true; 
-            console.log("2")
-            try {
-                console.log("3")
-                console.log("profile",profile);
-                //await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
-                return done(null, profile);
-            } catch (error) {
-               console.log("4")
-                return done(error);
-            }
-        }));
-        console.log("5")
-
-        passport.authenticate(strategy)(req, res, next);
-    } catch (error) {
-        console.log("404")
-        res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
-    }
-});
-
-app.all('/auth/:strategy/callback', (req, res, next) => {
-    const strategy = req.params.strategy;
-    console.log("strategy", strategy)
-    passport.authenticate(strategy, (err, user) => {
-        console.log("err", err)
-        console.log("user". user)
-        if (err || !user) {
-            return res.redirect('/login?error=true');
-        }
-        req.login(user, (err) => {
-            if (err) {
-                return next(err);
-            }
-            return res.redirect('/dashboard');
-        });
-    })(req, res, next);
-});
-
-passport.serializeUser((user, done) => {
-    console.log("serializeUser", user);
-    done(null, user);
-  });
-
-  passport.deserializeUser((user, done) => {
-    console.log("deserializeUser for ID:", user);
-    
-    done(null, user);
-  });
-
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
-var loginRouter = require('./routes/login');
-var dashboardRouter = require('./routes/dashboard');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var cookiesRouter;
+
+var dashboardRouter = require('./routes/dashboard');
+var loginRouter = require('./routes/login');
+
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
@@ -164,10 +67,50 @@ app.use(async (req, res, next) => {
     }
 });
 
-app.use('/', indexRouter);
 app.use('/login', loginRouter);
-app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
+passport.use(new MicrosoftStrategy({
+    clientID: process.env.MICROSOFT_CLIENT_ID,
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+    callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+    resource: 'https://graph.microsoft.com/',
+    tenant: process.env.MICROSOFT_TENANT_ID,
+    prompt: 'login',
+    state: false,
+    type: 'Web',
+  }, (token, tokenSecret, profile, done) => {
+    const userId = profile.id;
+    const newUser = {
+        id: userId,
+        name: profile.displayName,
+        provider: 'microsoft'
+    };
+        try {
+          console.log("newUser",newUser)
+      } catch (error) {
+              console.error(error);
+      }
+      done(null, newUser);
+  }));
+
+
+  passport.serializeUser((user, done) => {
+    console.log("serializeUser", user);
+    done(null, user);  // Serialize using the user id for now.
+  });
+
+  passport.deserializeUser((user, done) => {
+    console.log("deserializeUser for ID:", user);
+    
+    // You would typically fetch the user from your database here using the id.
+    // But for troubleshooting purposes, just return an example user object.
+    done(null, user);
+  });
+app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
+app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+app.use('/', indexRouter);
+app.use('/controller', controllerRouter);
+
 
 async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
     console.log("inside regOAuth", email)
@@ -199,9 +142,8 @@ async function registerOAuthUser(email, firstName, lastName, res, realEmail, has
         };
         try {
             await dynamodb.put(insertParams).promise();
-            //res.redirect('/dashboard');
+            res.redirect('/dashboard');
             //res.send("Account Created!");
-            return
         } catch (error) {
             res.status(500).json({ error: "Error inserting into DynamoDB" });
         }
