@@ -52,7 +52,8 @@ app.set('view engine', 'ejs');
 
 
 
-passport.use(new MicrosoftStrategy({
+
+/*passport.use(new MicrosoftStrategy({
     clientID: process.env.MICROSOFT_CLIENT_ID,
     clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
     callbackURL: "https://compute.1var.com/auth/microsoft/callback",
@@ -80,7 +81,7 @@ passport.use(new MicrosoftStrategy({
 
   passport.serializeUser(function(user, done) {
     done(null, user);
-});
+});*/
 
 passport.deserializeUser(function(obj, done) {
     done(null, obj);
@@ -93,7 +94,56 @@ var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 
 // Authentication route
-app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
+//app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
+
+var strategiesConfig = {
+    "microsoft": {
+        strategyModule: 'passport-microsoft',
+        strategyName: 'OIDCStrategy',
+        config: {
+            clientID: process.env.MICROSOFT_CLIENT_ID,
+            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+            callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+            resource: 'https://graph.microsoft.com/',
+            tenant: process.env.MICROSOFT_TENANT_ID,
+            prompt: 'login',
+            state: false,
+            type: 'Web',
+            scope: ['user.read'],
+          }
+    }
+};
+app.get('/auth/:strategy', async (req, res, next) => {
+    const strategy = req.params.strategy;
+    try {
+        if (!strategiesConfig[strategy]) {
+            console.log("0")
+            throw new Error(`Configuration for ${strategy} not found`);
+        }
+        const strategyConfig = strategiesConfig[strategy];
+        const StrategyModule = require(strategyConfig.strategyModule);
+        const Strategy = StrategyModule[strategyConfig.strategyName];
+        passport.use(strategy, new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
+            console.log("profile",profile)
+            const userId = profile.id;
+            const newUser = {
+                id: userId,
+                name: profile.displayName,
+                provider: 'microsoft'
+            };
+                try {
+                console.log("newUser",newUser)
+            } catch (error) {
+                    console.error(error);
+            }
+            done(null, newUser);
+        }));
+        passport.authenticate(strategy)(req, res, next);
+    } catch (error) {
+        console.log("404")
+        res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
+    }
+});
 
 // Callback route
 app.get('/auth/microsoft/callback*', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
