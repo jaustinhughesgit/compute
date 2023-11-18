@@ -69,7 +69,7 @@ var strategiesConfig = {
             clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
             validateIssuer: false,
             passReqToCallback: true,
-            scope: ['profile', 'offline_access', 'https://graph.microsoft.com/mail.read']
+            scope: ['user.read']
         }
     }
 };
