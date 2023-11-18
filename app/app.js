@@ -14,6 +14,18 @@ const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 
+async function getPrivateKey() {
+    const secretName = "public/1var/s3";
+    try {
+        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
+        const secret = JSON.parse(data.SecretString);
+        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
+        return pKey
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
+    }
+}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -69,16 +81,39 @@ var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 
 
-
-
+var loginRouter = require('./routes/login')
+var dashboardRouter = require('./routes/dashboard');
 
 // Authentication route
 app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
 
 // Callback route
-app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+app.get('/auth/microsoft/callback*', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
 
 app.use('/', indexRouter);
+app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
+app.use('/dashboard', dashboardRouter);
+
+var cookiesRouter;
+app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
+            app.use('/:type(cookies|url)', function(req, res, next) {
+                req.type = req.params.type; // Capture the type (cookies or url)
+                next('route'); // Pass control to the next route
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
+});
+
 
 module.exports.lambdaHandler = serverless(app);
