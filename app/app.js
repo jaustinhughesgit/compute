@@ -34,7 +34,7 @@ app.use(session({
     cookie: {
         secure: true, 
         httpOnly: true,
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        maxAge: 24 * 60 * 60 * 1000
     }
 }));
 
@@ -85,7 +85,8 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const StrategyModule = require(strategyConfig.strategyModule);
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
-        passport.use(strategy, new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
+        passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
+            await registerOAuthUser(email, firstName, lastName, res, realEmail, false);
             return done(null, profile);
         }));
 
@@ -109,6 +110,19 @@ app.all('/auth/:strategy/callback', (req, res, next) => {
         });
     })(req, res, next);
 });
+
+passport.serializeUser((user, done) => {
+    console.log("serializeUser", user);
+    done(null, user);  // Serialize using the user id for now.
+  });
+
+  passport.deserializeUser((user, done) => {
+    console.log("deserializeUser for ID:", user);
+    
+    // You would typically fetch the user from your database here using the id.
+    // But for troubleshooting purposes, just return an example user object.
+    done(null, user);
+  });
 
 var indexRouter = require('./routes/index');
 var loginRouter = require('./routes/login');
@@ -138,5 +152,43 @@ app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
+
+async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
+    console.log("inside regOAuth", email)
+    const params = { TableName: 'account', Key: { "email": email } };
+    console.log(params)
+    const coll = await dynamodb.get(params).promise();
+    console.log(coll)
+    if (coll.hasOwnProperty("Item")) {
+        res.send("Email already registered through another method.");
+    } else {
+        const uniqueId = uuidv4();
+        const currentDate = new Date();
+        const isoFormat = currentDate.toISOString();
+        const item = {
+            id: uniqueId,
+            email: email,
+            first: firstName,
+            last: lastName,
+            creationDate: isoFormat,
+            proxyEmail: realEmail,
+            verified: false,
+            password: hasPass
+            // No password is saved for OAuth users
+        };
+
+        const insertParams = {
+            TableName: 'account',
+            Item: item
+        };
+        try {
+            await dynamodb.put(insertParams).promise();
+            //res.redirect('/dashboard');
+            //res.send("Account Created!");
+        } catch (error) {
+            res.status(500).json({ error: "Error inserting into DynamoDB" });
+        }
+    }
+}
 
 module.exports.lambdaHandler = serverless(app);
