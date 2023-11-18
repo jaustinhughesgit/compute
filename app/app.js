@@ -37,9 +37,6 @@ app.use(session({
     }
 }));
 
-
-
-// Middleware to ensure user is authenticated
 function ensureAuthenticated(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
@@ -66,7 +63,7 @@ var strategiesConfig = {
             clientID: process.env.MICROSOFT_CLIENT_ID,
             responseType: 'code id_token',
             responseMode: 'form_post',
-            redirectUrl: 'https://compute.1var.com/auth/azure-ad/callback', // Update with your redirect URL
+            redirectUrl: 'https://compute.1var.com/auth/azure-ad/callback',
             allowHttpForRedirectUrl: true,
             clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
             validateIssuer: false,
@@ -88,7 +85,6 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
         passport.use(strategy, new Strategy(strategyConfig.config, (req, iss, sub, profile, accessToken, refreshToken, done) => {
-            // Simply return the user profile
             return done(null, profile);
         }));
 
@@ -141,11 +137,5 @@ app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
-
-
-
-app.get('/protected-route', authenticateToken, (req, res) => {
-    // Handle the request
-});
 
 module.exports.lambdaHandler = serverless(app);
