@@ -14,18 +14,6 @@ const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 
-async function getPrivateKey() {
-    const secretName = "public/1var/s3";
-    try {
-        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
-        const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
-        return pKey
-    } catch (error) {
-        console.error("Error fetching secret:", error);
-        throw error;
-    }
-}
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -79,45 +67,16 @@ passport.deserializeUser(function(obj, done) {
 });
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
-var cookiesRouter;
-app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
-            app.use('/:type(cookies|url)', function(req, res, next) {
-                req.type = req.params.type; // Capture the type (cookies or url)
-                next('route'); // Pass control to the next route
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});
+
+
 
 
 
 // Authentication route
-app.get('/auth/microsoft',
-  passport.authenticate('microsoft', {
-    // Optionally define any authentication parameters here
-    // For example, the ones in https://docs.microsoft.com/en-us/azure/active-directory/develop/v2-oauth2-auth-code-flow
-    prompt: 'select_account',
-  })
-);
+app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
 
 // Callback route
-app.get('/auth/microsoft/callback',
-  passport.authenticate('microsoft', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  }
-);
+app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
 
 app.use('/', indexRouter);
 app.use('/controller', controllerRouter);
