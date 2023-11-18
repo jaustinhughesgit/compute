@@ -55,6 +55,7 @@ passport.use(new MicrosoftStrategy({
     type: 'Web',
     scope: ['user.read'],
   }, (token, tokenSecret, profile, done) => {
+    console.log("profile",profile)
     const userId = profile.id;
     const newUser = {
         id: userId,
