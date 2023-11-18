@@ -14,6 +14,13 @@ const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.redirect('/login');
+  }
+  
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
