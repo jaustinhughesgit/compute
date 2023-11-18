@@ -26,6 +26,14 @@ async function getPrivateKey() {
         throw error;
     }
 }
+
+function ensureAuthenticated(req, res, next) {
+    if (req.isAuthenticated()) {
+        return next();
+    }
+    res.redirect('/login');
+  }
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -93,7 +101,7 @@ app.get('/auth/microsoft/callback*', passport.authenticate('microsoft', { failur
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
-app.use('/dashboard', dashboardRouter);
+app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
