@@ -86,9 +86,21 @@ app.get('/auth/:strategy', async (req, res, next) => {
         const Strategy = StrategyModule[strategyConfig.strategyName];
 
         passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
-            await registerOAuthUser(email, firstName, lastName, res, realEmail, false);
-            return done(null, profile);
+            // Extracting information from the profile object
+            const email = profile._json.email || profile._json.preferred_username || '';
+            const firstName = profile.name.givenName || '';
+            const lastName = profile.name.familyName || '';
+            const realEmail = email; // Assuming realEmail is the same as email, adjust if necessary
+        
+            // Now call registerOAuthUser with the extracted information
+            try {
+                await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
+                return done(null, profile);
+            } catch (error) {
+                return done(error);
+            }
         }));
+        
 
         passport.authenticate(strategy)(req, res, next);
     } catch (error) {
@@ -99,6 +111,8 @@ app.get('/auth/:strategy', async (req, res, next) => {
 app.all('/auth/:strategy/callback', (req, res, next) => {
     const strategy = req.params.strategy;
     passport.authenticate(strategy, (err, user) => {
+        console.log(err)
+        console.log(user)
         if (err || !user) {
             return res.redirect('/login?error=true');
         }
@@ -113,14 +127,12 @@ app.all('/auth/:strategy/callback', (req, res, next) => {
 
 passport.serializeUser((user, done) => {
     console.log("serializeUser", user);
-    done(null, user);  // Serialize using the user id for now.
+    done(null, user);
   });
 
   passport.deserializeUser((user, done) => {
     console.log("deserializeUser for ID:", user);
     
-    // You would typically fetch the user from your database here using the id.
-    // But for troubleshooting purposes, just return an example user object.
     done(null, user);
   });
 
