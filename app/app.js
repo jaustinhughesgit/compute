@@ -73,6 +73,7 @@ var strategiesConfig = {
         }
     }
 };
+const StrategyModule = require('passport-azure-ad');
 
 app.get('/auth/:strategy', async (req, res, next) => {
     const strategy = req.params.strategy;
@@ -84,7 +85,6 @@ app.get('/auth/:strategy', async (req, res, next) => {
         }
 
         const strategyConfig = strategiesConfig[strategy];
-        const StrategyModule = require(strategyConfig.strategyModule);
         const Strategy = StrategyModule[strategyConfig.strategyName];
         console.log("1")
         passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
