@@ -20,7 +20,7 @@ function ensureAuthenticated(req, res, next) {
     }
     res.redirect('/login');
   }
-  
+
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
@@ -87,6 +87,7 @@ passport.use(new MicrosoftStrategy({
     prompt: 'login',
     state: false,
     type: 'Web',
+    scope: ['user.read']
   }, (token, tokenSecret, profile, done) => {
     const userId = profile.id;
     const newUser = {
