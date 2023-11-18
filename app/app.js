@@ -117,7 +117,7 @@ passport.use(new MicrosoftStrategy({
     done(null, user);
   });
 app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
-app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
+app.all('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
 app.use('/', indexRouter);
 app.use('/controller', controllerRouter);
 
