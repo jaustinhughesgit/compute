@@ -76,33 +76,38 @@ var strategiesConfig = {
 
 app.get('/auth/:strategy', async (req, res, next) => {
     const strategy = req.params.strategy;
+    console.log("strategy",strategy)
     try {
         if (!strategiesConfig[strategy]) {
+            console.log("0")
             throw new Error(`Configuration for ${strategy} not found`);
         }
 
         const strategyConfig = strategiesConfig[strategy];
         const StrategyModule = require(strategyConfig.strategyModule);
         const Strategy = StrategyModule[strategyConfig.strategyName];
-
+        console.log("1")
         passport.use(strategy, new Strategy(strategyConfig.config, async (req, iss, sub, profile, accessToken, refreshToken, done) => {
             //const email = profile._json.email || profile._json.preferred_username || '';
             //const firstName = profile.name.givenName || '';
             //const lastName = profile.name.familyName || '';
             //const realEmail = true; 
-        
+            console.log("2")
             try {
+                console.log("3")
                 console.log("profile",profile);
                 //await registerOAuthUser(email, firstName, lastName, req, realEmail, false);
                 return done(null, profile);
             } catch (error) {
+               console.log("4")
                 return done(error);
             }
         }));
-        
+        console.log("5")
 
         passport.authenticate(strategy)(req, res, next);
     } catch (error) {
+        console.log("404")
         res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
     }
 });
