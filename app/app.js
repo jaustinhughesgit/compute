@@ -12,6 +12,7 @@ const dynamodb = new AWS.DynamoDB.DocumentClient();
 const SM = new AWS.SecretsManager();
 
 const app = express();
+const { v4: uuidv4 } = require('uuid');
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
