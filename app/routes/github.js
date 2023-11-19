@@ -24,10 +24,10 @@ router.get('/', async (req, res) => {
             event_type: 'install-npm-package',
         });
 
-        res.render('github', { message: "GitHub Actions workflow triggered successfully." });
+        res.render('github', { message: "GitHub Actions workflow triggered successfully.", error: null });
     } catch (error) {
         console.error("Error triggering GitHub Actions", error);
-        res.render('github', { error: "Error triggering GitHub Actions." });
+        res.render('github', { error: "Error triggering GitHub Actions.", message: null });
     }
 });
 
