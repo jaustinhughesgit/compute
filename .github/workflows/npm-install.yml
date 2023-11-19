@@ -10,11 +10,13 @@ jobs:
     steps:
     - name: Checkout Repository
       uses: actions/checkout@v2
+      with:
+        token: ${{ secrets.MY_GITHUB_PAT }} # Use your PAT here
 
     - name: Setup Node.js
       uses: actions/setup-node@v2
       with:
-        node-version: '14' # Specify the Node.js version
+        node-version: '18' # Specify the Node.js version
 
     - name: Install npm package
       run: npm install --save passport-apple
