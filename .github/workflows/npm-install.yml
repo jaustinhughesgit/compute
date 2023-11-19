@@ -11,15 +11,17 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v3
       with:
-        token: ${{ secrets.MY_GITHUB_PAT }} # Use your PAT here
+        token: ${{ secrets.MY_GITHUB_PAT }}
 
     - name: Setup Node.js
       uses: actions/setup-node@v3
       with:
-        node-version: '18' # Specify the Node.js version
+        node-version: '18'
 
     - name: Install npm package
-      run: npm install --save passport-google-oauth20
+      run: |
+        cd app
+        npm install --save passport-google-oauth20
 
     - name: Commit and Push Changes
       run: |
