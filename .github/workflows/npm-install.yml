@@ -21,12 +21,12 @@ jobs:
     - name: Install npm package
       run: |
         cd app
-        npm install --save passport-google-oauth20
+        npm install --save ${{ github.event.client_payload.packageName }}
 
     - name: Commit and Push Changes
       run: |
         git config --global user.name 'Lambda_Github'
         git config --global user.email 'jaustinhughes@outlook.com'
         git add app/package.json app/package-lock.json
-        git commit -m "Install passport-google-oauth20 npm package" || echo "No changes to commit"
+        git commit -m "Install ${{ github.event.client_payload.packageName }} npm package" || echo "No changes to commit"
         git push
