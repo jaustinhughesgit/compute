@@ -9,22 +9,22 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout Repository
-      uses: actions/checkout@v2
+      uses: actions/checkout@v3
       with:
         token: ${{ secrets.MY_GITHUB_PAT }} # Use your PAT here
 
     - name: Setup Node.js
-      uses: actions/setup-node@v2
+      uses: actions/setup-node@v3
       with:
         node-version: '18' # Specify the Node.js version
 
     - name: Install npm package
-      run: npm install --save passport-apple
+      run: npm install --save passport-google-oauth20
 
     - name: Commit and Push Changes
       run: |
         git config --global user.name 'Lambda_Github'
         git config --global user.email 'jaustinhughes@outlook.com'
         git add app/package.json app/package-lock.json
-        git commit -m "Install passport-apple npm package" || echo "No changes to commit"
+        git commit -m "Install passport-google-oauth20 npm package" || echo "No changes to commit"
         git push
