@@ -17,12 +17,12 @@ jobs:
         node-version: '14' # Specify the Node.js version
 
     - name: Install npm package
-      run: npm install passport-apple
+      run: npm install --save passport-apple
 
     - name: Commit and Push Changes
       run: |
         git config --global user.name 'Lambda_Github'
         git config --global user.email 'jaustinhughes@outlook.com'
-        git add app/package.json app/package-lock.json
-        git commit -m "Install passport-apple npm package"
+        git add package.json package-lock.json
+        git commit -m "Install passport-apple npm package" || echo "No changes to commit"
         git push
