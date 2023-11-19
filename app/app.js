@@ -7,7 +7,6 @@ const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
 var passport = require('passport');
 const session = require('express-session');
-const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
@@ -32,7 +31,7 @@ function ensureAuthenticated(req, res, next) {
         return next();
     }
     res.redirect('/login');
-  }
+}
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -50,44 +49,12 @@ app.use(passport.session());
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-
-
-
-/*passport.use(new MicrosoftStrategy({
-    clientID: process.env.MICROSOFT_CLIENT_ID,
-    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-    callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-    resource: 'https://graph.microsoft.com/',
-    tenant: process.env.MICROSOFT_TENANT_ID,
-    prompt: 'login',
-    state: false,
-    type: 'Web',
-    scope: ['user.read'],
-  }, (token, tokenSecret, profile, done) => {
-    console.log("profile",profile)
-    const userId = profile.id;
-    const newUser = {
-        id: userId,
-        name: profile.displayName,
-        provider: 'microsoft'
-    };
-        try {
-          console.log("newUser",newUser)
-      } catch (error) {
-              console.error(error);
-      }
-      done(null, newUser);
-  }));*/
-
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 
-
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
-
-// Authentication route
-//app.get('/auth/microsoft', passport.authenticate('microsoft', { scope: ['user.read'] }));
+const githubRouter = require('./routes/github');
 
 var strategiesConfig = {
     "microsoft": {
@@ -126,9 +93,6 @@ app.get('/auth/:strategy', async (req, res, next) => {
     }
 });
 
-
-// Callback route
-//app.get('/auth/microsoft/callback', passport.authenticate('microsoft', { failureRedirect: '/login' }), function(req, res) { res.redirect('/dashboard');});
 app.all('/auth/:strategy/callback', (req, res, next) => {
     const strategy = req.params.strategy;
     passport.authenticate(strategy, (err, user) => {
@@ -156,6 +120,7 @@ app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
+app.use('/github', githubRouter);
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
@@ -176,6 +141,5 @@ app.use(async (req, res, next) => {
         next();
     }
 });
-
 
 module.exports.lambdaHandler = serverless(app);

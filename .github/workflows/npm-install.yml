@@ -1,0 +1,15 @@
+name: Install NPM Package
+
+on:
+  repository_dispatch:
+    types: [install-npm-package]
+
+jobs:
+  install:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v2
+
+    - name: Install npm package
+      run: npm install passport-apple
