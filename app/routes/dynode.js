@@ -26,7 +26,7 @@ function processConfig(config) {
     }
 
     // Create app
-    const app = context[config.app.createWith]();
+    const app = express();
     context['app'] = app;
 
     // Apply configurations
