@@ -20,7 +20,7 @@ const json = {
 
 router.get('/', async function(req, res, next) {
     let context = processConfig(json);
-    res.render('dynode', { title: 'Dynode', time: JSON.stringify(context) });
+    res.render('dynode', { title: 'Dynode', time: context.timeInDubai.format() });
 });
 
 function processConfig(config) {
