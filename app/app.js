@@ -51,7 +51,6 @@ app.set('view engine', 'ejs');
 
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
-var dynodeRouter = require('./routes/dynode');
 
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
@@ -123,6 +122,7 @@ app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 app.use('/github', githubRouter);
+app.use('/dynode', dynodeRouter);
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
