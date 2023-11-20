@@ -51,10 +51,12 @@ app.set('view engine', 'ejs');
 
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
+var dynodeRouter = require('./routes/dynode');
 
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
+const dynodeRouter = require('./routes/dynode');
 
 var strategiesConfig = {
     "microsoft": {

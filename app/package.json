@@ -18,6 +18,8 @@
     "express-validator": "^7.0.1",
     "fs": "^0.0.1-security",
     "jsonwebtoken": "^9.0.2",
+    "moment": "^2.29.4",
+    "moment-timezone": "^0.5.43",
     "passport": "^0.6.0",
     "passport-apple": "^2.0.2",
     "passport-azure-ad": "^4.3.5",
