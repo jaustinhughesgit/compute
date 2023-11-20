@@ -6,15 +6,19 @@ const json = {
         "moment": "moment",
         "moment-timezone": "moment-timezone"
     },
-    "momentConfig": {
-        "timezone": "Asia/Dubai",
-        "format": "YYYY-MM-DD HH:mm:ss"
-    }
-}
+    "actions": [
+        { 
+            "module": "moment", 
+            "method": "tz", 
+            "params": ["Asia/Dubai"],
+            "assignTo": "timeInDubai"
+        }
+    ]
+};
 
-router.get('/', async function(req, res, next){
-    let result = await processConfig(json)
-    res.render('dynode', {title:result})
+router.get('/', async function(req, res, next) {
+    let context = processConfig(json);
+    res.render('dynode', { title: 'Dynode', time: context.timeInDubai.format() });
 });
 
 function processConfig(config) {
@@ -25,34 +29,16 @@ function processConfig(config) {
         context[key] = require(value);
     }
 
-    // Create app
-    const app = express();
-    context['app'] = app;
-
-    // Apply configurations
-    for (const action of config.app.use) {
+    // Apply actions
+    config.actions.forEach(action => {
         const targetModule = context[action.module];
-        const method = action.method;
-        const params = action.params ? action.params.map(p => transformParam(p, context)) : [];
-
-        targetModule[method](...params);
-    }
-
-    // ... handle routes and other settings ...
+        const result = targetModule(...(action.params || []));
+        if (action.assignTo) {
+            context[action.assignTo] = result;
+        }
+    });
 
     return context;
 }
-
-function transformParam(param, context) {
-    if (typeof param === 'string' && param.startsWith("exports.")) {
-        return eval(`(${param})`);
-    }
-    // ... handle other special param types ...
-    return param;
-}
-
-
-
-
 
 module.exports = router;
