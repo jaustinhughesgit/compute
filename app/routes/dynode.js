@@ -9,12 +9,14 @@ const json = {
     "actions": [
         { 
             "module": "moment", 
-            "method": "tz", 
-            "params": ["Asia/Dubai"],
+            "chain": [
+                { "method": "tz", "params": ["Asia/Dubai"] }
+            ],
             "assignTo": "timeInDubai"
         }
     ]
-};
+}
+
 
 router.get('/', async function(req, res, next) {
     let context = processConfig(json);
@@ -31,14 +33,28 @@ function processConfig(config) {
 
     // Apply actions
     config.actions.forEach(action => {
-        const targetModule = context[action.module];
-        const result = targetModule(...(action.params || []));
+        let result = context[action.module];
+
+        if (action.method) {
+            // If there's a method to call, call it on the module or the last result
+            result = result[action.method](...(action.params || []));
+        }
+
+        if (action.chain) {
+            // If there's a chain of methods, apply them in sequence
+            action.chain.forEach(chainAction => {
+                result = result[chainAction.method](...(chainAction.params || []));
+            });
+        }
+
         if (action.assignTo) {
+            // Assign the final result to the context
             context[action.assignTo] = result;
         }
     });
 
     return context;
 }
+
 
 module.exports = router;
