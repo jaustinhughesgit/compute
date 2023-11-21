@@ -23,10 +23,19 @@ jobs:
         cd app
         npm install --save ${{ github.event.client_payload.packageName }}
 
-    - name: Sync node_modules to S3
+    - name: Zip node_modules
       run: |
-        cd app
-        aws s3 sync node_modules s3://${{ secrets.AWS_S3_BUCKET }}/node_modules
+        cd app/node_modules
+        for dir in */; do
+          zip -r "${dir%/}.zip" "$dir"
+        done
+
+    - name: Upload Zipped Modules to S3
+      run: |
+        cd app/node_modules
+        for zipFile in *.zip; do
+          aws s3 cp "$zipFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile"
+        done
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
