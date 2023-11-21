@@ -1,4 +1,5 @@
 const AWS = require('aws-sdk');
+const fs = require('fs');
 var express = require('express');
 var router = express.Router();
 const path = require('path');
