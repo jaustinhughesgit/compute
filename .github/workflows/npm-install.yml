@@ -52,7 +52,7 @@ jobs:
         comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
         while read -r module; do
           if ! grep -q "$module" ../s3_file_list.txt; then
-            aws s3 cp "$module" s3://${{ secrets.AWS_S3_BUCKET }}/"$module"
+            aws s3 sync "$module" s3://${{ secrets.AWS_S3_BUCKET }}/"$module"
           fi
         done < <(comm -13 ../pre_install.txt ../post_install.txt)
       env:
