@@ -9,15 +9,18 @@ const s3 = new AWS.S3();
 
 router.get('/', async function(req, res, next) {
     try {
-        // Example: Download and load the 'debug' module
-        await downloadAndPrepareModule('debug');
+        // Download and load the 'moment' module
+        await downloadAndPrepareModule('moment');
         require('module').Module._initPaths();
-        const debug = require('debug')('myapp');
-        debug('Debug module is working!');
-        res.render('s3modules', { title: 's3 modules', message: 'Debug module loaded successfully!' });
+        const moment = require('moment'); // No need to pass 'myapp' here
+
+        // Get the current time using moment
+        const currentTime = moment().format('YYYY-MM-DD HH:mm:ss'); // Format as per your requirement
+
+        res.render('s3modules', { title: 'S3 Modules', message: `Moment module loaded successfully! Current time: ${currentTime}` });
     } catch (error) {
         console.error('Error:', error);
-        res.render('s3modules', { title: 's3 modules', error: 'Failed to load module.' });
+        res.render('s3modules', { title: 'S3 Modules', error: 'Failed to load module.' });
     }
 });
 
