@@ -38,15 +38,27 @@ jobs:
         cd app
         ls node_modules > post_install.txt
 
+    - name: List files in S3 Bucket
+      run: |
+        aws s3 ls s3://${{ secrets.AWS_S3_BUCKET }}/ --recursive > s3_file_list.txt
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: 'us-east-1'
+
     - name: Zip and upload new modules
       run: |
         cd app/node_modules
         comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
-        aws s3 cp new_modules.zip s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
+        while read -r module; do
+          if ! grep -q "$module" ../s3_file_list.txt; then
+            aws s3 cp "$module" s3://${{ secrets.AWS_S3_BUCKET }}/"$module"
+          fi
+        done < <(comm -13 ../pre_install.txt ../post_install.txt)
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: 'us-east-1' # Optional, but good practice to include
+        AWS_DEFAULT_REGION: 'us-east-1'
 
 
     - name: Commit and Push Changes
@@ -72,3 +84,4 @@ jobs:
       run: |
         cd app
         rm pre_install.txt post_install.txt new_modules.zip
+        
