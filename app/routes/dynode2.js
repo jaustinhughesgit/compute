@@ -55,9 +55,9 @@ async function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
-        context[key] = await downloadAndPrepareModule(value);
+        let newPath = await downloadAndPrepareModule(value);
         require('module').Module._initPaths();
-        //require(value);
+        context[key] = require(newPath); //require(value);
     }
 
     // Apply actions
