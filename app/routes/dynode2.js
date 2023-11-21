@@ -16,7 +16,8 @@ const json = {
             "assignTo": "timeInDubai"
         },
         {
-            "action": "moment",
+            "module": "moment",
+            "reinitialize": true, // Indicates to reinitialize the moment object
             "assignTo": "justTime",
             "valueFrom": "timeInDubai",
             "chain": [
@@ -27,10 +28,12 @@ const json = {
 }
 
 
+
 router.get('/', async function(req, res, next) {
     let context = processConfig(json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
+
 function processConfig(config) {
     const context = {};
 
@@ -42,24 +45,22 @@ function processConfig(config) {
     // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let result = applyMethodChain(context[action.module], action, context);
+            let result = action.valueFrom ? context[action.valueFrom] : context[action.module]();
+            if (action.reinitialize && context[action.module]) {
+                // Reinitialize the module object if required
+                result = context[action.module](result);
+            }
+            result = applyMethodChain(result, action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
-        } else if (action.action === 'var' && action.assignTo) {
-            let result = action.valueFrom ? context[action.valueFrom] : undefined;
-            // Check if there's a chain to apply
-            if (action.chain) {
-                // Apply the chain using the module specified in the valueFrom
-                result = applyMethodChain(result, action, context);
-            }
-            context[action.assignTo] = result;
         }
         // Additional actions like 'if' can be added here
     });
 
     return context;
 }
+
 
 function applyMethodChain(target, action, context) {
     let result = target;
