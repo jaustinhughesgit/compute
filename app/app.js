@@ -56,6 +56,7 @@ var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
 const dynodeRouter = require('./routes/dynode');
+const dynode2Router = require('./routes/dynode2');
 
 var strategiesConfig = {
     "microsoft": {
@@ -123,6 +124,7 @@ app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 app.use('/github', githubRouter);
 app.use('/dynode', dynodeRouter);
+app.use('/dynode2', dynode2Router);
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
