@@ -41,7 +41,13 @@ jobs:
     - name: Zip and upload new modules
       run: |
         cd app/node_modules
-        aws s3 cp ../post_install.txt s3://${{ secrets.AWS_S3_BUCKET }}/post_install.txt
+        comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
+        aws s3 cp new_modules.zip s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
+      env:
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_DEFAULT_REGION: 'us-east-1' # Optional, but good practice to include
+
 
     - name: Commit and Push Changes
       run: |
@@ -59,7 +65,7 @@ jobs:
         AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: 'us-west-1' # change to your region
+        AWS_REGION: 'us-east-1' # change to your region
         SOURCE_DIR: 'app'
 
     - name: Cleanup
