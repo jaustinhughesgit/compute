@@ -26,6 +26,7 @@ const json = {
     ]
 }
 
+
 router.get('/', async function(req, res, next) {
     let context = processConfig(json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
@@ -41,13 +42,13 @@ function processConfig(config) {
     // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let result = applyMethodChain(context[action.module], action);
+            let result = applyMethodChain(context[action.module], action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
         } else if (action.action === 'var' && action.assignTo) {
             let result = action.valueFrom ? context[action.valueFrom] : undefined;
-            result = applyMethodChain(result, action);
+            result = applyMethodChain(context[action.module], action, context);
             context[action.assignTo] = result;
         }
         // Additional actions like 'if' can be added here
@@ -56,9 +57,8 @@ function processConfig(config) {
     return context;
 }
 
-function applyMethodChain(target, action) {
+function applyMethodChain(target, action, context) {
     let result = target;
-    const module = result[action.module];
 
     // If there's an initial method to call on the module, do it first
     if (action.method && result) {
@@ -73,11 +73,16 @@ function applyMethodChain(target, action) {
             } else {
                 // Reapply the module if the result is not a function
                 // This is a risky operation and might not always work as expected
-                result = module(result);
-                if (typeof result[chainAction.method] === 'function') {
-                    result = result[chainAction.method](...(chainAction.params || []));
+                if (context[action.module]) {
+                    result = context[action.module](result);
+                    if (typeof result[chainAction.method] === 'function') {
+                        result = result[chainAction.method](...(chainAction.params || []));
+                    } else {
+                        console.error(`Method ${chainAction.method} is not a function on the result`);
+                        return;
+                    }
                 } else {
-                    console.error(`Method ${chainAction.method} is not a function on the result`);
+                    console.error(`Module ${action.module} not found in context`);
                     return;
                 }
             }
