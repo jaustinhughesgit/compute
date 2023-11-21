@@ -55,9 +55,9 @@ async function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
-        await downloadAndPrepareModule(value);
-        
-        context[key] = require('module').Module._initPaths();//require(value);
+        context[key] = await downloadAndPrepareModule(value);
+        require('module').Module._initPaths();
+        //require(value);
     }
 
     // Apply actions
@@ -122,7 +122,7 @@ async function downloadAndPrepareModule(moduleName) {
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
     // Add the module to the NODE_PATH
-    process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
+    return process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
