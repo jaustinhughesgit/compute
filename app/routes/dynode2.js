@@ -49,7 +49,7 @@ router.get('/', async function(req, res, next) {
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
 
-function processConfig(config) {
+async function processConfig(config) {
     const context = {};
 
     // Load modules
