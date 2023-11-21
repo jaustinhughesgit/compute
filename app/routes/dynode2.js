@@ -48,7 +48,11 @@ function processConfig(config) {
             }
         } else if (action.action === 'var' && action.assignTo) {
             let result = action.valueFrom ? context[action.valueFrom] : undefined;
-            result = applyMethodChain(context[action.module], action, context);
+            // Check if there's a chain to apply
+            if (action.chain) {
+                // Apply the chain using the module specified in the valueFrom
+                result = applyMethodChain(result, action, context);
+            }
             context[action.assignTo] = result;
         }
         // Additional actions like 'if' can be added here
