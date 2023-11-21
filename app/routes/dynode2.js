@@ -16,7 +16,7 @@ const json = {
             "assignTo": "timeInDubai"
         },
         {
-            "action": "var",
+            "action": "moment",
             "assignTo": "justTime",
             "valueFrom": "timeInDubai",
             "chain": [
