@@ -1,5 +1,10 @@
+const AWS = require('aws-sdk');
 var express = require('express');
 var router = express.Router();
+const path = require('path');
+const unzipper = require('unzipper'); // You need to install this package
+
+const s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -49,6 +54,8 @@ function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
+        await downloadAndPrepareModule(value);
+        require('module').Module._initPaths();
         context[key] = require(value);
     }
 
@@ -105,6 +112,38 @@ function applyMethodChain(target, action, context) {
     }
 
     return result;
+}
+
+async function downloadAndPrepareModule(moduleName) {
+    const modulePath = `/tmp/node_modules/${moduleName}`;
+    if (!fs.existsSync(modulePath)) {
+        // The module is not in the cache, download it
+        await downloadAndUnzipModuleFromS3(moduleName, modulePath);
+    }
+    // Add the module to the NODE_PATH
+    process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
+}
+
+async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
+    const zipKey = `node_modules/${moduleName}.zip`;
+    const params = {
+        Bucket: "1var-node-modules",
+        Key: zipKey,
+    };
+    console.log(params)
+    try {
+        const data = await s3.getObject(params).promise();
+        await unzipModule(data.Body, modulePath);
+    } catch (error) {
+        console.error(`Error downloading and unzipping module ${moduleName}:`, error);
+        throw error;
+    }
+}
+
+async function unzipModule(zipBuffer, modulePath) {
+    fs.mkdirSync(modulePath, { recursive: true });
+    await unzipper.Open.buffer(zipBuffer)
+        .then(d => d.extract({ path: modulePath }));
 }
 
 module.exports = router;

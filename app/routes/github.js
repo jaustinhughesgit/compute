@@ -22,7 +22,7 @@ router.get('/', async (req, res) => {
             owner: 'jaustinhughesgit',
             repo: 'compute',
             event_type: 'install-npm-package',
-            client_payload: { packageName: "moment" } 
+            client_payload: { packageName: "moment-timezone" } 
         });
 
         res.render('github', { message: "GitHub Actions workflow triggered successfully.", error: null });
