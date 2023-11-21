@@ -23,18 +23,35 @@ jobs:
         cd app
         npm install --save ${{ github.event.client_payload.packageName }}
 
-    - name: Zip node_modules
+    - name: Zip node_modules and Calculate Checksums
       run: |
         cd app/node_modules
         for dir in */; do
           zip -r "${dir%/}.zip" "$dir"
+          sha256sum "${dir%/}.zip" > "${dir%/}.zip.sha256"
         done
 
-    - name: Upload Zipped Modules to S3
+    - name: Upload Zipped Modules to S3 if Changed
       run: |
         cd app/node_modules
         for zipFile in *.zip; do
-          aws s3 cp "$zipFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile"
+          checksumFile="${zipFile}.sha256"
+          echo "Checking if $zipFile needs to be uploaded..."
+          if aws s3 ls "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$checksumFile"; then
+            echo "Checksum file for $zipFile exists. Comparing checksums..."
+            aws s3 cp "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$checksumFile" old_checksum.sha256
+            if ! cmp -s "$checksumFile" old_checksum.sha256; then
+              echo "Checksum differs. Uploading $zipFile..."
+              aws s3 cp "$zipFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile"
+              aws s3 cp "$checksumFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$checksumFile"
+            else
+              echo "$zipFile is up to date. No upload needed."
+            fi
+          else
+            echo "Checksum file for $zipFile does not exist. Uploading $zipFile..."
+            aws s3 cp "$zipFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile"
+            aws s3 cp "$checksumFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$checksumFile"
+          fi
         done
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
