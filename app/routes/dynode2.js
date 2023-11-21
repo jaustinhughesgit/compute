@@ -10,8 +10,7 @@ const json = {
         {
             "module": "moment",
             "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+                { "method": "tz", "params": ["Asia/Dubai"] }
             ],
             "assignTo": "timeInDubai"
         },
@@ -58,25 +57,15 @@ function processConfig(config) {
 }
 
 function applyMethodChain(target, action) {
-    let result = target;
-
-    // If there's an initial method to call on the module, do it first
-    if (action.method && result) {
-        result = result[action.method](...(action.params || []));
+    if (action.method && target) {
+        target = target[action.method](...(action.params || []));
     }
-
-    // Then apply any additional methods in the chain
-    if (action.chain && result) {
+    if (action.chain && target) {
         action.chain.forEach(chainAction => {
-            if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...(chainAction.params || []));
-            } else {
-                throw new TypeError(`Method ${chainAction.method} is not a function on the result object`);
-            }
+            target = target[chainAction.method](...(chainAction.params || []));
         });
     }
-
-    return result;
+    return target;
 }
 
 
