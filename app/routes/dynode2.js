@@ -19,7 +19,7 @@ const json = {
             "assignTo": "justTime",
             "valueFrom": "timeInDubai",
             "chain": [
-                { "method": "format", "params": ["HH:mm"] }
+                { "method": "format", "params": ["hh:mm"] }
             ]
         }
     ]
