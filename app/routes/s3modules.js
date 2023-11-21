@@ -36,7 +36,7 @@ async function downloadModuleFromS3(moduleName, modulePath) {
         Key: `node_modules/${moduleName}`,
         // If your modules are stored in a nested structure, adjust the Key accordingly
     };
-
+    console.log(params)
     try {
         const data = await s3.getObject(params).promise();
         fs.mkdirSync(path.dirname(modulePath), { recursive: true });
