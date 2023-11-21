@@ -21,7 +21,7 @@ jobs:
     - name: Capture pre-install state of node_modules
       run: |
         cd app
-        ls node_modules > pre_install.txt
+        ls app/node_modules > pre_install.txt
 
     - name: Install npm package
       run: |
@@ -31,7 +31,7 @@ jobs:
     - name: Capture post-install state of node_modules
       run: |
         cd app
-        ls node_modules > post_install.txt
+        ls app/node_modules > post_install.txt
 
     - name: Zip and upload new modules
       run: |
