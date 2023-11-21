@@ -25,7 +25,7 @@ jobs:
           mkdir -p node_modules
           touch pre_install.txt
         else
-          ls node_modules > pre_install.txt
+          ls app/node_modules > pre_install.txt
         fi
 
     - name: Install npm package
@@ -41,8 +41,7 @@ jobs:
     - name: Zip and upload new modules
       run: |
         cd app/node_modules
-        comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
-        aws s3 cp new_modules.zip s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
+        aws s3 cp ../post_install.txt s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
 
     - name: Commit and Push Changes
       run: |
