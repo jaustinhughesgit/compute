@@ -23,6 +23,16 @@ const json = {
             "chain": [
                 { "method": "format", "params": ["HH:mm"] }
             ]
+        },
+        {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "timeInDubai",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "add", "params": [1, "hours"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ]
         }
     ]
 }
