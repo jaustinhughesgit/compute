@@ -21,7 +21,12 @@ jobs:
     - name: Capture pre-install state of node_modules
       run: |
         cd app
-        ls app/node_modules > pre_install.txt
+        if [ ! -d "node_modules" ]; then
+          mkdir -p node_modules
+          touch pre_install.txt
+        else
+          ls node_modules > pre_install.txt
+        fi
 
     - name: Install npm package
       run: |
@@ -31,7 +36,7 @@ jobs:
     - name: Capture post-install state of node_modules
       run: |
         cd app
-        ls app/node_modules > post_install.txt
+        ls node_modules > post_install.txt
 
     - name: Zip and upload new modules
       run: |
