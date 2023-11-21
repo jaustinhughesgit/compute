@@ -69,11 +69,11 @@ function applyMethodChain(target, action) {
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
             // Ensure the method exists and is callable
-            if (typeof result[chainAction.method] === 'function') {
+            //if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...(chainAction.params || []));
-            } else {
-                throw new TypeError(`Method ${chainAction.method} is not a function on the result object`);
-            }
+            //} else {
+            //    throw new TypeError(`Method ${chainAction.method} is not a function on the result object`);
+            //}
         });
     }
 
