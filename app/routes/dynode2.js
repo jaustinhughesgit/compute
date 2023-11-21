@@ -58,7 +58,7 @@ function processConfig(config) {
 
 function applyMethodChain(target, action) {
     let result = target;
-    const module = context[action.module];
+    const module = result[action.module];
 
     // If there's an initial method to call on the module, do it first
     if (action.method && result) {
