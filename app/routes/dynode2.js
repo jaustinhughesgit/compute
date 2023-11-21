@@ -57,16 +57,28 @@ function processConfig(config) {
 }
 
 function applyMethodChain(target, action) {
-    if (action.method && target) {
-        target = target[action.method](...(action.params || []));
+    let result = target;
+
+    // If there's an initial method to call on the module, do it first
+    if (action.method && result) {
+        result = result[action.method](...(action.params || []));
     }
-    if (action.chain && target) {
+
+    // Then apply any additional methods in the chain
+    if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            target = target[chainAction.method](...(chainAction.params || []));
+            // Ensure the method exists and is callable
+            if (typeof result[chainAction.method] === 'function') {
+                result = result[chainAction.method](...(chainAction.params || []));
+            } else {
+                throw new TypeError(`Method ${chainAction.method} is not a function on the result object`);
+            }
         });
     }
-    return target;
+
+    return result;
 }
+
 
 
 
