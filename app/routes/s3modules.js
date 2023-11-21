@@ -34,9 +34,10 @@ async function downloadAndPrepareModule(moduleName) {
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
     const zipKey = `node_modules/${moduleName}.zip`;
     const params = {
-        Bucket: "mybucketname",
+        Bucket: "1var-node-modules",
         Key: zipKey,
     };
+    console.log(params)
     try {
         const data = await s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
