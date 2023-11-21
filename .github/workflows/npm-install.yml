@@ -18,10 +18,26 @@ jobs:
       with:
         node-version: '18'
 
+    - name: Capture pre-install state of node_modules
+      run: |
+        cd app
+        ls node_modules > pre_install.txt
+
     - name: Install npm package
       run: |
         cd app
         npm install --save ${{ github.event.client_payload.packageName }}
+
+    - name: Capture post-install state of node_modules
+      run: |
+        cd app
+        ls node_modules > post_install.txt
+
+    - name: Zip and upload new modules
+      run: |
+        cd app
+        comm -13 pre_install.txt post_install.txt | xargs zip new_modules.zip
+        aws s3 cp new_modules.zip s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
 
     - name: Commit and Push Changes
       run: |
@@ -30,3 +46,19 @@ jobs:
         git add app/package.json app/package-lock.json
         git commit -m "Install ${{ github.event.client_payload.packageName }} npm package" || echo "No changes to commit"
         git push
+
+    - name: Upload to S3
+      uses: jakejarvis/s3-sync-action@master
+      with:
+        args: --acl public-read --follow-symlinks
+      env:
+        AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+        AWS_REGION: 'us-west-1' # change to your region
+        SOURCE_DIR: 'app'
+
+    - name: Cleanup
+      run: |
+        cd app
+        rm pre_install.txt post_install.txt new_modules.zip
