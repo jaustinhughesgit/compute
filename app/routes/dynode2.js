@@ -26,7 +26,6 @@ const json = {
     ]
 }
 
-
 router.get('/', async function(req, res, next) {
     let context = processConfig(json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
@@ -59,6 +58,7 @@ function processConfig(config) {
 
 function applyMethodChain(target, action) {
     let result = target;
+    const module = context[action.module];
 
     // If there's an initial method to call on the module, do it first
     if (action.method && result) {
@@ -68,19 +68,23 @@ function applyMethodChain(target, action) {
     // Then apply any additional methods in the chain
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            // Ensure the method exists and is callable
-            //if (typeof result[chainAction.method] === 'function') {
+            if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...(chainAction.params || []));
-            //} else {
-            //    throw new TypeError(`Method ${chainAction.method} is not a function on the result object`);
-            //}
+            } else {
+                // Reapply the module if the result is not a function
+                // This is a risky operation and might not always work as expected
+                result = module(result);
+                if (typeof result[chainAction.method] === 'function') {
+                    result = result[chainAction.method](...(chainAction.params || []));
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on the result`);
+                    return;
+                }
+            }
         });
     }
 
     return result;
 }
-
-
-
 
 module.exports = router;
