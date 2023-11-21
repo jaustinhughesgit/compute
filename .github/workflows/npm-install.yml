@@ -41,7 +41,7 @@ jobs:
     - name: Zip and upload new modules
       run: |
         cd app/node_modules
-        comm -13 pre_install.txt post_install.txt | xargs zip new_modules.zip
+        comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
         aws s3 cp new_modules.zip s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
 
     - name: Commit and Push Changes
