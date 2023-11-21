@@ -18,48 +18,19 @@ jobs:
       with:
         node-version: '18'
 
-    - name: Capture pre-install state of node_modules
-      run: |
-        cd app
-        if [ ! -d "node_modules" ]; then
-          mkdir -p node_modules
-          touch pre_install.txt
-        else
-          ls app/node_modules > pre_install.txt
-        fi
-
     - name: Install npm package
       run: |
         cd app
         npm install --save ${{ github.event.client_payload.packageName }}
 
-    - name: Capture post-install state of node_modules
+    - name: Sync node_modules to S3
       run: |
         cd app
-        ls node_modules > post_install.txt
-
-    - name: List files in S3 Bucket
-      run: |
-        aws s3 ls s3://${{ secrets.AWS_S3_BUCKET }}/ --recursive > s3_file_list.txt
+        aws s3 sync node_modules s3://${{ secrets.AWS_S3_BUCKET }}/node_modules
       env:
         AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         AWS_DEFAULT_REGION: 'us-east-1'
-
-    - name: Zip and upload new modules
-      run: |
-        cd app/node_modules
-        comm -13 ../pre_install.txt ../post_install.txt | xargs zip new_modules.zip
-        while read -r module; do
-          if ! grep -q "$module" ../s3_file_list.txt; then
-            aws s3 sync "$module" s3://${{ secrets.AWS_S3_BUCKET }}/"$module"
-          fi
-        done < <(comm -13 ../pre_install.txt ../post_install.txt)
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: 'us-east-1'
-
 
     - name: Commit and Push Changes
       run: |
@@ -68,7 +39,3 @@ jobs:
         git add app/package.json app/package-lock.json
         git commit -m "Install ${{ github.event.client_payload.packageName }} npm package" || echo "No changes to commit"
         git push
-
-
-
-        
