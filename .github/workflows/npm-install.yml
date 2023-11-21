@@ -41,7 +41,7 @@ jobs:
     - name: Zip and upload new modules
       run: |
         cd app/node_modules
-        aws s3 cp ../post_install.txt s3://${{ secrets.AWS_S3_BUCKET }}/new_modules.zip
+        aws s3 cp ../post_install.txt s3://${{ secrets.AWS_S3_BUCKET }}/post_install.txt
 
     - name: Commit and Push Changes
       run: |
