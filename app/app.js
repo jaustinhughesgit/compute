@@ -8,6 +8,8 @@ const { v4: uuidv4 } = require('uuid');
 var passport = require('passport');
 const session = require('express-session');
 
+console.log("test")
+
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
