@@ -69,8 +69,6 @@ jobs:
         git commit -m "Install ${{ github.event.client_payload.packageName }} npm package" || echo "No changes to commit"
         git push
 
-    - name: Cleanup
-      run: |
-        cd app
-        rm pre_install.txt post_install.txt new_modules.zip
+
+
         
