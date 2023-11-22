@@ -47,6 +47,7 @@ const json = {
 
 router.get('/', async function(req, res, next) {
     let context = await processConfig(json);
+    await initializeModules(context, json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
 
@@ -55,10 +56,20 @@ async function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
-        let newPath = await downloadAndPrepareModule(value);
+        let newPath = await downloadAndPrepareModule(value, context);
         console.log(newPath);
-        require('module').Module._initPaths();
-        context[key] = require(newPath); //require(value);
+    }
+
+    return context;
+}
+
+
+async function initializeModules(context, config) {
+    require('module').Module._initPaths();
+
+    // Require modules
+    for (const [key, value] of Object.entries(config.modules)) {
+        context[key] = require(value); // Assuming the module is now in node_modules
         console.log(context[key]);
     }
 
@@ -77,9 +88,9 @@ async function processConfig(config) {
         }
         // Additional actions like 'if' can be added here
     });
-
-    return context;
 }
+
+
 
 
 function applyMethodChain(target, action, context) {
@@ -117,7 +128,7 @@ function applyMethodChain(target, action, context) {
     return result;
 }
 
-async function downloadAndPrepareModule(moduleName) {
+async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
         // The module is not in the cache, download it
