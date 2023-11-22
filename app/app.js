@@ -59,6 +59,7 @@ var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
 const dynodeRouter = require('./routes/dynode');
 const dynode2Router = require('./routes/dynode2');
+const dynode3Router = require('./routes/dynode3');
 const s3modulesRouter = require('./routes/s3modules');
 
 var strategiesConfig = {
@@ -128,6 +129,7 @@ app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 app.use('/github', githubRouter);
 app.use('/dynode', dynodeRouter);
 app.use('/dynode2', dynode2Router);
+app.use('/dynode3', dynode3Router);
 app.use('/s3modules', s3modulesRouter);
 
 var cookiesRouter;

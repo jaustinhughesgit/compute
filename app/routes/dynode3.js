@@ -9,16 +9,36 @@ const s3 = new AWS.S3();
 
 const json = {
     "modules": {
-        "moment": "moment"
+        "moment": "moment",
+        "moment-timezone": "moment-timezone"
     },
     "actions": [
         {
             "module": "moment",
             "chain": [
-                { "method": "utc" }, // Get the current UTC time
+                { "method": "tz", "params": ["Asia/Dubai"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
-            "assignTo": "universalTime"
+            "assignTo": "timeInDubai"
+        },
+        {
+            "module": "moment",
+            "reinitialize": true, // Indicates to reinitialize the moment object
+            "assignTo": "justTime",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
+        },
+        {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "timeInDubai",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "add", "params": [1, "hours"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ]
         }
     ]
 }
