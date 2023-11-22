@@ -134,7 +134,7 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
         Bucket: "1var-node-modules",
         Key: zipKey,
     };
-    console.log(params)
+    console.log(params);
     try {
         const data = await s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
@@ -146,8 +146,8 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
 
 async function unzipModule(zipBuffer, modulePath) {
     fs.mkdirSync(modulePath, { recursive: true });
-    await unzipper.Open.buffer(zipBuffer)
-        .then(d => d.extract({ path: modulePath }));
+    const directory = await unzipper.Open.buffer(zipBuffer);
+    await directory.extract({ path: modulePath });
 }
 
 module.exports = router;
