@@ -56,8 +56,8 @@ async function processConfig(config) {
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
         let newPath = await downloadAndPrepareModule(value);
-        console.log(newPath)
-        await require('module').Module._initPaths();
+        console.log(newPath);
+        require('module').Module._initPaths();
         context[key] = require(newPath); //require(value);
         console.log(context[key]);
     }
@@ -125,7 +125,7 @@ async function downloadAndPrepareModule(moduleName) {
     }
     // Add the module to the NODE_PATH
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
-    return modulePath
+    return modulePath; // Return the module path
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
