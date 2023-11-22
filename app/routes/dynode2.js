@@ -124,7 +124,8 @@ async function downloadAndPrepareModule(moduleName) {
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
     // Add the module to the NODE_PATH
-    return process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
+    process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
+    return modulePath
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
