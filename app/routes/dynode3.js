@@ -10,12 +10,7 @@ const s3 = new AWS.S3();
 const json = {
     "modules": {
         "moment": "moment",
-        "moment-timezone": "moment-timezone",
-        "fs": "fs",
-        "path": "path",
-        "unzipper": "unzipper",
-        "aws-sdk": "aws-sdk",
-        "express": "express"
+        "moment-timezone": "moment-timezone"
     },
     "actions": [
         {
@@ -44,13 +39,6 @@ const json = {
                 { "method": "add", "params": [1, "hours"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ]
-        },
-        {
-            "module": "fs",
-            "method": "readFile",
-            "params": ["example.txt", "utf8"],
-            "assignTo": "fileContents",
-            "callback": true // Indicates that this method uses a callback
         }
     ]
 }
@@ -68,10 +56,8 @@ async function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
-        if (!isNativeModule(value)) {
-            let newPath = await downloadAndPrepareModule(value, context);
-            console.log(newPath);
-        }
+        let newPath = await downloadAndPrepareModule(value, context);
+        console.log(newPath);
     }
 
     return context;
@@ -104,30 +90,15 @@ async function initializeModules(context, config) {
     });
 }
 
-function isNativeModule(moduleName) {
-    // List of Node.js native modules
-    const nativeModules = ['fs', 'path', 'aws-sdk', 'express', 'unzipper'];
-    return nativeModules.includes(moduleName);
-}
+
+
 
 function applyMethodChain(target, action, context) {
     let result = target;
 
     // If there's an initial method to call on the module, do it first
     if (action.method && result) {
-        if (action.callback) {
-            // Handle callback pattern
-            result[action.method](...action.params, (err, data) => {
-                if (err) {
-                    console.error(`Error in method ${action.method}:`, err);
-                    return;
-                }
-                context[action.assignTo] = data;
-            });
-        } else {
-            // Handle promise or direct return
-            result = result[action.method](...(action.params || []));
-        }
+        result = result[action.method](...(action.params || []));
     }
 
     // Then apply any additional methods in the chain
