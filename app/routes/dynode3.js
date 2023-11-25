@@ -46,11 +46,16 @@ const json = {
             ]
         },
         {
+            "module": "custom",
+            "assignTo": "scriptDir",
+            "value": __dirname
+        },
+        {
             "module": "fs",
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [path.join(__dirname, "../example.txt"), "utf8"],
+                    "params": ["{scriptDir}/../example.txt", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
@@ -92,7 +97,10 @@ async function initializeModules(context, config) {
 
     // Apply actions
     config.actions.forEach(action => {
-        if (action.module) {
+        if (action.module === 'custom') {
+            // Handle custom actions like assigning values directly
+            context[action.assignTo] = action.value;
+        } else if (action.module) {
             let moduleInstance = context[action.module];
 
             // Check if the moduleInstance is a function or an object
