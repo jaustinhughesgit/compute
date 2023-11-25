@@ -46,7 +46,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": ["/var/task/app/routes/example.txt", "utf8"],
+                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
