@@ -34,29 +34,25 @@ const json = {
         },
         {
             "module": "express",
-            "chain": [
+            "method": "Router",
+            "assignTo": "dynodeRouter"
+        },
+        {
+            "target": "dynodeRouter",
+            "method": "get",
+            "params": [
+                "/test",
                 {
-                    "method": "Router",
-                    "assignTo": "router"
-                },
-                {
-                    "target": "router",
-                    "method": "get",
-                    "params": [
-                        "/test",
-                        {
-                            "module": "res",
-                            "method": "send",
-                            "params": ["Response from /test"]
-                        }
-                    ]
-                },
-                {
-                    "target": "router",
-                    "method": "use",
-                    "params": ["/test"]
+                    "module": "res",
+                    "method": "send",
+                    "params": ["Response from /dynode4/test"]
                 }
             ]
+        },
+        {
+            "module": "app", // Assuming 'app' is your main Express application instance
+            "method": "use",
+            "params": ["/dynode4", "dynodeRouter"]
         }
     ]
 }
