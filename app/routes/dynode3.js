@@ -45,8 +45,8 @@ const json = {
             "module": "fs",
             "chain": [
                 {
-                    "method": "readFile",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                    "method": "readFileSync",
+                    "params": ["/var/task/app/routes/../example.json", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
