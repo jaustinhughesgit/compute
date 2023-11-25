@@ -12,7 +12,10 @@ const json = {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
         "fs": "fs",
-        "path": "path"
+        "path": "path",
+        "unzipper": "unzipper",
+        "aws-sdk": "aws-sdk",
+        "express": "express"
     },
     "actions": [
         {
@@ -47,7 +50,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [path.join(__dirname, "../example.txt"), "utf8"],
+                    "params": [__dirname+"../example.txt", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
@@ -108,7 +111,7 @@ async function initializeModules(context, config) {
 
 function isNativeModule(moduleName) {
     // List of Node.js native modules
-    const nativeModules = ['fs', 'path'];
+    const nativeModules = ['fs', 'path', 'aws-sdk', 'express', 'unzipper'];
     return nativeModules.includes(moduleName);
 }
 
