@@ -50,7 +50,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [__dirname + "/../example.txt", "utf8"],
+                    "params": [path.join(__dirname, "../example.txt"), "utf8"],
                 }
             ],
             "assignTo": "fileContents"
@@ -152,12 +152,16 @@ function applyMethodChain(target, action, context) {
 }
 
 function handleCallbackMethod(method, action, context) {
-    method(...action.params, (err, data) => {
-        if (err) {
-            console.error(`Error in method ${action.method}:`, err);
-            return;
-        }
-        context[action.assignTo] = data;
+    return new Promise((resolve, reject) => {
+        method(...action.params, (err, data) => {
+            if (err) {
+                console.error(`Error in method ${action.method}:`, err);
+                reject(err);
+                return;
+            }
+            context[action.assignTo] = data;
+            resolve(data);
+        });
     });
 }
 
