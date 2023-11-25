@@ -93,11 +93,13 @@ async function initializeModules(context, config) {
     // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let result = action.valueFrom ? context[action.valueFrom] : context[action.module]();
-            if (action.reinitialize && context[action.module]) {
-                // Reinitialize the module object if required
-                result = context[action.module](result);
-            }
+            let moduleInstance = context[action.module];
+
+            // Check if the moduleInstance is a function or an object
+            let result = typeof moduleInstance === 'function' 
+                ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
+                : moduleInstance;
+
             result = applyMethodChain(result, action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
@@ -117,47 +119,46 @@ function applyMethodChain(target, action, context) {
     let result = target;
 
     // If there's an initial method to call on the module, do it first
-    if (action.method && result) {
-        if (action.callback) {
-            // Handle callback pattern
-            result[action.method](...action.params, (err, data) => {
-                if (err) {
-                    console.error(`Error in method ${action.method}:`, err);
-                    return;
-                }
-                context[action.assignTo] = data;
-            });
+    if (action.method) {
+        if (typeof result === 'function') {
+            // Handle the case where the module itself is a function
+            result = action.callback 
+                ? handleCallbackMethod(result, action, context) 
+                : result[action.method](...(action.params || []));
+        } else if (result && typeof result[action.method] === 'function') {
+            // Handle the case where the module is an object with methods
+            result = action.callback 
+                ? handleCallbackMethod(result[action.method], action, context) 
+                : result[action.method](...(action.params || []));
         } else {
-            // Handle promise or direct return
-            result = result[action.method](...(action.params || []));
+            console.error(`Method ${action.method} is not a function on ${action.module}`);
+            return;
         }
     }
 
-    // Then apply any additional methods in the chain
+    // Apply any additional methods in the chain
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            if (typeof result[chainAction.method] === 'function') {
+            if (result && typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...(chainAction.params || []));
             } else {
-                // Reapply the module if the result is not a function
-                // This is a risky operation and might not always work as expected
-                if (context[action.module]) {
-                    result = context[action.module](result);
-                    if (typeof result[chainAction.method] === 'function') {
-                        result = result[chainAction.method](...(chainAction.params || []));
-                    } else {
-                        console.error(`Method ${chainAction.method} is not a function on the result`);
-                        return;
-                    }
-                } else {
-                    console.error(`Module ${action.module} not found in context`);
-                    return;
-                }
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
             }
         });
     }
 
     return result;
+}
+
+function handleCallbackMethod(method, action, context) {
+    method(...action.params, (err, data) => {
+        if (err) {
+            console.error(`Error in method ${action.method}:`, err);
+            return;
+        }
+        context[action.assignTo] = data;
+    });
 }
 
 async function downloadAndPrepareModule(moduleName, context) {
