@@ -12,10 +12,7 @@ const json = {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
         "fs": "fs",
-        "path": "path",
-        "unzipper": "unzipper",
-        "aws-sdk": "aws-sdk",
-        "express": "express"
+        "path": "path"
     },
     "actions": [
         {
@@ -111,7 +108,7 @@ async function initializeModules(context, config) {
 
 function isNativeModule(moduleName) {
     // List of Node.js native modules
-    const nativeModules = ['fs', 'path', 'aws-sdk', 'express', 'unzipper'];
+    const nativeModules = ['fs', 'path'];
     return nativeModules.includes(moduleName);
 }
 
@@ -152,16 +149,12 @@ function applyMethodChain(target, action, context) {
 }
 
 function handleCallbackMethod(method, action, context) {
-    return new Promise((resolve, reject) => {
-        method(...action.params, (err, data) => {
-            if (err) {
-                console.error(`Error in method ${action.method}:`, err);
-                reject(err);
-                return;
-            }
-            context[action.assignTo] = data;
-            resolve(data);
-        });
+    method(...action.params, (err, data) => {
+        if (err) {
+            console.error(`Error in method ${action.method}:`, err);
+            return;
+        }
+        context[action.assignTo] = data;
     });
 }
 
