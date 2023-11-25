@@ -54,7 +54,7 @@ const json = {
                 {
                     "target": "router",
                     "method": "use",
-                    "params": ["/dynode4"]
+                    "params": ["/test"]
                 }
             ]
         }
