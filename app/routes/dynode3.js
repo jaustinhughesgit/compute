@@ -10,7 +10,12 @@ const s3 = new AWS.S3();
 const json = {
     "modules": {
         "moment": "moment",
-        "moment-timezone": "moment-timezone"
+        "moment-timezone": "moment-timezone",
+        "fs": "fs",
+        "path": "path",
+        "unzipper": "unzipper",
+        "aws-sdk": "aws-sdk",
+        "express": "express"
     },
     "actions": [
         {
@@ -63,8 +68,10 @@ async function processConfig(config) {
 
     // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
-        let newPath = await downloadAndPrepareModule(value, context);
-        console.log(newPath);
+        if (!isNativeModule(value)) {
+            let newPath = await downloadAndPrepareModule(value, context);
+            console.log(newPath);
+        }
     }
 
     return context;
@@ -79,13 +86,6 @@ async function initializeModules(context, config) {
         context[key] = require(value); // Assuming the module is now in node_modules
         console.log(context[key]);
     }
-
-    json.modules["aws-sdk"] = "aws-sdk"
-    json.modules["fs"] = "fs"
-    json.modules["express"] = "express"
-    json.modules["router"] = "router"
-    json.modules["path"] = "path"
-    json.modules["unzipper"] = "unzipper"
 
     // Apply actions
     config.actions.forEach(action => {
@@ -104,8 +104,11 @@ async function initializeModules(context, config) {
     });
 }
 
-
-
+function isNativeModule(moduleName) {
+    // List of Node.js native modules
+    const nativeModules = ['fs', 'path', 'aws-sdk', 'express', 'unzipper'];
+    return nativeModules.includes(moduleName);
+}
 
 function applyMethodChain(target, action, context) {
     let result = target;
