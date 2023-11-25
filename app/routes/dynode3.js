@@ -50,7 +50,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [__dirname + "../example.txt", "utf8"],
+                    "params": [__dirname + "/../example.txt", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
