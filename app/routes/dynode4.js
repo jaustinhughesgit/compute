@@ -80,18 +80,11 @@ async function processConfig(config) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
-    // Require modules
-    for (const [key, value] of Object.entries(config.modules)) {
-        context[key] = require(value); // Assuming the module is now in node_modules
-        console.log(context[key]);
-    }
-
     // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let moduleInstance = context[action.module];
+            let moduleInstance = require(action.module); // Directly require the module
 
-            // Check if the moduleInstance is a function or an object
             let result = typeof moduleInstance === 'function' 
                 ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
                 : moduleInstance;
@@ -117,12 +110,10 @@ function applyMethodChain(target, action, context) {
     // If there's an initial method to call on the module, do it first
     if (action.method) {
         if (typeof result === 'function') {
-            // Handle the case where the module itself is a function
             result = action.callback 
                 ? handleCallbackMethod(result, action, context) 
                 : result[action.method](...(action.params || []));
         } else if (result && typeof result[action.method] === 'function') {
-            // Handle the case where the module is an object with methods
             result = action.callback 
                 ? handleCallbackMethod(result[action.method], action, context) 
                 : result[action.method](...(action.params || []));
@@ -153,7 +144,7 @@ function handleCallbackMethod(method, action, context) {
             console.error(`Error in method ${action.method}:`, err);
             return;
         }
-        //context[action.assignTo] = data;
+        context[action.assignTo] = data;
     });
 }
 
