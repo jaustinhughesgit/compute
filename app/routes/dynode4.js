@@ -101,10 +101,6 @@ function isNativeModule(moduleName) {
 function applyMethodChain(target, action, context) {
     let result = target;
 
-        // If the action specifies a target, use it from the context
-        if (action.target) {
-            result = context[action.target];
-        }
 
     if (action.method) {
         if (typeof result === 'function') {
