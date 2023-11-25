@@ -39,6 +39,13 @@ const json = {
                 { "method": "add", "params": [1, "hours"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ]
+        },
+        {
+            "module": "fs",
+            "method": "readFile",
+            "params": ["example.txt", "utf8"],
+            "assignTo": "fileContents",
+            "callback": true // Indicates that this method uses a callback
         }
     ]
 }
@@ -73,6 +80,13 @@ async function initializeModules(context, config) {
         console.log(context[key]);
     }
 
+    json.modules["aws-sdk"] = "aws-sdk"
+    json.modules["fs"] = "fs"
+    json.modules["express"] = "express"
+    json.modules["router"] = "router"
+    json.modules["path"] = "path"
+    json.modules["unzipper"] = "unzipper"
+
     // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
@@ -98,7 +112,19 @@ function applyMethodChain(target, action, context) {
 
     // If there's an initial method to call on the module, do it first
     if (action.method && result) {
-        result = result[action.method](...(action.params || []));
+        if (action.callback) {
+            // Handle callback pattern
+            result[action.method](...action.params, (err, data) => {
+                if (err) {
+                    console.error(`Error in method ${action.method}:`, err);
+                    return;
+                }
+                context[action.assignTo] = data;
+            });
+        } else {
+            // Handle promise or direct return
+            result = result[action.method](...(action.params || []));
+        }
     }
 
     // Then apply any additional methods in the chain
