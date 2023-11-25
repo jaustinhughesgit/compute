@@ -11,11 +11,7 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs",
-        "path": "path",
-        "unzipper": "unzipper",
-        "aws-sdk": "aws-sdk",
-        "express": "express"
+        "fs": "fs"
     },
     "actions": [
         {
@@ -111,7 +107,7 @@ async function initializeModules(context, config) {
 
 function isNativeModule(moduleName) {
     // List of Node.js native modules
-    const nativeModules = ['fs', 'path', 'aws-sdk', 'express', 'unzipper'];
+    const nativeModules = ['fs'];
     return nativeModules.includes(moduleName);
 }
 
