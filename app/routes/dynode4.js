@@ -153,7 +153,7 @@ function handleCallbackMethod(method, action, context) {
             console.error(`Error in method ${action.method}:`, err);
             return;
         }
-        context[action.assignTo] = data;
+        //context[action.assignTo] = data;
     });
 }
 
