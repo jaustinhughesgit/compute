@@ -23,6 +23,25 @@ const json = {
             "assignTo": "timeInDubai"
         },
         {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "justTime",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
+        },
+        {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "timeInDubai",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "add", "params": [1, "hours"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ]
+        },
+        {
             "module": "fs",
             "chain": [
                 {
@@ -31,28 +50,6 @@ const json = {
                 }
             ],
             "assignTo": "fileContents"
-        },
-        {
-            "module": "express",
-            "method": "Router",
-            "assignTo": "dynodeRouter"
-        },
-        {
-            "target": "dynodeRouter",
-            "method": "get",
-            "params": [
-                "/test",
-                {
-                    "module": "res",
-                    "method": "send",
-                    "params": ["Response from /dynode4/test"]
-                }
-            ]
-        },
-        {
-            "module": "app", // Assuming 'app' is your main Express application instance
-            "method": "use",
-            "params": ["/dynode4", "dynodeRouter"]
         }
     ]
 }
@@ -100,7 +97,6 @@ function isNativeModule(moduleName) {
 
 function applyMethodChain(target, action, context) {
     let result = target;
-
 
     if (action.method) {
         if (typeof result === 'function') {
