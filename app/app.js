@@ -60,7 +60,7 @@ const githubRouter = require('./routes/github');
 const dynodeRouter = require('./routes/dynode');
 const dynode2Router = require('./routes/dynode2');
 const dynode3Router = require('./routes/dynode3');
-const dynode3Router = require('./routes/dynode4');
+const dynode4Router = require('./routes/dynode4');
 const s3modulesRouter = require('./routes/s3modules');
 
 var strategiesConfig = {
@@ -131,7 +131,7 @@ app.use('/github', githubRouter);
 app.use('/dynode', dynodeRouter);
 app.use('/dynode2', dynode2Router);
 app.use('/dynode3', dynode3Router);
-app.use('/dynode4', dynode3Router);
+app.use('/dynode4', dynode4Router);
 app.use('/s3modules', s3modulesRouter);
 
 var cookiesRouter;
