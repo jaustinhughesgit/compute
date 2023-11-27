@@ -9,20 +9,9 @@ const s3 = new AWS.S3();
 
 const json = {
     "modules": {
-        "moment": "moment",
-        "moment-timezone": "moment-timezone",
-        "fs": "fs",
         "express": "express"
     },
     "actions": [
-        {
-            "module": "moment",
-            "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ],
-            "assignTo": "timeInDubai"
-        },
         {
             "target": "router",
             "chain": [
@@ -91,7 +80,7 @@ function processAction(action, context) {
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'express'];
+    const nativeModules = ['express'];
     return nativeModules.includes(moduleName);
 }
 
