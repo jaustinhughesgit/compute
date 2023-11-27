@@ -111,7 +111,10 @@ async function initializeModules(context, config) {
             }
         } else if (action.target) {
             // Handle actions with a target
-            let targetInstance = context[action.target] || (isNativeModule(action.target) ? require(action.target) : undefined);
+            if (!context[action.target]) {
+                context[action.target] = isNativeModule(action.target) ? require(action.target) : undefined;
+            }
+            let targetInstance = context[action.target] || global[action.target] || undefined;
             if (!targetInstance) {
                 console.error(`Target ${action.target} not found in context or as a native module.`);
                 return;
@@ -121,11 +124,6 @@ async function initializeModules(context, config) {
             context[action.assignTo] = createDynamicFunction(action, context);
         }
     });
-
-    // Integrate dynamic routers
-    if (context.dynodeRouter) {
-        router.use(context.dynodeRouter);
-    }
 }
 
 function createDynamicFunction(action, context) {
