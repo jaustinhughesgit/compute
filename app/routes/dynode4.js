@@ -79,21 +79,34 @@ router.get('/', async function(req, res, next) {
 
 async function processConfig(config) {
     const context = {};
+
+    // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
         if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
             console.log(newPath);
         }
     }
+
     return context;
 }
+
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
+    // Require modules
+    for (const [key, value] of Object.entries(config.modules)) {
+        context[key] = require(value); // Assuming the module is now in node_modules
+        console.log(context[key]);
+    }
+
+    // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let moduleInstance = require(action.module);
+            let moduleInstance = context[action.module];
+
+            // Check if the moduleInstance is a function or an object
             let result = typeof moduleInstance === 'function' 
                 ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
                 : moduleInstance;
@@ -103,117 +116,85 @@ async function initializeModules(context, config) {
                 context[action.assignTo] = result;
             }
         } else if (action.target) {
-            // Handle actions with a target
-            if (!context[action.target]) {
-                context[action.target] = isNativeModule(action.target) ? require(action.target) : undefined;
-            }
-            let targetInstance = context[action.target] || global[action.target] || undefined;
-            if (!targetInstance) {
-                console.error(`Target ${action.target} not found in context or as a native module.`);
-                return;
-            }
-            applyMethodChain(targetInstance, action, context);
-        } else if (action.params && action.actions) {
-            context[action.assignTo] = createDynamicFunction(action, context);
+            // Handle special case for router
+            handleRouterAction(action, context);
         }
     });
 }
 
-function createDynamicFunction(action, context) {
-    return (...args) => {
-        let localContext = { ...context };
-        // Map params to localContext for use in actions
-        action.params.forEach((param, index) => {
-            localContext[param] = args[index];
-        });
-        console.log("localContext", localContext)
-        // Execute each action in the dynamic function
-        action.actions.forEach(action => {
-            if (action.module === 'res' && localContext.res) {
-                console.log("res and res")
-                // Special handling for Express response object
-                applyMethodChain(localContext.res, action, localContext);
-            } else if (context[action.module]) {
-                // Handle other modules
-                let result = applyMethodChain(context[action.module], action, localContext);
-                if (action.assignTo) {
-                    localContext[action.assignTo] = result;
-                }
-            }
-        });
-    };
-}
-
-
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'express'];
+    // List of Node.js native modules
+    const nativeModules = ['fs'];
     return nativeModules.includes(moduleName);
 }
 
 function applyMethodChain(target, action, context) {
     let result = target;
 
+    // If there's an initial method to call on the module, do it first
     if (action.method) {
-        console.log("action.method", action.method)
-        result = executeMethod(result, action, context);
+        if (typeof result === 'function') {
+            // Handle the case where the module itself is a function
+            result = action.callback 
+                ? handleCallbackMethod(result, action, context) 
+                : result[action.method](...(action.params || []));
+        } else if (result && typeof result[action.method] === 'function') {
+            // Handle the case where the module is an object with methods
+            result = action.callback 
+                ? handleCallbackMethod(result[action.method], action, context) 
+                : result[action.method](...processParams(action.params, context));
+        } else {
+            console.error(`Method ${action.method} is not a function on ${action.module}`);
+            return;
+        }
     }
 
-    if (action.chain) {
-        console.log("action", action)
+    // Apply any additional methods in the chain
+    if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            console.log("chainAction", chainAction)
-            chainAction.params = chainAction.params.map(param => {
-                console.log("amc param", param)
-                if (typeof param === 'string' && param.startsWith('=>')) {
-                    console.log(param);
-                    const contextKey = param.slice(2); // Remove '=>' prefix
-                    if (contextKey in context) {
-                        return context[contextKey];
-                    } else {
-                        throw new Error(`Context key ${contextKey} not found`);
-                    }
-                }
-                return param;
-            });
-            result = executeMethod(result, chainAction, context);
+            if (result && typeof result[chainAction.method] === 'function') {
+                result = result[chainAction.method](...processParams(chainAction.params, context));
+            } else {
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
+            }
         });
     }
 
     return result;
 }
 
-async function executeMethod(target, action, context) {
-    console.log("target", target)
-    console.log("action", action)
-    console.log("context", context)
-    try {
-        // Resolve parameters, considering both direct values and references from context
-        const resolvedParams = resolveParams(action.params, context);
 
-        if (typeof target === 'function') {
-            // Handle direct function calls
-            return await target(...resolvedParams);
-        } else if (target && typeof target[action.method] === 'function') {
-            // Handle method calls on an object
-            console.log("it is a function: target", target, action.method)
-            return await target[action.method](...resolvedParams);
+
+function handleRouterAction(action, context) {
+    if (action.target === 'router') {
+        let routerInstance = global[action.target]; // Assuming router is globally accessible
+        if (routerInstance) {
+            action.chain.forEach(chainAction => {
+                if (typeof routerInstance[chainAction.method] === 'function') {
+                    const params = chainAction.params.map(param => {
+                        if (param.startsWith('=>')) {
+                            return context[param.slice(2)]; // Get the function from the context
+                        }
+                        return param;
+                    });
+                    routerInstance[chainAction.method](...params);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on router`);
+                }
+            });
         } else {
-            throw new Error(`Method ${action.method} is not a function on ${action.module}`);
+            console.error(`Router instance not found for target: ${action.target}`);
         }
-    } catch (error) {
-        console.error(`Error executing method ${action.method}:`, error);
-        // Depending on your error handling strategy, you might want to rethrow the error or handle it here
-        throw error;
     }
 }
 
-function resolveParams(params, context) {
-    return (params || []).map(param => {
-        console.log("inside resolveParams")
-        // Handle different types of parameters (e.g., direct values, context references)
-        if (typeof param === 'string' && param in context) {
-            console.log("context[param]", param, context[param])
-            return context[param];
+function processParams(params, context) {
+    if (!params) return [];
+
+    return params.map(param => {
+        if (typeof param === 'string' && param.startsWith('=>')) {
+            return context[param.slice(2)]; // Get the function from the context
         }
         return param;
     });
@@ -232,10 +213,12 @@ function handleCallbackMethod(method, action, context) {
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
+        // The module is not in the cache, download it
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
+    // Add the module to the NODE_PATH
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
-    return modulePath;
+    return modulePath; // Return the module path
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
