@@ -71,7 +71,8 @@ const json = {
 }
 
 router.get('/', async function(req, res, next) {
-    let context = await processConfig(json);
+    let context = { router }; // Add the router to the context
+    context = await processConfig(json);
     await initializeModules(context, json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
@@ -150,8 +151,15 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
+            // Replace '=>' references with actual functions from context
+            const params = chainAction.params.map(param => 
+                typeof param === 'string' && param.startsWith('=>') 
+                    ? context[param.slice(2)] 
+                    : param
+            );
+
             if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...(chainAction.params || []));
+                result = result[chainAction.method](...params);
 
                 // Await the result if it's a promise
                 if (result instanceof Promise) {
