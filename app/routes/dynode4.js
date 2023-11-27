@@ -144,6 +144,12 @@ function createDynamicFunction(action, context) {
     };
 }
 
+
+function isNativeModule(moduleName) {
+    const nativeModules = ['fs', 'express'];
+    return nativeModules.includes(moduleName);
+}
+
 function applyMethodChain(target, action, context) {
     let result = target;
 
