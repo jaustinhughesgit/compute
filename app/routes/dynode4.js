@@ -157,6 +157,10 @@ function applyMethodChain(target, action, context) {
 
     if (action.chain) {
         action.chain.forEach(chainAction => {
+            // Resolve parameters that are string references to context
+            chainAction.params = chainAction.params.map(param => 
+                typeof param === 'string' && param in context ? context[param] : param
+            );
             result = executeMethod(result, chainAction, context);
         });
     }
