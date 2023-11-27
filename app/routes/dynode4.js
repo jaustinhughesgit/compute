@@ -11,9 +11,6 @@ const json = {
     "modules": {
         "express": "express"
     },
-    "targets": {
-        "router": "router"
-    },
     "actions": [
         {
             "target": "router",
@@ -43,27 +40,12 @@ router.get('/', async function(req, res, next) {
 
 async function processConfig(config) {
     const context = {};
-
-    // Dynamically load modules specified in the config
     for (const [key, value] of Object.entries(config.modules)) {
         if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
             console.log(newPath);
-        } else {
-            // For native modules, require them directly
-            context[key] = require(value);
         }
     }
-
-    // Include other targets in the context
-    if (config.targets) {
-        for (const [key, value] of Object.entries(config.targets)) {
-            // Here you can add logic to initialize or set up targets
-            // For now, just assigning a placeholder object
-            context[key] = {}; // Placeholder, replace with actual initialization if needed
-        }
-    }
-
     return context;
 }
 
@@ -71,6 +53,9 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
     config.actions.forEach(action => {
+        if (action.target && !context[action.target]) {
+            context[action.target] = {};
+        }
         processAction(action, context);
     });
 }
@@ -80,13 +65,13 @@ function processAction(action, context) {
 
     if (action.module) {
         target = require(action.module);
-        if (action.module === 'moment') {
-            target = target(); // Initialize moment if needed
-        }
     }
 
-    // If the action specifies a target, use it from the context
     if (action.target) {
+        if (!context[action.target]) {
+            // Initialize the target if not present in the context
+            context[action.target] = {}; // Placeholder, replace with actual initialization if needed
+        }
         target = context[action.target];
     }
 
