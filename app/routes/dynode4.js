@@ -77,13 +77,6 @@ router.get('/', async function(req, res, next) {
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
 
-
-router.get('/', async function(req, res, next) {
-    let context = await processConfig(json);
-    await initializeModules(context, json);
-    res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
-});
-
 async function processConfig(config) {
     const context = {};
     for (const [key, value] of Object.entries(config.modules)) {
@@ -171,21 +164,31 @@ function applyMethodChain(target, action, context) {
     return result;
 }
 
-function executeMethod(target, action, context) {
-    if (typeof target === 'function') {
-        // Direct function call
-        return target(...resolveParams(action.params, context));
-    } else if (target && typeof target[action.method] === 'function') {
-        // Method call on an object
-        return target[action.method](...resolveParams(action.params, context));
-    } else {
-        console.error(`Method ${action.method} is not a function on ${action.module}`);
+async function executeMethod(target, action, context) {
+    try {
+        // Resolve parameters, considering both direct values and references from context
+        const resolvedParams = resolveParams(action.params, context);
+
+        if (typeof target === 'function') {
+            // Handle direct function calls
+            return await target(...resolvedParams);
+        } else if (target && typeof target[action.method] === 'function') {
+            // Handle method calls on an object
+            return await target[action.method](...resolvedParams);
+        } else {
+            throw new Error(`Method ${action.method} is not a function on ${action.module}`);
+        }
+    } catch (error) {
+        console.error(`Error executing method ${action.method}:`, error);
+        // Depending on your error handling strategy, you might want to rethrow the error or handle it here
+        throw error;
     }
 }
 
 function resolveParams(params, context) {
     return (params || []).map(param => {
-        if (typeof param === 'string' && context[param]) {
+        // Handle different types of parameters (e.g., direct values, context references)
+        if (typeof param === 'string' && param in context) {
             return context[param];
         }
         return param;
