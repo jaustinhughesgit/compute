@@ -3,6 +3,9 @@ const fs = require('fs');
 var express = require('express');
 const path = require('path');
 const unzipper = require('unzipper');
+let context = {};
+var router = express.Router();
+context = { router }; // Add the router to the context
 
 const s3 = new AWS.S3();
 
@@ -34,9 +37,6 @@ const json = {
         }
     ]
 }
-let context = {};
-var router = express.Router();
-context = { router }; // Add the router to the context
 async function setupRoutes() {
     const newContext = await processConfig(json);
     Object.assign(context, newContext);
