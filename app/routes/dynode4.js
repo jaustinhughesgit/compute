@@ -19,43 +19,6 @@ const json = {
     },
     "actions": [
         {
-            "module": "moment",
-            "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ],
-            "assignTo": "timeInDubai"
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "justTime",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "timeInDubai",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
             "params":["req","res","next"],
             "actions":[
                 {"module":"res", "chain":[
@@ -75,7 +38,8 @@ const json = {
 let context = {};
 async function setupRoutes() {
     context = { router }; // Add the router to the context
-    context = await processConfig(json);
+    const newContext = await processConfig(json);
+    Object.assign(context, newContext);
     await initializeModules(context, json);
 }
 setupRoutes().catch(console.error);
@@ -132,7 +96,7 @@ async function initializeModules(context, config) {
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'express'];
+    const nativeModules = ['express'];
     return nativeModules.includes(moduleName);
 }
 
