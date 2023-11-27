@@ -35,10 +35,9 @@ const json = {
     ]
 }
 let context = {};
-var router
+var router = express.Router();
+context = { router }; // Add the router to the context
 async function setupRoutes() {
-    router = express.Router();
-    context = { router }; // Add the router to the context
     const newContext = await processConfig(json);
     Object.assign(context, newContext);
     await initializeModules(context, json);
