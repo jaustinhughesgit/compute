@@ -64,7 +64,7 @@ const json = {
         {
             "target":"router",
             "chain":[
-                {"method":"get", "params":["/test", "testHandler"]}
+                {"method":"get", "params":["/test", "=>testHandler"]}
             ]
         }
     ]
@@ -143,11 +143,6 @@ function createDynamicFunction(action, context) {
     };
 }
 
-function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'express'];
-    return nativeModules.includes(moduleName);
-}
-
 function applyMethodChain(target, action, context) {
     let result = target;
 
@@ -157,10 +152,17 @@ function applyMethodChain(target, action, context) {
 
     if (action.chain) {
         action.chain.forEach(chainAction => {
-            // Resolve parameters that are string references to context
-            chainAction.params = chainAction.params.map(param => 
-                typeof param === 'string' && param in context ? context[param] : param
-            );
+            chainAction.params = chainAction.params.map(param => {
+                if (typeof param === 'string' && param.startsWith('=>')) {
+                    const contextKey = param.slice(2); // Remove '=>' prefix
+                    if (contextKey in context) {
+                        return context[contextKey];
+                    } else {
+                        throw new Error(`Context key ${contextKey} not found`);
+                    }
+                }
+                return param;
+            });
             result = executeMethod(result, chainAction, context);
         });
     }
