@@ -7,6 +7,9 @@ const unzipper = require('unzipper');
 
 const s3 = new AWS.S3();
 
+
+async function initialize() {
+
 const json = {
     "modules": {
         "moment": "moment",
@@ -230,4 +233,7 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
+}
+
 module.exports = router;
+module.exports.initialize = initialize;
