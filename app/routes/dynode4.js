@@ -1,7 +1,6 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-var router = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
@@ -36,17 +35,20 @@ const json = {
     ]
 }
 let context = {};
+var router
 async function setupRoutes() {
+    router = express.Router();
     context = { router }; // Add the router to the context
     const newContext = await processConfig(json);
     Object.assign(context, newContext);
     await initializeModules(context, json);
+
+    router.get('/', async function(req, res, next) {
+        res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
+    });
 }
 setupRoutes().catch(console.error);
 
-router.get('/', async function(req, res, next) {
-    res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
-});
 
 
 async function processConfig(config) {
