@@ -69,7 +69,7 @@ const json = {
             "assignTo":"testHandler"
         },
         {
-            "target":"router",
+            "target":"dynodeRouter",
             "chain":[
                 {"method":"get", "params":["/test", "testHandler"]}
             ]
