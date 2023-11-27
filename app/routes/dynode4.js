@@ -53,23 +53,16 @@ const json = {
             "assignTo": "fileContents"
         },
         {
-            "module":"express",
-            "chain":[
-                {"method":"Router"},
-            ],
-            "assignTo":"dynodeRouter"
-        },
-        {
             "params":["req","res","next"],
             "actions":[
                 {"module":"res", "chain":[
-                    {"method":"send", "pramas":["Response from /dynode4/test"]}
+                    {"method":"send", "params":["Response from /dynode4/test"]}
                 ]}
             ],
             "assignTo":"testHandler"
         },
         {
-            "target":"dynodeRouter",
+            "target":"router",
             "chain":[
                 {"method":"get", "params":["/test", "testHandler"]}
             ]
