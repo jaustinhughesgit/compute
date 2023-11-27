@@ -24,35 +24,6 @@ const json = {
             "assignTo": "timeInDubai"
         },
         {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "justTime",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "timeInDubai",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
             "target": "router",
             "chain": [
                 {
@@ -62,7 +33,7 @@ const json = {
                         {
                             "target": "res",
                             "chain": [
-                                { "method": "send", "params": ["Response from /dynode4/test"] }
+                                { "method": "render", "params": ["dynode2", { title: 'Dynode', result: "test" }] }
                             ]
                         }
                     ]
