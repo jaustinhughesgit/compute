@@ -11,7 +11,8 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs"
+        "fs": "fs",
+        "express":"express"
     },
     "actions": [
         {
@@ -50,6 +51,21 @@ const json = {
                 }
             ],
             "assignTo": "fileContents"
+        },
+        {
+            "params":["req","res","next"],
+            "actions":[
+                {"module":"res", "chain":[
+                    {"method":"send", "params":["Response from /dynode4/test"]}
+                ]}
+            ],
+            "assignTo":"testHandler"
+        },
+        {
+            "target":"router",
+            "chain":[
+                {"method":"get", "params":["/test", "=>testHandler"]}
+            ]
         }
     ]
 }
@@ -86,12 +102,28 @@ async function initializeModules(context, config) {
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
+        } else if (action.params && action.actions) {
+            // Handling the creation of a handler function
+            context[action.assignTo] = (...args) => {
+                action.actions.forEach(innerAction => {
+                    let target = args.find(arg => arg.constructor.name === innerAction.module);
+                    applyMethodChain(target, innerAction, context);
+                });
+            };
+        } else if (action.target) {
+            // Handling the router action
+            let target = global[action.target] || context[action.target];
+            if (target) {
+                applyMethodChain(target, action, context);
+            } else {
+                console.error(`Target ${action.target} not found`);
+            }
         }
     });
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs'];
+    const nativeModules = ['fs', 'express'];
     return nativeModules.includes(moduleName);
 }
 
@@ -121,6 +153,15 @@ function applyMethodChain(target, action, context) {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
+        });
+    }
+
+    if (action.params) {
+        action.params = action.params.map(param => {
+            if (param.startsWith('=>')) {
+                return context[param.slice(2)];
+            }
+            return param;
         });
     }
 
