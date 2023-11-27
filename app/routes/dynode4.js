@@ -51,36 +51,6 @@ const json = {
                 }
             ],
             "assignTo": "fileContents"
-        },
-        {
-            "module": "express",
-            "chain": [
-                { "method": "Router" }
-            ],
-            "assignTo": "dynodeRouter"
-        },
-        {
-            "target": "dynodeRouter",
-            "chain": [
-                {
-                    "method": "get",
-                    "params": [
-                        "/test",
-                        {
-                            "target": "res",
-                            "chain": [
-                                { "method": "send", "params": ["Response from /dynode4/test"] }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "target": "router", // Assuming 'router' is your main router instance
-            "chain": [
-                { "method": "use", "params": ["/dynode4", "dynodeRouter"] }
-            ]
         }
     ]
 }
@@ -111,7 +81,14 @@ async function initializeModules(context, config) {
 }
 
 function processAction(action, context) {
-    let target = action.module ? require(action.module) : null;
+    let target;
+
+    if (action.module) {
+        target = require(action.module);
+        if (action.module === 'moment') {
+            target = target(); // Initialize moment if needed
+        }
+    }
 
     // If the action specifies a target, use it from the context
     if (action.target) {
