@@ -230,10 +230,4 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
-async function init() {
-    let context = { router }; // Add the router to the context
-    context = await processConfig(json);
-    await initializeModules(context, json);
-}
-
 module.exports = router;

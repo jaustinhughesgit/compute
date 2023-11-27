@@ -123,6 +123,7 @@ passport.deserializeUser(function(obj, done) {
     done(null, obj);
 });
 
+async function setupRoutes() {
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
@@ -131,8 +132,22 @@ app.use('/github', githubRouter);
 app.use('/dynode', dynodeRouter);
 app.use('/dynode2', dynode2Router);
 app.use('/dynode3', dynode3Router);
-app.use('/dynode4', dynode4Router);
+// Perform asynchronous setup if needed
+    // Your setup logic here
+    // For example, await some asynchronous operations
+    await dynode4Router.initialize(); // Assuming dynode4Router has an async initialize method
+    app.use('/dynode4', dynode4Router);
+
 app.use('/s3modules', s3modulesRouter);
+
+}
+
+// Immediately invoke the setup function
+setupRoutes().then(() => {
+    console.log('Routes are set up');
+}).catch(err => {
+    console.error('Failed to set up routes:', err);
+});
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
