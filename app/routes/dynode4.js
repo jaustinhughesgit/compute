@@ -70,10 +70,17 @@ const json = {
     ]
 }
 
-let context = {}; 
-
 router.get('/', async function(req, res, next) {
-    // Assuming context is already populated by setupRoutes()
+    let context = { router }; // Add the router to the context
+    context = await processConfig(json);
+    await initializeModules(context, json);
+    res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
+});
+
+router.get('/*', async function(req, res, next) {
+    let context = { router }; // Add the router to the context
+    context = await processConfig(json);
+    await initializeModules(context, json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
 
@@ -230,7 +237,5 @@ async function init() {
     context = await processConfig(json);
     await initializeModules(context, json);
 }
-
-init().catch(console.error);
 
 module.exports = router;
