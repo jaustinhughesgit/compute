@@ -11,8 +11,7 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs",
-        "express": "express"
+        "fs": "fs"
     },
     "actions": [
         {
@@ -51,25 +50,9 @@ const json = {
                 }
             ],
             "assignTo": "fileContents"
-        },
-        {
-            "params":["req","res","next"],
-            "actions":[
-                {"module":"res", "chain":[
-                    {"method":"send", "params":["Response from /dynode4/test"]}
-                ]}
-            ],
-            "assignTo":"testHandler"
-        },
-        {
-            "target":"router",
-            "chain":[
-                {"method":"get", "params":["/test", "=>testHandler"]}
-            ]
         }
     ]
 }
-
 
 router.get('/', async function(req, res, next) {
     let context = await processConfig(json);
@@ -79,34 +62,22 @@ router.get('/', async function(req, res, next) {
 
 async function processConfig(config) {
     const context = {};
-
-    // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
         if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
             console.log(newPath);
         }
     }
-
     return context;
 }
-
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
-    // Require modules
-    for (const [key, value] of Object.entries(config.modules)) {
-        context[key] = require(value); // Assuming the module is now in node_modules
-        console.log(context[key]);
-    }
-
-    // Apply actions
     config.actions.forEach(action => {
         if (action.module) {
-            let moduleInstance = context[action.module];
+            let moduleInstance = require(action.module);
 
-            // Check if the moduleInstance is a function or an object
             let result = typeof moduleInstance === 'function' 
                 ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
                 : moduleInstance;
@@ -115,15 +86,11 @@ async function initializeModules(context, config) {
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
-        } else if (action.target) {
-            // Handle special case for router
-            handleRouterAction(action, context);
         }
     });
 }
 
 function isNativeModule(moduleName) {
-    // List of Node.js native modules
     const nativeModules = ['fs'];
     return nativeModules.includes(moduleName);
 }
@@ -131,29 +98,25 @@ function isNativeModule(moduleName) {
 function applyMethodChain(target, action, context) {
     let result = target;
 
-    // If there's an initial method to call on the module, do it first
     if (action.method) {
         if (typeof result === 'function') {
-            // Handle the case where the module itself is a function
             result = action.callback 
                 ? handleCallbackMethod(result, action, context) 
                 : result[action.method](...(action.params || []));
         } else if (result && typeof result[action.method] === 'function') {
-            // Handle the case where the module is an object with methods
             result = action.callback 
                 ? handleCallbackMethod(result[action.method], action, context) 
-                : result[action.method](...processParams(action.params, context));
+                : result[action.method](...(action.params || []));
         } else {
             console.error(`Method ${action.method} is not a function on ${action.module}`);
             return;
         }
     }
 
-    // Apply any additional methods in the chain
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
             if (result && typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...processParams(chainAction.params, context));
+                result = result[chainAction.method](...(chainAction.params || []));
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
@@ -162,42 +125,6 @@ function applyMethodChain(target, action, context) {
     }
 
     return result;
-}
-
-
-
-function handleRouterAction(action, context) {
-    if (action.target === 'router') {
-        let routerInstance = global[action.target]; // Assuming router is globally accessible
-        if (routerInstance) {
-            action.chain.forEach(chainAction => {
-                if (typeof routerInstance[chainAction.method] === 'function') {
-                    const params = chainAction.params.map(param => {
-                        if (param.startsWith('=>')) {
-                            return context[param.slice(2)]; // Get the function from the context
-                        }
-                        return param;
-                    });
-                    routerInstance[chainAction.method](...params);
-                } else {
-                    console.error(`Method ${chainAction.method} is not a function on router`);
-                }
-            });
-        } else {
-            console.error(`Router instance not found for target: ${action.target}`);
-        }
-    }
-}
-
-function processParams(params, context) {
-    if (!params) return [];
-
-    return params.map(param => {
-        if (typeof param === 'string' && param.startsWith('=>')) {
-            return context[param.slice(2)]; // Get the function from the context
-        }
-        return param;
-    });
 }
 
 function handleCallbackMethod(method, action, context) {
@@ -213,12 +140,10 @@ function handleCallbackMethod(method, action, context) {
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
-        // The module is not in the cache, download it
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
-    // Add the module to the NODE_PATH
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
-    return modulePath; // Return the module path
+    return modulePath;
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
