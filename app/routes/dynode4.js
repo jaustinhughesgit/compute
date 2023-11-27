@@ -126,10 +126,11 @@ function createDynamicFunction(action, context) {
         action.params.forEach((param, index) => {
             localContext[param] = args[index];
         });
-
+        console.log("localContext", localContext)
         // Execute each action in the dynamic function
         action.actions.forEach(action => {
             if (action.module === 'res' && localContext.res) {
+                console.log("res and res")
                 // Special handling for Express response object
                 applyMethodChain(localContext.res, action, localContext);
             } else if (context[action.module]) {
@@ -147,12 +148,16 @@ function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
+        console.log("action.method", action.method)
         result = executeMethod(result, action, context);
     }
 
     if (action.chain) {
+        console.log("action", action)
         action.chain.forEach(chainAction => {
+            console.log("chainAction", chainAction)
             chainAction.params = chainAction.params.map(param => {
+                console.log("amc param", param)
                 if (typeof param === 'string' && param.startsWith('=>')) {
                     console.log(param);
                     const contextKey = param.slice(2); // Remove '=>' prefix
