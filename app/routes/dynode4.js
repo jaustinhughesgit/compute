@@ -58,29 +58,6 @@ const json = {
                 { "method": "Router" }
             ],
             "assignTo": "dynodeRouter"
-        },
-        {
-            "target": "dynodeRouter",
-            "chain": [
-                {
-                    "method": "get",
-                    "params": [
-                        "/test",
-                        {
-                            "target": "res",
-                            "chain": [
-                                { "method": "send", "params": ["Response from /dynode4/test"] }
-                            ]
-                        }
-                    ]
-                }
-            ]
-        },
-        {
-            "target": "router", // Assuming 'router' is your main router instance
-            "chain": [
-                { "method": "use", "params": ["/dynode4", "dynodeRouter"] }
-            ]
         }
     ]
 }
