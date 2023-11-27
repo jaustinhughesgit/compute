@@ -53,11 +53,21 @@ const json = {
             "assignTo": "fileContents"
         },
         {
-            "module": "express",
+            "target": "router",
             "chain": [
-                { "method": "Router" }
-            ],
-            "assignTo": "dynodeRouter"
+                {
+                    "method": "get",
+                    "params": [
+                        "/test",
+                        {
+                            "target": "res",
+                            "chain": [
+                                { "method": "send", "params": ["Response from /dynode4/test"] }
+                            ]
+                        }
+                    ]
+                }
+            ]
         }
     ]
 }
