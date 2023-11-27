@@ -53,6 +53,13 @@ const json = {
             "assignTo": "fileContents"
         },
         {
+            "module":"express",
+            "chain":[
+                {"method":"Router"},
+            ],
+            "assignTo":"dynodeRouter"
+        },
+        {
             "params":["req","res","next"],
             "actions":[
                 {"module":"res", "chain":[
@@ -145,7 +152,7 @@ function createDynamicFunction(action, context) {
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs'];
+    const nativeModules = ['fs', 'express'];
     return nativeModules.includes(moduleName);
 }
 
