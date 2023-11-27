@@ -165,6 +165,7 @@ app.use(async (req, res, next) => {
     }
 });
 
+module.exports.lambdaHandler = serverless(app);
 }
 
 // Immediately invoke the setup function
@@ -174,4 +175,3 @@ setupRoutes().then(() => {
     console.error('Failed to set up routes:', err);
 });
 
-module.exports.lambdaHandler = serverless(app);
