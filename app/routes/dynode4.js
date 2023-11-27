@@ -70,10 +70,10 @@ const json = {
     ]
 }
 
+let context = {}; 
+
 router.get('/', async function(req, res, next) {
-    let context = { router }; // Add the router to the context
-    context = await processConfig(json);
-    await initializeModules(context, json);
+    // Assuming context is already populated by setupRoutes()
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
 
@@ -224,5 +224,13 @@ async function unzipModule(zipBuffer, modulePath) {
     const directory = await unzipper.Open.buffer(zipBuffer);
     await directory.extract({ path: modulePath });
 }
+
+async function init() {
+    let context = { router }; // Add the router to the context
+    context = await processConfig(json);
+    await initializeModules(context, json);
+}
+
+init().catch(console.error);
 
 module.exports = router;
