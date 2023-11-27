@@ -74,7 +74,7 @@ const json = {
 }
 let context = {};
 async function setupRoutes() {
-    let context = { router }; // Add the router to the context
+    context = { router }; // Add the router to the context
     context = await processConfig(json);
     await initializeModules(context, json);
 }
