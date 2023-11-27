@@ -63,6 +63,11 @@ const dynode3Router = require('./routes/dynode3');
 const dynode4Router = require('./routes/dynode4');
 const s3modulesRouter = require('./routes/s3modules');
 
+
+async function setupRoutes() {
+
+    await dynode4Router.initialize(); // Assuming dynode4Router has an async initialize method
+
 var strategiesConfig = {
     "microsoft": {
         strategyModule: 'passport-microsoft',
@@ -123,7 +128,6 @@ passport.deserializeUser(function(obj, done) {
     done(null, obj);
 });
 
-async function setupRoutes() {
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
@@ -135,19 +139,11 @@ app.use('/dynode3', dynode3Router);
 // Perform asynchronous setup if needed
     // Your setup logic here
     // For example, await some asynchronous operations
-    await dynode4Router.initialize(); // Assuming dynode4Router has an async initialize method
     app.use('/dynode4', dynode4Router);
 
 app.use('/s3modules', s3modulesRouter);
 
-}
 
-// Immediately invoke the setup function
-setupRoutes().then(() => {
-    console.log('Routes are set up');
-}).catch(err => {
-    console.error('Failed to set up routes:', err);
-});
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
@@ -167,6 +163,15 @@ app.use(async (req, res, next) => {
     } else {
         next();
     }
+});
+
+}
+
+// Immediately invoke the setup function
+setupRoutes().then(() => {
+    console.log('Routes are set up');
+}).catch(err => {
+    console.error('Failed to set up routes:', err);
 });
 
 module.exports.lambdaHandler = serverless(app);
