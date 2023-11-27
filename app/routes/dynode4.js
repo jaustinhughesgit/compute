@@ -11,7 +11,8 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs"
+        "fs": "fs",
+        "express": "express"
     },
     "actions": [
         {
@@ -50,6 +51,36 @@ const json = {
                 }
             ],
             "assignTo": "fileContents"
+        },
+        {
+            "module": "express",
+            "chain": [
+                { "method": "Router" }
+            ],
+            "assignTo": "dynodeRouter"
+        },
+        {
+            "target": "dynodeRouter",
+            "chain": [
+                {
+                    "method": "get",
+                    "params": [
+                        "/test",
+                        {
+                            "target": "res",
+                            "chain": [
+                                { "method": "send", "params": ["Response from /dynode4/test"] }
+                            ]
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "target": "router", // Assuming 'router' is your main router instance
+            "chain": [
+                { "method": "use", "params": ["/dynode4", "dynodeRouter"] }
+            ]
         }
     ]
 }
@@ -75,56 +106,63 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
     config.actions.forEach(action => {
-        if (action.module) {
-            let moduleInstance = require(action.module);
-
-            let result = typeof moduleInstance === 'function' 
-                ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
-                : moduleInstance;
-
-            result = applyMethodChain(result, action, context);
-            if (action.assignTo) {
-                context[action.assignTo] = result;
-            }
-        }
+        processAction(action, context);
     });
 }
 
+function processAction(action, context) {
+    let target = action.module ? require(action.module) : null;
+
+    // If the action specifies a target, use it from the context
+    if (action.target) {
+        target = context[action.target];
+    }
+
+    let result = applyMethodChain(target, action, context);
+
+    if (action.assignTo) {
+        context[action.assignTo] = result;
+    }
+}
+
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs'];
+    const nativeModules = ['fs', 'express'];
     return nativeModules.includes(moduleName);
 }
 
 function applyMethodChain(target, action, context) {
     let result = target;
 
+    // Apply the main method if specified
     if (action.method) {
-        if (typeof result === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result, action, context) 
-                : result[action.method](...(action.params || []));
-        } else if (result && typeof result[action.method] === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result[action.method], action, context) 
-                : result[action.method](...(action.params || []));
-        } else {
-            console.error(`Method ${action.method} is not a function on ${action.module}`);
-            return;
-        }
+        result = applyMethod(result, action, context);
     }
 
-    if (action.chain && result) {
+    // Process nested chain actions
+    if (action.chain) {
         action.chain.forEach(chainAction => {
-            if (result && typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...(chainAction.params || []));
-            } else {
-                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
-                return;
-            }
+            result = applyMethodChain(result, chainAction, context);
         });
     }
 
     return result;
+}
+
+function applyMethod(target, action, context) {
+    if (!target || typeof target[action.method] !== 'function') {
+        console.error(`Method ${action.method} is not a function on ${action.module || action.target}`);
+        return;
+    }
+
+    // Prepare parameters, resolving any targets specified within them
+    let params = action.params ? action.params.map(param => {
+        if (param && typeof param === 'object' && param.target) {
+            return context[param.target];
+        }
+        return param;
+    }) : [];
+
+    return target[action.method](...params);
 }
 
 function handleCallbackMethod(method, action, context) {
