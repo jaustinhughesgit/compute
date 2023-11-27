@@ -154,6 +154,7 @@ function applyMethodChain(target, action, context) {
         action.chain.forEach(chainAction => {
             chainAction.params = chainAction.params.map(param => {
                 if (typeof param === 'string' && param.startsWith('=>')) {
+                    console.log(param);
                     const contextKey = param.slice(2); // Remove '=>' prefix
                     if (contextKey in context) {
                         return context[contextKey];
@@ -171,6 +172,9 @@ function applyMethodChain(target, action, context) {
 }
 
 async function executeMethod(target, action, context) {
+    console.log("target", target)
+    console.log("action", action)
+    console.log("context", context)
     try {
         // Resolve parameters, considering both direct values and references from context
         const resolvedParams = resolveParams(action.params, context);
@@ -180,6 +184,7 @@ async function executeMethod(target, action, context) {
             return await target(...resolvedParams);
         } else if (target && typeof target[action.method] === 'function') {
             // Handle method calls on an object
+            console.log("it is a function: target", target, action.method)
             return await target[action.method](...resolvedParams);
         } else {
             throw new Error(`Method ${action.method} is not a function on ${action.module}`);
@@ -193,8 +198,10 @@ async function executeMethod(target, action, context) {
 
 function resolveParams(params, context) {
     return (params || []).map(param => {
+        console.log("inside resolveParams")
         // Handle different types of parameters (e.g., direct values, context references)
         if (typeof param === 'string' && param in context) {
+            console.log("context[param]", param, context[param])
             return context[param];
         }
         return param;
