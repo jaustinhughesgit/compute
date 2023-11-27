@@ -90,7 +90,7 @@ async function processConfig(config) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
-    config.actions.forEach(action => {
+    for (const action of config.actions) {
         if (action.module) {
             let moduleInstance = require(action.module);
 
@@ -98,28 +98,28 @@ async function initializeModules(context, config) {
                 ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
                 : moduleInstance;
 
-            result = applyMethodChain(result, action, context);
+            result = await applyMethodChain(result, action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
         } else if (action.params && action.actions) {
             // Handling the creation of a handler function
-            context[action.assignTo] = (...args) => {
-                action.actions.forEach(innerAction => {
+            context[action.assignTo] = async (...args) => {
+                for (const innerAction of action.actions) {
                     let target = args.find(arg => arg.constructor.name === innerAction.module);
-                    applyMethodChain(target, innerAction, context);
-                });
+                    await applyMethodChain(target, innerAction, context);
+                }
             };
         } else if (action.target) {
             // Handling the router action
             let target = global[action.target] || context[action.target];
             if (target) {
-                applyMethodChain(target, action, context);
+                await applyMethodChain(target, action, context);
             } else {
                 console.error(`Target ${action.target} not found`);
             }
         }
-    });
+    }
 }
 
 function isNativeModule(moduleName) {
@@ -127,7 +127,7 @@ function isNativeModule(moduleName) {
     return nativeModules.includes(moduleName);
 }
 
-function applyMethodChain(target, action, context) {
+async function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
@@ -143,17 +143,25 @@ function applyMethodChain(target, action, context) {
             console.error(`Method ${action.method} is not a function on ${action.module}`);
             return;
         }
+        if (result instanceof Promise) {
+            result = await result;
+        }
     }
 
     if (action.chain && result) {
-        action.chain.forEach(chainAction => {
-            if (result && typeof result[chainAction.method] === 'function') {
+        for (const chainAction of action.chain) {
+            if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...(chainAction.params || []));
+
+                // Await the result if it's a promise
+                if (result instanceof Promise) {
+                    result = await result;
+                }
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        });
+        }
     }
 
     if (action.params) {
