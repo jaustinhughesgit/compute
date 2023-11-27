@@ -53,13 +53,6 @@ const json = {
             "assignTo": "fileContents"
         },
         {
-            "module":"express",
-            "chain":[
-                {"method":"Router"},
-            ],
-            "assignTo":"dynodeRouter"
-        },
-        {
             "params":["req","res","next"],
             "actions":[
                 {"module":"res", "chain":[
@@ -69,7 +62,7 @@ const json = {
             "assignTo":"testHandler"
         },
         {
-            "target":"dynodeRouter",
+            "target":"router",
             "chain":[
                 {"method":"get", "params":["/test", "testHandler"]}
             ]
@@ -116,6 +109,14 @@ async function initializeModules(context, config) {
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
+        } else if (action.target) {
+            // Handle actions with a target
+            let targetInstance = context[action.target] || (isNativeModule(action.target) ? require(action.target) : undefined);
+            if (!targetInstance) {
+                console.error(`Target ${action.target} not found in context or as a native module.`);
+                return;
+            }
+            applyMethodChain(targetInstance, action, context);
         } else if (action.params && action.actions) {
             context[action.assignTo] = createDynamicFunction(action, context);
         }
