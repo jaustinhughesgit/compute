@@ -124,9 +124,11 @@ dyRouter.get('/', async function(req, res, next) {
 });
 
 dyRouter.all('/*', async function(req, res, next) {
-    const path = req.path;
-    let strategy = path.startsWith('/auth') ? path.split("/")[2] : ""
-    res.json({"data":strategy, "path":path})
+    let context = await processConfig(json);
+    context["path"] = req.path;
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    await initializeModules(context, json);
+    res.json(context);
 });
 
 async function processConfig(config) {
