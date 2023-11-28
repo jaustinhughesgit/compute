@@ -183,13 +183,12 @@ async function applyMethodChain(target, action, context) {
         for (const chainAction of action.chain) {
             let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
 
-            // Special handling for strategies that require a verify callback
             if (chainAction.callback && chainAction.method === 'Strategy') {
-                const verifyCallback = createGenericCallback(chainAction.callback, context);
+                // Create and append the verify callback for the strategy
+                const verifyCallback = createVerifyCallback(chainAction.callback, context);
                 chainParams.push(verifyCallback);
             }
 
-            // Log the chainParams to inspect their values and types
             console.log(`Method: ${chainAction.method}, Params:`, chainParams);
 
             if (typeof result[chainAction.method] === 'function') {
@@ -203,14 +202,10 @@ async function applyMethodChain(target, action, context) {
     return result;
 }
 
-function createGenericCallback(callbackActions, context) {
-    return function(...args) {
-        let localParams = {};
-        args.forEach((arg, index) => {
-            localParams[`{${index}}`] = arg;
-        });
+function createVerifyCallback(callbackActions, context) {
+    return function(accessToken, refreshToken, profile, done) {
+        let localParams = { "{accessToken}": accessToken, "{refreshToken}": refreshToken, "{profile}": profile, "{done}": done };
 
-        let result;
         for (const callbackAction of callbackActions) {
             const callbackParams = callbackAction.params?.map(param => {
                 // Replace global placeholders
@@ -219,14 +214,13 @@ function createGenericCallback(callbackActions, context) {
                 return replaceLocalParams(param, localParams);
             }) || [];
 
-            if (typeof result[callbackAction.method] === 'function') {
-                result = result[callbackAction.method](...callbackParams);
+            if (typeof this[callbackAction.method] === 'function') {
+                this[callbackAction.method](...callbackParams);
             } else {
                 console.error(`Callback method ${callbackAction.method} is not a function`);
                 return;
             }
         }
-        return result;
     };
 }
 
