@@ -11,8 +11,7 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs",
-        "aws-sdk": "aws-sdk"
+        "fs": "fs"
     },
     "actions": [
         {
@@ -67,29 +66,6 @@ const json = {
                 }
             ],
             "assignTo": "tempFileContents"
-        },
-        {
-            "module": "aws-sdk",
-            "chain": [
-                {
-                    "method": "S3",
-                    "params": []
-                },
-                {
-                    "method": "upload",
-                    "params": {
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
-                    }
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                },
-
-            ],
-            "assignTo": "s3UploadResult"
         }
     ]
 }
@@ -131,7 +107,7 @@ async function initializeModules(context, config) {
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'aws-sdk'];
+    const nativeModules = ['fs'];
     return nativeModules.includes(moduleName);
 }
 
@@ -141,50 +117,37 @@ function replacePlaceholders(str, context) {
     });
 }
 
-async function applyMethodChain(target, action, context) {
+function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
-        let params = action.params ? action.params.map(param => 
-            typeof param === 'string' ? replacePlaceholders(param, context) : param
-        ) : [];
-
         if (typeof result === 'function') {
-            result = result(...params);
+            result = action.callback 
+                ? handleCallbackMethod(result, action, context) 
+                : result[action.method](...(action.params || []));
         } else if (result && typeof result[action.method] === 'function') {
-            result = result[action.method](...params);
-            // Check if the result is a promise and await it
-            if (result instanceof Promise) {
-                result = await result;
-            }
+            result = action.callback 
+                ? handleCallbackMethod(result[action.method], action, context) 
+                : result[action.method](...(action.params || []));
         } else {
             console.error(`Method ${action.method} is not a function on ${action.module}`);
             return;
         }
     }
 
-    if (action.chain) {
-        for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => 
-                typeof param === 'string' ? replacePlaceholders(param, context) : param
-            ) : [];
-
-            if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...chainParams);
-                // Check if the result is a promise and await it
-                if (result instanceof Promise) {
-                    result = await result;
-                }
+    if (action.chain && result) {
+        action.chain.forEach(chainAction => {
+            if (result && typeof result[chainAction.method] === 'function') {
+                result = result[chainAction.method](...(chainAction.params || []));
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        }
+        });
     }
 
     return result;
 }
-
 
 function handleCallbackMethod(method, action, context) {
     method(...action.params, (err, data) => {
