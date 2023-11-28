@@ -157,6 +157,7 @@ async function applyMethodChain(target, action, context) {
             // Check if the result is a promise and await it
             if (result instanceof Promise) {
                 result = await result;
+                console.log("method promise", result)
             }
         } else {
             console.error(`Method ${action.method} is not a function on ${action.module}`);
@@ -166,14 +167,14 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain) {
         for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : []; //<<<<<
+            let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
 
             if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...chainParams);
                 // Check if the result is a promise and await it
                 if (result instanceof Promise) {
                     result = await result;
-                    console.log("result",result)
+                    console.log("chain result",result)
                 }
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
