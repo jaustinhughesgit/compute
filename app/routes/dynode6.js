@@ -121,13 +121,18 @@ function createFunctionFromAction(action, context) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
-                    
+                    if (param === "{done}") {
+                        // Special handling for the "done" callback
+                        return args[args.indexOf("{done}")];
+                    }
                     param = replaceLocalParams(param, localParams);
-                    
                     return replacePlaceholders(param, context);
                 });
 
-                if (typeof global[chainAction.method] === 'function') {
+                if (chainAction.method === "done") {
+                    // Directly call the "done" function with the parameters
+                    result = chainParams.length > 0 ? chainParams[0](...chainParams.slice(1)) : null;
+                } else if (typeof global[chainAction.method] === 'function') {
                     result = global[chainAction.method](...chainParams);
                 } else {
                     console.error(`Callback method ${chainAction.method} is not a function`);
