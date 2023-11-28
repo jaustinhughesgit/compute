@@ -87,6 +87,13 @@ const json = {
             "assignTo": "s3UploadResult"
         },
         {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"done", "params":[null, "{profile}"]}
+            ],
+            "assignTo":"callbackFunction"
+        },
+        {
             "module":"passport-microsoft",
             "chain":[
                 {"method":"Strategy", "params":[
@@ -100,14 +107,9 @@ const json = {
                         state: false,
                         type: 'Web',
                         scope: ['user.read']
-                    }
-                ]},
-                {
-                    "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-                    "callback":[
-                        {"method":"done", "params":[null, "{profile}"]}
-                    ]
-                }
+                    },
+                    "{{callbackFunction}}"
+                ]}
             ],
             "assignTo":"microsoftStrategy"
         },
@@ -135,7 +137,7 @@ dyRouter.get('/', async function(req, res, next) {
 
 dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    //using path "/auth/microsoft"
+    // /auth/microsoft
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json);
     res.json(context);
@@ -183,11 +185,21 @@ async function applyMethodChain(target, action, context) {
         for (const chainAction of action.chain) {
             let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
 
-            // Special handling for strategies that require a verify callback
-            if (chainAction.callback && chainAction.method === 'Strategy') {
-                const verifyCallback = createVerifyCallback(chainAction.callback, context);
-                chainParams.push(verifyCallback);
+            // Check if this chain action is for creating a callback function
+            if (chainAction.type === 'callback') {
+                const callbackFunction = createGenericCallback(chainAction.callback, context);
+                context[chainAction.assignTo] = callbackFunction;
+                continue; // Skip further processing for this chain action
             }
+
+            // Replace placeholders for callback functions in parameters
+            chainParams = chainParams.map(param => {
+                if (typeof param === 'string' && param.startsWith('{{') && param.endsWith('}}')) {
+                    const callbackName = param.slice(2, -2);
+                    return context[callbackName];
+                }
+                return param;
+            });
 
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
@@ -200,9 +212,12 @@ async function applyMethodChain(target, action, context) {
     return result;
 }
 
-function createVerifyCallback(callbackActions, context) {
-    return function(accessToken, refreshToken, profile, done) {
-        let localParams = { "{accessToken}": accessToken, "{refreshToken}": refreshToken, "{profile}": profile, "{done}": done };
+function createGenericCallback(callbackActions, context) {
+    return function(...args) {
+        let localParams = {};
+        args.forEach((arg, index) => {
+            localParams[`{${index}}`] = arg;
+        });
 
         let result;
         for (const callbackAction of callbackActions) {
@@ -213,8 +228,11 @@ function createVerifyCallback(callbackActions, context) {
                 return replaceLocalParams(param, localParams);
             }) || [];
 
-            if (typeof this[callbackAction.method] === 'function') {
-                result = this[callbackAction.method](...callbackParams);
+            if (result && typeof result[callbackAction.method] === 'function') {
+                result = result[callbackAction.method](...callbackParams);
+            } else if (typeof global[callbackAction.method] === 'function') {
+                // If the method is a global function, call it directly
+                result = global[callbackAction.method](...callbackParams);
             } else {
                 console.error(`Callback method ${callbackAction.method} is not a function`);
                 return;
