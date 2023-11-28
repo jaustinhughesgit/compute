@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-var router = express.Router();
+global.dyRouter = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
@@ -10,7 +10,8 @@ global.s3 = new AWS.S3();
 const json = {
     "modules": {
         "moment": "moment",
-        "moment-timezone": "moment-timezone"
+        "moment-timezone": "moment-timezone",
+        "passport":"passport"
     },
     "actions": [
         {
@@ -83,11 +84,18 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
+        },
+        {
+            "module":"dyRouter"
+        },
+        {
+            "module":"passport",
+
         }
     ]
 }
 
-router.get('/', async function(req, res, next) {
+dyRouter.get('/', async function(req, res, next) {
     let context = await processConfig(json);
     await initializeModules(context, json);
     res.json(context);
@@ -170,4 +178,4 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
-module.exports = router;
+module.exports = dyRouter;
