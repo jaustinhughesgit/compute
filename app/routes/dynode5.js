@@ -54,7 +54,7 @@ const json = {
         {
             "module": "fs",
             "method": "writeFileSync",
-            "params": ["/temp/tempFile.txt", "This is a test file content", 'utf8'],
+            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content", 'utf8'],
             "assignTo": "fileWriteResult"
         }
     ]
