@@ -1,11 +1,9 @@
-// THIS CODE DOES NOT WORK
-
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
 var router = express.Router();
 const path = require('path');
-const unzipper = require('unzipper');
+const unzipper = require('unzipper'); // You need to install this package
 
 const s3 = new AWS.S3();
 
@@ -13,8 +11,7 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs",
-        "express":"express"
+        "fs": "fs"
     },
     "actions": [
         {
@@ -27,7 +24,7 @@ const json = {
         },
         {
             "module": "moment",
-            "reinitialize": true,
+            "reinitialize": true, // Indicates to reinitialize the moment object
             "assignTo": "justTime",
             "valueFrom": "timeInDubai",
             "chain": [
@@ -49,108 +46,83 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                    "params": ["/var/task/app/routes/../example.json", "utf8"],
                 }
             ],
             "assignTo": "fileContents"
-        },
-        {
-            "params":["req","res","next"],
-            "actions":[
-                {"module":"res", "chain":[
-                    {"method":"send", "params":["Response from /dynode4/test"]}
-                ]}
-            ],
-            "assignTo":"testHandler"
-        },
-        {
-            "target":"router",
-            "chain":[
-                {"method":"get", "params":["/test", "=>testHandler"]}
-            ]
         }
     ]
 }
-let context = { router }; // Add the router to the context
-context = await processConfig(json);
-await initializeModules(context, json);
+
+
 
 router.get('/', async function(req, res, next) {
-    let context = { router }; // Add the router to the context
-    context = await processConfig(json);
+    let context = await processConfig(json);
     await initializeModules(context, json);
     res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
 });
-
-
-router.get('/*', async function(req, res, next) {
-    let context = { router }; // Add the router to the context
-    context = await processConfig(json);
-    await initializeModules(context, json);
-    res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
-});
-
 
 async function processConfig(config) {
     const context = {};
+
+    // Load modules
     for (const [key, value] of Object.entries(config.modules)) {
         if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
             console.log(newPath);
         }
     }
+
     return context;
 }
+
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
-    for (const action of config.actions) {
-        if (action.module) {
-            let moduleInstance = require(action.module);
+    // Require modules
+    for (const [key, value] of Object.entries(config.modules)) {
+        context[key] = require(value); // Assuming the module is now in node_modules
+        console.log(context[key]);
+    }
 
+    // Apply actions
+    config.actions.forEach(action => {
+        if (action.module) {
+            let moduleInstance = context[action.module];
+
+            // Check if the moduleInstance is a function or an object
             let result = typeof moduleInstance === 'function' 
                 ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
                 : moduleInstance;
 
-            result = await applyMethodChain(result, action, context);
+            result = applyMethodChain(result, action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
-        } else if (action.params && action.actions) {
-            // Handling the creation of a handler function
-            context[action.assignTo] = async (...args) => {
-                for (const innerAction of action.actions) {
-                    let target = args.find(arg => arg.constructor.name === innerAction.module);
-                    await applyMethodChain(target, innerAction, context);
-                }
-            };
-        } else if (action.target) {
-            // Handling the router action
-            let target = global[action.target] || context[action.target];
-            if (target) {
-                await applyMethodChain(target, action, context);
-            } else {
-                console.error(`Target ${action.target} not found`);
-            }
         }
-    }
+        // Additional actions like 'if' can be added here
+    });
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs', 'express'];
+    // List of Node.js native modules
+    const nativeModules = ['fs'];
     return nativeModules.includes(moduleName);
 }
 
-async function applyMethodChain(target, action, context) {
+function applyMethodChain(target, action, context) {
     let result = target;
 
+    // If there's an initial method to call on the module, do it first
     if (action.method) {
         if (typeof result === 'function') {
+            // Handle the case where the module itself is a function
             result = action.callback 
                 ? handleCallbackMethod(result, action, context) 
                 : result[action.method](...(action.params || []));
         } else if (result && typeof result[action.method] === 'function') {
+            // Handle the case where the module is an object with methods
             result = action.callback 
                 ? handleCallbackMethod(result[action.method], action, context) 
                 : result[action.method](...(action.params || []));
@@ -158,40 +130,17 @@ async function applyMethodChain(target, action, context) {
             console.error(`Method ${action.method} is not a function on ${action.module}`);
             return;
         }
-        if (result instanceof Promise) {
-            result = await result;
-        }
     }
 
+    // Apply any additional methods in the chain
     if (action.chain && result) {
-        for (const chainAction of action.chain) {
-            // Replace '=>' references with actual functions from context
-            const params = chainAction.params.map(param => 
-                typeof param === 'string' && param.startsWith('=>') 
-                    ? context[param.slice(2)] 
-                    : param
-            );
-
-            if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...params);
-
-                // Await the result if it's a promise
-                if (result instanceof Promise) {
-                    result = await result;
-                }
+        action.chain.forEach(chainAction => {
+            if (result && typeof result[chainAction.method] === 'function') {
+                result = result[chainAction.method](...(chainAction.params || []));
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        }
-    }
-
-    if (action.params) {
-        action.params = action.params.map(param => {
-            if (param.startsWith('=>')) {
-                return context[param.slice(2)];
-            }
-            return param;
         });
     }
 
@@ -211,10 +160,12 @@ function handleCallbackMethod(method, action, context) {
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
+        // The module is not in the cache, download it
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
+    // Add the module to the NODE_PATH
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
-    return modulePath;
+    return modulePath; // Return the module path
 }
 
 async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
@@ -237,12 +188,6 @@ async function unzipModule(zipBuffer, modulePath) {
     fs.mkdirSync(modulePath, { recursive: true });
     const directory = await unzipper.Open.buffer(zipBuffer);
     await directory.extract({ path: modulePath });
-}
-
-async function init() {
-    let context = { router }; // Add the router to the context
-    context = await processConfig(json);
-    await initializeModules(context, json);
 }
 
 module.exports = router;
