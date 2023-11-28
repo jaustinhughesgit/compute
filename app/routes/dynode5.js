@@ -11,7 +11,8 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "fs": "fs"
+        "fs": "fs",
+        "aws-sdk": "aws-sdk"
     },
     "actions": [
         {
@@ -68,8 +69,12 @@ const json = {
             "assignTo": "tempFileContents"
         },
         {
-            "module": "s3",
+            "module": "aws-sdk",
             "chain": [
+                {
+                    "method": "S3",
+                    "params": []
+                },
                 {
                     "method": "upload",
                     "params": {
@@ -121,7 +126,7 @@ async function initializeModules(context, config) {
 }
 
 function isNativeModule(moduleName) {
-    const nativeModules = ['fs'];
+    const nativeModules = ['fs', 'aws-sdk'];
     return nativeModules.includes(moduleName);
 }
 
