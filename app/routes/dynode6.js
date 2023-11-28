@@ -186,6 +186,7 @@ async function applyMethodChain(target, action, context) {
             });
 
             if (typeof result[chainAction.method] === 'function') {
+                console.log(`Method: ${chainAction.method}, Params:`, chainParams);
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
