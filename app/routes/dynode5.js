@@ -4,7 +4,9 @@ var express = require('express');
 var router = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
-
+AWS.config.update({
+    region: 'us-east-1'
+});
 global.s3 = new AWS.S3();
 
 const json = {
@@ -144,8 +146,10 @@ function replacePlaceholders(str, context) {
 
 async function applyMethodChain(target, action, context) {
     let result = target;
+    console.log(`Processing action: ${JSON.stringify(action)}`);
 
     if (action.method) {
+        console.log("action.method", action.method)
         let params = action.params ? action.params.map(param => 
             typeof param === 'string' ? replacePlaceholders(param, context) : param
         ) : [];
@@ -154,6 +158,7 @@ async function applyMethodChain(target, action, context) {
             result = result(...params);
         } else if (result && typeof result[action.method] === 'function') {
             result = result[action.method](...params);
+            console.log("result before promise 1", result)
             // Check if the result is a promise and await it
             if (result instanceof Promise) {
                 result = await result;
@@ -166,11 +171,14 @@ async function applyMethodChain(target, action, context) {
     }
 
     if (action.chain) {
+        console.log(action.chain)
         for (const chainAction of action.chain) {
             let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
-
+            console.log("chainParams",chainParams)
             if (typeof result[chainAction.method] === 'function') {
+                
                 result = result[chainAction.method](...chainParams);
+                console.log("result before promise 2", result)
                 // Check if the result is a promise and await it
                 if (result instanceof Promise) {
                     result = await result;
