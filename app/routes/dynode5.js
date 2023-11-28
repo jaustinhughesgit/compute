@@ -57,9 +57,13 @@ const json = {
 
 
 router.get('/', async function(req, res, next) {
-    let context = await processConfig(json);
-    await initializeModules(context, json);
-    res.render('dynode2', { title: 'Dynode', result: JSON.stringify(context) });
+    try {
+        let context = await processConfig(json);
+        await initializeModules(context, json);
+        res.json({ title: 'Dynode', result: context });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
 });
 
 async function processConfig(config) {
