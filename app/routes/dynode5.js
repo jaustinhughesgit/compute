@@ -5,7 +5,7 @@ var router = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
-global.s3 = new AWS.S3();
+const s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -66,24 +66,6 @@ const json = {
                 }
             ],
             "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
         }
     ]
 }
@@ -110,10 +92,13 @@ async function initializeModules(context, config) {
 
     config.actions.forEach(action => {
         if (action.module) {
-            // Access the module instance from global
-            let moduleInstance = global[action.module] || require(action.module);
+            let moduleInstance = require(action.module);
 
-            let result = applyMethodChain(moduleInstance, action, context);
+            let result = typeof moduleInstance === 'function' 
+                ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
+                : moduleInstance;
+
+            result = applyMethodChain(result, action, context);
             if (action.assignTo) {
                 context[action.assignTo] = result;
             }
@@ -136,29 +121,24 @@ function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
-        // Replace placeholders in parameters if any
-        let params = action.params ? action.params.map(param => replacePlaceholders(param, context)) : [];
+        let params = action.params ? action.params.map(param => 
+            typeof param === 'string' ? replacePlaceholders(param, context) : param
+        ) : [];
 
-        if (typeof result === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result, action, context) 
-                : result(...params);
-        } else if (result && typeof result[action.method] === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result[action.method], action, context) 
-                : result[action.method](...params);
-        } else {
-            console.error(`Method ${action.method} is not a function on ${action.module}`);
-            return;
-        }
+        result = typeof result === 'function' 
+            ? result(...params)
+            : result && typeof result[action.method] === 'function' 
+                ? result[action.method](...params)
+                : null;
     }
 
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            // Replace placeholders in parameters if any
-            let chainParams = chainAction.params ? chainAction.params.map(param => replacePlaceholders(param, context)) : [];
+            let chainParams = chainAction.params ? chainAction.params.map(param => 
+                typeof param === 'string' ? replacePlaceholders(param, context) : param
+            ) : [];
 
-            if (result && typeof result[chainAction.method] === 'function') {
+            if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
