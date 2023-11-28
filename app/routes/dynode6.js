@@ -121,11 +121,9 @@ function createFunctionFromAction(action, context) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
-                    try {
+                    
                     param = replaceLocalParams(param, localParams);
-                    } catch (err){
-                        console.log(err)
-                    }
+                    
                     return replacePlaceholders(param, context);
                 });
 
@@ -142,15 +140,23 @@ function createFunctionFromAction(action, context) {
 }
 
 function replacePlaceholders(str, context) {
-    return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        return context[key] || match;
-    });
+    if (str){
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+            return context[key] || match;
+        });
+    } else {
+        return str
+    }
 }
 
 function replaceLocalParams(str, localParams) {
-    return str.replace(/\{([^}]+)\}/g, (match, key) => {
-        return localParams[key] || match;
-    });
+    if (str){
+        return str.replace(/\{([^}]+)\}/g, (match, key) => {
+            return localParams[key] || match;
+        });
+    } else {
+        return str
+    }
 }
 
 async function applyMethodChain(target, action, context) {
