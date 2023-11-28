@@ -103,12 +103,9 @@ async function processConfig(config) {
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
-
     for (const action of config.actions) {
         let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
-
         let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
-
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
             context[action.assignTo] = result;
@@ -124,16 +121,13 @@ function replacePlaceholders(str, context) {
 
 async function applyMethodChain(target, action, context) {
     let result = target;
-
     if (action.method) {
         let params = action.params ? action.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
-
     if (action.chain && result) {
         for (const chainAction of action.chain) {
             const chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
-    
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -142,7 +136,6 @@ async function applyMethodChain(target, action, context) {
             }
         }
     }
-
     return result;
 }
 
