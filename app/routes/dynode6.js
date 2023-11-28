@@ -182,10 +182,13 @@ async function applyMethodChain(target, action, context) {
     if (action.chain && result) {
         for (const chainAction of action.chain) {
             let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
-            // Check if a callback needs to be created and appended to chainParams
-            if (chainAction.callback) {
-                chainParams.push(createGenericCallback(chainAction.callback, context));
+
+            // Special handling for strategies that require a verify callback
+            if (chainAction.callback && chainAction.method === 'Strategy') {
+                const verifyCallback = createGenericCallback(chainAction.callback, context);
+                chainParams.push(verifyCallback);
             }
+
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -223,6 +226,7 @@ function createGenericCallback(callbackActions, context) {
         return result;
     };
 }
+
 
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
