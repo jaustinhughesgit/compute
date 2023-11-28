@@ -135,7 +135,7 @@ dyRouter.get('/', async function(req, res, next) {
 
 dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    // /auth/microsoft
+    //using path "/auth/microsoft"
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json);
     res.json(context);
@@ -177,6 +177,10 @@ async function applyMethodChain(target, action, context) {
     let result = target;
     if (action.method) {
         let params = action.params ? action.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
+        // Check if a callback needs to be created and appended to params
+        if (action.callback) {
+            params.push(createGenericCallback(action.callback, context));
+        }
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
     if (action.chain && result) {
@@ -190,8 +194,18 @@ async function applyMethodChain(target, action, context) {
             }
         }
     }
-    if (action.callback) {
-        for (const callbackAction of action.callback) {
+    return result;
+}
+
+function createGenericCallback(callbackActions, context) {
+    return function(...args) {
+        let localParams = {};
+        args.forEach((arg, index) => {
+            localParams[`{${index}}`] = arg;
+        });
+
+        let result;
+        for (const callbackAction of callbackActions) {
             const callbackParams = callbackAction.params?.map(param => {
                 // Replace global placeholders
                 param = typeof param === 'string' ? replacePlaceholders(param, context) : param;
@@ -200,14 +214,14 @@ async function applyMethodChain(target, action, context) {
             }) || [];
 
             if (typeof result[callbackAction.method] === 'function') {
-                result = await result[callbackAction.method](...callbackParams);
+                result = result[callbackAction.method](...callbackParams);
             } else {
-                console.error(`Callback method ${callbackAction.method} is not a function on ${action.module}`);
+                console.error(`Callback method ${callbackAction.method} is not a function`);
                 return;
             }
         }
-    }
-    return result;
+        return result;
+    };
 }
 
 async function downloadAndPrepareModule(moduleName, context) {
