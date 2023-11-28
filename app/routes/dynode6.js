@@ -11,7 +11,8 @@ const json = {
     "modules": {
         "moment": "moment",
         "moment-timezone": "moment-timezone",
-        "passport":"passport"
+        "passport":"passport",
+        "passport-microsoft":"passport-microsoft"
     },
     "actions": [
         {
@@ -84,14 +85,35 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
-        },
+        }/*,
         {
-            "module":"dyRouter"
+            "module":"passport-microsoft",
+            "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: 'https://graph.microsoft.com/',
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: 'login',
+                        state: false,
+                        type: 'Web',
+                        scope: ['user.read']
+                    }
+                ]},
+                {
+                    "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"]
+                }
+            ],
+            "assignTo":"microsoftStrategy"
         },
         {
             "module":"passport",
-
-        }
+            "chain":[
+                {"method":"use", "params":["{{microsoftStrategy}}"]}
+            ]
+        }*/
     ]
 }
 
@@ -99,6 +121,15 @@ dyRouter.get('/', async function(req, res, next) {
     let context = await processConfig(json);
     await initializeModules(context, json);
     res.json(context);
+});
+
+dyRouter.all('/*', async function(req, res, next) {
+    const path = req.path;
+    const strategy = "";
+    if (path.startsWith('/auth')) {
+        strategy = path.split("/")[1]
+    }
+    res.json({"data":strategy})
 });
 
 async function processConfig(config) {
