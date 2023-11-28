@@ -177,15 +177,15 @@ async function applyMethodChain(target, action, context) {
     let result = target;
     if (action.method) {
         let params = action.params ? action.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
-        // Check if a callback needs to be created and appended to params
-        if (action.callback) {
-            params.push(createGenericCallback(action.callback, context));
-        }
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            const chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
+            let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
+            // Check if a callback needs to be created and appended to chainParams
+            if (chainAction.callback) {
+                chainParams.push(createGenericCallback(chainAction.callback, context));
+            }
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
