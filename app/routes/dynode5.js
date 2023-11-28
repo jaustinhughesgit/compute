@@ -54,7 +54,7 @@ const json = {
         {
             "module": "fs",
             "method": "writeFileSync",
-            "params": [path.join('/tmp', '{{timeInDubai}}.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
+            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
             "assignTo": "fileWriteResult"
         },
         {
@@ -62,10 +62,24 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [path.join('/tmp', '{{timeInDubai}}.txt'), "utf8"],
+                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
                 }
             ],
             "assignTo": "tempFileContents"
+        },
+        {
+            "module": "s3",
+            "chain": [
+                {
+                    "method": "upload",
+                    "params": {
+                        "Bucket": "public.1var.com",
+                        "Key": "tempFile.txt",
+                        "Body": "{{tempFileContents}}"
+                    }
+                }
+            ],
+            "assignTo": "s3UploadResult"
         }
     ]
 }
@@ -117,7 +131,7 @@ function replacePlaceholders(str, context) {
     });
 }
 
-function applyMethodChain(target, action, context) {
+async function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
@@ -125,30 +139,42 @@ function applyMethodChain(target, action, context) {
             typeof param === 'string' ? replacePlaceholders(param, context) : param
         ) : [];
 
-        result = typeof result === 'function' 
-            ? result(...params)
-            : result && typeof result[action.method] === 'function' 
-                ? result[action.method](...params)
-                : null;
+        if (typeof result === 'function') {
+            result = result(...params);
+        } else if (result && typeof result[action.method] === 'function') {
+            result = result[action.method](...params);
+            // Check if the result is a promise and await it
+            if (result instanceof Promise) {
+                result = await result;
+            }
+        } else {
+            console.error(`Method ${action.method} is not a function on ${action.module}`);
+            return;
+        }
     }
 
-    if (action.chain && result) {
-        action.chain.forEach(chainAction => {
+    if (action.chain) {
+        for (const chainAction of action.chain) {
             let chainParams = chainAction.params ? chainAction.params.map(param => 
                 typeof param === 'string' ? replacePlaceholders(param, context) : param
             ) : [];
 
             if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...chainParams);
+                // Check if the result is a promise and await it
+                if (result instanceof Promise) {
+                    result = await result;
+                }
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        });
+        }
     }
 
     return result;
 }
+
 
 function handleCallbackMethod(method, action, context) {
     method(...action.params, (err, data) => {
