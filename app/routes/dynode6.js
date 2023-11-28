@@ -170,9 +170,9 @@ async function applyMethodChain(target, action, context) {
             let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
 
             // Check if this chain action is for creating a callback function
-            if (chainAction.type === 'callback') {
-                const callbackFunction = createGenericCallback(chainAction.callback, context);
-                context[chainAction.assignTo] = callbackFunction;
+            if (!action.module && action.params && action.assignTo) {
+                const callbackFunction = createFunctionFromAction(action, context);
+                context[action.assignTo] = callbackFunction;
                 continue; // Skip further processing for this chain action
             }
 
