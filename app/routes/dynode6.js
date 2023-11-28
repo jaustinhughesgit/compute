@@ -121,7 +121,11 @@ function createFunctionFromAction(action, context) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
+                    try {
                     param = replaceLocalParams(param, localParams);
+                    } catch (err){
+                        console.log(err)
+                    }
                     return replacePlaceholders(param, context);
                 });
 
