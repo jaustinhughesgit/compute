@@ -76,7 +76,7 @@ const json = {
                     "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
+                        "Body": "Hello World"
                     }]
                 },
                 {
