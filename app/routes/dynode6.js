@@ -85,7 +85,7 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
-        }/*,
+        },
         {
             "module":"passport-microsoft",
             "chain":[
@@ -103,7 +103,10 @@ const json = {
                     }
                 ]},
                 {
-                    "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"]
+                    "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+                    "callback":[
+                        {"method":"done", "params":[null, "{profile}"]}
+                    ]
                 }
             ],
             "assignTo":"microsoftStrategy"
@@ -113,7 +116,14 @@ const json = {
             "chain":[
                 {"method":"use", "params":["{{microsoftStrategy}}"]}
             ]
-        }*/
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"authenticate", "params":["{{strategy}}"]}
+            ],
+            "callback":["{req}","{res}","{next}"]
+        }
     ]
 }
 
@@ -125,7 +135,7 @@ dyRouter.get('/', async function(req, res, next) {
 
 dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    context["path"] = req.path;
+    // /auth/microsoft
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json);
     res.json(context);
@@ -157,6 +167,12 @@ function replacePlaceholders(str, context) {
     });
 }
 
+function replaceLocalParams(str, localParams) {
+    return str.replace(/\{([^}]+)\}/g, (match, key) => {
+        return localParams[key] || match;
+    });
+}
+
 async function applyMethodChain(target, action, context) {
     let result = target;
     if (action.method) {
@@ -170,6 +186,23 @@ async function applyMethodChain(target, action, context) {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
+            }
+        }
+    }
+    if (action.callback) {
+        for (const callbackAction of action.callback) {
+            const callbackParams = callbackAction.params?.map(param => {
+                // Replace global placeholders
+                param = typeof param === 'string' ? replacePlaceholders(param, context) : param;
+                // Replace local placeholders
+                return replaceLocalParams(param, localParams);
+            }) || [];
+
+            if (typeof result[callbackAction.method] === 'function') {
+                result = await result[callbackAction.method](...callbackParams);
+            } else {
+                console.error(`Callback method ${callbackAction.method} is not a function on ${action.module}`);
                 return;
             }
         }
