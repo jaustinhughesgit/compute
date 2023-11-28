@@ -49,6 +49,19 @@ const json = {
                 ]}
             ],
             "assignTo":"microsoftStrategy"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":["{{microsoftStrategy}}"]}
+            ]
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"authenticate", "params":["{{strategy}}"]}
+            ],
+            "callback":["{req}","{res}","{next}"]
         }
     ]
 }
@@ -100,6 +113,7 @@ async function initializeModules(context, config) {
 function createFunctionFromAction(action, context) {
     return function(...args) {
         let result;
+
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
@@ -116,7 +130,7 @@ function createFunctionFromAction(action, context) {
                         console.error(`Callback method ${methodName} is not a function`);
                         return;
                     }
-                } else if (typeof result[chainAction.method] === 'function') {
+                } else if (result && typeof result[chainAction.method] === 'function') {
                     result = result[chainAction.method](...chainParams);
                 } else {
                     console.error(`Method ${chainAction.method} is not a function on result`);
@@ -129,14 +143,17 @@ function createFunctionFromAction(action, context) {
 }
 
 function replaceParams(param, context, args) {
-    if (param){
+    if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
+            // Check if paramName is a number (indicating an index in args)
+            if (!isNaN(paramName)) {
+                return args[paramName];
+            }
             return context[paramName] || args[paramName] || param;
         }
-    } else {
-        return param;
     }
+    return param;
 }
 
 function replacePlaceholders(str, context) {
