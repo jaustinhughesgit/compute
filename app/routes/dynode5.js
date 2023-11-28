@@ -73,11 +73,11 @@ const json = {
             "chain": [
                 {
                     "method": "upload",
-                    "params": {
+                    "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
                         "Body": "{{tempFileContents}}"
-                    }
+                    }]
                 },
                 {
                     "method": "promise",
@@ -166,7 +166,7 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain) {
         for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
+            let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : []; //<<<<<
 
             if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...chainParams);
