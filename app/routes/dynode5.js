@@ -133,31 +133,34 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    const processAction = async (act, res) => {
-        if (!act.method) return res;
-
-        let params = act.params?.map(param => 
+    if (action.method) {
+        let params = action.params ? action.params.map(param => 
             typeof param === 'string' ? replacePlaceholders(param, context) : param
-        ) || [];
+        ) : [];
 
-        if (typeof res === 'function') {
-            return res(...params);
-        }
-
-        if (res && typeof res[act.method] === 'function') {
-            return act.method === 'promise' ? await res.promise() : res[act.method](...params);
-        }
-
-        console.error(`Method ${act.method} is not a function on ${action.module}`);
-        return null;
-    };
-
-    result = await processAction(action, result);
+        result = typeof result === 'function' 
+            ? result(...params)
+            : result && typeof result[action.method] === 'function' 
+                ? result[action.method](...params)
+                : null;
+    }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            result = await processAction(chainAction, result);
-            if (result === null) break;
+            let chainParams = chainAction.params ? chainAction.params.map(param => 
+                typeof param === 'string' ? replacePlaceholders(param, context) : param
+            ) : [];
+
+            if (typeof result[chainAction.method] === 'function') {
+                if (chainAction.method === 'promise') {
+                    result = await result.promise();
+                } else {
+                    result = result[chainAction.method](...chainParams);
+                }
+            } else {
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
+            }
         }
     }
 
