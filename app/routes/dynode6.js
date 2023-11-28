@@ -125,7 +125,7 @@ dyRouter.get('/', async function(req, res, next) {
 
 dyRouter.all('/*', async function(req, res, next) {
     const path = req.path;
-    let strategy = path.startsWith('/auth') ? strategy = path.split("/")[2] : ""
+    let strategy = path.startsWith('/auth') ? path.split("/")[2] : ""
     res.json({"data":strategy, "path":path})
 });
 
