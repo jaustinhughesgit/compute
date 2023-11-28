@@ -24,69 +24,6 @@ const json = {
             "assignTo": "timeInDubai"
         },
         {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "justTime",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "timeInDubai",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
-            "module": "fs",
-            "method": "writeFileSync",
-            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
-            "assignTo": "fileWriteResult"
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
-                }
-            ],
-            "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
-        },
-        {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
                 {"method":"done", "params":[null, "{profile}"]}
@@ -154,13 +91,50 @@ async function processConfig(config) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
+        let moduleInstance;
+
+        if (action.module) {
+            // If module is specified, use it
+            moduleInstance = global[action.module] ? global[action.module] : require(action.module);
+        } else if (action.assignTo && action.params) {
+            // If no module but assignTo and params are specified, create a function
+            moduleInstance = createFunctionFromAction(action, context);
+        }
+
         let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
         result = await applyMethodChain(result, action, context);
+
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
     }
+}
+
+function createFunctionFromAction(action, context) {
+    return function(...args) {
+        let localParams = {};
+        args.forEach((arg, index) => {
+            localParams[`{${index}}`] = arg;
+        });
+
+        let result;
+        if (action.chain) {
+            for (const chainAction of action.chain) {
+                const chainParams = chainAction.params.map(param => {
+                    param = replaceLocalParams(param, localParams);
+                    return replacePlaceholders(param, context);
+                });
+
+                if (typeof global[chainAction.method] === 'function') {
+                    result = global[chainAction.method](...chainParams);
+                } else {
+                    console.error(`Callback method ${chainAction.method} is not a function`);
+                    return;
+                }
+            }
+        }
+        return result;
+    };
 }
 
 function replacePlaceholders(str, context) {
