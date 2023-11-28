@@ -105,17 +105,9 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
     for (const action of config.actions) {
-        let moduleInstance;
+        let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
 
-        if (global[action.module]) {
-            moduleInstance = global[action.module];
-        } else {
-            moduleInstance = require(action.module);
-        }
-
-        let result = typeof moduleInstance === 'function' 
-            ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
-            : moduleInstance;
+        let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
 
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
@@ -134,29 +126,16 @@ async function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
-        let params = action.params ? action.params.map(param => 
-            typeof param === 'string' ? replacePlaceholders(param, context) : param
-        ) : [];
-
-        result = typeof result === 'function' 
-            ? result(...params)
-            : result && typeof result[action.method] === 'function' 
-                ? result[action.method](...params)
-                : null;
+        let params = action.params ? action.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
+        result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => 
-                typeof param === 'string' ? replacePlaceholders(param, context) : param
-            ) : [];
-
+            const chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
+    
             if (typeof result[chainAction.method] === 'function') {
-                if (chainAction.method === 'promise') {
-                    result = await result.promise();
-                } else {
-                    result = result[chainAction.method](...chainParams);
-                }
+                result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
