@@ -157,7 +157,7 @@ async function applyMethodChain(target, action, context) {
         if (typeof result === 'function') {
             result = result(...params);
         } else if (result && typeof result[action.method] === 'function') {
-            result = result[action.method](...params);
+            result = await result[action.method](...params);
             console.log("result before promise 1", result)
             // Check if the result is a promise and await it
             if (result instanceof Promise) {
@@ -177,7 +177,7 @@ async function applyMethodChain(target, action, context) {
             console.log("chainParams",chainParams)
             if (typeof result[chainAction.method] === 'function') {
                 
-                result = result[chainAction.method](...chainParams);
+                result = await result[chainAction.method](...chainParams);
                 console.log("result before promise 2", result)
                 // Check if the result is a promise and await it
                 if (result instanceof Promise) {
