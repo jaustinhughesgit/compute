@@ -189,6 +189,9 @@ async function applyMethodChain(target, action, context) {
                 chainParams.push(verifyCallback);
             }
 
+            // Log the chainParams to inspect their values and types
+            console.log(`Method: ${chainAction.method}, Params:`, chainParams);
+
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
