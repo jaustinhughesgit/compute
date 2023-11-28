@@ -96,10 +96,7 @@ router.get('/', async function(req, res, next) {
 async function processConfig(config) {
     const context = {};
     for (const [key, value] of Object.entries(config.modules)) {
-        //if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
-            //console.log(newPath);
-        //}
     }
     return context;
 }
@@ -127,12 +124,6 @@ async function initializeModules(context, config) {
     }
 }
 
-
-//function isNativeModule(moduleName) {
-//    const nativeModules = [];
-//    return nativeModules.includes(moduleName);
-//}
-
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
         return context[key] || match;
@@ -142,49 +133,35 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    if (action.method) {
-        let params = action.params ? action.params.map(param => 
+    const applyAction = (act, obj) => {
+        const params = act.params?.map(param => 
             typeof param === 'string' ? replacePlaceholders(param, context) : param
-        ) : [];
+        ) || [];
 
-        result = typeof result === 'function' 
-            ? result(...params)
-            : result && typeof result[action.method] === 'function' 
-                ? result[action.method](...params)
-                : null;
+        if (typeof obj === 'function') {
+            return obj(...params);
+        }
+
+        if (obj && typeof obj[act.method] === 'function') {
+            return act.method === 'promise' ? obj.promise() : obj[act.method](...params);
+        }
+
+        console.error(`Method ${act.method} is not a function on ${action.module}`);
+        return null;
+    };
+
+    if (action.method) {
+        result = applyAction(action, result);
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => 
-                typeof param === 'string' ? replacePlaceholders(param, context) : param
-            ) : [];
-
-            if (typeof result[chainAction.method] === 'function') {
-                // Check if the method is 'promise' to handle the S3 upload
-                if (chainAction.method === 'promise') {
-                    result = await result.promise();
-                } else {
-                    result = result[chainAction.method](...chainParams);
-                }
-            } else {
-                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
-                return;
-            }
+            result = await applyAction(chainAction, result);
+            if (result === null) break;
         }
     }
 
     return result;
-}
-
-function handleCallbackMethod(method, action, context) {
-    method(...action.params, (err, data) => {
-        if (err) {
-            console.error(`Error in method ${action.method}:`, err);
-            return;
-        }
-        context[action.assignTo] = data;
-    });
 }
 
 async function downloadAndPrepareModule(moduleName, context) {
