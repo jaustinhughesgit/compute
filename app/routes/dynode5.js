@@ -5,7 +5,7 @@ var router = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
-global.s3 = new AWS.S3();
+const s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -67,6 +67,29 @@ const json = {
                 }
             ],
             "assignTo": "tempFileContents"
+        },
+        {
+            "module": "aws-sdk",
+            "chain": [
+                {
+                    "method": "S3",
+                    "params": []
+                },
+                {
+                    "method": "upload",
+                    "params": {
+                        "Bucket": "public.1var.com",
+                        "Key": "tempFile.txt",
+                        "Body": "{{tempFileContents}}"
+                    }
+                },
+                {
+                    "method": "promise",
+                    "params": []
+                },
+
+            ],
+            "assignTo": "s3UploadResult"
         }
     ]
 }
@@ -92,23 +115,17 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
     config.actions.forEach(action => {
-        let moduleInstance;
+        if (action.module) {
+            let moduleInstance = require(action.module);
 
-        if (global[action.module]) {
-            // Use the global instance if it exists
-            moduleInstance = global[action.module];
-        } else {
-            // Dynamically require other modules, including native ones
-            moduleInstance = require(action.module);
-        }
+            let result = typeof moduleInstance === 'function' 
+                ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
+                : moduleInstance;
 
-        let result = typeof moduleInstance === 'function' 
-            ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
-            : moduleInstance;
-
-        result = applyMethodChain(result, action, context);
-        if (action.assignTo) {
-            context[action.assignTo] = result;
+            result = applyMethodChain(result, action, context);
+            if (action.assignTo) {
+                context[action.assignTo] = result;
+            }
         }
     });
 }
@@ -148,7 +165,9 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain) {
         for (const chainAction of action.chain) {
-            let chainParams = chainAction.params ? chainAction.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : []; //<<<<<
+            let chainParams = chainAction.params ? chainAction.params.map(param => 
+                typeof param === 'string' ? replacePlaceholders(param, context) : param
+            ) : [];
 
             if (typeof result[chainAction.method] === 'function') {
                 result = result[chainAction.method](...chainParams);
