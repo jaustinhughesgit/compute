@@ -183,13 +183,11 @@ async function applyMethodChain(target, action, context) {
         for (const chainAction of action.chain) {
             let chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
 
+            // Special handling for strategies that require a verify callback
             if (chainAction.callback && chainAction.method === 'Strategy') {
-                // Create and append the verify callback for the strategy
                 const verifyCallback = createVerifyCallback(chainAction.callback, context);
                 chainParams.push(verifyCallback);
             }
-
-            console.log(`Method: ${chainAction.method}, Params:`, chainParams);
 
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
@@ -206,6 +204,7 @@ function createVerifyCallback(callbackActions, context) {
     return function(accessToken, refreshToken, profile, done) {
         let localParams = { "{accessToken}": accessToken, "{refreshToken}": refreshToken, "{profile}": profile, "{done}": done };
 
+        let result;
         for (const callbackAction of callbackActions) {
             const callbackParams = callbackAction.params?.map(param => {
                 // Replace global placeholders
@@ -215,15 +214,15 @@ function createVerifyCallback(callbackActions, context) {
             }) || [];
 
             if (typeof this[callbackAction.method] === 'function') {
-                this[callbackAction.method](...callbackParams);
+                result = this[callbackAction.method](...callbackParams);
             } else {
                 console.error(`Callback method ${callbackAction.method} is not a function`);
                 return;
             }
         }
+        return result;
     };
 }
-
 
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
