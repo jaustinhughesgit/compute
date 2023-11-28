@@ -108,14 +108,12 @@ async function processConfig(config) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
-    config.actions.forEach(action => {
+    for (const action of config.actions) {
         let moduleInstance;
 
         if (global[action.module]) {
-            // Use the global instance if it exists
             moduleInstance = global[action.module];
         } else {
-            // Dynamically require other modules, including native ones
             moduleInstance = require(action.module);
         }
 
@@ -127,8 +125,9 @@ async function initializeModules(context, config) {
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
-    });
+    }
 }
+
 
 function isNativeModule(moduleName) {
     const nativeModules = ['fs'];
