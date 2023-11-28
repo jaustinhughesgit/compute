@@ -56,26 +56,6 @@ var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuid
 
 
 
-var cookiesRouter;
-app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
-            app.use('/:type(cookies|url)', function(req, res, next) {
-                req.type = req.params.type; // Capture the type (cookies or url)
-                next('route'); // Pass control to the next route
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});
-
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
@@ -160,5 +140,25 @@ app.use('/dynode4', dynode4Router);
 app.use('/dynode5', dynode5Router);
 app.use('/s3modules', s3modulesRouter);
 
+
+var cookiesRouter;
+app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
+            app.use('/:type(cookies|url)', function(req, res, next) {
+                req.type = req.params.type; // Capture the type (cookies or url)
+                next('route'); // Pass control to the next route
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
+});
 
 module.exports.lambdaHandler = serverless(app);
