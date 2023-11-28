@@ -54,7 +54,7 @@ const json = {
         {
             "module": "fs",
             "method": "writeFileSync",
-            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content", 'utf8'],
+            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
             "assignTo": "fileWriteResult"
         },
         {
@@ -111,28 +111,35 @@ function isNativeModule(moduleName) {
     return nativeModules.includes(moduleName);
 }
 
+function replacePlaceholders(str, context) {
+    return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+        return context[key] || match;
+    });
+}
+
 function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
-        if (typeof result === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result, action, context) 
-                : result[action.method](...(action.params || []));
-        } else if (result && typeof result[action.method] === 'function') {
-            result = action.callback 
-                ? handleCallbackMethod(result[action.method], action, context) 
-                : result[action.method](...(action.params || []));
-        } else {
-            console.error(`Method ${action.method} is not a function on ${action.module}`);
-            return;
-        }
+        let params = action.params ? action.params.map(param => 
+            typeof param === 'string' ? replacePlaceholders(param, context) : param
+        ) : [];
+
+        result = typeof result === 'function' 
+            ? result(...params)
+            : result && typeof result[action.method] === 'function' 
+                ? result[action.method](...params)
+                : null;
     }
 
     if (action.chain && result) {
         action.chain.forEach(chainAction => {
-            if (result && typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...(chainAction.params || []));
+            let chainParams = chainAction.params ? chainAction.params.map(param => 
+                typeof param === 'string' ? replacePlaceholders(param, context) : param
+            ) : [];
+
+            if (typeof result[chainAction.method] === 'function') {
+                result = result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
