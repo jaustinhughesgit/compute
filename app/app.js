@@ -54,15 +54,7 @@ app.set('view engine', 'ejs');
 var indexRouter = require('./routes/index');
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 
-var loginRouter = require('./routes/login')
-var dashboardRouter = require('./routes/dashboard');
-const githubRouter = require('./routes/github');
-const dynodeRouter = require('./routes/dynode');
-const dynode2Router = require('./routes/dynode2');
-const dynode3Router = require('./routes/dynode3');
-const dynode4Router = require('./routes/dynode4');
-const dynode5Router = require('./routes/dynode5');
-const s3modulesRouter = require('./routes/s3modules');
+
 
 var cookiesRouter;
 app.use(async (req, res, next) => {
@@ -83,6 +75,17 @@ app.use(async (req, res, next) => {
         next();
     }
 });
+
+var loginRouter = require('./routes/login')
+var dashboardRouter = require('./routes/dashboard');
+const githubRouter = require('./routes/github');
+const dynodeRouter = require('./routes/dynode');
+const dynode2Router = require('./routes/dynode2');
+const dynode3Router = require('./routes/dynode3');
+const dynode4Router = require('./routes/dynode4');
+const dynode5Router = require('./routes/dynode5');
+const s3modulesRouter = require('./routes/s3modules');
+
 
 
 var strategiesConfig = {
