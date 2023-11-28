@@ -10,8 +10,7 @@ global.s3 = new AWS.S3();
 const json = {
     "modules": {
         "moment": "moment",
-        "moment-timezone": "moment-timezone",
-        "fs": "fs"
+        "moment-timezone": "moment-timezone"
     },
     "actions": [
         {
@@ -97,10 +96,10 @@ router.get('/', async function(req, res, next) {
 async function processConfig(config) {
     const context = {};
     for (const [key, value] of Object.entries(config.modules)) {
-        if (!isNativeModule(value)) {
+        //if (!isNativeModule(value)) {
             let newPath = await downloadAndPrepareModule(value, context);
-            console.log(newPath);
-        }
+            //console.log(newPath);
+        //}
     }
     return context;
 }
@@ -129,10 +128,10 @@ async function initializeModules(context, config) {
 }
 
 
-function isNativeModule(moduleName) {
-    const nativeModules = ['fs'];
-    return nativeModules.includes(moduleName);
-}
+//function isNativeModule(moduleName) {
+//    const nativeModules = [];
+//    return nativeModules.includes(moduleName);
+//}
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
