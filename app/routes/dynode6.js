@@ -26,7 +26,7 @@ const json = {
         {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
-                {"method":"done", "params":[null, "{profile}"]}
+                {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
         },
@@ -112,27 +112,27 @@ async function initializeModules(context, config) {
 
 function createFunctionFromAction(action, context) {
     return function(...args) {
-        let localParams = {};
-        args.forEach((arg, index) => {
-            localParams[`{${index}}`] = arg;
-        });
-
         let result;
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
-                    param = replaceLocalParams(param, localParams);
-                    if (typeof param === 'function') {
-                        // If the parameter is a function, pass it as-is
-                        return param;
-                    }
-                    return replacePlaceholders(param, context);
+                    // Replace placeholders with actual arguments from context or args
+                    return replaceParams(param, context, args);
                 });
 
-                if (typeof global[chainAction.method] === 'function') {
-                    result = global[chainAction.method](...chainParams);
+                // Handle special case where method is a callback
+                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    const methodName = chainAction.method.slice(1, -1);
+                    if (typeof context[methodName] === 'function') {
+                        result = context[methodName](...chainParams);
+                    } else {
+                        console.error(`Callback method ${methodName} is not a function`);
+                        return;
+                    }
+                } else if (typeof result[chainAction.method] === 'function') {
+                    result = result[chainAction.method](...chainParams);
                 } else {
-                    console.error(`Callback method ${chainAction.method} is not a function`);
+                    console.error(`Method ${chainAction.method} is not a function on result`);
                     return;
                 }
             }
