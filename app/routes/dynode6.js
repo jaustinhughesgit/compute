@@ -127,9 +127,9 @@ dyRouter.all('/*', async function(req, res, next) {
     const path = req.path;
     let strategy = "";
     if (path.startsWith('/auth')) {
-        strategy = path.split("/")[1]
+        strategy = path.split("/")[2]
     }
-    res.json({"data":strategy})
+    res.json({"data":strategy, "path":path})
 });
 
 async function processConfig(config) {
