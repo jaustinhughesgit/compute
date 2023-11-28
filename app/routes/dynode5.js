@@ -54,7 +54,7 @@ const json = {
         {
             "module": "fs",
             "method": "writeFileSync",
-            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
+            "params": [path.join('/tmp', '{{timeInDubai}}.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
             "assignTo": "fileWriteResult"
         },
         {
@@ -62,7 +62,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
+                    "params": [path.join('/tmp', '{{timeInDubai}}.txt'), "utf8"],
                 }
             ],
             "assignTo": "tempFileContents"
