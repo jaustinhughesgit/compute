@@ -5,7 +5,7 @@ var router = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
-const s3 = new AWS.S3();
+global.s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -91,17 +91,23 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
 
     config.actions.forEach(action => {
-        if (action.module) {
-            let moduleInstance = require(action.module);
+        let moduleInstance;
 
-            let result = typeof moduleInstance === 'function' 
-                ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
-                : moduleInstance;
+        if (global[action.module]) {
+            // Use the global instance if it exists
+            moduleInstance = global[action.module];
+        } else {
+            // Dynamically require other modules, including native ones
+            moduleInstance = require(action.module);
+        }
 
-            result = applyMethodChain(result, action, context);
-            if (action.assignTo) {
-                context[action.assignTo] = result;
-            }
+        let result = typeof moduleInstance === 'function' 
+            ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
+            : moduleInstance;
+
+        result = applyMethodChain(result, action, context);
+        if (action.assignTo) {
+            context[action.assignTo] = result;
         }
     });
 }
