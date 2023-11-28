@@ -29,6 +29,26 @@ const json = {
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
+        },
+        {
+            "module":"passport-microsoft",
+            "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: 'https://graph.microsoft.com/',
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: 'login',
+                        state: false,
+                        type: 'Web',
+                        scope: ['user.read']
+                    },
+                    "{{callbackFunction}}"
+                ]}
+            ],
+            "assignTo":"microsoftStrategy"
         }
     ]
 }
