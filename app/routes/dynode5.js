@@ -56,6 +56,16 @@ const json = {
             "method": "writeFileSync",
             "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content", 'utf8'],
             "assignTo": "fileWriteResult"
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
+                }
+            ],
+            "assignTo": "tempFileContents"
         }
     ]
 }
