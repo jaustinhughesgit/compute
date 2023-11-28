@@ -123,7 +123,7 @@ async function initializeModules(context, config) {
             ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance())
             : moduleInstance;
 
-        result = applyMethodChain(result, action, context);
+        result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
@@ -141,7 +141,7 @@ function replacePlaceholders(str, context) {
     });
 }
 
-function applyMethodChain(target, action, context) {
+async function applyMethodChain(target, action, context) {
     let result = target;
 
     if (action.method) {
@@ -157,18 +157,23 @@ function applyMethodChain(target, action, context) {
     }
 
     if (action.chain && result) {
-        action.chain.forEach(chainAction => {
+        for (const chainAction of action.chain) {
             let chainParams = chainAction.params ? chainAction.params.map(param => 
                 typeof param === 'string' ? replacePlaceholders(param, context) : param
             ) : [];
 
             if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...chainParams);
+                // Check if the method is 'promise' to handle the S3 upload
+                if (chainAction.method === 'promise') {
+                    result = await result.promise();
+                } else {
+                    result = result[chainAction.method](...chainParams);
+                }
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        });
+        }
     }
 
     return result;
