@@ -133,31 +133,34 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    const applyAction = (act, obj) => {
-        const params = act.params?.map(param => 
-            typeof param === 'string' ? replacePlaceholders(param, context) : param
-        ) || [];
-
-        if (typeof obj === 'function') {
-            return obj(...params);
-        }
-
-        if (obj && typeof obj[act.method] === 'function') {
-            return act.method === 'promise' ? obj.promise() : obj[act.method](...params);
-        }
-
-        console.error(`Method ${act.method} is not a function on ${action.module}`);
-        return null;
-    };
-
     if (action.method) {
-        result = applyAction(action, result);
+        let params = action.params ? action.params.map(param => 
+            typeof param === 'string' ? replacePlaceholders(param, context) : param
+        ) : [];
+
+        result = typeof result === 'function' 
+            ? result(...params)
+            : result && typeof result[action.method] === 'function' 
+                ? result[action.method](...params)
+                : null;
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            result = await applyAction(chainAction, result);
-            if (result === null) break;
+            let chainParams = chainAction.params ? chainAction.params.map(param => 
+                typeof param === 'string' ? replacePlaceholders(param, context) : param
+            ) : [];
+
+            if (typeof result[chainAction.method] === 'function') {
+                if (chainAction.method === 'promise') {
+                    result = await result.promise();
+                } else {
+                    result = result[chainAction.method](...chainParams);
+                }
+            } else {
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
+            }
         }
     }
 
