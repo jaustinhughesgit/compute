@@ -122,19 +122,15 @@ function createFunctionFromAction(action, context) {
             for (const chainAction of action.chain) {
                 const chainParams = chainAction.params.map(param => {
                     param = replaceLocalParams(param, localParams);
-                    return replacePlaceholders(param, context);
-                });
-
-                // Handling callback functions
-                const processedParams = chainParams.map(param => {
                     if (typeof param === 'function') {
-                        return param; // Pass the function as-is
+                        // If the parameter is a function, pass it as-is
+                        return param;
                     }
                     return replacePlaceholders(param, context);
                 });
 
                 if (typeof global[chainAction.method] === 'function') {
-                    result = global[chainAction.method](...processedParams);
+                    result = global[chainAction.method](...chainParams);
                 } else {
                     console.error(`Callback method ${chainAction.method} is not a function`);
                     return;
@@ -144,6 +140,7 @@ function createFunctionFromAction(action, context) {
         return result;
     };
 }
+
 
 
 function replacePlaceholders(str, context) {
