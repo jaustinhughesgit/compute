@@ -141,7 +141,16 @@ function createFunctionFromAction(action, context) {
     };
 }
 
-
+function replaceParams(param, context, args) {
+    if (param){
+        if (param.startsWith('{') && param.endsWith('}')) {
+            const paramName = param.slice(1, -1);
+            return context[paramName] || args[paramName] || param;
+        }
+    } else {
+        return param;
+    }
+}
 
 function replacePlaceholders(str, context) {
     if (str){
