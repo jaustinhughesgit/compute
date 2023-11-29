@@ -20,7 +20,7 @@ const json = {
                 { "method": "tz", "params": ["Asia/Dubai"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
-            "assignTo": "{{timeInDubai}}"
+            "assignTo": "{{timeInDubai}}!"
         },
         {
             "module": "moment-timezone",
@@ -33,7 +33,7 @@ const json = {
         {
             "module": "moment-timezone",
             "assignTo": "timeInDubai2",
-            "valueFrom": ["{{timeInDubai}}"],
+            "valueFrom": ["{{timeInDubai}}!"],
             "chain": [
                 { "method": "add", "params": [1, "hours"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
