@@ -65,6 +65,7 @@ const dynode3Router = require('./routes/dynode3');
 const dynode4Router = require('./routes/dynode4');
 const dynode5Router = require('./routes/dynode5');
 const dynode6Router = require('./routes/dynode6');
+const dynode7Router = require('./routes/dynode7');
 const s3modulesRouter = require('./routes/s3modules');
 
 
@@ -140,6 +141,7 @@ app.use('/dynode3', dynode3Router);
 app.use('/dynode4', dynode4Router);
 app.use('/dynode5', dynode5Router);
 app.use('/dynode6', dynode6Router);
+app.use('/dynode7', dynode7Router);
 app.use('/s3modules', s3modulesRouter);
 
 
