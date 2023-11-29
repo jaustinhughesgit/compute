@@ -148,11 +148,11 @@ async function initializeModules(context, config, req, res, next) {
 function createFunctionFromAction(action, context) {
     return function(...args) {
         let result;
-        const actionParams = action.params.map(param => {
+        args = action.params.map(param => {
             return replaceParams(param, context, args);
 
         });
-        console.log("actionParams",actionParams)
+        console.log("args",args)
         if (action.chain) {
             for (const chainAction of action.chain) {
 
