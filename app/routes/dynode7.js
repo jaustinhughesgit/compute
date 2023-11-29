@@ -212,19 +212,27 @@ async function initializeModules(context, config, req, res, next) {
 
 
 
-        let result;
-        if (typeof moduleInstance === 'function') {
-            console.log("action",action)
-            if (action.valueFrom) {
-                result = moduleInstance(context[action.valueFrom]);
-            } else {
-                console.log("moduleInstance",moduleInstance)
-                result = moduleInstance(context[action.params[0].replace(/[{}]/g, '')]); //<<<<<
+        let result = moduleInstance;
+        if (action.chain && action.chain.length > 0) {
+            for (const chainAction of action.chain) {
+                const chainParams = chainAction.params?.map(param => {
+                    // Replace placeholders and get values from context if needed
+                    return typeof param === 'string' ? replacePlaceholders(param, context) : param;
+                }) || [];
+
+                if (typeof result === 'function') {
+                    // Call the function with the parameters
+                    result = result(...chainParams);
+                } else if (result && typeof result[chainAction.method] === 'function') {
+                    // Call the method on the object with the parameters
+                    result = result[chainAction.method](...chainParams);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                    return;
+                }
             }
-        } else {
-            result = moduleInstance;
         }
-        result = await applyMethodChain(result, action, context);
+
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
