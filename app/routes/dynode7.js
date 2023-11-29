@@ -103,7 +103,6 @@ const json = {
         },
         {
             "module":"dyRouter",
-            "valueFrom": "passportInit",
             "chain":[
                 {"method":"use", "params":["{{passportInit}}"]}
             ],
@@ -118,7 +117,6 @@ const json = {
         },
         {
             "module":"dyRouter",
-            "valueFrom": "passportSession",
             "chain":[
                 {"method":"use", "params":["{{passportSession}}"]}
             ],
