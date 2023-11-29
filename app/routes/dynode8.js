@@ -89,6 +89,13 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
+        },
+        {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+            ],
+            "assignTo":"callbackFunction"
         }
     ]
 }
@@ -165,7 +172,19 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            return replacePlaceholders(param, context);
+            // Check if the string is a function call (ends with '!')
+            let isFunctionExecution = param.endsWith('!');
+            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+
+            if (param.startsWith('{{') && param.endsWith('}}')) {
+                let value = context[key];
+                if (isFunctionExecution && typeof value === 'function') {
+                    return value();
+                }
+                return value;
+            } else {
+                return param;
+            }
         } else if (Array.isArray(param)) {
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
@@ -186,7 +205,18 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
+            let chainParams = [];
+            if (typeof chainAction === 'string') {
+                // Handle function callbacks in the chain
+                chainParams = processParam(chainAction);
+                if (typeof chainParams === 'function') {
+                    result = await chainParams();
+                    continue;
+                }
+            } else if (chainAction.params) {
+                chainParams = chainAction.params.map(param => processParam(param));
+            }
+
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -198,6 +228,7 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
+
 
 
 
