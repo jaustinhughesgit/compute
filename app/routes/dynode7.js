@@ -170,7 +170,7 @@ async function initializeModules(context, config, req, res, next) {
             const functionName = action.execute;
             if (typeof context[functionName] === 'function') {
                 // Execute the function and continue to the next action
-                await context[functionName]();
+                await context[functionName](req, res, next);
                 continue;
             } else {
                 console.error(`No function named ${functionName} found in context`);
@@ -203,7 +203,7 @@ async function initializeModules(context, config, req, res, next) {
                 result = moduleInstance(context[action.valueFrom]);
             } else {
                 console.log("moduleInstance",moduleInstance)
-                result = moduleInstance(); //<<<<<
+                result = moduleInstance();
             }
         } else {
             result = moduleInstance;
