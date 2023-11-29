@@ -157,7 +157,7 @@ function createFunctionFromAction(action, context) {
             return acc;
         }, {});
         try{
-        console.log("scope.done",scope.done)
+        console.log("scope",scope)
         } catch {}
         if (action.chain) {
             for (const chainAction of action.chain) {
