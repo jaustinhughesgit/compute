@@ -7,7 +7,6 @@ const unzipper = require('unzipper');
 const session = require('express-session');
 
 global.s3 = new AWS.S3();
-global.dyRouter = dyRouter
 dyRouter.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -97,7 +96,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"initialize"}
+                {"method":"initialize", "params":[]}
             ],
             "assignTo":"passportInit"
         },
@@ -111,7 +110,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"session"}
+                {"method":"session", "params":[]}
             ],
             "assignTo":"passportSession"
         },
