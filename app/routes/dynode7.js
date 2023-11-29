@@ -17,83 +17,11 @@ global.dyRouter.use(session({
 
 const json = {
     "modules": {
-        "moment": "moment",
-        "moment-timezone": "moment-timezone",
         "passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        {
-            "module": "moment",
-            "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ],
-            "assignTo": "timeInDubai"
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "justTime",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "timeInDubai",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
-            "module": "fs",
-            "method": "writeFileSync",
-            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
-            "assignTo": "fileWriteResult"
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
-                }
-            ],
-            "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
-        },
+        
         {
             "module":"passport",
             "chain":[
@@ -218,7 +146,7 @@ async function initializeModules(context, config, req, res, next) {
                 result = moduleInstance(context[action.valueFrom]);
             } else {
                 console.log("moduleInstance",moduleInstance)
-                result = moduleInstance(); //<<<<<
+                result = moduleInstance(?????); //<<<<<
             }
         } else {
             result = moduleInstance;
@@ -289,7 +217,8 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        return context[key] || match;
+        const value = context[key];
+        return typeof value !== 'undefined' ? value : match;
     });
 }
 
