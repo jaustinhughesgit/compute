@@ -159,9 +159,12 @@ function replacePlaceholders(str, context) {
         let actualKey = isFunctionExecution ? key.slice(0, -1) : key; // Remove '!' if present
 
         let value = context[actualKey];
+        console.log("isFunctionExecution",isFunctionExecution)
         if (isFunctionExecution && typeof value === 'function') {
+            console.log("typeof", "function")
             return value();
         }
+        console.log("value", value, "match", match)
         return value || match;
     });
 }
@@ -172,13 +175,15 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
+            console.log("param",param)
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item, context));
+            return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value, context);
+                console.log("value":value)
+                processedParam[key] = processParam(value);
             }
             return processedParam;
         } else {
