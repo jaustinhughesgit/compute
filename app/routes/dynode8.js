@@ -51,6 +51,7 @@ local.dyRouter.get('/', async function(req, res, next) {
     await initializeModules(context, json);
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
+    context["dubaiTime"] = newFunction("timeInDubai");
     res.json(context);
 });
 
