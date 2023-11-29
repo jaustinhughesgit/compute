@@ -80,7 +80,7 @@ const json = {
                     "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
-                        "Body": "{{testFunction}}!"
+                        "Body": "{{testFunction}}"
                     }]
                 },
                 {
