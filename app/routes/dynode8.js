@@ -174,11 +174,11 @@ async function applyMethodChain(target, action, context) {
         if (typeof param === 'string') {
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
+            return param.map(item => processParam(item, context));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
+                processedParam[key] = processParam(value, context);
             }
             return processedParam;
         } else {
