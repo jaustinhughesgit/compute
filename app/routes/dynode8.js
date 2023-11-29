@@ -80,7 +80,7 @@ const json = {
                     "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
+                        "Body": "{{testFunction}}!"
                     }]
                 },
                 {
@@ -165,19 +165,7 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            // Check if the string is a function call (ends with '!')
-            let isFunctionExecution = param.endsWith('!');
-            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-
-            if (param.startsWith('{{') && param.endsWith('}}')) {
-                let value = context[key];
-                if (isFunctionExecution && typeof value === 'function') {
-                    return value();
-                }
-                return value;
-            } else {
-                return param;
-            }
+            return processStringParam(param);
         } else if (Array.isArray(param)) {
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
@@ -190,6 +178,20 @@ async function applyMethodChain(target, action, context) {
             return param;
         }
     }
+    
+    function processStringParam(str) {
+        if (str.startsWith('{{') && str.endsWith('}}')) {
+            let isFunctionExecution = str.endsWith('}}!');
+            let key = isFunctionExecution ? str.slice(2, -3) : str.slice(2, -2);
+            let value = context[key];
+    
+            if (isFunctionExecution && typeof value === 'function') {
+                return value();
+            }
+            return value;
+        }
+        return str;
+    }
 
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
@@ -198,18 +200,7 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            let chainParams = [];
-            if (typeof chainAction === 'string') {
-                // Handle function callbacks in the chain
-                chainParams = processParam(chainAction);
-                if (typeof chainParams === 'function') {
-                    result = await chainParams();
-                    continue;
-                }
-            } else if (chainAction.params) {
-                chainParams = chainAction.params.map(param => processParam(param));
-            }
-
+            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -221,7 +212,6 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
-
 
 
 
