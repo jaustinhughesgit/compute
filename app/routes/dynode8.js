@@ -40,15 +40,6 @@ const json = {
                 { "method": "add", "params": [1, "hours"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ]
-        },
-        {
-            "module": "moment-timezone",
-            "reinitialize": true,
-            "assignTo": "justTime2",
-            "valueFrom": ["{{timeInDubai}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
         }
     ]
 }
