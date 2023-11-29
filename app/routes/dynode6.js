@@ -190,7 +190,6 @@ async function applyMethodChain(target, action, context) {
                 }
                 return param; // Keep non-string params as-is
             }) || [];
-
             // Check if this chain action is for creating a callback function
             if (!action.module && action.params && action.assignTo) {
                 const callbackFunction = createFunctionFromAction(action, context);
@@ -207,14 +206,6 @@ async function applyMethodChain(target, action, context) {
                 return param;
             });
 
-            // Check for 'new' property to break the chain
-            if (chainAction.new) {
-                console.log("executeStandalone",chainAction, context, result)
-                console.log("chainParams", chainParams)
-                executeStandaloneFunction(chainAction, context, result, ...chainParams);
-                continue;
-            }
-
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -224,16 +215,6 @@ async function applyMethodChain(target, action, context) {
         }
     }
     return result;
-}
-
-function executeStandaloneFunction(chainAction, context, previousResult, ...args) {
-    // Implement the logic to execute the standalone function
-    const functionName = chainAction.method.replace(/\{|\}/g, ''); // Assuming the method name is enclosed in {}
-    if (typeof global[functionName] === 'function') {
-        return global[functionName](...args);
-    } else {
-        console.error(`Standalone function ${functionName} is not defined`);
-    }
 }
 
 function createGenericCallback(callbackActions, context) {
