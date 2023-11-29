@@ -148,36 +148,31 @@ async function initializeModules(context, config, req, res, next) {
 function createFunctionFromAction(action, context) {
     return function(...args) {
         let result;
-        args = action.params.map(param => {
-            return replaceParams(param, context, args);
 
-        });
-        console.log("args",args)
+        let scope = args.reduce((acc, arg, index) => {
+            if (action.params[index]) {
+                const paramName = action.params[index].replace(/[{}]/g, '');
+                acc[paramName] = arg;
+            }
+            return acc;
+        }, {});
+
         if (action.chain) {
             for (const chainAction of action.chain) {
 
-                console.log("chainAction",chainAction)
+                //console.log("chainAction",chainAction)
                 const chainParams = chainAction.params.map(param => {
                     return replaceParams(param, context, args);
 
                 });
-                console.log("chainParams",chainParams)
-                console.log("result",result)
-                console.log("chainAction.method",chainAction.method)
+                //console.log("chainParams",chainParams)
+                //console.log("result",result)
+                //console.log("chainAction.method",chainAction.method)
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
                     const methodName = chainAction.method.slice(1, -1);
-                    console.log("-----1", methodName)
-                    console.log("-----2",context)
                     
-                }
-                
-                
-                
-                
-                /*if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
-                    const methodName = chainAction.method.slice(1, -1);
-                    if (typeof context[methodName] === 'function') {
-                        result = context[methodName](...chainParams);
+                    if (typeof scope[methodName] === 'function') {
+                        result = scope[methodName](...chainParams);
                     } else {
                         console.error(`Callback method ${methodName} is not a function`);
                         return;
@@ -187,7 +182,7 @@ function createFunctionFromAction(action, context) {
                 } else {
                     console.error(`Method ${chainAction.method} is not a function on result`);
                     return;
-                }*/
+                }
             }
         }
         return result;
@@ -202,7 +197,7 @@ function replaceParams(param, context, args) {
             if (!isNaN(paramName)) {
                 return args[paramName];
             }
-            return context[paramName] || args[paramName] || paramName;
+            return context[paramName] || args[paramName] || param;
         }
     }
     return param;
