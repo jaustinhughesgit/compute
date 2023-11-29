@@ -1,20 +1,11 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-let local = {}
-local.dyRouter = express.Router();
-local.path = require('path');
-local.unzipper = require('unzipper');
-local.session = require('express-session');
+global.dyRouter = express.Router();
+const path = require('path');
+const unzipper = require('unzipper');
 
-local.s3 = new AWS.S3();
-
-local.dyRouter.use(local.session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: true } 
-}));
+global.s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -29,32 +20,101 @@ const json = {
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
             "assignTo": "timeInDubai"
+        },
+        {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "justTime",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
+        },
+        {
+            "module": "moment",
+            "reinitialize": true,
+            "assignTo": "timeInDubai",
+            "valueFrom": "timeInDubai",
+            "chain": [
+                { "method": "add", "params": [1, "hours"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ]
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                }
+            ],
+            "assignTo": "fileContents"
+        },
+        {
+            "module": "fs",
+            "method": "writeFileSync",
+            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
+            "assignTo": "fileWriteResult"
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
+                }
+            ],
+            "assignTo": "tempFileContents"
+        },
+        {
+            "module": "s3",
+            "chain": [
+                {
+                    "method": "upload",
+                    "params": [{
+                        "Bucket": "public.1var.com",
+                        "Key": "tempFile.txt",
+                        "Body": "{{tempFileContents}}"
+                    }]
+                },
+                {
+                    "method": "promise",
+                    "params": []
+                }
+            ],
+            "assignTo": "s3UploadResult"
         }
     ]
 }
 
 function testFunction(){
-        return "hello world"
+    return "hello world"
 }
 
 function newFunction(val){
-    return val + "!"
+return val + "!"
 }
 
-local.dyRouter.get('/', async function(req, res, next) {
+global.dyRouter.get('/', async function(req, res, next) {
     let context = await processConfig(json);
     context["testFunction"] = testFunction;
     context["newFunction"] = newFunction;
-    await initializeModules(context, json, req, res, next);
+    await initializeModules(context, json);
     res.json(context);
 });
 
-
+async function processConfig(config) {
+    const context = {};
+    for (const [key, value] of Object.entries(config.modules)) {
+            let newPath = await downloadAndPrepareModule(value, context);
+    }
+    return context;
+}
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+        let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
         let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
@@ -89,14 +149,6 @@ async function applyMethodChain(target, action, context) {
     return result;
 }
 
-async function processConfig(config) {
-    const context = {};
-    for (const [key, value] of Object.entries(config.modules)) {
-            let newPath = await downloadAndPrepareModule(value, context);
-    }
-    return context;
-}
-
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
@@ -114,7 +166,7 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
     };
     console.log(params);
     try {
-        const data = await local.s3.getObject(params).promise();
+        const data = await s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
     } catch (error) {
         console.error(`Error downloading and unzipping module ${moduleName}:`, error);
@@ -124,8 +176,8 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
 
 async function unzipModule(zipBuffer, modulePath) {
     fs.mkdirSync(modulePath, { recursive: true });
-    const directory = await local.unzipper.Open.buffer(zipBuffer);
+    const directory = await unzipper.Open.buffer(zipBuffer);
     await directory.extract({ path: modulePath });
 }
 
-module.exports = local.dyRouter;
+module.exports = global.dyRouter;
