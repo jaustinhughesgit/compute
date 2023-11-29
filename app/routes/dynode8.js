@@ -161,13 +161,32 @@ function replacePlaceholders(str, context) {
 
 async function applyMethodChain(target, action, context) {
     let result = target;
+
+    // Helper function to process each parameter
+    function processParam(param) {
+        if (typeof param === 'string') {
+            return replacePlaceholders(param, context);
+        } else if (Array.isArray(param)) {
+            return param.map(item => processParam(item));
+        } else if (typeof param === 'object' && param !== null) {
+            const processedParam = {};
+            for (const [key, value] of Object.entries(param)) {
+                processedParam[key] = processParam(value);
+            }
+            return processedParam;
+        } else {
+            return param;
+        }
+    }
+
     if (action.method) {
-        let params = action.params ? action.params.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) : [];
+        let params = action.params ? action.params.map(param => processParam(param)) : [];
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
+
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            const chainParams = chainAction.params?.map(param => typeof param === 'string' ? replacePlaceholders(param, context) : param) || [];
+            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -176,8 +195,10 @@ async function applyMethodChain(target, action, context) {
             }
         }
     }
+
     return result;
 }
+
 
 
 async function processConfig(config, initialContext) {
