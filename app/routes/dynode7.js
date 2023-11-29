@@ -6,7 +6,7 @@ const path = require('path');
 const unzipper = require('unzipper');
 
 global.s3 = new AWS.S3();
-
+global.dyRouter = dyRouter
 dyRouter.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
