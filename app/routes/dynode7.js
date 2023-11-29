@@ -95,34 +95,6 @@ const json = {
             "assignTo": "s3UploadResult"
         },
         {
-            "module":"passport",
-            "chain":[
-                {"method":"initialize", "params":[]}
-            ],
-            "assignTo":"passportInit"
-        },
-        {
-            "module":"dyRouter",
-            "chain":[
-                {"method":"use", "params":[]}
-            ],
-            "assignTo":"dyInit"
-        },
-        {
-            "module":"passport",
-            "chain":[
-                {"method":"session", "params":[]}
-            ],
-            "assignTo":"passportSession"
-        },
-        {
-            "module":"dyRouter",
-            "chain":[
-                {"method":"use", "params":[]}
-            ],
-            "assignTo":"dySession"
-        },
-        {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
                 {"method":"{done}", "params":[null, "{profile}"], "new":true}
