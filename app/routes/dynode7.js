@@ -105,7 +105,8 @@ const json = {
             "module":"dyRouter",
             "chain":[
                 {"method":"use", "params":["{{passportInit}}"]}
-            ]
+            ],
+            "assignTo":"dyInit"
         },
         {
             "module":"passport",
@@ -118,7 +119,8 @@ const json = {
             "module":"dyRouter",
             "chain":[
                 {"method":"use", "params":["{{passportSession}}"]}
-            ]
+            ],
+            "assignTo":"dySession"
         },
         {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
