@@ -11,16 +11,25 @@ local.s3 = new local.AWS.S3();
 
 const json = {
     "modules": {
-        "moment": "moment",
         "moment-timezone": "moment-timezone"
     },
     "actions": [
         {
-            "module": "moment",
+            "module": "moment-timezone",
             "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] }
+                { "method": "tz", "params": ["Asia/Dubai"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
             "assignTo": "timeInDubai"
+        },
+        {
+            "module": "moment-timezone",
+            "reinitialize": true,
+            "assignTo": "justTime",
+            "valueFrom": ["{{timeInDubai}}!"],
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
         }
     ]
 }
