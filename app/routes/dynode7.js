@@ -10,7 +10,9 @@ global.s3 = new AWS.S3();
 const json = {
     "modules": {
         "moment": "moment",
-        "moment-timezone": "moment-timezone"
+        "moment-timezone": "moment-timezone",
+        "passport":"passport",
+        "passport-microsoft":"passport-microsoft"
     },
     "actions": [
         {
@@ -83,13 +85,27 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
+        },
+        {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+            ],
+            "assignTo":"callbackFunction"
         }
     ]
 }
 
 router.get('/', async function(req, res, next) {
     let context = await processConfig(json);
-    await initializeModules(context, json);
+    await initializeModules(context, json, req, res, next);
+    res.json(context);
+});
+
+dyRouter.all('/*', async function(req, res, next) {
+    let context = await processConfig(json);
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    await initializeModules(context, json, req, res, next);
     res.json(context);
 });
 
@@ -101,17 +117,73 @@ async function processConfig(config) {
     return context;
 }
 
-async function initializeModules(context, config) {
+async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
-        let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
+        let moduleInstance 
+        if (action.module) {
+            moduleInstance = global[action.module] ? global[action.module] : require(action.module);
+        } else if (action.assignTo && action.params) {
+            moduleInstance = createFunctionFromAction(action, context, req, res, next);
+        }
+        let result;
+        if (typeof moduleInstance === 'function') {
+            if (action.valueFrom) {
+                result = moduleInstance(context[action.valueFrom]);
+            } else {
+                result = moduleInstance(req, res, next);
+            }
+        } else {
+            result = moduleInstance;
+        }
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
     }
 }
+
+function createFunctionFromAction(action, context) {
+    return function(...args) {
+        let result;
+
+        if (action.chain) {
+            for (const chainAction of action.chain) {
+                const chainParams = chainAction.params.map(param => {
+                    return replaceParams(param, context, args);
+
+                });
+                if (result && typeof result[chainAction.method] === 'function') {
+                    result = result[chainAction.method](...chainParams);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on result`);
+                    return;
+                }
+            }
+        }
+        return result;
+    };
+}
+
+function replaceParams(param, context, args) {
+    if (param) {
+        if (param.startsWith('{') && param.endsWith('}')) {
+            const paramName = param.slice(1, -1);
+            // Check if paramName is a number (indicating an index in args)
+            if (!isNaN(paramName)) {
+                return args[paramName];
+            }
+            return context[paramName] || args[paramName] || param;
+        }
+    }
+    return param;
+}
+
+
+
+
+
+
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
