@@ -45,8 +45,6 @@ app.use(session({
     cookie: { secure: true } 
 }));
 
-app.use(passport.initialize());
-app.use(passport.session());
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -89,6 +87,8 @@ var strategiesConfig = {
 };
 
 app.get('/auth/:strategy', async (req, res, next) => {
+app.use(passport.initialize());
+app.use(passport.session());
     const strategy = req.params.strategy;
     try {
         if (!strategiesConfig[strategy]) {
