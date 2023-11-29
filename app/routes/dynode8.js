@@ -80,7 +80,7 @@ const json = {
                     "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
+                        "Body": "{{testFunction}}!"
                     }]
                 },
                 {
@@ -159,55 +159,34 @@ function replacePlaceholders(str, context) {
     });
 }
 
-function processParam(param, context) {
-    if (typeof param === 'string') {
-        // Check if the parameter is a reference (either to a function or a static value)
-        let isReference = param.startsWith('{{') && param.endsWith('}}');
-        let executeFunction = param.endsWith('!');
-
-        if (isReference) {
-            let referenceKey = executeFunction ? param.slice(2, -3) : param.slice(2, -2);
-            let referenceValue = context[referenceKey];
-
-            if (executeFunction && typeof referenceValue === 'function') {
-                // Execute the function and return the result
-                return referenceValue();
-            } else {
-                // Return the function itself or the static value
-                return referenceValue;
-            }
-        } else {
-            // It's a static string, not a reference
-            return param;
-        }
-    } else if (Array.isArray(param)) {
-        // Process each element in the array
-        return param.map(item => processParam(item, context));
-    } else if (typeof param === 'object' && param !== null) {
-        // Process each key-value pair in the object
-        const processedParam = {};
-        for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value, context);
-        }
-        return processedParam;
-    } else {
-        // It's neither a string, array, nor object (e.g., number, boolean), so return as is
-        return param;
-    }
-}
-
-// Update the applyMethodChain function to use the new processParam
 async function applyMethodChain(target, action, context) {
     let result = target;
 
+    // Helper function to process each parameter
+    function processParam(param) {
+        if (typeof param === 'string') {
+            return replacePlaceholders(param, context);
+        } else if (Array.isArray(param)) {
+            return param.map(item => processParam(item));
+        } else if (typeof param === 'object' && param !== null) {
+            const processedParam = {};
+            for (const [key, value] of Object.entries(param)) {
+                processedParam[key] = processParam(value);
+            }
+            return processedParam;
+        } else {
+            return param;
+        }
+    }
+
     if (action.method) {
-        let params = action.params ? action.params.map(param => processParam(param, context)) : [];
+        let params = action.params ? action.params.map(param => processParam(param)) : [];
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param, context)) : [];
+            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -219,8 +198,6 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
-
-
 
 
 
