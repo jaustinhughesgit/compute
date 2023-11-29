@@ -162,6 +162,7 @@ function createFunctionFromAction(action, context) {
                     console.log("method is a param", chainAction.method)
                     const methodName = chainAction.method.slice(1, -1);
                     console.log("methodName", methodName)
+                    console.log("args",args)
                     if (typeof context[methodName] === 'function') {
                         console.log(context[methodName], "is a function")
                         result = context[methodName](...chainParams);
