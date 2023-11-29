@@ -1,7 +1,7 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-var router = express.Router();
+var dyRouter = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
@@ -129,7 +129,7 @@ const json = {
     ]
 }
 
-router.get('/', async function(req, res, next) {
+dyRouter.get('/', async function(req, res, next) {
     let context = await processConfig(json);
     await initializeModules(context, json, req, res, next);
     res.json(context);
@@ -306,4 +306,4 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
-module.exports = router;
+module.exports = dyRouter;
