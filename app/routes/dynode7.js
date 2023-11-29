@@ -128,6 +128,7 @@ async function initializeModules(context, config, req, res, next) {
         }
         let result;
         if (typeof moduleInstance === 'function') {
+            console.log("action",action)
             if (action.valueFrom) {
                 result = moduleInstance(context[action.valueFrom]);
             } else {
