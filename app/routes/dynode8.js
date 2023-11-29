@@ -154,6 +154,8 @@ async function initializeModules(context, config) {
 
 
 function replacePlaceholders(str, context) {
+    console.log("str",str)
+    console.log("context", context)
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
         console.log("key",key)
         console.log("match",match)
