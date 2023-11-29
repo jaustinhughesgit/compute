@@ -121,9 +121,14 @@ async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
 
+        console.log("1",!action.module)
+        console.log("2",action.assignTo)
+        console.log("3",action.params)
+        console.log("4",action.chain)
         if (!action.module && action.assignTo && action.params && action.chain) {
             // Create the function and assign it to the context
             context[action.assignTo] = createFunctionFromAction(action, context, req, res, next);
+            console.log("context",context)
             continue; // Skip the rest of the loop for this action
         }
 
