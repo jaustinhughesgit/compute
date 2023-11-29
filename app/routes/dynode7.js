@@ -135,6 +135,9 @@ const json = {
             ],
             "callback":["{req}","{res}","{next}"],
             "assignTo":"something2"
+        },
+        {
+            "execute":"something2"
         }
     ]
 }
@@ -163,7 +166,17 @@ async function processConfig(config) {
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-
+        if (action.execute) {
+            const functionName = action.execute;
+            if (typeof context[functionName] === 'function') {
+                // Execute the function and continue to the next action
+                await context[functionName]();
+                continue;
+            } else {
+                console.error(`No function named ${functionName} found in context`);
+                continue;
+            }
+        }
         console.log("1",!action.module)
         console.log("2",action.assignTo)
         console.log("3",action.params)

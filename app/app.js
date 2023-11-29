@@ -45,6 +45,8 @@ app.use(session({
     cookie: { secure: true } 
 }));
 
+app.use(passport.initialize());
+app.use(passport.session());
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
