@@ -20,7 +20,7 @@ const json = {
                 { "method": "tz", "params": ["Asia/Dubai"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
-            "assignTo": "timeInDubai"
+            "assignTo": "{{timeInDubai}}"
         },
         {
             "module": "moment-timezone",
