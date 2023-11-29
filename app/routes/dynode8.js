@@ -159,8 +159,8 @@ function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
         console.log("key",key)
         console.log("match",match)
-        let isFunctionExecution = key.endsWith('!');
-        let actualKey = isFunctionExecution ? key.slice(0, -1) : key; // Remove '!' if present
+        let isFunctionExecution = str.endsWith('!');
+        let actualKey = key; // Remove '!' if present
 
         let value = context[actualKey];
         console.log("isFunctionExecution",isFunctionExecution)
