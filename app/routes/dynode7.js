@@ -7,6 +7,13 @@ const unzipper = require('unzipper');
 
 global.s3 = new AWS.S3();
 
+dyRouter.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
+
 const json = {
     "modules": {
         "moment": "moment",
@@ -89,7 +96,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"initialize", "params":[]}
+                {"method":"initialize"}
             ],
             "assignTo":"passportInit"
         },
@@ -102,7 +109,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"session", "params":[]}
+                {"method":"session"}
             ],
             "assignTo":"passportSession"
         },
