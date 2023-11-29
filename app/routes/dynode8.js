@@ -156,6 +156,7 @@ async function initializeModules(context, config) {
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
         console.log("key",key)
+        console.log("match",match)
         let isFunctionExecution = key.endsWith('!');
         let actualKey = isFunctionExecution ? key.slice(0, -1) : key; // Remove '!' if present
 
