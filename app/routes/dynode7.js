@@ -1,13 +1,14 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-var dyRouter = express.Router();
+global.dyRouter = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 const session = require('express-session');
 
 global.s3 = new AWS.S3();
-dyRouter.use(session({
+
+global.dyRouter.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
@@ -166,13 +167,13 @@ const json = {
     ]
 }
 
-dyRouter.get('/', async function(req, res, next) {
+global.dyRouter.get('/', async function(req, res, next) {
     let context = await processConfig(json);
     await initializeModules(context, json, req, res, next);
     res.json(context);
 });
 
-dyRouter.all('/*', async function(req, res, next) {
+global.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
@@ -343,4 +344,4 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
-module.exports = dyRouter;
+module.exports = global.dyRouter;
