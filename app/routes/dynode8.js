@@ -79,7 +79,7 @@ async function initializeModules(context, config) {
         if (action.valueFrom) {
             args = action.valueFrom.map(item => {
                 let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -2) : item.slice(2, -1); // Remove {{, }} and potentially !
+                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Remove {{, }} and potentially !
                 let value = context[key];
 
                 if (isFunctionExecution && typeof value === 'function') {
