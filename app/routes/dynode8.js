@@ -1,11 +1,12 @@
 const AWS = require('aws-sdk');
 const fs = require('fs');
 var express = require('express');
-global.dyRouter = express.Router();
+let local = {};
+local.dyRouter = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
 
-global.s3 = new AWS.S3();
+local.s3 = new AWS.S3();
 
 const json = {
     "modules": {
@@ -95,7 +96,7 @@ function newFunction(val){
 return val + "!"
 }
 
-global.dyRouter.get('/', async function(req, res, next) {
+local.dyRouter.get('/', async function(req, res, next) {
     let context = {};
     context["testFunction"] = testFunction;
     context["newFunction"] = newFunction;
@@ -105,22 +106,15 @@ global.dyRouter.get('/', async function(req, res, next) {
 
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-    
+
     res.json(context);
 });
 
-async function processConfig(config, initialContext) {
-    const context = { ...initialContext };
-    for (const [key, value] of Object.entries(config.modules)) {
-            let newPath = await downloadAndPrepareModule(value, context);
-    }
-    return context;
-}
 
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let moduleInstance = global[action.module] ? global[action.module] : require(action.module);
+        let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
         let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
@@ -155,6 +149,15 @@ async function applyMethodChain(target, action, context) {
     return result;
 }
 
+
+async function processConfig(config, initialContext) {
+    const context = { ...initialContext };
+    for (const [key, value] of Object.entries(config.modules)) {
+            let newPath = await downloadAndPrepareModule(value, context);
+    }
+    return context;
+}
+
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
     if (!fs.existsSync(modulePath)) {
@@ -186,4 +189,4 @@ async function unzipModule(zipBuffer, modulePath) {
     await directory.extract({ path: modulePath });
 }
 
-module.exports = global.dyRouter;
+module.exports = local.dyRouter;
