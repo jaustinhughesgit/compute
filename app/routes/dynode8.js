@@ -21,7 +21,7 @@ const json = {
                 { "method": "tz", "params": ["Asia/Dubai"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
-            "assignTo": "timeInDubai"
+            "assignTo": "{{timeInDubai}}!"
         },
         {
             "module": "moment",
@@ -76,8 +76,20 @@ async function initializeModules(context, config) {
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
         result = await applyMethodChain(result, action, context);
+
         if (action.assignTo) {
-            context[action.assignTo] = result;
+            if (action.assignTo.includes('{{')) {
+                let assignKey = action.assignTo.slice(2, -1); // Remove {{ and }}
+                let isFunctionExecution = action.assignTo.endsWith('!');
+
+                if (isFunctionExecution) {
+                    context[assignKey] = typeof result === 'function' ? result() : result;
+                } else {
+                    context[assignKey] = result;
+                }
+            } else {
+                context[action.assignTo] = result;
+            }
         }
     }
 }
