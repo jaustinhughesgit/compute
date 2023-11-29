@@ -98,6 +98,8 @@ async function initializeModules(context, config) {
             moduleInstance = global[action.module] ? global[action.module] : require(action.module);
         } else if (action.assignTo && action.params) {
             // If no module but assignTo and params are specified, create a function
+            console.log("action", action)
+            console.log("context", context)
             moduleInstance = createFunctionFromAction(action, context);
         }
 
@@ -120,14 +122,55 @@ function createFunctionFromAction(action, context) {
                     // Replace placeholders with actual arguments from context or args
                     return replaceParams(param, context, args);
                 });
+                console.log("chainParams2",chainParams)
 
                 // Handle special case where method is a callback
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    console.log("method is a param", chainAction.method)
                     const methodName = chainAction.method.slice(1, -1);
+                    console.log("methodName", methodName)
                     if (typeof context[methodName] === 'function') {
+                        console.log(context[methodName], "is a function")
                         result = context[methodName](...chainParams);
                     } else {
                         console.error(`Callback method ${methodName} is not a function`);
+                        return;
+                    }
+                } else if (result && typeof result[chainAction.method] === 'function') {
+                    result = result[chainAction.method](...chainParams);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on result`);
+                    return;
+                }
+            }
+        }
+        return result;
+    };
+}
+
+function createFunctionFromAction(action, context) {
+    return function(...args) {
+        let result;
+
+        if (action.chain) {
+            for (const chainAction of action.chain) {
+                const chainParams = chainAction.params.map(param => {
+                    return replaceParams(param, context, args);
+                });
+
+                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    console.log("method is a param", chainAction.method)
+                    const methodName = chainAction.method.slice(1, -1);
+                    console.log("methodName", methodName)
+                    if (typeof context[methodName] === 'function') {
+                        console.log(context[methodName], "is a function")
+                        result = context[methodName](...chainParams);
+                    } else if (args[methodName] !== undefined) {
+                        console.log(args[methodName], "is a param")
+                        // Handle the case where methodName is a parameter
+                        result = args[methodName];
+                    } else {
+                        console.error(`Method/Parameter ${methodName} is not defined`);
                         return;
                     }
                 } else if (result && typeof result[chainAction.method] === 'function') {
