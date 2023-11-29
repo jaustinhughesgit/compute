@@ -148,7 +148,7 @@ async function initializeModules(context, config, req, res, next) {
 function createFunctionFromAction(action, context) {
     return function(...args) {
         let result;
-
+        console.log(action.params)
         let scope = args.reduce((acc, arg, index) => {
             if (action.params[index]) {
                 const paramName = action.params[index].replace(/[{}]/g, '');
@@ -156,7 +156,9 @@ function createFunctionFromAction(action, context) {
             }
             return acc;
         }, {});
-
+        try{
+        console.log("scope.done",scope.done)
+        } catch {}
         if (action.chain) {
             for (const chainAction of action.chain) {
 
@@ -165,9 +167,9 @@ function createFunctionFromAction(action, context) {
                     return replaceParams(param, context, args);
 
                 });
-                //console.log("chainParams",chainParams)
-                //console.log("result",result)
-                //console.log("chainAction.method",chainAction.method)
+                console.log("chainParams",chainParams)
+                console.log("result",result)
+                console.log("chainAction.method",chainAction.method)
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
                     const methodName = chainAction.method.slice(1, -1);
                     console.log(scope)
