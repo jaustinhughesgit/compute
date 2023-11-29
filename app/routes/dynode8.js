@@ -46,6 +46,22 @@ const json = {
             "chain": [
                 { "method": "format", "params": ["HH:mm"] }
             ]
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                }
+            ],
+            "assignTo": "fileContents"
+        },
+        {
+            "module": "fs",
+            "method": "writeFileSync",
+            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
+            "assignTo": "fileWriteResult"
         }
     ]
 }
