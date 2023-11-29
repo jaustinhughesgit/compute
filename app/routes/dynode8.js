@@ -80,7 +80,7 @@ const json = {
                     "params": [{
                         "Bucket": "public.1var.com",
                         "Key": "tempFile.txt",
-                        "Body": "{{testFunction}}!"
+                        "Body": "{{tempFileContents}}"
                     }]
                 },
                 {
@@ -163,39 +163,24 @@ async function applyMethodChain(target, action, context) {
     let result = target;
 
     // Helper function to process each parameter
-    function processStringParam(str, context) {
-        if (str.startsWith('{{') && str.endsWith('}}')) {
-            let isFunctionExecution = str.endsWith('}}!');
-            let key = isFunctionExecution ? str.slice(2, -3) : str.slice(2, -2);
-            let value = context[key];
-    
-            if (isFunctionExecution && typeof value === 'function') {
-                return value();
-            }
-            return value;
-        }
-        return str;
-    }
-    
-    function processParam(param, context) {
+    function processParam(param) {
         if (typeof param === 'string') {
-            return processStringParam(param, context);
+            return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item, context));
+            return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value, context);
+                processedParam[key] = processParam(value);
             }
             return processedParam;
         } else {
             return param;
         }
     }
-    
 
     if (action.method) {
-        let params = action.params ? action.params.map(param => processParam(param, context)) : [];
+        let params = action.params ? action.params.map(param => processParam(param)) : [];
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
 
