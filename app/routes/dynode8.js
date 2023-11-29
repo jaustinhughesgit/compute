@@ -71,6 +71,24 @@ const json = {
                 }
             ],
             "assignTo": "tempFileContents"
+        },
+        {
+            "module": "s3",
+            "chain": [
+                {
+                    "method": "upload",
+                    "params": [{
+                        "Bucket": "public.1var.com",
+                        "Key": "tempFile.txt",
+                        "Body": "{{tempFileContents}}"
+                    }]
+                },
+                {
+                    "method": "promise",
+                    "params": []
+                }
+            ],
+            "assignTo": "s3UploadResult"
         }
     ]
 }
