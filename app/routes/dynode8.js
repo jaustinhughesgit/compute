@@ -22,15 +22,6 @@ const json = {
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
             "assignTo": "timeInDubai"
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "justTime",
-            "valueFrom": ["{{timeInDubai}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
         }
     ]
 }
@@ -51,7 +42,6 @@ local.dyRouter.get('/', async function(req, res, next) {
     await initializeModules(context, json);
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-    context["dubaiTime"] = context["timeInDubai"];
     res.json(context);
 });
 
