@@ -209,6 +209,8 @@ async function applyMethodChain(target, action, context) {
 
             // Check for 'new' property to break the chain
             if (chainAction.new) {
+                console.log("executeStandalone",chainAction, context, result)
+                console.log("chainParams", chainParams)
                 executeStandaloneFunction(chainAction, context, result, ...chainParams);
                 continue;
             }
