@@ -170,7 +170,9 @@ function createFunctionFromAction(action, context) {
                 //console.log("chainAction.method",chainAction.method)
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
                     const methodName = chainAction.method.slice(1, -1);
-                    
+                    console.log(scope)
+                    console.log(scope[methodName])
+                    console.log(typeof scope[methodName])
                     if (typeof scope[methodName] === 'function') {
                         result = scope[methodName](...chainParams);
                     } else {
