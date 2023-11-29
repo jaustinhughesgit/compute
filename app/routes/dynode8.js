@@ -79,9 +79,9 @@ async function initializeModules(context, config) {
         if (action.valueFrom) {
             args = action.valueFrom.map(item => {
                 let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -2) : item.slice(2, -1); // Remove {{, }} and potentially !
+                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Adjusted for '!'
                 let value = context[key];
-
+        
                 if (isFunctionExecution && typeof value === 'function') {
                     return value();
                 }
@@ -94,9 +94,9 @@ async function initializeModules(context, config) {
 
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
-                let assignKey = action.assignTo.slice(2, -1); // Remove {{ and }}
                 let isFunctionExecution = action.assignTo.endsWith('!');
-
+                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2); // Adjusted for '!'
+                
                 if (isFunctionExecution) {
                     context[assignKey] = typeof result === 'function' ? result() : result;
                 } else {
