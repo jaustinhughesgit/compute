@@ -120,12 +120,21 @@ async function processConfig(config) {
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
+
+        if (!action.module && action.assignTo && action.params && action.chain) {
+            // Create the function and assign it to the context
+            context[action.assignTo] = createFunctionFromAction(action, context, req, res, next);
+            continue; // Skip the rest of the loop for this action
+        }
+
+
         let moduleInstance 
         if (action.module) {
             moduleInstance = global[action.module] ? global[action.module] : require(action.module);
-        } else if (action.assignTo && action.params) {
-            moduleInstance = createFunctionFromAction(action, context, req, res, next);
         }
+
+
+
         let result;
         if (typeof moduleInstance === 'function') {
             console.log("action",action)
