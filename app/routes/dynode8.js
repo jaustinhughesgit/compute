@@ -27,64 +27,10 @@ const json = {
             "module": "moment",
             "reinitialize": true,
             "assignTo": "justTime",
-            "valueFrom": "timeInDubai",
+            "valueFrom": ["{{imeInDubai}}!"],
             "chain": [
                 { "method": "format", "params": ["HH:mm"] }
             ]
-        },
-        {
-            "module": "moment",
-            "reinitialize": true,
-            "assignTo": "timeInDubai",
-            "valueFrom": "timeInDubai",
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
-            "module": "fs",
-            "method": "writeFileSync",
-            "params": [local.path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
-            "assignTo": "fileWriteResult"
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                }
-            ],
-            "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{tempFileContents}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
         }
     ]
 }
@@ -101,13 +47,10 @@ local.dyRouter.get('/', async function(req, res, next) {
     let context = {};
     context["testFunction"] = testFunction;
     context["newFunction"] = newFunction;
-
     context = await processConfig(json, context);
     await initializeModules(context, json);
-
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-
     res.json(context);
 });
 
@@ -116,13 +59,29 @@ async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
         let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
-        let result = typeof moduleInstance === 'function' ? (action.valueFrom ? moduleInstance(context[action.valueFrom]) : moduleInstance()) : moduleInstance;
+
+        let args = [];
+        if (action.valueFrom) {
+            args = action.valueFrom.map(item => {
+                let isFunctionExecution = item.endsWith('!');
+                let key = isFunctionExecution ? item.slice(2, -2) : item.slice(2, -1); // Remove {{, }} and potentially !
+                let value = context[key];
+
+                if (isFunctionExecution && typeof value === 'function') {
+                    return value();
+                }
+                return value;
+            });
+        }
+
+        let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
             context[action.assignTo] = result;
         }
     }
 }
+
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
