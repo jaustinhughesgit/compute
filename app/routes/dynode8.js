@@ -20,7 +20,7 @@ const json = {
                 { "method": "tz", "params": ["Asia/Dubai"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
             ],
-            "assignTo": "{{timeInDubai}}!"
+            "assignTo": "{{timeInDubai}}"
         },
         {
             "module": "moment-timezone",
@@ -33,7 +33,7 @@ const json = {
         {
             "module": "moment-timezone",
             "assignTo": "timeInDubai2",
-            "valueFrom": ["{{timeInDubai}}!"],
+            "valueFrom": ["{{timeInDubai}}"],
             "chain": [
                 { "method": "add", "params": [1, "hours"] },
                 { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
@@ -79,7 +79,7 @@ async function initializeModules(context, config) {
         if (action.valueFrom) {
             args = action.valueFrom.map(item => {
                 let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Remove {{, }} and potentially !
+                let key = isFunctionExecution ? item.slice(2, -2) : item.slice(2, -1); // Remove {{, }} and potentially !
                 let value = context[key];
 
                 if (isFunctionExecution && typeof value === 'function') {
