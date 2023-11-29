@@ -3,7 +3,7 @@ var express = require('express');
 let local = {};
 local.AWS = require('aws-sdk');
 local.dyRouter = express.Router();
-localpath = require('path');
+local.path = require('path');
 local.unzipper = require('unzipper');
 local.fs = require('fs');
 
