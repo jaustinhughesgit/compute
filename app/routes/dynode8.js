@@ -182,7 +182,7 @@ async function applyMethodChain(target, action, context) {
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                console.log("value":value)
+                console.log("value",value)
                 processedParam[key] = processParam(value);
             }
             return processedParam;
