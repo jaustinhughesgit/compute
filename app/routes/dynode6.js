@@ -190,16 +190,21 @@ async function applyMethodChain(target, action, context) {
                 }
                 return param; // Keep non-string params as-is
             }) || [];
+
+            console.log("chainsParam",chainParams)
             // Check if this chain action is for creating a callback function
             if (!action.module && action.params && action.assignTo) {
+                console.log("inside function action")
                 const callbackFunction = createFunctionFromAction(action, context);
                 context[action.assignTo] = callbackFunction;
                 continue; // Skip further processing for this chain action
             }
-
+            console.log(action.assignTo, context[action.assignTo])
             // Replace placeholders for callback functions in parameters
             chainParams = chainParams.map(param => {
+                console.log("param",param)
                 if (typeof param === 'string' && param.startsWith('{{') && param.endsWith('}}')) {
+                    console.log("param is callback",param, param.slice(2, -2))
                     const callbackName = param.slice(2, -2);
                     return context[callbackName];
                 }
@@ -207,6 +212,8 @@ async function applyMethodChain(target, action, context) {
             });
 
             if (typeof result[chainAction.method] === 'function') {
+                console.log("chainAction.method", chainAction.method, result)
+                console.log("result[chainAction.method]",result[chainAction.method])
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
