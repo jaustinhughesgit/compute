@@ -103,6 +103,7 @@ const json = {
         },
         {
             "module":"dyRouter",
+            "valueFrom": "passportInit",
             "chain":[
                 {"method":"use", "params":["{{passportInit}}"]}
             ],
@@ -218,7 +219,7 @@ async function initializeModules(context, config, req, res, next) {
                 result = moduleInstance(context[action.valueFrom]);
             } else {
                 console.log("moduleInstance",moduleInstance)
-                result = moduleInstance();
+                result = moduleInstance(context[action.params[0].replace(/[{}]/g, '')]); //<<<<<
             }
         } else {
             result = moduleInstance;
