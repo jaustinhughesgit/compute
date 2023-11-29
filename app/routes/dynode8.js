@@ -154,21 +154,12 @@ async function initializeModules(context, config) {
 
 
 function replacePlaceholders(str, context) {
-    console.log("str",str)
-    console.log("context", context)
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        console.log("key",key)
-        console.log("match",match)
         let isFunctionExecution = str.endsWith('!');
-        let actualKey = key; // Remove '!' if present
-
-        let value = context[actualKey];
-        console.log("isFunctionExecution",isFunctionExecution)
+        let value = context[key];
         if (isFunctionExecution && typeof value === 'function') {
-            console.log("typeof", "function")
             return value();
         }
-        console.log("value", value, "match", match)
         return value || match;
     });
 }
@@ -179,14 +170,12 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            console.log("param",param)
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                console.log("value",value)
                 processedParam[key] = processParam(value);
             }
             return processedParam;
