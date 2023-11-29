@@ -92,7 +92,27 @@ const json = {
                 {"method":"{done}", "params":[null, "{profile}"], "new":true}
             ],
             "assignTo":"callbackFunction"
-        }
+        },
+        {
+            "module":"passport-microsoft",
+            "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: 'https://graph.microsoft.com/',
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: 'login',
+                        state: false,
+                        type: 'Web',
+                        scope: ['user.read']
+                    },
+                    "{{callbackFunction}}"
+                ]}
+            ],
+            "assignTo":"microsoftStrategy"
+        },
     ]
 }
 
@@ -159,36 +179,25 @@ async function initializeModules(context, config, req, res, next) {
     }
 }
 
-function createFunctionFromAction(action, context) {
+function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
         let result;
-        console.log(action.params)
         let scope = args.reduce((acc, arg, index) => {
-            if (action.params[index]) {
+            if (action.params && action.params[index]) {
                 const paramName = action.params[index].replace(/[{}]/g, '');
                 acc[paramName] = arg;
             }
             return acc;
         }, {});
-        try{
-        console.log("scope",scope)
-        } catch {}
+
         if (action.chain) {
             for (const chainAction of action.chain) {
-
-                //console.log("chainAction",chainAction)
                 const chainParams = chainAction.params.map(param => {
-                    return replaceParams(param, context, args);
-
+                    return replaceParams(param, context, scope, args);
                 });
-                console.log("chainParams",chainParams)
-                console.log("result",result)
-                console.log("chainAction.method",chainAction.method)
+
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
                     const methodName = chainAction.method.slice(1, -1);
-                    console.log(scope)
-                    console.log(scope[methodName])
-                    console.log(typeof scope[methodName])
                     if (typeof scope[methodName] === 'function') {
                         result = scope[methodName](...chainParams);
                     } else {
@@ -207,7 +216,7 @@ function createFunctionFromAction(action, context) {
     };
 }
 
-function replaceParams(param, context, args) {
+function replaceParams(param, context, scope, args) {
     if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
@@ -215,7 +224,7 @@ function replaceParams(param, context, args) {
             if (!isNaN(paramName)) {
                 return args[paramName];
             }
-            return context[paramName] || args[paramName] || param;
+            return scope[paramName] || context[paramName] || param;
         }
     }
     return param;
