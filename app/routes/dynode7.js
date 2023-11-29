@@ -160,7 +160,7 @@ function createFunctionFromAction(action, context) {
                 console.log("chainParams",chainParams)
                 console.log("result",result)
                 console.log("chainAction.method",chainAction.method)
-                if (result && typeof result[chainAction.method] === 'function') {
+                if (typeof result[chainAction.method] === 'function') {
                     console.log(typeof result[chainAction.method])
                     result = result[chainAction.method](...chainParams);
                     console.log("after result", result)
