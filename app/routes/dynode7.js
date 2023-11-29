@@ -160,14 +160,30 @@ function createFunctionFromAction(action, context) {
                 console.log("chainParams",chainParams)
                 console.log("result",result)
                 console.log("chainAction.method",chainAction.method)
-                if (typeof result[chainAction.method] === 'function') {
-                    console.log(typeof result[chainAction.method])
+                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    const methodName = chainAction.method.slice(1, -1);
+                    console.log("-----1", methodName)
+                    console.log("-----2",context)
+                    
+                }
+                
+                
+                
+                
+                /*if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    const methodName = chainAction.method.slice(1, -1);
+                    if (typeof context[methodName] === 'function') {
+                        result = context[methodName](...chainParams);
+                    } else {
+                        console.error(`Callback method ${methodName} is not a function`);
+                        return;
+                    }
+                } else if (result && typeof result[chainAction.method] === 'function') {
                     result = result[chainAction.method](...chainParams);
-                    console.log("after result", result)
                 } else {
                     console.error(`Method ${chainAction.method} is not a function on result`);
                     return;
-                }
+                }*/
             }
         }
         return result;
