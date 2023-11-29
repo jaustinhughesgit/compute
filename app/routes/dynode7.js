@@ -113,6 +113,19 @@ const json = {
             ],
             "assignTo":"microsoftStrategy"
         },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":["{{microsoftStrategy}}"]}
+            ]
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"authenticate", "params":["{{strategy}}"]}
+            ],
+            "callback":["{req}","{res}","{next}"]
+        }
     ]
 }
 
