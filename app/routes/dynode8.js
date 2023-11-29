@@ -159,34 +159,52 @@ function replacePlaceholders(str, context) {
     });
 }
 
+function processParam(param, context) {
+    if (typeof param === 'string') {
+        // Check if the parameter is a function or a static value
+        let isFunction = param.includes('{{') && param.includes('}}');
+        let isFunctionExecution = param.endsWith('!');
+
+        if (isFunction) {
+            let functionName = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+            let func = context[functionName];
+
+            if (isFunctionExecution && typeof func === 'function') {
+                // Execute the function and return the result
+                return func();
+            } else {
+                // Return the function itself or the static value
+                return func || param;
+            }
+        } else {
+            // Replace placeholders in a static string
+            return replacePlaceholders(param, context);
+        }
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, context);
+        }
+        return processedParam;
+    } else {
+        return param;
+    }
+}
+
+// Update the applyMethodChain function to use the new processParam
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    // Helper function to process each parameter
-    function processParam(param) {
-        if (typeof param === 'string') {
-            return replacePlaceholders(param, context);
-        } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
-        } else if (typeof param === 'object' && param !== null) {
-            const processedParam = {};
-            for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
-            }
-            return processedParam;
-        } else {
-            return param;
-        }
-    }
-
     if (action.method) {
-        let params = action.params ? action.params.map(param => processParam(param)) : [];
+        let params = action.params ? action.params.map(param => processParam(param, context)) : [];
         result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
+            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param, context)) : [];
             if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
@@ -198,6 +216,7 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
+
 
 
 
