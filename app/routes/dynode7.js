@@ -117,14 +117,16 @@ const json = {
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{microsoftStrategy}}"]}
-            ]
+            ],
+            "assignTo":"something1"
         },
         {
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["{{strategy}}"]}
             ],
-            "callback":["{req}","{res}","{next}"]
+            "callback":["{req}","{res}","{next}"],
+            "assignTo":"something2"
         }
     ]
 }
