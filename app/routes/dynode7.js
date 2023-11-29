@@ -151,12 +151,19 @@ function createFunctionFromAction(action, context) {
 
         if (action.chain) {
             for (const chainAction of action.chain) {
+
+                console.log("chainAction",chainAction)
                 const chainParams = chainAction.params.map(param => {
                     return replaceParams(param, context, args);
 
                 });
+                console.log("chainParams",chainParams)
+                console.log("result",result)
+                console.log("result[chainAction.method]",result[chainAction.method])
+                console.log(typeof result[chainAction.method])
                 if (result && typeof result[chainAction.method] === 'function') {
                     result = result[chainAction.method](...chainParams);
+                    console.log("after result", result)
                 } else {
                     console.error(`Method ${chainAction.method} is not a function on result`);
                     return;
