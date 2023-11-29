@@ -1,12 +1,13 @@
-const AWS = require('aws-sdk');
-const fs = require('fs');
+
 var express = require('express');
 let local = {};
+local.AWS = require('aws-sdk');
 local.dyRouter = express.Router();
-const path = require('path');
-const unzipper = require('unzipper');
+localpath = require('path');
+local.unzipper = require('unzipper');
+local.fs = require('fs');
 
-local.s3 = new AWS.S3();
+local.s3 = new local.AWS.S3();
 
 const json = {
     "modules": {
@@ -54,7 +55,7 @@ const json = {
         {
             "module": "fs",
             "method": "writeFileSync",
-            "params": [path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
+            "params": [local.path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8'],
             "assignTo": "fileWriteResult"
         },
         {
@@ -62,7 +63,7 @@ const json = {
             "chain": [
                 {
                     "method": "readFileSync",
-                    "params": [path.join('/tmp', 'tempFile.txt'), "utf8"],
+                    "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
                 }
             ],
             "assignTo": "tempFileContents"
@@ -160,7 +161,7 @@ async function processConfig(config, initialContext) {
 
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
-    if (!fs.existsSync(modulePath)) {
+    if (!local.fs.existsSync(modulePath)) {
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
@@ -175,7 +176,7 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
     };
     console.log(params);
     try {
-        const data = await s3.getObject(params).promise();
+        const data = await local.s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
     } catch (error) {
         console.error(`Error downloading and unzipping module ${moduleName}:`, error);
@@ -184,8 +185,8 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
 }
 
 async function unzipModule(zipBuffer, modulePath) {
-    fs.mkdirSync(modulePath, { recursive: true });
-    const directory = await unzipper.Open.buffer(zipBuffer);
+    local.fs.mkdirSync(modulePath, { recursive: true });
+    const directory = await local.unzipper.Open.buffer(zipBuffer);
     await directory.extract({ path: modulePath });
 }
 
