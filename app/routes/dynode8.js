@@ -155,7 +155,14 @@ async function initializeModules(context, config) {
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        return context[key] || match;
+        let isFunctionExecution = key.endsWith('!');
+        let actualKey = isFunctionExecution ? key.slice(0, -1) : key; // Remove '!' if present
+
+        let value = context[actualKey];
+        if (isFunctionExecution && typeof value === 'function') {
+            return value();
+        }
+        return value || match;
     });
 }
 
