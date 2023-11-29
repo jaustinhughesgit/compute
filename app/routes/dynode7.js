@@ -146,7 +146,7 @@ async function initializeModules(context, config, req, res, next) {
                 result = moduleInstance(context[action.valueFrom]);
             } else {
                 console.log("moduleInstance",moduleInstance)
-                result = moduleInstance(?????); //<<<<<
+                result = moduleInstance(); //<<<<<
             }
         } else {
             result = moduleInstance;
