@@ -89,13 +89,6 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
-        },
-        {
-            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-            "chain":[
-                {"method":"{done}", "params":[null, "{profile}"], "new":true}
-            ],
-            "assignTo":"callbackFunction"
         }
     ]
 }
