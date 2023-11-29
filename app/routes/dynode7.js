@@ -4,6 +4,7 @@ var express = require('express');
 var dyRouter = express.Router();
 const path = require('path');
 const unzipper = require('unzipper');
+const session = require('express-session');
 
 global.s3 = new AWS.S3();
 global.dyRouter = dyRouter
