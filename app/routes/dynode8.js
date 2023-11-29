@@ -105,8 +105,8 @@ global.dyRouter.get('/', async function(req, res, next) {
     res.json(context);
 });
 
-async function processConfig(config) {
-    const context = {};
+async function processConfig(config, initialContext) {
+    const context = { ...initialContext };
     for (const [key, value] of Object.entries(config.modules)) {
             let newPath = await downloadAndPrepareModule(value, context);
     }
