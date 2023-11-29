@@ -102,6 +102,10 @@ global.dyRouter.get('/', async function(req, res, next) {
 
     context = await processConfig(json, context);
     await initializeModules(context, json);
+
+    context["testFunctionResult"] = testFunction();
+    context["newFunctionResult"] = newFunction("test");
+    
     res.json(context);
 });
 
