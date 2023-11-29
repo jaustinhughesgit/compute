@@ -202,7 +202,7 @@ function replaceParams(param, context, args) {
             if (!isNaN(paramName)) {
                 return args[paramName];
             }
-            return context[paramName] || args[paramName] || param;
+            return context[paramName] || args[paramName] || paramName;
         }
     }
     return param;
