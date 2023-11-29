@@ -24,7 +24,6 @@ const json = {
         },
         {
             "module": "moment-timezone",
-            "reinitialize": true,
             "assignTo": "justTime",
             "valueFrom": ["{{timeInDubai}}!"],
             "chain": [
@@ -33,7 +32,7 @@ const json = {
         },
         {
             "module": "moment-timezone",
-            "assignTo": "timeInDubai",
+            "assignTo": "timeInDubai2",
             "valueFrom": ["{{timeInDubai}}"],
             "chain": [
                 { "method": "add", "params": [1, "hours"] },
@@ -43,7 +42,7 @@ const json = {
         {
             "module": "moment-timezone",
             "assignTo": "justTime2",
-            "valueFrom": ["{{timeInDubai}}!"],
+            "valueFrom": ["{{timeInDubai2}}!"],
             "chain": [
                 { "method": "format", "params": ["HH:mm"] }
             ]
