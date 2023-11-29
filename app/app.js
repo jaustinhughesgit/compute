@@ -87,8 +87,6 @@ var strategiesConfig = {
 };
 
 app.get('/auth/:strategy', async (req, res, next) => {
-app.use(passport.initialize());
-app.use(passport.session());
     const strategy = req.params.strategy;
     try {
         if (!strategiesConfig[strategy]) {
