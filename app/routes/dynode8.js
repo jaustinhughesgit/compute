@@ -161,34 +161,37 @@ function replacePlaceholders(str, context) {
 
 function processParam(param, context) {
     if (typeof param === 'string') {
-        // Check if the parameter is a function or a static value
-        let isFunction = param.includes('{{') && param.includes('}}');
-        let isFunctionExecution = param.endsWith('!');
+        // Check if the parameter is a reference (either to a function or a static value)
+        let isReference = param.startsWith('{{') && param.endsWith('}}');
+        let executeFunction = param.endsWith('!');
 
-        if (isFunction) {
-            let functionName = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-            let func = context[functionName];
+        if (isReference) {
+            let referenceKey = executeFunction ? param.slice(2, -3) : param.slice(2, -2);
+            let referenceValue = context[referenceKey];
 
-            if (isFunctionExecution && typeof func === 'function') {
+            if (executeFunction && typeof referenceValue === 'function') {
                 // Execute the function and return the result
-                return func();
+                return referenceValue();
             } else {
                 // Return the function itself or the static value
-                return func || param;
+                return referenceValue;
             }
         } else {
-            // Replace placeholders in a static string
-            return replacePlaceholders(param, context);
+            // It's a static string, not a reference
+            return param;
         }
     } else if (Array.isArray(param)) {
+        // Process each element in the array
         return param.map(item => processParam(item, context));
     } else if (typeof param === 'object' && param !== null) {
+        // Process each key-value pair in the object
         const processedParam = {};
         for (const [key, value] of Object.entries(param)) {
             processedParam[key] = processParam(value, context);
         }
         return processedParam;
     } else {
+        // It's neither a string, array, nor object (e.g., number, boolean), so return as is
         return param;
     }
 }
@@ -216,6 +219,7 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
+
 
 
 
