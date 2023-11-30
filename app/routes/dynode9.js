@@ -319,13 +319,12 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
-    return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-        let isFunctionExecution = str.endsWith('!');
+    return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
         let value = context[key];
-        if (isFunctionExecution && typeof value === 'function') {
+        if (isFunctionExecution === '!' && typeof value === 'function') {
             return value();
         }
-        return value || match;
+        return value || key;
     });
 }
 
