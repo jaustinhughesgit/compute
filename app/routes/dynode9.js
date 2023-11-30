@@ -44,9 +44,8 @@ const json = {
                 },(token, tokenSecret, profile, done) => {
                     done(null, profile);
                 }
-               ]}
+               ], "new":true}
             ],
-            "new":true,
             "assignTo":"passportmicrosoft"
         },
         {
@@ -81,7 +80,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
     await initializeModules(context, json, req, res, next); 
     console.log(context.passportmicrosoft);
-    //context.passport.use(context.passportmicrosoft);
+    context.passport.use(context.passportmicrosoft);
         context.passport.authenticate("microsoft")(req, res, next);
 });
 
@@ -300,6 +299,10 @@ async function applyMethodChain(target, action, context) {
         }
     }
 
+    function instantiateWithNew(constructor, args) {
+        return new constructor(...args);
+    }
+
     if (action.chain && result) {
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
@@ -307,7 +310,16 @@ async function applyMethodChain(target, action, context) {
             }
             console.log(chainAction.params);
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            if (typeof result[chainAction.method] === 'function') {
+            if (chainAction.new) {
+                // Instantiate with 'new' if specified
+                if (typeof result[chainAction.method] === 'function') {
+                    // Instantiate with 'new' if specified
+                    result = instantiateWithNew(result[chainAction.method], chainParams);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
+                    return;
+                }
+            } else if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
