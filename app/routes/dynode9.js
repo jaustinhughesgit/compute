@@ -127,8 +127,7 @@ const json = {
                         "state": false,
                         "type": "Web",
                         "scope": ["user.read"]
-                    },
-                    "{{callbackFunction}}"
+                    }
                 ]}
             ],
             "assignTo":"microsoftStrategy"
