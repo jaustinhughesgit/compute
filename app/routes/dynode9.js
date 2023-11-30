@@ -47,6 +47,15 @@ const json = {
                ], "new":true}
             ],
             "assignTo":"passportmicrosoft"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":[
+                    "{{passportmicrosoft}}"
+                ]}
+            ],
+            "assignTo":"newStrategy"
         }
     ]
 }
@@ -70,7 +79,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
         "scope": ["user.read"]
     }
     await initializeModules(context, json, req, res, next);
-        context.passport.use(context.passportmicrosoft);
+        
         context.passport.authenticate("microsoft")(req, res, next);
 });
 
