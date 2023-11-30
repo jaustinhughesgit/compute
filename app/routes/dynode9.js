@@ -193,7 +193,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
-        context.authenticateMicrosoft(req, res, next); //<<<<<
+        //context.authenticateMicrosoft(req, res, next); //<<<<<
     }
     console.log("microsoftStrategy", console.log(context.microsoftStrategy))
     res.json(context);
