@@ -108,37 +108,40 @@ const json = {
         {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
-                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+                {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
         },
+        // Define the Microsoft Strategy
         {
             "module":"passport-microsoft",
             "chain":[
                 {"method":"Strategy", "params":[
                     {
-                        clientID: process.env.MICROSOFT_CLIENT_ID,
-                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-                        resource: 'https://graph.microsoft.com/',
-                        tenant: process.env.MICROSOFT_TENANT_ID,
-                        prompt: 'login',
-                        state: false,
-                        type: 'Web',
-                        scope: ['user.read']
+                        "clientID": process.env.MICROSOFT_CLIENT_ID,
+                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                        "resource": "https://graph.microsoft.com/",
+                        "tenant": process.env.MICROSOFT_TENANT_ID,
+                        "prompt": "login",
+                        "state": false,
+                        "type": "Web",
+                        "scope": ["user.read"]
                     },
                     "{{callbackFunction}}"
                 ]}
             ],
             "assignTo":"microsoftStrategy"
         },
+        // Use the strategy with Passport
         {
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["microsoft", "{{microsoftStrategy}}"]}
             ],
-            "assignTo":"something1"
+            "assignTo":"useMicrosoftStrategy"
         },
+        // Define the strategy name
         {
             "params":[], 
             "chain":[
@@ -146,21 +149,25 @@ const json = {
             ],
             "assignTo":"strategy"
         },
+        // Define the callback for authentication
         {
             "params":["{req}","{res}","{next}"], 
-            "chain":[],
-            "assignTo":"something2Callback"
+            "chain":[
+                {"return":"{res.redirect('/success')}"} // Redirect on success
+            ],
+            "assignTo":"authCallback"
         },
+        // Trigger Passport authentication
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["{{strategy}}"]},
-                "{{something2Callback}}"
+                {"method":"authenticate", "params":["{{strategy}}", {"scope": ["user.read"]}, "{{authCallback}}"]}
             ],
-            "assignTo":"something2"
+            "assignTo":"authenticateMicrosoft"
         },
         {
-            "execute":"something2"
+            "execute":"authenticateMicrosoft",
+            "express":true
         }
     ]
 }
@@ -200,7 +207,11 @@ async function initializeModules(context, config, req, res, next) {
             const functionName = action.execute;
             if (typeof context[functionName] === 'function') {
                 // Execute the function and continue to the next action
-                await context[functionName](req, res, next);
+                if (action.express){
+                    await context[functionName](req, res, next);
+                } else {
+                    await context[functionName]
+                }
                 continue;
             } else {
                 console.error(`No function named ${functionName} found in context`);
