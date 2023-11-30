@@ -206,16 +206,26 @@ function createFunctionFromAction(action, context, req, res, next) {
 
 
 function replaceParams(param, context, scope, args) {
-    if (param) {
+    if (typeof param === 'string') {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
             if (!isNaN(paramName)) {
-                return args[paramName];
+                return args[parseInt(paramName, 10)];
             }
             return scope[paramName] || context[paramName] || param;
         }
+        return param;
+    } else if (Array.isArray(param)) {
+        return param.map(item => replaceParams(item, context, scope, args));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = replaceParams(value, context, scope, args);
+        }
+        return processedParam;
+    } else {
+        return param;
     }
-    return param;
 }
 
 function replacePlaceholders(str, context) {
