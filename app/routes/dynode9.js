@@ -151,7 +151,7 @@ const json = {
             "chain":[
                 {"return":"microsoft"}
             ],
-            "assignTo":"sstrategy"
+            "assignTo":"strategy"
         },/*
         // Define the callback for authentication
         {
@@ -199,9 +199,9 @@ local.dyRouter.all('/*', async function(req, res, next) {
         res.redirect('/dashboard')
     }
     await initializeModules(context, json, req, res, next);
-    if (context.authenticateMicrosoft) {
+    //if (context.authenticateMicrosoft) {
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
-    }
+    //}
     //res.json(context);
 });
 
