@@ -46,15 +46,15 @@ const json = {
                 }
                ]}
             ],
-            "new":true, //<<<<<
+            "new":true,
             "assignTo":"passportmicrosoft"
         },
         {
             "module":"passport",
             "chain":[
                 {"method":"use", "params":[
-                    "microsoft", "{{passportmicrosoft}}"
-                ]}
+                    "microsoft", "{{passportmicrosoft}}!"
+                ], "new":true}
             ],
             "assignTo":"newStrategy"
         }
@@ -166,10 +166,7 @@ async function initializeModules(context, config, req, res, next) {
         console.log(">context",context)
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
-            if (action.new) {
-                // Handle instantiation with 'new' for the first function in the chain
-                context[action.assignTo] = (...constructorArgs) => new result(...constructorArgs);
-            } else if (action.assignTo.includes('{{')) {
+            if (action.assignTo.includes('{{')) {
                 let isFunctionExecution = action.assignTo.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
                 
@@ -315,9 +312,17 @@ async function applyMethodChain(target, action, context) {
             console.log(chainAction.params);
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
-                if (typeof result[chainAction.method] === 'function') {
-                    // If 'new' is specified, ensure that we are dealing with a constructor function
-                    result = (...args) => new result[chainAction.method](...args);
+                if (chainAction.new) {
+                    if (typeof result[chainAction.method] === 'function') {
+                        // If 'new' is specified, ensure that we are dealing with a constructor function
+                        result = (...args) => new result[chainAction.method](...args);
+                    } else {
+                        console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
+                        return;
+                    }
+                } else if (typeof result[chainAction.method] === 'function') {
+                    // Instantiate with 'new' if specified
+                    result = instantiateWithNew(result[chainAction.method], chainParams);
                 } else {
                     console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
                     return;
