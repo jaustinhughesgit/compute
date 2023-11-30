@@ -286,6 +286,23 @@ async function applyMethodChain(target, action, context) {
         }
     }
 
+    // Check if action.assignTo ends with '!' and execute the function if so
+    if (action.assignTo) {
+        if (action.assignTo.includes('{{')) {
+            let isFunctionExecution = action.assignTo.endsWith('!');
+            let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+            
+            if (isFunctionExecution) {
+                // Execute the function and assign its return value
+                context[assignKey] = typeof result === 'function' ? result() : result;
+            } else {
+                context[assignKey] = result;
+            }
+        } else {
+            context[action.assignTo] = result;
+        }
+    }
+
     return result;
 }
 
