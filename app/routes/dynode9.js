@@ -185,25 +185,28 @@ function createFunctionFromAction(action, context) {
                     return replaceParams(param, context, scope, args);
                 }) : [];
 
-                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
-                    const methodName = chainAction.method.slice(1, -1);
-                    if (typeof scope[methodName] === 'function') {
-                        result = scope[methodName](...chainParams);
+                if (typeof chainAction.method === 'string') {
+                    if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                        const methodName = chainAction.method.slice(1, -1);
+                        if (typeof scope[methodName] === 'function') {
+                            result = scope[methodName](...chainParams);
+                        } else {
+                            console.error(`Callback method ${methodName} is not a function`);
+                            return;
+                        }
+                    } else if (result && typeof result[chainAction.method] === 'function') {
+                        result = result[chainAction.method](...chainParams);
                     } else {
-                        console.error(`Callback method ${methodName} is not a function`);
+                        console.error(`Method ${chainAction.method} is not a function on result`);
                         return;
                     }
-                } else if (result && typeof result[chainAction.method] === 'function') {
-                    result = result[chainAction.method](...chainParams);
-                } else {
-                    console.error(`Method ${chainAction.method} is not a function on result`);
-                    return;
                 }
             }
         }
         return result;
     };
 }
+
 
 function replaceParams(param, context, scope, args) {
     if (param) {
