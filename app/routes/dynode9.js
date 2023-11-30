@@ -195,7 +195,6 @@ local.dyRouter.all('/*', async function(req, res, next) {
     if (context.authenticateMicrosoft) {
         context.authenticateMicrosoft(req, res, next);
     }
-    res.json(context);
 });
 
 
