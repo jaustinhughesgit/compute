@@ -47,16 +47,16 @@ const json = {
                ], "new":true}
             ],
             "assignTo":"passportmicrosoft"
-        }/*,
+        },
         {
             "module":"passport",
             "chain":[
                 {"method":"use", "params":[
-                    "microsoft", "{{passportmicrosoft}}!"
-                ]}
+                    "{{passportmicrosoft}}!"
+                ], "new":true}
             ],
             "assignTo":"newStrategy"
-        }*/
+        }
     ]
 }
 
@@ -80,7 +80,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
     await initializeModules(context, json, req, res, next); 
     console.log(context.passportmicrosoft);
-    context.passport.use(context.passportmicrosoft);
+    //context.passport.use(context.passportmicrosoft);
         context.passport.authenticate("microsoft")(req, res, next);
 });
 
