@@ -125,19 +125,7 @@ async function initializeModules(context, config, req, res, next) {
             }
         }
         if (!action.module && action.assignTo && action.params && action.chain) {
-            
-            let result;
-            if (action.new) {
-                // If 'new' is true, store the constructor function instead of executing it
-                result = createConstructorFunctionFromAction(action, context, req, res, next);
-            } else {
-                // Existing logic
-                result = createFunctionFromAction(action, context, req, res, next);
-                if (typeof result === 'function') {
-                    result = result();
-                }
-            }
-
+            let result = createFunctionFromAction(action, context, req, res, next);
             if (action.assignTo.includes('{{')) {
                 let isFunctionExecution = action.assignTo.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
@@ -173,9 +161,12 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+        console.log(">action", action)
+        console.log(">result", JSON.stringify(result));
+        console.log(">context",context)
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
-            if (action.new && typeof result === 'function') {
+            if (action.new) {
                 // Handle instantiation with 'new' for the first function in the chain
                 context[action.assignTo] = (...constructorArgs) => new result(...constructorArgs);
             } else if (action.assignTo.includes('{{')) {
@@ -193,27 +184,6 @@ async function initializeModules(context, config, req, res, next) {
         }
     }
 }
-
-function createConstructorFunctionFromAction(action, context, req, res, next) {
-    return function(...args) {
-        let scope = args.reduce((acc, arg, index) => {
-            if (action.params && action.params[index]) {
-                const paramName = action.params[index].replace(/[{}]/g, '');
-                acc[paramName] = arg;
-            }
-            return acc;
-        }, {});
-
-        let chainParams = action.chain.map(chainAction => {
-            return chainAction.params.map(param => replaceParams(param, context, scope, args));
-        });
-
-        // Assuming the first chain action is the constructor
-        let Constructor = context[action.module][action.chain[0].method];
-        return new Constructor(...chainParams[0]);
-    };
-}
-
 
 function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
