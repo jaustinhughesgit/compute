@@ -96,6 +96,13 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
+        },
+        {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+            ],
+            "assignTo":"callbackFunction"
         }
     ]
 }
