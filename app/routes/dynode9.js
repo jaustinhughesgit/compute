@@ -158,8 +158,10 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+        console.log(">action", action)
+        console.log(">result", JSON.stringify(result));
+        console.log(">context",context)
         result = await applyMethodChain(result, action, context);
-
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
                 let isFunctionExecution = action.assignTo.endsWith('!');
@@ -271,17 +273,25 @@ async function applyMethodChain(target, action, context) {
     let result = target;
 
     function processParam(param) {
+        console.log("->param", param)
         if (typeof param === 'string') {
+            console.log("param is a string returning replacePlaceholders")
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
+            console.log("param is an array")
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
+            console.log("param is an object")
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
+                console.log("for", param)
+                console.log("->value",value)
                 processedParam[key] = processParam(value);
             }
             return processedParam;
         } else {
+            console.log("param is something else ")
+            console.log(typeof param)
             return param;
         }
     }
@@ -295,7 +305,7 @@ async function applyMethodChain(target, action, context) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
             }
-
+            console.log(chainAction.params);
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
