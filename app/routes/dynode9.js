@@ -113,7 +113,7 @@ const json = {
             "assignTo":"callbackFunction"
         },
         // Define the Microsoft Strategy
-        {
+        /*{
             "module":"passport-microsoft",
             "chain":[
                 {
@@ -136,15 +136,15 @@ const json = {
                 }
             ],
             "assignTo":"microsoftStrategy"
-        },
+        },*/
         // Use the strategy with Passport
-        {
+        /*{
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["microsoft", {}]}
             ],
             "assignTo":"useMicrosoftStrategy"
-        },
+        },*/
         // Define the strategy name
         {
             "params":[], 
@@ -195,11 +195,23 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["authCallback"] = (req, res, next) => {
-        res.redirect('/dashboard')
-    }
+
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
+        context.passport.use(new context.microsoftStrategy({
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, (token, tokenSecret, profile, done) => {
+            // Your authentication logic
+            done(null, profile);
+        }));
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
     //}
     //res.json(context);
