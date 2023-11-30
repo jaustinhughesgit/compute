@@ -149,7 +149,22 @@ const json = {
             ],
             "assignTo":"strategy"
         },
-        
+        // Define the callback for authentication
+        {
+            "params":["{req}","{res}","{next}"], 
+            "chain":[
+                {"return":"{res.redirect('/success')}"} // Redirect on success
+            ],
+            "assignTo":"authCallback"
+        },
+        // Trigger Passport authentication
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"authenticate", "params":["{{strategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}
+            ],
+            "assignTo":"authenticateMicrosoft"
+        }
     ]
 }
 
