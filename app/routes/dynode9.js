@@ -113,13 +113,6 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
-            "params":[], 
-            "chain":[
-                {"return":"microsoft"}
-            ],
-            "assignTo":"strategy"
-        },
-        {
             "module":"passport",
             "chain":[
             ],
@@ -128,26 +121,32 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
+               {"method":"Strategy", "params":[
                 {
-                    "method":"Strategy", 
-                    "params":[
-                        {
-                            "clientID": process.env.MICROSOFT_CLIENT_ID,
-                            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                            "resource": "https://graph.microsoft.com/",
-                            "tenant": process.env.MICROSOFT_TENANT_ID,
-                            "prompt": "login",
-                            "state": false,
-                            "type": "Web",
-                            "scope": ["user.read"]
-                        },
-                        "{{callbackFunction}}"
-                    ],
-                    "new":true
+                    "clientID": process.env.MICROSOFT_CLIENT_ID,
+                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                    "resource": "https://graph.microsoft.com/",
+                    "tenant": process.env.MICROSOFT_TENANT_ID,
+                    "prompt": "login",
+                    "state": false,
+                    "type": "Web",
+                    "scope": ["user.read"]
+                },(token, tokenSecret, profile, done) => {
+                    done(null, profile);
                 }
+               ], "new":true}
             ],
-            "assignTo":"microsoftStrategy"
+            "assignTo":"passportmicrosoft"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":[
+                    "microsoft", "{{passportmicrosoft}}!"
+                ]}
+            ],
+            "assignTo":"newStrategy"
         }
     ]
 }
@@ -181,7 +180,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
     await initializeModules(context, json, req, res, next);
     
-        context.passport.use(new context.microsoftStrategy, contex.callback);
+        context.passport.use(context.passportmicrosoft);
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     res.json(context);
