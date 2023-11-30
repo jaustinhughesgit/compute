@@ -196,6 +196,10 @@ local.dyRouter.all('/*', async function(req, res, next) {
         //context.authenticateMicrosoft(req, res, next); //<<<<<
     }
     console.log("microsoftStrategy", console.log(context.microsoftStrategy))
+    console.log("callbackFunction", console.log(context.callbackFunction))
+    console.log("useMicrosoftStrategy", console.log(context.useMicrosoftStrategy))
+    console.log("strategy", console.log(context.strategy))
+    console.log("authCallback", console.log(context.authCallback))
     res.json(context);
 });
 
