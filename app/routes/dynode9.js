@@ -172,9 +172,13 @@ async function initializeModules(context, config, req, res, next) {
                 if (isFunctionExecution) {
                     context[assignKey] = typeof result === 'function' ? result() : result;
                 } else {
+                    console.log("1 init result",result)
+                    console.log("1 typeof",typeof result)
                     context[assignKey] = result;
                 }
             } else {
+                console.log("2 init result",result)
+                console.log("2 typeof",typeof result)
                 context[action.assignTo] = result;
             }
         }
@@ -300,6 +304,8 @@ async function applyMethodChain(target, action, context) {
     }
 
     function instantiateWithNew(constructor, args) {
+        console.log("constructor", constructor)
+        console.log("args", args)
         return new constructor(...args);
     }
 
@@ -316,6 +322,7 @@ async function applyMethodChain(target, action, context) {
                 if (typeof result[chainAction.method] === 'function') {
                     // Instantiate with 'new' if specified
                     result = instantiateWithNew(result[chainAction.method], chainParams);
+                    console.log("constructor<<<<<",result)
                 } else {
                     console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
                     return;
