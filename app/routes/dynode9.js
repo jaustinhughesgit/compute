@@ -184,8 +184,7 @@ const json = {
                     "scope": ["user.read"]
                 },
                 "{{authCallback}}"
-               ],
-            "new":true}
+               ]}
             ],
             "assignTo":"passportmicrosoft"
         },
@@ -194,7 +193,7 @@ const json = {
             "chain":[
                 {"method":"use","params":[
                     "microsoft",
-                    "{{passportmicrosoft}}!"
+                    "{{passportmicrosoft}}"
                 ]}
             ],
             "assignTo":"useMicrosoftStrategy"
