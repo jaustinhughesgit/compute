@@ -143,7 +143,8 @@ const json = {
                             "scope": ["user.read"]
                         },
                         "{{callbackFunction}}"
-                    ]
+                    ],
+                    "new":true
                 }
             ],
             "assignTo":"microsoftStrategy"
