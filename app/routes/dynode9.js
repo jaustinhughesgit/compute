@@ -116,6 +116,14 @@ local.dyRouter.get('/', async function(req, res, next) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
+
+        if (!action.module && action.assignTo && action.params && action.chain) {
+            // Create the function and assign it to the context
+            context[action.assignTo] = createFunctionFromAction(action, context);
+            console.log("context",context)
+            continue; // Skip the rest of the loop for this action
+        }
+
         let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
 
         let args = [];
@@ -152,6 +160,56 @@ async function initializeModules(context, config) {
     }
 }
 
+function createFunctionFromAction(action, context) {
+    return function(...args) {
+        let result;
+        let scope = args.reduce((acc, arg, index) => {
+            if (action.params && action.params[index]) {
+                const paramName = action.params[index].replace(/[{}]/g, '');
+                acc[paramName] = arg;
+            }
+            return acc;
+        }, {});
+
+        if (action.chain) {
+            for (const chainAction of action.chain) {
+                const chainParams = chainAction.params.map(param => {
+                    return replaceParams(param, context, scope, args);
+                });
+
+                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
+                    const methodName = chainAction.method.slice(1, -1);
+                    if (typeof scope[methodName] === 'function') {
+                        result = scope[methodName](...chainParams);
+                    } else {
+                        console.error(`Callback method ${methodName} is not a function`);
+                        return;
+                    }
+                } else if (result && typeof result[chainAction.method] === 'function') {
+                    result = result[chainAction.method](...chainParams);
+                } else {
+                    console.error(`Method ${chainAction.method} is not a function on result`);
+                    return;
+                }
+            }
+        }
+        return result;
+    };
+}
+
+function replaceParams(param, context, scope, args) {
+    if (param) {
+        if (param.startsWith('{') && param.endsWith('}')) {
+            const paramName = param.slice(1, -1);
+            // Check if paramName is a number (indicating an index in args)
+            if (!isNaN(paramName)) {
+                return args[paramName];
+            }
+            return scope[paramName] || context[paramName] || param;
+        }
+    }
+    return param;
+}
 
 function replacePlaceholders(str, context) {
     return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
