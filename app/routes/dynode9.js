@@ -128,7 +128,10 @@ const json = {
                         "type": "Web",
                         "scope": ["user.read"]
                     },
-                    "{{callbackFunction}}"
+                    (token, tokenSecret, profile, done) => {
+                        // Your authentication logic
+                        done(null, profile);
+                    }
                 ]}
             ],
             "assignTo":"microsoftStrategy"
