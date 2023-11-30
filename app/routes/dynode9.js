@@ -106,8 +106,22 @@ async function initializeModules(context, config, req, res, next) {
             }
         }
         if (!action.module && action.assignTo && action.params && action.chain) {
-            context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
-            console.log("context",context)
+            let result = createFunctionFromAction(action, context, req, res, next);
+            if (action.assignTo.includes('{{')) {
+                let isFunctionExecution = action.assignTo.endsWith('!');
+                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+                
+                if (isFunctionExecution) {
+                    // Execute the function and assign its return value
+                    context[assignKey] = result();
+                } else {
+                    // Assign the function itself
+                    context[assignKey] = result;
+                }
+            } else {
+                // Assign the function or result directly
+                context[action.assignTo] = result;
+            }
             continue;
         }
 
