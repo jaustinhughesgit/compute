@@ -164,7 +164,7 @@ local.dyRouter.get('/', async function(req, res, next) {
     res.json(context);
 });
 
-global.dyRouter.all('/*', async function(req, res, next) {
+local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
