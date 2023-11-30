@@ -152,9 +152,9 @@ const json = {
                 {"return":"microsoft"}
             ],
             "assignTo":"strategy"
-        },
+        },/*
         // Define the callback for authentication
-        /*{
+        {
             "params":["{req}","{res}","{next}"], 
             "chain":[
                 {"return":""} // Redirect on success
@@ -171,32 +171,9 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
-               {"method":"Strategy", "params":[
-                {
-                    "clientID": process.env.MICROSOFT_CLIENT_ID,
-                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                    "resource": "https://graph.microsoft.com/",
-                    "tenant": process.env.MICROSOFT_TENANT_ID,
-                    "prompt": "login",
-                    "state": false,
-                    "type": "Web",
-                    "scope": ["user.read"]
-                },
-                "{{authCallback}}"
-               ]}
+               
             ],
             "assignTo":"passportmicrosoft"
-        },
-        {
-            "module":"passport",
-            "chain":[
-                {"method":"use","params":[
-                    "microsoft",
-                    "{{passportmicrosoft}}"
-                ]}
-            ],
-            "assignTo":"useMicrosoftStrategy"
         }
     ]
 }
@@ -222,16 +199,25 @@ local.dyRouter.get('/', async function(req, res, next) {
 });
 
 local.dyRouter.all('/*', async function(req, res, next) {
-    let context = {};
+    let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["authCallback"] = (token, tokenSecret, profile, done) => {
-        // Your authentication logic
-        done(null, profile);
-    }
-    context = await processConfig(json, context);
+
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
-        //context.passport.use(context.passportmicrosoft);
+        context.passport.use(new context.passportmicrosoft.Strategy({
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, (token, tokenSecret, profile, done) => {
+            // Your authentication logic
+            done(null, profile);
+        }));
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
     //}
     //res.json(context);
