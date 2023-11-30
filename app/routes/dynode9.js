@@ -127,7 +127,8 @@ const json = {
                         "state": false,
                         "type": "Web",
                         "scope": ["user.read"]
-                    }
+                    },
+                    "{{callbackFunction}}"
                 ]}
             ],
             "assignTo":"microsoftStrategy"
@@ -192,7 +193,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
-        //context.authenticateMicrosoft(req, res, next); //<<<<<
+        context.authenticateMicrosoft(req, res, next); //<<<<<
     }
     console.log("microsoftStrategy", context.microsoftStrategy)
     console.log("callbackFunction", context.callbackFunction)
