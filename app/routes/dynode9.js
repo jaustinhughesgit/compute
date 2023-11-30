@@ -325,13 +325,16 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
-    return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
-        let value = context[key];
-        if (isFunctionExecution === '!' && typeof value === 'function') {
-            return value();
-        }
-        return value || key;
-    });
+    if (typeof str === 'string') {
+        return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
+            let value = context[key];
+            if (isFunctionExecution === '!' && typeof value === 'function') {
+                return value();
+            }
+            return value !== undefined ? value : key;
+        });
+    }
+    return str;
 }
 
 async function applyMethodChain(target, action, context) {
