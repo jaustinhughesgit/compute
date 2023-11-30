@@ -17,10 +17,94 @@ local.dyRouter.use(local.session({
 }));
 const json = {
     "modules": {
+        "moment-timezone": "moment-timezone",
         "passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
+        {
+            "module": "moment-timezone",
+            "chain": [
+                { "method": "tz", "params": ["Asia/Dubai"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ],
+            "assignTo": "timeInDubai"
+        },
+        {
+            "module": "moment-timezone",
+            "assignTo": "justTime",
+            "valueFrom": ["{{timeInDubai}}!"],
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
+        },
+        {
+            "module": "moment-timezone",
+            "assignTo": "timeInDubai2",
+            "valueFrom": ["{{timeInDubai}}"],
+            "chain": [
+                { "method": "add", "params": [1, "hours"] },
+                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+            ]
+        },
+        {
+            "module": "moment-timezone",
+            "assignTo": "justTime2",
+            "valueFrom": ["{{timeInDubai2}}!"],
+            "chain": [
+                { "method": "format", "params": ["HH:mm"] }
+            ]
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                }
+            ],
+            "assignTo": "fileContents"
+        },
+        {
+            "module": "fs",
+            "method": "writeFileSync",
+            "params": [local.path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8']
+        },
+        {
+            "module": "fs",
+            "chain": [
+                {
+                    "method": "readFileSync",
+                    "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
+                }
+            ],
+            "assignTo": "tempFileContents"
+        },
+        {
+            "module": "s3",
+            "chain": [
+                {
+                    "method": "upload",
+                    "params": [{
+                        "Bucket": "public.1var.com",
+                        "Key": "tempFile.txt",
+                        "Body": "{{testFunction}}"
+                    }]
+                },
+                {
+                    "method": "promise",
+                    "params": []
+                }
+            ],
+            "assignTo": "s3UploadResult"
+        },
+        {
+            "params":["{test}"], 
+            "chain":[
+                {"return":"{test}"}
+            ],
+            "assignTo":"customFunction"
+        },
         {
             "module":"passport",
             "chain":[
@@ -44,10 +128,11 @@ const json = {
                 },(token, tokenSecret, profile, done) => {
                     done(null, profile);
                 }
-               ], "new":true}
+               ]}
             ],
+            "new":true,
             "assignTo":"passportmicrosoft"
-        },
+        }/*,
         {
             "module":"passport",
             "chain":[
@@ -56,7 +141,7 @@ const json = {
                 ]}
             ],
             "assignTo":"newStrategy"
-        }
+        }*/
     ]
 }
 
@@ -79,9 +164,8 @@ local.dyRouter.all('/*', async function(req, res, next) {
         "scope": ["user.read"]
     }
     await initializeModules(context, json, req, res, next); 
-    console.log(context.passportmicrosoft);
-    //context.passport.use(context.passportmicrosoft);
-        context.newStrategy.authenticate("microsoft")(req, res, next);
+        //context.passport.authenticate("microsoft")(req, res, next);
+        res.json(context);
 });
 
 
@@ -160,10 +244,8 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-        console.log(">action", action)
-        console.log(">result", JSON.stringify(result));
-        console.log(">context",context)
         result = await applyMethodChain(result, action, context);
+
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
                 let isFunctionExecution = action.assignTo.endsWith('!');
@@ -258,7 +340,6 @@ function replacePlaceholders(str, context) {
             console.log("5",isFunctionExecution)
             let value = context[key];
             console.log("6", value)
-            console.log(typeof value)
             if (isFunctionExecution === '!' && typeof value === 'function') {
                 console.log("7", value())
                 return value();
@@ -276,31 +357,19 @@ async function applyMethodChain(target, action, context) {
     let result = target;
 
     function processParam(param) {
-        console.log("->param", param)
         if (typeof param === 'string') {
-            console.log("param is a string returning replacePlaceholders")
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
-            console.log("param is an array")
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
-            console.log("param is an object")
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                console.log("for", param)
-                console.log("->value",value)
                 processedParam[key] = processParam(value);
             }
             return processedParam;
         } else {
-            console.log("param is something else ")
-            console.log(typeof param)
             return param;
         }
-    }
-
-    function instantiateWithNew(constructor, args) {
-        return new constructor(...args);
     }
 
     if (action.chain && result) {
@@ -308,18 +377,9 @@ async function applyMethodChain(target, action, context) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
             }
-            console.log(chainAction.params);
+
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            if (chainAction.new) {
-                // Instantiate with 'new' if specified
-                if (typeof result[chainAction.method] === 'function') {
-                    // Instantiate with 'new' if specified
-                    result = instantiateWithNew(result[chainAction.method], chainParams);
-                } else {
-                    console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
-                    return;
-                }
-            } else if (typeof result[chainAction.method] === 'function') {
+            if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
