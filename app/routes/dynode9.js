@@ -165,9 +165,9 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["{{sstrategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}
+                /*{"method":"authenticate", "params":["{{strategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}*/
             ],
-            "assignTo":"authenticateMicrosoft"
+            "assignTo":"passport"
         }
     ]
 }
@@ -200,7 +200,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
-        context.authenticateMicrosoft(req, res, next); //<<<<<
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
     }
     res.json(context);
 });
