@@ -59,15 +59,11 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     context["callback"] = (token, tokenSecret, profile, done) => {
-        // Your authentication logic
         done(null, profile);
     }
     await initializeModules(context, json, req, res, next);
-    //if (context.authenticateMicrosoft) {
         context.passport.use(new context.passportmicrosoft.Strategy(context["strategyConfig"], context["callback"]));
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
-    //}
-    //res.json(context);
+        context.passport.authenticate("microsoft")(req, res, next);
 });
 
 
@@ -98,7 +94,6 @@ async function initializeModules(context, config, req, res, next) {
         if (action.execute) {
             const functionName = action.execute;
             if (typeof context[functionName] === 'function') {
-                // Execute the function and continue to the next action
                 if (action.express){
                     await context[functionName](req, res, next);
                 } else {
@@ -166,11 +161,9 @@ function createFunctionFromAction(action, context, req, res, next) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 if ('return' in chainAction) {
-                    // Replace the return value with the actual parameter value
                     return replaceParams(chainAction.return, context, scope, args);
                 }
 
-                // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -202,7 +195,6 @@ function replaceParams(param, context, scope, args) {
     if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
-            // Check if paramName is a number (indicating an index in args)
             if (!isNaN(paramName)) {
                 return args[paramName];
             }
@@ -238,7 +230,6 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
             return replacePlaceholders(param, context);
@@ -262,7 +253,6 @@ async function applyMethodChain(target, action, context) {
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         if (action.new) {
-            // Use 'new' to instantiate the class
             result = instantiateWithNew(result, params);
         } else {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
@@ -271,7 +261,9 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            // ... existing code ...
+            if (chainAction.hasOwnProperty('return')) {
+                return chainAction.return; // Directly return the value specified in 'return'
+            }
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
@@ -283,23 +275,6 @@ async function applyMethodChain(target, action, context) {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
-        }
-    }
-
-    // Check if action.assignTo ends with '!' and execute the function if so
-    if (action.assignTo) {
-        if (action.assignTo.includes('{{')) {
-            let isFunctionExecution = action.assignTo.endsWith('!');
-            let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-            
-            if (isFunctionExecution) {
-                // Execute the function and assign its return value
-                context[assignKey] = typeof result === 'function' ? result() : result;
-            } else {
-                context[assignKey] = result;
-            }
-        } else {
-            context[action.assignTo] = result;
         }
     }
 
