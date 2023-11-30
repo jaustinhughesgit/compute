@@ -172,7 +172,6 @@ const json = {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
-                "microsoft",
                 {
                     "clientID": process.env.MICROSOFT_CLIENT_ID,
                     "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
