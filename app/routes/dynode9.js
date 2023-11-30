@@ -161,7 +161,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["{{strategy}}", {"scope": ["user.read"]}, "{{authCallback}}"]}
+                {"method":"authenticate", "params":["{{strategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}
             ],
             "assignTo":"authenticateMicrosoft"
         }
