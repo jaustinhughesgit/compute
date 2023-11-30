@@ -213,12 +213,13 @@ local.dyRouter.get('/', async function(req, res, next) {
 });
 
 local.dyRouter.all('/*', async function(req, res, next) {
+    let context = {};
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     context["authCallback"] = (token, tokenSecret, profile, done) => {
         // Your authentication logic
         done(null, profile);
     }
-    let context = await processConfig(json);
+    context = await processConfig(json, context);
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
         context.passport.use(context.passportmicrosoft());
