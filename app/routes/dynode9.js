@@ -180,6 +180,10 @@ function createFunctionFromAction(action, context) {
 
         if (action.chain) {
             for (const chainAction of action.chain) {
+                if ('return' in chainAction) {
+                    return chainAction.return; // Directly return the value specified in 'return'
+                }
+
                 // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
