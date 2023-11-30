@@ -116,7 +116,6 @@ local.dyRouter.get('/', async function(req, res, next) {
     await initializeModules(context, json);
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-    context["customFunctionResult"] = context["customFunction"]();
     res.json(context);
 });
 
@@ -257,7 +256,7 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            // Check if the chain action has a 'return' key
+
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
             }
