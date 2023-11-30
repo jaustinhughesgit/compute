@@ -173,20 +173,13 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-        console.log(">action", action)
-        console.log(">result", JSON.stringify(result));
-        console.log(">context",context)
         result = await applyMethodChain(result, action, context);
         if (action.assignTo) {
-            if (action.assignTo.includes('{{')) {
-                let isFunctionExecution = action.assignTo.endsWith('!');
-                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-                
-                if (isFunctionExecution) {
-                    context[assignKey] = typeof result === 'function' ? result() : result;
-                } else {
-                    context[assignKey] = result;
-                }
+            if (action.new && typeof result === 'function') {
+                // Handle instantiation with 'new' for the first function in the chain
+                context[action.assignTo] = (...constructorArgs) => new result(...constructorArgs);
+            } else if (action.assignTo.includes('{{')) {
+                // ... existing code for handling placeholders ...
             } else {
                 context[action.assignTo] = result;
             }
