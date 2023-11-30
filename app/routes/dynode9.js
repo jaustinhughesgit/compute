@@ -89,6 +89,13 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
+        },
+        {
+            "params":["{test}"], 
+            "chain":[
+                {"return":"{test}"}
+            ],
+            "assignTo":"callbackFunction"
         }
     ]
 }
@@ -173,19 +180,13 @@ function createFunctionFromAction(action, context) {
 
         if (action.chain) {
             for (const chainAction of action.chain) {
-                const chainParams = chainAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
-                });
+                if (chainAction.return) {
+                    return processReturnValue(chainAction.return, scope, context);
+                }
 
-                if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
-                    const methodName = chainAction.method.slice(1, -1);
-                    if (typeof scope[methodName] === 'function') {
-                        result = scope[methodName](...chainParams);
-                    } else {
-                        console.error(`Callback method ${methodName} is not a function`);
-                        return;
-                    }
-                } else if (result && typeof result[chainAction.method] === 'function') {
+                const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param, scope, context)) : [];
+
+                if (chainAction.method && typeof result[chainAction.method] === 'function') {
                     result = result[chainAction.method](...chainParams);
                 } else {
                     console.error(`Method ${chainAction.method} is not a function on result`);
@@ -195,6 +196,13 @@ function createFunctionFromAction(action, context) {
         }
         return result;
     };
+}
+
+function processReturnValue(returnValue, scope, context) {
+    if (typeof returnValue === 'string') {
+        return processParam(returnValue, scope, context);
+    }
+    return returnValue;
 }
 
 function replaceParams(param, context, scope, args) {
@@ -222,25 +230,36 @@ function replacePlaceholders(str, context) {
     });
 }
 
+function processParam(param, localScope, context) {
+    if (typeof param === 'string') {
+        // Handle local parameters (single curly brackets)
+        if (param.startsWith('{') && param.endsWith('}')) {
+            const isFunctionExecution = param.endsWith('}!');
+            const key = isFunctionExecution ? param.slice(1, -2) : param.slice(1, -1);
+            const value = localScope[key] || context[key];
+
+            if (isFunctionExecution && typeof value === 'function') {
+                return value();
+            }
+            return value;
+        }
+        // Handle context parameters (double curly brackets)
+        return replacePlaceholders(param, context);
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, localScope, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, localScope, context);
+        }
+        return processedParam;
+    } else {
+        return param;
+    }
+}
+
 async function applyMethodChain(target, action, context) {
     let result = target;
-
-    // Helper function to process each parameter
-    function processParam(param) {
-        if (typeof param === 'string') {
-            return replacePlaceholders(param, context);
-        } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
-        } else if (typeof param === 'object' && param !== null) {
-            const processedParam = {};
-            for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
-            }
-            return processedParam;
-        } else {
-            return param;
-        }
-    }
 
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
