@@ -143,7 +143,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     if (context.authenticateMicrosoft) {
         //context.authenticateMicrosoft(req, res, next); //<<<<<
     }
-    console.log("strategy", console.log(context.strategy))
+    console.log("strategy", console.log(context.strategy()))
     res.json(context);
 });
 
