@@ -53,8 +53,7 @@ const json = {
             "chain":[
                 {"method":"use", "params":[
                     "microsoft", "{{passportmicrosoft}}"
-                ],
-                "new":true}
+                ]}
             ],
             "assignTo":"newStrategy"
         }
