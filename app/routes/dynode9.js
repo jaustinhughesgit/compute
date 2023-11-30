@@ -291,17 +291,17 @@ async function applyMethodChain(target, action, context) {
     }
     console.log("action",action)
     console.log("context",context)
-    console.log("outside of action.method condition",action.method)
+    console.log("outside of action.module condition",action.module)
 
-    if (action.method) {
-        console.log("inside action.method condition", params)
+    if (action.module) {
+        console.log("inside action.module condition", params)
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         console.log("action.new", action.new)
         if (action.new) {
             console.log("instantiateWithNew", params)
             result = instantiateWithNew(result, params);
         } else {
-            console.log(`Applying method: ${action.method} with params:`, params);
+            console.log(`Applying module: ${action.module} with params:`, params);
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
         }
     }
