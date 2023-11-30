@@ -46,7 +46,7 @@ const json = {
                 }
                ], "new":true}
             ],
-            "assignTo":"passportmicrosoft"
+            "assignTo":"{{passportmicrosoft}}!"
         },
         {
             "module":"passport",
