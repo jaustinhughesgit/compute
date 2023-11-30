@@ -243,20 +243,19 @@ async function initializeModules(context, config, req, res, next) {
             });
         }
 
-        let result;
+        let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+
         if (action.chain) {
             for (const chainAction of action.chain) {
                 if (chainAction.new) {
                     // Use 'new' keyword for instantiation
-                    const ModuleClass = moduleInstance[chainAction.method];
+                    const ModuleClass = moduleInstance[chainAction.method] || global[chainAction.method];
                     result = new ModuleClass(...args);
-                } else {
-                    result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-                    result = await applyMethodChain(result, chainAction, context);
                 }
+
+                // Apply method chain to either the new instance or the existing module instance
+                result = await applyMethodChain(result, chainAction, context);
             }
-        } else {
-            result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
         }
 
         if (action.assignTo) {
