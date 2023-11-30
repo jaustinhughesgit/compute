@@ -106,6 +106,20 @@ const json = {
             "assignTo":"customFunction"
         },
         {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"]}
+            ],
+            "assignTo":"callbackFunction"
+        },
+        {
+            "params":[], 
+            "chain":[
+                {"return":"microsoft"}
+            ],
+            "assignTo":"strategy"
+        },
+        {
             "module":"passport",
             "chain":[
             ],
@@ -114,60 +128,20 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
-               {"method":"Strategy", "params":[
-                {
-                    "clientID": process.env.MICROSOFT_CLIENT_ID,
-                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                    "resource": "https://graph.microsoft.com/",
-                    "tenant": process.env.MICROSOFT_TENANT_ID,
-                    "prompt": "login",
-                    "state": false,
-                    "type": "Web",
-                    "scope": ["user.read"]
-                },(token, tokenSecret, profile, done) => {
-                    done(null, profile);
-                }
-               ]}
+               
             ],
-            "new":true,
             "assignTo":"passportmicrosoft"
-        }/*,
-        {
-            "module":"passport",
-            "chain":[
-                {"method":"use", "params":[
-                    "microsoft", "{{passportmicrosoft}}"
-                ]}
-            ],
-            "assignTo":"newStrategy"
-        }*/
+        }
     ]
 }
 
+function testFunction(){
+    return "hello world"
+}
 
-local.dyRouter.all('/*', async function(req, res, next) {
-    let context = await processConfig(json);
-    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["callback"] = (token, tokenSecret, profile, done) => {
-        done(null, profile);
-    }
-    context["strategyConfig"] = {
-        "clientID": process.env.MICROSOFT_CLIENT_ID,
-        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-        "resource": "https://graph.microsoft.com/",
-        "tenant": process.env.MICROSOFT_TENANT_ID,
-        "prompt": "login",
-        "state": false,
-        "type": "Web",
-        "scope": ["user.read"]
-    }
-    await initializeModules(context, json, req, res, next); 
-        //context.passport.authenticate("microsoft")(req, res, next);
-        res.json(context);
-});
-
+function newFunction(val){
+return val + "!"
+}
 
 local.dyRouter.get('/', async function(req, res, next) {
     let context = {};
@@ -181,13 +155,30 @@ local.dyRouter.get('/', async function(req, res, next) {
     res.json(context);
 });
 
-function testFunction(){
-    return "hello world"
-}
+local.dyRouter.all('/*', async function(req, res, next) {
+    let context = await processConfig(json);
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
 
-function newFunction(val){
-return val + "!"
-}
+    await initializeModules(context, json, req, res, next);
+    //if (context.authenticateMicrosoft) {
+        context.passport.use(new context.passportmicrosoft.Strategy({
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, (token, tokenSecret, profile, done) => {
+            // Your authentication logic
+            done(null, profile);
+        }));
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+    //}
+    //res.json(context);
+});
 
 
 async function initializeModules(context, config, req, res, next) {
@@ -196,6 +187,7 @@ async function initializeModules(context, config, req, res, next) {
         if (action.execute) {
             const functionName = action.execute;
             if (typeof context[functionName] === 'function') {
+                // Execute the function and continue to the next action
                 if (action.express){
                     await context[functionName](req, res, next);
                 } else {
@@ -208,22 +200,8 @@ async function initializeModules(context, config, req, res, next) {
             }
         }
         if (!action.module && action.assignTo && action.params && action.chain) {
-            let result = createFunctionFromAction(action, context, req, res, next);
-            if (action.assignTo.includes('{{')) {
-                let isFunctionExecution = action.assignTo.endsWith('!');
-                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-                
-                if (isFunctionExecution) {
-                    // Execute the function and assign its return value
-                    context[assignKey] = result();
-                } else {
-                    // Assign the function itself
-                    context[assignKey] = result;
-                }
-            } else {
-                // Assign the function or result directly
-                context[action.assignTo] = result;
-            }
+            context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
+            console.log("context",context)
             continue;
         }
 
@@ -277,9 +255,11 @@ function createFunctionFromAction(action, context, req, res, next) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 if ('return' in chainAction) {
+                    // Replace the return value with the actual parameter value
                     return replaceParams(chainAction.return, context, scope, args);
                 }
 
+                // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -308,26 +288,17 @@ function createFunctionFromAction(action, context, req, res, next) {
 
 
 function replaceParams(param, context, scope, args) {
-    if (typeof param === 'string') {
+    if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
+            // Check if paramName is a number (indicating an index in args)
             if (!isNaN(paramName)) {
-                return args[parseInt(paramName, 10)];
+                return args[paramName];
             }
             return scope[paramName] || context[paramName] || param;
         }
-        return param;
-    } else if (Array.isArray(param)) {
-        return param.map(item => replaceParams(item, context, scope, args));
-    } else if (typeof param === 'object' && param !== null) {
-        const processedParam = {};
-        for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = replaceParams(value, context, scope, args);
-        }
-        return processedParam;
-    } else {
-        return param;
     }
+    return param;
 }
 
 function replacePlaceholders(str, context) {
@@ -356,6 +327,7 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
+    // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
             return replacePlaceholders(param, context);
@@ -372,14 +344,29 @@ async function applyMethodChain(target, action, context) {
         }
     }
 
+    function instantiateWithNew(constructor, args) {
+        return new constructor(...args);
+    }
+
+    if (action.method) {
+        let params = action.params ? action.params.map(param => processParam(param)) : [];
+        if (action.new) {
+            // Use 'new' to instantiate the class
+            result = instantiateWithNew(result, params);
+        } else {
+            result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
+        }
+    }
+
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            if (chainAction.hasOwnProperty('return')) {
-                return chainAction.return; // Directly return the value specified in 'return'
-            }
+            // ... existing code ...
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            if (typeof result[chainAction.method] === 'function') {
+            if (chainAction.new) {
+                // Instantiate with 'new' if specified
+                result = instantiateWithNew(result[chainAction.method], chainParams);
+            } else if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
