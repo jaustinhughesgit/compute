@@ -325,15 +325,25 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
+    console.log("1",str,context)
     if (typeof str === 'string') {
+        console.log("2", str, "=== string")
         return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
+            console.log("3", key)
+            console.log("4", match)
+            console.log("5",isFunctionExecution)
             let value = context[key];
+            console.log("6", value)
             if (isFunctionExecution === '!' && typeof value === 'function') {
+                console.log("7", value())
                 return value();
             }
+            console.log("8",value)
+            console.log("9",key)
             return value !== undefined ? value : key;
         });
     }
+    console.log("10", str)
     return str;
 }
 
