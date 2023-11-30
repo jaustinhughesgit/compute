@@ -17,151 +17,10 @@ local.dyRouter.use(local.session({
 }));
 const json = {
     "modules": {
-        "moment-timezone": "moment-timezone",
         "passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        {
-            "module": "moment-timezone",
-            "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ],
-            "assignTo": "timeInDubai"
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "justTime",
-            "valueFrom": ["{{timeInDubai}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "timeInDubai2",
-            "valueFrom": ["{{timeInDubai}}"],
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "justTime2",
-            "valueFrom": ["{{timeInDubai2}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
-            "module": "fs",
-            "method": "writeFileSync",
-            "params": [local.path.join('/tmp', 'tempFile.txt'), "This is a test file content {{timeInDubai}}", 'utf8']
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                }
-            ],
-            "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{testFunction}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
-        },
-        {
-            "params":["{test}"], 
-            "chain":[
-                {"return":"{test}"}
-            ],
-            "assignTo":"customFunction"
-        },
-        {
-            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-            "chain":[
-                {"method":"{done}", "params":[null, "{profile}"]}
-            ],
-            "assignTo":"callbackFunction"
-        },
-        // Define the Microsoft Strategy
-        /*{
-            "module":"passport-microsoft",
-            "chain":[
-                {
-                    "method":"Strategy", 
-                    "params":[
-                        {
-                            "clientID": process.env.MICROSOFT_CLIENT_ID,
-                            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                            "resource": "https://graph.microsoft.com/",
-                            "tenant": process.env.MICROSOFT_TENANT_ID,
-                            "prompt": "login",
-                            "state": false,
-                            "type": "Web",
-                            "scope": ["user.read"]
-                        },
-                        "{{callbackFunction}}"
-                    ],
-                    "new":true
-                }
-            ],
-            "assignTo":"microsoftStrategy"
-        },*/
-        // Use the strategy with Passport
-        /*{
-            "module":"passport",
-            "chain":[
-                {"method":"use", "params":["microsoft", {}]}
-            ],
-            "assignTo":"useMicrosoftStrategy"
-        },*/
-        // Define the strategy name
-        {
-            "params":[], 
-            "chain":[
-                {"return":"microsoft"}
-            ],
-            "assignTo":"strategy"
-        },/*
-        // Define the callback for authentication
-        {
-            "params":["{req}","{res}","{next}"], 
-            "chain":[
-                {"return":""} // Redirect on success
-            ],
-            "assignTo":"authCallback"
-        },*/
-        // Trigger Passport authentication
         {
             "module":"passport",
             "chain":[
@@ -178,13 +37,32 @@ const json = {
     ]
 }
 
-function testFunction(){
-    return "hello world"
-}
 
-function newFunction(val){
-return val + "!"
-}
+local.dyRouter.all('/*', async function(req, res, next) {
+    let context = await processConfig(json);
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    context["callback"] = (token, tokenSecret, profile, done) => {
+        // Your authentication logic
+        done(null, profile);
+    }
+    await initializeModules(context, json, req, res, next);
+    //if (context.authenticateMicrosoft) {
+        context.passport.use(new context.passportmicrosoft.Strategy({
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, context["callback"]));
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+    //}
+    //res.json(context);
+});
+
 
 local.dyRouter.get('/', async function(req, res, next) {
     let context = {};
@@ -198,30 +76,13 @@ local.dyRouter.get('/', async function(req, res, next) {
     res.json(context);
 });
 
-local.dyRouter.all('/*', async function(req, res, next) {
-    let context = await processConfig(json);
-    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+function testFunction(){
+    return "hello world"
+}
 
-    await initializeModules(context, json, req, res, next);
-    //if (context.authenticateMicrosoft) {
-        context.passport.use(new context.passportmicrosoft.Strategy({
-            "clientID": process.env.MICROSOFT_CLIENT_ID,
-            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-            "resource": "https://graph.microsoft.com/",
-            "tenant": process.env.MICROSOFT_TENANT_ID,
-            "prompt": "login",
-            "state": false,
-            "type": "Web",
-            "scope": ["user.read"]
-        }, (token, tokenSecret, profile, done) => {
-            // Your authentication logic
-            done(null, profile);
-        }));
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
-    //}
-    //res.json(context);
-});
+function newFunction(val){
+return val + "!"
+}
 
 
 async function initializeModules(context, config, req, res, next) {
