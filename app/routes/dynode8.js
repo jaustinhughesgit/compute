@@ -89,6 +89,13 @@ const json = {
                 }
             ],
             "assignTo": "s3UploadResult"
+        },
+        {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"]}
+            ],
+            "assignTo":"customFunction"
         }
     ]
 }
@@ -116,37 +123,69 @@ local.dyRouter.get('/', async function(req, res, next) {
 async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+        if (action.module) {
+            let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
 
-        let args = [];
-        if (action.valueFrom) {
-            args = action.valueFrom.map(item => {
-                let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Adjusted for '!'
-                let value = context[key];
-        
-                if (isFunctionExecution && typeof value === 'function') {
-                    return value();
-                }
-                return value;
-            });
-        }
+            let args = [];
+            if (action.valueFrom) {
+                args = action.valueFrom.map(item => {
+                    let isFunctionExecution = item.endsWith('!');
+                    let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Adjusted for '!'
+                    let value = context[key];
+            
+                    if (isFunctionExecution && typeof value === 'function') {
+                        return value();
+                    }
+                    return value;
+                });
+            }
 
-        let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-        result = await applyMethodChain(result, action, context);
+            let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+            result = await applyMethodChain(result, action, context);
 
-        if (action.assignTo) {
-            if (action.assignTo.includes('{{')) {
-                let isFunctionExecution = action.assignTo.endsWith('!');
-                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2); // Adjusted for '!'
-                
-                if (isFunctionExecution) {
-                    context[assignKey] = typeof result === 'function' ? result() : result;
+            if (action.assignTo) {
+                if (action.assignTo.includes('{{')) {
+                    let isFunctionExecution = action.assignTo.endsWith('!');
+                    let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2); // Adjusted for '!'
+                    
+                    if (isFunctionExecution) {
+                        context[assignKey] = typeof result === 'function' ? result() : result;
+                    } else {
+                        context[assignKey] = result;
+                    }
                 } else {
-                    context[assignKey] = result;
+                    context[action.assignTo] = result;
                 }
-            } else {
-                context[action.assignTo] = result;
+            }
+        } else {
+            // Handling custom function
+            if (action.params && action.chain) {
+                const customFunction = async (...args) => {
+                    let localContext = { ...context };
+                    // Map params to localContext for use in chain
+                    action.params.forEach((param, index) => {
+                        const paramName = param.replace(/[{}]/g, '');
+                        localContext[paramName] = args[index];
+                    });
+
+                    // Apply method chain
+                    for (const chainAction of action.chain) {
+                        const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param, localContext)) : [];
+                        const methodName = chainAction.method.replace(/[{}]/g, '');
+                        if (typeof localContext[methodName] === 'function') {
+                            localContext = await localContext[methodName](...chainParams);
+                        } else {
+                            console.error(`Method ${methodName} is not a function in custom action`);
+                            return;
+                        }
+                    }
+                    return localContext;
+                };
+
+                // Assign the custom function to context
+                if (action.assignTo) {
+                    context[action.assignTo] = customFunction;
+                }
             }
         }
     }
@@ -164,25 +203,36 @@ function replacePlaceholders(str, context) {
     });
 }
 
+function processParam(param, context) {
+    if (typeof param === 'string') {
+        // Check for local parameters (single curly brackets)
+        if (param.startsWith('{') && param.endsWith('}')) {
+            const isFunctionExecution = param.endsWith('}!');
+            const key = isFunctionExecution ? param.slice(1, -2) : param.slice(1, -1);
+            const value = context[key];
+
+            if (isFunctionExecution && typeof value === 'function') {
+                return value();
+            }
+            return value;
+        }
+        // Handle context parameters (double curly brackets)
+        return replacePlaceholders(param, context);
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, context);
+        }
+        return processedParam;
+    } else {
+        return param;
+    }
+}
+
 async function applyMethodChain(target, action, context) {
     let result = target;
-
-    // Helper function to process each parameter
-    function processParam(param) {
-        if (typeof param === 'string') {
-            return replacePlaceholders(param, context);
-        } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
-        } else if (typeof param === 'object' && param !== null) {
-            const processedParam = {};
-            for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
-            }
-            return processedParam;
-        } else {
-            return param;
-        }
-    }
 
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
