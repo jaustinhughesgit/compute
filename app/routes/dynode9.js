@@ -11,7 +11,9 @@ local.s3 = new local.AWS.S3();
 
 const json = {
     "modules": {
-        "moment-timezone": "moment-timezone"
+        "moment-timezone": "moment-timezone",
+        "passport":"passport",
+        "passport-microsoft":"passport-microsoft"
     },
     "actions": [
         {
@@ -103,6 +105,41 @@ const json = {
                 {"method":"{done}", "params":[null, "{profile}"], "new":true}
             ],
             "assignTo":"callbackFunction"
+        },
+        {
+            "module":"passport-microsoft",
+            "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: 'https://graph.microsoft.com/',
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: 'login',
+                        state: false,
+                        type: 'Web',
+                        scope: ['user.read']
+                    },
+                    "{{callbackFunction}}"
+                ]}
+            ],
+            "assignTo":"microsoftStrategy"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":["microsoft", "{{microsoftStrategy}}"]}
+            ],
+            "assignTo":"something1"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"authenticate", "params":["{{strategy}}"]}
+            ],
+            "callback":["{req}","{res}","{next}"],
+            "assignTo":"something2"
         }
     ]
 }
@@ -127,13 +164,20 @@ local.dyRouter.get('/', async function(req, res, next) {
     res.json(context);
 });
 
+global.dyRouter.all('/*', async function(req, res, next) {
+    let context = await processConfig(json);
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    await initializeModules(context, json, req, res, next);
+    res.json(context);
+});
 
-async function initializeModules(context, config) {
+
+async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
 
         if (!action.module && action.assignTo && action.params && action.chain) {
-            context[action.assignTo] = createFunctionFromAction(action, context);
+            context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
             console.log("context",context)
             continue;
         }
@@ -174,7 +218,7 @@ async function initializeModules(context, config) {
     }
 }
 
-function createFunctionFromAction(action, context) {
+function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
