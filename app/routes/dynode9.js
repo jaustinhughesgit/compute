@@ -256,6 +256,7 @@ function replacePlaceholders(str, context) {
             console.log("5",isFunctionExecution)
             let value = context[key];
             console.log("6", value)
+            console.log(typeof value)
             if (isFunctionExecution === '!' && typeof value === 'function') {
                 console.log("7", value())
                 return value();
