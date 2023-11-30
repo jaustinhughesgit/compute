@@ -312,6 +312,7 @@ async function applyMethodChain(target, action, context) {
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
+                console.log(">>>",result[chainAction.method])
                 if (typeof result[chainAction.method] === 'function') {
                     // Instantiate with 'new' if specified
                     result = instantiateWithNew(result[chainAction.method], chainParams);
