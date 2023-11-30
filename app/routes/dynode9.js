@@ -55,7 +55,7 @@ const json = {
                     "microsoft", "{{passportmicrosoft}}!"
                 ]}
             ],
-            "assignTo":"newStrategy"
+            "assignTo":"{{newStrategy}}!"
         }
     ]
 }
