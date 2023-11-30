@@ -244,19 +244,7 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-
-        if (action.chain) {
-            for (const chainAction of action.chain) {
-                if (chainAction.new) {
-                    // Use 'new' keyword for instantiation
-                    const ModuleClass = moduleInstance[chainAction.method] || global[chainAction.method];
-                    result = new ModuleClass(...args);
-                }
-
-                // Apply method chain to either the new instance or the existing module instance
-                result = await applyMethodChain(result, chainAction, context);
-            }
-        }
+        result = await applyMethodChain(result, action, context);
 
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
@@ -378,20 +366,29 @@ async function applyMethodChain(target, action, context) {
         }
     }
 
+    function instantiateWithNew(constructor, args) {
+        return new constructor(...args);
+    }
+
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
-        result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
+        if (action.new) {
+            // Use 'new' to instantiate the class
+            result = instantiateWithNew(result, params);
+        } else {
+            result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
+        }
     }
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-
-            if (chainAction.hasOwnProperty('return')) {
-                return chainAction.return; // Directly return the value specified in 'return'
-            }
+            // ... existing code ...
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            if (typeof result[chainAction.method] === 'function') {
+            if (chainAction.new) {
+                // Instantiate with 'new' if specified
+                result = instantiateWithNew(result[chainAction.method], chainParams);
+            } else if (typeof result[chainAction.method] === 'function') {
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
