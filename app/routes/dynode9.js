@@ -290,8 +290,12 @@ async function applyMethodChain(target, action, context) {
         return new constructor(...args);
     }
 
+    console.log("outside of action.method condition",action.method)
+
     if (action.method) {
+        console.log("inside action.method condition", params)
         let params = action.params ? action.params.map(param => processParam(param)) : [];
+        console.log("action.new", action.new)
         if (action.new) {
             console.log("instantiateWithNew", params)
             result = instantiateWithNew(result, params);
