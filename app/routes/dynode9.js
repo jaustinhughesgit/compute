@@ -93,7 +93,7 @@ const json = {
         {
             "params":["{test}"], 
             "chain":[
-                {"return":"Hi"}
+                {"return":"{test}"}
             ],
             "assignTo":"customFunction"
         }
@@ -181,7 +181,8 @@ function createFunctionFromAction(action, context) {
         if (action.chain) {
             for (const chainAction of action.chain) {
                 if ('return' in chainAction) {
-                    return chainAction.return; // Directly return the value specified in 'return'
+                    // Replace the return value with the actual parameter value
+                    return replaceParams(chainAction.return, context, scope, args);
                 }
 
                 // Check if chainAction.params is defined and is an array
