@@ -36,7 +36,7 @@ const json = {
                     "scope": ["user.read"]
                 }}
             ],
-            "assignTo":"strategyConfig"
+            "assignTo":"{{strategyConfig}}!"
         },
         {
             "module":"passport",
