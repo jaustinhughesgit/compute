@@ -160,7 +160,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
 
     await initializeModules(context, json, req, res, next);
-    //if (context.authenticateMicrosoft) {
+    /*
         context.passport.use(new context.passportmicrosoft.Strategy({
             "clientID": process.env.MICROSOFT_CLIENT_ID,
             "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
@@ -176,8 +176,8 @@ local.dyRouter.all('/*', async function(req, res, next) {
             done(null, profile);
         }));
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
-    //}
-    //res.json(context);
+*/
+    res.json(context);
 });
 
 
