@@ -46,7 +46,7 @@ const json = {
                 }
                ], "new":true}
             ],
-            "assignTo":"{{passportmicrosoft}}!"
+            "assignTo":"passportmicrosoft"
         },
         {
             "module":"passport",
@@ -55,7 +55,7 @@ const json = {
                     "microsoft", "{{passportmicrosoft}}!"
                 ]}
             ],
-            "assignTo":"{{newStrategy}}!"
+            "assignTo":"newStrategy"
         }
     ]
 }
@@ -263,7 +263,7 @@ function replacePlaceholders(str, context) {
             let value = context[key];
             console.log("6", value)
             console.log(typeof value)
-            if (isFunctionExecution === '!' && typeof value === 'function') {
+            if (isFunctionExecution === '!') {
                 console.log("7", value())
                 return value();
             }
