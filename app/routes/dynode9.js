@@ -106,6 +106,43 @@ const json = {
             "assignTo":"customFunction"
         },
         {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"]}
+            ],
+            "assignTo":"callbackFunction"
+        },
+        // Define the Microsoft Strategy
+        {
+            "module":"passport-microsoft",
+            "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        "clientID": process.env.MICROSOFT_CLIENT_ID,
+                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                        "resource": "https://graph.microsoft.com/",
+                        "tenant": process.env.MICROSOFT_TENANT_ID,
+                        "prompt": "login",
+                        "state": false,
+                        "type": "Web",
+                        "scope": ["user.read"]
+                    },
+                    "{{callbackFunction}}"
+                ]}
+            ],
+            "assignTo":"microsoftStrategy"
+        },
+        // Use the strategy with Passport
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"use", "params":["microsoft", "{{microsoftStrategy}}"]}
+            ],
+            "assignTo":"useMicrosoftStrategy"
+        },
+        // Define the strategy name
+        {
             "params":[], 
             "chain":[
                 {"return":"microsoft"}
@@ -143,7 +180,11 @@ local.dyRouter.all('/*', async function(req, res, next) {
     if (context.authenticateMicrosoft) {
         //context.authenticateMicrosoft(req, res, next); //<<<<<
     }
-    console.log("strategy", console.log(context.strategy()))
+    console.log("microsoftStrategy", context.microsoftStrategy)
+    console.log("callbackFunction", context.callbackFunction)
+    console.log("useMicrosoftStrategy", context.useMicrosoftStrategy)
+    console.log("strategy", context.strategy)
+    console.log("authCallback", context.authCallback)
     res.json(context);
 });
 
