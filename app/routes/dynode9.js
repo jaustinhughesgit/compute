@@ -294,7 +294,6 @@ async function applyMethodChain(target, action, context) {
     console.log("outside of action.module condition",action.module)
 
     if (action.module) {
-        console.log("inside action.module condition", params)
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         console.log("action.new", action.new)
         if (action.new) {
