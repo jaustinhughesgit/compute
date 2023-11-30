@@ -140,11 +140,23 @@ const json = {
             "assignTo":"something1"
         },
         {
+            "params":[], 
+            "chain":[
+                {"return":"microsoft"}
+            ],
+            "assignTo":"strategy"
+        },
+        {
+            "params":["{req}","{res}","{next}"], 
+            "chain":[],
+            "assignTo":"something2Callback"
+        },
+        {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["{{strategy}}"]}
+                {"method":"authenticate", "params":["{{strategy}}"]},
+                "{{something2Callback}}"
             ],
-            "callback":["{req}","{res}","{next}"],
             "assignTo":"something2"
         },
         {
