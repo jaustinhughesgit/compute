@@ -142,9 +142,6 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":[
-                    "microsoft", "{{passportmicrosoft}}!"
-                ]}
             ],
             "assignTo":"newStrategy"
         }
