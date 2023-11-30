@@ -164,10 +164,6 @@ const json = {
                 {"method":"authenticate", "params":["{{strategy}}", {"scope": ["user.read"]}, "{{authCallback}}"]}
             ],
             "assignTo":"authenticateMicrosoft"
-        },
-        {
-            "execute":"authenticateMicrosoft",
-            "express":true
         }
     ]
 }
@@ -196,6 +192,9 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
+    if (context.authenticateMicrosoft) {
+        context.authenticateMicrosoft(req, res, next);
+    }
     res.json(context);
 });
 
