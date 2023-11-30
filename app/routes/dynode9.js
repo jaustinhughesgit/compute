@@ -315,10 +315,9 @@ async function applyMethodChain(target, action, context) {
             console.log(chainAction.params);
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
-                // Instantiate with 'new' if specified
                 if (typeof result[chainAction.method] === 'function') {
-                    // Instantiate with 'new' if specified
-                    result = instantiateWithNew(result[chainAction.method], chainParams);
+                    // If 'new' is specified, ensure that we are dealing with a constructor function
+                    result = (...args) => new result[chainAction.method](...args);
                 } else {
                     console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
                     return;
