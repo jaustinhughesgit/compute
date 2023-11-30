@@ -289,7 +289,8 @@ async function applyMethodChain(target, action, context) {
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
     }
-
+    console.log("action",action)
+    console.log("context",context)
     console.log("outside of action.method condition",action.method)
 
     if (action.method) {
