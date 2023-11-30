@@ -319,8 +319,10 @@ async function applyMethodChain(target, action, context) {
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
                 console.log(">>>",result[chainAction.method])
+                console.log("typeof result[chainAction.method]>>>",typeof result[chainAction.method])
                 if (typeof result[chainAction.method] === 'function') {
                     // Instantiate with 'new' if specified
+                    console.log(".............")
                     result = instantiateWithNew(result[chainAction.method], chainParams);
                     console.log("constructor<<<<<",result)
                 } else {
@@ -328,7 +330,9 @@ async function applyMethodChain(target, action, context) {
                     return;
                 }
             } else if (typeof result[chainAction.method] === 'function') {
-                result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
+                result = result[chainAction.method](...chainParams);
+            } else if (chainAction.method === 'promise') {
+                result = await result.promise();
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
