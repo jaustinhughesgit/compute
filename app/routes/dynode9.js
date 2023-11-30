@@ -202,7 +202,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     if (context.authenticateMicrosoft) {
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
     }
-    res.json(context);
+    //res.json(context);
 });
 
 
