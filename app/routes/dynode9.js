@@ -6,9 +6,10 @@ local.dyRouter = express.Router();
 local.path = require('path');
 local.unzipper = require('unzipper');
 local.fs = require('fs');
+local.session = require('express-session');
 
 local.s3 = new local.AWS.S3();
-local.dyRouter.use(session({
+local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
