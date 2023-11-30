@@ -171,20 +171,20 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
-               {"method":"Strategy", "params":[{
-                "clientID": process.env.MICROSOFT_CLIENT_ID,
-                "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                "resource": "https://graph.microsoft.com/",
-                "tenant": process.env.MICROSOFT_TENANT_ID,
-                "prompt": "login",
-                "state": false,
-                "type": "Web",
-                "scope": ["user.read"]
-            }, (token, tokenSecret, profile, done) => {
-                // Your authentication logic
-                done(null, profile);
-            }]}
+               {
+                "method":"Strategy", 
+                "params":[{
+                    "clientID": process.env.MICROSOFT_CLIENT_ID,
+                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                    "resource": "https://graph.microsoft.com/",
+                    "tenant": process.env.MICROSOFT_TENANT_ID,
+                    "prompt": "login",
+                    "state": false,
+                    "type": "Web",
+                    "scope": ["user.read"]
+                }, 
+                "{{callback}}"]}
             ],
             "assignTo":"passportmicrosoft"
         }
@@ -214,7 +214,10 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-
+    context["callback"] = (token, tokenSecret, profile, done) => {
+        // Your authentication logic
+        done(null, profile);
+    }
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
         context.passport.use(new context.passportmicrosoft.Strategy);
