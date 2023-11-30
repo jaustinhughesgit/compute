@@ -46,7 +46,7 @@ const json = {
                 }
                ], "new":true}
             ],
-            "assignTo":"{{passportmicrosoft}}!"
+            "assignTo":"passportmicrosoft"
         },
         {
             "module":"passport",
@@ -78,8 +78,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
         "type": "Web",
         "scope": ["user.read"]
     }
-    await initializeModules(context, json, req, res, next);
-        
+    await initializeModules(context, json, req, res, next); 
         context.passport.authenticate("microsoft")(req, res, next);
 });
 
@@ -294,8 +293,10 @@ async function applyMethodChain(target, action, context) {
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         if (action.new) {
+            console.log("instantiateWithNew", params)
             result = instantiateWithNew(result, params);
         } else {
+            console.log(`Applying method: ${action.method} with params:`, params);
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
         }
     }
