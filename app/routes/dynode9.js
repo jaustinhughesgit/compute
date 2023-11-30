@@ -79,7 +79,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
         "scope": ["user.read"]
     }
     await initializeModules(context, json, req, res, next); 
-    //console.log(context.passportmicrosoft);
+    console.log(context.passportmicrosoft);
     //context.passport.use(context.passportmicrosoft);
         context.newStrategy.authenticate("microsoft")(req, res, next);
 });
@@ -172,13 +172,9 @@ async function initializeModules(context, config, req, res, next) {
                 if (isFunctionExecution) {
                     context[assignKey] = typeof result === 'function' ? result() : result;
                 } else {
-                    console.log("1 init result",result)
-                    console.log("1 typeof",typeof result)
                     context[assignKey] = result;
                 }
             } else {
-                console.log("2 init result",result)
-                console.log("2 typeof",typeof result)
                 context[action.assignTo] = result;
             }
         }
@@ -263,7 +259,7 @@ function replacePlaceholders(str, context) {
             let value = context[key];
             console.log("6", value)
             console.log(typeof value)
-            if (isFunctionExecution === '!') {
+            if (isFunctionExecution === '!' && typeof value === 'function') {
                 console.log("7", value())
                 return value();
             }
@@ -304,8 +300,6 @@ async function applyMethodChain(target, action, context) {
     }
 
     function instantiateWithNew(constructor, args) {
-        console.log("constructor", constructor)
-        console.log("args", args)
         return new constructor(...args);
     }
 
@@ -318,21 +312,15 @@ async function applyMethodChain(target, action, context) {
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
-                console.log(">>>",result[chainAction.method])
-                console.log("typeof result[chainAction.method]>>>",typeof result[chainAction.method])
                 if (typeof result[chainAction.method] === 'function') {
                     // Instantiate with 'new' if specified
-                    console.log(".............")
                     result = instantiateWithNew(result[chainAction.method], chainParams);
-                    console.log("constructor<<<<<",result)
                 } else {
                     console.error(`Method ${chainAction.method} is not a constructor function on ${action.module}`);
                     return;
                 }
             } else if (typeof result[chainAction.method] === 'function') {
-                result = result[chainAction.method](...chainParams);
-            } else if (chainAction.method === 'promise') {
-                result = await result.promise();
+                result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
