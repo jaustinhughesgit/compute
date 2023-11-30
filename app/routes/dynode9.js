@@ -151,7 +151,7 @@ const json = {
             "chain":[
                 {"return":"microsoft"}
             ],
-            "assignTo":"strategy"
+            "assignTo":"sstrategy"
         },/*
         // Define the callback for authentication
         {
@@ -165,7 +165,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["{{strategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}
+                {"method":"authenticate", "params":["{{sstrategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}
             ],
             "assignTo":"authenticateMicrosoft"
         }
