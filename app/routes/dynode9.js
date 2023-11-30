@@ -141,7 +141,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":["microsoft", "{{microsoftStrategy}}"]}
+                {"method":"use", "params":["microsoft", {}]}
             ],
             "assignTo":"useMicrosoftStrategy"
         },
@@ -152,15 +152,15 @@ const json = {
                 {"return":"microsoft"}
             ],
             "assignTo":"strategy"
-        },
+        },/*
         // Define the callback for authentication
         {
             "params":["{req}","{res}","{next}"], 
             "chain":[
-                {"return":"{res.redirect('/success')}"} // Redirect on success
+                {"return":""} // Redirect on success
             ],
             "assignTo":"authCallback"
-        },
+        },*/
         // Trigger Passport authentication
         {
             "module":"passport",
@@ -195,6 +195,9 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    context["authCallback"] = (req, res, next) => {
+        res.redirect('/dashboard')
+    }
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
         context.authenticateMicrosoft(req, res, next); //<<<<<
