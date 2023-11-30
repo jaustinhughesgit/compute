@@ -104,14 +104,14 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },
+        }/*,
         {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
-        },
+        }*/,
         // Define the Microsoft Strategy
         {
             "module":"passport-microsoft",
@@ -127,7 +127,8 @@ const json = {
                         "state": false,
                         "type": "Web",
                         "scope": ["user.read"]
-                    }
+                    },
+                    "{{callbackFunction}}"
                 ]}
             ],
             "assignTo":"microsoftStrategy"
@@ -190,6 +191,10 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    context["callbackFunction"] = (token, tokenSecret, profile, done) => {
+        // Your authentication logic
+        done(null, profile);
+    }
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
         context.authenticateMicrosoft(req, res, next); //<<<<<
