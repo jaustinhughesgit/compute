@@ -116,7 +116,7 @@ local.dyRouter.get('/', async function(req, res, next) {
     await initializeModules(context, json);
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-    context["customFunctionResult"] = context["customFunction"]("yoyo");
+    context["customFunctionResult"] = context["customFunction"]("yoyo"); //<<<<<
     res.json(context);
 });
 
@@ -126,10 +126,9 @@ async function initializeModules(context, config) {
     for (const action of config.actions) {
 
         if (!action.module && action.assignTo && action.params && action.chain) {
-            // Create the function and assign it to the context
             context[action.assignTo] = createFunctionFromAction(action, context);
             console.log("context",context)
-            continue; // Skip the rest of the loop for this action
+            continue;
         }
 
         let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
@@ -138,7 +137,7 @@ async function initializeModules(context, config) {
         if (action.valueFrom) {
             args = action.valueFrom.map(item => {
                 let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2); // Adjusted for '!'
+                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
                 let value = context[key];
         
                 if (isFunctionExecution && typeof value === 'function') {
@@ -154,7 +153,7 @@ async function initializeModules(context, config) {
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
                 let isFunctionExecution = action.assignTo.endsWith('!');
-                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2); // Adjusted for '!'
+                let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
                 
                 if (isFunctionExecution) {
                     context[assignKey] = typeof result === 'function' ? result() : result;
@@ -181,9 +180,10 @@ function createFunctionFromAction(action, context) {
 
         if (action.chain) {
             for (const chainAction of action.chain) {
-                const chainParams = chainAction.params.map(param => {
+                // Check if chainAction.params is defined and is an array
+                const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
-                });
+                }) : [];
 
                 if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
                     const methodName = chainAction.method.slice(1, -1);
