@@ -137,7 +137,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":["microsoft", "{{microsoftStrategy}}!"]}
+                {"method":"use", "params":["microsoft", "{{microsoftStrategy}}"]}
             ],
             "assignTo":"useMicrosoftStrategy"
         },
@@ -184,7 +184,7 @@ local.dyRouter.get('/', async function(req, res, next) {
     await initializeModules(context, json);
     context["testFunctionResult"] = testFunction();
     context["newFunctionResult"] = newFunction("test");
-    context["customFunctionResult"] = context["customFunction"]("yoyo"); //<<<<<
+    context["customFunctionResult"] = context["customFunction"]("yoyo");
     res.json(context);
 });
 
@@ -193,8 +193,10 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.authenticateMicrosoft) {
-        context.authenticateMicrosoft(req, res, next);
+        context.authenticateMicrosoft(req, res, next); //<<<<<
     }
+    console.log("microsoftStrategy", console.log(context.microsoftStrategy))
+    res.json(context);
 });
 
 
