@@ -116,20 +116,24 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
-                {"method":"Strategy", "params":[
-                    {
-                        "clientID": process.env.MICROSOFT_CLIENT_ID,
-                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                        "resource": "https://graph.microsoft.com/",
-                        "tenant": process.env.MICROSOFT_TENANT_ID,
-                        "prompt": "login",
-                        "state": false,
-                        "type": "Web",
-                        "scope": ["user.read"]
-                    },
-                    "{{callbackFunction}}"
-                ]}
+                {
+                    "method":"Strategy", 
+                    "params":[
+                        {
+                            "clientID": process.env.MICROSOFT_CLIENT_ID,
+                            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                            "resource": "https://graph.microsoft.com/",
+                            "tenant": process.env.MICROSOFT_TENANT_ID,
+                            "prompt": "login",
+                            "state": false,
+                            "type": "Web",
+                            "scope": ["user.read"]
+                        },
+                        "{{callbackFunction}}"
+                    ],
+                    "new":true
+                }
             ],
             "assignTo":"microsoftStrategy"
         },
@@ -195,11 +199,6 @@ local.dyRouter.all('/*', async function(req, res, next) {
     if (context.authenticateMicrosoft) {
         context.authenticateMicrosoft(req, res, next); //<<<<<
     }
-    console.log("microsoftStrategy", context.microsoftStrategy)
-    console.log("callbackFunction", context.callbackFunction)
-    console.log("useMicrosoftStrategy", context.useMicrosoftStrategy)
-    console.log("strategy", context.strategy)
-    console.log("authCallback", context.authCallback)
     res.json(context);
 });
 
@@ -244,8 +243,21 @@ async function initializeModules(context, config, req, res, next) {
             });
         }
 
-        let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-        result = await applyMethodChain(result, action, context);
+        let result;
+        if (action.chain) {
+            for (const chainAction of action.chain) {
+                if (chainAction.new) {
+                    // Use 'new' keyword for instantiation
+                    const ModuleClass = moduleInstance[chainAction.method];
+                    result = new ModuleClass(...args);
+                } else {
+                    result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+                    result = await applyMethodChain(result, chainAction, context);
+                }
+            }
+        } else {
+            result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+        }
 
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
