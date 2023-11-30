@@ -165,9 +165,15 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                /*{"method":"authenticate", "params":["{{strategy}}!", {"scope": ["user.read"]}, "{{authCallback}}"]}*/
             ],
             "assignTo":"passport"
+        },
+        {
+            "module":"passport-microsoft",
+            "chain":[
+               {"method":"Strategy", "params":[]}
+            ],
+            "assignTo":"passportmicrosoft"
         }
     ]
 }
@@ -198,7 +204,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
 
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
-        context.passport.use(new context.microsoftStrategy({
+        context.passport.use(new context.passportmicrosoft({
             "clientID": process.env.MICROSOFT_CLIENT_ID,
             "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
             "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
