@@ -48,7 +48,17 @@ const json = {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
-                "{{strategyConfig}}",(token, tokenSecret, profile, done) => {
+                {
+                    "clientID": process.env.MICROSOFT_CLIENT_ID,
+                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                    "resource": "https://graph.microsoft.com/",
+                    "tenant": process.env.MICROSOFT_TENANT_ID,
+                    "prompt": "login",
+                    "state": false,
+                    "type": "Web",
+                    "scope": ["user.read"]
+                },(token, tokenSecret, profile, done) => {
                     done(null, profile);
                 }
                ]}
