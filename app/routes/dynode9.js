@@ -8,7 +8,12 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 
 local.s3 = new local.AWS.S3();
-
+local.dyRouter.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
 const json = {
     "modules": {
         "moment-timezone": "moment-timezone",
