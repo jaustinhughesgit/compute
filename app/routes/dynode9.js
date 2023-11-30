@@ -222,7 +222,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context = await processConfig(json, context);
     await initializeModules(context, json, req, res, next);
     //if (context.authenticateMicrosoft) {
-        context.passport.use(context.passportmicrosoft());
+        context.passport.use(context.passportmicrosoft);
         context.passport.authenticate("microsoft")(req, res, next); //<<<<<
     //}
     //res.json(context);
