@@ -113,6 +113,12 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
+            "module":"passport",
+            "chain":[
+            ],
+            "assignTo":"passport"
+        },
+        {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -132,16 +138,13 @@ const json = {
                ], "new":true}
             ],
             "assignTo":"passportmicrosoft"
-        },
+        }/*,
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":[
-                    "microsoft", "{{passportmicrosoft}}!"
-                ]}
             ],
-            "assignTo":"passport2"
-        }
+            "assignTo":"newStrategy"
+        }*/
     ]
 }
 
@@ -175,7 +178,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     await initializeModules(context, json, req, res, next);
     
         context.passport.use(context.passportmicrosoft);
-        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });
