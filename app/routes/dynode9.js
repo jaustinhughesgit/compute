@@ -146,6 +146,9 @@ const json = {
             ],
             "callback":["{req}","{res}","{next}"],
             "assignTo":"something2"
+        },
+        {
+            "execute":"something2"
         }
     ]
 }
@@ -181,7 +184,17 @@ local.dyRouter.all('/*', async function(req, res, next) {
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-
+        if (action.execute) {
+            const functionName = action.execute;
+            if (typeof context[functionName] === 'function') {
+                // Execute the function and continue to the next action
+                await context[functionName](req, res, next);
+                continue;
+            } else {
+                console.error(`No function named ${functionName} found in context`);
+                continue;
+            }
+        }
         if (!action.module && action.assignTo && action.params && action.chain) {
             context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
             console.log("context",context)
