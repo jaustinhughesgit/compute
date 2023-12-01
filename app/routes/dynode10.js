@@ -112,6 +112,14 @@ const json = {
             "assignTo":"passport"
         },
         {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[],
+            "run":[
+                {"method":"{done}", "params":[null, "{profile}"]}
+            ],
+            "assignTo":"callbackFunction"
+        },
+        {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -125,7 +133,7 @@ const json = {
                     "state": false,
                     "type": "Web",
                     "scope": ["user.read"]
-                },"{{callback}}"
+                },"{{callbackFunction}}"
                ]}
             ],
             "assignTo":"passportmicrosoft"
@@ -163,10 +171,7 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["callback"] = (token, tokenSecret, profile, done) => {
-        // Your authentication logic
-        done(null, profile);
-    }
+    
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
  
@@ -247,14 +252,9 @@ function createFunctionFromAction(action, context, req, res, next) {
             return acc;
         }, {});
 
+        // Process the chain of actions
         if (action.chain) {
             for (const chainAction of action.chain) {
-                if ('return' in chainAction) {
-                    // Replace the return value with the actual parameter value
-                    return replaceParams(chainAction.return, context, scope, args);
-                }
-
-                // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -277,9 +277,32 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
+
+        // Process the run actions
+        if (action.run) {
+            for (const runAction of action.run) {
+                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
+                    return replaceParams(param, context, scope, args);
+                }) : [];
+
+                if (typeof runAction.method === 'string') {
+                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
+                        const methodName = runAction.method.slice(1, -1);
+                        if (typeof scope[methodName] === 'function') {
+                            result = scope[methodName](...runParams);
+                        } else {
+                            console.error(`Callback method ${methodName} is not a function`);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         return result;
     };
 }
+
 
 
 function replaceParams(param, context, scope, args) {
@@ -300,7 +323,6 @@ function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
         return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
             let value = context[key];
-            // Check if the value is a function, if so, return the function itself
             return typeof value === 'function' ? value : (value !== undefined ? value : key);
         });
     }
@@ -389,38 +411,7 @@ async function applyMethodChain(target, action, context) {
                     if (chainAction.method === 'promise') {
                         result = await result.promise();
                     } else {
-
-                        console.log(result)
-                        // result = { version: '1.0.0', Strategy: [Function: MicrosoftStrategy] }
-
-                        console.log(chainParams)
-                        /* chainParamms = [
-                        {
-                            clientID: '91f33fda-5064-4821-88ed-f70b6e4f4985',
-                            clientSecret: 'PxX8Q~rPsa7DaEHDxaMRsb~i7VMwz~H~nnPCya7q',
-                            callbackURL: 'https://compute.1var.com/auth/microsoft/callback',
-                            resource: 'https://graph.microsoft.com/',
-                            tenant: '9261f6c8-85db-4045-b77d-fc941da97ee9',
-                            prompt: 'login',
-                            state: false,
-                            type: 'Web',
-                            scope: [ 'user.read' ]
-                        },
-                        '(token, tokenSecret, profile, done) => {\n' +
-                            '        // Your authentication logic\n' +
-                            '        done(null, profile);\n' +
-                            '    }'
-                        ]
-                        */
-                        if (chainAction.method === 'Strategy') {
-                            // Assuming chainParams[0] is the options object and chainParams[1] is the callback function
-                            let options = chainParams[0];
-                            let callbackFunction = context[chainParams[1]]; // Ensure this is a function reference
-                            result = new result[chainAction.method](options, context.callback);
-                        } else {
-                            // Existing handling for other methods
-                            result = result[chainAction.method](...chainParams);
-                        }
+                        result = result[chainAction.method](...chainParams);
                     }
                 }
                 console.log("AFTER PASSING FUNCTION", result)
