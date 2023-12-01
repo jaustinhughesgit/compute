@@ -384,19 +384,19 @@ async function applyMethodChain(target, action, context) {
             console.log("param")
             console.log("result", result)
             console.log("chainAction.method", chainAction.method)
-            try{
-                let format = typeof result[chainAction.method]
-                console.log("typeof", format)
-            } catch (err) {
-                console.log("err", err)
-            }
-            console.log("result[chainAction.method]", result[chainAction.method])
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
                 console.log("new")
                 result = instantiateWithNew(result[chainAction.method], chainParams);
                 console.log("result new", result)
             } else if (typeof result[chainAction.method] === 'function') {
+                try{
+                    let format = typeof result[chainAction.method]
+                    console.log("typeof", format)
+                } catch (err) {
+                    console.log("err", err)
+                }
+                console.log("result[chainAction.method]", result[chainAction.method])
                 console.log("not new")
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
                 console.log("result not new", result)
