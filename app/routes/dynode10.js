@@ -181,9 +181,9 @@ local.dyRouter.all('/*', async function(req, res, next) {
         //context.passport.use(context.passportmicrosoft);
         console.log("---------------EVERYTHING IS DONE-----------")
         console.log(context)
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
-    //res.json(context);
+    res.json(context);
 });
 
 
