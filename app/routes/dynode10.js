@@ -128,9 +128,7 @@ const json = {
         {
             "module":"passport-microsoft",
             "chain":[
-               {"method":"Strategy", "params":[
-                
-               ]}
+               {"method":"Strategy"}
             ],
             "assignTo":"passportmicrosoft"
         },
@@ -395,6 +393,7 @@ async function applyMethodChain(target, action, context) {
                     console.log("context.passportmicrosoft", context.passportmicrosoft)
                     result = result[chainAction.method]( new context.passportmicrosoft);
                 } else if (chainAction.method == "Strategy"){
+                    console.log("chain action is Strategy")
                     result = result[chainAction.method]({
                         "clientID": process.env.MICROSOFT_CLIENT_ID,
                         "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
