@@ -380,6 +380,11 @@ async function applyMethodChain(target, action, context) {
                     result = result[chainAction.method]( new context.passportmicrosoft);
                 } else {
                     console.log("method is not use")
+                    console.log("chainAction.method", chainAction.method)
+                    console.log("chainParams", chainParams)
+                    console.log("context",context)
+                    console.log("result", result)
+                    //console.log("result[chainAction.method]",result[chainAction.method])
                     result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
                 }
                 console.log("AFTER PASSING FUNCTION", result)
