@@ -349,6 +349,8 @@ async function applyMethodChain(target, action, context) {
     }
 
     if (action.chain && result) {
+        console.log("action  --------->", action)
+        console.log("action.chaini  --------->", action.chain)
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
@@ -380,8 +382,8 @@ async function applyMethodChain(target, action, context) {
                     result = result[chainAction.method]( new context.passportmicrosoft);
                 } else {
                     console.log("method is not use")
-                    console.log("chainAction.method", chainAction.method)
-                    console.log("chainParams", chainParams)
+                    console.log("chainAction.method", chainAction.method) // chainAction.method = [ 'passportmicrosoft' ]
+                    console.log("chainParams", chainParams) //chainParams [Function (anonymous)]
                     console.log("context",context)
                     console.log("result", result)
                     //console.log("result[chainAction.method]",result[chainAction.method])
