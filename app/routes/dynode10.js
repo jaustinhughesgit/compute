@@ -132,8 +132,6 @@ const json = {
                     "state": false,
                     "type": "Web",
                     "scope": ["user.read"]
-                },(token, tokenSecret, profile, done) => {
-                    done(null, profile);
                 }
                ]}
             ],
