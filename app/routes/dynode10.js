@@ -319,29 +319,32 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(str, context) {
-    if (typeof str === 'string') {
-        return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-            let value = context[key];
-            console.log("value", value)
-            console.log(typeof value)
+function processParam(param, context) {
+    if (typeof param === 'string') {
+        // Check if the parameter is a function reference placeholder
+        if (param.startsWith('{{') && param.endsWith('}}')) {
+            const key = param.slice(2, -2);
+            const value = context[key];
             if (typeof value === 'function') {
-                console.log("function")
-                return value;
-            } else {
-                console.log("not function")
-                if (value !== undefined) {
-                    console.log("value is not undefined")
-                    return value;
-                } else {
-                    console.log("value is undefined")
-                    return key;
-                }
+                return value; // Return the function reference directly
             }
-        });
+            return value !== undefined ? value : key;
+        }
+        return param; // Return the string as is
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, context);
+        }
+        return processedParam;
+    } else {
+        return param;
     }
-    return str;
 }
+
+
 
 async function applyMethodChain(target, action, context) {
     let result = target;
