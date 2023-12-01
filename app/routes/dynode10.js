@@ -121,14 +121,28 @@ const json = {
         {
             "params":["{token}", "{tokenSecret}", "{profile}", "{done}"], 
             "chain":[
-                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+            ],
+            "run":[
+                {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
         },
         {
             "module":"passport-microsoft",
             "chain":[
-               {"method":"Strategy"}
+               {"method":"Strategy", "params":[
+                {
+                    "clientID": process.env.MICROSOFT_CLIENT_ID,
+                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                    "resource": "https://graph.microsoft.com/",
+                    "tenant": process.env.MICROSOFT_TENANT_ID,
+                    "prompt": "login",
+                    "state": false,
+                    "type": "Web",
+                    "scope": ["user.read"]
+                },"{{callbackFunction}}"
+               ]}
             ],
             "assignTo":"passportmicrosoft"
         },
@@ -249,14 +263,9 @@ function createFunctionFromAction(action, context, req, res, next) {
             return acc;
         }, {});
 
+        // Process the chain of actions
         if (action.chain) {
             for (const chainAction of action.chain) {
-                if ('return' in chainAction) {
-                    // Replace the return value with the actual parameter value
-                    return replaceParams(chainAction.return, context, scope, args);
-                }
-
-                // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -279,9 +288,32 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
+
+        // Process the run actions
+        if (action.run) {
+            for (const runAction of action.run) {
+                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
+                    return replaceParams(param, context, scope, args);
+                }) : [];
+
+                if (typeof runAction.method === 'string') {
+                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
+                        const methodName = runAction.method.slice(1, -1);
+                        if (typeof scope[methodName] === 'function') {
+                            result = scope[methodName](...runParams);
+                        } else {
+                            console.error(`Callback method ${methodName} is not a function`);
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
         return result;
     };
 }
+
 
 
 function replaceParams(param, context, scope, args) {
@@ -299,27 +331,18 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
-    console.log("1",str,context)
     if (typeof str === 'string') {
-        console.log("2", str, "=== string")
         return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
-            console.log("3", key)
-            console.log("4", match)
-            console.log("5",isFunctionExecution)
             let value = context[key];
-            console.log("6", value)
             if (isFunctionExecution === '!' && typeof value === 'function') {
-                console.log("7", value())
                 return value();
             }
-            console.log("8",value)
-            console.log("9",key)
-            return value !== undefined ? value : key;
+            return typeof value === 'function' ? value : (value !== undefined ? value : key);
         });
     }
-    console.log("10", str)
     return str;
 }
+
 
 async function applyMethodChain(target, action, context) {
     let result = target;
@@ -392,22 +415,6 @@ async function applyMethodChain(target, action, context) {
                     console.log("context", context)
                     console.log("context.passportmicrosoft", context.passportmicrosoft)
                     result = result[chainAction.method]( new context.passportmicrosoft);
-                } else if (chainAction.method == "Strategy"){
-                    console.log("chain action is Strategy")
-                    result = result[chainAction.method]({
-                        "clientID": process.env.MICROSOFT_CLIENT_ID,
-                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                        "resource": "https://graph.microsoft.com/",
-                        "tenant": process.env.MICROSOFT_TENANT_ID,
-                        "prompt": "login",
-                        "state": false,
-                        "type": "Web",
-                        "scope": ["user.read"]
-                    },(token, tokenSecret, profile, done) => {
-                        done(null, profile);
-                    })
-                    
                 } else {
                     console.log("method is not use")
                     result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
