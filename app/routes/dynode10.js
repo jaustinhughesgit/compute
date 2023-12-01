@@ -354,7 +354,10 @@ async function applyMethodChain(target, action, context) {
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 console.log("param is {{")
                 const key = param.slice(2, -2);
+                console.log("key",key)
+                console.log("context", context)
                 const value = context[key];
+                console.log("value?", value)
                 console.log("param typeof vvvv")
                 console.log(typeof value)
                 if (typeof value === 'function') {
