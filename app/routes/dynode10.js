@@ -121,7 +121,7 @@ const json = {
         {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[
-                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+                {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
         },
