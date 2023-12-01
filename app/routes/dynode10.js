@@ -375,10 +375,7 @@ async function applyMethodChain(target, action, context) {
         for (const chainAction of action.chain) {
             // ... existing code ...
 
-            const chainParams = chainAction.params ? chainAction.params.map(param => {
-                console.log("param", param)
-                processParam(param)
-            }) : [];
+            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             console.log("chainParams", chainParams)
             console.log("chainAction", chainAction)
             console.log("param")
