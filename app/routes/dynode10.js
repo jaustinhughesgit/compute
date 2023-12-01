@@ -454,6 +454,9 @@ async function applyMethodChain(target, action, context) {
                             console.log(typeof chainParams[0])
                             console.log(typeof chainParams[1])
                             console.log(chainParams)
+                            chainParams[1] = (token, tokenSecret, profile, done) => {
+                                done(null, profile);
+                            }
                             result = result[chainAction.method](chainParams[0],chainParams[1]);
                         } else {
                             // Existing handling for other methods
