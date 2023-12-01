@@ -387,7 +387,15 @@ async function applyMethodChain(target, action, context) {
                     console.log("context",context)
                     console.log("result", result)
                     //console.log("result[chainAction.method]",result[chainAction.method])
-                    result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
+                    if (chainAction.method === 'promise') {
+                        result = await result.promise();
+                    } else {
+                        result = result[chainAction.method](...chainParams);
+                    }
+                    if (result == undefined){
+                        result = new result[chainAction.method](...chainParams)
+                    }
+                    //result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
                 }
                 console.log("AFTER PASSING FUNCTION", result)
             } else {
