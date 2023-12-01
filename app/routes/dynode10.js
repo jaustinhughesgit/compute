@@ -396,7 +396,11 @@ async function applyMethodChain(target, action, context) {
             } else if (typeof result[chainAction.method] === 'function') {
                 console.log("not new", chainAction.method)
                 console.log("typeof", typeof result[chainAction.method])
-                result = chainAction.method === 'promise' ? await result.promise() : new result[chainAction.method](...chainParams);
+                if (chainAction.method == "use"){
+                    result = chainAction.method === 'promise' ? await result.promise() : new result[chainAction.method](...chainParams);
+                } else {
+                    result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
+                }
                 console.log("AFTER PASSING FUNCTION", result)
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
