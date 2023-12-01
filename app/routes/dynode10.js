@@ -119,15 +119,6 @@ const json = {
             "assignTo":"passport"
         },
         {
-            "params":["{token}", "{tokenSecret}", "{profile}", "{done}"], 
-            "chain":[
-            ],
-            "run":[
-                {"method":"{done}", "params":[null, "{profile}"]}
-            ],
-            "assignTo":"callbackFunction"
-        },
-        {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -141,7 +132,7 @@ const json = {
                     "state": false,
                     "type": "Web",
                     "scope": ["user.read"]
-                },"{{callbackFunction}}"
+                },"{{callback}}"
                ]}
             ],
             "assignTo":"passportmicrosoft"
@@ -180,15 +171,12 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     context["callback"] = (token, tokenSecret, profile, done) => {
-        // Your authentication logic
         done(null, profile);
     }
     await initializeModules(context, json, req, res, next);
-        console.log("-------------------AFTER initializeModules---------------------")
-        //context.passport.use(context.passportmicrosoft);
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+    console.log("-------------------AFTER initializeModules---------------------")
+    context.passport.authenticate("microsoft")(req, res, next); 
 
-    //res.json(context);
 });
 
 
