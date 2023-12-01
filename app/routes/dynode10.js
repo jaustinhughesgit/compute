@@ -323,7 +323,21 @@ function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
         return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
             let value = context[key];
-            return typeof value === 'function' ? value : (value !== undefined ? value : key);
+            console.log("value", value)
+            console.log(typeof value)
+            if (typeof value === 'function') {
+                console.log("function")
+                return value;
+            } else {
+                console.log("not function")
+                if (value !== undefined) {
+                    console.log("value is not undefined")
+                    return value;
+                } else {
+                    console.log("value is undefined")
+                    return key;
+                }
+            }
         });
     }
     return str;
