@@ -119,9 +119,9 @@ const json = {
             "assignTo":"passport"
         },
         {
-            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "params":["{token}", "{tokenSecret}", "{profile}", "{done}"], 
             "chain":[
-                {"method":"{done}", "params":[null, "{profile}"]}
+                {"method":"{done}", "params":[null, "{profile}"], "new":true}
             ],
             "assignTo":"callbackFunction"
         },
@@ -139,7 +139,7 @@ const json = {
                     "state": false,
                     "type": "Web",
                     "scope": ["user.read"]
-                },"{{callbackFunction}}"
+                }
                ]}
             ],
             "assignTo":"passportmicrosoft"
@@ -404,6 +404,11 @@ async function applyMethodChain(target, action, context) {
                     console.log("context", context)
                     console.log("context.passportmicrosoft", context.passportmicrosoft)
                     result = result[chainAction.method]( new context.passportmicrosoft);
+                } else if (chainAction.method == "Strategy"){
+                    result = result[chainAction.method](...chainParams,(token, tokenSecret, profile, done) => {
+                        done(null, profile);
+                    })
+                    
                 } else {
                     console.log("method is not use")
                     result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
