@@ -425,7 +425,17 @@ async function applyMethodChain(target, action, context) {
                     if (chainAction.method === 'promise') {
                         result = await result.promise();
                     } else {
-                        result = result[chainAction.method](...chainParams);
+                        if (chainAction.method === 'Strategy') {
+                            // Assuming chainParams[0] is the options object and chainParams[1] is the callback function
+                            let options = chainParams[0];
+                            let callbackFunction = context[chainParams[1]]; // Ensure this is a function reference
+                            console.log("typeof callbackFunction vvvvv")
+                            console.log(typeof callbackFunction)
+                            result = result[chainAction.method](options, callbackFunction);
+                        } else {
+                            // Existing handling for other methods
+                            result = result[chainAction.method](...chainParams);
+                        }
                     }
                 }
                 console.log("AFTER PASSING FUNCTION", result)
