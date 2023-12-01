@@ -379,7 +379,7 @@ async function applyMethodChain(target, action, context) {
                     console.log(result[chainAction.method])
                     console.log("context", context)
                     console.log("context.passportmicrosoft", context.passportmicrosoft)
-                    result = result[chainAction.method]( new context.passportmicrosoft);
+                    result = result[chainAction.method](context.passportmicrosoft);
                 } else {
                     console.log("method is not use")
                     console.log("chainAction.method", chainAction.method)
