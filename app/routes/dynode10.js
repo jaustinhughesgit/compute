@@ -394,6 +394,8 @@ async function applyMethodChain(target, action, context) {
                 console.log("typeof", typeof result[chainAction.method])
                 if (chainAction.method == "use"){
                     console.log("method is use and testing new vvvvv")
+                    console.log(chainParams)
+                    console.log(result[chainAction.method])
                     result = new result[chainAction.method](...chainParams);
                 } else {
                     console.log("method is not use")
