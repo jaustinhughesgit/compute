@@ -416,7 +416,7 @@ async function applyMethodChain(target, action, context) {
                             // Assuming chainParams[0] is the options object and chainParams[1] is the callback function
                             let options = chainParams[0];
                             let callbackFunction = context[chainParams[1]]; // Ensure this is a function reference
-                            result = result[chainAction.method](options, callbackFunction);
+                            result = result[chainAction.method](options, context["callback"]);
                         } else {
                             // Existing handling for other methods
                             result = result[chainAction.method](...chainParams);
