@@ -384,7 +384,12 @@ async function applyMethodChain(target, action, context) {
             console.log("param")
             console.log("result", result)
             console.log("chainAction.method", chainAction.method)
-            console.log("typeof", typeof result[chainAction.method])
+            try{
+                let format = typeof result[chainAction.method]
+                console.log("typeof", format)
+            } catch (err) {
+                console.log("err", err)
+            }
             console.log("result[chainAction.method]", result[chainAction.method])
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
