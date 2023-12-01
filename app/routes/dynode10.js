@@ -142,7 +142,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"", "params":["{{passportmicrosoft}}"]}
+                {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
         }
@@ -378,6 +378,12 @@ async function applyMethodChain(target, action, context) {
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             console.log("result", result)
             console.log("chainAction", chainAction)
+            try{
+                console.log("trying typeof vvvvv")
+                console.log(typeof result[chainAction.method])
+            } catch (err){
+                console.log("error", err)
+            }
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
                 console.log("new", chainAction.method)
