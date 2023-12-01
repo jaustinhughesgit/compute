@@ -334,14 +334,21 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
+            console.log("param is string", param, context)
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
+            console.log("param is array", param)
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
+            console.log("param is object", param)
             for (const [key, value] of Object.entries(param)) {
+                console.log("processedParam value", value)
                 processedParam[key] = processParam(value);
+                console.log("processedParam value", processedParam[key])
+                console.log("typeof", typeof processedParam[key])
             }
+            console.log("processedParam >>", processedParam)
             return processedParam;
         } else {
             return param;
@@ -370,11 +377,15 @@ async function applyMethodChain(target, action, context) {
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
             console.log("result", result)
-            
+            console.log("chainAction", chainAction)
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
+                console.log("new", chainAction.method)
+                console.log("typeof", typeof result[chainAction.method])
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
+                console.log("not new", chainAction.method)
+                console.log("typeof", typeof result[chainAction.method])
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
