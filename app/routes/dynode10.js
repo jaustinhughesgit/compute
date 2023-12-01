@@ -396,7 +396,7 @@ async function applyMethodChain(target, action, context) {
                     console.log("method is use and testing new vvvvv")
                     console.log(chainParams)
                     console.log(result[chainAction.method])
-                    result = new result[chainAction.method](...chainParams);
+                    result = result[chainAction.method]( new context[chainParams[0]]);
                 } else {
                     console.log("method is not use")
                     result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
