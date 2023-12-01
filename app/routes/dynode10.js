@@ -142,7 +142,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":["{{passportmicrosoft}}"]}
+                {"method":"", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
         }
@@ -177,13 +177,11 @@ local.dyRouter.all('/*', async function(req, res, next) {
         done(null, profile);
     }
     await initializeModules(context, json, req, res, next);
-    
+        console.log("-------------------AFTER initializeModules---------------------")
         //context.passport.use(context.passportmicrosoft);
-        console.log("---------------EVERYTHING IS DONE-----------")
-        console.log(context)
-        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
-    res.json(context);
+    //res.json(context);
 });
 
 
@@ -336,20 +334,14 @@ async function applyMethodChain(target, action, context) {
     // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            console.log("param is string", param)
             return replacePlaceholders(param, context);
         } else if (Array.isArray(param)) {
-            console.log("param is an array")
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
-            console.log("param is an object")
             const processedParam = {};
             for (const [key, value] of Object.entries(param)) {
-                console.log("inner param key and value", key, value)
                 processedParam[key] = processParam(value);
-                console.log("processedParam[key]", processedParam[key])
             }
-            console.log("processedParam", processedParam)
             return processedParam;
         } else {
             return param;
@@ -357,7 +349,6 @@ async function applyMethodChain(target, action, context) {
     }
 
     function instantiateWithNew(constructor, args) {
-        console.log("contructor", constructor)
         return new constructor(...args);
     }
 
@@ -373,30 +364,18 @@ async function applyMethodChain(target, action, context) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            // ... existing code ...
+            if (chainAction.hasOwnProperty('return')) {
+                return chainAction.return; // Directly return the value specified in 'return'
+            }
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            console.log("chainParams", chainParams)
-            console.log("chainAction", chainAction)
-            console.log("param")
             console.log("result", result)
-            console.log("chainAction.method", chainAction.method)
+            
             if (chainAction.new) {
                 // Instantiate with 'new' if specified
-                console.log("new")
                 result = instantiateWithNew(result[chainAction.method], chainParams);
-                console.log("result new", result)
             } else if (typeof result[chainAction.method] === 'function') {
-                try{
-                    let format = typeof result[chainAction.method]
-                    console.log("typeof", format)
-                } catch (err) {
-                    console.log("err", err)
-                }
-                console.log("result[chainAction.method]", result[chainAction.method])
-                console.log("not new")
                 result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
-                console.log("result not new", result)
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
