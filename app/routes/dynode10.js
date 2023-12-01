@@ -134,7 +134,8 @@ const json = {
                     "type": "Web",
                     "scope": ["user.read"]
                 },"{{callbackFunction}}"
-               ]}
+               ],
+                "new":true}
             ],
             "assignTo":"passportmicrosoft"
         },
@@ -448,9 +449,11 @@ async function applyMethodChain(target, action, context) {
                     if (chainAction.method === 'promise') {
                         result = await result.promise();
                     } else {
-                            result = result[chainAction.method](...chainParams);
-                        if (result == undefined){
+                        if (chainAction.new) {
                             result = new result[chainAction.method](...chainParams);
+                        } else {
+                            // Existing handling for other methods
+                            result = result[chainAction.method](...chainParams);
                         }
                     }
                 }
