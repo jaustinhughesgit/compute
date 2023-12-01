@@ -106,13 +106,6 @@ const json = {
             "assignTo":"customFunction"
         },
         {
-            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-            "chain":[
-                {"method":"{done}", "params":[null, "{profile}"]}
-            ],
-            "assignTo":"callbackFunction"
-        },
-        {
             "module":"passport",
             "chain":[
             ],
@@ -171,12 +164,15 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     context["callback"] = (token, tokenSecret, profile, done) => {
+        // Your authentication logic
         done(null, profile);
     }
     await initializeModules(context, json, req, res, next);
-    console.log("-------------------AFTER initializeModules---------------------")
-    context.passport.authenticate("microsoft")(req, res, next); 
+        console.log("-------------------AFTER initializeModules---------------------")
+ 
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
+    //res.json(context);
 });
 
 
@@ -251,9 +247,14 @@ function createFunctionFromAction(action, context, req, res, next) {
             return acc;
         }, {});
 
-        // Process the chain of actions
         if (action.chain) {
             for (const chainAction of action.chain) {
+                if ('return' in chainAction) {
+                    // Replace the return value with the actual parameter value
+                    return replaceParams(chainAction.return, context, scope, args);
+                }
+
+                // Check if chainAction.params is defined and is an array
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -276,32 +277,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
-
-        // Process the run actions
-        if (action.run) {
-            for (const runAction of action.run) {
-                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
-                }) : [];
-
-                if (typeof runAction.method === 'string') {
-                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
-                        const methodName = runAction.method.slice(1, -1);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...runParams);
-                        } else {
-                            console.error(`Callback method ${methodName} is not a function`);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-
         return result;
     };
 }
-
 
 
 function replaceParams(param, context, scope, args) {
@@ -320,17 +298,14 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        return str.replace(/\{\{([^}]+)\}\}(!?)/g, (match, key, isFunctionExecution) => {
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
             let value = context[key];
-            if (isFunctionExecution === '!' && typeof value === 'function') {
-                return value();
-            }
+            // Check if the value is a function, if so, return the function itself
             return typeof value === 'function' ? value : (value !== undefined ? value : key);
         });
     }
     return str;
 }
-
 
 async function applyMethodChain(target, action, context) {
     let result = target;
