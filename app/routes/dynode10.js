@@ -433,14 +433,14 @@ async function applyMethodChain(target, action, context) {
             } else if (typeof result[chainAction.method] === 'function') {
                 console.log("not new", chainAction.method)
                 console.log("typeof", typeof result[chainAction.method])
-                if (chainAction.method == "use"){
+                /*if (chainAction.method == "use"){
                     console.log("method is use and testing new vvvvv")
                     console.log(chainParams)
                     console.log(result[chainAction.method])
                     console.log("context", context)
                     console.log("context.passportmicrosoft", context.passportmicrosoft)
                     result = result[chainAction.method](context.passportmicrosoft);
-                } else {
+                } else {*/
                     console.log("method is not use")
                     console.log("chainAction.method", chainAction.method)
                     console.log("chainParams", chainParams)
@@ -456,7 +456,7 @@ async function applyMethodChain(target, action, context) {
                             result = result[chainAction.method](...chainParams);
                         }
                     }
-                }
+                //}
                 console.log("AFTER PASSING FUNCTION", result)
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
