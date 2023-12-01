@@ -135,18 +135,14 @@ const json = {
                 },(token, tokenSecret, profile, done) => {
                     done(null, profile);
                 }
-               ], "new":true}
+               ]}
             ],
             "assignTo":"passportmicrosoft"
         },
         {
             "module":"passport",
             "chain":[
-                {"method":"use", "params":["{{passportmicrosoft}}"]},
-                {
-                    "method": "promise",
-                    "params": []
-                }
+                {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
         }
@@ -397,8 +393,10 @@ async function applyMethodChain(target, action, context) {
                 console.log("not new", chainAction.method)
                 console.log("typeof", typeof result[chainAction.method])
                 if (chainAction.method == "use"){
-                    result = chainAction.method === 'promise' ? await result.promise() : new result[chainAction.method](...chainParams);
+                    console.log("method is use and testing new vvvvv")
+                    result = new result[chainAction.method](...chainParams);
                 } else {
+                    console.log("method is not use")
                     result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
                 }
                 console.log("AFTER PASSING FUNCTION", result)
