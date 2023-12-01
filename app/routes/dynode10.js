@@ -119,6 +119,13 @@ const json = {
             "assignTo":"passport"
         },
         {
+            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+            "chain":[
+                {"method":"{done}", "params":[null, "{profile}"], "new":true}
+            ],
+            "assignTo":"callbackFunction"
+        },
+        {
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -132,7 +139,7 @@ const json = {
                     "state": false,
                     "type": "Web",
                     "scope": ["user.read"]
-                }
+                },"{{callbackFunction}}"
                ]}
             ],
             "assignTo":"passportmicrosoft"
