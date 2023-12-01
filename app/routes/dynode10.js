@@ -451,9 +451,10 @@ async function applyMethodChain(target, action, context) {
                         if (chainAction.method === 'Strategy') {
                             // Assuming chainParams[0] is the options object and chainParams[1] is the callback function
                             console.log("typeof callbackFunction vvvvv")
-                            console.log(typeof callbackFunction)
+                            console.log(typeof chainParams[0])
+                            console.log(typeof chainParams[1])
                             console.log(chainParams)
-                            result = result[chainAction.method](...chainParams);
+                            result = result[chainAction.method](chainParams[0],chainParams[1]);
                         } else {
                             // Existing handling for other methods
                             result = result[chainAction.method](...chainParams);
