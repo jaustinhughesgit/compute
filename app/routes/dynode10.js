@@ -382,20 +382,46 @@ async function applyMethodChain(target, action, context) {
                     result = result[chainAction.method]( new context.passportmicrosoft);
                 } else {
                     console.log("method is not use")
-                    console.log("chainAction.method", chainAction.method) // chainAction.method = [ 'passportmicrosoft' ]
-                    console.log("chainParams", chainParams) //chainParams [Function (anonymous)]
+                    console.log("chainAction.method", chainAction.method)
+                    console.log("chainParams", chainParams)
                     console.log("context",context)
-                    console.log("result", result)
-                    //console.log("result[chainAction.method]",result[chainAction.method])
+                    
                     if (chainAction.method === 'promise') {
                         result = await result.promise();
                     } else {
-                        result = result[chainAction.method](...chainParams);
+
+                        console.log(result)
+                        // result = { version: '1.0.0', Strategy: [Function: MicrosoftStrategy] }
+
+                        console.log(chainParams)
+                        /* chainParamms = [
+                        {
+                            clientID: '91f33fda-5064-4821-88ed-f70b6e4f4985',
+                            clientSecret: 'PxX8Q~rPsa7DaEHDxaMRsb~i7VMwz~H~nnPCya7q',
+                            callbackURL: 'https://compute.1var.com/auth/microsoft/callback',
+                            resource: 'https://graph.microsoft.com/',
+                            tenant: '9261f6c8-85db-4045-b77d-fc941da97ee9',
+                            prompt: 'login',
+                            state: false,
+                            type: 'Web',
+                            scope: [ 'user.read' ]
+                        },
+                        '(token, tokenSecret, profile, done) => {\n' +
+                            '        // Your authentication logic\n' +
+                            '        done(null, profile);\n' +
+                            '    }'
+                        ]
+                        */
+                        if (chainAction.method === 'Strategy') {
+                            // Assuming chainParams[0] is the options object and chainParams[1] is the callback function
+                            let options = chainParams[0];
+                            let callbackFunction = context[chainParams[1]]; // Ensure this is a function reference
+                            result = result[chainAction.method](options, callbackFunction);
+                        } else {
+                            // Existing handling for other methods
+                            result = result[chainAction.method](...chainParams);
+                        }
                     }
-                    if (result == undefined){
-                        result = new result[chainAction.method](...chainParams)
-                    }
-                    //result = chainAction.method === 'promise' ? await result.promise() : result[chainAction.method](...chainParams);
                 }
                 console.log("AFTER PASSING FUNCTION", result)
             } else {
