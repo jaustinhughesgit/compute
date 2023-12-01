@@ -347,8 +347,9 @@ async function applyMethodChain(target, action, context) {
     let result = target;
 
     // Helper function to process each parameter
-    function processParam(param, context) {
+    function processParam(param) {
         if (typeof param === 'string') {
+            console.log("param is string", param, context)
             // Check if the parameter is a function reference placeholder
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 const key = param.slice(2, -2);
@@ -360,12 +361,18 @@ async function applyMethodChain(target, action, context) {
             }
             return param; // Return the string as is
         } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item, context));
+            console.log("param is array", param)
+            return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
+            console.log("param is object", param)
             for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value, context);
+                console.log("processedParam value", value)
+                processedParam[key] = processParam(value);
+                console.log("processedParam value", processedParam[key])
+                console.log("typeof", typeof processedParam[key])
             }
+            console.log("processedParam >>", processedParam)
             return processedParam;
         } else {
             return param;
