@@ -352,12 +352,23 @@ async function applyMethodChain(target, action, context) {
             console.log("param is string", param, context)
             // Check if the parameter is a function reference placeholder
             if (param.startsWith('{{') && param.endsWith('}}')) {
+                console.log("param is {{")
                 const key = param.slice(2, -2);
                 const value = context[key];
+                console.log("param typeof vvvv")
+                console.log(typeof value)
                 if (typeof value === 'function') {
+                    console.log("value >",value)
                     return value; // Return the function reference directly
                 }
-                return value !== undefined ? value : key;
+                console.log("default value returning")
+                if (value !== undefined) {
+                    console.log("value is not undefined")
+                    return value;
+                } else {
+                    console.log("value is undefined")
+                    return key;
+                }
             }
             return param; // Return the string as is
         } else if (Array.isArray(param)) {
