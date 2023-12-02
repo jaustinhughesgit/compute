@@ -151,7 +151,8 @@ const json = {
             "chain":[
                 {"method":"authenticate", "params":["microsoft"]},
                 {"method":"{{express}}"}
-            ]
+            ],
+            "assignTo":"newAuthentication"
         }
     ]
 }
