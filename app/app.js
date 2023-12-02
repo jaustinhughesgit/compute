@@ -149,7 +149,7 @@ app.use('/dynode6', dynode6Router);
 app.use('/dynode7', dynode7Router);
 app.use('/dynode8', dynode8Router);
 app.use('/dynode9', dynode9Router);
-//app.use('/dynode10', dynode10Router);
+app.use('/dynode10', authRouter);
 app.use('/s3modules', s3modulesRouter);
 
 
