@@ -146,7 +146,7 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
@@ -154,7 +154,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
@@ -233,14 +233,7 @@ async function initializeModules(context, config, req, res, next) {
                 runAction = condition(action.if[ifObject][0],action.if[ifObject][1],action.if[ifObject][2], context)
             }
         }
-        if (action.ifArray) {
-            for (const ifArray of action.ifArray) {
-                for (const ifObject of action.ifArray[ifArray]) {
-                    consol.log("errorArray", action)
-                    runAction = condition(action.ifArray[ifArray][ifObject][0],action.ifArray[ifArray][ifObject][1],action.ifArray[ifArray][ifObject][2], context)
-                }
-            }
-        }
+        
         if (runAction){
             if (action.execute) {
                 const functionName = action.execute;
