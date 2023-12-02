@@ -149,17 +149,10 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["microsoft"]}
+                {"method":"authenticate", "params":["microsoft"], "new":true}
+                {"method":"{{express}}"}
             ],
             "assignTo":"newAuthentication"
-        },
-        {
-            "params":[], 
-            "chain":[
-                {"method":"{{newAuthentication}}", "params":[]},
-                {"method":"{{express}}", "params":[]}
-            ],
-            "assignTo":"{{doubleFunction}}!"
         }
     ]
 }
