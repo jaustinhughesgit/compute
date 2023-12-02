@@ -411,7 +411,7 @@ async function applyMethodChain(target, action, context) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
 
-                if (chainAction.method){
+                if (chainAction.method && chainAction.method != []){
                     if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
                         const methodName = chainAction.method.slice(2, -2);
                         const methodFunction = context[methodName];
