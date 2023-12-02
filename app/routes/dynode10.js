@@ -156,7 +156,7 @@ const json = {
         {
             "params":[], 
             "chain":[
-                {"method":"{{callbackFunction}}", "params":[]},
+                {"method":"{{newAuthentication}}", "params":[]},
                 {"method":"{{express}}", "params":[]}
             ],
             "assignTo":"doubleFunction"
@@ -190,7 +190,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["express"] = (req, res, next) => {};
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
-        context["newAuthentication"](req, res, next)
+        //context["newAuthentication"](req, res, next)
         //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
