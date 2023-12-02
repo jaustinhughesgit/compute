@@ -59,7 +59,7 @@ var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuid
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
-const authRouter = require('.routes/dynode10')
+const authRouter = require('./routes/dynode10');
 const dynodeRouter = require('./routes/dynode');
 const dynode2Router = require('./routes/dynode2');
 const dynode3Router = require('./routes/dynode3');
@@ -69,7 +69,7 @@ const dynode6Router = require('./routes/dynode6');
 const dynode7Router = require('./routes/dynode7');
 const dynode8Router = require('./routes/dynode8');
 const dynode9Router = require('./routes/dynode9');
-const dynode10Router = require('./routes/dynode10');
+//const dynode10Router = require('./routes/dynode10');
 const s3modulesRouter = require('./routes/s3modules');
 
 
@@ -149,7 +149,7 @@ app.use('/dynode6', dynode6Router);
 app.use('/dynode7', dynode7Router);
 app.use('/dynode8', dynode8Router);
 app.use('/dynode9', dynode9Router);
-app.use('/dynode10', dynode10Router);
+//app.use('/dynode10', dynode10Router);
 app.use('/s3modules', s3modulesRouter);
 
 
