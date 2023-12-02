@@ -195,7 +195,14 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
 });
 
-function condition(left, condition, right){
+function condition(left, condition, right, context){
+    left = replacePlaceholders(left, context)
+    condition = replacePlaceholders(condition, context)
+    right = replacePlaceholders(right, context)
+    console.log("left", left)
+    console.log("condition", condition)
+    console.log("right", right)
+
     if (condition == "=="){
         if (left == right){ return true } else { return false }
     } else if (condition == "!="){
@@ -218,7 +225,7 @@ async function initializeModules(context, config, req, res, next) {
     for (const action of config.actions) {
         let runAction = true
         if (action.if) {
-            runAction = condition(action.if[0],action.if[1],action.if[2])
+            runAction = condition(action.if[0],action.if[1],action.if[2], context)
         }
         if (runAction){
             if (action.execute) {
