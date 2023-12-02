@@ -195,7 +195,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
 });
 
-function conditions(left, condition, right){
+function condition(left, condition, right){
     if (condition == "=="){
         if (left == right){ return true } else { return false }
     } else if (condition == "!="){
