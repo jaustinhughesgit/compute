@@ -193,7 +193,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log(context.urlpath)
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
-    if (context.urlPath == "/microsoft/callback"){
+    if (context.req.path == "/microsoft/callback"){
         res.json(context);
     }
 });
