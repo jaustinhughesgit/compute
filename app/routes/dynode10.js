@@ -227,10 +227,12 @@ async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
         let runAction = true
-        if (action.if || action.ifArray) {
+        if (action.if) {
             for (const ifObject of action.if) {
                 runAction = condition(action.if[ifObject][0],action.if[ifObject][1],action.if[ifObject][2], context)
             }
+        }
+        if (action.ifArray) {
             for (const ifArray of action.ifArray) {
                 for (const ifObject of action.ifArray[ifArray]) {
                     runAction = condition(action.ifArray[ifArray][ifObject][0],action.ifArray[ifArray][ifObject][1],action.ifArray[ifArray][ifObject][2], context)
