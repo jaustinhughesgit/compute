@@ -146,7 +146,7 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "if":[["{{urlPath}}","!=","/microsoft/callback"]],
+            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
@@ -154,7 +154,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "if":[["{{urlPath}}","!=","/microsoft/callback"]],
+            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
