@@ -152,6 +152,14 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"]}
             ],
             "assignTo":"newAuthentication"
+        },
+        {
+            "params":[], 
+            "chain":[
+                {"method":"{{callbackFunction}}", "params":[]},
+                {"method":"{{express}}", "params":[]}
+            ],
+            "assignTo":"doubleFunction"
         }
     ]
 }
