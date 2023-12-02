@@ -229,12 +229,14 @@ async function initializeModules(context, config, req, res, next) {
         let runAction = true
         if (action.if) {
             for (const ifObject of action.if) {
+                console.log("error", action)
                 runAction = condition(action.if[ifObject][0],action.if[ifObject][1],action.if[ifObject][2], context)
             }
         }
         if (action.ifArray) {
             for (const ifArray of action.ifArray) {
                 for (const ifObject of action.ifArray[ifArray]) {
+                    consol.log("errorArray", action)
                     runAction = condition(action.ifArray[ifArray][ifObject][0],action.ifArray[ifArray][ifObject][1],action.ifArray[ifArray][ifObject][2], context)
                 }
             }
