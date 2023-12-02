@@ -15,6 +15,9 @@ local.dyRouter.use(local.session({
     saveUninitialized: true,
     cookie: { secure: true } 
 }));
+
+console.log("testing mobile")
+
 const json = {
     "modules": {
         "moment-timezone": "moment-timezone",
