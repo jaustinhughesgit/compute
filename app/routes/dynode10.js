@@ -109,14 +109,14 @@ const json = {
             "assignTo":"customFunction"
         },
         {
-            "if":["{{req.path}}","!=","/microsoft/callback"],
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
             "assignTo":"passport"
         },
         {
-            "if":["{{req.path}}","!=","/microsoft/callback"],
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
@@ -125,7 +125,7 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
-            "if":["{{req.path}}","!=","/microsoft/callback"],
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -146,7 +146,7 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "if":["{{req.path}}","!=","/microsoft/callback"],
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
@@ -154,7 +154,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "ifArray":[["{{req.path}}","!=","/microsoft/callback"]],
+            "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
@@ -189,11 +189,11 @@ local.dyRouter.get('/', async function(req, res, next) {
 
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    context["req"] = req
+    context["urlpath"] = req.path
     console.log(context.urlpath)
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
-    if (context.req.path == "/microsoft/callback"){
+    if (context.urlpath== "/microsoft/callback"){
         res.json(context);
     }
 });
