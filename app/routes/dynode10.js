@@ -183,7 +183,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
  
-        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });
@@ -407,34 +407,21 @@ async function applyMethodChain(target, action, context) {
             }
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            if (chainAction.method && chainAction.method != []){
-                if (chainAction.new) {
-                    result = instantiateWithNew(result[chainAction.method], chainParams);
-                } else if (typeof result[chainAction.method] === 'function') {
-
-                        if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
-                            const methodName = chainAction.method.slice(2, -2);
-                            const methodFunction = context[methodName];
-                            if (typeof methodFunction === 'function') {
-                                result = methodFunction(...chainParams);
-                            } else {
-                                console.error(`Method ${methodName} is not a function in context`);
-                                return;
-                            }
-                        } else if (chainAction.method === 'promise') {
-                            result = await result.promise();
-                        } else {
-                            if (chainAction.new) {
-                                result = new result[chainAction.method](...chainParams);
-                            } else {
-                                result = result[chainAction.method](...chainParams);
-                            }
-                        }
-                    }
+            if (chainAction.new) {
+                result = instantiateWithNew(result[chainAction.method], chainParams);
+            } else if (typeof result[chainAction.method] === 'function') {
+                if (chainAction.method === 'promise') {
+                    result = await result.promise();
                 } else {
-                    console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
-                    return;
+                    if (chainAction.new) {
+                        result = new result[chainAction.method](...chainParams);
+                    } else {
+                        result = result[chainAction.method](...chainParams);
+                    }
                 }
+            } else {
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                return;
             }
         }
     }
