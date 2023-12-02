@@ -473,7 +473,7 @@ async function applyMethodChain(target, action, context) {
                                 const methodFunction = context[methodName];
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
-                                        result = methodFunction(...chainParams)(contex.req, contex.res, contex.next);
+                                        result = methodFunction(...chainParams)(context.req, context.res, context.next);
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
@@ -483,7 +483,7 @@ async function applyMethodChain(target, action, context) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    result = result[chainAction.method](...chainParams)(contex.req, contex.res, contex.next);
+                                    result = result[chainAction.method](...chainParams)(context.req, context.res, context.next);
                                 } else {
                                     result = result[chainAction.method](...chainParams);
                                 }
