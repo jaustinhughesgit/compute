@@ -154,7 +154,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "if":["{{urlPath}}","!=","/microsoft/callback"],
+            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
@@ -229,6 +229,14 @@ async function initializeModules(context, config, req, res, next) {
         let runAction = true
         if (action.if) {
                 runAction = condition(action.if[0],action.if[1],action.if[2], context)
+        }
+        if (action.ifArray) {
+                for (const ifObject of action.ifArray){
+                    runAction = condition(action.ifArray[ifObject][0],action.ifArray[ifObject][1],action.ifArray[ifObject][2], context)
+                    if (!runAction){
+                        break;
+                    }
+                }
         }
         
         if (runAction){
