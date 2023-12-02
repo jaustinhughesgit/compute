@@ -153,6 +153,9 @@ const json = {
             ],
             "assignTo":"newAuthentication"
         }
+        // NEED TO ADD IF CONDITIONS TO JSON ACTION
+        // "if":["{{this}}","==","{{that}}"]
+        // then it will execute the action else it will skip it.
     ]
 }
 
@@ -180,9 +183,6 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
-        console.log("-------------------AFTER initializeModules---------------------")
-        //context["newAuthentication"](req, res, next)
-        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });

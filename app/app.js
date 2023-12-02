@@ -59,6 +59,7 @@ var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuid
 var loginRouter = require('./routes/login')
 var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
+const authRouter = require('.routes/dynode10')
 const dynodeRouter = require('./routes/dynode');
 const dynode2Router = require('./routes/dynode2');
 const dynode3Router = require('./routes/dynode3');
@@ -137,6 +138,7 @@ app.use('/', indexRouter);
 app.use('/login', loginRouter);
 app.use('/controller', controllerRouter);
 app.use('/dashboard', ensureAuthenticated, dashboardRouter);
+app.use('/auth', authRouter)
 app.use('/github', githubRouter);
 app.use('/dynode', dynodeRouter);
 app.use('/dynode2', dynode2Router);
