@@ -109,14 +109,14 @@ const json = {
             "assignTo":"customFunction"
         },
         {
-            "if":["{{urlPath}}","!=","/microsoft/callback"],
+            "if":["{{req.path}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
             "assignTo":"passport"
         },
         {
-            "if":["{{urlPath}}","!=","/microsoft/callback"],
+            "if":["{{req.path}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
@@ -125,7 +125,7 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
-            "if":["{{urlPath}}","!=","/microsoft/callback"],
+            "if":["{{req.path}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -146,7 +146,7 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "if":["{{urlPath}}","!=","/microsoft/callback"],
+            "if":["{{req.path}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
@@ -154,7 +154,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "ifArray":[["{{urlPath}}","!=","/microsoft/callback"]],
+            "ifArray":[["{{req.path}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
@@ -189,12 +189,10 @@ local.dyRouter.get('/', async function(req, res, next) {
 
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    context["req"] = req;
-    context["res"] = res;
-    context["next"] = next;
+    context["req"] = req
     console.log(context.urlpath)
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(context, json);
+    await initializeModules(context, json, req, res, next);
     if (context.urlPath == "/microsoft/callback"){
         res.json(context);
     }
@@ -225,7 +223,7 @@ function condition(left, condition, right, context){
     }
 }
 
-async function initializeModules(context, config) {
+async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
 
@@ -248,7 +246,7 @@ async function initializeModules(context, config) {
                 const functionName = action.execute;
                 if (typeof context[functionName] === 'function') {
                     if (action.express){
-                        await context[functionName](contex.req, contex.res, contex.next);
+                        await context[functionName](req, res, next);
                     } else {
                         await context[functionName]
                     }
@@ -260,7 +258,7 @@ async function initializeModules(context, config) {
             }
 
             if (!action.module && action.assignTo && action.params && action.chain) {
-                context[action.assignTo] = createFunctionFromAction(action, context)
+                context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
                 console.log("context",context)
                 continue;
             }
@@ -281,7 +279,7 @@ async function initializeModules(context, config) {
             }
 
             let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-            result = await applyMethodChain(result, action, context);
+            result = await applyMethodChain(result, action, context, res, req, next);
             if (action.assignTo) {
                 if (action.assignTo.includes('{{')) {
                     let isFunctionExecution = action.assignTo.endsWith('!');
@@ -300,7 +298,7 @@ async function initializeModules(context, config) {
     }
 }
 
-function createFunctionFromAction(action, context) {
+function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -380,21 +378,28 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        return str.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-            let value = context[key];
-            console.log("value", value)
-            console.log(typeof value)
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+            // Split the keyPath into an array of keys
+            const keys = keyPath.split('.');
+            // Reduce the keys to access the nested value
+            let value = keys.reduce((currentContext, key) => {
+                return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+            }, context);
+
+            console.log("value", value);
+            console.log(typeof value);
+
             if (typeof value === 'function') {
-                console.log("function")
+                console.log("function");
                 return value;
             } else {
-                console.log("not function")
+                console.log("not function");
                 if (value !== undefined) {
-                    console.log("value is not undefined")
+                    console.log("value is not undefined");
                     return value;
                 } else {
-                    console.log("value is undefined")
-                    return key;
+                    console.log("value is undefined");
+                    return keyPath;
                 }
             }
         });
@@ -402,7 +407,7 @@ function replacePlaceholders(str, context) {
     return str;
 }
 
-async function applyMethodChain(target, action, context) {
+async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     // Helper function to process each parameter
@@ -473,7 +478,7 @@ async function applyMethodChain(target, action, context) {
                                 const methodFunction = context[methodName];
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
-                                        result = methodFunction(...chainParams)(context.req, context.res, context.next);
+                                        result = methodFunction(...chainParams)(req, res, next);
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
@@ -483,7 +488,7 @@ async function applyMethodChain(target, action, context) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    result = result[chainAction.method](...chainParams)(context.req, context.res, context.next);
+                                    result = result[chainAction.method](...chainParams)(req, res, next);
                                 } else {
                                     result = result[chainAction.method](...chainParams);
                                 }
