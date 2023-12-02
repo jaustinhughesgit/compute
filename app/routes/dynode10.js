@@ -161,9 +161,9 @@ const json = {
             ],
             "assignTo":"newAuthentication"
         }
-        // NEED TO ADD IF CONDITIONS TO JSON ACTION
-        // "if":["{{this}}","==","{{that}}"]
-        // then it will execute the action else it will skip it.
+        // Add "set" key to action for assigning a value without a function. 
+        // {"set":"customVar" "value":[1,2,3]}
+
     ]
 }
 
@@ -189,10 +189,12 @@ local.dyRouter.get('/', async function(req, res, next) {
 
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
-    context["urlPath"] = req.path
+    context["req"] = req;
+    context["res"] = res;
+    context["next"] = next;
     console.log(context.urlpath)
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(context, json, req, res, next);
+    await initializeModules(context, json);
     if (context.urlPath == "/microsoft/callback"){
         res.json(context);
     }
@@ -223,13 +225,15 @@ function condition(left, condition, right, context){
     }
 }
 
-async function initializeModules(context, config, req, res, next) {
+async function initializeModules(context, config) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
+
         let runAction = true
         if (action.if) {
                 runAction = condition(action.if[0],action.if[1],action.if[2], context)
         }
+
         if (action.ifArray) {
                 for (const ifObject of action.ifArray){
                     runAction = condition(ifObject[0],ifObject[1],ifObject[2], context)
@@ -244,7 +248,7 @@ async function initializeModules(context, config, req, res, next) {
                 const functionName = action.execute;
                 if (typeof context[functionName] === 'function') {
                     if (action.express){
-                        await context[functionName](req, res, next);
+                        await context[functionName](contex.req, contex.res, contex.next);
                     } else {
                         await context[functionName]
                     }
@@ -254,11 +258,13 @@ async function initializeModules(context, config, req, res, next) {
                     continue;
                 }
             }
+
             if (!action.module && action.assignTo && action.params && action.chain) {
-                context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
+                context[action.assignTo] = createFunctionFromAction(action, context)
                 console.log("context",context)
                 continue;
             }
+
             let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
             let args = [];
             if (action.valueFrom) {
@@ -273,8 +279,9 @@ async function initializeModules(context, config, req, res, next) {
                     return value;
                 });
             }
+
             let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-            result = await applyMethodChain(result, action, context, res, req, next);
+            result = await applyMethodChain(result, action, context);
             if (action.assignTo) {
                 if (action.assignTo.includes('{{')) {
                     let isFunctionExecution = action.assignTo.endsWith('!');
@@ -293,7 +300,7 @@ async function initializeModules(context, config, req, res, next) {
     }
 }
 
-function createFunctionFromAction(action, context, req, res, next) {
+function createFunctionFromAction(action, context) {
     return function(...args) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -395,7 +402,7 @@ function replacePlaceholders(str, context) {
     return str;
 }
 
-async function applyMethodChain(target, action, context, res, req, next) {
+async function applyMethodChain(target, action, context) {
     let result = target;
 
     // Helper function to process each parameter
@@ -466,7 +473,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 const methodFunction = context[methodName];
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
-                                        result = methodFunction(...chainParams)(req, res, next);
+                                        result = methodFunction(...chainParams)(contex.req, contex.res, contex.next);
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
@@ -476,7 +483,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    result = result[chainAction.method](...chainParams)(req, res, next);
+                                    result = result[chainAction.method](...chainParams)(contex.req, contex.res, contex.next);
                                 } else {
                                     result = result[chainAction.method](...chainParams);
                                 }
