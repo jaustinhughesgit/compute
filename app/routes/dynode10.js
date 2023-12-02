@@ -106,14 +106,14 @@ const json = {
             "assignTo":"customFunction"
         },
         {
-            "if":["{{urlPath}}","!=","/auth/microsoft/callback"],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
             "assignTo":"passport"
         },
         {
-            "if":["{{urlPath}}","!=","/auth/microsoft/callback"],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
@@ -122,7 +122,7 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
-            "if":["{{urlPath}}","!=","/auth/microsoft/callback"],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -143,7 +143,7 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "if":["{{urlPath}}","!=","/auth/microsoft/callback"],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
@@ -151,7 +151,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "if":["{{urlPath}}","!=","/auth/microsoft/callback"],
+            "if":["{{urlPath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
