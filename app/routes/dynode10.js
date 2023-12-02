@@ -183,7 +183,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
  
-        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });
@@ -354,17 +354,23 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
+    // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
+            // Check if the parameter is a function reference placeholder
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 const key = param.slice(2, -2);
                 const value = context[key];
                 if (typeof value === 'function') {
-                    return value; 
+                    return value; // Return the function reference directly
                 }
-                return value !== undefined ? value : key;
+                if (value !== undefined) {
+                    return value;
+                } else {
+                    return key;
+                }
             }
-            return param; 
+            return param; // Return the string as is
         } else if (Array.isArray(param)) {
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
@@ -385,6 +391,7 @@ async function applyMethodChain(target, action, context) {
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         if (action.new) {
+            // Use 'new' to instantiate the class
             result = instantiateWithNew(result, params);
         } else {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
@@ -392,6 +399,8 @@ async function applyMethodChain(target, action, context) {
     }
 
     if (action.chain && result) {
+        console.log("action  --------->", action)
+        console.log("action.chaini  --------->", action.chain)
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
@@ -401,19 +410,11 @@ async function applyMethodChain(target, action, context) {
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
-                // Check if the method is a placeholder for a function in the context
-                if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
-                    const methodName = chainAction.method.slice(2, -2);
-                    const methodFunction = context[methodName];
-                    if (typeof methodFunction === 'function') {
-                        result = methodFunction(...chainParams);
-                    } else {
-                        console.error(`Method ${methodName} is not a function in context`);
-                        return;
-                    }
+                if (chainAction.method === 'promise') {
+                    result = await result.promise();
                 } else {
-                    if (chainAction.method === 'promise') {
-                        result = await result.promise();
+                    if (chainAction.new) {
+                        result = new result[chainAction.method](...chainParams);
                     } else {
                         result = result[chainAction.method](...chainParams);
                     }
@@ -427,7 +428,6 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
-
 
 
 
