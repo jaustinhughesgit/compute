@@ -145,6 +145,13 @@ const json = {
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"module":"authenticate", "params":["microsoft"]},
+                {"module":"{{express}}"}
+            ]
         }
     ]
 }
@@ -172,11 +179,11 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    
+    context["express"] = (req, res, next) => {};
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
  
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });
@@ -347,47 +354,24 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context) {
     let result = target;
 
-    // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            console.log("param is string", param, context)
-            // Check if the parameter is a function reference placeholder
             if (param.startsWith('{{') && param.endsWith('}}')) {
-                console.log("param is {{")
                 const key = param.slice(2, -2);
-                console.log("key",key)
-                console.log("context", context)
                 const value = context[key];
-                console.log("value?", value)
-                console.log("param typeof vvvv")
-                console.log(typeof value)
                 if (typeof value === 'function') {
-                    console.log("value >",value)
-                    return value; // Return the function reference directly
+                    return value; 
                 }
-                console.log("default value returning")
-                if (value !== undefined) {
-                    console.log("value is not undefined")
-                    return value;
-                } else {
-                    console.log("value is undefined")
-                    return key;
-                }
+                return value !== undefined ? value : key;
             }
-            return param; // Return the string as is
+            return param; 
         } else if (Array.isArray(param)) {
-            console.log("param is array", param)
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
             const processedParam = {};
-            console.log("param is object", param)
             for (const [key, value] of Object.entries(param)) {
-                console.log("processedParam value", value)
                 processedParam[key] = processParam(value);
-                console.log("processedParam value", processedParam[key])
-                console.log("typeof", typeof processedParam[key])
             }
-            console.log("processedParam >>", processedParam)
             return processedParam;
         } else {
             return param;
@@ -401,7 +385,6 @@ async function applyMethodChain(target, action, context) {
     if (action.method) {
         let params = action.params ? action.params.map(param => processParam(param)) : [];
         if (action.new) {
-            // Use 'new' to instantiate the class
             result = instantiateWithNew(result, params);
         } else {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
@@ -409,55 +392,32 @@ async function applyMethodChain(target, action, context) {
     }
 
     if (action.chain && result) {
-        console.log("action  --------->", action)
-        console.log("action.chaini  --------->", action.chain)
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
             }
 
             const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
-            console.log("result", result)
-            console.log("chainAction", chainAction)
-            try{
-                console.log("trying typeof vvvvv")
-                console.log(typeof result[chainAction.method])
-            } catch (err){
-                console.log("error", err)
-            }
             if (chainAction.new) {
-                // Instantiate with 'new' if specified
-                console.log("new", chainAction.method)
-                console.log("typeof", typeof result[chainAction.method])
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
-                console.log("not new", chainAction.method)
-                console.log("typeof", typeof result[chainAction.method])
-                /*if (chainAction.method == "use"){
-                    console.log("method is use and testing new vvvvv")
-                    console.log(chainParams)
-                    console.log(result[chainAction.method])
-                    console.log("context", context)
-                    console.log("context.passportmicrosoft", context.passportmicrosoft)
-                    result = result[chainAction.method](context.passportmicrosoft);
-                } else {*/
-                    console.log("method is not use")
-                    console.log("chainAction.method", chainAction.method)
-                    console.log("chainParams", chainParams)
-                    console.log("context",context)
-                    
+                // Check if the method is a placeholder for a function in the context
+                if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
+                    const methodName = chainAction.method.slice(2, -2);
+                    const methodFunction = context[methodName];
+                    if (typeof methodFunction === 'function') {
+                        result = methodFunction(...chainParams);
+                    } else {
+                        console.error(`Method ${methodName} is not a function in context`);
+                        return;
+                    }
+                } else {
                     if (chainAction.method === 'promise') {
                         result = await result.promise();
                     } else {
-                        if (chainAction.new) {
-                            result = new result[chainAction.method](...chainParams);
-                        } else {
-                            // Existing handling for other methods
-                            result = result[chainAction.method](...chainParams);
-                        }
+                        result = result[chainAction.method](...chainParams);
                     }
-                //}
-                console.log("AFTER PASSING FUNCTION", result)
+                }
             } else {
                 console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
@@ -467,6 +427,7 @@ async function applyMethodChain(target, action, context) {
 
     return result;
 }
+
 
 
 
