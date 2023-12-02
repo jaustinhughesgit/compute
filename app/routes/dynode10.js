@@ -159,7 +159,7 @@ const json = {
                 {"method":"{{newAuthentication}}", "params":[]},
                 {"method":"{{express}}", "params":[]}
             ],
-            "assignTo":"doubleFunction"
+            "assignTo":"{{doubleFunction}}!"
         }
     ]
 }
