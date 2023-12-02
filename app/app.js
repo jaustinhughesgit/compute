@@ -73,7 +73,7 @@ const dynode10Router = require('./routes/dynode10');
 const s3modulesRouter = require('./routes/s3modules');
 
 
-
+/*
 var strategiesConfig = {
     "microsoft": {
         strategyModule: 'passport-microsoft',
@@ -132,7 +132,7 @@ passport.serializeUser(function(user, done) {
 
 passport.deserializeUser(function(obj, done) {
     done(null, obj);
-});
+});*/
 
 app.use('/', indexRouter);
 app.use('/login', loginRouter);
