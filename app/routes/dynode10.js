@@ -183,7 +183,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
  
-        context.passport.authenticate("microsoft")(req, res, next); //<<<<<
+        //context.passport.authenticate("microsoft")(req, res, next); //<<<<<
 
     //res.json(context);
 });
@@ -416,7 +416,20 @@ async function applyMethodChain(target, action, context) {
                     if (chainAction.new) {
                         result = new result[chainAction.method](...chainParams);
                     } else {
-                        result = result[chainAction.method](...chainParams);
+                        if (chainAction.method && chainAction.method.length != 0){
+                            if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
+                                const methodName = chainAction.method.slice(2, -2);
+                                const methodFunction = context[methodName];
+                                if (typeof methodFunction === 'function') {
+                                    result = methodFunction(...chainParams);
+                                } else {
+                                    console.error(`Method ${methodName} is not a function in context`);
+                                    return;
+                                }
+                            } else {
+                                result = result[chainAction.method](...chainParams);
+                            }
+                        }
                     }
                 }
             } else {
