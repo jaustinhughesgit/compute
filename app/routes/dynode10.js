@@ -232,7 +232,7 @@ async function initializeModules(context, config, req, res, next) {
         }
         if (action.ifArray) {
                 for (const ifObject of action.ifArray){
-                    runAction = condition(action.ifArray[ifObject][0],action.ifArray[ifObject][1],action.ifArray[ifObject][2], context)
+                    runAction = condition(ifObject[0],ifObject[1],ifObject[2], context)
                     if (!runAction){
                         break;
                     }
