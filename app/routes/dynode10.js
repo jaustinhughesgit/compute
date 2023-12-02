@@ -149,8 +149,7 @@ const json = {
         {
             "module":"passport",
             "chain":[
-                {"method":"authenticate", "params":["microsoft"], "new":true},
-                {"method":"{{express}}"}
+                {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
         }
@@ -180,7 +179,6 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["express"] = (req, res, next) => {};
     await initializeModules(context, json, req, res, next);
         console.log("-------------------AFTER initializeModules---------------------")
         //context["newAuthentication"](req, res, next)
@@ -231,7 +229,7 @@ async function initializeModules(context, config, req, res, next) {
         }
 
         let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-        result = await applyMethodChain(result, action, context);
+        result = await applyMethodChain(result, action, context, res, req, next);
 
         if (action.assignTo) {
             if (action.assignTo.includes('{{')) {
@@ -352,7 +350,7 @@ function replacePlaceholders(str, context) {
     return str;
 }
 
-async function applyMethodChain(target, action, context) {
+async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     // Helper function to process each parameter
@@ -422,13 +420,21 @@ async function applyMethodChain(target, action, context) {
                                 const methodName = chainAction.method.slice(2, -2);
                                 const methodFunction = context[methodName];
                                 if (typeof methodFunction === 'function') {
-                                    result = methodFunction(...chainParams);
+                                    if (chainAction.express){
+                                        result = methodFunction(...chainParams)(req, res, next);
+                                    } else {
+                                        result = methodFunction(...chainParams);
+                                    }
                                 } else {
                                     console.error(`Method ${methodName} is not a function in context`);
                                     return;
                                 }
                             } else {
-                                result = result[chainAction.method](...chainParams);
+                                if (chainAction.express){
+                                    result = result[chainAction.method](...chainParams)(req, res, next);
+                                } else {
+                                    result = result[chainAction.method](...chainParams);
+                                }
                             }
                         }
                     }
