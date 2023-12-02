@@ -190,7 +190,6 @@ local.dyRouter.get('/', async function(req, res, next) {
 local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["urlpath"] = req.path
-    console.log(context.urlpath)
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.urlpath== "/microsoft/callback"){
@@ -202,9 +201,6 @@ function condition(left, condition, right, context){
     left = replacePlaceholders(left, context)
     condition = replacePlaceholders(condition, context)
     right = replacePlaceholders(right, context)
-    console.log("left", left)
-    console.log("condition", condition)
-    console.log("right", right)
 
     if (condition == "=="){
         if (left == right){ return true } else { return false }
@@ -386,19 +382,12 @@ function replacePlaceholders(str, context) {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
 
-            console.log("value", value);
-            console.log(typeof value);
-
             if (typeof value === 'function') {
-                console.log("function");
                 return value;
             } else {
-                console.log("not function");
                 if (value !== undefined) {
-                    console.log("value is not undefined");
                     return value;
                 } else {
-                    console.log("value is undefined");
                     return keyPath;
                 }
             }
@@ -455,8 +444,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
 
     if (action.chain && result) {
-        console.log("action  --------->", action)
-        console.log("action.chaini  --------->", action.chain)
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
