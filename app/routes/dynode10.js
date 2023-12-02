@@ -228,10 +228,7 @@ async function initializeModules(context, config, req, res, next) {
     for (const action of config.actions) {
         let runAction = true
         if (action.if) {
-            for (const ifObject of action.if) {
-                console.log("error", action)
-                runAction = condition(action.if[ifObject][0],action.if[ifObject][1],action.if[ifObject][2], context)
-            }
+                runAction = condition(action.if[0],action.if[1],action.if[2], context)
         }
         
         if (runAction){
