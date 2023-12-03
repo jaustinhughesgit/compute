@@ -23,11 +23,11 @@ const json = {
     },
     "actions": [
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"pass"
+            "assignTo":"passport"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
