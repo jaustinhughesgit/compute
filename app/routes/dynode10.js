@@ -16,8 +16,6 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
-console.log("testing mobile")
-
 const json = {
     "modules": {
         "moment-timezone": "moment-timezone",
@@ -163,9 +161,34 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        }
+        },
+        {
+            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+            "path":[],
+            "run":[
+                {"method":"req", "params":[]}
+            ]
+        }/*,
+        {
+            "method":"req",
+            "params":[],
+            "chain":[
+                {"method":"json", "params":[{"req":"json"}]}
+            ],
+            "assignTo":"isAuthenticated"
+        }*/
     ]
 }
+
+local.dyRouter.all('/*', async function(req, res, next) {
+    let context = await processConfig(json);
+    context["urlpath"] = req.path
+    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    await initializeModules(context, json, req, res, next);
+    if (context.urlpath== "/microsoft/callback"){
+        res.json(context);
+    }
+});
 
 function testFunction(){
     return "hello world"
@@ -185,16 +208,6 @@ local.dyRouter.get('/', async function(req, res, next) {
     context["newFunctionResult"] = newFunction("test");
     context["customFunctionResult"] = context["customFunction"]("yoyo");
     res.json(context);
-});
-
-local.dyRouter.all('/*', async function(req, res, next) {
-    let context = await processConfig(json);
-    context["urlpath"] = req.path
-    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(context, json, req, res, next);
-    if (context.urlpath== "/microsoft/callback"){
-        res.json(context);
-    }
 });
 
 function condition(left, condition, right, context){
@@ -285,23 +298,23 @@ async function initializeModules(context, config, req, res, next) {
                     });
                 }
 
-                    let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-                    result = await applyMethodChain(result, action, context, res, req, next);
-                    if (action.assignTo) {
-                        if (action.assignTo.includes('{{')) {
-                            let isFunctionExecution = action.assignTo.endsWith('!');
-                            let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-                            
-                            if (isFunctionExecution) {
-                                context[assignKey] = typeof result === 'function' ? result() : result;
-                            } else {
-                                context[assignKey] = result;
-                            }
+                let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+                result = await applyMethodChain(result, action, context, res, req, next);
+                if (action.assignTo) {
+                    if (action.assignTo.includes('{{')) {
+                        let isFunctionExecution = action.assignTo.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+                        
+                        if (isFunctionExecution) {
+                            context[assignKey] = typeof result === 'function' ? result() : result;
                         } else {
-                            context[action.assignTo] = result;
+                            context[assignKey] = result;
                         }
+                    } else {
+                        context[action.assignTo] = result;
                     }
                 }
+            }
         }
     }
 }
@@ -317,7 +330,6 @@ function createFunctionFromAction(action, context, req, res, next) {
             return acc;
         }, {});
 
-        // Process the chain of actions
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
@@ -343,7 +355,6 @@ function createFunctionFromAction(action, context, req, res, next) {
             }
         }
 
-        // Process the run actions
         if (action.run) {
             for (const runAction of action.run) {
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
@@ -386,14 +397,9 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        console.log("str is a string")
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-            // Split the keyPath into an array of keys
-            console.log("match", match)
             const keys = keyPath.split('.');
-            // Reduce the keys to access the nested value
             let value = keys.reduce((currentContext, key) => {
-                console.log("key", key)
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
 
@@ -414,15 +420,13 @@ function replacePlaceholders(str, context) {
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
-    // Helper function to process each parameter
     function processParam(param) {
         if (typeof param === 'string') {
-            // Check if the parameter is a function reference placeholder
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 const key = param.slice(2, -2);
                 const value = context[key];
                 if (typeof value === 'function') {
-                    return value; // Return the function reference directly
+                    return value;
                 }
                 if (value !== undefined) {
                     return value;
@@ -430,7 +434,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     return key;
                 }
             }
-            return param; // Return the string as is
+            return param;
         } else if (Array.isArray(param)) {
             return param.map(item => processParam(item));
         } else if (typeof param === 'object' && param !== null) {
@@ -530,8 +534,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     return result;
 }
-
-
 
 async function processConfig(config, initialContext) {
     const context = { ...initialContext };
