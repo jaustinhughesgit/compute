@@ -166,7 +166,7 @@ const json = {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
             "chain":[
-                {"method":"json", "params":[{}]}
+                {"method":"json", "params":["{{}}"]}
             ],
             "assignTo":"{{getJson}}!"
         }
@@ -392,6 +392,9 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
+        if (str == "{{}}"){
+            return context
+        }
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
             const keys = keyPath.split('.');
             let value = keys.reduce((currentContext, key) => {
