@@ -26,6 +26,10 @@ const json = {
     },
     "actions": [
         {
+            "set":{"foo":"bar"}/*,
+            "set":{"bar":"{{foo}}"}*/
+        },
+        {
             "module": "moment-timezone",
             "chain": [
                 { "method": "tz", "params": ["Asia/Dubai"] },
@@ -238,6 +242,12 @@ async function initializeModules(context, config, req, res, next) {
         }
         
         if (runAction){
+            if (action.set){
+                for (key in action.set){
+                    contex[key] = action.set[key]
+                }
+            }
+
             if (action.execute) {
                 const functionName = action.execute;
                 if (typeof context[functionName] === 'function') {
