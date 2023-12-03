@@ -386,11 +386,14 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
+        console.log("str is a string")
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
             // Split the keyPath into an array of keys
+            console.log("match", match)
             const keys = keyPath.split('.');
             // Reduce the keys to access the nested value
             let value = keys.reduce((currentContext, key) => {
+                console.log("key", key)
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
 
@@ -464,8 +467,13 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
+                    console.log("param", param)
+                    console.log("typeof", typeof param)
+                    console.log(!param.startsWith("{{"))
                     if (typeof param === 'string' && !param.startsWith("{{")){
+                        console.log("calling replacePlaceholders")
                         param = replacePlaceholders(param, context)
+
                     }
                     return processParam(param);
                 });
