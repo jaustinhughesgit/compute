@@ -68,7 +68,7 @@ const json = {
             "assignTo":"newStrategy"
         },
         {
-            "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
+            //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
             "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
