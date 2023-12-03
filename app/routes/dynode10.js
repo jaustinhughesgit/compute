@@ -125,6 +125,23 @@ const json = {
             "assignTo":"{{getJson}}!"
         },
         {
+            "ifArray":[["{{urlpath}}","==","/check"]],
+            "module":"req",
+            "chain":[
+                {"method":"isAuthenticated", "params":[]}
+            ],
+            "assignTo":"{{isAuth}}!"
+        },
+        {
+            "ifArray":[["{{isAuth}}","==",true]],
+            "module":"res",
+            "chain":[
+                {"method":"send", "params":["Authenticated"]}
+            ],
+            "assignTo":"{{sendAuth}}!"
+
+        },
+        {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
