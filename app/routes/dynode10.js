@@ -125,6 +125,32 @@ const json = {
             "assignTo":"{{getJson}}!"
         },*/
         {
+            "module":"passport",
+            "chain":[
+                {"method":"initialize", "params":[]}
+            ],
+            "assignTo":"passportInitialize"
+        },
+        {
+            "module":"dyRouter",
+            "chain":[
+                {"method":"use", "params":["{{passportInitialize}}"]}
+            ]
+        },
+        {
+            "module":"passport",
+            "chain":[
+                {"method":"session", "params":[]}
+            ],
+            "assignTo":"passportSession"
+        },
+        {
+            "module":"dyRouter",
+            "chain":[
+                {"method":"use", "params":["{{passportSession}}"]}
+            ]
+        },
+        {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
