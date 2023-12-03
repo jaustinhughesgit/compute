@@ -176,14 +176,14 @@ const json = {
             "chain":[
                 {"method":"isAuthenticated", "params":[]}
             ],
-            "assignTo":"{{isAuth}}"
+            "assignTo":"{{isAuth}}!"
         },
         {
             "module":"console",
             "chain":[
                 {"method":"log", "params":["{{isAuth}}"]}
             ],
-            "assignTo":"{{getLog}}"
+            "assignTo":"{{getLog}}!"
         },
         {
             "ifArray":[["{{isAuth}}","==",true]],
@@ -191,7 +191,7 @@ const json = {
             "chain":[
                 {"method":"send", "params":["Authenticated"]}
             ],
-            "assignTo":"{{sendAuth}}"
+            "assignTo":"{{sendAuth}}!"
 
         },
         {
@@ -200,7 +200,7 @@ const json = {
             "chain":[
                 {"method":"json", "params":["{{}}"]}
             ],
-            "assignTo":"{{getJson}}"
+            "assignTo":"{{getJson}}!"
         }
     ]
 }
@@ -302,6 +302,7 @@ async function initializeModules(context, config, req, res, next) {
                 if (typeof context[functionName] === 'function') {
                     if (action.express){
                         await context[functionName](req, res, next);
+                        console.log("deep other auth =>", req.isAuthenticated())
                     } else {
                         await context[functionName]
                     }
@@ -548,6 +549,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
                                         result = methodFunction(...chainParams)(req, res, next);
+                                        console.log("deep auth => ", req.isAuthenticated())
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
