@@ -23,7 +23,7 @@ const json = {
     },
     "actions": [
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
