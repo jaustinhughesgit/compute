@@ -261,11 +261,12 @@ async function initializeModules(context, config, req, res, next) {
                             context[assignKey] = typeof result === 'function' ? result() : result;
                         } else {
                             console.log("assignTo", action.assignTo)
-                            context[assignKey] = moduleInstance(...args);
+                            console.log(result)
+                            context[assignKey] = result;
                         }
                     } else {
-                        console.log("moduleInstance", moduleInstance)
-                        context[action.assignTo] = moduleInstance(...args);
+                        console.log("moduleInstance", result)
+                        context[action.assignTo] = result;
                     }
                 }
             }
