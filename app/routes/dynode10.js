@@ -25,10 +25,9 @@ const json = {
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        //{
-        //    "set":{"foo":"bar"}/*,
-        //    "set":{"bar":"{{foo}}"}*/
-        //},
+        {
+            "set":{"foo":"bar"}
+        },
         {
             "module": "moment-timezone",
             "chain": [
@@ -242,13 +241,14 @@ async function initializeModules(context, config, req, res, next) {
         }
         
         if (runAction){
-        //    console.log("action.set", action)
-        //    if (action.set){
+            console.log("action.set", action.set)
+            if (action.set){
+                console.log("inside set")
         //        for (key in action.set){
         //            console.log(key)
         //            context[key] = action.set[key]
         //        }
-        //    }
+            }
 
             if (action.execute) {
                 const functionName = action.execute;
