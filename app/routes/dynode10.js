@@ -360,10 +360,16 @@ async function initializeModules(context, config, req, res, next) {
             if (action.module){
                 let moduleInstance
                 if (action.module.startsWith("{{")){
+                    console.log(context)
+                    console.log("<- context")
                     moduleInstance = context[action.module]
                 } else if (local[action.module]) {
+                    console.log(local)
+                    console.log("<- local")
                     moduleInstance = local[action.module]
                 } else {
+                    
+                    console.log("<- require")
                     moduleInstance = require(action.module);
                 }
 
@@ -380,6 +386,7 @@ async function initializeModules(context, config, req, res, next) {
                         return value;
                     });
                 }
+                console.log("moduleInstance", moduleInstance)
                 console.log("action",action)
                 console.log("args", args)
                 let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
