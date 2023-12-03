@@ -260,10 +260,11 @@ async function initializeModules(context, config, req, res, next) {
                         if (isFunctionExecution) {
                             context[assignKey] = typeof result === 'function' ? result() : result;
                         } else {
+                            console.log("assignTo", action.assignTo)
                             context[assignKey] = result;
                         }
                     } else {
-                        context[action.assignTo] = result;
+                        context[action.assignTo] = moduleInstance;
                     }
                 }
             }
