@@ -26,8 +26,7 @@ const json = {
     },
     "actions": [
         {
-            "set":{"foo":"bar"},
-            "set":{"bar":"{{foo}}"}
+            "set":{"foo":"bar","bar":"{{foo}}"}
         },
         {
             "module": "moment-timezone",
