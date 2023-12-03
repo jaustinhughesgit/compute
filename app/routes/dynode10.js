@@ -125,30 +125,6 @@ const json = {
             "assignTo":"passport"
         },
         {
-            "ifArray":[["{{urlpath}}","==","/check"]],
-            "module":"req",
-            "chain":[
-                {"method":"isAuthenticated", "params":[]}
-            ],
-            "assignTo":"{{isAuth}}!"
-        },
-        {
-            "module":"console",
-            "chain":[
-                {"method":"log", "params":["{{isAuth}}"]}
-            ],
-            "assignTo":"{{getLog}}!"
-        },
-        {
-            "ifArray":[["{{isAuth}}","==",true]],
-            "module":"res",
-            "chain":[
-                {"method":"send", "params":["Authenticated"]}
-            ],
-            "assignTo":"{{sendAuth}}!"
-
-        },
-        {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
@@ -193,6 +169,30 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
+        },
+        {
+            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+            "module":"req",
+            "chain":[
+                {"method":"isAuthenticated", "params":[]}
+            ],
+            "assignTo":"{{isAuth}}!"
+        },
+        {
+            "module":"console",
+            "chain":[
+                {"method":"log", "params":["{{isAuth}}"]}
+            ],
+            "assignTo":"{{getLog}}!"
+        },
+        {
+            "ifArray":[["{{isAuth}}","==",true]],
+            "module":"res",
+            "chain":[
+                {"method":"send", "params":["Authenticated"]}
+            ],
+            "assignTo":"{{sendAuth}}!"
+
         },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
