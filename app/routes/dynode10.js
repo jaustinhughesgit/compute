@@ -114,21 +114,21 @@ async function firstLoad(req, res, next){
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-    /*if (local.context.urlpath != "/microsoft/callback"){
-        local.context.pass.serializeUser(function(user, done) {
+    //if (local.context.urlpath != "/microsoft/callback"){
+        local.context.passport.serializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.context.pass.deserializeUser(function(user, done) {
+        local.context.passport.deserializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.dyRouter.use(local.context.pass.initialize());
-        local.dyRouter.use(local.context.pass.session());
+        local.dyRouter.use(local.context.passport.initialize());
+        local.dyRouter.use(local.context.passport.session());
         console.log("context", local.context)
-        console.log("pass", local.context.pass)
+        console.log("pass", local.context.passport)
         //const passport2 = require('passport');
-    }*/
+    //}*/
     await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
