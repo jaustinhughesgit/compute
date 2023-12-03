@@ -164,16 +164,10 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "path":[],
-            "run":[
-                {"method":"req", "params":[]}
-            ]
-        }/*,
-        {
             "module":"req",
             "method":"json",
             "params":[{"req":"json"}]
-        }*/
+        }
     ]
 }
 
@@ -185,7 +179,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.urlpath== "/microsoft/callback"){
-        local.res.json(context);
+        //local.res.json(context);
     }
 });
 
