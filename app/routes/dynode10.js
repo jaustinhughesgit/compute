@@ -135,7 +135,8 @@ const json = {
             "module":"dyRouter",
             "chain":[
                 {"method":"use", "params":["{{passportInitialize}}"]}
-            ]
+            ],
+            "assignTo":"initPass"
         },
         {
             "module":"passport",
@@ -148,7 +149,8 @@ const json = {
             "module":"dyRouter",
             "chain":[
                 {"method":"use", "params":["{{passportSession}}"]}
-            ]
+            ],
+            "assignTo":"sessionPass"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -362,7 +364,7 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance = context[action.module] ? context[action.module] : local[action.module] ? local[action.module] : require(action.module);
+                let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
 
                 let args = [];
                 if (action.valueFrom) {
