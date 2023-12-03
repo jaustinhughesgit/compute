@@ -110,6 +110,13 @@ const json = {
             "assignTo":"customFunction"
         },
         {
+            "module":"console",
+            "chain":[
+                {"method":"log", "params":["Hello World =================== ////"]}
+            ],
+            "assignTo":"{{getJson}}!"
+        },
+        {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
             "chain":[
@@ -184,6 +191,7 @@ const json = {
 local.dyRouter.all('/*', async function(req, res, next) {
     local.req = req;
     local.res = res;
+    local.console = console;
     let context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
