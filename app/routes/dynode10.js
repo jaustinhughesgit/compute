@@ -269,9 +269,8 @@ async function initializeModules(context, config, req, res, next) {
                 continue;
             }
 
-            if (action.module){
                 let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
-            }
+
             let args = [];
             if (action.valueFrom) {
                 args = action.valueFrom.map(item => {
@@ -286,7 +285,6 @@ async function initializeModules(context, config, req, res, next) {
                 });
             }
 
-            if (action.module) {
                 let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assignTo) {
@@ -303,7 +301,6 @@ async function initializeModules(context, config, req, res, next) {
                         context[action.assignTo] = result;
                     }
                 }
-            }
         }
     }
 }
