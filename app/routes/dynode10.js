@@ -61,7 +61,7 @@ const json = {
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
+            "module":"{{passport}}",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
