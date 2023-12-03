@@ -225,7 +225,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
         res.redirect('/hello');
     }*/
     await initializeModules(context, json, req, res, next);
-    console.log(req.isAuthenticated())
+    console.log(local.req.isAuthenticated())
     if (context.urlpath== "/microsoft/callback"){
         local.res.json(context);
     }
