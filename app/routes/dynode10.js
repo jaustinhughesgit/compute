@@ -61,7 +61,7 @@ const json = {
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{pass}}",
+            "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
@@ -69,7 +69,7 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
-            "module":"{{pass}}",
+            "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
@@ -114,7 +114,7 @@ async function firstLoad(req, res, next){
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-    if (local.context.urlpath != "/microsoft/callback"){
+    /*if (local.context.urlpath != "/microsoft/callback"){
         local.context.pass.serializeUser(function(user, done) {
             done(null, user);
         });
@@ -128,7 +128,7 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
         console.log("context", local.context)
         console.log("pass", local.context.pass)
         //const passport2 = require('passport');
-    }
+    }*/
     await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
