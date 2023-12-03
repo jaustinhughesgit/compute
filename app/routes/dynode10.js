@@ -454,9 +454,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         if (action.params) {
             params = action.params.map(param => {
                 if (typeof param === 'string'){
-                    if (!param.startsWith("{{")){
                         param = replacePlaceholders(param, context)
-                    }
                 }
                 return processParam(param);
             });
@@ -464,7 +462,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
             params = [];
         }
         if (action.new) {
-            // Use 'new' to instantiate the class
             result = instantiateWithNew(result, params);
         } else {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
@@ -474,7 +471,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
     if (action.chain && result) {
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
-                return chainAction.return; // Directly return the value specified in 'return'
+                return chainAction.return;
             }
             let chainParams;
 
