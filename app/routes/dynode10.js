@@ -469,11 +469,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
                 chainParams = chainAction.params.map(param => {
                     console.log("param", param)
                     console.log("typeof", typeof param)
-                    console.log(!param.startsWith("{{"))
-                    if (typeof param === 'string' && !param.startsWith("{{")){
-                        console.log("calling replacePlaceholders")
-                        param = replacePlaceholders(param, context)
-
+                    if (typeof param === 'string'){
+                        if (!param.startsWith("{{")){
+                            console.log("calling replacePlaceholders")
+                            param = replacePlaceholders(param, context)
+                        }
                     }
                     return processParam(param);
                 });
