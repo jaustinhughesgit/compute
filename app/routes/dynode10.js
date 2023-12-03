@@ -210,7 +210,7 @@ const json2 = {
                 {"method":"isAuthenticated", "params":[]}
             ],
             "assignTo":"{{isAuth}}"
-        }/*
+        },/*
         {
             "module":"console",
             "chain":[
