@@ -135,9 +135,15 @@ const json = {
         {
             "module":"dyRouter",
             "chain":[
-                {"method":"use", "params":["{{passportInitialize}}"]}
             ],
-            "assignTo":"initPass"
+            "assignTo":"dyRouter"
+        },
+        {
+            "module":"console",
+            "chain":[
+                {"method":"log", "params":["{{dyRouter}}"]}
+            ],
+            "assignTo":"{{logdyRouter}}!"
         },/*
         {
             "module":"passport",
