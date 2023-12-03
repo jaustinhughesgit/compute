@@ -271,36 +271,38 @@ async function initializeModules(context, config, req, res, next) {
                 continue;
             }
 
+            if (action.module){
                 let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
 
-            let args = [];
-            if (action.valueFrom) {
-                args = action.valueFrom.map(item => {
-                    let isFunctionExecution = item.endsWith('!');
-                    let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
-                    let value = context[key];
-            
-                    if (isFunctionExecution && typeof value === 'function') {
-                        return value();
-                    }
-                    return value;
-                });
-            }
-
-                let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-                result = await applyMethodChain(result, action, context, res, req, next);
-                if (action.assignTo) {
-                    if (action.assignTo.includes('{{')) {
-                        let isFunctionExecution = action.assignTo.endsWith('!');
-                        let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-                        
-                        if (isFunctionExecution) {
-                            context[assignKey] = typeof result === 'function' ? result() : result;
-                        } else {
-                            context[assignKey] = result;
+                let args = [];
+                if (action.valueFrom) {
+                    args = action.valueFrom.map(item => {
+                        let isFunctionExecution = item.endsWith('!');
+                        let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
+                        let value = context[key];
+                
+                        if (isFunctionExecution && typeof value === 'function') {
+                            return value();
                         }
-                    } else {
-                        context[action.assignTo] = result;
+                        return value;
+                    });
+                }
+
+                    let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+                    result = await applyMethodChain(result, action, context, res, req, next);
+                    if (action.assignTo) {
+                        if (action.assignTo.includes('{{')) {
+                            let isFunctionExecution = action.assignTo.endsWith('!');
+                            let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+                            
+                            if (isFunctionExecution) {
+                                context[assignKey] = typeof result === 'function' ? result() : result;
+                            } else {
+                                context[assignKey] = result;
+                            }
+                        } else {
+                            context[action.assignTo] = result;
+                        }
                     }
                 }
         }
