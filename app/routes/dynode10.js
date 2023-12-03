@@ -226,12 +226,6 @@ local.dyRouter.all('/*', async function(req, res, next) {
     }
     await initializeModules(context, json, req, res, next);
     if (context.urlpath== "/microsoft/callback"){
-        console.log("1")
-        context.isAuth()
-        console.log("2")
-        context.sendAuth()
-        console.log("3")
-        context.getJson()
         //local.res.json(context);
     }
 });
