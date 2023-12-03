@@ -172,11 +172,10 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "params":[],
-            "run":[
-                {"method":"authPlease", "params":[]}
+            "module":"req",
+            "chain":[
+                {"method":"isAuthenticated", "params":[]}
             ],
-            "express":true,
             "assignTo":"{{isAuth}}"
         }/*
         {
@@ -223,9 +222,12 @@ local.dyRouter.all('/*', async function(req, res, next) {
     // We'll need to get req after passport runs maybe
     // I really don't know much about how req, passport and authenticate work.
 
+    console.log("res1----->",req);
+    console.log("req1----->",res);
     await initializeModules(context, json, req, res, next);
 
-    console.log("isAuth----->",req.isAuthenticated());
+    console.log("res2----->",req);
+    console.log("req2----->",res);
     await initializeModules(context, json2, req, res, next);
     console.log("shouldn't load")
     if (context.urlpath== "/microsoft/callback"){
@@ -549,6 +551,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
                                 const methodName = chainAction.method.slice(2, -2);
                                 const methodFunction = context[methodName];
+                                console.log(">>", typeof methodFunction, chainAction.express, chainAction)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
                                         result = methodFunction(...chainParams)(req, res, next);
@@ -562,7 +565,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
+                                    console.log("deep auth3 => ", req.isAuthenticated())
                                     result = result[chainAction.method](...chainParams)(req, res, next);
+                                    console.log("deep auth4 => ", req.isAuthenticated())
                                 } else {
                                     result = result[chainAction.method](...chainParams);
                                 }
