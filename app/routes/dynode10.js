@@ -26,7 +26,8 @@ const json = {
     },
     "actions": [
         {
-            "set":{"foo":"bar"}
+            "set":{"foo":"bar"},
+            "set":{"bar":"{{foo}}"}
         },
         {
             "module": "moment-timezone",
@@ -246,7 +247,7 @@ async function initializeModules(context, config, req, res, next) {
                 console.log("inside set")
                 for (key in action.set){
                     console.log(key)
-                    context[key] = action.set[key]
+                    context[key] = replacePlaceholders(action.set[key], context)
                 }
             }
 
