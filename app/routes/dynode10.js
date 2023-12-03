@@ -164,9 +164,6 @@ const json = {
             ],
             "assignTo":"newAuthentication"
         }
-        // Add "set" key to action for assigning a value without a function. 
-        // {"set":"customVar" "value":[1,2,3]}
-
     ]
 }
 
@@ -463,8 +460,19 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return; // Directly return the value specified in 'return'
             }
+            let chainParams;
 
-            const chainParams = chainAction.params ? chainAction.params.map(param => processParam(param)) : [];
+            if (chainAction.params) {
+                chainParams = chainAction.params.map(param => {
+                    if (typeof param === 'string'){
+                        param = replacePlaceholders(param, context)
+                    }
+                    return processParam(param);
+                });
+            } else {
+                chainParams = [];
+            }
+
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
