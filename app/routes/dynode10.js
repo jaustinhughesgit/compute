@@ -108,7 +108,7 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },/*
+        },
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
@@ -116,7 +116,7 @@ const json = {
                 {"method":"send", "params":["Hello World"]}
             ],
             "assignTo":"{{getJson}}!"
-        },*/
+        },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
@@ -169,21 +169,21 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        }/*,
+        },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
             "chain":[
                 {"method":"isAuthenticated", "params":[]}
             ],
-            "assignTo":"{{isAuth}}!"
+            "assignTo":"{{isAuth}}"
         },
         {
             "module":"console",
             "chain":[
                 {"method":"log", "params":["{{isAuth}}"]}
             ],
-            "assignTo":"{{getLog}}!"
+            "assignTo":"{{getLog}}"
         },
         {
             "ifArray":[["{{isAuth}}","==",true]],
@@ -191,7 +191,7 @@ const json = {
             "chain":[
                 {"method":"send", "params":["Authenticated"]}
             ],
-            "assignTo":"{{sendAuth}}!"
+            "assignTo":"{{sendAuth}}"
 
         },
         {
@@ -200,8 +200,8 @@ const json = {
             "chain":[
                 {"method":"json", "params":["{{}}"]}
             ],
-            "assignTo":"{{getJson}}!"
-        }*/
+            "assignTo":"{{getJson}}"
+        }
     ]
 }
 
@@ -218,16 +218,21 @@ local.dyRouter.all('/*', async function(req, res, next) {
     // We'll need to get req after passport runs maybe
     // I really don't know much about how req, passport and authenticate work.
 
-    /*context["ensureAuth"] = (req, res, next) {
+    context["ensureAuth"] = (req, res, next) {
         if (req.isAuthenticated()) {
             return next();
         }
         res.redirect('/hello');
-    }*/
+    }
     await initializeModules(context, json, req, res, next);
-    console.log(local.req.isAuthenticated())
     if (context.urlpath== "/microsoft/callback"){
-        local.res.json(context);
+        console.log("1")
+        context.isAuth()
+        console.log("2")
+        context.sendAuth()
+        console.log("3")
+        context.getJson()
+        //local.res.json(context);
     }
 });
 
