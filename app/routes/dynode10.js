@@ -61,7 +61,7 @@ const json = {
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
+            "module":"{{pass}}",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
@@ -69,7 +69,7 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
-            "module":"{{passport}}",
+            "module":"{{pass}}",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
