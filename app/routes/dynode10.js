@@ -313,7 +313,7 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+                let moduleInstance = context[action.module] ? context[action.module] : local[action.module] ? local[action.module] : require(action.module);
 
                 let args = [];
                 if (action.valueFrom) {
