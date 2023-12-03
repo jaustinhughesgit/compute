@@ -127,7 +127,7 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
         local.dyRouter.use(local.context.passport.session());
         console.log("context", local.context)
         console.log("pass", local.context.passport)
-        console.log("isAuthenticated",local.req.isAuthenticated())
+        console.log("isAuthenticated",req.isAuthenticated())
         //const passport2 = require('passport');
     //}*/
     await initializeModules(local.context, json2, req, res, next);
