@@ -107,8 +107,8 @@ async function firstLoad(req, res, next){
     local.res = res;
     local.console = console;
     local.context = await processConfig(json);
-    context["urlpath"] = req.path
-    context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    local.context["urlpath"] = req.path
+    local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(local.context, json, req, res, next);
     next();
 } 
