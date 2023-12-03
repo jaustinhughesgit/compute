@@ -66,7 +66,7 @@ const json = {
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
-        },
+        }/*,
         {
             "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
             "module":"passport",
@@ -83,7 +83,7 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }
+        }*/
     ]
 }
 
@@ -131,7 +131,7 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 
         local.context.passport.authenticate("microsoft", (err, user) => {
             if (err || !user) {
-                return res.redirect('/login?error=true');
+                return res.redirect('/login');
             }
             req.login(user, (err) => {
                 if (err) {
