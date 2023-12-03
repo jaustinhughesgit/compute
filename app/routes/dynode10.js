@@ -464,7 +464,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         } else {
             console.log(typeof result);
             console.log(result)
-            console.log(result[action.method])
+            console.log(action.method)
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : result[action.method] === 'object' ? result[action.method] : null;
             console.log("result", result)
         }
