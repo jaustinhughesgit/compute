@@ -110,13 +110,6 @@ const json = {
             "assignTo":"customFunction"
         },
         {
-            "module":"console",
-            "chain":[
-                {"method":"log", "params":["Hello World =================== ////"]}
-            ],
-            "assignTo":"{{getLog}}!"
-        },
-        {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
             "chain":[
@@ -138,6 +131,13 @@ const json = {
                 {"method":"isAuthenticated", "params":[]}
             ],
             "assignTo":"{{isAuth}}!"
+        },
+        {
+            "module":"console",
+            "chain":[
+                {"method":"log", "params":["{{isAuth}}"]}
+            ],
+            "assignTo":"{{getLog}}!"
         },
         {
             "ifArray":[["{{isAuth}}","==",true]],
