@@ -453,6 +453,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
 
     if (action.method) {
+        console.log("action.method ==================================")
         let params;
 
         if (action.params) {
@@ -468,7 +469,10 @@ async function applyMethodChain(target, action, context, res, req, next) {
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
+            console.log(typeof result);
+
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : null;
+            console.log("result", result)
         }
     }
 
@@ -495,6 +499,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
+                console.log("chainAction.method",chainAction.method)
+                console.log("chainParams",chainParams)
                 if (chainAction.method === 'promise') {
                     result = await result.promise();
                 } else {
