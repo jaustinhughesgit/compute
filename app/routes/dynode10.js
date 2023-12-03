@@ -18,105 +18,10 @@ local.dyRouter.use(local.session({
 
 const json = {
     "modules": {
-        "moment-timezone": "moment-timezone",
         "passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        {
-            "set":{"foo":"bar","bar":"{{foo}}"}
-        },
-        {
-            "module": "moment-timezone",
-            "chain": [
-                { "method": "tz", "params": ["Asia/Dubai"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ],
-            "assignTo": "timeInDubai"
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "justTime",
-            "valueFrom": ["{{timeInDubai}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "timeInDubai2",
-            "valueFrom": ["{{timeInDubai}}"],
-            "chain": [
-                { "method": "add", "params": [1, "hours"] },
-                { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
-            ]
-        },
-        {
-            "module": "moment-timezone",
-            "assignTo": "justTime2",
-            "valueFrom": ["{{timeInDubai2}}!"],
-            "chain": [
-                { "method": "format", "params": ["HH:mm"] }
-            ]
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": ["/var/task/app/routes/../example.txt", "utf8"],
-                }
-            ],
-            "assignTo": "fileContents"
-        },
-        {
-            "module": "fs",
-            "method": "writeFileSync",
-            "params": [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
-        },
-        {
-            "module": "fs",
-            "chain": [
-                {
-                    "method": "readFileSync",
-                    "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                }
-            ],
-            "assignTo": "tempFileContents"
-        },
-        {
-            "module": "s3",
-            "chain": [
-                {
-                    "method": "upload",
-                    "params": [{
-                        "Bucket": "public.1var.com",
-                        "Key": "tempFile.txt",
-                        "Body": "{{testFunction}}"
-                    }]
-                },
-                {
-                    "method": "promise",
-                    "params": []
-                }
-            ],
-            "assignTo": "s3UploadResult"
-        },
-        {
-            "params":["{test}"], 
-            "chain":[
-                {"return":"{test}"}
-            ],
-            "assignTo":"customFunction"
-        },/*
-        {
-            "ifArray":[["{{urlpath}}","==","/hello"]],
-            "module":"res",
-            "chain":[
-                {"method":"send", "params":["Hello World"]}
-            ],
-            "assignTo":"{{getJson}}!"
-        },*/
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
@@ -206,23 +111,34 @@ const json = {
     ]
 }
 
-local.dyRouter.all('/*', async function(req, res, next) {
+const json2 = {
+    "modules": {
+    },
+    "actions": [
+        {
+            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+            "module":"res",
+            "chain":[
+                {"method":"json", "params":["{{}}"]}
+            ],
+            "assignTo":"{{getJson}}!"
+        }
+    ]
+}
+
+async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
     local.console = console;
     let context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-
-    // I setup ensureAuth to first test if we could get real auth 
-    // I don't think it will work though because we just recieved the request and have not processed passport.
-    // We'll need to get req after passport runs maybe
-    // I really don't know much about how req, passport and authenticate work.
-
     await initializeModules(context, json, req, res, next);
-    if (context.urlpath== "/microsoft/callback"){
-        //local.res.json(context);
-    }
+} 
+
+local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
+    await initializeModules(context, json2, req, res, next);
+    console.log("done")
 });
 
 function testFunction(){
