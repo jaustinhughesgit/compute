@@ -1,20 +1,13 @@
 
 var express = require('express');
 let local = {};
-AWS = require('aws-sdk');
-dyRouter = express.Router();
-path = require('path');
-unzipper = require('unzipper');
-fs = require('fs');
-session = require('express-session');
-s3 = new AWS.S3();
-local.AWS = AWS;
-local.dyRouter = dyRouter;
-local.path = path;
-local.unzipper = unzipper;
-local.fs = fs;
-local.session = session;
-local.s3 = s3;
+local.AWS = require('aws-sdk');
+local.dyRouter = express.Router();
+local.path = require('path');
+local.unzipper = require('unzipper');
+local.fs = require('fs');
+local.session = require('express-session');
+local.s3 = new local.AWS.S3();
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -125,6 +118,18 @@ const json = {
             "assignTo":"{{getJson}}!"
         },*/
         {
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"passport",
+            "chain":[
+            ],
+            "assignTo":"passport"
+        }
+    ]
+}
+const json2 = {
+    "actions": [
+        /*,
+        {
             "module":"passport",
             "chain":[
                 {"method":"initialize", "params":[]}
@@ -151,14 +156,7 @@ const json = {
                 {"method":"use", "params":["{{passportSession}}"]}
             ],
             "assignTo":"sessionPass"
-        },
-        {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
-            "chain":[
-            ],
-            "assignTo":"passport"
-        },
+        },*/
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
@@ -229,10 +227,7 @@ const json = {
             "assignTo":"{{sendAuth}}!"
 
         },*/
-    ]
-}
-const json2 = {
-    "actions": [
+
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
@@ -260,7 +255,10 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log("res1----->",req);
     console.log("req1----->",res);
     await initializeModules(context, json, req, res, next);
-
+    console.log("11111")
+    local.dyRouter.use(context.passport.initalize())
+    console.log("22222")
+    local.dyRouter.use(context.passport.session())
     console.log("res2----->",req);
     console.log("req2----->",res);
     await initializeModules(context, json2, req, res, next);
