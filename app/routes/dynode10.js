@@ -28,7 +28,7 @@ const json = {
             "chain":[
             ],
             "assignTo":"pass"
-        }/*,
+        },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
@@ -83,7 +83,7 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }*/
+        }
     ]
 }
 
