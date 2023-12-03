@@ -224,7 +224,7 @@ async function initializeModules(context, config, req, res, next) {
 
             if (action.module){
                 let moduleInstance
-                console.log(action)
+                console.log("action",action)
                 if (action.module.startsWith("{{")){
                     console.log("<-- context")
                     moduleInstance = context[action.module]
@@ -249,7 +249,7 @@ async function initializeModules(context, config, req, res, next) {
                         return value;
                     });
                 }
-
+                console.log("typeof moduleInstance", typeof moduleInstance)
                 let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assignTo) {
@@ -264,6 +264,7 @@ async function initializeModules(context, config, req, res, next) {
                             context[assignKey] = result;
                         }
                     } else {
+                        console.log("moduleInstance", moduleInstance)
                         context[action.assignTo] = moduleInstance;
                     }
                 }
