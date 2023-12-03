@@ -108,7 +108,7 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },
+        },/*
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
@@ -116,7 +116,7 @@ const json = {
                 {"method":"send", "params":["Hello World"]}
             ],
             "assignTo":"{{getJson}}!"
-        },
+        },*/
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
@@ -169,7 +169,7 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        },
+        }/*,
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
@@ -201,7 +201,7 @@ const json = {
                 {"method":"json", "params":["{{}}"]}
             ],
             "assignTo":"{{getJson}}!"
-        }
+        }*/
     ]
 }
 
@@ -212,9 +212,22 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+
+    // I setup ensureAuth to first test if we could get real auth 
+    // I don't think it will work though because we just recieved the request and have not processed passport.
+    // We'll need to get req after passport runs maybe
+    // I really don't know much about how req, passport and authenticate work.
+
+    /*context["ensureAuth"] = (req, res, next) {
+        if (req.isAuthenticated()) {
+            return next();
+        }
+        res.redirect('/hello');
+    }*/
     await initializeModules(context, json, req, res, next);
+    console.log(req.isAuthenticated())
     if (context.urlpath== "/microsoft/callback"){
-        //local.res.json(context);
+        local.res.json(context);
     }
 });
 
