@@ -176,7 +176,7 @@ const json = {
             "chain":[
                 {"method":"isAuthenticated", "params":[]}
             ],
-            "assignTo":"{{isAuth}}!"
+            "assignTo":"{{isAuth}}"
         },/*
         {
             "module":"console",
