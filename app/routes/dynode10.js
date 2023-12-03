@@ -114,7 +114,7 @@ const json = {
             "chain":[
                 {"method":"log", "params":["Hello World =================== ////"]}
             ],
-            "assignTo":"getLog"
+            "assignTo":"{{getLog}}!"
         },
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
@@ -262,11 +262,8 @@ async function initializeModules(context, config, req, res, next) {
         }
         
         if (runAction){
-            console.log("action.set", action.set)
             if (action.set){
-                console.log("inside set")
                 for (key in action.set){
-                    console.log(key)
                     context[key] = replacePlaceholders(action.set[key], context)
                 }
             }
@@ -288,7 +285,6 @@ async function initializeModules(context, config, req, res, next) {
 
             if (!action.module && action.assignTo && action.params && action.chain) {
                 context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
-                console.log("context",context)
                 continue;
             }
 
@@ -468,7 +464,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
 
     if (action.method) {
-        console.log("action.method ==================================")
         let params;
 
         if (action.params) {
@@ -484,11 +479,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
-            console.log(typeof result);
-            console.log(result)
-            console.log(action.method)
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : result[action.method] === 'object' ? result[action.method] : null;
-            console.log("result", result)
         }
     }
 
@@ -515,8 +506,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
-                console.log("chainAction.method",chainAction.method)
-                console.log("chainParams",chainParams)
                 if (chainAction.method === 'promise') {
                     result = await result.promise();
                 } else {
@@ -580,7 +569,6 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
         Bucket: "1var-node-modules",
         Key: zipKey,
     };
-    console.log(params);
     try {
         const data = await local.s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
