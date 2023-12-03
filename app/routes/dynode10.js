@@ -27,8 +27,8 @@ const json = {
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"passport"
-        },
+            "assignTo":"{{passport}}"
+        }/*,
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
@@ -83,7 +83,7 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }
+        }*/
     ]
 }
 
@@ -114,6 +114,7 @@ async function firstLoad(req, res, next){
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
+    /*
     local.context.passport.serializeUser(function(user, done) {
         done(null, user);
     });
@@ -123,7 +124,9 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
     });
 
     local.dyRouter.use(local.context.passport.initialize());
-    local.dyRouter.use(local.context.passport.session());
+    local.dyRouter.use(local.context.passport.session());*/
+    console.log(local.context.passport)
+    //const passport2 = require('passport');
     await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
@@ -218,11 +221,15 @@ async function initializeModules(context, config, req, res, next) {
 
             if (action.module){
                 let moduleInstance
+                console.log(action)
                 if (action.module.startsWith("{{")){
+                    console.log("<-- context")
                     moduleInstance = context[action.module]
                  } else if (local[action.module]){
+                    console.log("<-- local")
                     moduleInstance = local[action.module]
                  } else {
+                    console.log("<-- require")
                     moduleInstance = require(action.module);
                  }
 
