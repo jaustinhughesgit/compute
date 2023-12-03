@@ -170,12 +170,9 @@ const json = {
             ]
         },
         {
-            "method":"req",
-            "params":[],
-            "chain":[
-                {"method":"json", "params":[{"req":"json"}]}
-            ],
-            "assignTo":"{{isAuthenticated}}!"
+            "module":"req",
+            "method":"json",
+            "params":[{"req":"json"}]
         }
     ]
 }
