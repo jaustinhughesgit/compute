@@ -7,8 +7,8 @@ local.path = require('path');
 local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
-
 local.s3 = new local.AWS.S3();
+
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -108,6 +108,14 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
+        },
+        {
+            "ifArray":[["{{urlpath}}","==","/hello"]],
+            "module":"res",
+            "chain":[
+                {"method":"send", "params":["Hello World"]}
+            ],
+            "assignTo":"{{getJson}}!"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -374,8 +382,6 @@ function createFunctionFromAction(action, context, req, res, next) {
     };
 }
 
-
-
 function replaceParams(param, context, scope, args) {
     if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
@@ -583,3 +589,9 @@ async function unzipModule(zipBuffer, modulePath) {
 }
 
 module.exports = local.dyRouter;
+
+
+
+
+
+
