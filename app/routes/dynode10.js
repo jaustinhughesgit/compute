@@ -1,13 +1,20 @@
 
 var express = require('express');
 let local = {};
-local.AWS = require('aws-sdk');
-local.dyRouter = express.Router();
-local.path = require('path');
-local.unzipper = require('unzipper');
-local.fs = require('fs');
-local.session = require('express-session');
-local.s3 = new local.AWS.S3();
+AWS = require('aws-sdk');
+dyRouter = express.Router();
+path = require('path');
+unzipper = require('unzipper');
+fs = require('fs');
+session = require('express-session');
+s3 = new local.AWS.S3();
+local.AWS = AWS;
+local.dyRouter = dyRouter;
+local.path = path;
+local.unzipper = unzipper;
+local.fs = fs;
+local.session = session;
+local.s3 = s3;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -230,6 +237,11 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log("req2----->",res);
     await initializeModules(context, json2, req, res, next);
     console.log("shouldn't load")
+    console.log("_passport", req._passport)
+    console.log("_passport.instance", req._passport.instance)
+    console.log("_passport.instance.Authenticator", req._passport.instance.Authenticator)
+    console.log("_passport.instance.Authenticator", JSON.stringify(req._passport.instance.Authenticator))
+    console.log("_passport.instance.Authenticator()", req._passport.instance.Authenticator())
     if (context.urlpath== "/microsoft/callback"){
         //local.res.json(context);
     }
