@@ -108,8 +108,7 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },
-        /*
+        },/*
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
@@ -125,34 +124,6 @@ const json = {
             ],
             "assignTo":"passport"
         },
-        {
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"initialize", "params":[]}
-            ],
-            "assignTo":"passportInitialize"
-        },
-        {
-            "module":"console",
-            "chain":[
-                {"method":"log", "params":["{{dyRouter}}"]}
-            ],
-            "assignTo":"{{logdyRouter}}!"
-        },/*
-        {
-            "module":"passport",
-            "chain":[
-                {"method":"session", "params":[]}
-            ],
-            "assignTo":"passportSession"
-        },
-        {
-            "module":"dyRouter",
-            "chain":[
-                {"method":"use", "params":["{{passportSession}}"]}
-            ],
-            "assignTo":"sessionPass"
-        },*/
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
@@ -185,7 +156,7 @@ const json = {
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
+            "module":"passport",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
@@ -193,7 +164,7 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
-            "module":"{{passport}}",
+            "module":"passport",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
@@ -205,8 +176,9 @@ const json = {
             "chain":[
                 {"method":"isAuthenticated", "params":[]}
             ],
+            "express":true,
             "assignTo":"{{isAuth}}"
-        }/*
+        },/*
         {
             "module":"console",
             "chain":[
@@ -223,10 +195,6 @@ const json = {
             "assignTo":"{{sendAuth}}!"
 
         },*/
-    ]
-}
-const json2 = {
-    "actions": [
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
@@ -245,25 +213,13 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    context["dyRouter"] = local.dyRouter;
+
     // I setup ensureAuth to first test if we could get real auth 
     // I don't think it will work though because we just recieved the request and have not processed passport.
     // We'll need to get req after passport runs maybe
     // I really don't know much about how req, passport and authenticate work.
 
-    console.log("res1----->",req);
-    console.log("req1----->",res);
     await initializeModules(context, json, req, res, next);
-
-    console.log("res2----->",req);
-    console.log("req2----->",res);
-    await initializeModules(context, json2, req, res, next);
-    console.log("shouldn't load")
-    console.log("_passport", req._passport)
-    console.log("_passport.instance", req._passport.instance)
-    console.log("_passport.instance.Authenticator", req._passport.instance.Authenticator)
-    console.log("_passport.instance.Authenticator", JSON.stringify(req._passport.instance.Authenticator))
-    console.log("_passport.instance.Authenticator()", req._passport.instance.Authenticator())
     if (context.urlpath== "/microsoft/callback"){
         //local.res.json(context);
     }
@@ -358,20 +314,7 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance
-                if (action.module.startsWith("{{")){
-                    console.log(context)
-                    console.log("<- context")
-                    moduleInstance = context[action.module]
-                } else if (local[action.module]) {
-                    console.log(local)
-                    console.log("<- local")
-                    moduleInstance = local[action.module]
-                } else {
-                    
-                    console.log("<- require")
-                    moduleInstance = require(action.module);
-                }
+                let moduleInstance = context[action.module] ? context[action.module] : local[action.module] ? local[action.module] : require(action.module);
 
                 let args = [];
                 if (action.valueFrom) {
@@ -386,9 +329,7 @@ async function initializeModules(context, config, req, res, next) {
                         return value;
                     });
                 }
-                console.log("moduleInstance", moduleInstance)
-                console.log("action",action)
-                console.log("args", args)
+
                 let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assignTo) {
@@ -600,7 +541,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
                                 const methodName = chainAction.method.slice(2, -2);
                                 const methodFunction = context[methodName];
-                                console.log(">>", typeof methodFunction, chainAction.express, chainAction)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
                                         result = methodFunction(...chainParams)(req, res, next);
@@ -614,9 +554,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    console.log("deep auth3 => ", req.isAuthenticated())
                                     result = result[chainAction.method](...chainParams)(req, res, next);
-                                    console.log("deep auth4 => ", req.isAuthenticated())
                                 } else {
                                     result = result[chainAction.method](...chainParams);
                                 }
