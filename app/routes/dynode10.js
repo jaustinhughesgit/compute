@@ -244,7 +244,7 @@ async function initializeModules(context, config, req, res, next) {
         if (runAction){
             if (action.set){
                 for (key in action.set){
-                    contex[key] = action.set[key]
+                    context[key] = action.set[key]
                 }
             }
 
@@ -269,7 +269,9 @@ async function initializeModules(context, config, req, res, next) {
                 continue;
             }
 
-            let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+            if (action.module){
+                let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+            }
             let args = [];
             if (action.valueFrom) {
                 args = action.valueFrom.map(item => {
@@ -284,20 +286,22 @@ async function initializeModules(context, config, req, res, next) {
                 });
             }
 
-            let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
-            result = await applyMethodChain(result, action, context, res, req, next);
-            if (action.assignTo) {
-                if (action.assignTo.includes('{{')) {
-                    let isFunctionExecution = action.assignTo.endsWith('!');
-                    let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
-                    
-                    if (isFunctionExecution) {
-                        context[assignKey] = typeof result === 'function' ? result() : result;
+            if (action.module) {
+                let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+                result = await applyMethodChain(result, action, context, res, req, next);
+                if (action.assignTo) {
+                    if (action.assignTo.includes('{{')) {
+                        let isFunctionExecution = action.assignTo.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+                        
+                        if (isFunctionExecution) {
+                            context[assignKey] = typeof result === 'function' ? result() : result;
+                        } else {
+                            context[assignKey] = result;
+                        }
                     } else {
-                        context[assignKey] = result;
+                        context[action.assignTo] = result;
                     }
-                } else {
-                    context[action.assignTo] = result;
                 }
             }
         }
