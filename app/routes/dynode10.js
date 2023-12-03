@@ -114,7 +114,7 @@ const json = {
             "chain":[
                 {"method":"log", "params":["Hello World =================== ////"]}
             ],
-            "assignTo":"{{getJson}}!"
+            "assignTo":"getLog"
         },
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
