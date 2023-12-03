@@ -27,7 +27,7 @@ const json = {
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"{{passport}}"
+            "assignTo":"pass"
         }/*,
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -125,7 +125,8 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 
     local.dyRouter.use(local.context.passport.initialize());
     local.dyRouter.use(local.context.passport.session());*/
-    console.log(local.context.passport)
+    console.log("context", context)
+    console.log("pass", local.context.pass)
     //const passport2 = require('passport');
     await initializeModules(local.context, json2, req, res, next);
     console.log("done")
