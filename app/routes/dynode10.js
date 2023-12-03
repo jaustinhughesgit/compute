@@ -420,6 +420,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     function processParam(param) {
         if (typeof param === 'string') {
+            if (param == "{{}}"){
+                return context
+            }
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 const key = param.slice(2, -2);
                 const value = context[key];
