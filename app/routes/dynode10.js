@@ -133,12 +133,6 @@ const json = {
             "assignTo":"passportInitialize"
         },
         {
-            "module":"dyRouter",
-            "chain":[
-            ],
-            "assignTo":"dyRouter"
-        },
-        {
             "module":"console",
             "chain":[
                 {"method":"log", "params":["{{dyRouter}}"]}
@@ -251,7 +245,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     let context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-
+    context["dyRouter"] = local.dyRouter;
     // I setup ensureAuth to first test if we could get real auth 
     // I don't think it will work though because we just recieved the request and have not processed passport.
     // We'll need to get req after passport runs maybe
