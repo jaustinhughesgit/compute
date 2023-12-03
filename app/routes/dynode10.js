@@ -108,7 +108,8 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },/*
+        },
+        /*
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
@@ -118,19 +119,14 @@ const json = {
             "assignTo":"{{getJson}}!"
         },*/
         {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
             "assignTo":"passport"
-        }
-    ]
-}
-const json2 = {
-    "actions": [
-        /*,
+        },
         {
-            "module":"passport",
+            "module":"{{passport}}",
             "chain":[
                 {"method":"initialize", "params":[]}
             ],
@@ -142,7 +138,7 @@ const json2 = {
                 {"method":"use", "params":["{{passportInitialize}}"]}
             ],
             "assignTo":"initPass"
-        },
+        },/*
         {
             "module":"passport",
             "chain":[
@@ -189,7 +185,7 @@ const json2 = {
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
+            "module":"{{passport}}",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
@@ -197,7 +193,7 @@ const json2 = {
         },
         {
             "ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
-            "module":"passport",
+            "module":"{{passport}}",
             "chain":[
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
@@ -210,7 +206,7 @@ const json2 = {
                 {"method":"isAuthenticated", "params":[]}
             ],
             "assignTo":"{{isAuth}}"
-        },/*
+        }/*
         {
             "module":"console",
             "chain":[
@@ -227,7 +223,10 @@ const json2 = {
             "assignTo":"{{sendAuth}}!"
 
         },*/
-
+    ]
+}
+const json2 = {
+    "actions": [
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
@@ -255,13 +254,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log("res1----->",req);
     console.log("req1----->",res);
     await initializeModules(context, json, req, res, next);
-    console.log("11111")
-    console.log(context)
-    //if (context.urlpath == "/microsoft/callback"){
-        local.dyRouter.use(context.passport.initalize())
-        console.log("22222")
-        local.dyRouter.use(context.passport.session())
-    //}
+
     console.log("res2----->",req);
     console.log("req2----->",res);
     await initializeModules(context, json2, req, res, next);
@@ -365,7 +358,14 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
+                let moduleInstance
+                if (action.module.startsWith("{{")){
+                    moduleInstance = context[action.module]
+                } else if (local[action.module]) {
+                    moduleInstance = local[action.module]
+                } else {
+                    moduleInstance = require(action.module);
+                }
 
                 let args = [];
                 if (action.valueFrom) {
