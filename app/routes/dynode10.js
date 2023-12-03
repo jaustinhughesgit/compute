@@ -164,7 +164,7 @@ const json = {
         },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "module":"req",
+            "module":"res",
             "chain":[
                 {"method":"json", "params":[{}]}
             ],
