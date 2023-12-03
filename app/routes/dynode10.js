@@ -449,7 +449,20 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
 
     if (action.method) {
-        let params = action.params ? action.params.map(param => processParam(param)) : [];
+        let params;
+
+        if (action.params) {
+            params = action.params.map(param => {
+                if (typeof param === 'string'){
+                    if (!param.startsWith("{{")){
+                        param = replacePlaceholders(param, context)
+                    }
+                }
+                return processParam(param);
+            });
+        } else {
+            params = [];
+        }
         if (action.new) {
             // Use 'new' to instantiate the class
             result = instantiateWithNew(result, params);
@@ -467,11 +480,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
-                    console.log("param", param)
-                    console.log("typeof", typeof param)
                     if (typeof param === 'string'){
                         if (!param.startsWith("{{")){
-                            console.log("calling replacePlaceholders")
                             param = replacePlaceholders(param, context)
                         }
                     }
