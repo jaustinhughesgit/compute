@@ -116,6 +116,7 @@ async function firstLoad(req, res, next){
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
     //if (local.context.urlpath != "/microsoft/callback"){
         console.log("req 1 >>>>>>>>>>",req)
+
         local.context.passport.serializeUser(function(user, done) {
             done(null, user);
         });
@@ -132,7 +133,13 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
         console.log("req 2 >>>>>>>>>>",JSON.stringify(req))
         //const passport2 = require('passport');
     //}*/
+    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+  }
     await initializeModules(local.context, json2, req, res, next);
+    
     console.log("done")
 });
 
