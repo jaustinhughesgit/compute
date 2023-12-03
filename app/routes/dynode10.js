@@ -125,6 +125,13 @@ const json = {
             "assignTo":"{{getJson}}!"
         },
         {
+            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"passport",
+            "chain":[
+            ],
+            "assignTo":"passport"
+        },
+        {
             "ifArray":[["{{urlpath}}","==","/check"]],
             "module":"req",
             "chain":[
@@ -140,13 +147,6 @@ const json = {
             ],
             "assignTo":"{{sendAuth}}!"
 
-        },
-        {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
-            "chain":[
-            ],
-            "assignTo":"passport"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
