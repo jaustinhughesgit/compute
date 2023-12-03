@@ -178,14 +178,14 @@ const json = {
 }
 
 local.dyRouter.all('/*', async function(req, res, next) {
+    local.req = req;
+    local.res = res;
     let context = await processConfig(json);
-    local.req = req
-    local.res = res
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(context, json, req, res, next);
     if (context.urlpath== "/microsoft/callback"){
-        res.json(context);
+        local.res.json(context);
     }
 });
 
@@ -281,16 +281,7 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance 
-                if (local[action.module]){
-                    local[action.module]
-                } else {
-                    try {
-                        require(action.module);
-                    } catch {
-
-                    }
-                }
+                let moduleInstance = local[action.module] ? local[action.module] : require(action.module);
 
                 let args = [];
                 if (action.valueFrom) {
