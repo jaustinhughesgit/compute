@@ -83,30 +83,6 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        },/*
-        {
-            "module":"console",
-            "chain":[
-                {"method":"log", "params":["{{isAuth}}"]}
-            ],
-            "assignTo":"{{getLog}}!"
-        },
-        {
-            "ifArray":[["{{isAuth}}","==",true]],
-            "module":"res",
-            "chain":[
-                {"method":"send", "params":["Authenticated"]}
-            ],
-            "assignTo":"{{sendAuth}}!"
-
-        },*/
-        {
-            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "module":"res",
-            "chain":[
-                {"method":"json", "params":["{{}}"]}
-            ],
-            "assignTo":"{{getJson}}!"
         }
     ]
 }
@@ -130,14 +106,15 @@ async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
     local.console = console;
-    let context = await processConfig(json);
+    local.context = await processConfig(json);
     context["urlpath"] = req.path
     context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(context, json, req, res, next);
+    await initializeModules(local.context, json, req, res, next);
+    next();
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-    await initializeModules(context, json2, req, res, next);
+    await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
 
