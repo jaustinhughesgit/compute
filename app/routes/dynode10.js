@@ -380,7 +380,8 @@ async function initializeModules(context, config, req, res, next) {
                         return value;
                     });
                 }
-
+                console.log("action",action)
+                console.log("args", args)
                 let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assignTo) {
