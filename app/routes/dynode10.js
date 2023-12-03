@@ -118,7 +118,7 @@ const json = {
             "assignTo":"{{getJson}}!"
         },*/
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
             "chain":[
             ],
@@ -256,9 +256,12 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log("req1----->",res);
     await initializeModules(context, json, req, res, next);
     console.log("11111")
-    local.dyRouter.use(context.passport.initalize())
-    console.log("22222")
-    local.dyRouter.use(context.passport.session())
+    console.log(context)
+    //if (context.urlpath == "/microsoft/callback"){
+        local.dyRouter.use(context.passport.initalize())
+        console.log("22222")
+        local.dyRouter.use(context.passport.session())
+    //}
     console.log("res2----->",req);
     console.log("req2----->",res);
     await initializeModules(context, json2, req, res, next);
