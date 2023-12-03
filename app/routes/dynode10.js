@@ -114,6 +114,16 @@ async function firstLoad(req, res, next){
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
+    context.passport.serializeUser(function(user, done) {
+        done(null, user);
+    });
+
+    context.passport.deserializeUser(function(user, done) {
+        done(null, user);
+    });
+
+    local.dyRouter.use(context.passport.initialize());
+    local.dyRouter.use(context.passport.session());
     await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
