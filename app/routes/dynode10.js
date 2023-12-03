@@ -114,17 +114,17 @@ async function firstLoad(req, res, next){
 } 
 
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-    /*
-    local.context.passport.serializeUser(function(user, done) {
+    
+    local.context.pass.serializeUser(function(user, done) {
         done(null, user);
     });
 
-    local.context.passport.deserializeUser(function(user, done) {
+    local.context.pass.deserializeUser(function(user, done) {
         done(null, user);
     });
 
-    local.dyRouter.use(local.context.passport.initialize());
-    local.dyRouter.use(local.context.passport.session());*/
+    local.dyRouter.use(local.context.pass.initialize());
+    local.dyRouter.use(local.context.pass.session());
     console.log("context", local.context)
     console.log("pass", local.context.pass)
     //const passport2 = require('passport');
