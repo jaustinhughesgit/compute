@@ -244,10 +244,10 @@ async function initializeModules(context, config, req, res, next) {
             console.log("action.set", action.set)
             if (action.set){
                 console.log("inside set")
-        //        for (key in action.set){
-        //            console.log(key)
-        //            context[key] = action.set[key]
-        //        }
+                for (key in action.set){
+                    console.log(key)
+                    context[key] = action.set[key]
+                }
             }
 
             if (action.execute) {
