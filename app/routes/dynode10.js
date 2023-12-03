@@ -108,7 +108,7 @@ const json = {
                 {"return":"{test}"}
             ],
             "assignTo":"customFunction"
-        },
+        },/*
         {
             "ifArray":[["{{urlpath}}","==","/hello"]],
             "module":"res",
@@ -116,7 +116,7 @@ const json = {
                 {"method":"send", "params":["Hello World"]}
             ],
             "assignTo":"{{getJson}}!"
-        },
+        },*/
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport",
@@ -177,7 +177,7 @@ const json = {
                 {"method":"isAuthenticated", "params":[]}
             ],
             "assignTo":"{{isAuth}}!"
-        },
+        },/*
         {
             "module":"console",
             "chain":[
@@ -193,7 +193,7 @@ const json = {
             ],
             "assignTo":"{{sendAuth}}!"
 
-        },
+        },*/
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
@@ -218,12 +218,6 @@ local.dyRouter.all('/*', async function(req, res, next) {
     // We'll need to get req after passport runs maybe
     // I really don't know much about how req, passport and authenticate work.
 
-    context["ensureAuth"] = (req, res, next) {
-        if (req.isAuthenticated()) {
-            return next();
-        }
-        res.redirect('/hello');
-    }
     await initializeModules(context, json, req, res, next);
     if (context.urlpath== "/microsoft/callback"){
         //local.res.json(context);
