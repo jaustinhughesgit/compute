@@ -8,6 +8,8 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
+const pass = require('passport');
+const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -149,8 +151,6 @@ function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
 
     if (!req.passportConfigured) {
-        pass = require('passport');
-        const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
         pass.use(new MicrosoftStrategy(
             {
