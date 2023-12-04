@@ -124,7 +124,7 @@ async function firstLoad(req, res, next){
         console.log("~~ profile:", profile)
     }
     await initializeModules(local.context, json, req, res, next);
-    local.context.passport.use(new local.context("passport-microsoft").Strategy(
+    local.context.passport.use(new local.context.passport-microsoft.Strategy(
         {
             "clientID": process.env.MICROSOFT_CLIENT_ID,
             "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
