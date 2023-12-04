@@ -8,8 +8,8 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-const pass = require('passport');
-const MicrosoftStrategy = require('passport-microsoft').Strategy;
+local.pass = require('passport');
+local.MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -152,7 +152,7 @@ function dynamicPassportConfig(req, res, next) {
 
     if (!req.passportConfigured) {
 
-        pass.use(new MicrosoftStrategy(
+        pass.use(new local.MicrosoftStrategy(
             {
                 "clientID": process.env.MICROSOFT_CLIENT_ID,
                 "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
@@ -171,16 +171,16 @@ function dynamicPassportConfig(req, res, next) {
                 done(null, profile);
             }));
 
-            pass.serializeUser(function(user, done) {
+            local.pass.serializeUser(function(user, done) {
             done(null, user);
         });
 
-        pass.deserializeUser(function(user, done) {
+        local.pass.deserializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.dyRouter.use(pass.initialize());
-        local.dyRouter.use(pass.session());
+        local.dyRouter.use(local.pass.initialize());
+        local.dyRouter.use(local.pass.session());
         console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
         
@@ -188,7 +188,7 @@ function dynamicPassportConfig(req, res, next) {
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, pass.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
+local.dyRouter.all('/*', dynamicPassportConfig, local.pass.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
