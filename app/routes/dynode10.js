@@ -18,7 +18,7 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
-/*
+
 const json = {
     "modules": {
         "passport":"passport",
@@ -69,7 +69,15 @@ const json = {
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
-        },
+        }
+    ]
+}
+
+
+const json2 = {
+    "modules": {
+    },
+    "actions": [
         {
             //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
             "module":"{{passport}}",
@@ -77,7 +85,7 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        },
+        }/*,
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
@@ -86,12 +94,12 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }
+        }*/
     ]
 }
-*/
-/*
-const json2 = {
+
+
+const json3 = {
     "modules": {
     },
     "actions": [
@@ -113,39 +121,28 @@ async function firstLoad(req, res, next){
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(local.context, json, req, res, next);
+    local.context.passport.serializeUser(function(user, done) {
+        done(null, user);
+    });
+
+    local.context.passport.deserializeUser(function(user, done) {
+        done(null, user);
+    });
+
+    local.dyRouter.use(local.context.passport.initialize());
+    local.dyRouter.use(local.context.passport.session());
     next();
 }
-local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-
-        console.log("req 1 >>>>>>>>>>",req)
-
-        local.context.passport.serializeUser(function(user, done) {
-            done(null, user);
-        });
-
-        local.context.passport.deserializeUser(function(user, done) {
-            done(null, user);
-        });
-
-        local.dyRouter.use(local.context.passport.initialize());
-        local.dyRouter.use(local.context.passport.session());
-        console.log("context", local.context)
-        console.log("pass", JSON.stringify(local.context.passport))
-        console.log("isAuthenticated",req.isAuthenticated())
-        console.log("req 2 >>>>>>>>>>",JSON.stringify(req))
-        //const passport2 = require('passport');
-    
-    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  }
-    await initializeModules(local.context, json2, req, res, next);
-    
+async function secondLoad(req, res, next){
+    pass.authenticate('microsoft', { failureRedirect: '/login' })
+}
+local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
+    console.log("========>",req.isAuthenticated())
+    await initializeModules(local.context, json3, req, res, next);
     console.log("done")
 });
-*/
 
+/*
 let authenticated = false;
 function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
@@ -192,6 +189,7 @@ local.dyRouter.all('/*', dynamicPassportConfig, pass.authenticate('microsoft', {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
+*/
 
 function testFunction(){
     return "hello world"
