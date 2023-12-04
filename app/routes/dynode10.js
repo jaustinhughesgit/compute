@@ -144,6 +144,8 @@ const json = [{
 },
 {
     "modules": {
+        "passport":"passport",
+        "passport-microsoft":"passport-microsoft"
     },
     "actions": [
         {
