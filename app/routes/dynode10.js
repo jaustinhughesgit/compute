@@ -152,7 +152,7 @@ function dynamicPassportConfig(req, res, next) {
 
     if (!req.passportConfigured) {
 
-        pass.use(new local.MicrosoftStrategy(
+        local.pass.use(new local.MicrosoftStrategy(
             {
                 "clientID": process.env.MICROSOFT_CLIENT_ID,
                 "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
