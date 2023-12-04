@@ -17,7 +17,7 @@ local.dyRouter.use(local.session({
 }));
 
 
-const json = {
+const json = [{
     "modules": {
         "passport":"passport",
         "passport-microsoft":"passport-microsoft"
@@ -141,9 +141,8 @@ const json = {
             "assignTo":"newAuthentication"
         }
     ]
-}
-
-const json2 = {
+},
+{
     "modules": {
     },
     "actions": [
@@ -166,6 +165,15 @@ const json2 = {
         }
     ]
 }
+]
+
+let middlewareFunctions = json.map(stepConfig => {
+    return async (req, res, next) => {
+        local.context["urlpath"] = req.path
+        local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+        await initializeModules(local.context, stepConfig, req, res, next);
+    };
+});
 
 local.dyRouter.all('/*', async function(req, res, next) {
     local.req = req;
@@ -173,16 +181,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     local.console = console;
     local.context = await processConfig(json);
     next();
-},async (req, res, next) => {
-    local.context["urlpath"] = req.path
-    local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(local.context, json, req, res, next);
-    console.log("part 1")
-},async (req, res, next) => {
-    console.log("part")
-    await initializeModules(local.context, json2, req, res, next);
-    console.log("done")
-});
+}, ...middlewareFunctions);
 
 function testFunction(){
     return "hello world"
