@@ -262,6 +262,7 @@ const json = [
     }
 ]
 
+let firstCall = true
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         local.req = req;
@@ -271,6 +272,10 @@ let middlewareFunctions = json.map(stepConfig => {
         local.context["urlpath"] = req.path
         local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(local.context, stepConfig, req, res, next);
+        if (firstCall){
+            next();
+            firstCall = false;
+        }
     };
 });
 
