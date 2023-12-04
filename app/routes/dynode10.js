@@ -272,7 +272,7 @@ let middlewareFunctions = json.map(stepConfig => {
         local.context["urlpath"] = req.path
         local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(local.context, stepConfig, req, res, next);
-        if (firstCall < 2){
+        if (firstCall < 3){
             next();
             firstCall++;
         }
