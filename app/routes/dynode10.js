@@ -189,6 +189,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     next();
 }, ...middlewareFunctions, async (req, res, next) => {
+    console.log(req.isAuthenticated())
     console.log("done")
 });
 
