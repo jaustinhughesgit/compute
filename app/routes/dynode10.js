@@ -16,6 +16,7 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
+/*
 const json = {
     "modules": {
         "passport":"passport",
@@ -86,7 +87,8 @@ const json = {
         }
     ]
 }
-
+*/
+/*
 const json2 = {
     "modules": {
     },
@@ -101,7 +103,6 @@ const json2 = {
         }
     ]
 }
-
 async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
@@ -111,10 +112,9 @@ async function firstLoad(req, res, next){
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(local.context, json, req, res, next);
     next();
-} 
-
+}
 local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-    //if (local.context.urlpath != "/microsoft/callback"){
+
         console.log("req 1 >>>>>>>>>>",req)
 
         local.context.passport.serializeUser(function(user, done) {
@@ -132,7 +132,7 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
         console.log("isAuthenticated",req.isAuthenticated())
         console.log("req 2 >>>>>>>>>>",JSON.stringify(req))
         //const passport2 = require('passport');
-    //}*/
+    
     local.context.passport.authenticate('microsoft', { failureRedirect: '/login' }),
   function(req, res) {
     // Successful authentication, redirect home.
@@ -141,6 +141,54 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
     await initializeModules(local.context, json2, req, res, next);
     
     console.log("done")
+});
+*/
+let authenticated = false;
+function dynamicPassportConfig(req, res, next) {
+    req.foo = "bar";  // Attach 'foo' to the request object
+
+    if (!req.passportConfigured) {
+        const passport = require('passport');
+        const MicrosoftStrategy = require('passport-microsoft').Strategy;
+
+        passport.use(new MicrosoftStrategy(
+            {
+                "clientID": process.env.MICROSOFT_CLIENT_ID,
+                "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                "resource": "https://graph.microsoft.com/",
+                "tenant": process.env.MICROSOFT_TENANT_ID,
+                "prompt": "login",
+                "state": false,
+                "type": "Web",
+                "scope": ["user.read"]
+            }, (token, tokenSecret, profile, done) => {
+                authenticated = true;
+                console.log("token", token);
+                console.log("tokenSecret");
+                console.log("profile", profile);
+                done(null, profile);
+            }));
+
+        passport.serializeUser(function(user, done) {
+            done(null, user);
+        });
+
+        passport.deserializeUser(function(user, done) {
+            done(null, user);
+        });
+
+        app.use(passport.initialize());
+        app.use(passport.session());
+
+        req.passportConfigured = true; // Mark passport as configured
+    }
+    next();
+}
+
+local.dyRouter.all('/*', dynamicPassportConfig, async function(req, res, next) {
+    console.log(req.isAuthenticated())
+    res.send('Protected Option 1');
 });
 
 function testFunction(){
@@ -151,7 +199,7 @@ function newFunction(val){
 return val + "!"
 }
 
-local.dyRouter.get('/', async function(req, res, next) {
+/*local.dyRouter.get('/', async function(req, res, next) {
     let context = {};
     context["testFunction"] = testFunction;
     context["newFunction"] = newFunction;
@@ -161,7 +209,7 @@ local.dyRouter.get('/', async function(req, res, next) {
     context["newFunctionResult"] = newFunction("test");
     context["customFunctionResult"] = context["customFunction"]("yoyo");
     res.json(context);
-});
+});*/
 
 function condition(left, condition, right, context){
     left = replacePlaceholders(left, context)
