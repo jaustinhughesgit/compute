@@ -148,7 +148,7 @@ function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
 
     if (!req.passportConfigured) {
-        const passport = require('passport');
+        req["passport"] = require('passport');
         const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
         passport.use(new MicrosoftStrategy(
@@ -187,7 +187,7 @@ function dynamicPassportConfig(req, res, next) {
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, passport.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
+local.dyRouter.all('/*', dynamicPassportConfig, req.passport.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
     console.log(req.isAuthenticated())
     res.send('Protected Option 1');
 });
