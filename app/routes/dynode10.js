@@ -173,8 +173,8 @@ local.dyRouter.all('/*', (req, res, next) => {
     });
 
     // Initialize Passport and add it to the request handling chain
-    app.use(local.passport.initialize());
-    app.use(local.passport.session());
+    local.dyRouter.use(local.passport.initialize());
+    local.dyRouter.use(local.passport.session());
 
     // Proceed with the authentication
     local.passport.authenticate('microsoft', { failureRedirect: '/login' })(req, res, next);
