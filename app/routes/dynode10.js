@@ -175,7 +175,7 @@ local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
     await initializeModules(local.context, json3, req, res, next);
     console.log("done")
-    res.send('Protected Option 1');
+    //res.send('Protected Option 1');
 });
 
 /*
