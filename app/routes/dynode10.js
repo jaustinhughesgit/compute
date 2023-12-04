@@ -124,7 +124,7 @@ async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
     local.console = console;
-    local.context = await processConfig(json, context);
+    local.context = await processConfig(json, local.context);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     local["logThis"] = (auth, profile) => {
