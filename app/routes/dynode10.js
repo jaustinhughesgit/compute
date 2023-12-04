@@ -17,7 +17,7 @@ local.dyRouter.use(local.session({
 }));
 
 const json = [
-    /*{
+    {
         "modules": {
             "moment-timezone": "moment-timezone"
         },
@@ -102,14 +102,10 @@ const json = [
                 "assignTo": "s3UploadResult"
             },
             {
-                "params":["{test}"], 
-                "chain":[
-                    {"return":"{test}"}
-                ],
-                "assignTo":"customFunction"
+                "next":true
             }
         ]
-    },*/
+    },
     {
         "modules": {
             "passport":"passport",
@@ -337,6 +333,9 @@ async function initializeModules(context, config, req, res, next) {
         }
         
         if (runAction){
+            if (action.next){
+                next();
+            }
             if (action.set){
                 for (key in action.set){
                     context[key] = replacePlaceholders(action.set[key], context)
