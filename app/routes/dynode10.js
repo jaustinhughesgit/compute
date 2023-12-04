@@ -60,7 +60,7 @@ const json = {
                 "new":true}
             ],
             "assignTo":"passportmicrosoft"
-        },
+        }/*,
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"{{passport}}",
@@ -68,7 +68,7 @@ const json = {
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
-        }
+        }*/
     ]
 }
 
@@ -124,6 +124,28 @@ async function firstLoad(req, res, next){
         console.log("~~ profile:", profile)
     }
     await initializeModules(local.context, json, req, res, next);
+    pass.use(new MicrosoftStrategy(
+        {
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, (token, tokenSecret, profile, done) => {
+            authenticated = true;
+            console.log("token", token);
+            console.log("tokenSecret");
+            console.log("profile", profile);
+            done(null, profile);
+        }));
+
+        pass.serializeUser(function(user, done) {
+        done(null, user);
+    });
     local.context.passport.serializeUser(function(user, done) {
         done(null, user);
     });
