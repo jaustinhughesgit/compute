@@ -143,15 +143,16 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
     console.log("done")
 });
 */
+var pass;
 let authenticated = false;
 function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
 
     if (!req.passportConfigured) {
-        local["passport"] = require('passport');
+        pass = require('passport');
         const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
-        local.passport.use(new MicrosoftStrategy(
+        pass.use(new MicrosoftStrategy(
             {
                 "clientID": process.env.MICROSOFT_CLIENT_ID,
                 "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
@@ -170,16 +171,16 @@ function dynamicPassportConfig(req, res, next) {
                 done(null, profile);
             }));
 
-        local.passport.serializeUser(function(user, done) {
+            pass.serializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.passport.deserializeUser(function(user, done) {
+        pass.deserializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.dyRouter.use(passport.initialize());
-        local.dyRouter.use(passport.session());
+        local.dyRouter.use(pass.initialize());
+        local.dyRouter.use(pass.session());
         console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
         
@@ -187,7 +188,7 @@ function dynamicPassportConfig(req, res, next) {
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, local.passport.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
+local.dyRouter.all('/*', dynamicPassportConfig, pass.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
     console.log(req.isAuthenticated())
     res.send('Protected Option 1');
 });
