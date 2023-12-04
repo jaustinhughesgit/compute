@@ -8,8 +8,8 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-local["contex"] = {}
-local.context.passport = require("passport");
+local.context = {}
+local.context["passport"] = require("passport");
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
