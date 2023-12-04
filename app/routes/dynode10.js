@@ -8,9 +8,9 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-local.context = {}
-local.context["passport"] = require("passport");
-local.context["MicrosoftStrategy"] = require('passport-microsoft').Strategy;
+const pass = require('passport');
+const MicrosoftStrategy = require('passport-microsoft').Strategy;
+
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -18,37 +18,29 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
-
+/*
 const json = {
     "modules": {
-        //"passport":"passport",
+        "passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        //{
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-        //    "module":"passport",
-        //    "chain":[
-        //    ],
-         //   "assignTo":"passport"
-        //},
         {
             //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport-microsoft",
+            "module":"passport",
             "chain":[
             ],
-            "assignTo":"{{passport-microsoft}}"
+            "assignTo":"{{passport}}"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
-                {"method":"logThis", "params":[true,"{profile}"]},
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
-        }/*,
+        },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
@@ -77,15 +69,7 @@ const json = {
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
-        }*/
-    ]
-}
-
-
-const json2 = {
-    "modules": {
-    },
-    "actions": [
+        },
         {
             //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
             "module":"{{passport}}",
@@ -93,7 +77,7 @@ const json2 = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        }/*,
+        },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
@@ -102,12 +86,12 @@ const json2 = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }*/
+        }
     ]
 }
-
-
-const json3 = {
+*/
+/*
+const json2 = {
     "modules": {
     },
     "actions": [
@@ -125,62 +109,43 @@ async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
     local.console = console;
-    local.context = await processConfig(json, local.context);
+    local.context = await processConfig(json);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    local["logThis"] = (auth, profile) => {
-        console.log("~~  auth:", auth);
-        console.log("~~ profile:", profile)
-    }
     await initializeModules(local.context, json, req, res, next);
-    local.context.passport.use(new local.context.MicrosoftStrategy(
-        {
-            "clientID": process.env.MICROSOFT_CLIENT_ID,
-            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-            "resource": "https://graph.microsoft.com/",
-            "tenant": process.env.MICROSOFT_TENANT_ID,
-            "prompt": "login",
-            "state": false,
-            "type": "Web",
-            "scope": ["user.read"]
-        }, (token, tokenSecret, profile, done) => {
-            authenticated = true;
-            console.log("token", token);
-            console.log("tokenSecret");
-            console.log("profile", profile);
-            done(null, profile);
-        }));
-
-    local.context.passport.serializeUser(function(user, done) {
-        done(null, user);
-    });
-
-    local.context.passport.deserializeUser(function(user, done) {
-        done(null, user);
-    });
-
-    local.dyRouter.use(local.context.passport.initialize());
-    local.dyRouter.use(local.context.passport.session());
-    console.log("firstLoad")
     next();
 }
-async function secondLoad(req, res, next){
-    console.log("secondLoad1")
-    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' })
-    console.log("========>",req.isAuthenticated())
+local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 
-    console.log("secondLoad2")
-    next();
-}
-local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
-    console.log("========>",req.isAuthenticated())
-    await initializeModules(local.context, json3, req, res, next);
+        console.log("req 1 >>>>>>>>>>",req)
+
+        local.context.passport.serializeUser(function(user, done) {
+            done(null, user);
+        });
+
+        local.context.passport.deserializeUser(function(user, done) {
+            done(null, user);
+        });
+
+        local.dyRouter.use(local.context.passport.initialize());
+        local.dyRouter.use(local.context.passport.session());
+        console.log("context", local.context)
+        console.log("pass", JSON.stringify(local.context.passport))
+        console.log("isAuthenticated",req.isAuthenticated())
+        console.log("req 2 >>>>>>>>>>",JSON.stringify(req))
+        //const passport2 = require('passport');
+    
+    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' }),
+  function(req, res) {
+    // Successful authentication, redirect home.
+    res.redirect('/');
+  }
+    await initializeModules(local.context, json2, req, res, next);
+    
     console.log("done")
-    //res.send('Protected Option 1');
 });
+*/
 
-/*
 let authenticated = false;
 function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
@@ -227,7 +192,6 @@ local.dyRouter.all('/*', dynamicPassportConfig, pass.authenticate('microsoft', {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
-*/
 
 function testFunction(){
     return "hello world"
@@ -413,7 +377,6 @@ function createFunctionFromAction(action, context, req, res, next) {
 
                 if (typeof runAction.method === 'string') {
                     if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
-                        console.log("starts with {")
                         const methodName = runAction.method.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
@@ -421,14 +384,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
-                    } else if (runAction.method.startsWith('{{') && runAction.method.endsWith('}}')) {
-                        console.log("starts with {{")
-                        const methodName = runAction.method.slice(2, -2);
-                        result = context[methodName](...runParams);
-                        
-                    } else {
-                        console.log("else local")
-                        result = local[methodName(...runParams)]
                     }
                 }
             }
