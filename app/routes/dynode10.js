@@ -35,7 +35,7 @@ const json = {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
-                {"method":"{{logThis}}", "params":[true,"{profile}"]},
+                {"method":"logThis", "params":[true,"{profile}"]},
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
@@ -119,7 +119,7 @@ async function firstLoad(req, res, next){
     local.context = await processConfig(json);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    local.context["logThis"] = (auth, profile) => {
+    local["logThis"] = (auth, profile) => {
         console.log("~~  auth:", auth);
         console.log("~~ profile:", profile)
     }
@@ -380,6 +380,7 @@ function createFunctionFromAction(action, context, req, res, next) {
 
                 if (typeof runAction.method === 'string') {
                     if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
+                        console.log("starts with {")
                         const methodName = runAction.method.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
@@ -388,9 +389,13 @@ function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (runAction.method.startsWith('{{') && runAction.method.endsWith('}}')) {
+                        console.log("starts with {{")
                         const methodName = runAction.method.slice(2, -2);
                         result = context[methodName](...runParams);
                         
+                    } else {
+                        console.log("else local")
+                        result = local[methodName(...runParams)]
                     }
                 }
             }
