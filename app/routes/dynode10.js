@@ -8,7 +8,8 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-
+local["contex"] = {}
+local.context.passport = require("passport");
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -19,17 +20,17 @@ local.dyRouter.use(local.session({
 
 const json = {
     "modules": {
-        "passport":"passport",
+        //"passport":"passport",
         "passport-microsoft":"passport-microsoft"
     },
     "actions": [
-        {
+        //{
             //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
-            "chain":[
-            ],
-            "assignTo":"passport"
-        },
+        //    "module":"passport",
+        //    "chain":[
+        //    ],
+         //   "assignTo":"passport"
+        //},
         {
             //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
@@ -123,7 +124,7 @@ async function firstLoad(req, res, next){
     local.req = req;
     local.res = res;
     local.console = console;
-    local.context = await processConfig(json);
+    local.context = await processConfig(json, context);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     local["logThis"] = (auth, profile) => {
