@@ -180,7 +180,7 @@ local.dyRouter.all('/*', (req, res, next) => {
     local.passport.authenticate('microsoft', { failureRedirect: '/login' })(req, res, next);
 }, (req, res) => {
     // Handle the response after authentication
-    console.log(res.isAuthenticated());
+    console.log(req.isAuthenticated());
     res.send('Authenticated with dynamic strategy');
 });
 
