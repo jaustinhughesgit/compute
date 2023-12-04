@@ -170,12 +170,7 @@ const json = [
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
-        local.req = req;
-        console.log("1", req)
-        console.log("2", req.isAuthenticated())
         await initializeModules(local.context, stepConfig, local.req, res, next);
-        console.log("3", req)
-        console.log("4", req.isAuthenticated())
         next();
     };
 });
