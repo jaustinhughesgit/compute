@@ -147,32 +147,34 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 */
 
 let authenticated = false;
-async function dynamicPassportConfig(req, res, next) {
-    req.foo = "bar";  // Attach 'foo' to the request object
+async function setup(req, res, next) {
     await local.pass.push(require('passport'));
     await local.MicrosoftStrategy.push(require('passport-microsoft').Strategy);
+    next();
+}
+async function dynamicPassportConfig(req, res, next) {
+    req.foo = "bar";  // Attach 'foo' to the request object
     if (!req.passportConfigured) {
-
         await local.pass[0].use(new local.MicrosoftStrategy[0](
-            {
-                "clientID": process.env.MICROSOFT_CLIENT_ID,
-                "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                "resource": "https://graph.microsoft.com/",
-                "tenant": process.env.MICROSOFT_TENANT_ID,
-                "prompt": "login",
-                "state": false,
-                "type": "Web",
-                "scope": ["user.read"]
-            }, async (token, tokenSecret, profile, done) =>  {
-                authenticated = true;
-                console.log("token", token);
-                console.log("tokenSecret");
-                console.log("profile", profile);
-                done(null, profile);
-            }));
+        {
+            "clientID": process.env.MICROSOFT_CLIENT_ID,
+            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+            "resource": "https://graph.microsoft.com/",
+            "tenant": process.env.MICROSOFT_TENANT_ID,
+            "prompt": "login",
+            "state": false,
+            "type": "Web",
+            "scope": ["user.read"]
+        }, async (token, tokenSecret, profile, done) =>  {
+            authenticated = true;
+            console.log("token", token);
+            console.log("tokenSecret");
+            console.log("profile", profile);
+            done(null, profile);
+        }));
 
-            await local.pass[0].serializeUser(function(user, done) {
+        await local.pass[0].serializeUser(function(user, done) {
             done(null, user);
         });
 
@@ -193,7 +195,7 @@ async function partTwo(req, res, next) {
     await local.pass[0].authenticate('microsoft', { failureRedirect: '/login' })
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, partTwo, async function(req, res, next) {
+local.dyRouter.all('/*', setup, dynamicPassportConfig, partTwo, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
