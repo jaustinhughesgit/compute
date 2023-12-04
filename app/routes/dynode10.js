@@ -8,8 +8,6 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-const pass = require('passport');
-const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -135,6 +133,7 @@ async function firstLoad(req, res, next){
 }
 async function secondLoad(req, res, next){
     pass.authenticate('microsoft', { failureRedirect: '/login' })
+    next();
 }
 local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
