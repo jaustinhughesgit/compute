@@ -8,8 +8,6 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-local.pass = []// = require('passport');
-local.MicrosoftStrategy = []//= require('passport-microsoft').Strategy;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -146,58 +144,36 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 });
 */
 
-let authenticated = false;
-async function setup(req, res, next) {
-    await local.pass.push(require('passport'));
-    await local.MicrosoftStrategy.push(require('passport-microsoft').Strategy);
-    next();
-}
-async function dynamicPassportConfig(req, res, next) {
-    req.foo = "bar";  // Attach 'foo' to the request object
-    if (!req.passportConfigured) {
-        await local.pass[0].use(new local.MicrosoftStrategy[0](
-        {
-            "clientID": process.env.MICROSOFT_CLIENT_ID,
-            "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-            "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-            "resource": "https://graph.microsoft.com/",
-            "tenant": process.env.MICROSOFT_TENANT_ID,
-            "prompt": "login",
-            "state": false,
-            "type": "Web",
-            "scope": ["user.read"]
-        }, async (token, tokenSecret, profile, done) =>  {
-            authenticated = true;
-            console.log("token", token);
-            console.log("tokenSecret");
-            console.log("profile", profile);
-            done(null, profile);
-        }));
+local.dyRouter.all('/*', (req, res, next) => {
+    // Dynamically require and set passport and MicrosoftStrategy
+    local.passport = require('passport');
+    local.MicrosoftStrategy = require('passport-microsoft').Strategy;
 
-        await local.pass[0].serializeUser(function(user, done) {
-            done(null, user);
-        });
+    // Configure Passport with the Microsoft strategy
+    local.passport.use(new local.MicrosoftStrategy({
+        // ... configuration ...
+    }, (accessToken, refreshToken, profile, done) => {
+        done(null, profile);
+    }));
 
-        await local.pass[0].deserializeUser(function(user, done) {
-            done(null, user);
-        });
+    local.passport.serializeUser((user, done) => {
+        done(null, user);
+    });
 
-        await local.dyRouter.use(local.pass[0].initialize());
-        await local.dyRouter.use(local.pass[0].session());
-        console.log ("req.isAuthenticated", req.isAuthenticated())
-        req.passportConfigured = true; // Mark passport as configured
-        
-    }
-    next();
-}
+    local.passport.deserializeUser((user, done) => {
+        done(null, user);
+    });
 
-async function partTwo(req, res, next) {
-    await local.pass[0].authenticate('microsoft', { failureRedirect: '/login' })
-}
+    // Initialize Passport and add it to the request handling chain
+    app.use(local.passport.initialize());
+    app.use(local.passport.session());
 
-local.dyRouter.all('/*', setup, dynamicPassportConfig, partTwo, async function(req, res, next) {
-    console.log("========>",req.isAuthenticated())
-    res.send('Protected Option 1');
+    // Proceed with the authentication
+    local.passport.authenticate('microsoft', { failureRedirect: '/login' })(req, res, next);
+}, (req, res) => {
+    // Handle the response after authentication
+    console.log(res.isAuthenticated());
+    res.send('Authenticated with dynamic strategy');
 });
 
 function testFunction(){
