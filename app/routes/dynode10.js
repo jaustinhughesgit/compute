@@ -287,7 +287,20 @@ async function initializeModules(context, config, req, res, next) {
                     });
                 }
                 console.log("typeof moduleInstance", typeof moduleInstance)
-                let result = typeof moduleInstance === 'function' ? moduleInstance(...args) : moduleInstance;
+                console.log("action.method", action.method)
+                console.log("moduleInstance", moduleInstance)
+                let result
+                    if (typeof moduleInstance === 'function'){
+                        console.log(args);
+                        if (args.length == 0){
+                            result = moduleInstance;
+                        } else {
+                            result = moduleInstance(...args)
+                        }
+                    } else {
+                        result = moduleInstance;
+                    }
+                console.log("result", result);
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assignTo) {
                     if (action.assignTo.includes('{{')) {
