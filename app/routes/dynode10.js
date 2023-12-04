@@ -189,11 +189,17 @@ local.dyRouter.all('/*', async function(req, res, next) {
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     next();
 }, async (req, res, next) => {
+    local.req = req;
+    local.res = res;
+    local.console = console;
     await initializeModules(local.context, json[0], req, res, next);
     console.log(req.isAuthenticated())
     console.log("done")
     next()
 },async (req, res, next) => {
+    local.req = req;
+    local.res = res;
+    local.console = console;
     await initializeModules(local.context, json[1], req, res, next);
     console.log("done")
 }
