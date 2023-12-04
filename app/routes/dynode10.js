@@ -181,12 +181,7 @@ let middlewareFunctions = json.map(stepConfig => {
     };
 });
 
-local.dyRouter.all('/*', async function(req, res, next) {
-    local.req = req;
-    local.res = res;
-    local.console = console;
-    next();
-}, ...middlewareFunctions);
+local.dyRouter.all('/*', ...middlewareFunctions);
 
 function testFunction(){
     return "hello world"
