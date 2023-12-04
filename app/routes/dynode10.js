@@ -8,8 +8,8 @@ local.unzipper = require('unzipper');
 local.fs = require('fs');
 local.session = require('express-session');
 local.s3 = new local.AWS.S3();
-local.pass = {}// = require('passport');
-local.MicrosoftStrategy = {}//= require('passport-microsoft').Strategy;
+local.pass = []// = require('passport');
+local.MicrosoftStrategy = []//= require('passport-microsoft').Strategy;
 
 local.dyRouter.use(local.session({
     secret: process.env.SESSION_SECRET,
@@ -149,11 +149,11 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 let authenticated = false;
 function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
-    local.pass = require('passport');
-    local.MicrosoftStrategy = require('passport-microsoft').Strategy;
+    local.pass.push(require('passport'));
+    local.MicrosoftStrategy.push(require('passport-microsoft').Strategy);
     if (!req.passportConfigured) {
 
-        local.pass.use(new local.MicrosoftStrategy(
+        local.pass[0].use(new local.MicrosoftStrategy[0](
             {
                 "clientID": process.env.MICROSOFT_CLIENT_ID,
                 "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
@@ -172,16 +172,16 @@ function dynamicPassportConfig(req, res, next) {
                 done(null, profile);
             }));
 
-            local.pass.serializeUser(function(user, done) {
+            local.pass[0].serializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.pass.deserializeUser(function(user, done) {
+        local.pass[0].deserializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.dyRouter.use(local.pass.initialize());
-        local.dyRouter.use(local.pass.session());
+        local.dyRouter.use(local.pass[0].initialize());
+        local.dyRouter.use(local.pass[0].session());
         console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
         
@@ -189,7 +189,7 @@ function dynamicPassportConfig(req, res, next) {
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, local.pass.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
+local.dyRouter.all('/*', dynamicPassportConfig, local.pass[0].authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
