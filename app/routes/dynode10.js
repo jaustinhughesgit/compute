@@ -170,6 +170,9 @@ const json = [
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
+        local.req = req;
+        local.res = res;
+        local.console = console;
         local.context = await processConfig(stepConfig, local.context);
         local.context["urlpath"] = req.path
         local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
@@ -178,11 +181,9 @@ let middlewareFunctions = json.map(stepConfig => {
 });
 
 local.dyRouter.all('/*', async function(req, res, next) {
-    local.req = req;
-    local.res = res;
-    local.console = console;
     next();
 }, ...middlewareFunctions, async (req, res, next) => {
+    console.log(req.isAuthenticated())
     console.log("done")
 });
 
