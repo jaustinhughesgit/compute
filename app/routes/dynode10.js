@@ -147,13 +147,13 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
 */
 
 let authenticated = false;
-function dynamicPassportConfig(req, res, next) {
+async function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
-    local.pass.push(require('passport'));
-    local.MicrosoftStrategy.push(require('passport-microsoft').Strategy);
+    await local.pass.push(require('passport'));
+    await local.MicrosoftStrategy.push(require('passport-microsoft').Strategy);
     if (!req.passportConfigured) {
 
-        local.pass[0].use(new local.MicrosoftStrategy[0](
+        await local.pass[0].use(new local.MicrosoftStrategy[0](
             {
                 "clientID": process.env.MICROSOFT_CLIENT_ID,
                 "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
@@ -180,8 +180,8 @@ function dynamicPassportConfig(req, res, next) {
             done(null, user);
         });
 
-        local.dyRouter.use(local.pass[0].initialize());
-        local.dyRouter.use(local.pass[0].session());
+        await local.dyRouter.use(local.pass[0].initialize());
+        await local.dyRouter.use(local.pass[0].session());
         console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
         
