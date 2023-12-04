@@ -35,6 +35,7 @@ const json = {
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
+                {"method":"{{logThis}}", "params":[true,"{profile}"]},
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
@@ -118,6 +119,10 @@ async function firstLoad(req, res, next){
     local.context = await processConfig(json);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+    local.context["logThis"] = (auth, profile) => {
+        console.log("~~  auth:", auth);
+        console.log("~~ profile:", profile)
+    }
     await initializeModules(local.context, json, req, res, next);
     local.context.passport.serializeUser(function(user, done) {
         done(null, user);
