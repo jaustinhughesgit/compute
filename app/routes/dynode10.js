@@ -170,7 +170,7 @@ const json = [
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
-        local.context = await processConfig(stepConfig);
+        local.context = await processConfig(stepConfig, local.context);
         local.context["urlpath"] = req.path
         local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(local.context, stepConfig, req, res, next);
