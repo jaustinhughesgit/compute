@@ -139,7 +139,14 @@ const json = {
                 {"method":"authenticate", "params":["microsoft"], "express":true},
             ],
             "assignTo":"newAuthentication"
-        },
+        }
+    ]
+}
+
+const json2 = {
+    "modules": {
+    },
+    "actions": [
         {
             //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
@@ -168,6 +175,10 @@ local.dyRouter.all('/*', async function(req, res, next) {
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(local.context, json, req, res, next);
+    console.log("part 1")
+},async (req, res, next) => {
+    console.log("part 2")
+    await initializeModules(local.context, json2, req, res, next);
     console.log("done")
 });
 
