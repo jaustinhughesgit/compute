@@ -141,7 +141,7 @@ const json = {
             "assignTo":"newAuthentication"
         },
         {
-            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+            //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"req",
             "chain":[
                 {"method":"isAuthenticated", "params":[]}
