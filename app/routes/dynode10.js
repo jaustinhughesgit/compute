@@ -16,7 +16,7 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
-/*
+
 const json = {
     "modules": {
         "passport":"passport",
@@ -28,10 +28,10 @@ const json = {
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"{{passport}}"
+            "assignTo":"passport"
         },
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
             "run":[
@@ -40,7 +40,7 @@ const json = {
             "assignTo":"callbackFunction"
         },
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
             "chain":[
                {"method":"Strategy", "params":[
@@ -61,12 +61,76 @@ const json = {
             "assignTo":"passportmicrosoft"
         },
         {
-            "if":["{{urlpath}}","!=","/microsoft/callback"],
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"{{passport}}",
             "chain":[
                 {"method":"use", "params":["{{passportmicrosoft}}"]}
             ],
             "assignTo":"newStrategy"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "params":["{user}", "{done}"], 
+            "chain":[],
+            "run":[
+                {"method":"{done}", "params":[null, "{user}"]}
+            ],
+            "assignTo":"serializeFunction"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"{{passport}}",
+            "chain":[
+                {"method":"serializeUser", "params":["{{serializeFunction}}"]}
+            ],
+            "assignTo":"serializeUser"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "params":["{user}", "{done}"], 
+            "chain":[],
+            "run":[
+                {"method":"{done}", "params":[null, "{user}"]}
+            ],
+            "assignTo":"deserializeFunction"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"{{passport}}",
+            "chain":[
+                {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
+            ],
+            "assignTo":"deserializeUser"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"{{passport}}",
+            "chain":[
+                {"method":"initialize", "params":[]}
+            ],
+            "assignTo":"passportInitialize"
+        },
+        {
+            "module":"dyRouter",
+            "chain":[
+                {"method":"use", "params":["{{passportInitialize}}"]}
+            ],
+            "assignTo":"{{runDyRouterInit}}"
+        },
+        {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"{{passport}}",
+            "chain":[
+                {"method":"session", "params":[]}
+            ],
+            "assignTo":"passportSession"
+        },
+        {
+            "module":"dyRouter",
+            "chain":[
+                {"method":"use", "params":["{{passportSession}}"]}
+            ],
+            "assignTo":"{{runDyRouterSession}}"
         },
         {
             //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
@@ -84,15 +148,7 @@ const json = {
             ],
             "express":true,
             "assignTo":"{{isAuth}}"
-        }
-    ]
-}
-*/
-/*
-const json2 = {
-    "modules": {
-    },
-    "actions": [
+        },
         {
             "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
             "module":"res",
@@ -103,7 +159,8 @@ const json2 = {
         }
     ]
 }
-async function firstLoad(req, res, next){
+
+local.dyRouter.all('/*', async function(req, res, next) {
     local.req = req;
     local.res = res;
     local.console = console;
@@ -111,77 +168,7 @@ async function firstLoad(req, res, next){
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     await initializeModules(local.context, json, req, res, next);
-    next();
-}
-local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
-
-        console.log("req 1 >>>>>>>>>>",req)
-
-        local.context.passport.serializeUser(function(user, done) {
-            done(null, user);
-        });
-
-        local.context.passport.deserializeUser(function(user, done) {
-            done(null, user);
-        });
-
-        local.dyRouter.use(local.context.passport.initialize());
-        local.dyRouter.use(local.context.passport.session());
-        console.log("context", local.context)
-        console.log("pass", JSON.stringify(local.context.passport))
-        console.log("isAuthenticated",req.isAuthenticated())
-        console.log("req 2 >>>>>>>>>>",JSON.stringify(req))
-        //const passport2 = require('passport');
-    
-    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' }),
-  function(req, res) {
-    // Successful authentication, redirect home.
-    res.redirect('/');
-  }
-    await initializeModules(local.context, json2, req, res, next);
-    
     console.log("done")
-});
-*/
-
-local.dyRouter.all('/*', (req, res, next) => {
-    // Dynamically require and set passport and MicrosoftStrategy
-    local.passport = require('passport');
-    local.MicrosoftStrategy = require('passport-microsoft').Strategy;
-
-    // Configure Passport with the Microsoft strategy
-    local.passport.use(new local.MicrosoftStrategy({
-        "clientID": process.env.MICROSOFT_CLIENT_ID,
-        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-        "resource": "https://graph.microsoft.com/",
-        "tenant": process.env.MICROSOFT_TENANT_ID,
-        "prompt": "login",
-        "state": false,
-        "type": "Web",
-        "scope": ["user.read"]
-    }, (accessToken, refreshToken, profile, done) => {
-        done(null, profile);
-    }));
-
-    local.passport.serializeUser((user, done) => {
-        done(null, user);
-    });
-
-    local.passport.deserializeUser((user, done) => {
-        done(null, user);
-    });
-
-    // Initialize Passport and add it to the request handling chain
-    local.dyRouter.use(local.passport.initialize());
-    local.dyRouter.use(local.passport.session());
-
-    // Proceed with the authentication
-    local.passport.authenticate('microsoft', { failureRedirect: '/login' })(req, res, next);
-}, (req, res) => {
-    // Handle the response after authentication
-    console.log(req.isAuthenticated());
-    res.send('Authenticated with dynamic strategy');
 });
 
 function testFunction(){
