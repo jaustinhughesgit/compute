@@ -197,11 +197,8 @@ local.dyRouter.all('/*', async function(req, res, next) {
     console.log("done")
     next()
 },async (req, res, next) => {
-    local.req = req;
-    local.res = res;
-    local.console = console;
-    await initializeModules(local.context, json[1], req, res, next);
-    console.log("done")
+    console.log(req.isAuthenticated());
+    res.send('Authenticated with dynamic strategy');
 }
 );
 
