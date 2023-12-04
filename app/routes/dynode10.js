@@ -49,6 +49,9 @@ const json = [
                     { "method": "add", "params": [1, "hours"] },
                     { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
                 ]
+            },
+            {
+                "next":true
             }
         ]
     },
