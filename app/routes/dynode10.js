@@ -139,7 +139,7 @@ const json = [
                 "chain":[
                     {"method":"authenticate", "params":["microsoft"], "express":true},
                 ],
-                "assignTo":"newAuthentication"
+                "assignTo":"{newAuthentication}!"
             }
         ]
     },
@@ -157,7 +157,7 @@ const json = [
                 "assignTo":"{{isAuth}}"
             },
             {
-                "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+                //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
                 "module":"res",
                 "chain":[
                     {"method":"json", "params":["{{}}"]}
@@ -181,11 +181,23 @@ let middlewareFunctions = json.map(stepConfig => {
 });
 
 local.dyRouter.all('/*', async function(req, res, next) {
+    local.req = req;
+    local.res = res;
+    local.console = console;
+    local.context = await processConfig(json[0], local.context);
+    local.context["urlpath"] = req.path
+    local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
     next();
-}, ...middlewareFunctions, async (req, res, next) => {
+}, async (req, res, next) => {
+    await initializeModules(local.context, json[0], req, res, next);
     console.log(req.isAuthenticated())
     console.log("done")
-});
+    next()
+},async (req, res, next) => {
+    await initializeModules(local.context, json[1], req, res, next);
+    console.log("done")
+}
+);
 
 function testFunction(){
     return "hello world"
