@@ -192,9 +192,10 @@ local.dyRouter.all('/*', async function(req, res, next) {
     await initializeModules(local.context, json[0], req, res, next);
     //next()
 },async (req, res, next) => {
-    console.log(req.isAuthenticated())
-    console.log("done")
     await initializeModules(local.context, json[1], req, res, next);
+    console.log("done")
+},async (req, res) => {
+    console.log(req.isAuthenticated())
     console.log("done")
 }
 );
