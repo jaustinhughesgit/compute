@@ -17,7 +17,7 @@ local.dyRouter.use(local.session({
 }));
 
 const json = [
-    {
+    /*{
         "modules": {
             "moment-timezone": "moment-timezone"
         },
@@ -109,7 +109,7 @@ const json = [
                 "assignTo":"customFunction"
             }
         ]
-    },
+    },*/
     {
         "modules": {
             "passport":"passport",
@@ -262,7 +262,6 @@ const json = [
     }
 ]
 
-let firstCall = 0
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         local.req = req;
@@ -272,10 +271,6 @@ let middlewareFunctions = json.map(stepConfig => {
         local.context["urlpath"] = req.path
         local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(local.context, stepConfig, req, res, next);
-        if (firstCall < 3){
-            next();
-            firstCall++;
-        }
     };
 });
 
