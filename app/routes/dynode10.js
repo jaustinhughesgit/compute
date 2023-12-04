@@ -180,7 +180,7 @@ function dynamicPassportConfig(req, res, next) {
 
         local.dyRouter.use(passport.initialize());
         local.dyRouter.use(passport.session());
-
+        console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
     }
     next();
