@@ -160,11 +160,13 @@ async function firstLoad(req, res, next){
 
     local.dyRouter.use(local.context.passport.initialize());
     local.dyRouter.use(local.context.passport.session());
+    console.log("firstLoad")
     next();
 }
 async function secondLoad(req, res, next){
+    console.log("secondLoad1")
     local.context.passport.authenticate('microsoft', { failureRedirect: '/login' })
-    next();
+    console.log("secondLoad2")
 }
 local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
