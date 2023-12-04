@@ -28,7 +28,7 @@ const json = {
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"{{passport}}"
+            "assignTo":"passport"
         },
         {
             //"if":["{{urlpath}}","!=","/microsoft/callback"],
