@@ -145,7 +145,7 @@ local.dyRouter.all('/*', firstLoad, async function(req, res, next) {
     console.log("done")
 });
 */
-var pass;
+
 let authenticated = false;
 function dynamicPassportConfig(req, res, next) {
     req.foo = "bar";  // Attach 'foo' to the request object
