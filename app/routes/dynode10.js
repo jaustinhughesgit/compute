@@ -150,9 +150,6 @@ async function firstLoad(req, res, next){
             done(null, profile);
         }));
 
-        pass.serializeUser(function(user, done) {
-        done(null, user);
-    });
     local.context.passport.serializeUser(function(user, done) {
         done(null, user);
     });
