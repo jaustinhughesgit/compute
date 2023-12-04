@@ -28,14 +28,14 @@ const json = {
             "module":"passport",
             "chain":[
             ],
-            "assignTo":"passport"
+            "assignTo":"{{passport}}"
         },
         {
             //"if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
             "chain":[
             ],
-            "assignTo":"passport-microsoft"
+            "assignTo":"{{passport-microsoft}}"
         },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -166,7 +166,10 @@ async function firstLoad(req, res, next){
 async function secondLoad(req, res, next){
     console.log("secondLoad1")
     local.context.passport.authenticate('microsoft', { failureRedirect: '/login' })
+    console.log("========>",req.isAuthenticated())
+
     console.log("secondLoad2")
+    next();
 }
 local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
