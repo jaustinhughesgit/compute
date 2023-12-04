@@ -17,155 +17,162 @@ local.dyRouter.use(local.session({
 }));
 
 
-const json = {
-    "modules": {
-        "passport":"passport",
-        "passport-microsoft":"passport-microsoft"
+const json = [
+    {
+        "modules": {
+            "passport":"passport",
+            "passport-microsoft":"passport-microsoft"
+        },
+        "actions": [
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"passport",
+                "chain":[
+                ],
+                "assignTo":"passport"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+                "chain":[],
+                "run":[
+                    {"method":"{done}", "params":[null, "{profile}"]}
+                ],
+                "assignTo":"callbackFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"passport-microsoft",
+                "chain":[
+                {"method":"Strategy", "params":[
+                    {
+                        "clientID": process.env.MICROSOFT_CLIENT_ID,
+                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                        "resource": "https://graph.microsoft.com/",
+                        "tenant": process.env.MICROSOFT_TENANT_ID,
+                        "prompt": "login",
+                        "state": false,
+                        "type": "Web",
+                        "scope": ["user.read"]
+                    },"{{callbackFunction}}"
+                ],
+                    "new":true}
+                ],
+                "assignTo":"passportmicrosoft"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"use", "params":["{{passportmicrosoft}}"]}
+                ],
+                "assignTo":"newStrategy"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "params":["{user}", "{done}"], 
+                "chain":[],
+                "run":[
+                    {"method":"{done}", "params":[null, "{user}"]}
+                ],
+                "assignTo":"serializeFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"serializeUser", "params":["{{serializeFunction}}"]}
+                ],
+                "assignTo":"serializeUser"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "params":["{user}", "{done}"], 
+                "chain":[],
+                "run":[
+                    {"method":"{done}", "params":[null, "{user}"]}
+                ],
+                "assignTo":"deserializeFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
+                ],
+                "assignTo":"deserializeUser"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"initialize", "params":[]}
+                ],
+                "assignTo":"passportInitialize"
+            },
+            {
+                "module":"dyRouter",
+                "chain":[
+                    {"method":"use", "params":["{{passportInitialize}}"]}
+                ],
+                "assignTo":"{{runDyRouterInit}}"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"session", "params":[]}
+                ],
+                "assignTo":"passportSession"
+            },
+            {
+                "module":"dyRouter",
+                "chain":[
+                    {"method":"use", "params":["{{passportSession}}"]}
+                ],
+                "assignTo":"{{runDyRouterSession}}"
+            },
+            {
+                //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
+                "module":"{{passport}}",
+                "chain":[
+                    {"method":"authenticate", "params":["microsoft"], "express":true},
+                ],
+                "assignTo":"newAuthentication"
+            }
+        ]
     },
-    "actions": [
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport",
-            "chain":[
-            ],
-            "assignTo":"passport"
+    {
+        "modules": {
         },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-            "chain":[],
-            "run":[
-                {"method":"{done}", "params":[null, "{profile}"]}
-            ],
-            "assignTo":"callbackFunction"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"passport-microsoft",
-            "chain":[
-               {"method":"Strategy", "params":[
-                {
-                    "clientID": process.env.MICROSOFT_CLIENT_ID,
-                    "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                    "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                    "resource": "https://graph.microsoft.com/",
-                    "tenant": process.env.MICROSOFT_TENANT_ID,
-                    "prompt": "login",
-                    "state": false,
-                    "type": "Web",
-                    "scope": ["user.read"]
-                },"{{callbackFunction}}"
-               ],
-                "new":true}
-            ],
-            "assignTo":"passportmicrosoft"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"use", "params":["{{passportmicrosoft}}"]}
-            ],
-            "assignTo":"newStrategy"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "params":["{user}", "{done}"], 
-            "chain":[],
-            "run":[
-                {"method":"{done}", "params":[null, "{user}"]}
-            ],
-            "assignTo":"serializeFunction"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"serializeUser", "params":["{{serializeFunction}}"]}
-            ],
-            "assignTo":"serializeUser"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "params":["{user}", "{done}"], 
-            "chain":[],
-            "run":[
-                {"method":"{done}", "params":[null, "{user}"]}
-            ],
-            "assignTo":"deserializeFunction"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
-            ],
-            "assignTo":"deserializeUser"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"initialize", "params":[]}
-            ],
-            "assignTo":"passportInitialize"
-        },
-        {
-            "module":"dyRouter",
-            "chain":[
-                {"method":"use", "params":["{{passportInitialize}}"]}
-            ],
-            "assignTo":"{{runDyRouterInit}}"
-        },
-        {
-            //"if":["{{urlpath}}","!=","/microsoft/callback"],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"session", "params":[]}
-            ],
-            "assignTo":"passportSession"
-        },
-        {
-            "module":"dyRouter",
-            "chain":[
-                {"method":"use", "params":["{{passportSession}}"]}
-            ],
-            "assignTo":"{{runDyRouterSession}}"
-        },
-        {
-            //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
-            "module":"{{passport}}",
-            "chain":[
-                {"method":"authenticate", "params":["microsoft"], "express":true},
-            ],
-            "assignTo":"newAuthentication"
-        }
-    ]
-}
+        "actions": [
+            {
+                //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+                "module":"req",
+                "chain":[
+                    {"method":"isAuthenticated", "params":[]}
+                ],
+                "express":true,
+                "assignTo":"{{isAuth}}"
+            },
+            {
+                "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+                "module":"res",
+                "chain":[
+                    {"method":"json", "params":["{{}}"]}
+                ],
+                "assignTo":"{{getJson}}!"
+            }
+        ]
+    }
+]
 
-const json2 = {
-    "modules": {
-    },
-    "actions": [
-        {
-            //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "module":"req",
-            "chain":[
-                {"method":"isAuthenticated", "params":[]}
-            ],
-            "express":true,
-            "assignTo":"{{isAuth}}"
-        },
-        {
-            "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
-            "module":"res",
-            "chain":[
-                {"method":"json", "params":["{{}}"]}
-            ],
-            "assignTo":"{{getJson}}!"
-        }
-    ]
-}
+let middlewareFunctions = json.map(stepConfig => {
+    return async (req, res, next) => {
+        await initializeModules(local.context, stepConfig, req, res, next);
+    };
+});
 
 local.dyRouter.all('/*', async function(req, res, next) {
     local.req = req;
@@ -174,11 +181,7 @@ local.dyRouter.all('/*', async function(req, res, next) {
     local.context = await processConfig(json);
     local.context["urlpath"] = req.path
     local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-    await initializeModules(local.context, json, req, res, next);
-    console.log("part 1")
-},async (req, res, next) => {
-    console.log("part 2")
-    await initializeModules(local.context, json2, req, res, next);
+}, ...middlewareFunctions, async (req, res, next) => {
     console.log("done")
 });
 
@@ -333,6 +336,7 @@ async function initializeModules(context, config, req, res, next) {
             }
         }
     }
+    next();
 }
 
 function createFunctionFromAction(action, context, req, res, next) {
