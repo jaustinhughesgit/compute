@@ -182,11 +182,12 @@ function dynamicPassportConfig(req, res, next) {
         local.dyRouter.use(passport.session());
         console.log ("req.isAuthenticated", req.isAuthenticated())
         req.passportConfigured = true; // Mark passport as configured
+        
     }
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, async function(req, res, next) {
+local.dyRouter.all('/*', dynamicPassportConfig, passport.authenticate('microsoft', { failureRedirect: '/login' }), async function(req, res, next) {
     console.log(req.isAuthenticated())
     res.send('Protected Option 1');
 });
