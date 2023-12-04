@@ -164,7 +164,7 @@ async function dynamicPassportConfig(req, res, next) {
                 "state": false,
                 "type": "Web",
                 "scope": ["user.read"]
-            }, (token, tokenSecret, profile, done) => {
+            }, async (token, tokenSecret, profile, done) =>  {
                 authenticated = true;
                 console.log("token", token);
                 console.log("tokenSecret");
@@ -172,11 +172,11 @@ async function dynamicPassportConfig(req, res, next) {
                 done(null, profile);
             }));
 
-            local.pass[0].serializeUser(function(user, done) {
+            await local.pass[0].serializeUser(function(user, done) {
             done(null, user);
         });
 
-        local.pass[0].deserializeUser(function(user, done) {
+        await local.pass[0].deserializeUser(function(user, done) {
             done(null, user);
         });
 
@@ -189,8 +189,11 @@ async function dynamicPassportConfig(req, res, next) {
     next();
 }
 
-local.dyRouter.all('/*', dynamicPassportConfig, async function(req, res, next) {
+async function partTwo(req, res, next) {
     await local.pass[0].authenticate('microsoft', { failureRedirect: '/login' })
+}
+
+local.dyRouter.all('/*', dynamicPassportConfig, partTwo, async function(req, res, next) {
     console.log("========>",req.isAuthenticated())
     res.send('Protected Option 1');
 });
