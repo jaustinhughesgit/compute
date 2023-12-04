@@ -31,6 +31,13 @@ const json = {
             "assignTo":"passport"
         },
         {
+            //"if":["{{urlpath}}","!=","/microsoft/callback"],
+            "module":"passport-microsoft",
+            "chain":[
+            ],
+            "assignTo":"passport-microsoft"
+        },
+        {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
             "chain":[],
@@ -39,7 +46,7 @@ const json = {
                 {"method":"{done}", "params":[null, "{profile}"]}
             ],
             "assignTo":"callbackFunction"
-        },
+        }/*,
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"passport-microsoft",
@@ -60,7 +67,7 @@ const json = {
                 "new":true}
             ],
             "assignTo":"passportmicrosoft"
-        }/*,
+        },
         {
             "if":["{{urlpath}}","!=","/microsoft/callback"],
             "module":"{{passport}}",
@@ -124,7 +131,7 @@ async function firstLoad(req, res, next){
         console.log("~~ profile:", profile)
     }
     await initializeModules(local.context, json, req, res, next);
-    local.context.passport.use(new local.context.passport-microsoft.Strategy(
+    local.context.passport.use(new local.context["passport-microsoft"].Strategy(
         {
             "clientID": process.env.MICROSOFT_CLIENT_ID,
             "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
