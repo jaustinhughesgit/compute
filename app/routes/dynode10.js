@@ -151,7 +151,15 @@ local.dyRouter.all('/*', (req, res, next) => {
 
     // Configure Passport with the Microsoft strategy
     local.passport.use(new local.MicrosoftStrategy({
-        // ... configuration ...
+        "clientID": process.env.MICROSOFT_CLIENT_ID,
+        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
+        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+        "resource": "https://graph.microsoft.com/",
+        "tenant": process.env.MICROSOFT_TENANT_ID,
+        "prompt": "login",
+        "state": false,
+        "type": "Web",
+        "scope": ["user.read"]
     }, (accessToken, refreshToken, profile, done) => {
         done(null, profile);
     }));
