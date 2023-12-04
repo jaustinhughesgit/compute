@@ -49,7 +49,15 @@ const json = [
                     { "method": "add", "params": [1, "hours"] },
                     { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
                 ]
-            },
+            }
+        ]
+    },
+    {
+        "modules": {
+            "moment-timezone": "moment-timezone"
+        },
+        "actions": [
+
             {
                 "module": "moment-timezone",
                 "assignTo": "justTime2",
