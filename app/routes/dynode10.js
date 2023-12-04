@@ -387,6 +387,10 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
+                    } else if (runAction.method.startsWith('{{') && runAction.method.endsWith('}}')) {
+                        const methodName = runAction.method.slice(2, -2);
+                        result = context[methodName](...runParams);
+                        
                     }
                 }
             }
