@@ -132,7 +132,7 @@ async function firstLoad(req, res, next){
     next();
 }
 async function secondLoad(req, res, next){
-    pass.authenticate('microsoft', { failureRedirect: '/login' })
+    local.context.passport.authenticate('microsoft', { failureRedirect: '/login' })
     next();
 }
 local.dyRouter.all('/*', firstLoad, secondLoad, async function(req, res, next) {
