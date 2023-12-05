@@ -38,7 +38,24 @@ const json = [
         },
         actions: [
             {
-                "set":{".AAAAAAA":true}
+                set:{".AAAAAAA":true}
+            },
+            {
+                params: ["{test}"],
+                assing:"testing"
+            },
+            {
+                params:[],
+                run:[
+                    {method:"{{testing}}", params:["123"]}
+                ],
+                assign:"run123"
+            }
+            {
+                module:"console",
+                chain:[
+                    {method:"log", params:["{{run123}}"]}
+                ]
             },
             {
                 "if":["{{urlpath}}","==","/hello"],
@@ -490,9 +507,7 @@ async function initializeModules(context, config, req, res, next) {
         let runAction = true
         if (action.if) {
                 runAction = condition(action.if[0],action.if[1],action.if[2], action.if[3], context)
-        }
-
-        if (action.ifs) {
+        } else if (action.ifs) {
                 for (const ifObject of action.ifs){
                     runAction = condition(ifObject[0],ifObject[1],ifObject[2], ifObject[3], context)
                     if (!runAction){
@@ -502,34 +517,10 @@ async function initializeModules(context, config, req, res, next) {
         }
         
         if (runAction){
-            if (action.next){
-                next();
-            }
             if (action.set){
                 for (key in action.set){
                     context[key] = replacePlaceholders(action.set[key], context)
                 }
-            }
-
-            if (action.execute) {
-                const functionName = action.execute;
-                if (typeof context[functionName] === 'function') {
-                    if (action.express){
-                        await context[functionName](req, res, next);
-                        console.log("deep other auth =>", req.isAuthenticated())
-                    } else {
-                        await context[functionName]
-                    }
-                    continue;
-                } else {
-                    console.error(`No function named ${functionName} found in context`);
-                    continue;
-                }
-            }
-
-            if (!action.module && action.assign && action.params && action.chain) {
-                context[action.assign] = createFunctionFromAction(action, context, req, res, next)
-                continue;
             }
 
             if (action.module){
@@ -590,6 +581,28 @@ async function initializeModules(context, config, req, res, next) {
                         context[action.assign] = result;
                     }
                 }
+            } else if (action.assign && action.params) {
+                context[action.assign] = createFunctionFromAction(action, context, req, res, next)
+                continue;
+            }
+
+            if (action.execute) {
+                const functionName = action.execute;
+                if (typeof context[functionName] === 'function') {
+                    if (action.express){
+                        await context[functionName](req, res, next);
+                    } else {
+                        await context[functionName]
+                    }
+                    continue;
+                } else {
+                    console.error(`No function named ${functionName} found in context`);
+                    continue;
+                }
+            }
+
+            if (action.next){
+                next();
             }
         }
     }
