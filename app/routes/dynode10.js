@@ -35,6 +35,14 @@ const json = [
                     {method:"log", params:["{{run123}}!"]}
                 ],
                 assign:"{{runNow}}!"
+            },
+            {
+                "if":["{{urlpath}}","==","/hello"],
+                module:"res",
+                chain:[
+                    {method:"json", params:["{{}}"]}
+                ],
+                assign:"{{getJson}}!"
             }
         ]
     }
