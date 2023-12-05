@@ -54,9 +54,9 @@ const json = [
                 "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
                 module:"res",
                 chain:[
-                    {method:"send", params:["New Auth Hello!"]}
+                    {method:"send", params:["Is this authenticated? {{newAuth}}"]}
                 ],
-                assign:"hello"
+                assign:"{{hello}}!"
             },
             {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
