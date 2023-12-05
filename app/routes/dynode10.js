@@ -48,13 +48,14 @@ const json = [
                 "module":"console",
                 "chain":[
                     {"method":"log", "params":["{{newAuth}}"]}
-                ]
+                ],
+                "assign":"logAuth"
             },
             {
                 "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
                 module:"res",
                 chain:[
-                    {method:"send", params:["Is this authenticated? {{newAuth}}"]}
+                    {method:"send", params:["{{newAuth}}"]}
                 ],
                 assign:"{{hello}}!"
             },
