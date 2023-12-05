@@ -34,9 +34,28 @@ actions:
 const json = [
     {
        modules: {
-            "moment-timezone": "moment-timezone"
+            "passport": "passport"
         },
         actions: [
+            {
+                module:"passport",
+                chain:[],
+                assign:"passport"
+            },
+            {
+                module:"{{passport}}",
+                chain:[
+                    {method:"initialize", params:[]}
+                ],
+                assign:"passportInitialize"
+            },
+            {
+                module:"dyRouter",
+                chain:[
+                    {method:"use", params:["{{passportInitialize}}"]}
+                ],
+                assign:"{{runDyRouterInit}}"
+            },
             {
                 module:"req",
                 chain:[
