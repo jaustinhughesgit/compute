@@ -293,6 +293,14 @@ const json = [
                 ],
                 assign:"{{getJson}}!"
             }
+            {
+                "ifs":[["{{urlpath}}","==","/hello"]],
+                module:"res",
+                chain:[
+                    {method:"send", params:["Hello World!"]}
+                ],
+                assign:"hello"
+            }
         ]
     }
 ]
