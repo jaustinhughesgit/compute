@@ -38,11 +38,16 @@ const json = [
         },
         actions: [
             {
+                "set":{"AAAAAAA":true}
+            },
+            {
+                "if":["{{urlpath}}","==","/hello"],
                 module:"passport",
                 chain:[],
                 assign:"passport"
             },
             {
+                "if":["{{urlpath}}","==","/hello"],
                 module:"{{passport}}",
                 chain:[
                     {method:"initialize", params:[]}
@@ -50,6 +55,7 @@ const json = [
                 assign:"passportInitialize"
             },
             {
+                "if":["{{urlpath}}","==","/hello"],
                 module:"dyRouter",
                 chain:[
                     {method:"use", params:["{{passportInitialize}}"]}
@@ -57,6 +63,7 @@ const json = [
                 assign:"{{runDyRouterInit}}"
             },
             {
+                "if":["{{urlpath}}","==","/hello"],
                 module:"req",
                 chain:[
                     {method:"isAuthenticated", params:[]}
@@ -65,19 +72,13 @@ const json = [
                 assign:"{{isAuth}}"
             },
             {
+                "if":["{{urlpath}}","==","/hello"],
                 module:"res",
                 chain:[
                     {method:"json", params:["{{}}"]}
                 ],
                 assign:"{{getJson}}!"
-            }/*
-            {
-                "module":"console",
-                "chain":[
-                    {"method":"log", "params":["{{newAuth}}"]}
-                ],
-                "assign":"logAuth"
-            }*/
+            }
         ]
     }
 ]
