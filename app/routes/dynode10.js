@@ -45,6 +45,37 @@ const json = [
                 "assign":"{{newAuth}}!"
             },
             {
+                module:"res",
+                chain:[
+                    {method:"json", params:["{{}}"]}
+                ],
+                assign:"{{getJson}}!"
+            }/*
+            {
+                "module":"console",
+                "chain":[
+                    {"method":"log", "params":["{{newAuth}}"]}
+                ],
+                "assign":"logAuth"
+            }*/
+        ]
+    }
+]
+
+/*const json = [
+    {
+       modules: {
+            "moment-timezone": "moment-timezone"
+        },
+        actions: [
+            {
+                "medule":"req",
+                "chain":[
+                    {"method":"isAuthenticated", "params":[]}
+                ],
+                "assign":"{{newAuth}}!"
+            },
+            {
                 "module":"console",
                 "chain":[
                     {"method":"log", "params":["{{newAuth}}"]}
@@ -326,6 +357,8 @@ const json = [
         ]
     }
 ]
+*/
+
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
