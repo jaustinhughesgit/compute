@@ -42,15 +42,18 @@ const json = [
             },
             {
                 params: ["{test}"],
+                "chain":[
+                    {"return":"{test}"}
+                ],
                 assing:"testing"
             },
             {
                 params:[],
                 run:[
-                    {method:"{{testing}}", params:["123"]}
+                    {method:"{{testing}}!", params:["123"]}
                 ],
                 assign:"run123"
-            }
+            },
             {
                 module:"console",
                 chain:[
