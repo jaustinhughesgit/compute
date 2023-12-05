@@ -38,11 +38,12 @@ const json = [
         },
         actions: [
             {
-                "medule":"req",
-                "chain":[
-                    {"method":"isAuthenticated", "params":[]}
+                module:"req",
+                chain:[
+                    {method:"isAuthenticated", params:[]}
                 ],
-                "assign":"{{newAuth}}!"
+                express:true,
+                assign:"{{isAuth}}"
             },
             {
                 module:"res",
