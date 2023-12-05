@@ -33,15 +33,15 @@ actions:
 */
 const json = [
     {
-        "modules": {
+       modules: {
             "moment-timezone": "moment-timezone"
         },
-        "actions": [
+        actions: [
             {
                 "set":{"foo":"bar","bar":"{{foo}}"}
             },
             {
-                "module": "moment-timezone",
+                module: "moment-timezone",
                 "chain": [
                     { "method": "tz", "params": ["Asia/Dubai"] },
                     { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
@@ -49,7 +49,7 @@ const json = [
                 "assign": "timeInDubai"
             },
             {
-                "module": "moment-timezone",
+                module: "moment-timezone",
                 "assign": "justTime",
                 "from": ["{{timeInDubai}}!"],
                 "chain": [
@@ -57,7 +57,7 @@ const json = [
                 ]
             },
             {
-                "module": "moment-timezone",
+                module: "moment-timezone",
                 "assign": "timeInDubai2",
                 "from": ["{{timeInDubai}}"],
                 "chain": [
@@ -74,13 +74,13 @@ const json = [
 
 
     {
-        "modules": {
+       modules: {
             "moment-timezone": "moment-timezone"
         },
-        "actions": [
+        actions: [
 
             {
-                "module": "moment-timezone",
+                module: "moment-timezone",
                 "assign": "justTime2",
                 "from": ["{{timeInDubai2}}!"],
                 "chain": [
@@ -88,7 +88,7 @@ const json = [
                 ]
             },
             {
-                "module": "fs",
+                module: "fs",
                 "chain": [
                     {
                         "method": "readFileSync",
@@ -98,12 +98,12 @@ const json = [
                 "assign": "fileContents"
             },
             {
-                "module": "fs",
+                module: "fs",
                 "method": "writeFileSync",
                 "params": [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
             },
             {
-                "module": "fs",
+                module: "fs",
                 "chain": [
                     {
                         "method": "readFileSync",
@@ -113,7 +113,7 @@ const json = [
                 "assign": "tempFileContents"
             },
             {
-                "module": "s3",
+                module: "s3",
                 "chain": [
                     {
                         "method": "upload",
@@ -139,14 +139,14 @@ const json = [
 
 
     {
-        "modules": {
+       modules: {
             "passport":"passport",
             "passport-microsoft":"passport-microsoft"
         },
-        "actions": [
+        actions: [
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"passport",
+                module:"passport",
                 "chain":[
                 ],
                 "assign":"passport"
@@ -162,7 +162,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"passport-microsoft",
+                module:"passport-microsoft",
                 "chain":[
                 {"method":"Strategy", "params":[
                     {
@@ -183,7 +183,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"use", "params":["{{passportmicrosoft}}"]}
                 ],
@@ -200,7 +200,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"serializeUser", "params":["{{serializeFunction}}"]}
                 ],
@@ -217,7 +217,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
                 ],
@@ -225,14 +225,14 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"initialize", "params":[]}
                 ],
                 "assign":"passportInitialize"
             },
             {
-                "module":"dyRouter",
+                module:"dyRouter",
                 "chain":[
                     {"method":"use", "params":["{{passportInitialize}}"]}
                 ],
@@ -240,14 +240,14 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"session", "params":[]}
                 ],
                 "assign":"passportSession"
             },
             {
-                "module":"dyRouter",
+                module:"dyRouter",
                 "chain":[
                     {"method":"use", "params":["{{passportSession}}"]}
                 ],
@@ -255,7 +255,7 @@ const json = [
             },
             {
                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
-                "module":"{{passport}}",
+                module:"{{passport}}",
                 "chain":[
                     {"method":"authenticate", "params":["microsoft"], "express":true},
                 ],
@@ -266,14 +266,14 @@ const json = [
     
 
     {
-        "modules": {
+       modules: {
             "passport":"passport",
             "passport-microsoft":"passport-microsoft"
         },
-        "actions": [
+        actions: [
             {
                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                "module":"req",
+                module:"req",
                 "chain":[
                     {"method":"isAuthenticated", "params":[]}
                 ],
@@ -282,7 +282,7 @@ const json = [
             },
             {
                 "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                "module":"res",
+                module:"res",
                 "chain":[
                     {"method":"json", "params":["{{}}"]}
                 ],
