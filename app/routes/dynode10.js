@@ -38,7 +38,21 @@ const json = [
         },
         actions: [
             {
-                set:{"run123":true}
+                set:{"":true}
+            },
+            {
+                params: ["{test}"],
+                "chain":[
+                    {"return":"{test}"}
+                ],
+                assign:"testing"
+            },
+            {
+                params:[],
+                chain:[
+                    {method:"{{testing}}!", params:["123"]}
+                ],
+                assign:"run123"
             },
             {
                 module:"console",
