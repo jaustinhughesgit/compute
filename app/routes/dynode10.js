@@ -38,31 +38,36 @@ const json = [
         },
         actions: [
             {
-                "set":{"foo":"bar","bar":"{{foo}}"}
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                "set":{"condition1":true}
+            },
+            {
+                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
+                "set":{"condition2":true}
             },
             {
                 module: "moment-timezone",
-                "chain": [
-                    { "method": "tz", "params": ["Asia/Dubai"] },
-                    { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+                chain: [
+                    { method: "tz", params: ["Asia/Dubai"] },
+                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ],
-                "assign": "timeInDubai"
+                assign: "timeInDubai"
             },
             {
                 module: "moment-timezone",
-                "assign": "justTime",
+                assign: "justTime",
                 "from": ["{{timeInDubai}}!"],
-                "chain": [
-                    { "method": "format", "params": ["HH:mm"] }
+                chain: [
+                    { method: "format", params: ["HH:mm"] }
                 ]
             },
             {
                 module: "moment-timezone",
-                "assign": "timeInDubai2",
+                assign: "timeInDubai2",
                 "from": ["{{timeInDubai}}"],
-                "chain": [
-                    { "method": "add", "params": [1, "hours"] },
-                    { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
+                chain: [
+                    { method: "add", params: [1, "hours"] },
+                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ]
             },
             {
@@ -81,54 +86,54 @@ const json = [
 
             {
                 module: "moment-timezone",
-                "assign": "justTime2",
+                assign: "justTime2",
                 "from": ["{{timeInDubai2}}!"],
-                "chain": [
-                    { "method": "format", "params": ["HH:mm"] }
+                chain: [
+                    { method: "format", params: ["HH:mm"] }
                 ]
             },
             {
                 module: "fs",
-                "chain": [
+                chain: [
                     {
-                        "method": "readFileSync",
-                        "params": ["/var/task/app/routes/../example.txt", "utf8"],
+                        method: "readFileSync",
+                        params: ["/var/task/app/routes/../example.txt", "utf8"],
                     }
                 ],
-                "assign": "fileContents"
+                assign: "fileContents"
             },
             {
                 module: "fs",
-                "method": "writeFileSync",
-                "params": [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
+                method: "writeFileSync",
+                params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
             },
             {
                 module: "fs",
-                "chain": [
+                chain: [
                     {
-                        "method": "readFileSync",
-                        "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
+                        method: "readFileSync",
+                        params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
                     }
                 ],
-                "assign": "tempFileContents"
+                assign: "tempFileContents"
             },
             {
                 module: "s3",
-                "chain": [
+                chain: [
                     {
-                        "method": "upload",
-                        "params": [{
+                        method: "upload",
+                        params: [{
                             "Bucket": "public.1var.com",
                             "Key": "tempFile.txt",
                             "Body": "{{testFunction}}"
                         }]
                     },
                     {
-                        "method": "promise",
-                        "params": []
+                        method: "promise",
+                        params: []
                     }
                 ],
-                "assign": "s3UploadResult"
+                assign: "s3UploadResult"
             },
             {
                 "next":true
@@ -147,119 +152,119 @@ const json = [
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"passport",
-                "chain":[
+                chain:[
                 ],
-                "assign":"passport"
+                assign:"passport"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "params":["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-                "chain":[],
+                params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+                chain:[],
                 "run":[
-                    {"method":"{done}", "params":[null, "{profile}"]}
+                    {method:"{done}", params:[null, "{profile}"]}
                 ],
-                "assign":"callbackFunction"
+                assign:"callbackFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"passport-microsoft",
-                "chain":[
-                {"method":"Strategy", "params":[
+                chain:[
+                {method:"Strategy", params:[
                     {
-                        "clientID": process.env.MICROSOFT_CLIENT_ID,
-                        "clientSecret": process.env.MICROSOFT_CLIENT_SECRET,
-                        "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                        "resource": "https://graph.microsoft.com/",
-                        "tenant": process.env.MICROSOFT_TENANT_ID,
-                        "prompt": "login",
-                        "state": false,
-                        "type": "Web",
-                        "scope": ["user.read"]
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: "https://graph.microsoft.com/",
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: "login",
+                        state: false,
+                        type: "Web",
+                        scope: ["user.read"]
                     },"{{callbackFunction}}"
                 ],
                     "new":true}
                 ],
-                "assign":"passportmicrosoft"
+                assign:"passportmicrosoft"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"use", "params":["{{passportmicrosoft}}"]}
+                chain:[
+                    {method:"use", params:["{{passportmicrosoft}}"]}
                 ],
-                "assign":"newStrategy"
+                assign:"newStrategy"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "params":["{user}", "{done}"], 
-                "chain":[],
+                params:["{user}", "{done}"], 
+                chain:[],
                 "run":[
-                    {"method":"{done}", "params":[null, "{user}"]}
+                    {method:"{done}", params:[null, "{user}"]}
                 ],
-                "assign":"serializeFunction"
+                assign:"serializeFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"serializeUser", "params":["{{serializeFunction}}"]}
+                chain:[
+                    {method:"serializeUser", params:["{{serializeFunction}}"]}
                 ],
-                "assign":"serializeUser"
+                assign:"serializeUser"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                "params":["{user}", "{done}"], 
-                "chain":[],
+                params:["{user}", "{done}"], 
+                chain:[],
                 "run":[
-                    {"method":"{done}", "params":[null, "{user}"]}
+                    {method:"{done}", params:[null, "{user}"]}
                 ],
-                "assign":"deserializeFunction"
+                assign:"deserializeFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
+                chain:[
+                    {method:"deserializeUser", params:["{{deserializeFunction}}"]}
                 ],
-                "assign":"deserializeUser"
+                assign:"deserializeUser"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"initialize", "params":[]}
+                chain:[
+                    {method:"initialize", params:[]}
                 ],
-                "assign":"passportInitialize"
+                assign:"passportInitialize"
             },
             {
                 module:"dyRouter",
-                "chain":[
-                    {"method":"use", "params":["{{passportInitialize}}"]}
+                chain:[
+                    {method:"use", params:["{{passportInitialize}}"]}
                 ],
-                "assign":"{{runDyRouterInit}}"
+                assign:"{{runDyRouterInit}}"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"session", "params":[]}
+                chain:[
+                    {method:"session", params:[]}
                 ],
-                "assign":"passportSession"
+                assign:"passportSession"
             },
             {
                 module:"dyRouter",
-                "chain":[
-                    {"method":"use", "params":["{{passportSession}}"]}
+                chain:[
+                    {method:"use", params:["{{passportSession}}"]}
                 ],
-                "assign":"{{runDyRouterSession}}"
+                assign:"{{runDyRouterSession}}"
             },
             {
                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
                 module:"{{passport}}",
-                "chain":[
-                    {"method":"authenticate", "params":["microsoft"], "express":true},
+                chain:[
+                    {method:"authenticate", params:["microsoft"], express:true},
                 ],
-                "assign":"newAuthentication"
+                assign:"newAuthentication"
             }
         ]
     },
@@ -274,19 +279,19 @@ const json = [
             {
                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 module:"req",
-                "chain":[
-                    {"method":"isAuthenticated", "params":[]}
+                chain:[
+                    {method:"isAuthenticated", params:[]}
                 ],
-                "express":true,
-                "assign":"{{isAuth}}"
+                express:true,
+                assign:"{{isAuth}}"
             },
             {
                 "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 module:"res",
-                "chain":[
-                    {"method":"json", "params":["{{}}"]}
+                chain:[
+                    {method:"json", params:["{{}}"]}
                 ],
-                "assign":"{{getJson}}!"
+                assign:"{{getJson}}!"
             }
         ]
     }
@@ -326,7 +331,7 @@ return val + "!"
     res.json(context);
 });*/
 
-function condition(left, condition, right, context){
+/*function condition(left, condition, right, context){
     left = replacePlaceholders(left, context)
     condition = replacePlaceholders(condition, context)
     right = replacePlaceholders(right, context)
@@ -346,7 +351,53 @@ function condition(left, condition, right, context){
     } else if ((!condition || condition == "") && (!right || right == "")){
         if (left){ return true} else { return false}
     }
+}*/
+
+function condition(left, conditions, right, operator = "&&", context) {
+    // If conditions is not an array, convert it to an array with a single element
+    if (!Array.isArray(conditions)) {
+        conditions = [{ condition: conditions, right: right }];
+    }
+
+    return conditions.reduce((result, cond) => {
+        const currentResult = checkCondition(left, cond.condition, cond.right, context);
+        if (operator === "&&") {
+            return result && currentResult;
+        } else if (operator === "||") {
+            return result || currentResult;
+        } else {
+            throw new Error("Invalid operator");
+        }
+    }, operator === "&&");
 }
+
+function checkCondition(left, condition, right, context) {
+    left = replacePlaceholders(left, context)
+    right = replacePlaceholders(right, context)
+
+    switch (condition) {
+        case '==': return left == right;
+        case '===': return left === right;
+        case '!=': return left != right;
+        case '!==': return left !== right;
+        case '>': return left > right;
+        case '>=': return left >= right;
+        case '<': return left < right;
+        case '<=': return left <= right;
+        case 'startsWith': return typeof left === 'string' && left.startsWith(right);
+        case 'endsWith': return typeof left === 'string' && left.endsWith(right);
+        case 'includes': return typeof left === 'string' && left.includes(right);
+        case 'isDivisibleBy': return typeof left === 'number' && typeof right === 'number' && right !== 0 && left % right === 0;
+        default:
+            // Default case for truthy/falsy check or undefined condition
+            if (!condition && !right) {
+                return !!left;
+            }
+            // Optionally, throw an error or return false for undefined conditions
+            throw new Error("Invalid condition type");
+    }
+}
+
 
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
@@ -354,12 +405,12 @@ async function initializeModules(context, config, req, res, next) {
 
         let runAction = true
         if (action.if) {
-                runAction = condition(action.if[0],action.if[1],action.if[2], context)
+                runAction = condition(action.if[0],action.if[1],action.if[2], action.if[3], context)
         }
 
         if (action.ifs) {
                 for (const ifObject of action.ifs){
-                    runAction = condition(ifObject[0],ifObject[1],ifObject[2], context)
+                    runAction = condition(ifObject[0],ifObject[1],ifObject[2], ifObject[3], context)
                     if (!runAction){
                         break;
                     }
