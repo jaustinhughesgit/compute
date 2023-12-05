@@ -16,21 +16,6 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
-/*
-
-actions:
-  - set
-  - module
-  - if
-  - ifs
-  - from
-  - params
-  - method
-  - chain
-  - run
-  - assign
-  - next
-*/
 const json = [
     {
        modules: {
@@ -47,350 +32,13 @@ const json = [
             {
                 module:"console",
                 chain:[
-                    {method:"log", params:["{{run123}}"]}
+                    {method:"log", params:["{{run123}}!"]}
                 ],
                 assign:"{{runNow}}!"
-            },
-            {
-                "if":["{{urlpath}}","==","/hello"],
-                module:"passport",
-                chain:[],
-                assign:"passport"
-            },
-            {
-                "if":["{{urlpath}}","==","/hello"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"initialize", params:[]}
-                ],
-                assign:"passportInitialize"
-            },
-            {
-                "if":["{{urlpath}}","==","/hello"],
-                module:"dyRouter",
-                chain:[
-                    {method:"use", params:["{{passportInitialize}}"]}
-                ],
-                assign:"{{runDyRouterInit}}"
-            },
-            {
-                "if":["{{urlpath}}","==","/hello"],
-                module:"req",
-                chain:[
-                    {method:"isAuthenticated", params:[]}
-                ],
-                express:true,
-                assign:"{{isAuth}}"
-            },
-            {
-                "if":["{{urlpath}}","==","/hello"],
-                module:"res",
-                chain:[
-                    {method:"json", params:["{{}}"]}
-                ],
-                assign:"{{getJson}}!"
             }
         ]
     }
 ]
-
-/*const json = [
-    {
-       modules: {
-            "moment-timezone": "moment-timezone"
-        },
-        actions: [
-            {
-                "medule":"req",
-                "chain":[
-                    {"method":"isAuthenticated", "params":[]}
-                ],
-                "assign":"{{newAuth}}!"
-            },
-            {
-                "module":"console",
-                "chain":[
-                    {"method":"log", "params":["{{newAuth}}"]}
-                ],
-                "assign":"logAuth"
-            },
-            {
-                "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
-                module:"res",
-                chain:[
-                    {method:"send", params:["{{newAuth}}"]}
-                ],
-                assign:"{{hello}}!"
-            },
-            {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                "set":{"condition1":true}
-            },
-            {
-                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                "set":{"condition2":true}
-            },
-            {
-                module: "moment-timezone",
-                chain: [
-                    { method: "tz", params: ["Asia/Dubai"] },
-                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-            {
-                module: "moment-timezone",
-                assign: "justTime",
-                "from": ["{{timeInDubai}}!"],
-                chain: [
-                    { method: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                module: "moment-timezone",
-                assign: "timeInDubai2",
-                "from": ["{{timeInDubai}}"],
-                chain: [
-                    { method: "add", params: [1, "hours"] },
-                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ]
-            },
-            {
-                "next":true
-            }
-        ]
-    },
-
-
-
-    {
-       modules: {
-            "moment-timezone": "moment-timezone"
-        },
-        actions: [
-
-            {
-                module: "moment-timezone",
-                assign: "justTime2",
-                "from": ["{{timeInDubai2}}!"],
-                chain: [
-                    { method: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                module: "fs",
-                chain: [
-                    {
-                        method: "readFileSync",
-                        params: ["/var/task/app/routes/../example.txt", "utf8"],
-                    }
-                ],
-                assign: "fileContents"
-            },
-            {
-                module: "fs",
-                method: "writeFileSync",
-                params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
-            },
-            {
-                module: "fs",
-                chain: [
-                    {
-                        method: "readFileSync",
-                        params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                    }
-                ],
-                assign: "tempFileContents"
-            },
-            {
-                module: "s3",
-                chain: [
-                    {
-                        method: "upload",
-                        params: [{
-                            "Bucket": "public.1var.com",
-                            "Key": "tempFile.txt",
-                            "Body": "{{testFunction}}"
-                        }]
-                    },
-                    {
-                        method: "promise",
-                        params: []
-                    }
-                ],
-                assign: "s3UploadResult"
-            },
-            {
-                "next":true
-            }
-        ]
-    },
-
-
-
-    {
-       modules: {
-            "passport":"passport",
-            "passport-microsoft":"passport-microsoft"
-        },
-        actions: [
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"passport",
-                chain:[
-                ],
-                assign:"passport"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-                chain:[],
-                "run":[
-                    {method:"{done}", params:[null, "{profile}"]}
-                ],
-                assign:"callbackFunction"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"passport-microsoft",
-                chain:[
-                {method:"Strategy", params:[
-                    {
-                        clientID: process.env.MICROSOFT_CLIENT_ID,
-                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-                        resource: "https://graph.microsoft.com/",
-                        tenant: process.env.MICROSOFT_TENANT_ID,
-                        prompt: "login",
-                        state: false,
-                        type: "Web",
-                        scope: ["user.read"]
-                    },"{{callbackFunction}}"
-                ],
-                    "new":true}
-                ],
-                assign:"passportmicrosoft"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"use", params:["{{passportmicrosoft}}"]}
-                ],
-                assign:"newStrategy"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                params:["{user}", "{done}"], 
-                chain:[],
-                "run":[
-                    {method:"{done}", params:[null, "{user}"]}
-                ],
-                assign:"serializeFunction"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"serializeUser", params:["{{serializeFunction}}"]}
-                ],
-                assign:"serializeUser"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                params:["{user}", "{done}"], 
-                chain:[],
-                "run":[
-                    {method:"{done}", params:[null, "{user}"]}
-                ],
-                assign:"deserializeFunction"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"deserializeUser", params:["{{deserializeFunction}}"]}
-                ],
-                assign:"deserializeUser"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"initialize", params:[]}
-                ],
-                assign:"passportInitialize"
-            },
-            {
-                module:"dyRouter",
-                chain:[
-                    {method:"use", params:["{{passportInitialize}}"]}
-                ],
-                assign:"{{runDyRouterInit}}"
-            },
-            {
-                //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
-                chain:[
-                    {method:"session", params:[]}
-                ],
-                assign:"passportSession"
-            },
-            {
-                module:"dyRouter",
-                chain:[
-                    {method:"use", params:["{{passportSession}}"]}
-                ],
-                assign:"{{runDyRouterSession}}"
-            },
-            {
-                //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
-                module:"{{passport}}",
-                chain:[
-                    {method:"authenticate", params:["microsoft"], express:true},
-                ],
-                assign:"newAuthentication"
-            }
-        ]
-    },
-    
-
-    {
-       modules: {
-            "passport":"passport",
-            "passport-microsoft":"passport-microsoft"
-        },
-        actions: [
-            {
-                //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                module:"req",
-                chain:[
-                    {method:"isAuthenticated", params:[]}
-                ],
-                express:true,
-                assign:"{{isAuth}}"
-            },
-            {
-                "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                module:"res",
-                chain:[
-                    {method:"json", params:["{{}}"]}
-                ],
-                assign:"{{getJson}}!"
-            },
-            {
-                "ifs":[["{{urlpath}}","==","/hello"]],
-                module:"res",
-                chain:[
-                    {method:"send", params:["Hello World!"]}
-                ],
-                assign:"hello"
-            }
-        ]
-    }
-]
-*/
-
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
@@ -405,48 +53,6 @@ let middlewareFunctions = json.map(stepConfig => {
 });
 
 local.dyRouter.all('/*', ...middlewareFunctions);
-
-function testFunction(){
-    return "hello world"
-}
-
-function newFunction(val){
-return val + "!"
-}
-
-/*local.dyRouter.get('/', async function(req, res, next) {
-    let context = {};
-    context["testFunction"] = testFunction;
-    context["newFunction"] = newFunction;
-    context = await processConfig(json, context);
-    await initializeModules(context, json);
-    context["testFunctionResult"] = testFunction();
-    context["newFunctionResult"] = newFunction("test");
-    context["customFunctionResult"] = context["customFunction"]("yoyo");
-    res.json(context);
-});*/
-
-/*function condition(left, condition, right, context){
-    left = replacePlaceholders(left, context)
-    condition = replacePlaceholders(condition, context)
-    right = replacePlaceholders(right, context)
-
-    if (condition == "=="){
-        if (left == right){ return true } else { return false }
-    } else if (condition == "!="){
-        if (left != right){ return true } else { return false }
-    } else if (condition == ">"){
-        if (left > right){ return true } else { return false }
-    } else if (condition == ">="){
-        if (left >= right){ return true } else { return false }
-    } else if (condition == "<"){
-        if (left < right){ return true } else { return false }
-    } else if (condition == "<="){
-        if (left <= right){ return true } else { return false }
-    } else if ((!condition || condition == "") && (!right || right == "")){
-        if (left){ return true} else { return false}
-    }
-}*/
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
@@ -545,7 +151,7 @@ async function initializeModules(context, config, req, res, next) {
                     });
                 }
                 console.log("typeof moduleInstance", typeof moduleInstance)
-                console.log("action.method", action.method)
+                console.log("action", action)
                 console.log("moduleInstance", moduleInstance)
                 let result
                     if (typeof moduleInstance === 'function'){
@@ -566,16 +172,22 @@ async function initializeModules(context, config, req, res, next) {
                         let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
                         
                         if (isFunctionExecution) {
+                            console.log("isFunctionExecution")
                             context[assignKey] = typeof result === 'function' ? result() : result;
+                            console.log("context[assignKey]", context[assignKey])
                         } else {
+                            console.log("not trying to execute just passing:", result)
                             context[assignKey] = result;
                         }
                     } else {
-                        console.log("moduleInstance", result)
+                        console.log("does not have {{: result=>", result)
                         context[action.assign] = result;
                     }
                 }
             } else if (action.assign && action.params) {
+                console.log("about to createFunctionFromAction");
+                console.log("action", action)
+                console.log("context", context)
                 context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                 continue;
             }
@@ -645,14 +257,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }) : [];
 
                 if (typeof runAction.method === 'string') {
-                    if (action.assign.includes('{{')) {
-                        
-                        ////////////////////
-                        //goal is to pass a local value to the param directly instead of having to add another function to pass it.
-                        ////////////////////
-
-
-                    } else if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
+                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
                         const methodName = runAction.method.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
@@ -660,14 +265,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
-                    } else {
-
-                        ////////////////////
-                        //static text added to param for function calling with params
-                        // goal is to loop through the params and assign that value to a string param so that it can be called
-                        ///////////////////
-                        
-                        
                     }
                 }
             }
@@ -681,7 +278,6 @@ function replaceParams(param, context, scope, args) {
     if (param) {
         if (param.startsWith('{') && param.endsWith('}')) {
             const paramName = param.slice(1, -1);
-            // Check if paramName is a number (indicating an index in args)
             if (!isNaN(paramName)) {
                 return args[paramName];
             }
