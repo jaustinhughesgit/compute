@@ -38,6 +38,27 @@ const json = [
         },
         actions: [
             {
+                "medule":"req",
+                "chain":[
+                    {"method":"isAuthenticated", "params":[]}
+                ],
+                "assign":"{{newAuth}}!"
+            },
+            {
+                "module":"console",
+                "chain":[
+                    {"method":"log", "params":["{{newAuth}}"]}
+                ]
+            },
+            {
+                "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
+                module:"res",
+                chain:[
+                    {method:"send", params:["New Auth Hello!"]}
+                ],
+                assign:"hello"
+            },
+            {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                 "set":{"condition1":true}
             },
@@ -292,7 +313,7 @@ const json = [
                     {method:"json", params:["{{}}"]}
                 ],
                 assign:"{{getJson}}!"
-            }
+            },
             {
                 "ifs":[["{{urlpath}}","==","/hello"]],
                 module:"res",
@@ -361,14 +382,17 @@ return val + "!"
     }
 }*/
 
-function condition(left, conditions, right, operator = "&&", context) {
-    // If conditions is not an array, convert it to an array with a single element
+function condition(left, conditions, right, operator = "&&") {
+    if (arguments.length === 1) {
+        return !!left;
+    }
+
     if (!Array.isArray(conditions)) {
         conditions = [{ condition: conditions, right: right }];
     }
 
     return conditions.reduce((result, cond) => {
-        const currentResult = checkCondition(left, cond.condition, cond.right, context);
+        const currentResult = checkCondition(left, cond.condition, cond.right);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -379,10 +403,9 @@ function condition(left, conditions, right, operator = "&&", context) {
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right, context) {
+function checkCondition(left, condition, right) {
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
-
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -397,11 +420,9 @@ function checkCondition(left, condition, right, context) {
         case 'includes': return typeof left === 'string' && left.includes(right);
         case 'isDivisibleBy': return typeof left === 'number' && typeof right === 'number' && right !== 0 && left % right === 0;
         default:
-            // Default case for truthy/falsy check or undefined condition
             if (!condition && !right) {
                 return !!left;
             }
-            // Optionally, throw an error or return false for undefined conditions
             throw new Error("Invalid condition type");
     }
 }
