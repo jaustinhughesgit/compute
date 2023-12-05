@@ -58,7 +58,8 @@ const json = [
                 module:"console",
                 chain:[
                     {method:"log", params:["{{run123}}"]}
-                ]
+                ],
+                assign:"{{runNow}}!"
             },
             {
                 "if":["{{urlpath}}","==","/hello"],
