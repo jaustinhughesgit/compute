@@ -45,7 +45,7 @@ const json = [
                 "chain":[
                     {"return":"{test}"}
                 ],
-                assing:"testing"
+                assign:"testing"
             },
             {
                 params:[],
@@ -655,7 +655,14 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }) : [];
 
                 if (typeof runAction.method === 'string') {
-                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
+                    if (action.assign.includes('{{')) {
+                        
+                        ////////////////////
+                        //goal is to pass a local value to the param directly instead of having to add another function to pass it.
+                        ////////////////////
+
+
+                    } else if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
                         const methodName = runAction.method.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
@@ -663,6 +670,14 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
+                    } else {
+
+                        ////////////////////
+                        //static text added to param for function calling with params
+                        // goal is to loop through the params and assign that value to a string param so that it can be called
+                        ///////////////////
+                        
+                        
                     }
                 }
             }
