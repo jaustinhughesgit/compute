@@ -382,7 +382,7 @@ return val + "!"
     }
 }*/
 
-function condition(left, conditions, right, operator = "&&") {
+function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
         return !!left;
     }
@@ -392,7 +392,7 @@ function condition(left, conditions, right, operator = "&&") {
     }
 
     return conditions.reduce((result, cond) => {
-        const currentResult = checkCondition(left, cond.condition, cond.right);
+        const currentResult = checkCondition(left, cond.condition, cond.right, context);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -403,7 +403,7 @@ function condition(left, conditions, right, operator = "&&") {
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right) {
+function checkCondition(left, condition, right, context) {
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
     switch (condition) {
