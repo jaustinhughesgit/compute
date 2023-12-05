@@ -16,6 +16,21 @@ local.dyRouter.use(local.session({
     cookie: { secure: true } 
 }));
 
+/*
+
+actions:
+  - set
+  - module
+  - if
+  - ifs
+  - from
+  - params
+  - method
+  - chain
+  - run
+  - assign
+  - next
+*/
 const json = [
     {
         "modules": {
@@ -31,20 +46,20 @@ const json = [
                     { "method": "tz", "params": ["Asia/Dubai"] },
                     { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
                 ],
-                "assignTo": "timeInDubai"
+                "assign": "timeInDubai"
             },
             {
                 "module": "moment-timezone",
-                "assignTo": "justTime",
-                "valueFrom": ["{{timeInDubai}}!"],
+                "assign": "justTime",
+                "from": ["{{timeInDubai}}!"],
                 "chain": [
                     { "method": "format", "params": ["HH:mm"] }
                 ]
             },
             {
                 "module": "moment-timezone",
-                "assignTo": "timeInDubai2",
-                "valueFrom": ["{{timeInDubai}}"],
+                "assign": "timeInDubai2",
+                "from": ["{{timeInDubai}}"],
                 "chain": [
                     { "method": "add", "params": [1, "hours"] },
                     { "method": "format", "params": ["YYYY-MM-DD HH:mm:ss"] }
@@ -55,6 +70,9 @@ const json = [
             }
         ]
     },
+
+
+
     {
         "modules": {
             "moment-timezone": "moment-timezone"
@@ -63,8 +81,8 @@ const json = [
 
             {
                 "module": "moment-timezone",
-                "assignTo": "justTime2",
-                "valueFrom": ["{{timeInDubai2}}!"],
+                "assign": "justTime2",
+                "from": ["{{timeInDubai2}}!"],
                 "chain": [
                     { "method": "format", "params": ["HH:mm"] }
                 ]
@@ -77,7 +95,7 @@ const json = [
                         "params": ["/var/task/app/routes/../example.txt", "utf8"],
                     }
                 ],
-                "assignTo": "fileContents"
+                "assign": "fileContents"
             },
             {
                 "module": "fs",
@@ -92,7 +110,7 @@ const json = [
                         "params": [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
                     }
                 ],
-                "assignTo": "tempFileContents"
+                "assign": "tempFileContents"
             },
             {
                 "module": "s3",
@@ -110,13 +128,16 @@ const json = [
                         "params": []
                     }
                 ],
-                "assignTo": "s3UploadResult"
+                "assign": "s3UploadResult"
             },
             {
                 "next":true
             }
         ]
     },
+
+
+
     {
         "modules": {
             "passport":"passport",
@@ -128,7 +149,7 @@ const json = [
                 "module":"passport",
                 "chain":[
                 ],
-                "assignTo":"passport"
+                "assign":"passport"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -137,7 +158,7 @@ const json = [
                 "run":[
                     {"method":"{done}", "params":[null, "{profile}"]}
                 ],
-                "assignTo":"callbackFunction"
+                "assign":"callbackFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -158,7 +179,7 @@ const json = [
                 ],
                     "new":true}
                 ],
-                "assignTo":"passportmicrosoft"
+                "assign":"passportmicrosoft"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -166,7 +187,7 @@ const json = [
                 "chain":[
                     {"method":"use", "params":["{{passportmicrosoft}}"]}
                 ],
-                "assignTo":"newStrategy"
+                "assign":"newStrategy"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -175,7 +196,7 @@ const json = [
                 "run":[
                     {"method":"{done}", "params":[null, "{user}"]}
                 ],
-                "assignTo":"serializeFunction"
+                "assign":"serializeFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -183,7 +204,7 @@ const json = [
                 "chain":[
                     {"method":"serializeUser", "params":["{{serializeFunction}}"]}
                 ],
-                "assignTo":"serializeUser"
+                "assign":"serializeUser"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -192,7 +213,7 @@ const json = [
                 "run":[
                     {"method":"{done}", "params":[null, "{user}"]}
                 ],
-                "assignTo":"deserializeFunction"
+                "assign":"deserializeFunction"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -200,7 +221,7 @@ const json = [
                 "chain":[
                     {"method":"deserializeUser", "params":["{{deserializeFunction}}"]}
                 ],
-                "assignTo":"deserializeUser"
+                "assign":"deserializeUser"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -208,14 +229,14 @@ const json = [
                 "chain":[
                     {"method":"initialize", "params":[]}
                 ],
-                "assignTo":"passportInitialize"
+                "assign":"passportInitialize"
             },
             {
                 "module":"dyRouter",
                 "chain":[
                     {"method":"use", "params":["{{passportInitialize}}"]}
                 ],
-                "assignTo":"{{runDyRouterInit}}"
+                "assign":"{{runDyRouterInit}}"
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
@@ -223,25 +244,27 @@ const json = [
                 "chain":[
                     {"method":"session", "params":[]}
                 ],
-                "assignTo":"passportSession"
+                "assign":"passportSession"
             },
             {
                 "module":"dyRouter",
                 "chain":[
                     {"method":"use", "params":["{{passportSession}}"]}
                 ],
-                "assignTo":"{{runDyRouterSession}}"
+                "assign":"{{runDyRouterSession}}"
             },
             {
-                //"ifArray":[["{{urlpath}}","!=","/microsoft/callback"]],
+                //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
                 "module":"{{passport}}",
                 "chain":[
                     {"method":"authenticate", "params":["microsoft"], "express":true},
                 ],
-                "assignTo":"newAuthentication"
+                "assign":"newAuthentication"
             }
         ]
     },
+    
+
     {
         "modules": {
             "passport":"passport",
@@ -249,21 +272,21 @@ const json = [
         },
         "actions": [
             {
-                //"ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+                //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 "module":"req",
                 "chain":[
                     {"method":"isAuthenticated", "params":[]}
                 ],
                 "express":true,
-                "assignTo":"{{isAuth}}"
+                "assign":"{{isAuth}}"
             },
             {
-                "ifArray":[["{{urlpath}}","==","/microsoft/callback"]],
+                "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 "module":"res",
                 "chain":[
                     {"method":"json", "params":["{{}}"]}
                 ],
-                "assignTo":"{{getJson}}!"
+                "assign":"{{getJson}}!"
             }
         ]
     }
@@ -334,8 +357,8 @@ async function initializeModules(context, config, req, res, next) {
                 runAction = condition(action.if[0],action.if[1],action.if[2], context)
         }
 
-        if (action.ifArray) {
-                for (const ifObject of action.ifArray){
+        if (action.ifs) {
+                for (const ifObject of action.ifs){
                     runAction = condition(ifObject[0],ifObject[1],ifObject[2], context)
                     if (!runAction){
                         break;
@@ -369,8 +392,8 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            if (!action.module && action.assignTo && action.params && action.chain) {
-                context[action.assignTo] = createFunctionFromAction(action, context, req, res, next)
+            if (!action.module && action.assign && action.params && action.chain) {
+                context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                 continue;
             }
 
@@ -389,8 +412,8 @@ async function initializeModules(context, config, req, res, next) {
                  }
 
                 let args = [];
-                if (action.valueFrom) {
-                    args = action.valueFrom.map(item => {
+                if (action.from) {
+                    args = action.from.map(item => {
                         let isFunctionExecution = item.endsWith('!');
                         let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
                         let value = context[key];
@@ -417,21 +440,19 @@ async function initializeModules(context, config, req, res, next) {
                     }
                 console.log("result", result);
                 result = await applyMethodChain(result, action, context, res, req, next);
-                if (action.assignTo) {
-                    if (action.assignTo.includes('{{')) {
-                        let isFunctionExecution = action.assignTo.endsWith('!');
-                        let assignKey = isFunctionExecution ? action.assignTo.slice(2, -3) : action.assignTo.slice(2, -2);
+                if (action.assign) {
+                    if (action.assign.includes('{{')) {
+                        let isFunctionExecution = action.assign.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
                         
                         if (isFunctionExecution) {
                             context[assignKey] = typeof result === 'function' ? result() : result;
                         } else {
-                            console.log("assignTo", action.assignTo)
-                            console.log(result)
                             context[assignKey] = result;
                         }
                     } else {
                         console.log("moduleInstance", result)
-                        context[action.assignTo] = result;
+                        context[action.assign] = result;
                     }
                 }
             }
