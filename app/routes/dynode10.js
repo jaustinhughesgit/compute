@@ -38,7 +38,7 @@ const json = [
         },
         actions: [
             {
-                "set":{"AAAAAAA":true}
+                "set":{".AAAAAAA":true}
             },
             {
                 "if":["{{urlpath}}","==","/hello"],
