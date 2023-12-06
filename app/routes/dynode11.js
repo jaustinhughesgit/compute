@@ -545,45 +545,35 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        // Check if the string is a single placeholder
+        // Scenario 1: The entire string is a single placeholder
         if (str.startsWith("{{") && str.endsWith("}}")) {
-            const keyPath = str.slice(2, -2); // Remove the curly braces
-            const keys = keyPath.split('.');
-            let value = keys.reduce((currentContext, key) => {
-                return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-            }, context);
-
-            // Return the value directly from the context
-            if (value !== undefined) {
-                return value;
-            }
-        } 
-
-        // Check if it's a local module
-        if (local[str]) {
-            return local[str];
+            const keyPath = str.slice(2, -2); // Extract the key path
+            return resolveValueFromContext(keyPath, context);
         }
 
-        // If it's a module to be required
-        try {
-            if (require.resolve(str)) {
-                return require(str);
-            }
-        } catch (e) {
-            console.error(`Module '${str}' cannot be resolved:`, e);
-        }
-
-        // Process as normal if not a single placeholder
+        // Scenario 2: The string contains one or more placeholders
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-            const keys = keyPath.split('.');
-            let value = keys.reduce((currentContext, key) => {
-                return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-            }, context);
-
-            return value !== undefined ? value : match;
+            return resolveValueFromContext(keyPath, context, true); // Convert to string
         });
     }
     return str;
+}
+
+function resolveValueFromContext(keyPath, context, convertToString = false) {
+    const keys = keyPath.split('.');
+    let value = keys.reduce((currentContext, key) => {
+        return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+    }, context);
+
+    if (typeof value === 'function') {
+        value = value(); // Execute if it's a function
+    }
+
+    if (convertToString && value !== undefined) {
+        return String(value); // Convert to string if needed
+    }
+
+    return value;
 }
 
 
