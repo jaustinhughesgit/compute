@@ -399,7 +399,7 @@ async function initializeModules(context, config, req, res, next) {
 
             if (action.module){
                 let moduleInstance
-                moduleInstance = replacePlaceholders(action.module, context, true)
+                moduleInstance = replacePlaceholders(action.module, context)
                  
                 let args = [];
                 if (action.from) {
@@ -602,63 +602,16 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 }
 
 
-
-
-
-
-
-
-
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
-
-    function processParam(param) {
-        if (typeof param === 'string') {
-            if (param == "{{}}"){
-                return context;
-            }
-            if (param.startsWith('{{')) {
-
-                let isFunctionExecution = param.endsWith('!');
-                let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-                let value = context[key];
-    
-                if (isFunctionExecution && typeof value === 'function') {
-                    return value(); // Execute the function if it ends with '!'
-                }
-    
-                if (value !== undefined) {
-                    return value;
-                } else {
-                    return key;
-                }
-            }
-            return param;
-        } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
-        } else if (typeof param === 'object' && param !== null) {
-            const processedParam = {};
-            for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
-            }
-            return processedParam;
-        } else {
-            return param;
-        }
-    }
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
     }
 
     if (action.method) {
-        let params;
+        let params = action.params ? replacePlaceholders(action.params, context) : [];
 
-        if (action.params) {
-            params = replacePlaceholders(action.params, context);
-        } else {
-            params = [];
-        }
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
@@ -668,49 +621,19 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
-            if (chainAction.hasOwnProperty('return')) {
-                return chainAction.return;
-            }
-            let chainParams = replacePlaceholders(chainAction.params, context, false)
+            let methodName = chainAction.method;
+            let chainParams = chainAction.params ? replacePlaceholders(chainAction.params, context) : [];
 
-            
+            if (methodName.startsWith('{{')) {
+                methodName = replacePlaceholders(methodName, context);
+            }
 
             if (chainAction.new) {
-                result = instantiateWithNew(result[chainAction.method], chainParams);
-            } else if (typeof result[chainAction.method] === 'function') {
-                if (chainAction.method === 'promise') {
-                    result = await result.promise();
-                } else {
-                    if (chainAction.new) {
-                        result = new result[chainAction.method](...chainParams);
-                    } else {
-                        if (chainAction.method && chainAction.method.length != 0){
-                            if (chainAction.method.startsWith('{{') ) {
-                                const methodName = chainAction.method.slice(2, -2);
-                                const methodFunction = context[methodName];
-                                if (typeof methodFunction === 'function') {
-                                    if (chainAction.express){
-                                        result = methodFunction(...chainParams)(req, res, next);
-                                        console.log("deep auth => ", req.isAuthenticated())
-                                    } else {
-                                        result = methodFunction(...chainParams);
-                                    }
-                                } else {
-                                    console.error(`Method ${methodName} is not a function in context`);
-                                    return;
-                                }
-                            } else {
-                                if (chainAction.express){
-                                    result = result[chainAction.method](...chainParams)(req, res, next);
-                                } else {
-                                    result = result[chainAction.method](...chainParams);
-                                }
-                            }
-                        }
-                    }
-                }
+                result = instantiateWithNew(result[methodName], chainParams);
+            } else if (typeof result[methodName] === 'function') {
+                result = await result[methodName](...chainParams);
             } else {
-                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                console.error(`Method ${methodName} is not a function on ${action.module}`);
                 return;
             }
         }
