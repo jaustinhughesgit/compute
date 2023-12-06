@@ -600,43 +600,45 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     return value;
 }
 
+function processParam(param, context) {
+    if (typeof param === 'string') {
+        if (param == "{{}}"){
+            return context;
+        }
+        if (param.startsWith('{{')) {
+
+            let isFunctionExecution = param.endsWith('!');
+            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+            let value = context[key];
+
+            if (isFunctionExecution && typeof value === 'function') {
+                return value(); // Execute the function if it ends with '!'
+            }
+
+            if (value !== undefined) {
+                return value;
+            } else {
+                return key;
+            }
+        }
+        return param;
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, context);
+        }
+        return processedParam;
+    } else {
+        return param;
+    }
+}
+
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
-    function processParam(param) {
-        if (typeof param === 'string') {
-            if (param == "{{}}"){
-                return context;
-            }
-            if (param.startsWith('{{')) {
-
-                let isFunctionExecution = param.endsWith('!');
-                let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-                let value = context[key];
     
-                if (isFunctionExecution && typeof value === 'function') {
-                    return value(); // Execute the function if it ends with '!'
-                }
-    
-                if (value !== undefined) {
-                    return value;
-                } else {
-                    return key;
-                }
-            }
-            return param;
-        } else if (Array.isArray(param)) {
-            return param.map(item => processParam(item));
-        } else if (typeof param === 'object' && param !== null) {
-            const processedParam = {};
-            for (const [key, value] of Object.entries(param)) {
-                processedParam[key] = processParam(value);
-            }
-            return processedParam;
-        } else {
-            return param;
-        }
-    }
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
@@ -671,7 +673,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             param = replacePlaceholders(param, context)
                         }
                     }
-                    return processParam(param);
+                    return processParam(param, context);
                 });
             } else {
                 chainParams = [];
@@ -687,7 +689,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                         result = new result[chainAction.method](...chainParams);
                     } else {
                         if (chainAction.method && chainAction.method.length != 0){
-                            if (chainAction.method.startsWith('{{') ) {
+                            if (chainAction.method.startsWith('{{')) {
                                 const methodFunction = replacePlaceholders(chainAction.method, context)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
