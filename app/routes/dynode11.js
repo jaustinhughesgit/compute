@@ -661,29 +661,19 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(item, context, pP = false) {
-
-    if (typeof param === 'string' && !param.startsWith("{{")){
-        if (pP){
-            console.log("processedItem",processedItem)
-            processedItem = processParam(processedItem, context)
-            console.log("bbbbb>", processedItem)
-        }
-    } else {
-        console.log("context ))",context)
-        let processedItem = item;
-        console.log("item",item)
-        if (typeof processedItem === 'string') {
-            console.log("1", processedItem)
-            // Process string: replace placeholders or resolve module/local references
-            processedItem = processString(processedItem, context);
-        } else if (Array.isArray(processedItem)) {
-            console.log("2", processedItem)
-            // Process each element in the array
-            processedItem =  processedItem.map(element => replacePlaceholders(element, context));
-        }
-        // Return non-string, non-array items as is
-        return processedItem;
+    console.log("context ))",context)
+    let processedItem = item;
+    console.log("item",item)
+    if (typeof processedItem === 'string') {
+        console.log("1", processedItem)
+        // Process string: replace placeholders or resolve module/local references
+        processedItem = processString(processedItem, context);
+    } else if (Array.isArray(processedItem)) {
+        console.log("2", processedItem)
+        // Process each element in the array
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
+    return processedItem;
 }
 
 function processString(str, context) {
@@ -827,11 +817,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
                 chainParams = chainAction.params.map(param => {
                     //if (typeof param === 'string'){
                         //if (!param.startsWith("{{")){
-                            return replacePlaceholders(param, context, true)
+                            param = processParam(param, context, true)
                         //}
                     //}
                     //console.log("xxxx>",processParam(param, context))
-                    //return param //processParam(param, context);
+                    return param //processParam(param, context);
                 });
             } else {
                 chainParams = [];
