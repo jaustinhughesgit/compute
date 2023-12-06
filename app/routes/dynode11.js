@@ -555,7 +555,7 @@ function replacePlaceholders(item, context) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     // Return non-string, non-array items as is
-    processedItem = processParam(param, context)
+    processedItem = processParam(processedItem, context)
     console.log("bbbbb>", processedItem)
 
     return processedItem;
