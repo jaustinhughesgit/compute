@@ -396,8 +396,7 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance
-                moduleInstance = replacePlaceholders(action.module, context)
+                let moduleInstance = replacePlaceholders(action.module, context, true);
                  
                 let args = [];
                 if (action.from) {
@@ -605,12 +604,6 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 
     return value;
 }
-
-
-
-
-
-
 
 
 
