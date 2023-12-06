@@ -400,8 +400,7 @@ async function initializeModules(context, config, req, res, next) {
                 console.log("action",action)
                 if (action.module.startsWith("{{")){
                     console.log("<-- context")
-                    const moduleName = replacePlaceholders(action.module, context) //context[action.module.replace("{{","").replace("}}","")] //<-----/////
-                    moduleInstance = context[moduleName];
+                    moduleInstance = context[action.module.replace("{{","").replace("}}","")]
                  } else if (local[action.module]){
                     console.log("<-- local")
                     moduleInstance = local[action.module]
@@ -571,7 +570,12 @@ function replacePlaceholders(str, context) {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
             if (value !== undefined) {
-                return value;
+                if (typeof value == 'object'){
+                    console.log("typeof value == object")
+                    return context[keyPath]
+                } else {
+                    return value;
+                }
             } else {
                 return keyPath;
             }
