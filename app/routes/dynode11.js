@@ -397,18 +397,8 @@ async function initializeModules(context, config, req, res, next) {
 
             if (action.module){
                 let moduleInstance
-                console.log("action",action)
-                if (action.module.startsWith("{{")){
-                    console.log("<-- context")
-                    moduleInstance = replacePlaceholders(action.module, context)  //context[action.module.replace("{{","").replace("}}","")] //<-----/////
-                 } else if (local[action.module]){
-                    console.log("<-- local")
-                    moduleInstance = local[action.module]
-                 } else {
-                    console.log("<-- require")
-                    moduleInstance = require(action.module);
-                 }
-
+                moduleInstance = replacePlaceholders(action.module, context)
+                 
                 let args = [];
                 if (action.from) {
                     args = action.from.map(item => {
@@ -422,9 +412,6 @@ async function initializeModules(context, config, req, res, next) {
                         return value;
                     });
                 }
-                console.log("typeof moduleInstance", typeof moduleInstance)
-                console.log("action", action)
-                console.log("moduleInstance", moduleInstance)
                 let result
                     if (typeof moduleInstance === 'function'){
                         console.log(args);
@@ -457,9 +444,6 @@ async function initializeModules(context, config, req, res, next) {
                     }
                 }
             } else if (action.assign && action.params) {
-                console.log("about to createFunctionFromAction");
-                console.log("action", action)
-                console.log("context", context)
                 context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                 continue;
             }
@@ -570,18 +554,34 @@ function replacePlaceholders(str, context) {
             }, context);
 
             // Return the value directly from the context
-            return value !== undefined ? value : str;
-        } else {
-            // Process as normal if not a single placeholder
-            return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-                const keys = keyPath.split('.');
-                let value = keys.reduce((currentContext, key) => {
-                    return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-                }, context);
+            if (value !== undefined) {
+                return value;
+            }
+        } 
 
-                return value !== undefined ? value : match;
-            });
+        // Check if it's a local module
+        if (local[str]) {
+            return local[str];
         }
+
+        // If it's a module to be required
+        try {
+            if (require.resolve(str)) {
+                return require(str);
+            }
+        } catch (e) {
+            console.error(`Module '${str}' cannot be resolved:`, e);
+        }
+
+        // Process as normal if not a single placeholder
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+            const keys = keyPath.split('.');
+            let value = keys.reduce((currentContext, key) => {
+                return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+            }, context);
+
+            return value !== undefined ? value : match;
+        });
     }
     return str;
 }
