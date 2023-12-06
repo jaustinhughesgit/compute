@@ -1,4 +1,6 @@
 
+//WORKING
+
 var express = require('express');
 let local = {};
 local.AWS = require('aws-sdk');
@@ -397,7 +399,7 @@ async function initializeModules(context, config, req, res, next) {
 
             if (action.module){
                 let moduleInstance
-                moduleInstance = replacePlaceholders(action.module, context)
+                moduleInstance = replacePlaceholders(action.module, context, true)
                  
                 let args = [];
                 if (action.from) {
@@ -542,42 +544,43 @@ function replaceParams(param, context, scope, args) {
     }
     return param;
 }
-function replacePlaceholders(item, context) {
+function replacePlaceholders(item, context, isModule = false) {
     if (typeof item === 'string') {
-        // Process string: replace placeholders or resolve module/local references
-        return processString(item, context);
+        return processString(item, context, isModule);
     } else if (Array.isArray(item)) {
-        // Process each element in the array
         return item.map(element => replacePlaceholders(element, context));
+    } else if (typeof item === 'object' && item !== null) {
+        const processedObject = {};
+        for (const [key, value] of Object.entries(item)) {
+            processedObject[key] = replacePlaceholders(value, context);
+        }
+        return processedObject;
     }
-    // Return non-string, non-array items as is
     return item;
 }
 
-function processString(str, context) {
-    // Scenario 1: The entire string is a single placeholder
+function processString(str, context, isModule) {
     if (str.startsWith("{{") && str.endsWith("}}")) {
-        const keyPath = str.slice(2, -2); // Extract the key path
+        const keyPath = str.slice(2, -2);
         return resolveValueFromContext(keyPath, context);
     }
 
-    // Scenario 2: Check if it's a local module
-    if (local[str]) {
+    if (isModule && local[str]) {
         return local[str];
     }
 
-    // Scenario 3: Try requiring the module
-    try {
-        if (require.resolve(str)) {
-            return require(str);
+    if (isModule) {
+        try {
+            if (require.resolve(str)) {
+                return require(str);
+            }
+        } catch (e) {
+            console.error(`Module '${str}' cannot be resolved:`, e);
         }
-    } catch (e) {
-        console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
-    // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        return resolveValueFromContext(keyPath, context, true); // Convert to string
+        return resolveValueFromContext(keyPath, context, true);
     });
 }
 
@@ -588,18 +591,15 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     }, context);
 
     if (typeof value === 'function') {
-        value = value(); // Execute if it's a function
+        return value();
     }
 
     if (convertToString && value !== undefined) {
-        return String(value); // Convert to string if needed
+        return String(value);
     }
 
     return value;
 }
-
-
-
 
 
 
@@ -671,20 +671,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
             }
-            let chainParams;
+            let chainParams = replacePlaceholders(chainAction.params, context, false)
 
-            if (chainAction.params) {
-                chainParams = chainAction.params.map(param => {
-                    if (typeof param === 'string'){
-                        if (!param.startsWith("{{")){
-                            param = replacePlaceholders(param, context)
-                        }
-                    }
-                    return processParam(param);
-                });
-            } else {
-                chainParams = [];
-            }
+            
 
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
