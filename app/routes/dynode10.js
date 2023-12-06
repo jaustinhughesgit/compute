@@ -19,30 +19,294 @@ local.dyRouter.use(local.session({
 const json = [
     {
        modules: {
-            "passport": "passport"
+            "moment-timezone": "moment-timezone"
         },
         actions: [
             {
-                params:[],
-                chain:[
-                    {"return":"Hello"}
+                "medule":"req",
+                "chain":[
+                    {"method":"isAuthenticated", "params":[]}
                 ],
-                assign:"run123"
+                "assign":"{{newAuth}}!"
             },
             {
-                module:"console",
-                chain:[
-                    {method:"log", params:["{{run123}}!"]}
+                "module":"console",
+                "chain":[
+                    {"method":"log", "params":["{{newAuth}}"]}
                 ],
-                assign:"{{runNow}}!"
+                "assign":"logAuth"
             },
             {
-                "if":["{{urlpath}}","==","/hello"],
+                "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
+                module:"res",
+                chain:[
+                    {method:"send", params:["{{newAuth}}"]}
+                ],
+                assign:"{{hello}}!"
+            },
+            {
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                "set":{"condition1":true}
+            },
+            {
+                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
+                "set":{"condition2":true}
+            },
+            {
+                module: "moment-timezone",
+                chain: [
+                    { method: "tz", params: ["Asia/Dubai"] },
+                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
+            },
+            {
+                module: "moment-timezone",
+                assign: "justTime",
+                "from": ["{{timeInDubai}}!"],
+                chain: [
+                    { method: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
+                module: "moment-timezone",
+                assign: "timeInDubai2",
+                "from": ["{{timeInDubai}}"],
+                chain: [
+                    { method: "add", params: [1, "hours"] },
+                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ]
+            },
+            {
+                "next":true
+            }
+        ]
+    },
+
+
+
+    {
+       modules: {
+            "moment-timezone": "moment-timezone"
+        },
+        actions: [
+
+            {
+                module: "moment-timezone",
+                assign: "justTime2",
+                "from": ["{{timeInDubai2}}!"],
+                chain: [
+                    { method: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
+                module: "fs",
+                chain: [
+                    {
+                        method: "readFileSync",
+                        params: ["/var/task/app/routes/../example.txt", "utf8"],
+                    }
+                ],
+                assign: "fileContents"
+            },
+            {
+                module: "fs",
+                method: "writeFileSync",
+                params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
+            },
+            {
+                module: "fs",
+                chain: [
+                    {
+                        method: "readFileSync",
+                        params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
+                    }
+                ],
+                assign: "tempFileContents"
+            },
+            {
+                module: "s3",
+                chain: [
+                    {
+                        method: "upload",
+                        params: [{
+                            "Bucket": "public.1var.com",
+                            "Key": "tempFile.txt",
+                            "Body": "{{testFunction}}"
+                        }]
+                    },
+                    {
+                        method: "promise",
+                        params: []
+                    }
+                ],
+                assign: "s3UploadResult"
+            },
+            {
+                "next":true
+            }
+        ]
+    },
+
+
+
+    {
+       modules: {
+            "passport":"passport",
+            "passport-microsoft":"passport-microsoft"
+        },
+        actions: [
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"passport",
+                chain:[
+                ],
+                assign:"passport"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
+                chain:[],
+                "run":[
+                    {method:"{done}", params:[null, "{profile}"]}
+                ],
+                assign:"callbackFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"passport-microsoft",
+                chain:[
+                {method:"Strategy", params:[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: "https://graph.microsoft.com/",
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: "login",
+                        state: false,
+                        type: "Web",
+                        scope: ["user.read"]
+                    },"{{callbackFunction}}"
+                ],
+                    "new":true}
+                ],
+                assign:"passportmicrosoft"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"{{passport}}",
+                chain:[
+                    {method:"use", params:["{{passportmicrosoft}}"]}
+                ],
+                assign:"newStrategy"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                params:["{user}", "{done}"], 
+                chain:[],
+                "run":[
+                    {method:"{done}", params:[null, "{user}"]}
+                ],
+                assign:"serializeFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"{{passport}}",
+                chain:[
+                    {method:"serializeUser", params:["{{serializeFunction}}"]}
+                ],
+                assign:"serializeUser"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                params:["{user}", "{done}"], 
+                chain:[],
+                "run":[
+                    {method:"{done}", params:[null, "{user}"]}
+                ],
+                assign:"deserializeFunction"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"{{passport}}",
+                chain:[
+                    {method:"deserializeUser", params:["{{deserializeFunction}}"]}
+                ],
+                assign:"deserializeUser"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"{{passport}}",
+                chain:[
+                    {method:"initialize", params:[]}
+                ],
+                assign:"passportInitialize"
+            },
+            {
+                module:"dyRouter",
+                chain:[
+                    {method:"use", params:["{{passportInitialize}}"]}
+                ],
+                assign:"{{runDyRouterInit}}"
+            },
+            {
+                //"if":["{{urlpath}}","!=","/microsoft/callback"],
+                module:"{{passport}}",
+                chain:[
+                    {method:"session", params:[]}
+                ],
+                assign:"passportSession"
+            },
+            {
+                module:"dyRouter",
+                chain:[
+                    {method:"use", params:["{{passportSession}}"]}
+                ],
+                assign:"{{runDyRouterSession}}"
+            },
+            {
+                //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
+                module:"{{passport}}",
+                chain:[
+                    {method:"authenticate", params:["microsoft"], express:true},
+                ],
+                assign:"newAuthentication"
+            }
+        ]
+    },
+    
+
+    {
+       modules: {
+            "passport":"passport",
+            "passport-microsoft":"passport-microsoft"
+        },
+        actions: [
+            {
+                //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
+                module:"req",
+                chain:[
+                    {method:"isAuthenticated", params:[]}
+                ],
+                express:true,
+                assign:"{{isAuth}}"
+            },
+            {
+                "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 module:"res",
                 chain:[
                     {method:"json", params:["{{}}"]}
                 ],
                 assign:"{{getJson}}!"
+            },
+            {
+                "ifs":[["{{urlpath}}","==","/hello"]],
+                module:"res",
+                chain:[
+                    {method:"send", params:["Hello World!"]}
+                ],
+                assign:"hello"
             }
         ]
     }
