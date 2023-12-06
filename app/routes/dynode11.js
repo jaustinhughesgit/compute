@@ -396,7 +396,8 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             if (action.module){
-                let moduleInstance = replacePlaceholders(action.module, context, true);
+                let moduleInstance
+                moduleInstance = replacePlaceholders(action.module, context)
                  
                 let args = [];
                 if (action.from) {
@@ -544,35 +545,30 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(item, context, isModule = false) {
     if (typeof item === 'string') {
-        // Process string: replace placeholders or resolve module/local references
         return processString(item, context, isModule);
     } else if (Array.isArray(item)) {
-        // Process each element in the array
         return item.map(element => replacePlaceholders(element, context));
     } else if (typeof item === 'object' && item !== null) {
-        // Process each key-value pair in the object
         const processedObject = {};
         for (const [key, value] of Object.entries(item)) {
             processedObject[key] = replacePlaceholders(value, context);
         }
         return processedObject;
     }
-    // Return non-string, non-array, non-object items as is
     return item;
 }
 
 function processString(str, context, isModule) {
-    // Handle single placeholder scenario
     if (str.startsWith("{{") && str.endsWith("}}")) {
-        const keyPath = str.slice(2, -2); // Extract the key path
+        const keyPath = str.slice(2, -2);
         return resolveValueFromContext(keyPath, context);
     }
 
-    // Check if it's a local module or require a module if isModule is true
+    if (isModule && local[str]) {
+        return local[str];
+    }
+
     if (isModule) {
-        if (local[str]) {
-            return local[str];
-        }
         try {
             if (require.resolve(str)) {
                 return require(str);
@@ -582,9 +578,8 @@ function processString(str, context, isModule) {
         }
     }
 
-    // Replace all placeholders in the string
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        return resolveValueFromContext(keyPath, context, true); // Convert to string
+        return resolveValueFromContext(keyPath, context, true);
     });
 }
 
@@ -595,15 +590,19 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     }, context);
 
     if (typeof value === 'function') {
-        value = value(); // Execute if it's a function
+        return value();
     }
 
     if (convertToString && value !== undefined) {
-        return String(value); // Convert to string if needed
+        return String(value);
     }
 
     return value;
 }
+
+
+
+
 
 
 
