@@ -664,18 +664,19 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
             }
+            let chainParams;
 
-            let chainParams = chainAction.params ? chainAction.params.map(param => {
-                if (typeof param === 'string' && !param.startsWith("{{")) {
-                    param = replacePlaceholders(param, context);
-                }
-                return processParam(param, context);
-            }) : [];
-
-            let methodName = chainAction.method;
-
-            if (methodName.startsWith('{{')) {
-                methodName = replacePlaceholders(methodName, context);
+            if (chainAction.params) {
+                chainParams = chainAction.params.map(param => {
+                    if (typeof param === 'string'){
+                        if (!param.startsWith("{{")){
+                            param = replacePlaceholders(param, context)
+                        }
+                    }
+                    return processParam(param);
+                });
+            } else {
+                chainParams = [];
             }
 
             if (chainAction.new) {
