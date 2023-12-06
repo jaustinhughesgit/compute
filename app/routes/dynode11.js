@@ -570,10 +570,12 @@ function processString(str, context, isModule) {
     }
 
     // Check if it's a local module or require a module if isModule is true
-    if (isModule) {
+    
         if (local[str]) {
             return local[str];
         }
+    
+    if (isModule) {
         try {
             if (require.resolve(str)) {
                 return require(str);
