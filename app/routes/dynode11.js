@@ -542,50 +542,40 @@ function replaceParams(param, context, scope, args) {
     }
     return param;
 }
-
-function replacePlaceholders(item, context, isModule = false) {
+function replacePlaceholders(item, context) {
     if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
-        return processString(item, context, isModule);
+        return processString(item, context);
     } else if (Array.isArray(item)) {
         // Process each element in the array
         return item.map(element => replacePlaceholders(element, context));
-    } else if (typeof item === 'object' && item !== null) {
-        // Process each key-value pair in the object
-        const processedObject = {};
-        for (const [key, value] of Object.entries(item)) {
-            processedObject[key] = replacePlaceholders(value, context);
-        }
-        return processedObject;
     }
-    // Return non-string, non-array, non-object items as is
+    // Return non-string, non-array items as is
     return item;
 }
 
-function processString(str, context, isModule) {
-    // Handle single placeholder scenario
+function processString(str, context) {
+    // Scenario 1: The entire string is a single placeholder
     if (str.startsWith("{{") && str.endsWith("}}")) {
         const keyPath = str.slice(2, -2); // Extract the key path
         return resolveValueFromContext(keyPath, context);
     }
 
-    // Check if it's a local module or require a module if isModule is true
-    
-        if (local[str]) {
-            return local[str];
-        }
-    
-    if (isModule) {
-        try {
-            if (require.resolve(str)) {
-                return require(str);
-            }
-        } catch (e) {
-            console.error(`Module '${str}' cannot be resolved:`, e);
-        }
+    // Scenario 2: Check if it's a local module
+    if (local[str]) {
+        return local[str];
     }
 
-    // Replace all placeholders in the string
+    // Scenario 3: Try requiring the module
+    try {
+        if (require.resolve(str)) {
+            return require(str);
+        }
+    } catch (e) {
+        console.error(`Module '${str}' cannot be resolved:`, e);
+    }
+
+    // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
         return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
@@ -619,10 +609,43 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 
 
 
-
-
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
+
+    function processParam(param) {
+        if (typeof param === 'string') {
+            if (param == "{{}}"){
+                return context;
+            }
+            if (param.startsWith('{{')) {
+
+                let isFunctionExecution = param.endsWith('!');
+                let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+                let value = context[key];
+    
+                if (isFunctionExecution && typeof value === 'function') {
+                    return value(); // Execute the function if it ends with '!'
+                }
+    
+                if (value !== undefined) {
+                    return value;
+                } else {
+                    return key;
+                }
+            }
+            return param;
+        } else if (Array.isArray(param)) {
+            return param.map(item => processParam(item));
+        } else if (typeof param === 'object' && param !== null) {
+            const processedParam = {};
+            for (const [key, value] of Object.entries(param)) {
+                processedParam[key] = processParam(value);
+            }
+            return processedParam;
+        } else {
+            return param;
+        }
+    }
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
@@ -648,8 +671,20 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
             }
-            let chainParams = chainAction.params ? replacePlaceholders(chainAction.params, context) : [];
+            let chainParams;
 
+            if (chainAction.params) {
+                chainParams = chainAction.params.map(param => {
+                    if (typeof param === 'string'){
+                        if (!param.startsWith("{{")){
+                            param = replacePlaceholders(param, context)
+                        }
+                    }
+                    return processParam(param);
+                });
+            } else {
+                chainParams = [];
+            }
 
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
