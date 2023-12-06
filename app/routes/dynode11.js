@@ -553,15 +553,7 @@ function replacePlaceholders(item, context) {
     } else if (Array.isArray(item)) {
         // Process each element in the array
         processedItem = item.map(element => replacePlaceholders(element, context));
-    } else if (typeof item === 'object' && item !== null) {
-        // Process each key-value pair in the object
-        processedItem = {};
-        for (const [key, value] of Object.entries(item)) {
-            processedItem[key] = replacePlaceholders(value, context);
-        }
     }
-
-    // Apply processParam to the processed item
     return processParam(processedItem, context);
 }
 
