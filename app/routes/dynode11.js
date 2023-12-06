@@ -598,6 +598,41 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     return value;
 }
 
+function processParam(param) {
+    if (typeof param === 'string') {
+        if (param == "{{}}"){
+            return context;
+        }
+        if (param.startsWith('{{')) {
+
+            let isFunctionExecution = param.endsWith('!');
+            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+            let value = context[key];
+
+            if (isFunctionExecution && typeof value === 'function') {
+                return value(); // Execute the function if it ends with '!'
+            }
+
+            if (value !== undefined) {
+                return value;
+            } else {
+                return key;
+            }
+        }
+        return param;
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value);
+        }
+        return processedParam;
+    } else {
+        return param;
+    }
+}
+
 
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
@@ -626,8 +661,18 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
+            if (chainAction.hasOwnProperty('return')) {
+                return chainAction.return;
+            }
+
+            let chainParams = chainAction.params ? chainAction.params.map(param => {
+                if (typeof param === 'string' && !param.startsWith("{{")) {
+                    param = replacePlaceholders(param, context);
+                }
+                return processParam(param);
+            }) : [];
+
             let methodName = chainAction.method;
-            let chainParams = chainAction.params ? replacePlaceholders(chainAction.params, context) : [];
 
             if (methodName.startsWith('{{')) {
                 methodName = replacePlaceholders(methodName, context);
@@ -641,7 +686,15 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     return;
                 }
             } else if (typeof result[methodName] === 'function') {
-                result = await result[methodName](...chainParams);
+                if (methodName === 'promise') {
+                    result = await result.promise();
+                } else {
+                    if (chainAction.express) {
+                        result = result[methodName](...chainParams)(req, res, next);
+                    } else {
+                        result = result[methodName](...chainParams);
+                    }
+                }
             } else {
                 console.error(`Method '${methodName}' is not a function on '${action.module}'`);
                 return;
@@ -651,7 +704,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     return result;
 }
-
 
 
 async function processConfig(config, initialContext) {
