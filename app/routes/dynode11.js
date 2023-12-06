@@ -674,14 +674,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             let chainParams;
 
             if (chainAction.params) {
-                chainParams = chainAction.params.map(param => {
-                    if (typeof param === 'string'){
-                        if (!param.startsWith("{{")){
-                            param = replacePlaceholders(param, context)
-                        }
-                    }
-                    return processParam(param);
-                });
+                chainParams = replacePlaceholders(chainAction.params, context);
             } else {
                 chainParams = [];
             }
