@@ -545,34 +545,26 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context, pP = false) {
-    let processedItem = item;
-    console.log("item",item)
-    if (typeof processedItem === 'string') {
-        console.log("1", processedItem)
+function replacePlaceholders(item, context) {
+    if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
-        processedItem = processString(processedItem, context);
-    } else if (Array.isArray(processedItem)) {
-        console.log("2", processedItem)
+        return processString(item, context);
+    } else if (Array.isArray(item)) {
         // Process each element in the array
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
+        return item.map(element => replacePlaceholders(element, context));
+    } else if (typeof item === 'object' && item !== null) {
+        // Process each key-value pair in the object
+        const processedObject = {};
+        for (const [key, value] of Object.entries(item)) {
+            processedObject[key] = replacePlaceholders(value, context);
+        }
+        return processedObject;
     }
-    // Return non-string, non-array items as is
-    if (pP){
-        console.log("processedItem",processedItem)
-        processedItem = processParam(processedItem, context)
-        console.log("bbbbb>", processedItem)
-    }
-    return processedItem;
+    // Return non-string, non-array, non-object items as is
+    return item;
 }
 
 function processString(str, context) {
-    // Scenario 1: The entire string is a single placeholder
-    if (str.startsWith("{{") && str.endsWith("}}")) {
-        const keyPath = str.slice(2, -2); // Extract the key path
-        return resolveValueFromContext(keyPath, context);
-    }
-
     // Scenario 2: Check if it's a local module
     if (local[str]) {
         return local[str];
@@ -587,11 +579,33 @@ function processString(str, context) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
+    // Check for function execution indicator '}}!'
+    let isFunctionExecution = str.endsWith('}}!');
+    let processedString = str;
+
+    if (isFunctionExecution) {
+        // Remove the '!' to process the string normally
+        processedString = str.slice(0, -1);
+    }
+
+    // Process the string for placeholders
+    if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
+        const keyPath = processedString.slice(2, -2); // Extract the key path
+        let value = resolveValueFromContext(keyPath, context);
+
+        // Execute if it's a function and isFunctionExecution is true
+        if (isFunctionExecution && typeof value === 'function') {
+            return value();
+        }
+        return value;
+    }
+
     // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
         return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
 }
+
 
 function resolveValueFromContext(keyPath, context, convertToString = false) {
     const keys = keyPath.split('.');
