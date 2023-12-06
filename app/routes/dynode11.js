@@ -1,6 +1,3 @@
-
-//WORKING
-
 var express = require('express');
 let local = {};
 local.AWS = require('aws-sdk');
@@ -606,7 +603,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
-        return new constructor(...args);
+        return new constructor(...args); //<-----/////
     }
 
     if (action.method) {
