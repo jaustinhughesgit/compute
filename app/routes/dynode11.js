@@ -578,7 +578,11 @@ function replacePlaceholders(str, context) {
                 return value;
             } else {
                 if (value !== undefined) {
-                    return value;
+                    if (typeof value == 'object'){
+                        return context[keyPath]
+                    } else {
+                        return value;
+                    }
                 } else {
                     return keyPath;
                 }
