@@ -649,8 +649,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
     if (action.method) {
         let params;
 
-        chainParams = replacePlaceholders(chainAction.params, context);
-        
+        if (action.params) {
+            chainParams = replacePlaceholders(chainAction.params, context);
+        } else {
+            params = [];
+        }
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
