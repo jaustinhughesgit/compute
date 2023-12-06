@@ -571,7 +571,11 @@ function replacePlaceholders(str, context) {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
             if (value !== undefined) {
-                return value;
+                if (typeof context[keyPath] == 'function'){
+                    return context[keyPath]
+                } else {
+                    return value;
+                }
             } else {
                 return keyPath;
             }
