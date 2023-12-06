@@ -613,7 +613,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
         let params = action.params ? replacePlaceholders(action.params, context) : [];
 
         if (action.new) {
-            // Ensure result is a constructor before trying to instantiate
             if (typeof result === 'function' && result.prototype) {
                 result = instantiateWithNew(result, params);
             } else {
@@ -635,11 +634,10 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
 
             if (chainAction.new) {
-                // Ensure the method is a constructor before trying to instantiate
                 if (typeof result[methodName] === 'function' && result[methodName].prototype) {
                     result = instantiateWithNew(result[methodName], chainParams);
                 } else {
-                    console.error(`Method '${methodName}' is not a constructor`);
+                    console.error(`Method '${methodName}' is not a constructor on '${action.module}'`);
                     return;
                 }
             } else if (typeof result[methodName] === 'function') {
@@ -653,6 +651,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     return result;
 }
+
 
 
 async function processConfig(config, initialContext) {
