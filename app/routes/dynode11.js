@@ -400,6 +400,7 @@ async function initializeModules(context, config, req, res, next) {
                 console.log("action",action)
                 if (action.module.startsWith("{{")){
                     console.log("<-- context")
+                    console.log(action.module)
                     moduleInstance = replacePlaceholders(action.module, context) //context[action.module.replace("{{","").replace("}}","")] //<-----/////
                  } else if (local[action.module]){
                     console.log("<-- local")
