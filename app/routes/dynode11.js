@@ -598,7 +598,7 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     return value;
 }
 
-function processParam(param) {
+function processParam(param, context) {
     if (typeof param === 'string') {
         if (param == "{{}}"){
             return context;
@@ -621,11 +621,11 @@ function processParam(param) {
         }
         return param;
     } else if (Array.isArray(param)) {
-        return param.map(item => processParam(item));
+        return param.map(item => processParam(item, context));
     } else if (typeof param === 'object' && param !== null) {
         const processedParam = {};
         for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value);
+            processedParam[key] = processParam(value, context);
         }
         return processedParam;
     } else {
@@ -669,7 +669,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                 if (typeof param === 'string' && !param.startsWith("{{")) {
                     param = replacePlaceholders(param, context);
                 }
-                return processParam(param);
+                return processParam(param, context);
             }) : [];
 
             let methodName = chainAction.method;
