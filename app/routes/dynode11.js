@@ -560,16 +560,20 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
+    console.log("replacePlaceholders", str, context)
     if (typeof str === 'string') {
         if (str == "{{}}"){
             return context
         }
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+            console.log("keyPath", keyPath)
             const keys = keyPath.split('.');
             let value = keys.reduce((currentContext, key) => {
+                console.log("key",key)
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
-
+            console.log("value", value)
+            console.log("typeof value", typeof value)
             if (typeof value === 'function') {
                 return value;
             } else {
