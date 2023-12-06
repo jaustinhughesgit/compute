@@ -556,6 +556,7 @@ function replacePlaceholders(item, context, pP = false) {
     }
     // Return non-string, non-array items as is
     if (pP){
+        console.log("processedItem",processedItem)
         processedItem = processParam(processedItem, context)
         console.log("bbbbb>", processedItem)
     }
