@@ -545,23 +545,25 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context) {
-    if (typeof item === 'string') {
+function replacePlaceholders(item, context, pP = false) {
+    let processedItem = item;
+    console.log("item",item)
+    if (typeof processedItem === 'string') {
+        console.log("1", processedItem)
         // Process string: replace placeholders or resolve module/local references
-        return processString(item, context);
-    } else if (Array.isArray(item)) {
+        processedItem = processString(processedItem, context);
+    } else if (Array.isArray(processedItem)) {
+        console.log("2", processedItem)
         // Process each element in the array
-        return item.map(element => replacePlaceholders(element, context));
-    } else if (typeof item === 'object' && item !== null) {
-        // Process each key-value pair in the object
-        const processedObject = {};
-        for (const [key, value] of Object.entries(item)) {
-            processedObject[key] = replacePlaceholders(value, context);
-        }
-        return processedObject;
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
-    // Return non-string, non-array, non-object items as is
-    return item;
+    // Return non-string, non-array items as is
+    if (pP){
+        console.log("processedItem",processedItem)
+        processedItem = processParam(processedItem, context)
+        console.log("bbbbb>", processedItem)
+    }
+    return processedItem;
 }
 
 function processString(str, context) {
@@ -605,7 +607,6 @@ function processString(str, context) {
         return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
 }
-
 
 function resolveValueFromContext(keyPath, context, convertToString = false) {
     const keys = keyPath.split('.');
