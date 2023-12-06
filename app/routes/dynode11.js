@@ -555,7 +555,8 @@ function replacePlaceholders(item, context) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     // Return non-string, non-array items as is
-    //processedItem = processParam(param, context)
+    processedItem = processParam(param, context)
+    console.log("bbbbb>", processedItem)
 
     return processedItem;
 }
@@ -672,13 +673,13 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
-                    if (typeof param === 'string'){
-                        if (!param.startsWith("{{")){
+                    //if (typeof param === 'string'){
+                        //if (!param.startsWith("{{")){
                             param = replacePlaceholders(param, context)
-                        }
-                    }
-                    console.log("xxxx>",processParam(param, context))
-                    return processParam(param, context);
+                        //}
+                    //}
+                    //console.log("xxxx>",processParam(param, context))
+                    return param //processParam(param, context);
                 });
             } else {
                 chainParams = [];
