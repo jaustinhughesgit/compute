@@ -542,44 +542,42 @@ function replaceParams(param, context, scope, args) {
     }
     return param;
 }
-
-function replacePlaceholders(item, context, isModule = false) {
+function replacePlaceholders(item, context) {
     if (typeof item === 'string') {
-        return processString(item, context, isModule);
+        // Process string: replace placeholders or resolve module/local references
+        return processString(item, context);
     } else if (Array.isArray(item)) {
+        // Process each element in the array
         return item.map(element => replacePlaceholders(element, context));
-    } else if (typeof item === 'object' && item !== null) {
-        const processedObject = {};
-        for (const [key, value] of Object.entries(item)) {
-            processedObject[key] = replacePlaceholders(value, context);
-        }
-        return processedObject;
     }
+    // Return non-string, non-array items as is
     return item;
 }
 
-function processString(str, context, isModule) {
+function processString(str, context) {
+    // Scenario 1: The entire string is a single placeholder
     if (str.startsWith("{{") && str.endsWith("}}")) {
-        const keyPath = str.slice(2, -2);
+        const keyPath = str.slice(2, -2); // Extract the key path
         return resolveValueFromContext(keyPath, context);
     }
 
-    if (isModule && local[str]) {
+    // Scenario 2: Check if it's a local module
+    if (local[str]) {
         return local[str];
     }
 
-    if (isModule) {
-        try {
-            if (require.resolve(str)) {
-                return require(str);
-            }
-        } catch (e) {
-            console.error(`Module '${str}' cannot be resolved:`, e);
+    // Scenario 3: Try requiring the module
+    try {
+        if (require.resolve(str)) {
+            return require(str);
         }
+    } catch (e) {
+        console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
+    // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        return resolveValueFromContext(keyPath, context, true);
+        return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
 }
 
@@ -590,11 +588,11 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     }, context);
 
     if (typeof value === 'function') {
-        return value();
+        value = value(); // Execute if it's a function
     }
 
     if (convertToString && value !== undefined) {
-        return String(value);
+        return String(value); // Convert to string if needed
     }
 
     return value;
@@ -638,8 +636,20 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
             }
-            let chainParams = chainAction.params ? replacePlaceholders(chainAction.params, context) : [];
+            let chainParams;
 
+            if (chainAction.params) {
+                chainParams = chainAction.params.map(param => {
+                    if (typeof param === 'string'){
+                        if (!param.startsWith("{{")){
+                            param = replacePlaceholders(param, context)
+                        }
+                    }
+                    return processParam(param);
+                });
+            } else {
+                chainParams = [];
+            }
 
             if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
