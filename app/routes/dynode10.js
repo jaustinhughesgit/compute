@@ -330,8 +330,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
             if (param.startsWith('{{')) {
 
-                let isFunctionExecution = action.assign.endsWith('!');
-                let key = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                let isFunctionExecution = param.endsWith('!');
+                let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
                 let value = context[key];
     
                 if (isFunctionExecution && typeof value === 'function') {
