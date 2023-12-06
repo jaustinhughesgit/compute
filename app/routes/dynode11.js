@@ -400,7 +400,7 @@ async function initializeModules(context, config, req, res, next) {
                 console.log("action",action)
                 if (action.module.startsWith("{{")){
                     console.log("<-- context")
-                    moduleInstance = replacePlaceholders(action.module, context) //context[action.module.replace("{{","").replace("}}","")]
+                    moduleInstance = replacePlaceholders(action.module, context)  //context[action.module.replace("{{","").replace("}}","")] //<-----/////
                  } else if (local[action.module]){
                     console.log("<-- local")
                     moduleInstance = local[action.module]
@@ -561,21 +561,31 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        if (str == "{{}}") {
-            return context;
-        }
-        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        // Check if the string is a single placeholder
+        if (str.startsWith("{{") && str.endsWith("}}")) {
+            const keyPath = str.slice(2, -2); // Remove the curly braces
             const keys = keyPath.split('.');
             let value = keys.reduce((currentContext, key) => {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
 
-            // Return the value if it's found, regardless of its type
-            return value !== undefined ? value : match;
-        });
+            // Return the value directly from the context
+            return value !== undefined ? value : str;
+        } else {
+            // Process as normal if not a single placeholder
+            return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+                const keys = keyPath.split('.');
+                let value = keys.reduce((currentContext, key) => {
+                    return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+                }, context);
+
+                return value !== undefined ? value : match;
+            });
+        }
     }
     return str;
 }
+
 
 
 
