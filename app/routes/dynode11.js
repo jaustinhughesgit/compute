@@ -547,10 +547,13 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(item, context, pP = false) {
     let processedItem = item;
+    console.log("item",item)
     if (typeof processedItem === 'string') {
+        console.log("1", processedItem)
         // Process string: replace placeholders or resolve module/local references
         processedItem = processString(processedItem, context);
     } else if (Array.isArray(processedItem)) {
+        console.log("2", processedItem)
         // Process each element in the array
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
