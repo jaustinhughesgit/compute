@@ -545,27 +545,24 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 function replacePlaceholders(item, context) {
+    let processedItem = item;
+
     if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
-        item = processString(item, context);
-        return processParam(item, context);
+        processedItem = processString(item, context);
     } else if (Array.isArray(item)) {
         // Process each element in the array
-        return item.map(element => {
-            element = replacePlaceholders(element, context);
-            return processParam(element, context);
-        });
+        processedItem = item.map(element => replacePlaceholders(element, context));
     } else if (typeof item === 'object' && item !== null) {
         // Process each key-value pair in the object
-        const processedObject = {};
+        processedItem = {};
         for (const [key, value] of Object.entries(item)) {
-            processedObject[key] = replacePlaceholders(value, context);
-            processedObject[key] = processParam(processedObject[key], context);
+            processedItem[key] = replacePlaceholders(value, context);
         }
-        return processedObject;
     }
-    // Return non-string, non-array, non-object items as is
-    return item;
+
+    // Apply processParam to the processed item
+    return processParam(processedItem, context);
 }
 
 function processString(str, context) {
@@ -679,9 +676,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             let chainParams;
 
             if (chainAction.params) {
-                chainParams = chainAction.params.map(param => {
-                    return replacePlaceholders(param, context)
-                });
+                chainParams = chainAction.params.map(param => replacePlaceholders(param, context));
             } else {
                 chainParams = [];
             }
