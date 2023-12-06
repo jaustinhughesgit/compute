@@ -546,6 +546,7 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(item, context, pP = false) {
+    console.log("context ))",context)
     let processedItem = item;
     console.log("item",item)
     if (typeof processedItem === 'string') {
