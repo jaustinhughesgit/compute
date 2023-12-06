@@ -679,24 +679,41 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
 
             if (chainAction.new) {
-                if (typeof result[methodName] === 'function' && result[methodName].prototype) {
-                    result = instantiateWithNew(result[methodName], chainParams);
-                } else {
-                    console.error(`Method '${methodName}' is not a constructor on '${action.module}'`);
-                    return;
-                }
-            } else if (typeof result[methodName] === 'function') {
-                if (methodName === 'promise') {
+                result = instantiateWithNew(result[chainAction.method], chainParams);
+            } else if (typeof result[chainAction.method] === 'function') {
+                if (chainAction.method === 'promise') {
                     result = await result.promise();
                 } else {
-                    if (chainAction.express) {
-                        result = result[methodName](...chainParams)(req, res, next);
+                    if (chainAction.new) {
+                        result = new result[chainAction.method](...chainParams);
                     } else {
-                        result = result[methodName](...chainParams);
+                        if (chainAction.method && chainAction.method.length != 0){
+                            if (chainAction.method.startsWith('{{') ) {
+                                const methodName = chainAction.method.slice(2, -2);
+                                const methodFunction = context[methodName];
+                                if (typeof methodFunction === 'function') {
+                                    if (chainAction.express){
+                                        result = methodFunction(...chainParams)(req, res, next);
+                                        console.log("deep auth => ", req.isAuthenticated())
+                                    } else {
+                                        result = methodFunction(...chainParams);
+                                    }
+                                } else {
+                                    console.error(`Method ${methodName} is not a function in context`);
+                                    return;
+                                }
+                            } else {
+                                if (chainAction.express){
+                                    result = result[chainAction.method](...chainParams)(req, res, next);
+                                } else {
+                                    result = result[chainAction.method](...chainParams);
+                                }
+                            }
+                        }
                     }
                 }
             } else {
-                console.error(`Method '${methodName}' is not a function on '${action.module}'`);
+                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
                 return;
             }
         }
