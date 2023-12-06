@@ -584,26 +584,32 @@ function processString(str, context) {
     // Check for function execution indicator '}}!'
     let isFunctionExecution = str.endsWith('}}!');
     let processedString = str;
-
+    console.log("isFunctionExecution", isFunctionExecution)
     if (isFunctionExecution) {
         // Remove the '!' to process the string normally
         processedString = str.slice(0, -1);
     }
-
+    console.log("post removal of !:", processedString)
     // Process the string for placeholders
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
+        console.log("it does start and end with {{}}")
         const keyPath = processedString.slice(2, -2); // Extract the key path
+        console.log("resolving value from context",keyPath, context)
         let value = resolveValueFromContext(keyPath, context);
-
+        console.log(value)
+        console.log("typeof", value, typeof value)
         // Execute if it's a function and isFunctionExecution is true
         if (isFunctionExecution && typeof value === 'function') {
+            console.log("is a function and is !")
             return value();
         }
+        console.log("just passing the value", value)
         return value;
     }
 
     // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        console.log("running with convert to string true")
         return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
 }
@@ -611,17 +617,23 @@ function processString(str, context) {
 function resolveValueFromContext(keyPath, context, convertToString = false) {
     const keys = keyPath.split('.');
     let value = keys.reduce((currentContext, key) => {
+        console.log("key", key)
+        console.log("currentContext", currentContext)
         return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
     }, context);
-
+    console.log("value 2", value)
+    console.log("typeof value", typeof value)
     if (typeof value === 'function') {
+        console.log("executing value")
         value = value(); // Execute if it's a function
+        console.log(value)
     }
-
+    console.log("convert to string?")
     if (convertToString && value !== undefined) {
+        console.log("String(value)", String(value))
         return String(value); // Convert to string if needed
     }
-
+    console.log("returning",value)
     return value;
 }
 
