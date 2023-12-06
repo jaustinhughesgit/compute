@@ -547,12 +547,24 @@ function replaceParams(param, context, scope, args) {
 function replacePlaceholders(item, context) {
     if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
-        return processString(item, context);
+        item = processString(item, context);
+        return processParam(item, context);
     } else if (Array.isArray(item)) {
         // Process each element in the array
-        return item.map(element => replacePlaceholders(element, context));
+        return item.map(element => {
+            element = replacePlaceholders(element, context);
+            return processParam(element, context);
+        });
+    } else if (typeof item === 'object' && item !== null) {
+        // Process each key-value pair in the object
+        const processedObject = {};
+        for (const [key, value] of Object.entries(item)) {
+            processedObject[key] = replacePlaceholders(value, context);
+            processedObject[key] = processParam(processedObject[key], context);
+        }
+        return processedObject;
     }
-    // Return non-string, non-array items as is
+    // Return non-string, non-array, non-object items as is
     return item;
 }
 
@@ -668,12 +680,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
-                    if (typeof param === 'string'){
-                        if (!param.startsWith("{{")){
-                            param = replacePlaceholders(param, context)
-                        }
-                    }
-                    return processParam(param, context);
+                    return replacePlaceholders(param, context)
                 });
             } else {
                 chainParams = [];
