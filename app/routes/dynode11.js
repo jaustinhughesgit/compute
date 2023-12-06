@@ -561,25 +561,17 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
-        if (str == "{{}}"){
-            return context
+        if (str == "{{}}") {
+            return context;
         }
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
             const keys = keyPath.split('.');
             let value = keys.reduce((currentContext, key) => {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
-            if (value !== undefined) {
-                if (typeof value == 'object'){
-                    console.log("typeof value == object")
-                    return context[keyPath]()
-                } else {
-                    return value;
-                }
-            } else {
-                return keyPath;
-            }
-            
+
+            // Return the value if it's found, regardless of its type
+            return value !== undefined ? value : match;
         });
     }
     return str;
