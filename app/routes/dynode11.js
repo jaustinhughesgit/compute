@@ -555,6 +555,8 @@ function replacePlaceholders(item, context) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     // Return non-string, non-array items as is
+    //processedItem = processParam(param, context)
+
     return processedItem;
 }
 
@@ -675,6 +677,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             param = replacePlaceholders(param, context)
                         }
                     }
+                    console.log("xxxx>",processParam(param, context))
                     return processParam(param, context);
                 });
             } else {
