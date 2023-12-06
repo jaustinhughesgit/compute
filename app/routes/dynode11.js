@@ -543,34 +543,43 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(str, context) {
-    if (typeof str === 'string') {
-        // Scenario 1: The entire string is a single placeholder
-        if (str.startsWith("{{") && str.endsWith("}}")) {
-            const keyPath = str.slice(2, -2); // Extract the key path
-            return resolveValueFromContext(keyPath, context);
-        }
-
-        // Scenario 2: Check if it's a local module
-        if (local[str]) {
-            return local[str];
-        }
-
-        // Scenario 3: Try requiring the module
-        try {
-            if (require.resolve(str)) {
-                return require(str);
-            }
-        } catch (e) {
-            console.error(`Module '${str}' cannot be resolved:`, e);
-        }
-
-        // Scenario 4: The string contains one or more placeholders
-        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-            return resolveValueFromContext(keyPath, context, true); // Convert to string
-        });
+function replacePlaceholders(item, context) {
+    if (typeof item === 'string') {
+        // Process string: replace placeholders or resolve module/local references
+        return processString(item, context);
+    } else if (Array.isArray(item)) {
+        // Process each element in the array
+        return item.map(element => replacePlaceholders(element, context));
     }
-    return str;
+    // Return non-string, non-array items as is
+    return item;
+}
+
+function processString(str, context) {
+    // Scenario 1: The entire string is a single placeholder
+    if (str.startsWith("{{") && str.endsWith("}}")) {
+        const keyPath = str.slice(2, -2); // Extract the key path
+        return resolveValueFromContext(keyPath, context);
+    }
+
+    // Scenario 2: Check if it's a local module
+    if (local[str]) {
+        return local[str];
+    }
+
+    // Scenario 3: Try requiring the module
+    try {
+        if (require.resolve(str)) {
+            return require(str);
+        }
+    } catch (e) {
+        console.error(`Module '${str}' cannot be resolved:`, e);
+    }
+
+    // Scenario 4: The string contains one or more placeholders
+    return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        return resolveValueFromContext(keyPath, context, true); // Convert to string
+    });
 }
 
 function resolveValueFromContext(keyPath, context, convertToString = false) {
@@ -640,16 +649,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
     if (action.method) {
         let params;
 
-        if (action.params) {
-            params = action.params.map(param => {
-                if (typeof param === 'string'){
-                        param = replacePlaceholders(param, context)
-                }
-                return processParam(param);
-            });
-        } else {
-            params = [];
-        }
+        chainParams = replacePlaceholders(chainAction.params, context);
+        
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
