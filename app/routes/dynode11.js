@@ -391,7 +391,7 @@ async function initializeModules(context, config, req, res, next) {
         if (runAction){
             if (action.set){
                 for (key in action.set){
-                    context[key] = replacePlaceholders(action.set[key], context) //<-----------///////////////////////
+                    context[key] = replacePlaceholders(action.set[key], context) 
                 }
             }
 
@@ -400,7 +400,7 @@ async function initializeModules(context, config, req, res, next) {
                 console.log("action",action)
                 if (action.module.startsWith("{{")){
                     console.log("<-- context")
-                    moduleInstance = replacePlaceholders(action.module, context) //<---------- context[action.module.replace("{{","").replace("}}","")]
+                    moduleInstance = context[action.module.replace("{{","").replace("}}","")] //<-----/////
                  } else if (local[action.module]){
                     console.log("<-- local")
                     moduleInstance = local[action.module]
@@ -560,37 +560,26 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(str, context) {
-    console.log("replacePlaceholders", str, context)
     if (typeof str === 'string') {
         if (str == "{{}}"){
-            return context
+            return context;
         }
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-            console.log("keyPath", keyPath)
             const keys = keyPath.split('.');
             let value = keys.reduce((currentContext, key) => {
-                console.log("key",key)
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
-            console.log("value", value)
-            console.log("typeof value", typeof value)
-            if (typeof value === 'function') {
+
+            // Check if the value is a module instance and return it
+            if (value !== undefined) {
                 return value;
             } else {
-                if (value !== undefined) {
-                    if (typeof value == 'object'){
-                        return context[keyPath]
-                    } else {
-                        return value;
-                    }
-                } else {
-                    return keyPath;
-                }
+                // If the value is not found in the context, return the original keyPath
+                return keyPath;
             }
         });
     }
     return str;
-}
 
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
