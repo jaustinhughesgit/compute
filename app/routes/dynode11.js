@@ -562,7 +562,7 @@ function replaceParams(param, context, scope, args) {
 function replacePlaceholders(str, context) {
     if (typeof str === 'string') {
         if (str == "{{}}"){
-            return context;
+            return context
         }
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
             const keys = keyPath.split('.');
@@ -570,16 +570,22 @@ function replacePlaceholders(str, context) {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
 
-            // Check if the value is a module instance and return it
-            if (value !== undefined) {
+            if (typeof value === 'function') {
                 return value;
             } else {
-                // If the value is not found in the context, return the original keyPath
-                return keyPath;
+                if (value !== undefined) {
+                    return value;
+                } else {
+                    return keyPath;
+                }
             }
         });
     }
     return str;
+}
+
+
+
 
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
