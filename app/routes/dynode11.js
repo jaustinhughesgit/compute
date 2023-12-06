@@ -542,10 +542,11 @@ function replaceParams(param, context, scope, args) {
     }
     return param;
 }
-function replacePlaceholders(item, context) {
+
+function replacePlaceholders(item, context, isModule = false) {
     if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
-        return processString(item, context);
+        return processString(item, context, isModule);
     } else if (Array.isArray(item)) {
         // Process each element in the array
         return item.map(element => replacePlaceholders(element, context));
@@ -561,25 +562,25 @@ function replacePlaceholders(item, context) {
     return item;
 }
 
-function processString(str, context) {
+function processString(str, context, isModule) {
     // Handle single placeholder scenario
     if (str.startsWith("{{") && str.endsWith("}}")) {
         const keyPath = str.slice(2, -2); // Extract the key path
         return resolveValueFromContext(keyPath, context);
     }
 
-    // Check if it's a local module
-    if (local[str]) {
-        return local[str];
-    }
-
-    // Try requiring the module
-    try {
-        if (require.resolve(str)) {
-            return require(str);
+    // Check if it's a local module or require a module if isModule is true
+    if (isModule) {
+        if (local[str]) {
+            return local[str];
         }
-    } catch (e) {
-        console.error(`Module '${str}' cannot be resolved:`, e);
+        try {
+            if (require.resolve(str)) {
+                return require(str);
+            }
+        } catch (e) {
+            console.error(`Module '${str}' cannot be resolved:`, e);
+        }
     }
 
     // Replace all placeholders in the string
@@ -604,6 +605,7 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 
     return value;
 }
+
 
 
 
