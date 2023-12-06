@@ -328,7 +328,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (param == "{{}}"){
                 return context;
             }
-            if (param.startsWith('{{') && param.endsWith('}}')) {
+            if (param.startsWith('{{'))) {
                 const key = param.slice(2, -2);
                 const isFunctionExecution = param.endsWith('!'); // Check if it ends with '!'
                 let value = context[key];
@@ -356,7 +356,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
             return param;
         }
     }
-    
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
