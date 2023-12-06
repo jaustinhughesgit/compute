@@ -572,7 +572,7 @@ function replacePlaceholders(str, context) {
             if (value !== undefined) {
                 if (typeof value == 'object'){
                     console.log("typeof value == object")
-                    return context[keyPath]
+                    return context[keyPath]()
                 } else {
                     return value;
                 }
