@@ -569,16 +569,12 @@ function replacePlaceholders(str, context) {
             let value = keys.reduce((currentContext, key) => {
                 return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
             }, context);
-
-            if (typeof value === 'function') {
+            if (value !== undefined) {
                 return value;
             } else {
-                if (value !== undefined) {
-                    return value;
-                } else {
-                    return keyPath;
-                }
+                return keyPath;
             }
+            
         });
     }
     return str;
