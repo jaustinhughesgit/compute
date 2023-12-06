@@ -603,14 +603,23 @@ async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
-        return new constructor(...args); //<-----/////
+        if (typeof constructor !== 'function' || constructor.prototype === undefined) {
+            throw new Error(`'${constructor}' is not a constructor`);
+        }
+        return new constructor(...args);
     }
 
     if (action.method) {
         let params = action.params ? replacePlaceholders(action.params, context) : [];
 
         if (action.new) {
-            result = instantiateWithNew(result, params);
+            // Ensure result is a constructor before trying to instantiate
+            if (typeof result === 'function' && result.prototype) {
+                result = instantiateWithNew(result, params);
+            } else {
+                console.error(`'${result}' is not a constructor`);
+                return;
+            }
         } else {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : result[action.method] === 'object' ? result[action.method] : null;
         }
@@ -626,11 +635,17 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
 
             if (chainAction.new) {
-                result = instantiateWithNew(result[methodName], chainParams);
+                // Ensure the method is a constructor before trying to instantiate
+                if (typeof result[methodName] === 'function' && result[methodName].prototype) {
+                    result = instantiateWithNew(result[methodName], chainParams);
+                } else {
+                    console.error(`Method '${methodName}' is not a constructor`);
+                    return;
+                }
             } else if (typeof result[methodName] === 'function') {
                 result = await result[methodName](...chainParams);
             } else {
-                console.error(`Method ${methodName} is not a function on ${action.module}`);
+                console.error(`Method '${methodName}' is not a function on '${action.module}'`);
                 return;
             }
         }
@@ -638,6 +653,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
     return result;
 }
+
 
 async function processConfig(config, initialContext) {
     const context = { ...initialContext };
