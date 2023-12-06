@@ -688,12 +688,10 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     } else {
                         if (chainAction.method && chainAction.method.length != 0){
                             if (chainAction.method.startsWith('{{') ) {
-                                const methodName = chainAction.method.slice(2, -2);
-                                const methodFunction = context[methodName];
+                                const methodFunction = replacePlaceholders(chainAction.method, context)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
                                         result = methodFunction(...chainParams)(req, res, next);
-                                        console.log("deep auth => ", req.isAuthenticated())
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
