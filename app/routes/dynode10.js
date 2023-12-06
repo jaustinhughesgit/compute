@@ -326,14 +326,17 @@ async function applyMethodChain(target, action, context, res, req, next) {
     function processParam(param) {
         if (typeof param === 'string') {
             if (param == "{{}}"){
-                return context
+                return context;
             }
             if (param.startsWith('{{') && param.endsWith('}}')) {
                 const key = param.slice(2, -2);
-                const value = context[key];
-                if (typeof value === 'function') {
-                    return value;
+                const isFunctionExecution = param.endsWith('!'); // Check if it ends with '!'
+                let value = context[key];
+    
+                if (isFunctionExecution && typeof value === 'function') {
+                    return value(); // Execute the function if it ends with '!'
                 }
+    
                 if (value !== undefined) {
                     return value;
                 } else {
@@ -353,6 +356,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             return param;
         }
     }
+    
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
@@ -408,7 +412,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                         result = new result[chainAction.method](...chainParams);
                     } else {
                         if (chainAction.method && chainAction.method.length != 0){
-                            if (chainAction.method.startsWith('{{') && chainAction.method.endsWith('}}')) {
+                            if (chainAction.method.startsWith('{{') ) {
                                 const methodName = chainAction.method.slice(2, -2);
                                 const methodFunction = context[methodName];
                                 if (typeof methodFunction === 'function') {
