@@ -551,7 +551,21 @@ function replacePlaceholders(str, context) {
             return resolveValueFromContext(keyPath, context);
         }
 
-        // Scenario 2: The string contains one or more placeholders
+        // Scenario 2: Check if it's a local module
+        if (local[str]) {
+            return local[str];
+        }
+
+        // Scenario 3: Try requiring the module
+        try {
+            if (require.resolve(str)) {
+                return require(str);
+            }
+        } catch (e) {
+            console.error(`Module '${str}' cannot be resolved:`, e);
+        }
+
+        // Scenario 4: The string contains one or more placeholders
         return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
             return resolveValueFromContext(keyPath, context, true); // Convert to string
         });
@@ -575,6 +589,7 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 
     return value;
 }
+
 
 
 
