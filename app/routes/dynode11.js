@@ -542,7 +542,6 @@ function replaceParams(param, context, scope, args) {
     }
     return param;
 }
-
 function replacePlaceholders(item, context) {
     if (typeof item === 'string') {
         // Process string: replace placeholders or resolve module/local references
@@ -604,6 +603,12 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 
 
 
+
+
+
+
+
+
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
@@ -650,7 +655,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         let params;
 
         if (action.params) {
-            chainParams = replacePlaceholders(chainAction.params, context);
+            params = replacePlaceholders(chainAction.params, context);
         } else {
             params = [];
         }
