@@ -545,7 +545,7 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context) {
+function replacePlaceholders(item, context, pP = false) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
         // Process string: replace placeholders or resolve module/local references
@@ -555,9 +555,10 @@ function replacePlaceholders(item, context) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     // Return non-string, non-array items as is
-    processedItem = processParam(processedItem, context)
-    console.log("bbbbb>", processedItem)
-
+    if (pP){
+        processedItem = processParam(processedItem, context)
+        console.log("bbbbb>", processedItem)
+    }
     return processedItem;
 }
 
@@ -675,7 +676,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                 chainParams = chainAction.params.map(param => {
                     //if (typeof param === 'string'){
                         //if (!param.startsWith("{{")){
-                            param = replacePlaceholders(param, context)
+                            param = replacePlaceholders(param, context, true)
                         //}
                     //}
                     //console.log("xxxx>",processParam(param, context))
