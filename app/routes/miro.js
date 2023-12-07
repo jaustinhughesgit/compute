@@ -50,6 +50,8 @@ router.get('/', verifyJWT, async function(req, res, next) {
 });
 
 router.get('/auth/miro/callback', async (req, res) => {
+    console.log("req.query", req.query)
+    console.log("req.query.code", req.query.code)
     await miro.exchangeCodeForAccessToken(req.query.code);
 
     // Create JWT
