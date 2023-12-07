@@ -22,7 +22,9 @@ const json = [
          },
          actions: [
             {
-                set:{counter:0},
+                set:{counter:0}
+            },
+            {
                 params:[],
                 run:[
                     {access:"{{counter}}", add:1}
@@ -559,7 +561,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("val", val)
                             console.log("typeof val", typeof val)
                             if (typeof val === 'number') {
-                                
+
                                 context[contextKey] = val + runAction.add; // Update the context with the new value
                                 console.log(contextKey, context[contextKey])
                             } else {
