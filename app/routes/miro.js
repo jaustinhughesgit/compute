@@ -12,26 +12,8 @@ router.use(cookieParser());
 // JWT secret key
 const JWT_SECRET = process.env.JWT_SECRET;
 
-// Middleware to verify JWT
-function verifyJWT(req, res, next) {
-  const token = req.cookies.jwt;
-  if (!token) {
-    // Redirect to Miro authorization if no token is found
-    return res.redirect(miro.getAuthUrl());
-  }
-
-  try {
-    const decoded = jwt.verify(token, JWT_SECRET);
-    req.userId = decoded.id;
-    next();
-  } catch (ex) {
-    // Redirect to Miro authorization if token is invalid
-    return res.redirect(miro.getAuthUrl());
-  }
-}
-
-router.get('/', verifyJWT, async function(req, res, next) {
-    if (!(await miro.isAuthorized(req.userId))) {
+router.get('/', async function(req, res, next) {
+    if (!(await miro.isAuthorized(req.session.id))) {
       res.redirect(miro.getAuthUrl());
       return;
     }
