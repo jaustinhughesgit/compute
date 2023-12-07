@@ -488,6 +488,7 @@ async function initializeModules(context, config, req, res, next) {
                     }
                 }
             } else if (action.assign && action.params) {
+                console.log("action.assign && action.param")
                 context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                 continue;
             }
@@ -515,7 +516,9 @@ async function initializeModules(context, config, req, res, next) {
 }
 
 function createFunctionFromAction(action, context, req, res, next) {
+    console.log("function from action")
     return function(...args) {
+        console.log("inside function")
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
@@ -524,7 +527,7 @@ function createFunctionFromAction(action, context, req, res, next) {
             }
             return acc;
         }, {});
-
+        console.log("1")
         if (action.chain) {
             for (const chainAction of action.chain) {
                 console.log("chainAction", chainAction)
@@ -550,7 +553,8 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
-
+        console.log("2")
+        console.log("action.run", action.run)
         if (action.run) {
             console.log("action.run", action.run);
             for (const runAction of action.run) {
