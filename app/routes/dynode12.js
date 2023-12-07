@@ -56,6 +56,13 @@ const json = [
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                 set:{counter:0}
             },
+            {
+                params:[],
+                run:[
+                    {access:"{{counter}}", add:1}
+                ],
+                assign:"counter"
+            },
              {
                  target: "moment-timezone",
                  chain: [
