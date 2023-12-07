@@ -24,14 +24,14 @@ const json = [
             {
                 target:"req",
                 chain:[
-                    {method:"isAuthenticated", params:[]}
+                    {access:"isAuthenticated", params:[]}
                 ],
                 assign:"newAuth"
             },
             {
                 target:"console",
                 chain:[
-                    {method:"log", params:["{{newAuth}}!"]}
+                    {access:"log", params:["{{newAuth}}!"]}
                 ],
                 "assign":"logAuth"
             },
@@ -39,7 +39,7 @@ const json = [
                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
                 target:"res",
                 chain:[
-                    {method:"send", params:["{{newAuth}}"]}
+                    {access:"send", params:["{{newAuth}}"]}
                 ],
                 assign:"{{hello}}!"
             },
@@ -54,8 +54,8 @@ const json = [
             {
                 target: "moment-timezone",
                 chain: [
-                    { method: "tz", params: ["Asia/Dubai"] },
-                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ],
                 assign: "timeInDubai"
             },
@@ -64,7 +64,7 @@ const json = [
                 assign: "justTime",
                 from: ["{{timeInDubai}}!"],
                 chain: [
-                    { method: "format", params: ["HH:mm"] }
+                    { access: "format", params: ["HH:mm"] }
                 ]
             },
             {
@@ -72,8 +72,8 @@ const json = [
                 assign: "timeInDubai2",
                 from: ["{{timeInDubai}}"],
                 chain: [
-                    { method: "add", params: [1, "hours"] },
-                    { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                    { access: "add", params: [1, "hours"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ]
             },
             {
@@ -92,14 +92,14 @@ const json = [
                 assign: "justTime2",
                 from: ["{{timeInDubai2}}!"],
                 chain: [
-                    { method: "format", params: ["HH:mm"] }
+                    { access: "format", params: ["HH:mm"] }
                 ]
             },
             {
                 target: "fs",
                 chain: [
                     {
-                        method: "readFileSync",
+                        access: "readFileSync",
                         params: ["/var/task/app/routes/../example.txt", "utf8"],
                     }
                 ],
@@ -107,14 +107,14 @@ const json = [
             },
             {
                 target: "fs",
-                method: "writeFileSync",
+                access: "writeFileSync",
                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
             },
             {
                 target: "fs",
                 chain: [
                     {
-                        method: "readFileSync",
+                        access: "readFileSync",
                         params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
                     }
                 ],
@@ -124,7 +124,7 @@ const json = [
                 target: "s3",
                 chain: [
                     {
-                        method: "upload",
+                        access: "upload",
                         params: [{
                             "Bucket": "public.1var.com",
                             "Key": "test.html",
@@ -132,7 +132,7 @@ const json = [
                         }]
                     },
                     {
-                        method: "promise",
+                        access: "promise",
                         params: []
                     }
                 ],
@@ -142,14 +142,14 @@ const json = [
                 target: "s3",
                 chain: [
                     {
-                        method: "getObject",
+                        access: "getObject",
                         params: [{
                             Bucket: "public.1var.com",
                             Key: "test.html"
                         }]
                     },
                     {
-                        method: "promise",
+                        access: "promise",
                         params: []
                     }
                 ],
@@ -159,10 +159,10 @@ const json = [
                 target: "{{s3Response}}",
                 chain: [
                     {
-                        method: "Body"
+                        access: "Body"
                     },
                     {
-                        method: "toString",
+                        access: "toString",
                         params: ["utf-8"]
                     }
                 ],
@@ -173,7 +173,7 @@ const json = [
                 target: "res",
                 chain: [
                     {
-                        method: "send",
+                        access: "send",
                         params: ["{{s3Data}}"]
                     }
                 ]
@@ -201,7 +201,7 @@ const json = [
                 params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
                 chain:[],
                 run:[
-                    {method:"{done}", params:[null, "{profile}"]}
+                    {access:"{done}", params:[null, "{profile}"]}
                 ],
                 assign:"callbackFunction"
             },
@@ -209,7 +209,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"passport-microsoft",
                 chain:[
-                {method:"Strategy", params:[
+                {access:"Strategy", params:[
                     {
                         clientID: process.env.MICROSOFT_CLIENT_ID,
                         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
@@ -230,7 +230,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"{{passport}}",
                 chain:[
-                    {method:"use", params:["{{passportmicrosoft}}"]}
+                    {access:"use", params:["{{passportmicrosoft}}"]}
                 ],
                 assign:"newStrategy"
             },
@@ -239,7 +239,7 @@ const json = [
                 params:["{user}", "{done}"], 
                 chain:[],
                 run:[
-                    {method:"{done}", params:[null, "{user}"]}
+                    {access:"{done}", params:[null, "{user}"]}
                 ],
                 assign:"serializeFunction"
             },
@@ -247,7 +247,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"{{passport}}",
                 chain:[
-                    {method:"serializeUser", params:["{{serializeFunction}}"]}
+                    {access:"serializeUser", params:["{{serializeFunction}}"]}
                 ],
                 assign:"serializeUser"
             },
@@ -256,7 +256,7 @@ const json = [
                 params:["{user}", "{done}"], 
                 chain:[],
                 "run":[
-                    {method:"{done}", params:[null, "{user}"]}
+                    {access:"{done}", params:[null, "{user}"]}
                 ],
                 assign:"deserializeFunction"
             },
@@ -264,7 +264,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"{{passport}}",
                 chain:[
-                    {method:"deserializeUser", params:["{{deserializeFunction}}"]}
+                    {access:"deserializeUser", params:["{{deserializeFunction}}"]}
                 ],
                 assign:"deserializeUser"
             },
@@ -272,14 +272,14 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"{{passport}}",
                 chain:[
-                    {method:"initialize", params:[]}
+                    {access:"initialize", params:[]}
                 ],
                 assign:"passportInitialize"
             },
             {
                 target:"dyRouter",
                 chain:[
-                    {method:"use", params:["{{passportInitialize}}"]}
+                    {access:"use", params:["{{passportInitialize}}"]}
                 ],
                 assign:"{{runDyRouterInit}}"
             },
@@ -287,14 +287,14 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 target:"{{passport}}",
                 chain:[
-                    {method:"session", params:[]}
+                    {access:"session", params:[]}
                 ],
                 assign:"passportSession"
             },
             {
                 target:"dyRouter",
                 chain:[
-                    {method:"use", params:["{{passportSession}}"]}
+                    {access:"use", params:["{{passportSession}}"]}
                 ],
                 assign:"{{runDyRouterSession}}"
             },
@@ -302,7 +302,7 @@ const json = [
                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
                 target:"{{passport}}",
                 chain:[
-                    {method:"authenticate", params:["microsoft"], express:true},
+                    {access:"authenticate", params:["microsoft"], express:true},
                 ],
                 assign:"newAuthentication"
             }
@@ -318,7 +318,7 @@ const json = [
                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"req",
                 chain:[
-                    {method:"isAuthenticated", params:[]}
+                    {access:"isAuthenticated", params:[]}
                 ],
                 express:true,
                 assign:"{{isAuth}}"
@@ -327,7 +327,7 @@ const json = [
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {method:"json", params:["{{}}"]}
+                    {access:"json", params:["{{}}"]}
                 ],
                 assign:"{{getJson}}!"
             },
@@ -335,7 +335,7 @@ const json = [
                 ifs:[["{{urlpath}}","==","/hello"]],
                 target:"res",
                 chain:[
-                    {method:"send", params:["Hello World!"]}
+                    {access:"send", params:["Hello World!"]}
                 ],
                 assign:"hello"
             }
@@ -513,19 +513,19 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];
 
-                if (typeof chainAction.method === 'string') {
-                    if (chainAction.method.startsWith('{') && chainAction.method.endsWith('}')) {
-                        const methodName = chainAction.method.slice(1, -1);
+                if (typeof chainAction.access === 'string') {
+                    if (chainAction.access.startsWith('{') && chainAction.access.endsWith('}')) {
+                        const methodName = chainAction.access.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...chainParams);
                         } else {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
-                    } else if (result && typeof result[chainAction.method] === 'function') {
-                        result = result[chainAction.method](...chainParams);
+                    } else if (result && typeof result[chainAction.access] === 'function') {
+                        result = result[chainAction.access](...chainParams);
                     } else {
-                        console.error(`Method ${chainAction.method} is not a function on result`);
+                        console.error(`Method ${chainAction.access} is not a function on result`);
                         return;
                     }
                 }
@@ -538,9 +538,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];
 
-                if (typeof runAction.method === 'string') {
-                    if (runAction.method.startsWith('{') && runAction.method.endsWith('}')) {
-                        const methodName = runAction.method.slice(1, -1);
+                if (typeof runAction.access === 'string') {
+                    if (runAction.access.startsWith('{') && runAction.access.endsWith('}')) {
+                        const methodName = runAction.access.slice(1, -1);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
                         } else {
@@ -667,7 +667,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         return new constructor(...args);
     }
 
-    if (action.method) {
+    if (action.access) {
         let params;
 
         if (action.params) {
@@ -678,7 +678,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         if (action.new) {
             result = instantiateWithNew(result, params);
         } else {
-            result = typeof result === 'function' ? result(...params) : result && typeof result[action.method] === 'function' ? result[action.method](...params) : result[action.method] === 'object' ? result[action.method] : null;
+            result = typeof result === 'function' ? result(...params) : result && typeof result[action.access] === 'function' ? result[action.access](...params) : result[action.access] === 'object' ? result[action.access] : null;
         }
     }
 
@@ -698,24 +698,24 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
             console.log("---------------------------------------")
             console.log("result", result);
-            console.log("chainAction.method", typeof chainAction.method, chainAction.method)
-            try{ console.log("result[chainAction.method]", typeof result[chainAction.method],typeof result[chainAction.method]) } catch (err){console.log("err", err)}
+            console.log("chainAction.access", typeof chainAction.access, chainAction.access)
+            try{ console.log("result[chainAction.access]", typeof result[chainAction.access],typeof result[chainAction.access]) } catch (err){console.log("err", err)}
             console.log("chainAction.params", chainAction.params)
-            if (chainAction.method && !chainAction.params) {   
-                // chech method type ///////////////////////////////////
-                result = result[chainAction.method];
+            if (chainAction.access && !chainAction.params) {   
+                // chech access type ///////////////////////////////////
+                result = result[chainAction.access];
             } else if (chainAction.new) {
-                result = instantiateWithNew(result[chainAction.method], chainParams);
-            } else if (typeof result[chainAction.method] === 'function') {
-                if (chainAction.method === 'promise') {
+                result = instantiateWithNew(result[chainAction.access], chainParams);
+            } else if (typeof result[chainAction.access] === 'function') {
+                if (chainAction.access === 'promise') {
                     result = await result.promise();
                 } else {
                     if (chainAction.new) {
-                        result = new result[chainAction.method](...chainParams);
+                        result = new result[chainAction.access](...chainParams);
                     } else {
-                        if (chainAction.method && chainAction.method.length != 0){
-                            if (chainAction.method.startsWith('{{')) {
-                                const methodFunction = replacePlaceholders(chainAction.method, context)
+                        if (chainAction.access && chainAction.access.length != 0){
+                            if (chainAction.access.startsWith('{{')) {
+                                const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
                                         result = methodFunction(...chainParams)(req, res, next);
@@ -728,16 +728,16 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    result = result[chainAction.method](...chainParams)(req, res, next);
+                                    result = result[chainAction.access](...chainParams)(req, res, next);
                                 } else {
-                                    result = result[chainAction.method](...chainParams);
+                                    result = result[chainAction.access](...chainParams);
                                 }
                             }
                         }
                     }
                 }
             } else {
-                console.error(`Method ${chainAction.method} is not a function on ${action.target}`);
+                console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
             }
         }
