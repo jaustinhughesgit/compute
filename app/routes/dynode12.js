@@ -439,13 +439,6 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            console.log("action.assign>>> ", action.assign)
-            console.log("action.params>>> ", action.params)
-            if (action.params) {
-             console.log("action.params is true")   
-            } else {
-                console.log("action.params is false")
-            }
             if (action.target){
                 let moduleInstance
                 moduleInstance = replacePlaceholders(action.target, context)
@@ -488,7 +481,6 @@ async function initializeModules(context, config, req, res, next) {
                     }
                 }
             } else if (action.assign && action.params) {
-                console.log("action.assign && action.param")
                     if (action.assign.includes('{{')) {
                         let isFunctionExecution = action.assign.endsWith('!');
                         let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
@@ -527,9 +519,7 @@ async function initializeModules(context, config, req, res, next) {
 }
 
 function createFunctionFromAction(action, context, req, res, next) {
-    console.log("function from action")
     return function(...args) {
-        console.log("inside function")
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
@@ -538,7 +528,6 @@ function createFunctionFromAction(action, context, req, res, next) {
             }
             return acc;
         }, {});
-        console.log("1")
         if (action.chain) {
             for (const chainAction of action.chain) {
                 console.log("chainAction", chainAction)
@@ -564,28 +553,18 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
-        console.log("2")
-        console.log("action.run", action.run)
         if (action.run) {
-            console.log("action.run", action.run);
             for (const runAction of action.run) {
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
 
                 if (typeof runAction.access === 'string') {
-                    console.log("runAction.access", runAction.access)
                     if (runAction.access.startsWith('{{') && runAction.access.endsWith('}}')) {
-                        console.log("inside {{ condition");
-                        console.log("runAction.add", runAction.add);
-                        console.log("typeof runAction.add",typeof runAction.add)
                         if (runAction.add && typeof runAction.add === 'number'){
                             const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
                             let val = replacePlaceholders(runAction.access, context);
-                            console.log("val", val)
-                            console.log("typeof val", typeof val)
                             if (typeof val === 'number') {
-
                                 result = val + runAction.add; // Update the context with the new value
                                 console.log(contextKey, context[contextKey])
                             } else {
