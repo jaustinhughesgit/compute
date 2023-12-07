@@ -17,10 +17,10 @@ local.dyRouter.use(local.session({
 
 const json = [
     {
-       modules: {
-        "moment-timezone": "moment-timezone"
-        },
-        actions: [
+        modules: {
+             "moment-timezone": "moment-timezone"
+         },
+         actions: [
             {
                 set:{counter:0},
                 params:[],
@@ -30,62 +30,62 @@ const json = [
                 assign:"counter"
             },
              {
-                 "module":"req",
-                 "chain":[
-                     {"method":"isAuthenticated", "params":[]}
+                 target:"req",
+                 chain:[
+                     {access:"isAuthenticated", params:[]}
                  ],
-                 "assign":"newAuth"
+                 assign:"newAuth"
              },
              {
-                 "module":"console",
-                 "chain":[
-                     {"method":"log", "params":["{{newAuth}}!"]}
+                 target:"console",
+                 chain:[
+                     {access:"log", params:["{{newAuth}}!"]}
                  ],
                  "assign":"logAuth"
              },
              {
-                 "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
-                 module:"res",
+                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
+                 target:"res",
                  chain:[
-                     {method:"send", params:["{{newAuth}}"]}
+                     {access:"send", params:["{{newAuth}}"]}
                  ],
                  assign:"{{hello}}!"
              },
              {
                  if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                 "set":{"condition1":true}
+                 set:{condition1:true}
              },
              {
                  if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                 "set":{"condition2":true}
+                 set:{condition2:true}
              },
              {
-                 module: "moment-timezone",
+                 target: "moment-timezone",
                  chain: [
-                     { method: "tz", params: ["Asia/Dubai"] },
-                     { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                     { access: "tz", params: ["Asia/Dubai"] },
+                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                  ],
                  assign: "timeInDubai"
              },
              {
-                 module: "moment-timezone",
+                 target: "moment-timezone",
                  assign: "justTime",
-                 "from": ["{{timeInDubai}}!"],
+                 from: ["{{timeInDubai}}!"],
                  chain: [
-                     { method: "format", params: ["HH:mm"] }
+                     { access: "format", params: ["HH:mm"] }
                  ]
              },
              {
-                 module: "moment-timezone",
+                 target: "moment-timezone",
                  assign: "timeInDubai2",
-                 "from": ["{{timeInDubai}}"],
+                 from: ["{{timeInDubai}}"],
                  chain: [
-                     { method: "add", params: [1, "hours"] },
-                     { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                     { access: "add", params: [1, "hours"] },
+                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                  ]
              },
              {
-                 "next":true
+                 next:true
              }
          ]
      },
@@ -96,43 +96,43 @@ const json = [
          actions: [
  
              {
-                 module: "moment-timezone",
+                 target: "moment-timezone",
                  assign: "justTime2",
-                 "from": ["{{timeInDubai2}}!"],
+                 from: ["{{timeInDubai2}}!"],
                  chain: [
-                     { method: "format", params: ["HH:mm"] }
+                     { access: "format", params: ["HH:mm"] }
                  ]
              },
              {
-                 module: "fs",
+                 target: "fs",
                  chain: [
                      {
-                         method: "readFileSync",
+                         access: "readFileSync",
                          params: ["/var/task/app/routes/../example.txt", "utf8"],
                      }
                  ],
                  assign: "fileContents"
              },
              {
-                 module: "fs",
-                 method: "writeFileSync",
+                 target: "fs",
+                 access: "writeFileSync",
                  params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
              },
              {
-                 module: "fs",
+                 target: "fs",
                  chain: [
                      {
-                         method: "readFileSync",
+                         access: "readFileSync",
                          params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
                      }
                  ],
                  assign: "tempFileContents"
              },
              {
-                 module: "s3",
+                 target: "s3",
                  chain: [
                      {
-                         method: "upload",
+                         access: "upload",
                          params: [{
                              "Bucket": "public.1var.com",
                              "Key": "test.html",
@@ -140,54 +140,54 @@ const json = [
                          }]
                      },
                      {
-                         method: "promise",
+                         access: "promise",
                          params: []
                      }
                  ],
                  assign: "s3UploadResult"
              },
              {
-                 "module": "s3",
-                 "chain": [
+                 target: "s3",
+                 chain: [
                      {
-                         "method": "getObject",
-                         "params": [{
-                             "Bucket": "public.1var.com",
-                             "Key": "test.html"
+                         access: "getObject",
+                         params: [{
+                             Bucket: "public.1var.com",
+                             Key: "test.html"
                          }]
                      },
                      {
-                         "method": "promise",
-                         "params": []
+                         access: "promise",
+                         params: []
                      }
                  ],
-                 "assign": "s3Response"
+                 assign: "s3Response"
              },
              {
-                 "module": "{{s3Response}}",
-                 "chain": [
+                 target: "{{s3Response}}",
+                 chain: [
                      {
-                         "method": "Body"
+                         access: "Body"
                      },
                      {
-                         "method": "toString",
-                         "params": ["utf-8"]
+                         access: "toString",
+                         params: ["utf-8"]
                      }
                  ],
-                 "assign": "{{s3Data}}"
+                 assign: "{{s3Data}}"
              },
              {
-                 "ifs": [["{{urlpath}}", "==", "/test"]],
-                 "module": "res",
-                 "chain": [
+                 ifs: [["{{urlpath}}", "==", "/test"]],
+                 target: "res",
+                 chain: [
                      {
-                         "method": "send",
-                         "params": ["{{s3Data}}"]
+                         access: "send",
+                         params: ["{{s3Data}}"]
                      }
                  ]
              },
              {
-                 "next":true
+                 next:true
              }
          ]
      },
@@ -199,7 +199,7 @@ const json = [
          actions: [
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"passport",
+                 target:"passport",
                  chain:[
                  ],
                  assign:"passport"
@@ -208,16 +208,16 @@ const json = [
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
                  chain:[],
-                 "run":[
-                     {method:"{done}", params:[null, "{profile}"]}
+                 run:[
+                     {access:"{done}", params:[null, "{profile}"]}
                  ],
                  assign:"callbackFunction"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"passport-microsoft",
+                 target:"passport-microsoft",
                  chain:[
-                 {method:"Strategy", params:[
+                 {access:"Strategy", params:[
                      {
                          clientID: process.env.MICROSOFT_CLIENT_ID,
                          clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
@@ -230,15 +230,15 @@ const json = [
                          scope: ["user.read"]
                      },"{{callbackFunction}}"
                  ],
-                     "new":true}
+                     new:true}
                  ],
                  assign:"passportmicrosoft"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"use", params:["{{passportmicrosoft}}"]}
+                     {access:"use", params:["{{passportmicrosoft}}"]}
                  ],
                  assign:"newStrategy"
              },
@@ -246,16 +246,16 @@ const json = [
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  params:["{user}", "{done}"], 
                  chain:[],
-                 "run":[
-                     {method:"{done}", params:[null, "{user}"]}
+                 run:[
+                     {access:"{done}", params:[null, "{user}"]}
                  ],
                  assign:"serializeFunction"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"serializeUser", params:["{{serializeFunction}}"]}
+                     {access:"serializeUser", params:["{{serializeFunction}}"]}
                  ],
                  assign:"serializeUser"
              },
@@ -264,53 +264,53 @@ const json = [
                  params:["{user}", "{done}"], 
                  chain:[],
                  "run":[
-                     {method:"{done}", params:[null, "{user}"]}
+                     {access:"{done}", params:[null, "{user}"]}
                  ],
                  assign:"deserializeFunction"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"deserializeUser", params:["{{deserializeFunction}}"]}
+                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
                  ],
                  assign:"deserializeUser"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"initialize", params:[]}
+                     {access:"initialize", params:[]}
                  ],
                  assign:"passportInitialize"
              },
              {
-                 module:"dyRouter",
+                 target:"dyRouter",
                  chain:[
-                     {method:"use", params:["{{passportInitialize}}"]}
+                     {access:"use", params:["{{passportInitialize}}"]}
                  ],
                  assign:"{{runDyRouterInit}}"
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"session", params:[]}
+                     {access:"session", params:[]}
                  ],
                  assign:"passportSession"
              },
              {
-                 module:"dyRouter",
+                 target:"dyRouter",
                  chain:[
-                     {method:"use", params:["{{passportSession}}"]}
+                     {access:"use", params:["{{passportSession}}"]}
                  ],
                  assign:"{{runDyRouterSession}}"
              },
              {
                  //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
-                 module:"{{passport}}",
+                 target:"{{passport}}",
                  chain:[
-                     {method:"authenticate", params:["microsoft"], express:true},
+                     {access:"authenticate", params:["microsoft"], express:true},
                  ],
                  assign:"newAuthentication"
              }
@@ -324,26 +324,26 @@ const json = [
          actions: [
              {
                  //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                 module:"req",
+                 target:"req",
                  chain:[
-                     {method:"isAuthenticated", params:[]}
+                     {access:"isAuthenticated", params:[]}
                  ],
                  express:true,
                  assign:"{{isAuth}}"
              },
              {
-                 "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                 module:"res",
+                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                 target:"res",
                  chain:[
-                     {method:"json", params:["{{}}"]}
+                     {access:"json", params:["{{}}"]}
                  ],
                  assign:"{{getJson}}!"
              },
              {
-                 "ifs":[["{{urlpath}}","==","/hello"]],
-                 module:"res",
+                 ifs:[["{{urlpath}}","==","/hello"]],
+                 target:"res",
                  chain:[
-                     {method:"send", params:["Hello World!"]}
+                     {access:"send", params:["Hello World!"]}
                  ],
                  assign:"hello"
              }
