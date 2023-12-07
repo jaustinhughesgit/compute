@@ -159,7 +159,7 @@ const json = [
                 module:["{{s3Response}}"],
                 chain:[
                     {method:"Body", params:[]},
-                    {method:"toString", params:["urf-8"]}
+                    {method:"toString", params:["utf-8"]}
                 ],
                 assign:"{{s3Data}}!"
             },
