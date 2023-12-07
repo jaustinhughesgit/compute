@@ -37,7 +37,7 @@ router.get('/', verifyJWT, async function(req, res, next) {
     }
 
     res.contentType('html');
-    res.write('List of boards available to the team 2:');
+    res.write('List of boards available to the team 1:');
     res.write('<ul>');
 
     const api = miro.as(req.userId);
@@ -62,7 +62,24 @@ router.get('/auth/miro/callback', async (req, res) => {
 
 
     res.contentType('html')
-  res.write('List of boards available to the team:')
+  res.write('List of boards available to the team 2:')
+  res.write('<ul>')
+
+  const api = miro.as(req.session.id)
+
+  for await (const board of api.getAllBoards()) {
+    res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`)
+  }
+  res.write('</ul>')
+  res.send()
+});
+
+router.get('/test', async (req, res) => {
+  
+
+
+    res.contentType('html')
+  res.write('List of boards available to the team 3:')
   res.write('<ul>')
 
   const api = miro.as(req.session.id)
