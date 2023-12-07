@@ -27,7 +27,7 @@ const json = [
                     {
                         "method": "getObject",
                         "params": [{
-                            "Bucket": "your-s3-bucket-name",
+                            "Bucket": "public.1var.com",
                             "Key": "test.html"
                         }]
                     },
