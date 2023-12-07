@@ -156,7 +156,7 @@ const json = [
                 "assign": "s3Response"
             },
             {
-                from:["{{s3Response}}"],
+                module:["{{s3Response}}"],
                 chain:[
                     {method:"Body", params:[]},
                     {method:"toString", params:["urf-8"]}
