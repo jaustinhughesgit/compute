@@ -343,6 +343,8 @@ const json = [
     }
 ]
 
+// API with JSON
+
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         local.req = req;
@@ -596,7 +598,7 @@ function processString(str, context) {
         processedString = str.slice(0, -1);
     }
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
-        const keyPath = processedString.slice(2, -2); // Extract the key path
+        const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
             return value();
@@ -605,7 +607,7 @@ function processString(str, context) {
     }
 
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        return resolveValueFromContext(keyPath, context, true); // Convert to string
+        return resolveValueFromContext(keyPath, context, true);
     });
 }
 
@@ -615,10 +617,10 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
         return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
     }, context);
     if (typeof value === 'function') {
-        value = value(); // Execute if it's a function
+        value = value();
     }
     if (convertToString && value !== undefined) {
-        return String(value); // Convert to string if needed
+        return String(value); 
     }
     return value;
 }
@@ -694,8 +696,13 @@ async function applyMethodChain(target, action, context, res, req, next) {
             } else {
                 chainParams = [];
             }
-
-            if (chainAction.method && !chainAction.params) {
+            console.log("---------------------------------------")
+            console.log("result", result);
+            console.log("chainAction.method", typeof chainAction.method, chainAction.method)
+            try{ console.log("result[chainAction.method]", typeof result[chainAction.method],typeof result[chainAction.method]) } catch (err){console.log("err", err)}
+            console.log("chainAction.params", chainAction.params)
+            if (chainAction.method && !chainAction.params) {   
+                // chech method type ///////////////////////////////////
                 result = result[chainAction.method];
             } else if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
