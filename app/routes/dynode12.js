@@ -22,14 +22,7 @@ const json = [
          },
          actions: [
             {
-                set:{counter:0}
-            },
-            {
-                params:[],
-                run:[
-                    {access:"{{counter}}", add:1}
-                ],
-                assign:"counter"
+                set:{counter:"0"}
             },
              {
                  target:"req",
