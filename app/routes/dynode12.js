@@ -22,14 +22,14 @@ const json = [
         },
         actions: [
             {
-                module:"req",
+                target:"req",
                 chain:[
                     {method:"isAuthenticated", params:[]}
                 ],
                 assign:"newAuth"
             },
             {
-                module:"console",
+                target:"console",
                 chain:[
                     {method:"log", params:["{{newAuth}}!"]}
                 ],
@@ -37,7 +37,7 @@ const json = [
             },
             {
                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
-                module:"res",
+                target:"res",
                 chain:[
                     {method:"send", params:["{{newAuth}}"]}
                 ],
@@ -52,7 +52,7 @@ const json = [
                 set:{"condition2":true}
             },
             {
-                module: "moment-timezone",
+                target: "moment-timezone",
                 chain: [
                     { method: "tz", params: ["Asia/Dubai"] },
                     { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
@@ -60,7 +60,7 @@ const json = [
                 assign: "timeInDubai"
             },
             {
-                module: "moment-timezone",
+                target: "moment-timezone",
                 assign: "justTime",
                 from: ["{{timeInDubai}}!"],
                 chain: [
@@ -68,7 +68,7 @@ const json = [
                 ]
             },
             {
-                module: "moment-timezone",
+                target: "moment-timezone",
                 assign: "timeInDubai2",
                 from: ["{{timeInDubai}}"],
                 chain: [
@@ -88,7 +88,7 @@ const json = [
         actions: [
 
             {
-                module: "moment-timezone",
+                target: "moment-timezone",
                 assign: "justTime2",
                 from: ["{{timeInDubai2}}!"],
                 chain: [
@@ -96,7 +96,7 @@ const json = [
                 ]
             },
             {
-                module: "fs",
+                target: "fs",
                 chain: [
                     {
                         method: "readFileSync",
@@ -106,12 +106,12 @@ const json = [
                 assign: "fileContents"
             },
             {
-                module: "fs",
+                target: "fs",
                 method: "writeFileSync",
                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
             },
             {
-                module: "fs",
+                target: "fs",
                 chain: [
                     {
                         method: "readFileSync",
@@ -121,7 +121,7 @@ const json = [
                 assign: "tempFileContents"
             },
             {
-                module: "s3",
+                target: "s3",
                 chain: [
                     {
                         method: "upload",
@@ -139,7 +139,7 @@ const json = [
                 assign: "s3UploadResult"
             },
             {
-                module: "s3",
+                target: "s3",
                 chain: [
                     {
                         method: "getObject",
@@ -156,7 +156,7 @@ const json = [
                 assign: "s3Response"
             },
             {
-                module: "{{s3Response}}",
+                target: "{{s3Response}}",
                 chain: [
                     {
                         method: "Body"
@@ -170,7 +170,7 @@ const json = [
             },
             {
                 ifs: [["{{urlpath}}", "==", "/test"]],
-                module: "res",
+                target: "res",
                 chain: [
                     {
                         method: "send",
@@ -191,7 +191,7 @@ const json = [
         actions: [
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"passport",
+                target:"passport",
                 chain:[
                 ],
                 assign:"passport"
@@ -207,7 +207,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"passport-microsoft",
+                target:"passport-microsoft",
                 chain:[
                 {method:"Strategy", params:[
                     {
@@ -228,7 +228,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"use", params:["{{passportmicrosoft}}"]}
                 ],
@@ -245,7 +245,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"serializeUser", params:["{{serializeFunction}}"]}
                 ],
@@ -262,7 +262,7 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"deserializeUser", params:["{{deserializeFunction}}"]}
                 ],
@@ -270,14 +270,14 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"initialize", params:[]}
                 ],
                 assign:"passportInitialize"
             },
             {
-                module:"dyRouter",
+                target:"dyRouter",
                 chain:[
                     {method:"use", params:["{{passportInitialize}}"]}
                 ],
@@ -285,14 +285,14 @@ const json = [
             },
             {
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"session", params:[]}
                 ],
                 assign:"passportSession"
             },
             {
-                module:"dyRouter",
+                target:"dyRouter",
                 chain:[
                     {method:"use", params:["{{passportSession}}"]}
                 ],
@@ -300,7 +300,7 @@ const json = [
             },
             {
                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
-                module:"{{passport}}",
+                target:"{{passport}}",
                 chain:[
                     {method:"authenticate", params:["microsoft"], express:true},
                 ],
@@ -316,7 +316,7 @@ const json = [
         actions: [
             {
                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                module:"req",
+                target:"req",
                 chain:[
                     {method:"isAuthenticated", params:[]}
                 ],
@@ -325,7 +325,7 @@ const json = [
             },
             {
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                module:"res",
+                target:"res",
                 chain:[
                     {method:"json", params:["{{}}"]}
                 ],
@@ -333,7 +333,7 @@ const json = [
             },
             {
                 ifs:[["{{urlpath}}","==","/hello"]],
-                module:"res",
+                target:"res",
                 chain:[
                     {method:"send", params:["Hello World!"]}
                 ],
@@ -427,9 +427,9 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            if (action.module){
+            if (action.target){
                 let moduleInstance
-                moduleInstance = replacePlaceholders(action.module, context)
+                moduleInstance = replacePlaceholders(action.target, context)
                  
                 let args = [];
                 if (action.from) {
@@ -737,7 +737,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     }
                 }
             } else {
-                console.error(`Method ${chainAction.method} is not a function on ${action.module}`);
+                console.error(`Method ${chainAction.method} is not a function on ${action.target}`);
                 return;
             }
         }
