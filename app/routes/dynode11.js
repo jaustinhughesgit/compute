@@ -1,4 +1,3 @@
-
 var express = require('express');
 let local = {};
 local.AWS = require('aws-sdk');
@@ -82,9 +81,6 @@ const json = [
             }
         ]
     },
-
-
-
     {
        modules: {
             "moment-timezone": "moment-timezone"
@@ -147,9 +143,6 @@ const json = [
             }
         ]
     },
-
-
-
     {
        modules: {
             "passport":"passport",
@@ -275,8 +268,6 @@ const json = [
             }
         ]
     },
-    
-
     {
        modules: {
             "passport":"passport",
@@ -371,7 +362,6 @@ function checkCondition(left, condition, right, context) {
     }
 }
 
-
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
@@ -414,7 +404,6 @@ async function initializeModules(context, config, req, res, next) {
                 }
                 let result
                     if (typeof moduleInstance === 'function'){
-                        console.log(args);
                         if (args.length == 0){
                             result = moduleInstance;
                         } else {
@@ -423,19 +412,20 @@ async function initializeModules(context, config, req, res, next) {
                     } else {
                         result = moduleInstance;
                     }
-                console.log("result", result);
                 result = await applyMethodChain(result, action, context, res, req, next);
                 if (action.assign) {
-                    let assignKey = action.assign;
-                    let isFunctionExecution = assignKey.endsWith('}}!');
-                    if (isFunctionExecution || assignKey.includes('{{')) {
-                        let processed = replacePlaceholders(assignKey, context);
-                        assignKey = processed.executed ? processed.value : assignKey.slice(2, -2);
+                    if (action.assign.includes('{{')) {
+                        let isFunctionExecution = action.assign.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                        if (isFunctionExecution) {
+                            context[assignKey] = typeof result === 'function' ? result() : result;
+                        } else {
+                            context[assignKey] = result;
+                        }
+                    } else {
+                        context[action.assign] = result;
                     }
-                
-                    context[assignKey] = replacePlaceholders(result, context);
                 }
-                
             } else if (action.assign && action.params) {
                 context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                 continue;
@@ -536,29 +526,21 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context, pP = false) {
-    console.log("context ))",context)
+function replacePlaceholders(item, context) {
     let processedItem = item;
-    console.log("item",item)
     if (typeof processedItem === 'string') {
-        console.log("1", processedItem)
-        // Process string: replace placeholders or resolve module/local references
         processedItem = processString(processedItem, context);
     } else if (Array.isArray(processedItem)) {
-        console.log("2", processedItem)
-        // Process each element in the array
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     return processedItem;
 }
 
 function processString(str, context) {
-    // Scenario 2: Check if it's a local module
     if (local[str]) {
         return local[str];
     }
 
-    // Scenario 3: Try requiring the module
     try {
         if (require.resolve(str)) {
             return require(str);
@@ -567,35 +549,21 @@ function processString(str, context) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
-    // Check for function execution indicator '}}!'
     let isFunctionExecution = str.endsWith('}}!');
     let processedString = str;
-    console.log("isFunctionExecution", isFunctionExecution)
     if (isFunctionExecution) {
-        // Remove the '!' to process the string normally
         processedString = str.slice(0, -1);
     }
-    console.log("post removal of !:", processedString)
-    // Process the string for placeholders
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
-        console.log("it does start and end with {{}}")
         const keyPath = processedString.slice(2, -2); // Extract the key path
-        console.log("resolving value from context",keyPath, context)
         let value = resolveValueFromContext(keyPath, context);
-        console.log(value)
-        console.log("typeof", value, typeof value)
-        // Execute if it's a function and isFunctionExecution is true
         if (isFunctionExecution && typeof value === 'function') {
-            console.log("is a function and is !")
             return value();
         }
-        console.log("just passing the value", value)
         return value;
     }
 
-    // Scenario 4: The string contains one or more placeholders
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        console.log("running with convert to string true")
         return resolveValueFromContext(keyPath, context, true); // Convert to string
     });
 }
@@ -603,23 +571,14 @@ function processString(str, context) {
 function resolveValueFromContext(keyPath, context, convertToString = false) {
     const keys = keyPath.split('.');
     let value = keys.reduce((currentContext, key) => {
-        console.log("key", key)
-        console.log("currentContext", currentContext)
         return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
     }, context);
-    console.log("value 2", value)
-    console.log("typeof value", typeof value)
     if (typeof value === 'function') {
-        console.log("executing value")
         value = value(); // Execute if it's a function
-        console.log(value)
     }
-    console.log("convert to string?")
     if (convertToString && value !== undefined) {
-        console.log("String(value)", String(value))
         return String(value); // Convert to string if needed
     }
-    console.log("returning",value)
     return value;
 }
 
@@ -660,8 +619,6 @@ function processParam(param, context) {
 
 async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
-
-    
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
