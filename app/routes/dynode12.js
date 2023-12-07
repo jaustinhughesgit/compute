@@ -61,7 +61,7 @@ const json = [
                 run:[
                     {access:"{{counter}}", add:1}
                 ],
-                assign:"counter"
+                assign:"{{counter}}!"
             },
              {
                  target: "moment-timezone",
