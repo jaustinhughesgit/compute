@@ -21,6 +21,7 @@ const json = [
              "moment-timezone": "moment-timezone"
          },
          actions: [
+            //maybe some actions don't working because the first action must have target
              {
                  target:"req",
                  chain:[
@@ -52,14 +53,8 @@ const json = [
                  set:{condition2:true}
              },
              {
-                set:{counter:"0"}
-            },
-            {
-                params:[],
-                run:[
-                    {access:"{{counter}}", add:1}
-                ],
-                assign:"counter"
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{counter:0}
             },
              {
                  target: "moment-timezone",
