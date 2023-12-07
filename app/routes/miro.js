@@ -52,7 +52,7 @@ router.get('/', verifyJWT, async function(req, res, next) {
 router.get('/auth/miro/callback', async (req, res) => {
     console.log("req.query", req.query)
     console.log("req.query.code", req.query.code)
-    await miro.exchangeCodeForAccessToken(req.query.code);
+    await miro.exchangeCodeForAccessToken(req.session.id, req.query.code)
 
     // Create JWT
     const token = jwt.sign({ id: req.query.code }, JWT_SECRET, { expiresIn: '1h' });
@@ -60,7 +60,7 @@ router.get('/auth/miro/callback', async (req, res) => {
     // Set the JWT in a cookie
     res.cookie('jwt', token, { httpOnly: true });
 
-    res.redirect('/');
+    res.redirect('/miro');
 });
 
 module.exports = router;
