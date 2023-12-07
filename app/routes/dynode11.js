@@ -17,6 +17,40 @@ local.dyRouter.use(local.session({
 
 const json = [
     {
+        "modules": {
+        },
+        "actions": [
+            {
+                "ifs": [["{{urlpath}}", "==", "/test"]],
+                "module": "s3",
+                "chain": [
+                    {
+                        "method": "getObject",
+                        "params": [{
+                            "Bucket": "your-s3-bucket-name",
+                            "Key": "test.html"
+                        }]
+                    },
+                    {
+                        "method": "promise",
+                        "params": []
+                    }
+                ],
+                "assign": "s3Response"
+            },
+            {
+                "ifs": [["{{urlpath}}", "==", "/test"]],
+                "module": "res",
+                "chain": [
+                    {
+                        "method": "send",
+                        "params": ["{{s3Response.Body.toString}}"]
+                    }
+                ]
+            }
+        ]
+    },
+    {
        modules: {
             "moment-timezone": "moment-timezone"
         },
