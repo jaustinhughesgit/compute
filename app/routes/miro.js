@@ -60,7 +60,18 @@ router.get('/auth/miro/callback', async (req, res) => {
     // Set the JWT in a cookie
     res.cookie('jwt', token, { httpOnly: true });
 
-    res.redirect('/miro');
+
+    res.contentType('html');
+    res.write('List of boards available to the team 2:');
+    res.write('<ul>');
+
+    const api = miro.as(req.userId);
+
+    for await (const board of api.getAllBoards()) {
+      res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`);
+    }
+    res.write('</ul>');
+    res.send();
 });
 
 module.exports = router;
