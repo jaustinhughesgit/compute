@@ -57,7 +57,7 @@ const json = [
                 set:{counter:0}
             },
             {
-                params:[],
+                params:["{test}"],
                 run:[
                     {access:"{{counter}}", add:1}
                 ],
