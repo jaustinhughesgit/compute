@@ -499,7 +499,7 @@ async function initializeModules(context, config, req, res, next) {
                             context[assignKey] = result;
                         }
                     } else {
-                        context[action.assign] = result;
+                        context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                     }
                 continue;
             }
