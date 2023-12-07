@@ -161,7 +161,7 @@ const json = [
                     {method:"Body", params:[]},
                     {method:"toString", params:["urf-8"]}
                 ],
-                assign:"s3Data"
+                assign:"{{s3Data}}!"
             },
             {
                 "next":true
