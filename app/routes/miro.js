@@ -4,7 +4,7 @@ const {Miro} = require('@mirohq/miro-api')
 const session = require('express-session')
 const miro = new Miro()
 
-app.use(
+router.use(
   session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -32,7 +32,7 @@ router.get('/', async function(req, res, next){
 });
 
 
-app.get('/auth/miro/callback', async (req, res) => {
+router.get('/auth/miro/callback', async (req, res) => {
     await miro.exchangeCodeForAccessToken(req.session.id, req.query.code)
     res.redirect('/')
   })
