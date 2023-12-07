@@ -44,7 +44,7 @@ const json = [
                 "chain": [
                     {
                         "method": "send",
-                        "params": ["{{s3Response.Body.toString}}"]
+                        "params": ["{{s3Response}"]
                     }
                 ]
             }
