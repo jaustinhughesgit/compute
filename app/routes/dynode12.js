@@ -1,5 +1,3 @@
-//Working version
-
 var express = require('express');
 let local = {};
 local.AWS = require('aws-sdk');
