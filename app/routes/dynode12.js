@@ -22,21 +22,21 @@ const json = [
         },
         actions: [
             {
-                "module":"req",
-                "chain":[
-                    {"method":"isAuthenticated", "params":[]}
+                module:"req",
+                chain:[
+                    {method:"isAuthenticated", params:[]}
                 ],
-                "assign":"newAuth"
+                assign:"newAuth"
             },
             {
-                "module":"console",
-                "chain":[
-                    {"method":"log", "params":["{{newAuth}}!"]}
+                module:"console",
+                chain:[
+                    {method:"log", params:["{{newAuth}}!"]}
                 ],
                 "assign":"logAuth"
             },
             {
-                "ifs":[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
+                ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
                 module:"res",
                 chain:[
                     {method:"send", params:["{{newAuth}}"]}
@@ -45,11 +45,11 @@ const json = [
             },
             {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                "set":{"condition1":true}
+                set:{"condition1":true}
             },
             {
                 if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                "set":{"condition2":true}
+                set:{"condition2":true}
             },
             {
                 module: "moment-timezone",
@@ -62,7 +62,7 @@ const json = [
             {
                 module: "moment-timezone",
                 assign: "justTime",
-                "from": ["{{timeInDubai}}!"],
+                from: ["{{timeInDubai}}!"],
                 chain: [
                     { method: "format", params: ["HH:mm"] }
                 ]
@@ -70,14 +70,14 @@ const json = [
             {
                 module: "moment-timezone",
                 assign: "timeInDubai2",
-                "from": ["{{timeInDubai}}"],
+                from: ["{{timeInDubai}}"],
                 chain: [
                     { method: "add", params: [1, "hours"] },
                     { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ]
             },
             {
-                "next":true
+                next:true
             }
         ]
     },
@@ -90,7 +90,7 @@ const json = [
             {
                 module: "moment-timezone",
                 assign: "justTime2",
-                "from": ["{{timeInDubai2}}!"],
+                from: ["{{timeInDubai2}}!"],
                 chain: [
                     { method: "format", params: ["HH:mm"] }
                 ]
@@ -139,47 +139,47 @@ const json = [
                 assign: "s3UploadResult"
             },
             {
-                "module": "s3",
-                "chain": [
+                module: "s3",
+                chain: [
                     {
-                        "method": "getObject",
-                        "params": [{
-                            "Bucket": "public.1var.com",
-                            "Key": "test.html"
+                        method: "getObject",
+                        params: [{
+                            Bucket: "public.1var.com",
+                            Key: "test.html"
                         }]
                     },
                     {
-                        "method": "promise",
-                        "params": []
+                        method: "promise",
+                        params: []
                     }
                 ],
-                "assign": "s3Response"
+                assign: "s3Response"
             },
             {
-                "module": "{{s3Response}}",
-                "chain": [
+                module: "{{s3Response}}",
+                chain: [
                     {
-                        "method": "Body"
+                        method: "Body"
                     },
                     {
-                        "method": "toString",
-                        "params": ["utf-8"]
+                        method: "toString",
+                        params: ["utf-8"]
                     }
                 ],
-                "assign": "{{s3Data}}"
+                assign: "{{s3Data}}"
             },
             {
-                "ifs": [["{{urlpath}}", "==", "/test"]],
-                "module": "res",
-                "chain": [
+                ifs: [["{{urlpath}}", "==", "/test"]],
+                module: "res",
+                chain: [
                     {
-                        "method": "send",
-                        "params": ["{{s3Data}}"]
+                        method: "send",
+                        params: ["{{s3Data}}"]
                     }
                 ]
             },
             {
-                "next":true
+                next:true
             }
         ]
     },
@@ -200,7 +200,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
                 chain:[],
-                "run":[
+                run:[
                     {method:"{done}", params:[null, "{profile}"]}
                 ],
                 assign:"callbackFunction"
@@ -222,7 +222,7 @@ const json = [
                         scope: ["user.read"]
                     },"{{callbackFunction}}"
                 ],
-                    "new":true}
+                    new:true}
                 ],
                 assign:"passportmicrosoft"
             },
@@ -238,7 +238,7 @@ const json = [
                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                 params:["{user}", "{done}"], 
                 chain:[],
-                "run":[
+                run:[
                     {method:"{done}", params:[null, "{user}"]}
                 ],
                 assign:"serializeFunction"
@@ -324,7 +324,7 @@ const json = [
                 assign:"{{isAuth}}"
             },
             {
-                "ifs":[["{{urlpath}}","==","/microsoft/callback"]],
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 module:"res",
                 chain:[
                     {method:"json", params:["{{}}"]}
@@ -332,7 +332,7 @@ const json = [
                 assign:"{{getJson}}!"
             },
             {
-                "ifs":[["{{urlpath}}","==","/hello"]],
+                ifs:[["{{urlpath}}","==","/hello"]],
                 module:"res",
                 chain:[
                     {method:"send", params:["Hello World!"]}

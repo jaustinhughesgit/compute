@@ -24,16 +24,16 @@ const json = [
         },
         actions: [
             {
-                "medule":"req",
+                "module":"req",
                 "chain":[
                     {"method":"isAuthenticated", "params":[]}
                 ],
-                "assign":"{{newAuth}}!"
+                "assign":"newAuth"
             },
             {
                 "module":"console",
                 "chain":[
-                    {"method":"log", "params":["{{newAuth}}"]}
+                    {"method":"log", "params":["{{newAuth}}!"]}
                 ],
                 "assign":"logAuth"
             },
