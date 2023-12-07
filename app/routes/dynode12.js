@@ -492,7 +492,7 @@ async function initializeModules(context, config, req, res, next) {
                     if (action.assign.includes('{{')) {
                         let isFunctionExecution = action.assign.endsWith('!');
                         let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-                        context[assignKey] = createFunctionFromAction(action, context, req, res, next)
+                        let result = createFunctionFromAction(action, context, req, res, next)
                         if (isFunctionExecution) {
                             context[assignKey] = typeof result === 'function' ? result() : result;
                         } else {
