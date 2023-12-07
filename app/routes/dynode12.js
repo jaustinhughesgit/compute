@@ -439,6 +439,13 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
+            console.log("action.assign>>> ", action.assign)
+            console.log("action.params>>> ", action.params)
+            if (action.params) {
+             console.log("action.params is true")   
+            } else {
+                console.log("action.params is false")
+            }
             if (action.target){
                 let moduleInstance
                 moduleInstance = replacePlaceholders(action.target, context)
