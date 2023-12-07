@@ -541,18 +541,27 @@ function createFunctionFromAction(action, context, req, res, next) {
         }
 
         if (action.run) {
+            console.log("action.run", action.run);
             for (const runAction of action.run) {
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
 
                 if (typeof runAction.access === 'string') {
+                    console.log("runAction.access", runAction.access)
                     if (runAction.access.startsWith('{{') && runAction.access.endsWith('}}')) {
+                        console.log("inside {{ condition");
+                        console.log("runAction.add", runAction.add);
+                        console.log("typeof runAction.add",typeof runAction.add)
                         if (runAction.add && typeof runAction.add === 'number'){
                             const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
                             let val = replacePlaceholders(runAction.access, context);
+                            console.log("val", val)
+                            console.log("typeof val", typeof val)
                             if (typeof val === 'number') {
+                                
                                 context[contextKey] = val + runAction.add; // Update the context with the new value
+                                console.log(contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
