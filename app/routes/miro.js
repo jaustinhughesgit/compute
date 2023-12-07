@@ -1,50 +1,62 @@
 var express = require('express');
 var router = express.Router();
-const {Miro} = require('@mirohq/miro-api')
-const session = require('express-session')
-const miro = new Miro()
+const { Miro } = require('@mirohq/miro-api');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 
-router.use(
-  session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-  }),
-)
+const miro = new Miro();
 
-router.get('/', async function(req, res, next){
-    if (!(await miro.isAuthorized(req.session.id))) {
-      res.redirect(miro.getAuthUrl())
-      return
+// Use cookie-parser middleware
+router.use(cookieParser());
+
+// JWT secret key
+const JWT_SECRET = process.env.JWT_SECRET;
+
+// Middleware to verify JWT
+function verifyJWT(req, res, next) {
+  const token = req.cookies.jwt;
+  if (!token) {
+    return res.status(401).send('Access denied. No token provided.');
+  }
+
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    req.userId = decoded.id;
+    next();
+  } catch (ex) {
+    res.status(400).send('Invalid token.');
+  }
+}
+
+router.get('/', verifyJWT, async function(req, res, next) {
+    if (!(await miro.isAuthorized(req.userId))) {
+      res.redirect(miro.getAuthUrl());
+      return;
     }
-  
-    res.contentType('html')
-    res.write('List of boards available to the team 2:')
-    res.write('<ul>')
-  
-    const api = miro.as(req.session.id)
-  
+
+    res.contentType('html');
+    res.write('List of boards available to the team 2:');
+    res.write('<ul>');
+
+    const api = miro.as(req.userId);
+
     for await (const board of api.getAllBoards()) {
-      res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`)
+      res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`);
     }
-    res.write('</ul>')
-    res.send()
+    res.write('</ul>');
+    res.send();
 });
 
-
 router.get('/auth/miro/callback', async (req, res) => {
-    await miro.exchangeCodeForAccessToken(req.session.id, req.query.code)
-    res.contentType('html')
-    res.write('List of boards available to the team 2:')
-    res.write('<ul>')
-  
-    const api = miro.as(req.session.id)
-  
-    for await (const board of api.getAllBoards()) {
-      res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`)
-    }
-    res.write('</ul>')
-    res.send()
-  })
+    await miro.exchangeCodeForAccessToken(req.query.code);
+
+    // Create JWT
+    const token = jwt.sign({ id: req.query.code }, JWT_SECRET, { expiresIn: '1h' });
+
+    // Set the JWT in a cookie
+    res.cookie('jwt', token, { httpOnly: true });
+
+    res.redirect('/');
+});
 
 module.exports = router;
