@@ -424,14 +424,18 @@ async function processAction(action, context, req, res, next) {
     if (action.target) {
         let moduleInstance = replacePlaceholders(action.target, context);
         let args = [];
-        if (action.from) {
-            args = action.from.map(item => {
-                let isFunctionExecution = item.endsWith('!');
-                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
-                let value = context[key];
-                return isFunctionExecution && typeof value === 'function' ? value() : value;
-            });
-        }
+                if (action.from) {
+                    args = action.from.map(item => {
+                        let isFunctionExecution = item.endsWith('!');
+                        let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
+                        let value = context[key];
+                
+                        if (isFunctionExecution && typeof value === 'function') {
+                            return value();
+                        }
+                        return value;
+                    });
+                }
         let result;
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
@@ -447,7 +451,11 @@ async function processAction(action, context, req, res, next) {
             if (action.assign.includes('{{')) {
                 let isFunctionExecution = action.assign.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-                context[assignKey] = isFunctionExecution && typeof result === 'function' ? result() : result;
+                if (isFunctionExecution) {
+                    context[assignKey] = typeof result === 'function' ? result() : result;
+                } else {
+                    context[assignKey] = result;
+                }
             } else {
                 context[action.assign] = result;
             }
@@ -456,12 +464,18 @@ async function processAction(action, context, req, res, next) {
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            let result = createFunctionFromAction(action, context, req, res, next);
-            context[assignKey] = isFunctionExecution && typeof result === 'function' ? result() : result;
+            let result = createFunctionFromAction(action, context, req, res, next)
+            if (isFunctionExecution) {
+                context[assignKey] = typeof result === 'function' ? result() : result;
+            } else {
+                context[assignKey] = result;
+            }
         } else {
-            context[action.assign] = createFunctionFromAction(action, context, req, res, next);
+            context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
-    } else if (action.execute) {
+    } 
+    
+    if (action.execute) {
         const functionName = action.execute;
         if (typeof context[functionName] === 'function') {
             if (action.express) {
@@ -472,7 +486,9 @@ async function processAction(action, context, req, res, next) {
         } else {
             console.error(`No function named ${functionName} found in context`);
         }
-    } else if (action.next) {
+    }
+    
+    if (action.next) {
         next();
     }
 }
@@ -551,6 +567,107 @@ async function initializeModules(context, config, req, res, next) {
 }
 
 
+async function initializeModules(context, config, req, res, next) {
+    require('module').Module._initPaths();
+    for (const action of config.actions) {
+
+        let runAction = true
+        if (action.if) {
+                runAction = condition(action.if[0],action.if[1],action.if[2], action.if[3], context)
+        } else if (action.ifs) {
+                for (const ifObject of action.ifs){
+                    runAction = condition(ifObject[0],ifObject[1],ifObject[2], ifObject[3], context)
+                    if (!runAction){
+                        break;
+                    }
+                }
+        }
+        
+        if (runAction){
+            if (action.set){
+                for (key in action.set){
+                    context[key] = replacePlaceholders(action.set[key], context) 
+                }
+            }
+
+            if (action.target){
+                let moduleInstance
+                moduleInstance = replacePlaceholders(action.target, context)
+                 
+                let args = [];
+                if (action.from) {
+                    args = action.from.map(item => {
+                        let isFunctionExecution = item.endsWith('!');
+                        let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
+                        let value = context[key];
+                
+                        if (isFunctionExecution && typeof value === 'function') {
+                            return value();
+                        }
+                        return value;
+                    });
+                }
+                let result
+                    if (typeof moduleInstance === 'function'){
+                        if (args.length == 0){
+                            result = moduleInstance;
+                        } else {
+                            result = moduleInstance(...args)
+                        }
+                    } else {
+                        result = moduleInstance;
+                    }
+                result = await applyMethodChain(result, action, context, res, req, next);
+                if (action.assign) {
+                    if (action.assign.includes('{{')) {
+                        let isFunctionExecution = action.assign.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                        if (isFunctionExecution) {
+                            context[assignKey] = typeof result === 'function' ? result() : result;
+                        } else {
+                            context[assignKey] = result;
+                        }
+                    } else {
+                        context[action.assign] = result;
+                    }
+                }
+            } else if (action.assign && action.params) {
+                    if (action.assign.includes('{{')) {
+                        let isFunctionExecution = action.assign.endsWith('!');
+                        let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                        let result = createFunctionFromAction(action, context, req, res, next)
+                        if (isFunctionExecution) {
+                            context[assignKey] = typeof result === 'function' ? result() : result;
+                        } else {
+                            context[assignKey] = result;
+                        }
+                    } else {
+                        context[action.assign] = createFunctionFromAction(action, context, req, res, next)
+                    }
+                continue;
+            }
+
+            if (action.execute) {
+                const functionName = action.execute;
+                if (typeof context[functionName] === 'function') {
+                    if (action.express){
+                        await context[functionName](req, res, next);
+                    } else {
+                        await context[functionName]
+                    }
+                    continue;
+                } else {
+                    console.error(`No function named ${functionName} found in context`);
+                    continue;
+                }
+            }
+
+            if (action.next){
+                next();
+            }
+        }
+    }
+}
 
 function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
