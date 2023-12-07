@@ -127,8 +127,8 @@ const json = [
                         method: "upload",
                         params: [{
                             "Bucket": "public.1var.com",
-                            "Key": "tempFile.txt",
-                            "Body": "{{tempFileContents}}"
+                            "Key": "test.html",
+                            "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
                         }]
                     },
                     {
