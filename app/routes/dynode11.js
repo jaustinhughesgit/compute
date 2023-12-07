@@ -159,7 +159,7 @@ const json = [
                 "module": "{{s3Response}}",
                 "chain": [
                     {
-                        "property": "Body"
+                        "method": "Body"
                     },
                     {
                         "method": "toString",
@@ -695,8 +695,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
                 chainParams = [];
             }
 
-            if (chainAction.property) {
-                result = result[chainAction.property];
+            if (chainAction.method && !chainAction.params) {
+                result = result[chainAction.method];
             } else if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.method], chainParams);
             } else if (typeof result[chainAction.method] === 'function') {
