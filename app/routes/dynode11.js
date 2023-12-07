@@ -16,29 +16,7 @@ local.dyRouter.use(local.session({
 }));
 
 const json = [
-    {
-        "modules": {
-        },
-        "actions": [
-            {
-                "module": "s3",
-                "chain": [
-                    {
-                        "method": "getObject",
-                        "params": [{
-                            "Bucket": "public.1var.com",
-                            "Key": "test.html"
-                        }]
-                    },
-                    {
-                        "method": "promise",
-                        "params": []
-                    }
-                ],
-                "assign": "s3Response"
-            }
-        ]
-    },
+    
     {
        modules: {
             "moment-timezone": "moment-timezone"
