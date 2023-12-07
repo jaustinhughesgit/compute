@@ -519,9 +519,15 @@ async function initializeModules(context, config, req, res, next) {
             // Handle while action
             if (action.while) {
                 let whileChecker = 0
-                while (condition(replacePlaceholders(action.while[0], context), 
-                                 [{ condition: action.while[1], right: replacePlaceholders(action.while[2], context) }], 
-                                 null, "&&", context)) {
+                console.log("starting", action.while[0])
+                let LEFT = replacePlaceholders(action.while[0], context)
+                console.log("LEFT", LEFT)
+                console.log("typeof", typeof LEFT)
+                console.log("starting", action.while[2])
+                let RIGHT = replacePlaceholders(action.while[2], context)
+                console.log("RIGHT", RIGHT)
+                console.log("typeof", typeof RIGHT)
+                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
                     for (const subAction of action.run) {
                         console.log("subAction", subAction)
                         await processAction(subAction, context, req, res, next);
@@ -653,11 +659,15 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(item, context) {
     let processedItem = item;
+    console.log(">>>>>typeof processedItem",typeof processedItem)
     if (typeof processedItem === 'string') {
+        console.log("is string")
         processedItem = processString(processedItem, context);
     } else if (Array.isArray(processedItem)) {
+        console.log("is array")
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
+
     return processedItem;
 }
 
@@ -679,16 +689,21 @@ function processString(str, context) {
     if (isFunctionExecution) {
         processedString = str.slice(0, -1);
     }
+    console.log("processedString", processedString)
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
+        console.log("processedString is {{}} without !")
         const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
+            console.log("returning function")
             return value();
         }
+        console.log("returning property", value)
         return value;
     }
 
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        console.log("starting resolveValueFromContext", keyPath, context)
         return resolveValueFromContext(keyPath, context, true);
     });
 }
