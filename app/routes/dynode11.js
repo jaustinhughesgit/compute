@@ -169,6 +169,16 @@ const json = [
                 "assign": "{{s3Data}}"
             },
             {
+                "ifs": [["{{urlpath}}", "==", "/test"]],
+                "module": "res",
+                "chain": [
+                    {
+                        "method": "send",
+                        "params": ["{{s3Data}}"]
+                    }
+                ]
+            },
+            {
                 "next":true
             }
         ]
