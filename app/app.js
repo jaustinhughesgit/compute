@@ -71,6 +71,7 @@ const dynode8Router = require('./routes/dynode8');
 const dynode9Router = require('./routes/dynode9');
 //const dynode10Router = require('./routes/dynode10');
 const s3modulesRouter = require('./routes/s3modules');
+const miroRouter = require('./routes/miro');
 
 
 /*
@@ -151,6 +152,7 @@ app.use('/dynode8', dynode8Router);
 app.use('/dynode9', dynode9Router);
 app.use('/dynode11', authRouter);
 app.use('/s3modules', s3modulesRouter);
+app.use('/miro', miroRouter);
 
 
 var cookiesRouter;
