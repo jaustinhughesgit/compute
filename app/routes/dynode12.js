@@ -229,19 +229,19 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }) : [];
 
                 if (typeof runAction.access === 'string') {
-                    if (runAction.access.startsWith('{') && runAction.access.endsWith('}')) {
-                        const methodName = runAction.access.slice(1, -1);
-
-                        // Check for the specific action to increment counter
-                        if (methodName === 'counter' && runAction.add === 1) {
-                            // Assuming 'counter' is directly in the context
-                            if (typeof context[methodName] === 'number') {
-                                context[methodName] += runAction.add;
-                                result = context[methodName];
+                    if (runAction.access.startsWith('{{') && runAction.access.endsWith('}}')) {
+                        if (runAction.add && typeof runAction.add === 'number'){
+                            const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
+                            let val = replacePlaceholders(runAction.access, context);
+                            if (typeof val === 'number') {
+                                context[contextKey] = val + runAction.add; // Update the context with the new value
                             } else {
-                                console.error(`'${methodName}' is not a number or not found in context`);
+                                console.error(`'${contextKey}' is not a number or not found in context`);
                             }
-                        } else if (typeof scope[methodName] === 'function') {
+                        }
+                    } else if (runAction.access.startsWith('{') && runAction.access.endsWith('}')) {
+                        const methodName = runAction.access.slice(1, -1);
+                        if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
                         } else {
                             console.error(`Callback method ${methodName} is not a function`);
