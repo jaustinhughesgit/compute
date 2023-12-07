@@ -53,6 +53,8 @@ router.get('/auth/miro/callback', async (req, res) => {
 
     res.contentType('html')
   res.write('List of boards available to the team 2:')
+  const val = await miro.isAuthorized(req.session.id)
+  res.write(val)
   res.write('<ul>')
 
   const api = miro.as(req.session.id)
