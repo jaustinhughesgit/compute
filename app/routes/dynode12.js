@@ -65,7 +65,7 @@ const json = [
                 params:[],
                 while:["{{first}}", "<","{{second}}"],
                 run:[
-                    {access:"{{first}}!", add:1}
+                    {access:"{{first}}!", add:1, params:[]}
                 ],
                 assign:"{{first}}!"
             },
@@ -421,7 +421,9 @@ function checkCondition(left, condition, right, context) {
 }
 
 async function processAction(action, context, req, res, next) {
+    console.log("processAction")
     if (action.target) {
+        console.log("action.target")
         let moduleInstance = replacePlaceholders(action.target, context);
         let args = [];
                 if (action.from) {
@@ -483,7 +485,7 @@ async function processAction(action, context, req, res, next) {
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
-    
+    console.log("nothing")
     if (action.execute) {
         const functionName = action.execute;
         if (typeof context[functionName] === 'function') {
