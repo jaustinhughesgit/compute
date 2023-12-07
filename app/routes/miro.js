@@ -23,6 +23,7 @@ function verifyJWT(req, res, next) {
   try {
     const decoded = jwt.verify(token, JWT_SECRET);
     req.userId = decoded.id;
+    console.log("req.userId = ", req.userId)
     next();
   } catch (ex) {
     // Redirect to Miro authorization if token is invalid
