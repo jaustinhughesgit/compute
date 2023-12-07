@@ -19,7 +19,7 @@ router.get('/', async function(req, res, next){
     }
   
     res.contentType('html')
-    res.write('List of boards available to the team:')
+    res.write('List of boards available to the team 2:')
     res.write('<ul>')
   
     const api = miro.as(req.session.id)
