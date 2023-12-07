@@ -21,7 +21,6 @@ const json = [
         },
         "actions": [
             {
-                "ifs": [["{{urlpath}}", "==", "/test"]],
                 "module": "s3",
                 "chain": [
                     {
@@ -37,16 +36,6 @@ const json = [
                     }
                 ],
                 "assign": "s3Response"
-            },
-            {
-                "ifs": [["{{urlpath}}", "==", "/test"]],
-                "module": "res",
-                "chain": [
-                    {
-                        "method": "send",
-                        "params": ["{{s3Response}"]
-                    }
-                ]
             }
         ]
     },
