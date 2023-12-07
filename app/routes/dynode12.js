@@ -22,7 +22,7 @@ const json = [
         },
         actions: [
             {
-                "medule":"req",
+                "module":"req",
                 "chain":[
                     {"method":"isAuthenticated", "params":[]}
                 ],
