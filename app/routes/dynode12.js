@@ -586,7 +586,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("typeof val", typeof val)
                             if (typeof val === 'number') {
 
-                                context[contextKey] = val + runAction.add; // Update the context with the new value
+                                result = val + runAction.add; // Update the context with the new value
                                 console.log(contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
