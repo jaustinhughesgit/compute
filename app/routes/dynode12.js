@@ -21,342 +21,26 @@ const json = [
              "moment-timezone": "moment-timezone"
          },
          actions: [
-            //maybe some actions don't working because the first action must have target
-             {
-                 target:"req",
-                 chain:[
-                     {access:"isAuthenticated", params:[]}
-                 ],
-                 assign:"newAuth"
-             },
-             {
-                 target:"console",
-                 chain:[
-                     {access:"log", params:["{{newAuth}}!"]}
-                 ],
-                 "assign":"logAuth"
-             },
-             {
-                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
-                 target:"res",
-                 chain:[
-                     {access:"send", params:["{{newAuth}}"]}
-                 ],
-                 assign:"{{hello}}!"
-             },
-             {
-                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                 set:{condition1:true}
-             },
-             {
-                 if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                 set:{condition2:true}
-             },
              {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{counter:0}
+                set:{first:0}
             },
             {
-                for:["{{counter}}", "<=", 5],
+               if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+               set:{second:5}
+           },
+            {
+                //while:["{{first}}", "!=", "{{second}}"],
                 params:[],
+                while:["{{first}}", "<","{{second}}"],
                 run:[
-                    {access:"{{counter}}", add:1}
+                    {access:"{{first}}", add:1}
                 ],
-                assign:"{{counter}}!"
-            },
-             {
-                 target: "moment-timezone",
-                 chain: [
-                     { access: "tz", params: ["Asia/Dubai"] },
-                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                 ],
-                 assign: "timeInDubai"
-             },
-             {
-                 target: "moment-timezone",
-                 assign: "justTime",
-                 from: ["{{timeInDubai}}!"],
-                 chain: [
-                     { access: "format", params: ["HH:mm"] }
-                 ]
-             },
-             {
-                 target: "moment-timezone",
-                 assign: "timeInDubai2",
-                 from: ["{{timeInDubai}}"],
-                 chain: [
-                     { access: "add", params: [1, "hours"] },
-                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                 ]
-             },
-             {
-                 next:true
-             }
-         ]
-     },
-     {
-        modules: {
-             "moment-timezone": "moment-timezone"
-         },
-         actions: [
- 
-             {
-                 target: "moment-timezone",
-                 assign: "justTime2",
-                 from: ["{{timeInDubai2}}!"],
-                 chain: [
-                     { access: "format", params: ["HH:mm"] }
-                 ]
-             },
-             {
-                 target: "fs",
-                 chain: [
-                     {
-                         access: "readFileSync",
-                         params: ["/var/task/app/routes/../example.txt", "utf8"],
-                     }
-                 ],
-                 assign: "fileContents"
-             },
-             {
-                 target: "fs",
-                 access: "writeFileSync",
-                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
-             },
-             {
-                 target: "fs",
-                 chain: [
-                     {
-                         access: "readFileSync",
-                         params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                     }
-                 ],
-                 assign: "tempFileContents"
-             },
-             {
-                 target: "s3",
-                 chain: [
-                     {
-                         access: "upload",
-                         params: [{
-                             "Bucket": "public.1var.com",
-                             "Key": "test.html",
-                             "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
-                         }]
-                     },
-                     {
-                         access: "promise",
-                         params: []
-                     }
-                 ],
-                 assign: "s3UploadResult"
-             },
-             {
-                 target: "s3",
-                 chain: [
-                     {
-                         access: "getObject",
-                         params: [{
-                             Bucket: "public.1var.com",
-                             Key: "test.html"
-                         }]
-                     },
-                     {
-                         access: "promise",
-                         params: []
-                     }
-                 ],
-                 assign: "s3Response"
-             },
-             {
-                 target: "{{s3Response}}",
-                 chain: [
-                     {
-                         access: "Body"
-                     },
-                     {
-                         access: "toString",
-                         params: ["utf-8"]
-                     }
-                 ],
-                 assign: "{{s3Data}}"
-             },
-             {
-                 ifs: [["{{urlpath}}", "==", "/test"]],
-                 target: "res",
-                 chain: [
-                     {
-                         access: "send",
-                         params: ["{{s3Data}}"]
-                     }
-                 ]
-             },
-             {
-                 next:true
-             }
-         ]
-     },
-     {
-        modules: {
-             "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
-         },
-         actions: [
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"passport",
-                 chain:[
-                 ],
-                 assign:"passport"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{accessToken}", "{refreshToken}", "{profile}", "{done}"], 
-                 chain:[],
-                 run:[
-                     {access:"{done}", params:[null, "{profile}"]}
-                 ],
-                 assign:"callbackFunction"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"passport-microsoft",
-                 chain:[
-                 {access:"Strategy", params:[
-                     {
-                         clientID: process.env.MICROSOFT_CLIENT_ID,
-                         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-                         callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-                         resource: "https://graph.microsoft.com/",
-                         tenant: process.env.MICROSOFT_TENANT_ID,
-                         prompt: "login",
-                         state: false,
-                         type: "Web",
-                         scope: ["user.read"]
-                     },"{{callbackFunction}}"
-                 ],
-                     new:true}
-                 ],
-                 assign:"passportmicrosoft"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"use", params:["{{passportmicrosoft}}"]}
-                 ],
-                 assign:"newStrategy"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{user}", "{done}"], 
-                 chain:[],
-                 run:[
-                     {access:"{done}", params:[null, "{user}"]}
-                 ],
-                 assign:"serializeFunction"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"serializeUser", params:["{{serializeFunction}}"]}
-                 ],
-                 assign:"serializeUser"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{user}", "{done}"], 
-                 chain:[],
-                 "run":[
-                     {access:"{done}", params:[null, "{user}"]}
-                 ],
-                 assign:"deserializeFunction"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
-                 ],
-                 assign:"deserializeUser"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"initialize", params:[]}
-                 ],
-                 assign:"passportInitialize"
-             },
-             {
-                 target:"dyRouter",
-                 chain:[
-                     {access:"use", params:["{{passportInitialize}}"]}
-                 ],
-                 assign:"{{runDyRouterInit}}"
-             },
-             {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"session", params:[]}
-                 ],
-                 assign:"passportSession"
-             },
-             {
-                 target:"dyRouter",
-                 chain:[
-                     {access:"use", params:["{{passportSession}}"]}
-                 ],
-                 assign:"{{runDyRouterSession}}"
-             },
-             {
-                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"authenticate", params:["microsoft"], express:true},
-                 ],
-                 assign:"newAuthentication"
-             }
-         ]
-     },
-     {
-        modules: {
-             "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
-         },
-         actions: [
-             {
-                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
-                 target:"req",
-                 chain:[
-                     {access:"isAuthenticated", params:[]}
-                 ],
-                 express:true,
-                 assign:"{{isAuth}}"
-             },
-             {
-                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                 target:"res",
-                 chain:[
-                     {access:"json", params:["{{}}"]}
-                 ],
-                 assign:"{{getJson}}!"
-             },
-             {
-                 ifs:[["{{urlpath}}","==","/hello"]],
-                 target:"res",
-                 chain:[
-                     {access:"send", params:["Hello World!"]}
-                 ],
-                 assign:"hello"
-             }
-         ]
-     }
+                assign:"{{first}}!"
+            }
+        ]
+    }
 ]
-
-// API with JSON
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
@@ -417,6 +101,126 @@ function checkCondition(left, condition, right, context) {
     }
 }
 
+async function processAction(action, context, req, res, next) {
+    if (action.target) {
+        let moduleInstance = replacePlaceholders(action.target, context);
+        let args = [];
+        if (action.from) {
+            args = action.from.map(item => {
+                let isFunctionExecution = item.endsWith('!');
+                let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
+                let value = context[key];
+                return isFunctionExecution && typeof value === 'function' ? value() : value;
+            });
+        }
+        let result = typeof moduleInstance === 'function' ? (args.length == 0 ? moduleInstance() : moduleInstance(...args)) : moduleInstance;
+        result = await applyMethodChain(result, action, context, res, req, next);
+        if (action.assign) {
+            if (action.assign.includes('{{')) {
+                let isFunctionExecution = action.assign.endsWith('!');
+                let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                context[assignKey] = isFunctionExecution && typeof result === 'function' ? result() : result;
+            } else {
+                context[action.assign] = result;
+            }
+        }
+    } else if (action.assign && action.params) {
+        if (action.assign.includes('{{')) {
+            let isFunctionExecution = action.assign.endsWith('!');
+            let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+            let result = createFunctionFromAction(action, context, req, res, next);
+            context[assignKey] = isFunctionExecution && typeof result === 'function' ? result() : result;
+        } else {
+            context[action.assign] = createFunctionFromAction(action, context, req, res, next);
+        }
+    } else if (action.execute) {
+        const functionName = action.execute;
+        if (typeof context[functionName] === 'function') {
+            if (action.express) {
+                await context[functionName](req, res, next);
+            } else {
+                await context[functionName];
+            }
+        } else {
+            console.error(`No function named ${functionName} found in context`);
+        }
+    } else if (action.next) {
+        next();
+    }
+}
+
+async function initializeModules(context, config, req, res, next) {
+    require('module').Module._initPaths();
+    for (const action of config.actions) {
+        let runAction = true;
+        if (action.if) {
+            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
+        } else if (action.ifs) {
+            for (const ifObject of action.ifs) {
+                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
+                if (!runAction) {
+                    break;
+                }
+            }
+        }
+
+        if (runAction) {
+            if (action.set) {
+                for (const key in action.set) {
+                    context[key] = replacePlaceholders(action.set[key], context);
+                }
+            }
+
+            
+            // Handle while action
+            if (action.while) {
+                let whileChecker = 0
+                while (condition(replacePlaceholders(action.while[0], context), 
+                                 [{ condition: action.while[1], right: replacePlaceholders(action.while[2], context) }], 
+                                 null, "&&", context)) {
+                    for (const subAction of action.run) {
+                        await processAction(subAction, context, req, res, next);
+                    }
+                    whileChecker++;
+                    if (whileChecker == 100){
+                        break;
+                    }
+                }
+            }
+
+            // Handle whiles action
+            if (action.whiles) {
+                let whileChecker = 0
+                for (const whileCondition of action.whiles) {
+                    while (condition(replacePlaceholders(whileCondition[0], context), 
+                                     [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
+                                     null, "&&", context)) {
+                        for (const subAction of action.run) {
+                            await processAction(subAction, context, req, res, next);
+                        }
+                        whileChecker++;
+                        if (whileChecker == 100){
+                            break;
+                        }
+                    }
+                }
+            }
+
+            // Process the current action
+            await processAction(action, context, req, res, next);
+
+            // Check for specific action types that require skipping the rest of the loop
+            if (action.assign && action.params) {
+                continue; // Skip to the next action in the loop
+            }
+
+            if (action.execute) {
+                continue; // Skip to the next action in the loop
+            }
+        }
+    }
+}
+
 
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
@@ -440,34 +244,7 @@ async function initializeModules(context, config, req, res, next) {
                     context[key] = replacePlaceholders(action.set[key], context) 
                 }
             }
-            // Handle the loop action
-            if (action.for) {
-                const [counterVar, operator, limit] = action.for;
-                let counter = parseInt(replacePlaceholders(counterVar, context), 10);
-                const endCondition = parseInt(replacePlaceholders(limit, context), 10);
 
-                while (checkCondition(counter, operator, endCondition, context)) {
-                    // Execute the actions inside the loop
-                    for (const runAction of action.run) {
-                        const actionResult = await executeAction(runAction, context, req, res, next);
-                        if (actionResult === 'continue') {
-                            break; // Breaks the inner for-loop, continues the while-loop
-                        }
-                    }
-
-                    // Update the counter and re-evaluate the condition
-                    counter = parseInt(replacePlaceholders(counterVar, context), 10);
-                }
-            } else {
-                // Execute other actions
-                await executeAction(action, context, req, res, next);
-            }
-        }
-    }
-}
-
-
-async function executeAction(action, context, req, res, next) {
             if (action.target){
                 let moduleInstance
                 moduleInstance = replacePlaceholders(action.target, context)
@@ -522,7 +299,7 @@ async function executeAction(action, context, req, res, next) {
                     } else {
                         context[action.assign] = createFunctionFromAction(action, context, req, res, next)
                     }
-                return 'continue';
+                continue;
             }
 
             if (action.execute) {
@@ -533,10 +310,10 @@ async function executeAction(action, context, req, res, next) {
                     } else {
                         await context[functionName]
                     }
-                    return 'continue';
+                    continue;
                 } else {
                     console.error(`No function named ${functionName} found in context`);
-                    return 'continue';
+                    continue;
                 }
             }
 
@@ -544,75 +321,7 @@ async function executeAction(action, context, req, res, next) {
                 next();
             }
         }
-
-function createFunctionFromAction(action, context, req, res, next) {
-    return function(...args) {
-        let result;
-        let scope = args.reduce((acc, arg, index) => {
-            if (action.params && action.params[index]) {
-                const paramName = action.params[index].replace(/[{}]/g, '');
-                acc[paramName] = arg;
-            }
-            return acc;
-        }, {});
-        if (action.chain) {
-            for (const chainAction of action.chain) {
-                console.log("chainAction", chainAction)
-                const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
-                }) : [];
-
-                if (typeof chainAction.access === 'string') {
-                    if (chainAction.access.startsWith('{') && chainAction.access.endsWith('}')) {
-                        const methodName = chainAction.access.slice(1, -1);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...chainParams);
-                        } else {
-                            console.error(`Callback method ${methodName} is not a function`);
-                            return;
-                        }
-                    } else if (result && typeof result[chainAction.access] === 'function') {
-                        result = result[chainAction.access](...chainParams);
-                    } else {
-                        console.error(`Method ${chainAction.access} is not a function on result`);
-                        return;
-                    }
-                }
-            }
-        }
-        if (action.run) {
-            for (const runAction of action.run) {
-                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
-                }) : [];
-
-                if (typeof runAction.access === 'string') {
-                    if (runAction.access.startsWith('{{') && runAction.access.endsWith('}}')) {
-                        if (runAction.add && typeof runAction.add === 'number'){
-                            const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
-                            let val = replacePlaceholders(runAction.access, context);
-                            if (typeof val === 'number') {
-                                result = val + runAction.add; // Update the context with the new value
-                                console.log(contextKey, context[contextKey])
-                            } else {
-                                console.error(`'${contextKey}' is not a number or not found in context`);
-                            }
-                        }
-                    } else if (runAction.access.startsWith('{') && runAction.access.endsWith('}')) {
-                        const methodName = runAction.access.slice(1, -1);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...runParams);
-                        } else {
-                            console.error(`Callback method ${methodName} is not a function`);
-                            return;
-                        }
-                    }
-                }
-            }
-        }
-        console.log("createFunctionFromAction",result)
-        return result;
-    };
+    }
 }
 
 function createFunctionFromAction(action, context, req, res, next) {
