@@ -156,12 +156,12 @@ const json = [
                 "assign": "s3Response"
             },
             {
-                method:"{{s3Response}}!",
+                from:["{{s3Response}}"],
                 chain:[
                     {method:"Body", params:[]},
                     {method:"toString", params:["urf-8"]}
                 ],
-                assign:"{{s3Data}}!"
+                assign:"s3Data"
             },
             {
                 "next":true
@@ -491,6 +491,7 @@ function createFunctionFromAction(action, context, req, res, next) {
 
         if (action.chain) {
             for (const chainAction of action.chain) {
+                console.log("chainAction", chainAction)
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -533,7 +534,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
-
+        console.log("createFunctionFromAction",result)
         return result;
     };
 }
