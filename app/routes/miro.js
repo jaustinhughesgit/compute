@@ -16,7 +16,8 @@ const JWT_SECRET = process.env.JWT_SECRET;
 function verifyJWT(req, res, next) {
   const token = req.cookies.jwt;
   if (!token) {
-    return res.status(401).send('Access denied. No token provided.');
+    // Redirect to Miro authorization if no token is found
+    return res.redirect(miro.getAuthUrl());
   }
 
   try {
@@ -24,7 +25,8 @@ function verifyJWT(req, res, next) {
     req.userId = decoded.id;
     next();
   } catch (ex) {
-    res.status(400).send('Invalid token.');
+    // Redirect to Miro authorization if token is invalid
+    return res.redirect(miro.getAuthUrl());
   }
 }
 
