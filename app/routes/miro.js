@@ -61,17 +61,17 @@ router.get('/auth/miro/callback', async (req, res) => {
     res.cookie('jwt', token, { httpOnly: true });
 
 
-    res.contentType('html');
-    res.write('List of boards available to the team 2:');
-    res.write('<ul>');
+    res.contentType('html')
+  res.write('List of boards available to the team:')
+  res.write('<ul>')
 
-    const api = miro.as(req.userId);
+  const api = miro.as(req.session.id)
 
-    for await (const board of api.getAllBoards()) {
-      res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`);
-    }
-    res.write('</ul>');
-    res.send();
+  for await (const board of api.getAllBoards()) {
+    res.write(`<li><a href="${board.viewLink}">${board.name}</a></li>`)
+  }
+  res.write('</ul>')
+  res.send()
 });
 
 module.exports = router;
