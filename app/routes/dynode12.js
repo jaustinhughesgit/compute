@@ -437,15 +437,20 @@ async function processAction(action, context, req, res, next) {
                     });
                 }
         let result;
+        console.log("moduleInstance", typeof moduleInstance, moduleInstance)
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
+                console.log("args.length == 0")
                 result = moduleInstance; // Assigns the function itself to result
             } else {
+                console.log("with args")
                 result = moduleInstance(...args); // Calls the function with arguments and assigns the return value to result
             }
         } else {
+            console.log("non-function result")
             result = moduleInstance; // Assigns the non-function value to result
         }
+        console.log("applyMethodChain",result)
         result = await applyMethodChain(result, action, context, res, req, next);
         if (action.assign) {
             if (action.assign.includes('{{')) {
@@ -461,16 +466,20 @@ async function processAction(action, context, req, res, next) {
             }
         }
     } else if (action.assign && action.params) {
+        console.log("action.assign && action.params")
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+            console.log("createFunctionFromAction if", action)
             let result = createFunctionFromAction(action, context, req, res, next)
+            console.log("result",result)
             if (isFunctionExecution) {
                 context[assignKey] = typeof result === 'function' ? result() : result;
             } else {
                 context[assignKey] = result;
             }
         } else {
+            console.log("createFunctionFromAction else", action)
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
