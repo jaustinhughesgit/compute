@@ -459,12 +459,6 @@ async function processAction(action, context, req, res, next) {
                 context[action.assign] = result;
             }
         }
-    } else if (action.chain) {
-        for (const chainAction of action.chain) {
-            if (chainAction.hasOwnProperty('return')) {
-                return chainAction.return;
-            }
-        }
     } else if (action.assign && action.params) {
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
@@ -488,7 +482,15 @@ async function processAction(action, context, req, res, next) {
         } else {
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
-    } 
+    } else if (action.chain) {
+        for (const chainAction of action.chain) {
+            if (chainAction.hasOwnProperty('return')) {
+                let isFunctionExecution = action.assign.endsWith('!');
+                let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+                context[assignKey] = chainAction.return;
+            }
+        }
+    }
     if (action.execute) {
         const functionName = action.execute;
         if (typeof context[functionName] === 'function') {
