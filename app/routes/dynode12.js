@@ -58,7 +58,7 @@ const json = [
             },
             {
                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-               set:{second:5}
+               set:{second:3}
            },
             {
                 //while:["{{first}}", "!=", "{{second}}"],
@@ -550,7 +550,7 @@ async function initializeModules(context, config, req, res, next) {
                         await processAction(subAction, context, req, res, next);
                     }
                     whileChecker++;
-                    if (whileChecker == 100){
+                    if (whileChecker == 10){
                         break;
                     }
                 }
@@ -567,7 +567,7 @@ async function initializeModules(context, config, req, res, next) {
                             await processAction(subAction, context, req, res, next);
                         }
                         whileChecker++;
-                        if (whileChecker == 100){
+                        if (whileChecker == 10){
                             break;
                         }
                     }
