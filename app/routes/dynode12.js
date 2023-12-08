@@ -429,7 +429,7 @@ async function processAction(action, context, req, res, next) {
         console.log("action.params",action.params)
     }
     if (action.target) {
-        console.log("action.target")
+        //console.log("action.target")
         let moduleInstance = replacePlaceholders(action.target, context);
         let args = [];
                 if (action.from) {
@@ -445,20 +445,20 @@ async function processAction(action, context, req, res, next) {
                     });
                 }
         let result;
-        console.log("moduleInstance", typeof moduleInstance, moduleInstance)
+        //console.log("moduleInstance", typeof moduleInstance, moduleInstance)
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
-                console.log("args.length == 0")
-                result = moduleInstance; // Assigns the function itself to result
+                //console.log("args.length == 0")
+                //result = moduleInstance; // Assigns the function itself to result
             } else {
-                console.log("with args")
+                //console.log("with args")
                 result = moduleInstance(...args); // Calls the function with arguments and assigns the return value to result
             }
         } else {
-            console.log("non-function result")
+            //console.log("non-function result")
             result = moduleInstance; // Assigns the non-function value to result
         }
-        console.log("applyMethodChain",result)
+        //console.log("applyMethodChain",result)
         result = await applyMethodChain(result, action, context, res, req, next);
         if (action.assign) {
             if (action.assign.includes('{{')) {
@@ -538,12 +538,12 @@ async function initializeModules(context, config, req, res, next) {
                 let whileChecker = 0
                 console.log("starting", action.while[0])
                 let LEFT = replacePlaceholders(action.while[0], context)
-                console.log("LEFT", LEFT)
-                console.log("typeof", typeof LEFT)
-                console.log("starting", action.while[2])
+                //console.log("LEFT", LEFT)
+                //console.log("typeof", typeof LEFT)
+                //console.log("starting", action.while[2])
                 let RIGHT = replacePlaceholders(action.while[2], context)
-                console.log("RIGHT", RIGHT)
-                console.log("typeof", typeof RIGHT)
+                //console.log("RIGHT", RIGHT)
+                //console.log("typeof", typeof RIGHT)
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
                     for (const subAction of action.run) {
                         console.log("subAction", subAction)
