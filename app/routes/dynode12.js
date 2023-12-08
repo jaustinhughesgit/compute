@@ -637,7 +637,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }) : [];
 
                 if (typeof runAction.access === 'string') {
-                    if (runAction.access.startsWith('{{') && runAction.access.endsWith('}}')) {
+                    if (runAction.access.startsWith('{{')) {
                         if (runAction.add && typeof runAction.add === 'number'){
                             const contextKey = runAction.access.replace("!","").slice(2, -2); // Extract the key without the curly braces
                             let val = replacePlaceholders(runAction.access, context);
