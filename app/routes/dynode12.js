@@ -124,7 +124,7 @@ const json = [
              {
                  target: "fs",
                  access: "writeFileSync",
-                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai}} is a test file content {{timeInDubai}}", 'utf8']
+                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
              },
              {
                  target: "fs",
