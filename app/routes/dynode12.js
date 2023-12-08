@@ -550,13 +550,10 @@ async function initializeModules(context, config, req, res, next) {
                 //console.log("RIGHT", RIGHT)
                 //console.log("typeof", typeof RIGHT)
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                    console.log(condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context))
-                    if (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)){
                     //for (const subAction of action.run) {
                         //console.log("subAction", subAction)
                         await processAction(action, context, req, res, next);
                     //}
-                    }
                     whileChecker++;
                     if (whileChecker == 10){
                         break;
@@ -583,8 +580,9 @@ async function initializeModules(context, config, req, res, next) {
             }
 
             // Process the current action
-            await processAction(action, context, req, res, next);
-
+            if (!action.while){
+                await processAction(action, context, req, res, next);
+            }
             // Check for specific action types that require skipping the rest of the loop
             if (action.assign && action.params) {
                 continue; // Skip to the next action in the loop
