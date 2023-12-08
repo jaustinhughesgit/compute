@@ -60,6 +60,31 @@ const json = [
                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                set:{second:0}
            },
+           {
+               module: "moment-timezone",
+               chain: [
+                   { method: "tz", params: ["Asia/Dubai"] },
+                   { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+               ],
+               assign: "timeInDubai"
+           },
+           {
+               module: "moment-timezone",
+               assign: "justTime",
+               "from": ["{{timeInDubai}}!"],
+               chain: [
+                   { method: "format", params: ["HH:mm"] }
+               ]
+           },
+           {
+               module: "moment-timezone",
+               assign: "timeInDubai2",
+               "from": ["{{timeInDubai}}"],
+               chain: [
+                   { method: "add", params: [1, "hours"] },
+                   { method: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+               ]
+           },
             {
                 while:["{{first}}", ">","{{second}}"],
                 params:[],
@@ -68,31 +93,6 @@ const json = [
                 ],
                 assign:"{{first}}!"
             },
-            {
-                target: "moment-timezone",
-                chain: [
-                    { access: "tz", params: ["Asia/Dubai"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-             {
-                 target: "moment-timezone",
-                 assign: "justTime",
-                 from: ["{{timeInDubai}}!"],
-                 chain: [
-                     { access: "format", params: ["HH:mm"] }
-                 ]
-             },
-             {
-                 target: "moment-timezone",
-                 assign: "timeInDubai2",
-                 from: ["{{timeInDubai}}"],
-                 chain: [
-                     { access: "add", params: [1, "hours"] },
-                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                 ]
-             },
              {
                  next:true
              }
