@@ -127,7 +127,7 @@ const json = [
                  chain:[
                      {"return":"{test}"}
                  ],
-                 assign:"customFunction"
+                 assign:"{{customFunction}}!"
              },
              {
                  target: "fs",
