@@ -545,10 +545,10 @@ async function initializeModules(context, config, req, res, next) {
                 //console.log("RIGHT", RIGHT)
                 //console.log("typeof", typeof RIGHT)
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                    for (const subAction of action.run) {
-                        console.log("subAction", subAction)
-                        await processAction(subAction, context, req, res, next);
-                    }
+                    //for (const subAction of action.run) {
+                        //console.log("subAction", subAction)
+                        await processAction(action, context, req, res, next);
+                    //}
                     whileChecker++;
                     if (whileChecker == 5){
                         break;
@@ -563,9 +563,9 @@ async function initializeModules(context, config, req, res, next) {
                     while (condition(replacePlaceholders(whileCondition[0], context), 
                                      [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
                                      null, "&&", context)) {
-                        for (const subAction of action.run) {
-                            await processAction(subAction, context, req, res, next);
-                        }
+                        //for (const subAction of action.run) {
+                            await processAction(action, context, req, res, next);
+                        //}
                         whileChecker++;
                         if (whileChecker == 5){
                             break;
