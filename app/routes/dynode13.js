@@ -463,7 +463,9 @@ async function processAction(action, context, req, res, next) {
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+            console.log("action/////", action)
             let result = createFunctionFromAction(action, context, req, res, next)
+            console.log("result/////",result)
             if (isFunctionExecution) {
                 context[assignKey] = typeof result === 'function' ? result() : result;
             } else {
