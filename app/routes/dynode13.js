@@ -34,7 +34,7 @@ const json = [
                  chain:[
                      {access:"log", params:["{{newAuth}}!"]}
                  ],
-                 "assign":"logAuth"
+                "assign:"logAuth"
              },
              {
                  ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
@@ -43,6 +43,14 @@ const json = [
                      {access:"send", params:["{{newAuth}}"]}
                  ],
                  assign:"{{hello}}!"
+             },
+             {
+                target:"process",
+                chain:[
+                    {access:"env", params:[]},
+                    {access:"NODE_PATH", params:[]}
+                ],
+                assign:"env"
              },
              {
                  if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
