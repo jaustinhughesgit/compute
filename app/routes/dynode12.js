@@ -23,14 +23,6 @@ const json = [
          actions: [
              
             {
-                target: "moment-timezone",
-                chain: [
-                    { access: "tz", params: ["Asia/Dubai"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-            {
                  target:"req",
                  chain:[
                      {access:"isAuthenticated", params:[]}
@@ -75,6 +67,14 @@ const json = [
                     {access:"{{first}}", subtract:1, params:[]}
                 ],
                 assign:"{{first}}!"
+            },
+            {
+                target: "moment-timezone",
+                chain: [
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
             },
              {
                  target: "moment-timezone",
