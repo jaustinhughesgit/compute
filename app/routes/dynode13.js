@@ -123,9 +123,16 @@ const json = [
                  assign: "fileContents"
              },
              {
+                 params:["{test}"], 
+                 chain:[
+                     {"return":"{test}"}
+                 ],
+                 assign:"customFunction"
+             },
+             {
                  target: "fs",
                  access: "writeFileSync",
-                 params: ['/tmp/tempFile.txt', "{{logAuth}} 222This is a test file content {{timeInDubai2}}", 'utf8']
+                 params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
              },
              {
                  target: "fs",
