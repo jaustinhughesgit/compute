@@ -125,14 +125,14 @@ const json = [
              {
                  target: "fs",
                  access: "writeFileSync",
-                 params: [lib.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
+                 params: ['/tmp/tempFile.txt', "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
              },
              {
                  target: "fs",
                  chain: [
                      {
                          access: "readFileSync",
-                         params: [lib.path.join('/tmp', 'tempFile.txt'), "utf8"],
+                         params: ['/tmp/tempFile.txt', "utf8"],
                      }
                  ],
                  assign: "tempFileContents"
