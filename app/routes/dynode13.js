@@ -475,7 +475,7 @@ async function processAction(action, context, req, res, next) {
             } else {
                 console.log("no !")
                 if (typeof result === 'function'){
-                    console.log("executing function", result())
+                    console.log("executing function", JSON.stringify(result))
                 }
                 context[assignKey] = result;
             }
