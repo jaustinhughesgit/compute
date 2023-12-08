@@ -430,22 +430,27 @@ async function processAction(action, context, req, res, next) {
                         let value = context[key];
                 
                         if (isFunctionExecution && typeof value === 'function') {
+                            console.log("execute function")
                             return value();
                         }
+                        console.log("else just return value")
                         return value;
                     });
                 }
         let result;
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
+                console.log("args.length", args.length)
                 result = moduleInstance;
             } else {
+                console.log("args exist")
                 result = moduleInstance(...args); 
             }
         } else {
             console.log("//else")
             result = moduleInstance;
         }
+        console.log("OOO result",result)
         result = await applyMethodChain(result, action, context, res, req, next);
         if (action.assign) {
             if (action.assign.includes('{{')) {
