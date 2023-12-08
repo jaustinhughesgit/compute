@@ -467,7 +467,13 @@ async function processAction(action, context, req, res, next) {
             let result = createFunctionFromAction(action, context, req, res, next)
             console.log("result/////",result)
             if (isFunctionExecution) {
-                context[assignKey] = typeof result === 'function' ? result() : result;
+                if (typeof result === 'function'){
+                    console.log("trying to set result to context key:", assignKey)
+                    context[assignKey] =  result()
+                    console.log("context[assignKey]", context[assignKey])
+                } else {
+                    context[assignKey] =  result;
+                }
             } else {
                 context[assignKey] = result;
             }
