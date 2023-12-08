@@ -388,6 +388,7 @@ function condition(left, conditions, right, operator = "&&", context) {
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
         console.log("currentResult", currentResult)
         if (operator === "&&") {
+            console.log("result && currentResult", result, currentResult)
             return result && currentResult;
         } else if (operator === "||") {
             return result || currentResult;
