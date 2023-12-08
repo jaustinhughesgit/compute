@@ -75,7 +75,7 @@ const json = [
                     { access: "tz", params: ["Asia/Dubai"] },
                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ],
-                assign: "timeInDubai"
+                assign: "{{timeInDubai}}!"
             },
              {
                  target: "moment-timezone",
