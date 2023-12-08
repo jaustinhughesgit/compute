@@ -45,14 +45,6 @@ const json = [
                  assign:"{{hello}}!"
              },
              {
-                target:"process",
-                chain:[
-                    {access:"env", params:[]},
-                    {access:"NODE_PATH", params:[]}
-                ],
-                assign:"env"
-             },
-             {
                  if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                  set:{condition1:true}
              },
@@ -360,7 +352,6 @@ let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
-        lib.process = process
         lib.console = console;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib.context["urlpath"] = req.path
