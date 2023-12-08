@@ -643,7 +643,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add; // Update the context with the new value
-                                context[contextKey] = result;
+                                //context[contextKey] = result;
                                 console.log("|||==>",contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
