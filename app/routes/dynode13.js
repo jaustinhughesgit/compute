@@ -475,9 +475,7 @@ async function processAction(action, context, req, res, next) {
                 context[assignKey] = result;
             }
             
-        }
-        
-        else {
+        } else {
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
