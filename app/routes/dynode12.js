@@ -541,11 +541,11 @@ async function initializeModules(context, config, req, res, next) {
             if (action.while) {
                 let whileChecker = 0
                 //console.log("starting", action.while[0])
-                let LEFT = replacePlaceholders(action.while[0], context)
+                let LEFT = action.while[0]
                 //console.log("LEFT", LEFT)
                 //console.log("typeof", typeof LEFT)
                 //console.log("starting", action.while[2])
-                let RIGHT = replacePlaceholders(action.while[2], context)
+                let RIGHT = action.while[2]
                 //console.log("RIGHT", RIGHT)
                 //console.log("typeof", typeof RIGHT)
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
