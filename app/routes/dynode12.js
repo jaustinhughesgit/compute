@@ -639,11 +639,12 @@ function createFunctionFromAction(action, context, req, res, next) {
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
                         if (runAction.add && typeof runAction.add === 'number'){
-                            const contextKey = runAction.access.replace("!","").slice(2, -2); // Extract the key without the curly braces
+                            const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add; // Update the context with the new value
-                                console.log(contextKey, context[contextKey])
+                                context[contextKey] = result;
+                                console.log("|||==>",contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
