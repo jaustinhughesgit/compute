@@ -67,7 +67,7 @@ const json = [
                 run:[
                     {access:"{{first}}", add:1, params:[]}
                 ],
-                assign:"{{first}}"
+                assign:"{{first}}!"
             },
              {
                  target: "moment-timezone",
