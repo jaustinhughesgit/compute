@@ -386,6 +386,7 @@ function condition(left, conditions, right, operator = "&&", context) {
 
     return conditions.reduce((result, cond) => {
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
+        console.log("currentResult", currentResult)
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -397,8 +398,11 @@ function condition(left, conditions, right, operator = "&&", context) {
 }
 
 function checkCondition(left, condition, right, context) {
+    console.log("checkCondition", left, condition, right, context)
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
+    console.log("left", left)
+    console.log("right", right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -536,7 +540,7 @@ async function initializeModules(context, config, req, res, next) {
             // Handle while action
             if (action.while) {
                 let whileChecker = 0
-                console.log("starting", action.while[0])
+                //console.log("starting", action.while[0])
                 let LEFT = replacePlaceholders(action.while[0], context)
                 //console.log("LEFT", LEFT)
                 //console.log("typeof", typeof LEFT)
@@ -676,12 +680,12 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(item, context) {
     let processedItem = item;
-    console.log(">>>>>typeof processedItem",typeof processedItem)
+    //console.log(">>>>>typeof processedItem",typeof processedItem)
     if (typeof processedItem === 'string') {
-        console.log("is string")
+        //console.log("is string")
         processedItem = processString(processedItem, context);
     } else if (Array.isArray(processedItem)) {
-        console.log("is array")
+        //console.log("is array")
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
 
@@ -706,21 +710,21 @@ function processString(str, context) {
     if (isFunctionExecution) {
         processedString = str.slice(0, -1);
     }
-    console.log("processedString", processedString)
+    //console.log("processedString", processedString)
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
-        console.log("processedString is {{}} without !")
+        //console.log("processedString is {{}} without !")
         const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
-            console.log("returning function")
+            //console.log("returning function")
             return value();
         }
-        console.log("returning property", value)
+        //console.log("returning property", value)
         return value;
     }
 
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        console.log("starting resolveValueFromContext", keyPath, context)
+        //console.log("starting resolveValueFromContext", keyPath, context)
         return resolveValueFromContext(keyPath, context, true);
     });
 }
