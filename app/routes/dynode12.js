@@ -441,7 +441,7 @@ async function processAction(action, context, req, res, next) {
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
                 console.log("args.length", args.length)
-                result = moduleInstance;
+                result = moduleInstance();
             } else {
                 console.log("args exist")
                 result = moduleInstance(...args); 
