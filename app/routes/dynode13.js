@@ -452,8 +452,6 @@ async function processAction(action, context, req, res, next) {
                     } else {
                         context[assignKey] = result
                     }
-
-                    context[assignKey] = typeof result === 'function' ? result() : result;
                 } else {
                     context[assignKey] = result;
                 }
