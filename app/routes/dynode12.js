@@ -54,18 +54,17 @@ const json = [
              },
              {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{first:0}
+                set:{first:5}
             },
             {
                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-               set:{second:3}
+               set:{second:0}
            },
             {
-                //while:["{{first}}", "!=", "{{second}}"],
+                while:["{{first}}", ">","{{second}}"],
                 params:[],
-                while:["{{first}}", "<=","{{second}}"],
                 run:[
-                    {access:"{{first}}", add:1, params:[]}
+                    {access:"{{first}}", subtract:1, params:[]}
                 ],
                 assign:"{{first}}!"
             },
@@ -616,6 +615,15 @@ function createFunctionFromAction(action, context, req, res, next) {
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add; // Update the context with the new value
+                            } else {
+                                console.error(`'${contextKey}' is not a number or not found in context`);
+                            }
+                        }
+                        if (runAction.subtract && typeof runAction.subtract === 'number'){
+                            const contextKey = runAction.access.slice(2, -2); // Extract the key without the curly braces
+                            let val = replacePlaceholders(runAction.access, context);
+                            if (typeof val === 'number') {
+                                result = val - runAction.subtract; // Update the context with the new value
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
