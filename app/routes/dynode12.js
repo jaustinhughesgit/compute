@@ -596,6 +596,7 @@ async function initializeModules(context, config, req, res, next) {
 
 
 function createFunctionFromAction(action, context, req, res, next) {
+    console.log("!!!!!!!!!!!createFunctionFromAction", action, acontext)
     return function(...args) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -643,7 +644,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add; // Update the context with the new value
-                                //context[contextKey] = result;
                                 console.log("|||==>",contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
