@@ -124,7 +124,7 @@ const json = [
              },
              {
                  params:[], 
-                 chain:[
+                 run:[
                      {return:"test"}
                  ],
                  assign:"customFunction"
@@ -601,6 +601,11 @@ function createFunctionFromAction(action, context, req, res, next) {
         }
         if (action.run) {
             for (const runAction of action.run) {
+
+                if (runAction.hasOwnProperty('return')) {
+                    return runAction.return;
+                }
+
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
