@@ -61,6 +61,14 @@ const json = [
                set:{second:0}
            },
             {
+                while:["{{first}}", ">","{{second}}"],
+                params:[],
+                run:[
+                    {access:"{{first}}", subtract:1, params:[]}
+                ],
+                assign:"{{first}}!"
+            },
+            {
                 target: "moment-timezone",
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
@@ -119,7 +127,7 @@ const json = [
                  chain:[
                      {return:"test"}
                  ],
-                 assign:"{{customFunction}}!"
+                 assign:"{{customFunction}}"
              },
              {
                  target: "fs",
@@ -456,16 +464,16 @@ async function processAction(action, context, req, res, next) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             console.log("action/////", action)
-            action.assign = "{{"+assignKey+"}}"
             let result = createFunctionFromAction(action, context, req, res, next)
             console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
-                    console.log("trying to set result to context key:", assignKey)
-                    
                     context[assignKey] =  result()
-                    console.log("context[assignKey]", context[assignKey])
                 } else {
+                    console.log("no !")
+                    if (typeof result === 'function'){
+                        console.log("executing function", result())
+                    }
                     context[assignKey] =  result;
                 }
             } else {
