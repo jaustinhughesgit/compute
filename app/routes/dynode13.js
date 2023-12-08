@@ -215,10 +215,10 @@ const json = [
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{(accessToken)}", "{(refreshToken)}", "{(profile)}", "{(done)}"], 
+                 params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                  chain:[],
                  run:[
-                     {access:"{(done)}", params:[null, "{(profile)}"]}
+                     {access:"((done))", params:[null, "((profile))"]}
                  ],
                  assign:"callbackFunction"
              },
@@ -253,10 +253,10 @@ const json = [
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{(user)}", "{(done)}"], 
+                 params:["((user))", "((done))"], 
                  chain:[],
                  run:[
-                     {access:"{(done)}", params:[null, "{(user)}"]}
+                     {access:"((done))", params:[null, "((user))"]}
                  ],
                  assign:"serializeFunction"
              },
@@ -270,10 +270,10 @@ const json = [
              },
              {
                  //"if":["{{urlpath}}","!=","/microsoft/callback"],
-                 params:["{(user)}", "{(done)}"], 
+                 params:["((user))", "((done))"], 
                  chain:[],
                  "run":[
-                     {access:"{(done)}", params:[null, "{(user)}"]}
+                     {access:"((done))", params:[null, "((user))"]}
                  ],
                  assign:"deserializeFunction"
              },
@@ -560,7 +560,7 @@ function createFunctionFromAction(action, context, req, res, next) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
-                const paramName = action.params[index].replace(/\{\(|\)\}/g, '');
+                const paramName = action.params[index].replace(/\(\(|\)\)/g, '');
                 acc[paramName] = arg;
             }
             return acc;
@@ -572,7 +572,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }) : [];
 
                 if (typeof chainAction.access === 'string') {
-                    if (chainAction.access.startsWith('{(') && chainAction.access.endsWith(')}')) {
+                    if (chainAction.access.startsWith('((') && chainAction.access.endsWith('))')) {
                         const methodName = chainAction.access.slice(2, -2);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...chainParams);
@@ -615,7 +615,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
                         }
-                    } else if (runAction.access.startsWith('{(') && runAction.access.endsWith(')}')) {
+                    } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
@@ -633,7 +633,7 @@ function createFunctionFromAction(action, context, req, res, next) {
 
 function replaceParams(param, context, scope, args) {
     if (param) {
-        if (param.startsWith('{(') && param.endsWith(')}')) {
+        if (param.startsWith('((') && param.endsWith('))')) {
             const paramName = param.slice(2, -2);
             if (!isNaN(paramName)) {
                 return args[paramName];
