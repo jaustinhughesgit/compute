@@ -465,11 +465,19 @@ async function processAction(action, context, req, res, next) {
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             let result = createFunctionFromAction(action, context, req, res, next)
             if (isFunctionExecution) {
-                context[assignKey] = typeof result === 'function' ? result() : result;
+                if (typeof result === 'function'){
+                    let tempFunction = () => result;
+                    context[assignKey] = tempFunction();
+                } else {
+                    context[assignKey] = result
+                }
             } else {
                 context[assignKey] = result;
             }
-        } else {
+            
+        }
+        
+        else {
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
