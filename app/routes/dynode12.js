@@ -63,7 +63,7 @@ const json = [
             {
                 //while:["{{first}}", "!=", "{{second}}"],
                 params:[],
-                while:["{{first}}", "<","{{second}}"],
+                while:["{{first}}", "<=","{{second}}"],
                 run:[
                     {access:"{{first}}", add:1, params:[]}
                 ],
