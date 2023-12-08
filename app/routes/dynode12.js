@@ -21,7 +21,6 @@ const json = [
              "moment-timezone": "moment-timezone"
          },
          actions: [
-            //maybe some actions don't working because the first action must have target
              {
                  target:"req",
                  chain:[
@@ -386,7 +385,6 @@ function condition(left, conditions, right, operator = "&&", context) {
     return conditions.reduce((result, cond) => {
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
         if (operator === "&&") {
-            console.log("result && currentResult", result, currentResult)
             return result && currentResult;
         } else if (operator === "||") {
             return result || currentResult;
@@ -397,10 +395,8 @@ function condition(left, conditions, right, operator = "&&", context) {
 }
 
 function checkCondition(left, condition, right, context) {
-    //console.log("checkCondition", left, condition, right, context)
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
-    console.log("left", left, "right", right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -423,7 +419,6 @@ function checkCondition(left, condition, right, context) {
 }
 
 async function processAction(action, context, req, res, next) {
-    console.log("processAction", action)
     if (action.assign) {
     } 
     if (action.params) {
@@ -472,7 +467,6 @@ async function processAction(action, context, req, res, next) {
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             let result = createFunctionFromAction(action, context, req, res, next)
             if (isFunctionExecution) {
-                console.log("calling result()")
                 context[assignKey] = typeof result === 'function' ? result() : result;
             } else {
                 context[assignKey] = result;
@@ -481,7 +475,6 @@ async function processAction(action, context, req, res, next) {
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
-    console.log("nothing")
     if (action.execute) {
         const functionName = action.execute;
         if (typeof context[functionName] === 'function') {
@@ -527,7 +520,6 @@ async function initializeModules(context, config, req, res, next) {
                 let LEFT = action.while[0]
                 let RIGHT = action.while[2]
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                        console.log("actually calling processAction", action, context)
                         await processAction(action, context, req, res, next);
                     whileChecker++;
                     if (whileChecker == 10){
@@ -579,7 +571,6 @@ function createFunctionFromAction(action, context, req, res, next) {
         }, {});
         if (action.chain) {
             for (const chainAction of action.chain) {
-                console.log("chainAction", chainAction)
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
@@ -785,7 +776,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
             } else {
                 chainParams = [];
             }
-            try{ console.log("result[chainAction.access]", typeof result[chainAction.access],typeof result[chainAction.access]) } catch (err){console.log("err", err)}
             if (chainAction.access && !chainAction.params) {   
                 result = result[chainAction.access];
             } else if (chainAction.new) {
