@@ -34,7 +34,7 @@ const json = [
                  chain:[
                      {access:"log", params:["{{newAuth}}!"]}
                  ],
-                "assign:"logAuth"
+                assign:"logAuth"
              },
              {
                  ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
@@ -360,7 +360,6 @@ let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
-        lib.process = process;
         lib.console = console;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib.context["urlpath"] = req.path
