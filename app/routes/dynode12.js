@@ -386,7 +386,6 @@ function condition(left, conditions, right, operator = "&&", context) {
 
     return conditions.reduce((result, cond) => {
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
-        //console.log("currentResult", currentResult)
         if (operator === "&&") {
             console.log("result && currentResult", result, currentResult)
             return result && currentResult;
@@ -427,13 +426,10 @@ function checkCondition(left, condition, right, context) {
 async function processAction(action, context, req, res, next) {
     console.log("processAction", action)
     if (action.assign) {
-    //console.log("action.assign",action.assign)
     } 
     if (action.params) {
-        //console.log("action.params",action.params)
     }
     if (action.target) {
-        //console.log("action.target")
         let moduleInstance = replacePlaceholders(action.target, context);
         let args = [];
                 if (action.from) {
@@ -449,20 +445,14 @@ async function processAction(action, context, req, res, next) {
                     });
                 }
         let result;
-        //console.log("moduleInstance", typeof moduleInstance, moduleInstance)
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
-                //console.log("args.length == 0")
-                //result = moduleInstance; // Assigns the function itself to result
             } else {
-                //console.log("with args")
-                result = moduleInstance(...args); // Calls the function with arguments and assigns the return value to result
+                result = moduleInstance(...args); 
             }
         } else {
-            //console.log("non-function result")
-            result = moduleInstance; // Assigns the non-function value to result
+            result = moduleInstance;
         }
-        //console.log("applyMethodChain",result)
         result = await applyMethodChain(result, action, context, res, req, next);
         if (action.assign) {
             if (action.assign.includes('{{')) {
@@ -478,13 +468,10 @@ async function processAction(action, context, req, res, next) {
             }
         }
     } else if (action.assign && action.params) {
-        //console.log("action.assign && action.params")
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            //console.log("createFunctionFromAction if", action)
             let result = createFunctionFromAction(action, context, req, res, next)
-            console.log("result",result)
             if (isFunctionExecution) {
                 console.log("calling result()")
                 context[assignKey] = typeof result === 'function' ? result() : result;
@@ -492,7 +479,6 @@ async function processAction(action, context, req, res, next) {
                 context[assignKey] = result;
             }
         } else {
-            //console.log("createFunctionFromAction else", action)
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
@@ -515,7 +501,6 @@ async function processAction(action, context, req, res, next) {
     }
 }
 
-//adding comment to repush
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
@@ -538,23 +523,13 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            // Handle while action
             if (action.while) {
                 let whileChecker = 0
-                //console.log("starting", action.while[0])
                 let LEFT = action.while[0]
-                //console.log("LEFT", LEFT)
-                //console.log("typeof", typeof LEFT)
-                //console.log("starting", action.while[2])
                 let RIGHT = action.while[2]
-                //console.log("RIGHT", RIGHT)
-                //console.log("typeof", typeof RIGHT)
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                    //for (const subAction of action.run) {
-                        //console.log("subAction", subAction)
                         console.log("actually calling processAction", action, context)
                         await processAction(action, context, req, res, next);
-                    //}
                     whileChecker++;
                     if (whileChecker == 10){
                         break;
@@ -562,16 +537,13 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            // Handle whiles action
             if (action.whiles) {
                 let whileChecker = 0
                 for (const whileCondition of action.whiles) {
                     while (condition(replacePlaceholders(whileCondition[0], context), 
                                      [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
                                      null, "&&", context)) {
-                        //for (const subAction of action.run) {
                             await processAction(action, context, req, res, next);
-                        //}
                         whileChecker++;
                         if (whileChecker == 10){
                             break;
@@ -580,17 +552,15 @@ async function initializeModules(context, config, req, res, next) {
                 }
             }
 
-            // Process the current action
             if (!action.while){
                 await processAction(action, context, req, res, next);
             }
-            // Check for specific action types that require skipping the rest of the loop
             if (action.assign && action.params) {
                 continue; // Skip to the next action in the loop
             }
 
             if (action.execute) {
-                continue; // Skip to the next action in the loop
+                continue; 
             }
         }
     }
@@ -599,7 +569,6 @@ async function initializeModules(context, config, req, res, next) {
 
 
 function createFunctionFromAction(action, context, req, res, next) {
-    console.log("!!!!!!!!!!!createFunctionFromAction", action, context)
     return function(...args) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -647,7 +616,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add; // Update the context with the new value
-                                console.log("|||==>",contextKey, context[contextKey])
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
@@ -664,7 +632,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
-        console.log("createFunctionFromAction",result)
         return result;
     };
 }
@@ -684,12 +651,9 @@ function replaceParams(param, context, scope, args) {
 
 function replacePlaceholders(item, context) {
     let processedItem = item;
-    console.log(">>>>>typeof processedItem",typeof processedItem, processedItem)
     if (typeof processedItem === 'string') {
-        //console.log("is string")
         processedItem = processString(processedItem, context);
     } else if (Array.isArray(processedItem)) {
-        //console.log("is array")
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
 
@@ -714,21 +678,16 @@ function processString(str, context) {
     if (isFunctionExecution) {
         processedString = str.slice(0, -1);
     }
-    //console.log("processedString", processedString)
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
-        //console.log("processedString is {{}} without !")
         const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
-            //console.log("returning function")
             return value();
         }
-        //console.log("returning property", value)
         return value;
     }
 
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        //console.log("starting resolveValueFromContext", keyPath, context)
         return resolveValueFromContext(keyPath, context, true);
     });
 }
@@ -759,7 +718,7 @@ function processParam(param, context) {
             let value = context[key];
 
             if (isFunctionExecution && typeof value === 'function') {
-                return value(); // Execute the function if it ends with '!'
+                return value();
             }
 
             if (value !== undefined) {
@@ -818,13 +777,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
             } else {
                 chainParams = [];
             }
-            console.log("---------------------------------------")
-            console.log("result", result);
-            console.log("chainAction.access", typeof chainAction.access, chainAction.access)
             try{ console.log("result[chainAction.access]", typeof result[chainAction.access],typeof result[chainAction.access]) } catch (err){console.log("err", err)}
-            console.log("chainAction.params", chainAction.params)
             if (chainAction.access && !chainAction.params) {   
-                // chech access type ///////////////////////////////////
                 result = result[chainAction.access];
             } else if (chainAction.new) {
                 result = instantiateWithNew(result[chainAction.access], chainParams);
