@@ -70,12 +70,11 @@ const json = [
             },
             {
                 target: "moment-timezone",
-                params:[],
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
                 ],
-                assign: "{{timeInDubai}}!"
+                assign: "timeInDubai"
             },
              {
                  target: "moment-timezone",
@@ -439,10 +438,12 @@ async function processAction(action, context, req, res, next) {
         let result;
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
+                result = moduleInstance;
             } else {
                 result = moduleInstance(...args); 
             }
         } else {
+            console.log("//else")
             result = moduleInstance;
         }
         result = await applyMethodChain(result, action, context, res, req, next);
@@ -741,6 +742,7 @@ function processParam(param, context) {
 }
 
 async function applyMethodChain(target, action, context, res, req, next) {
+    console.log("target", target)
     let result = target;
 
     function instantiateWithNew(constructor, args) {
@@ -761,7 +763,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
             result = typeof result === 'function' ? result(...params) : result && typeof result[action.access] === 'function' ? result[action.access](...params) : result[action.access] === 'object' ? result[action.access] : null;
         }
     }
-
+    console.log("action", action, "action.chain", action.chain)
+    console.log(result)
+    console.log(typeof result[action.access])
     if (action.chain && result) {
         console.log("action.chain", action.chain)
         for (const chainAction of action.chain) {
