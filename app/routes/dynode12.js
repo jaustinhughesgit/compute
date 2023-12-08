@@ -485,7 +485,7 @@ async function processAction(action, context, req, res, next) {
             //console.log("createFunctionFromAction if", action)
             let result = createFunctionFromAction(action, context, req, res, next)
             console.log("result",result)
-            if (isFunctionExecution) {
+            if (isFunctionExecution && !action.while) {
                 context[assignKey] = typeof result === 'function' ? result() : result;
             } else {
                 context[assignKey] = result;
