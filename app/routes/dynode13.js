@@ -61,14 +61,6 @@ const json = [
                set:{second:0}
            },
             {
-                while:["{{first}}", ">","{{second}}"],
-                params:[],
-                run:[
-                    {access:"{{first}}", subtract:1, params:[]}
-                ],
-                assign:"{{first}}!"
-            },
-            {
                 target: "moment-timezone",
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
