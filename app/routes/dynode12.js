@@ -67,7 +67,7 @@ const json = [
                 run:[
                     {access:"{{first}}", add:1, params:[]}
                 ],
-                assign:"{{first}}!"
+                assign:"{{first}}"
             },
              {
                  target: "moment-timezone",
@@ -386,7 +386,7 @@ function condition(left, conditions, right, operator = "&&", context) {
 
     return conditions.reduce((result, cond) => {
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
-        console.log("currentResult", currentResult)
+        //console.log("currentResult", currentResult)
         if (operator === "&&") {
             console.log("result && currentResult", result, currentResult)
             return result && currentResult;
@@ -399,11 +399,10 @@ function condition(left, conditions, right, operator = "&&", context) {
 }
 
 function checkCondition(left, condition, right, context) {
-    console.log("checkCondition", left, condition, right, context)
+    //console.log("checkCondition", left, condition, right, context)
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
-    console.log("left", left)
-    console.log("right", right)
+    console.log("left", left, "right", right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -428,10 +427,10 @@ function checkCondition(left, condition, right, context) {
 async function processAction(action, context, req, res, next) {
     console.log("processAction", action)
     if (action.assign) {
-    console.log("action.assign",action.assign)
+    //console.log("action.assign",action.assign)
     } 
     if (action.params) {
-        console.log("action.params",action.params)
+        //console.log("action.params",action.params)
     }
     if (action.target) {
         //console.log("action.target")
@@ -479,11 +478,11 @@ async function processAction(action, context, req, res, next) {
             }
         }
     } else if (action.assign && action.params) {
-        console.log("action.assign && action.params")
+        //console.log("action.assign && action.params")
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            console.log("createFunctionFromAction if", action)
+            //console.log("createFunctionFromAction if", action)
             let result = createFunctionFromAction(action, context, req, res, next)
             console.log("result",result)
             if (isFunctionExecution) {
@@ -492,7 +491,7 @@ async function processAction(action, context, req, res, next) {
                 context[assignKey] = result;
             }
         } else {
-            console.log("createFunctionFromAction else", action)
+            //console.log("createFunctionFromAction else", action)
             context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
@@ -552,6 +551,7 @@ async function initializeModules(context, config, req, res, next) {
                 while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
                     //for (const subAction of action.run) {
                         //console.log("subAction", subAction)
+                        console.log("actually calling processAction", action, context)
                         await processAction(action, context, req, res, next);
                     //}
                     whileChecker++;
