@@ -7,7 +7,7 @@ lib.unzipper = require('unzipper');
 lib.fs = require('fs');
 lib.session = require('express-session');
 lib.s3 = new lib.AWS.S3();
-
+let loadMods = require('../scripts/processConfig.js')
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -16,190 +16,6 @@ lib.dyRouter.use(lib.session({
 }));
 
 const json = [
-    {
-        modules: {
-             "moment-timezone": "moment-timezone"
-         },
-         actions: [
-             
-            {
-                 target:"req",
-                 chain:[
-                     {access:"isAuthenticated", params:[]}
-                 ],
-                 assign:"newAuth"
-             },
-             {
-                 target:"console",
-                 chain:[
-                     {access:"log", params:["{{newAuth}}!"]}
-                 ],
-                 "assign":"logAuth"
-             },
-             {
-                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
-                 target:"res",
-                 chain:[
-                     {access:"send", params:["{{newAuth}}"]}
-                 ],
-                 assign:"{{hello}}!"
-             },
-             {
-                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                 set:{condition1:true}
-             },
-             {
-                 if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                 set:{condition2:true}
-             },
-             {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{first:5}
-            },
-            {
-               if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-               set:{second:0}
-           },
-            {
-                while:["{{first}}", ">","{{second}}"],
-                params:[],
-                run:[
-                    {access:"{{first}}", subtract:1, params:[]}
-                ],
-                assign:"{{first}}!"
-            },
-            {
-                target: "moment-timezone",
-                chain: [
-                    { access: "tz", params: ["Asia/Dubai"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-             {
-                 target: "moment-timezone",
-                 assign: "justTime",
-                 from: ["{{timeInDubai}}!"],
-                 chain: [
-                     { access: "format", params: ["HH:mm"] }
-                 ]
-             },
-             {
-                 target: "moment-timezone",
-                 assign: "timeInDubai2",
-                 from: ["{{timeInDubai}}"],
-                 chain: [
-                     { access: "add", params: [1, "hours"] },
-                     { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                 ]
-             },
-             {
-                 next:true
-             }
-         ]
-     },
-     {
-        modules: {
-             "moment-timezone": "moment-timezone"
-         },
-         actions: [
- 
-             {
-                 target: "moment-timezone",
-                 assign: "justTime2",
-                 from: ["{{timeInDubai2}}!"],
-                 chain: [
-                     { access: "format", params: ["HH:mm"] }
-                 ]
-             },
-             {
-                 target: "fs",
-                 chain: [
-                     {
-                         access: "readFileSync",
-                         params: ["/var/task/app/routes/../example.txt", "utf8"],
-                     }
-                 ],
-                 assign: "fileContents"
-             },
-             {
-                 target: "fs",
-                 access: "writeFileSync",
-                 params: [lib.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
-             },
-             {
-                 target: "fs",
-                 chain: [
-                     {
-                         access: "readFileSync",
-                         params: [lib.path.join('/tmp', 'tempFile.txt'), "utf8"],
-                     }
-                 ],
-                 assign: "tempFileContents"
-             },
-             {
-                 target: "s3",
-                 chain: [
-                     {
-                         access: "upload",
-                         params: [{
-                             "Bucket": "public.1var.com",
-                             "Key": "test.html",
-                             "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
-                         }]
-                     },
-                     {
-                         access: "promise",
-                         params: []
-                     }
-                 ],
-                 assign: "s3UploadResult"
-             },
-             {
-                 target: "s3",
-                 chain: [
-                     {
-                         access: "getObject",
-                         params: [{
-                             Bucket: "public.1var.com",
-                             Key: "test.html"
-                         }]
-                     },
-                     {
-                         access: "promise",
-                         params: []
-                     }
-                 ],
-                 assign: "s3Response"
-             },
-             {
-                 target: "{{s3Response}}",
-                 chain: [
-                     {
-                         access: "Body"
-                     },
-                     {
-                         access: "toString",
-                         params: ["utf-8"]
-                     }
-                 ],
-                 assign: "{{s3Data}}"
-             },
-             {
-                 ifs: [["{{urlpath}}", "==", "/test"]],
-                 target: "res",
-                 chain: [
-                     {
-                         access: "send",
-                         params: ["{{s3Data}}"]
-                     }
-                 ]
-             },
-             {
-                 next:true
-             }
-         ]
-     },
      {
         modules: {
              "passport":"passport",
@@ -207,14 +23,12 @@ const json = [
          },
          actions: [
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"passport",
                  chain:[
                  ],
                  assign:"passport"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                  chain:[],
                  run:[
@@ -223,7 +37,6 @@ const json = [
                  assign:"callbackFunction"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"passport-microsoft",
                  chain:[
                  {access:"Strategy", params:[
@@ -244,7 +57,6 @@ const json = [
                  assign:"passportmicrosoft"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"{{passport}}",
                  chain:[
                      {access:"use", params:["{{passportmicrosoft}}"]}
@@ -252,7 +64,6 @@ const json = [
                  assign:"newStrategy"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  params:["((user))", "((done))"], 
                  chain:[],
                  run:[
@@ -261,7 +72,6 @@ const json = [
                  assign:"serializeFunction"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"{{passport}}",
                  chain:[
                      {access:"serializeUser", params:["{{serializeFunction}}"]}
@@ -269,7 +79,6 @@ const json = [
                  assign:"serializeUser"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  params:["((user))", "((done))"], 
                  chain:[],
                  "run":[
@@ -278,7 +87,6 @@ const json = [
                  assign:"deserializeFunction"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"{{passport}}",
                  chain:[
                      {access:"deserializeUser", params:["{{deserializeFunction}}"]}
@@ -286,7 +94,6 @@ const json = [
                  assign:"deserializeUser"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"{{passport}}",
                  chain:[
                      {access:"initialize", params:[]}
@@ -301,7 +108,6 @@ const json = [
                  assign:"{{runDyRouterInit}}"
              },
              {
-                 //"if":["{{urlpath}}","!=","/microsoft/callback"],
                  target:"{{passport}}",
                  chain:[
                      {access:"session", params:[]}
@@ -316,7 +122,6 @@ const json = [
                  assign:"{{runDyRouterSession}}"
              },
              {
-                 //"ifs":[["{{urlpath}}","!=","/microsoft/callback"]],
                  target:"{{passport}}",
                  chain:[
                      {access:"authenticate", params:["microsoft"], express:true},
@@ -332,7 +137,6 @@ const json = [
          },
          actions: [
              {
-                 //"ifs":[["{{urlpath}}","==","/microsoft/callback"]],
                  target:"req",
                  chain:[
                      {access:"isAuthenticated", params:[]}
@@ -365,12 +169,14 @@ let middlewareFunctions = json.map(stepConfig => {
         lib.req = req;
         lib.res = res;
         lib.console = console;
-        lib.context = await processConfig(stepConfig, lib.context);
+        lib.context = await loadMods.processConfig(stepConfig, lib.context);
         lib.context["urlpath"] = req.path
         lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
+
+
 
 lib.dyRouter.all('/*', ...middlewareFunctions);
 
@@ -545,7 +351,7 @@ async function initializeModules(context, config, req, res, next) {
                 await processAction(action, context, req, res, next);
             }
             if (action.assign && action.params) {
-                continue; // Skip to the next action in the loop
+                continue;
             }
 
             if (action.execute) {
@@ -601,7 +407,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             const contextKey = runAction.access.slice(2, -2);
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
-                                result = val + runAction.add; // Update the context with the new value
+                                result = val + runAction.add;
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
@@ -815,42 +621,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-async function processConfig(config, initialContext) {
-    const context = { ...initialContext };
-    for (const [key, value] of Object.entries(config.modules)) {
-            let newPath = await downloadAndPrepareModule(value, context);
-    }
-    return context;
-}
-
-async function downloadAndPrepareModule(moduleName, context) {
-    const modulePath = `/tmp/node_modules/${moduleName}`;
-    if (!lib.fs.existsSync(modulePath)) {
-        await downloadAndUnzipModuleFromS3(moduleName, modulePath);
-    }
-    process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
-    return modulePath;
-}
-
-async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
-    const zipKey = `node_modules/${moduleName}.zip`;
-    const params = {
-        Bucket: "1var-node-modules",
-        Key: zipKey,
-    };
-    try {
-        const data = await lib.s3.getObject(params).promise();
-        await unzipModule(data.Body, modulePath);
-    } catch (error) {
-        console.error(`Error downloading and unzipping module ${moduleName}:`, error);
-        throw error;
-    }
-}
-
-async function unzipModule(zipBuffer, modulePath) {
-    lib.fs.mkdirSync(modulePath, { recursive: true });
-    const directory = await lib.unzipper.Open.buffer(zipBuffer);
-    await directory.extract({ path: modulePath });
-}
 
 module.exports = lib.dyRouter;
