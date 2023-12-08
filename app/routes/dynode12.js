@@ -21,7 +21,16 @@ const json = [
              "moment-timezone": "moment-timezone"
          },
          actions: [
-             {
+             
+            {
+                target: "moment-timezone",
+                chain: [
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
+            },
+            {
                  target:"req",
                  chain:[
                      {access:"isAuthenticated", params:[]}
@@ -67,13 +76,6 @@ const json = [
                 ],
                 assign:"{{first}}!"
             },
-             {
-                 target: "moment-timezone",
-                 chain: [
-                     { access: "tz", params: ["Asia/Dubai"] }
-                 ],
-                 assign: "timeInDubai"
-             },
              {
                  target: "moment-timezone",
                  assign: "justTime",
