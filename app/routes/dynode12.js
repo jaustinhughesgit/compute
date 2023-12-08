@@ -419,10 +419,6 @@ function checkCondition(left, condition, right, context) {
 }
 
 async function processAction(action, context, req, res, next) {
-    if (action.assign) {
-    } 
-    if (action.params) {
-    }
     if (action.target) {
         let moduleInstance = replacePlaceholders(action.target, context);
         let args = [];
@@ -557,8 +553,6 @@ async function initializeModules(context, config, req, res, next) {
     }
 }
 
-
-
 function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
         let result;
@@ -677,6 +671,7 @@ function processString(str, context) {
     if (isFunctionExecution) {
         processedString = str.slice(0, -1);
     }
+    console.log
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
         const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
@@ -687,6 +682,8 @@ function processString(str, context) {
     }
 
     return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        console.log("str", str)
+        console.log(keyPath, context)
         return resolveValueFromContext(keyPath, context, true);
     });
 }
