@@ -656,22 +656,35 @@ function processString(str, context) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
-    let isFunctionExecution = str.endsWith('}}!');
-    let processedString = str;
-    if (isFunctionExecution) {
-        processedString = str.slice(0, -1);
+    // Check if the string is exactly a single placeholder (with optional '!' for function execution)
+    const singlePlaceholderRegex = /^\{\{([^}]+)\}\}!?$/
+    const singleMatch = str.match(singlePlaceholderRegex);
+
+    if (singleMatch) {
+        const keyPath = singleMatch[1];
+        const isFunctionExecution = str.endsWith('}}!');
+        let value = resolveValueFromContext(keyPath, context);
+
+        if (isFunctionExecution && typeof value === 'function') {
+            // Execute the function and return its value
+            return value();
+        } else {
+            // Return the value or function itself
+            return value;
+        }
     }
-    if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
-        const keyPath = processedString.slice(2, -2);
+
+    // Replace multiple placeholders within the string
+    return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        let isFunctionExecution = match.endsWith('}}!');
+        if (isFunctionExecution) {
+            keyPath = keyPath.slice(0, -1); // Remove the '!' from keyPath
+        }
         let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
             return value();
         }
-        return value;
-    }
-
-    return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        return resolveValueFromContext(keyPath, context, true);
+        return value !== undefined ? value : match; // Return the original match if value is undefined
     });
 }
 
