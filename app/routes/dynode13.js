@@ -464,11 +464,13 @@ async function processAction(action, context, req, res, next) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             console.log("action/////", action)
+            action.assign = "{{"+assignKey+"}}"
             let result = createFunctionFromAction(action, context, req, res, next)
             console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
                     console.log("trying to set result to context key:", assignKey)
+                    
                     context[assignKey] =  result()
                     console.log("context[assignKey]", context[assignKey])
                 } else {
