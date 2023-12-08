@@ -438,6 +438,7 @@ async function processAction(action, context, req, res, next) {
         let result;
         if (typeof moduleInstance === 'function') {
             if (args.length == 0) {
+                result = moduleInstance;
             } else {
                 result = moduleInstance(...args); 
             }
