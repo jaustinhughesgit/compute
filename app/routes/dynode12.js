@@ -554,7 +554,7 @@ async function initializeModules(context, config, req, res, next) {
                         await processAction(action, context, req, res, next);
                     //}
                     whileChecker++;
-                    if (whileChecker == 5){
+                    if (whileChecker == 10){
                         break;
                     }
                 }
@@ -571,7 +571,7 @@ async function initializeModules(context, config, req, res, next) {
                             await processAction(action, context, req, res, next);
                         //}
                         whileChecker++;
-                        if (whileChecker == 5){
+                        if (whileChecker == 10){
                             break;
                         }
                     }
