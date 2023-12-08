@@ -455,6 +455,7 @@ async function processAction(action, context, req, res, next) {
                     context[assignKey] = result;
                 }
             } else {
+                console.log("result", result)
                 context[action.assign] = result;
             }
         }
@@ -565,6 +566,7 @@ function createFunctionFromAction(action, context, req, res, next) {
             return acc;
         }, {});
         if (action.chain) {
+            console.log("action.chain", action.chain)
             for (const chainAction of action.chain) {
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
@@ -672,7 +674,6 @@ function processString(str, context) {
     if (isFunctionExecution) {
         processedString = str.slice(0, -1);
     }
-    console.log
     if (processedString.startsWith("{{") && processedString.endsWith("}}")) {
         const keyPath = processedString.slice(2, -2);
         let value = resolveValueFromContext(keyPath, context);
@@ -761,6 +762,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
 
     if (action.chain && result) {
+        console.log("action.chain", action.chain)
         for (const chainAction of action.chain) {
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
@@ -814,7 +816,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             }
         }
     }
-
+console.log("result ==>", result)
     return result;
 }
 
