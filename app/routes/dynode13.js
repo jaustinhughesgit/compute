@@ -1,14 +1,14 @@
 var express = require('express');
-let local = {};
-local.AWS = require('aws-sdk');
-local.dyRouter = express.Router();
-local.path = require('path');
-local.unzipper = require('unzipper');
-local.fs = require('fs');
-local.session = require('express-session');
-local.s3 = new local.AWS.S3();
+let lib = {};
+lib.AWS = require('aws-sdk');
+lib.dyRouter = express.Router();
+lib.path = require('path');
+lib.unzipper = require('unzipper');
+lib.fs = require('fs');
+lib.session = require('express-session');
+lib.s3 = new lib.AWS.S3();
 
-local.dyRouter.use(local.session({
+lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
@@ -125,14 +125,14 @@ const json = [
              {
                  target: "fs",
                  access: "writeFileSync",
-                 params: [local.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
+                 params: [lib.path.join('/tmp', 'tempFile.txt'), "This {{timeInDubai2}} is a test file content {{timeInDubai2}}", 'utf8']
              },
              {
                  target: "fs",
                  chain: [
                      {
                          access: "readFileSync",
-                         params: [local.path.join('/tmp', 'tempFile.txt'), "utf8"],
+                         params: [lib.path.join('/tmp', 'tempFile.txt'), "utf8"],
                      }
                  ],
                  assign: "tempFileContents"
@@ -362,17 +362,17 @@ const json = [
 
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
-        local.req = req;
-        local.res = res;
-        local.console = console;
-        local.context = await processConfig(stepConfig, local.context);
-        local.context["urlpath"] = req.path
-        local.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
-        await initializeModules(local.context, stepConfig, req, res, next);
+        lib.req = req;
+        lib.res = res;
+        lib.console = console;
+        lib.context = await processConfig(stepConfig, lib.context);
+        lib.context["urlpath"] = req.path
+        lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
+        await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
-local.dyRouter.all('/*', ...middlewareFunctions);
+lib.dyRouter.all('/*', ...middlewareFunctions);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
@@ -560,7 +560,7 @@ function createFunctionFromAction(action, context, req, res, next) {
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
-                const paramName = action.params[index].replace(/[{}]/g, '');
+                const paramName = action.params[index].replace(/\{\(|\)\}/g, '');
                 acc[paramName] = arg;
             }
             return acc;
@@ -656,8 +656,8 @@ function replacePlaceholders(item, context) {
 }
 
 function processString(str, context) {
-    if (local[str]) {
-        return local[str];
+    if (lib[str]) {
+        return lib[str];
     }
 
     try {
@@ -825,7 +825,7 @@ async function processConfig(config, initialContext) {
 
 async function downloadAndPrepareModule(moduleName, context) {
     const modulePath = `/tmp/node_modules/${moduleName}`;
-    if (!local.fs.existsSync(modulePath)) {
+    if (!lib.fs.existsSync(modulePath)) {
         await downloadAndUnzipModuleFromS3(moduleName, modulePath);
     }
     process.env.NODE_PATH = process.env.NODE_PATH ? `${process.env.NODE_PATH}:${modulePath}` : modulePath;
@@ -839,7 +839,7 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
         Key: zipKey,
     };
     try {
-        const data = await local.s3.getObject(params).promise();
+        const data = await lib.s3.getObject(params).promise();
         await unzipModule(data.Body, modulePath);
     } catch (error) {
         console.error(`Error downloading and unzipping module ${moduleName}:`, error);
@@ -848,9 +848,9 @@ async function downloadAndUnzipModuleFromS3(moduleName, modulePath) {
 }
 
 async function unzipModule(zipBuffer, modulePath) {
-    local.fs.mkdirSync(modulePath, { recursive: true });
-    const directory = await local.unzipper.Open.buffer(zipBuffer);
+    lib.fs.mkdirSync(modulePath, { recursive: true });
+    const directory = await lib.unzipper.Open.buffer(zipBuffer);
     await directory.extract({ path: modulePath });
 }
 
-module.exports = local.dyRouter;
+module.exports = lib.dyRouter;
