@@ -123,7 +123,6 @@ const json = [
                  assign: "fileContents"
              },
              {
-                 params:[], 
                  chain:[
                      {return:"test"}
                  ],
