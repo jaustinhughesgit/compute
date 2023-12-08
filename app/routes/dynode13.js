@@ -124,7 +124,7 @@ const json = [
              },
              {
                  params:[], 
-                 run:[
+                 chain:[
                      {return:"test"}
                  ],
                  assign:"customFunction"
@@ -459,6 +459,12 @@ async function processAction(action, context, req, res, next) {
                 context[action.assign] = result;
             }
         }
+    } else if (action.chain) {
+        for (const chainAction of action.chain) {
+            if (chainAction.hasOwnProperty('return')) {
+                return chainAction.return;
+            }
+        }
     } else if (action.assign && action.params) {
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
@@ -601,11 +607,6 @@ function createFunctionFromAction(action, context, req, res, next) {
         }
         if (action.run) {
             for (const runAction of action.run) {
-
-                if (runAction.hasOwnProperty('return')) {
-                    return runAction.return;
-                }
-
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
