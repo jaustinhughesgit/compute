@@ -470,13 +470,13 @@ async function processAction(action, context, req, res, next) {
                 if (typeof result === 'function'){
                     context[assignKey] =  result()
                 } else {
-                    console.log("no !")
-                    if (typeof result === 'function'){
-                        console.log("executing function", result())
-                    }
                     context[assignKey] =  result;
                 }
             } else {
+                console.log("no !")
+                if (typeof result === 'function'){
+                    console.log("executing function", result())
+                }
                 context[assignKey] = result;
             }
         } else {
