@@ -421,7 +421,13 @@ function checkCondition(left, condition, right, context) {
 }
 
 async function processAction(action, context, req, res, next) {
-    console.log("processAction")
+    console.log("processAction", action)
+    if (action.assign) {
+    console.log("action.assign",action.assign)
+    } 
+    if (action.params) {
+        console.log("action.params",action.params)
+    }
     if (action.target) {
         console.log("action.target")
         let moduleInstance = replacePlaceholders(action.target, context);
