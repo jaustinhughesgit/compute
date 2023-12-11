@@ -17,6 +17,7 @@ lib.dyRouter.use(lib.session({
 
 const json = [
     {
+        //e:4,
         modules: {
              "moment-timezone": "moment-timezone"
          },
@@ -123,13 +124,6 @@ const json = [
                  assign: "fileContents"
              },
              {
-                 params:[], 
-                 chain:[
-                     {return:"test"}
-                 ],
-                 assign:"customFunction"
-             },
-             {
                  target: "fs",
                  access: "writeFileSync",
                  params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
@@ -208,6 +202,7 @@ const json = [
          ]
      },
      {
+        //e:21,
         modules: {
              "passport":"passport",
              "passport-microsoft":"passport-microsoft"
@@ -322,6 +317,7 @@ const json = [
          ]
      },
      {
+        //e:799,
         modules: {
              "passport":"passport",
              "passport-microsoft":"passport-microsoft"
