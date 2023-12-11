@@ -7,7 +7,7 @@ router.get('/', async function(req, res, next) {
         apiKey: process.env.OPENAI_API_KEY,
     });
 
-    const chatCompletion = await openai.chat.completions.create({
+    const chatCompletion = await openai.embeddings.create({
         messages: [{ role: "user", content: "Say this is a test" }],
         model: "text-embedding-ada-002",
     });
