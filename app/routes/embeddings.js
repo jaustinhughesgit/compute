@@ -11,7 +11,7 @@ router.get('/', async function(req, res, next) {
         messages: [{ role: "user", content: "Say this is a test" }],
         model: "gpt-3.5-turbo",
     });
-    res.render('index', { embeddings: chatCompletion });
+    res.render('embeddings', { embeddings: chatCompletion });
 });
 
 module.exports = router;
