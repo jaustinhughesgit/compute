@@ -1,24 +1,25 @@
-var express = require('express');
-var router = express.Router();
-import OpenAI from 'openai';
+const { OpenAIApi } = require("openai");
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+exports.handler = async (event) => {
+    const openai = new OpenAIApi({
+        apiKey: process.env.OPENAI_API_KEY,
+    });
 
-router.get('/', async function(req, res, next) {
     try {
         const response = await openai.createEmbedding({
             model: "text-embedding-ada-002",
-            input: "/animals/live/ocean"
+            input: event.text
         });
 
-        console.log(response.data);
-        res.render('embeddings', { embeddings: response.data });
+        return {
+            statusCode: 200,
+            body: JSON.stringify(response.data),
+        };
     } catch (error) {
         console.error(error);
-        res.status(500).send("Error processing your request");
+        return {
+            statusCode: 500,
+            body: JSON.stringify({ message: "Error processing your request" }),
+        };
     }
-});
-
-module.exports = router;
+};
