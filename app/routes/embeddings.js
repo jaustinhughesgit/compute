@@ -12,8 +12,8 @@ router.get('/', async function(req, res, next){
         model: "text-embedding-ada-002", 
         input: "/animals/live/ocean" 
     });
-
-    res.render('embeddings', {text:JSON.stringify(response.data)})
+    console.log(response)
+    res.render('embeddings', {text:"hello"})
 
 
 
