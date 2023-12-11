@@ -1,12 +1,12 @@
 var express = require('express');
 var router = express.Router();
-const { OpenAIApi } = require("openai");
+import OpenAI from 'openai';
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 router.get('/', async function(req, res, next) {
-    const openai = new OpenAIApi({
-        apiKey: process.env.OPENAI_API_KEY, // Set your API key in environment variables
-    });
-
     try {
         const response = await openai.createEmbedding({
             model: "text-embedding-ada-002",
