@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Locational: Locations, Destinations, Vacations, Address, Stores, Place, Meet-up, Area, Museums, Historical Landmarks, Galleries, Hiking Trails, Beaches, Parks, City Tours, Popular Neighborhoods, Local Cuisine", model: "text-embedding-ada-002",
+        input: "Food: Chinese, American, Italian, Indian, Vietnamese, Vegan, Gluten-Free, Organic, Recipes, Cooking Classes, Culinary Techniques, Street Food, Fine Dining, Food Festivals", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "locational", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "food", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
