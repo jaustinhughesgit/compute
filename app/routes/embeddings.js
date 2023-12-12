@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "characteristics, Family, Pets, Corporate, Celebrity, Founder, CEO, Introvert, Extrovert, Leader, Thinker, Manager, Director, Intern, Freelancer, Minimalist, Traveler, Philanthropist", model: "text-embedding-ada-002",
+        input: "Medical, Medicine, Doctors, Treatments, Cancer, Trials, Nutrition, Mental Health, Fitness, Pediatrics, Cardiology, Neurology, Insurance, Hospitals, Clinics, sugary ", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "characteristics", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "medical", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
