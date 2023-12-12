@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Governmental: Political, Government, Population, Cities, Mayor, President, Legislation, Regulations, Public Services, Diplomacy, Trade Agreements, Global Alliances, Voting, Activism, Community Service", model: "text-embedding-ada-002",
+        input: "Legal: Privacy Policy, Terms of Use, Disclaimer, Attorneys, Escrow, Corporate Law, Criminal Law, Family Law, Legal Aid, Online Consultations, Document Templates, GDPR, HIPAA, Labor Laws", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "Governmental", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "Logal", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
