@@ -8,10 +8,10 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "About, Profile, Resume, Gallery, Icon, Company, First Name, Last Name, Description, Education, Work History, Clients, Employees, Departments, Awards, Certifications, Honors, Hobbies, Volunteering, Public Speaking, Ethnicity, Nationality, Cultural Influences, email, phone",
+        input: "Social Media, Posts, Blog, Articles, Newsletter, Gallery, Comments, Likes, Shares, Followers, Podcasts, Videos, Webinars, Influencer Collaborations, Endorsements",
         model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "about", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "social", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
