@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Financial, Banking, Credit, Credit Report, Loans, Stocks, Trading, Investments, Financials, Budgeting, Savings, Retirement, Stock Market Trends, Economic Indicators, Analyst Reports, Cryptocurrencies, NFTs, Blockchain Technology", model: "text-embedding-ada-002",
+        input: "News: Positive, Negative, Local, National, Emergency, Family, Business, Technology, Sports, Entertainment, Science, Editorial, Opinion Pieces, Fact-Checking, International Affairs, Global Economy, World Politics", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "financial", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "news", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
