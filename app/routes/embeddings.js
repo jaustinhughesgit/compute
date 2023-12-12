@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Date, Events, Place, Time, Football, Baseball, Soccer, Party, Sale, Festivals, Concerts, Art Exhibitions, Conferences, Meetups, Workshops, Birthdays, Anniversaries, Graduations", model: "text-embedding-ada-002",
+        input: "characteristics, Family, Pets, Corporate, Celebrity, Founder, CEO, Introvert, Extrovert, Leader, Thinker, Manager, Director, Intern, Freelancer, Minimalist, Traveler, Philanthropist", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "events", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "characteristics", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
