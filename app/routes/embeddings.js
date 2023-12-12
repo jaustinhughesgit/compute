@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Software Games: Sports, Fighting, Strategy, Adventure, Puzzle, Simulation, Console, PC, Mobile, VR, Online Multiplayer, eSports, Gaming Communities", model: "text-embedding-ada-002",
+        input: "File Downloads: Files, Documents, pdf, zip, pictures, Music, Videos, E-books, Open Source, Freeware, Demos, Online Courses, Tutorials, Academic Papers", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "games", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "downloads", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
