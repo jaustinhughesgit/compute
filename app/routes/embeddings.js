@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Languages, Translation, English, Spanish, Chinese (Mandarin), Hindi, Arabic, Portuguese, Bengali, Russian, Japanese, Punjabi, German, Javanese, Wu (Shanghainese), Malay (including Indonesian), Telugu, Vietnamese, Korean, French, Turkish, Marathi, Tamil, Urdu, Persian, Italian, Gujarati, Polish, Ukrainian, Romanian, Dutch, Greek, Thai, Tagalog (Filipino), Czech, Serbian, Hungarian, Swedish, Danish, Finnish, Slovak, Norwegian, Bulgarian, Croatian, Lithuanian, Slovenian, Latvian, Estonian, Hebrew, Swahili, Armenian, Azerbaijani", model: "text-embedding-ada-002",
+        input: "Date, Events, Place, Time, Football, Baseball, Soccer, Party, Sale, Festivals, Concerts, Art Exhibitions, Conferences, Meetups, Workshops, Birthdays, Anniversaries, Graduations", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "language", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "events", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
