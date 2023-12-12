@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "Fitness: Trainer, Routine, Equipment, Health, Diet, Weight Loss, Weight Gain, Yoga, Martial Arts, Sports, Meditation, Mindfulness, Stress Management, Supplements, Meal Plans, Superfoods", model: "text-embedding-ada-002",
+        input: "Digital: App, Game, SaaS, Software, AI, IoT, Cloud Computing, Design, Accessibility, Usability, Cybersecurity, Data Privacy, Encryption", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "fitness", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "digital", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
