@@ -8,9 +8,9 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "File Downloads: Files, Documents, pdf, zip, pictures, Music, Videos, E-books, Open Source, Freeware, Demos, Online Courses, Tutorials, Academic Papers", model: "text-embedding-ada-002",
+        input: "Locational: Locations, Destinations, Vacations, Address, Stores, Place, Meet-up, Area, Museums, Historical Landmarks, Galleries, Hiking Trails, Beaches, Parks, City Tours, Popular Neighborhoods, Local Cuisine", model: "text-embedding-ada-002",
     });
-    res.render('embeddings', { category: "downloads", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "locational", embeddings: JSON.stringify(chatCompletion) });
 });
 
 module.exports = router;
