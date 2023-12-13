@@ -74,6 +74,7 @@ const s3modulesRouter = require('./routes/s3modules');
 const miroRouter = require('./routes/miro');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
+const crawlRouter = require('./routes/crawl');
 
 
 /*
@@ -157,6 +158,7 @@ app.use('/s3modules', s3modulesRouter);
 app.use('/miro', miroRouter);
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
+app.use('/crawl', crawlRouter);
 
 
 var cookiesRouter;
