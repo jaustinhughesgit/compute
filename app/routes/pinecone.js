@@ -20,7 +20,7 @@ router.get('/', async function(req, res, next) {
     try {
         // Connect to your Pinecone index
         //const social = await pinecone.index('categories').namespace('social').fetch(['1']);
-        const index = await pinecone.index('categories').namespace('categories').query({ topK: 3, vector: [ embedding.data[0].embedding]})
+        const index = await pinecone.index('categories').namespace('categories').query({ topK: 3, vector: embedding.data[0].embedding})
 
         // Render your view with Pinecone data
         res.render('pinecone', {
