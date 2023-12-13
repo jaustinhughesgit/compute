@@ -1,24 +1,19 @@
 var express = require('express');
 var router = express.Router();
-const Pinecone = require('@pinecone-database/pinecone');
-
+const pinecone = require('@pinecone-database/pinecone');
 
 router.get('/', async function(req, res, next) {
 
-// Pinecone configuration
-const apiKey = process.env.PINECONE_API_KEY; // Ensure this is set in your environment
-const indexName = 'categories'; // Replace with your actual Pinecone index name
+    // Pinecone configuration
+    const apiKey = process.env.PINECONE_API_KEY; // Ensure this is set in your environment
+    const indexName = 'categories'; // Replace with your actual Pinecone index name
 
-// Initialize Pinecone client
-const pineconeConfig = {
-    apiKey: apiKey,
-    environment: process.env.PINECONE_ENVIRONMENT // Replace with your Pinecone environment
-};
-const pineconeClient = new Pinecone(pineconeConfig);
+    // Set the API key for Pinecone
+    pinecone.configuration.apiKey = apiKey;
 
     try {
         // Connect to your Pinecone index
-        const index = await pineconeClient.index(indexName);
+        const index = pinecone.index(indexName);
 
         // Perform operations with your index
         // Example: const queryResult = await index.query(yourQuery);
