@@ -10,11 +10,7 @@ router.get('/', async function(req, res, next) {
 
     try {
         // Connect to your Pinecone index
-        const index = await pinecone.index('categories').query({
-            vectorIds: [1],
-            namespace: "social",
-            includeValues: true // Set this to true to include the vector values in the response
-        });
+        const index = await pinecone.index('categories').namespace('social').fetch(['1']);
         //const index = await pinecone.index('categories').query({ topK: 3, vector: [ ]})
 
         // Render your view with Pinecone data
