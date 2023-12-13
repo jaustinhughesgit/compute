@@ -2,6 +2,9 @@ var express = require('express');
 var router = express.Router();
 const Pinecone = require('@pinecone-database/pinecone');
 
+
+router.get('/', async function(req, res, next) {
+
 // Pinecone configuration
 const apiKey = process.env.PINECONE_API_KEY; // Ensure this is set in your environment
 const indexName = 'categories'; // Replace with your actual Pinecone index name
@@ -13,7 +16,6 @@ const pineconeConfig = {
 };
 const pineconeClient = new Pinecone(pineconeConfig);
 
-router.get('/', async function(req, res, next) {
     try {
         // Connect to your Pinecone index
         const index = await pineconeClient.index(indexName);
