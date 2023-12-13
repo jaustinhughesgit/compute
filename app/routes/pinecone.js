@@ -11,7 +11,7 @@ router.get('/', async function(req, res, next) {
     try {
         // Connect to your Pinecone index
         const index = await pinecone.index('categories').query({
-            vectorIds: ["1"],
+            vectorIds: [1],
             namespace: "social",
             includeValues: true // Set this to true to include the vector values in the response
         });
