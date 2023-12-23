@@ -7,6 +7,8 @@ lib.unzipper = require('unzipper');
 lib.fs = require('fs');
 lib.session = require('express-session');
 lib.s3 = new lib.AWS.S3();
+const { promisify } = require('util');
+lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
@@ -101,7 +103,6 @@ const json = [
      },
      {
         modules: {
-             "moment-timezone": "moment-timezone"
          },
          actions: [
  
@@ -654,6 +655,7 @@ function replacePlaceholders(item, context) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
         processedItem = processString(processedItem, context);
+        console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
@@ -663,12 +665,15 @@ function replacePlaceholders(item, context) {
 
 function processString(str, context) {
     if (lib[str]) {
+        console.log("lib", lib)
+        console.log("str", str)
         return lib[str];
     }
 
     try {
         if (require.resolve(str)) {
-            return require(str);
+            console.log("/tmp/node_modules/"+str)
+            return require("/tmp/node_modules/"+str);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
