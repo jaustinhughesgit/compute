@@ -675,7 +675,7 @@ function processString(str, context) {
     }
 
     try {
-        if (require.resolve(str)) {
+        if (require.resolve("/tmp/node_modules/"+str)) {
             console.log("/tmp/node_modules/"+str)
             return require("/tmp/node_modules/"+str);
         }
