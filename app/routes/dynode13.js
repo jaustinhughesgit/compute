@@ -21,6 +21,8 @@ const json = [
     {
         //e:4,
         modules: {
+             "passport":"passport",
+             "passport-microsoft":"passport-microsoft",
              "moment-timezone": "moment-timezone"
          },
          actions: [
@@ -205,8 +207,6 @@ const json = [
      {
         //e:21,
         modules: {
-             "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
          },
          actions: [
              {

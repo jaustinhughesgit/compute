@@ -5,7 +5,7 @@ const path = require('path');
 const app = express();
 const bodyParser = require('body-parser');
 const { v4: uuidv4 } = require('uuid');
-var passport = require('passport');
+//var passport = require('passport');
 const session = require('express-session');
 
 console.log("test")
@@ -45,8 +45,8 @@ app.use(session({
     cookie: { secure: true } 
 }));
 
-app.use(passport.initialize());
-app.use(passport.session());
+//app.use(passport.initialize());
+//app.use(passport.session());
 
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
