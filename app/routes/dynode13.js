@@ -209,12 +209,18 @@ const json = [
         modules: {
          },
          actions: [
-             {
-                 target:"passport",
-                 chain:[
-                 ],
-                 assign:"passport"
-             },
+            {
+                target:"passport",
+                chain:[
+                ],
+                assign:"passport"
+            },
+            {
+                target:"passport-microsoft",
+                chain:[
+                ],
+                assign:"passport-microsoft"
+            },
              {
                  params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                  chain:[],
