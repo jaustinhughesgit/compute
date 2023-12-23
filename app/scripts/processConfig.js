@@ -9,7 +9,7 @@ async function processConfig(config, initialContext, lib) {
 async function installModule(moduleName, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
     await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
-    return modulePath
+    return "/tmp/node_modules/"+moduleName
 }
 
 module.exports = {
