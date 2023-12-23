@@ -244,7 +244,7 @@ const json = [
                  assign:"passportmicrosoft"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"use", params:["{{passportmicrosoft}}"]}
                  ],
@@ -259,7 +259,7 @@ const json = [
                  assign:"serializeFunction"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"serializeUser", params:["{{serializeFunction}}"]}
                  ],
@@ -274,14 +274,14 @@ const json = [
                  assign:"deserializeFunction"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"deserializeUser", params:["{{deserializeFunction}}"]}
                  ],
                  assign:"deserializeUser"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"initialize", params:[]}
                  ],
@@ -295,7 +295,7 @@ const json = [
                  assign:"{{runDyRouterInit}}"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"session", params:[]}
                  ],
@@ -309,7 +309,7 @@ const json = [
                  assign:"{{runDyRouterSession}}"
              },
              {
-                 target:"{{passport}}",
+                 target:"passport",
                  chain:[
                      {access:"authenticate", params:["microsoft"], express:true},
                  ],
@@ -320,8 +320,6 @@ const json = [
      {
         //e:799,
         modules: {
-             "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
          },
          actions: [
              {
