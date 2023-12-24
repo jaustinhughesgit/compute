@@ -76,14 +76,7 @@ const json = [
              {
                  target:"{{passport}}",
                  chain:[
-                     {access:"use", params:["{{passportmicrosoft}}"]}
-                 ],
-                 assign:"newStrategy"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"initialize", params:[]}
+                     {access:"initialize", params:[], express:true}
                  ],
                  assign:"passportInitialize"
              },
@@ -96,6 +89,13 @@ const json = [
         modules: {
          },
          actions: [
+             {
+                 target:"{{passport}}",
+                 chain:[
+                     {access:"use", params:["{{passportmicrosoft}}"]}
+                 ],
+                 assign:"newStrategy"
+             },
             {
                 target:"{{passport}}",
                 chain:[
@@ -144,11 +144,11 @@ const json = [
                  assign:"deserializeUser"
              },
              {
-                 target:"dyRouter",
+                 target:"{{passport}}",
                  chain:[
-                     {access:"use", params:["{{passportInitialize}}"]}
+                     {access:"use", params:["{{passportmicrosoft}}"]}
                  ],
-                 assign:"{{runDyRouterInit}}"
+                 assign:"newStrategy"
              },
              {
                 ifs:[["{{urlpath}}","==","/microsoft"]],
@@ -159,15 +159,20 @@ const json = [
                  assign:"newAuthentication"
              },
              {
+                 params:["((err))", "((user))", "((info))"], 
+                 chain:[],
+                 run:[
+                    {access:"next", params:[]}
+                 ],
+                 assign:"callbackFunction"
+             },
+             {
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                  target:"{{passport}}",
                  chain:[
-                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }], express:true},
+                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
                  ],
                  assign:"newAuthentication"
-             },
-             {
-                 next:true
              }
           ]
          },
@@ -179,6 +184,13 @@ const json = [
                 {
                     target:"req",
                     chain:[
+                        {access:"logIn", params:[]}
+                    ],
+                    assign:"logIn"
+                },
+                {
+                    target:"req",
+                    chain:[
                         {access:"isAuthenticated", params:[]}
                     ],
                     assign:"newAuth"
@@ -187,7 +199,7 @@ const json = [
                     ifs:[["{{urlpath}}","==","/hello"]],
                     target:"res",
                     chain:[
-                        {access:"send", params:["{{newAuth}}"]}
+                        {access:"send", params:["{{}}"]}
                     ],
                     assign:"{{hello}}!"
                 }
@@ -473,6 +485,8 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
+                    } else if (runAction.access == "next") {
+                        next();
                     }
                 }
             }
