@@ -61,7 +61,6 @@ var dashboardRouter = require('./routes/dashboard');
 const githubRouter = require('./routes/github');
 const authRouter = require('./routes/dynode13');
 //const dynode10Router = require('./routes/dynode10');
-const s3modulesRouter = require('./routes/s3modules');
 const miroRouter = require('./routes/miro');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
@@ -136,7 +135,6 @@ app.use('/dashboard', ensureAuthenticated, dashboardRouter);
 app.use('/auth', authRouter)
 app.use('/github', githubRouter);
 app.use('/dynode13', authRouter);
-app.use('/s3modules', s3modulesRouter);
 app.use('/miro', miroRouter);
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
