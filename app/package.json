@@ -24,7 +24,6 @@
     "openai": "^4.20.1",
     "puppeteer": "^21.6.1",
     "serverless-http": "^3.2.0",
-    "unzipper": "^0.10.14",
     "uuid": "^9.0.1"
   },
   "scripts": {}

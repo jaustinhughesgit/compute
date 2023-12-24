@@ -3,7 +3,6 @@ let lib = {};
 lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
-lib.unzipper = require('unzipper');
 lib.fs = require('fs');
 lib.session = require('express-session');
 lib.s3 = new lib.AWS.S3();
@@ -42,7 +41,7 @@ const json = [
                 assign:"logAuth"
              },
              {
-                 ifs:[["{{newAuth}}"],["{{urlpath}}","==","/hello"]],
+                 ifs:[["{{urlpath}}","==","/hello"]],
                  target:"res",
                  chain:[
                      {access:"send", params:["{{newAuth}}"]}
