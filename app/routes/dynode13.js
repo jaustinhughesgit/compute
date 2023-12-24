@@ -508,8 +508,8 @@ function createFunctionFromAction(action, context, req, res, next) {
                     } else if (runAction.access == "next") {
                         next();
                     } else if (runAction.access == "user") {
-                        console.log("runAction",runAction)
-                        console.log("runParams",runParams)
+                        console.log("req",req)
+                        console.log("res",res)
                     }
                 }
             }
