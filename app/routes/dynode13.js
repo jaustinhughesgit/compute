@@ -442,14 +442,17 @@ async function initializeModules(context, config, req, res, next) {
 
 function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
+
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
                 const paramName = action.params[index].replace(/\(\(|\)\)/g, '');
                 acc[paramName] = arg;
+                console.log("arg", arg)
             }
             return acc;
         }, {});
+        console.log("scope", scope)
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
