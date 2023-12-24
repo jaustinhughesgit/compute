@@ -511,6 +511,8 @@ function createFunctionFromAction(action, context, req, res, next) {
                     } else if (runAction.access == "user") {
                         console.log("req",req)
                         console.log("res",res)
+                        console.log("runAction", runAction)
+                        console.log("runParams", runParams)
                     }
                 }
             }
