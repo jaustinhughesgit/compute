@@ -700,7 +700,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 if (chainAction.express){
                                     result = result[chainAction.access](...chainParams)(req, res, next);
                                 } else {
+                                    try{
                                     result = result[chainAction.access](...chainParams);
+                                    } catch(err){
+                                        result = result
+                                    }
                                 }
                             }
                         }
