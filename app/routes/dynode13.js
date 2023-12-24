@@ -202,6 +202,14 @@ const json = [
                         {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
                     ],
                     assign:"logIn"
+                },
+                {
+                    ifs:[["{{urlpath}}","==","/goodbye"]],
+                    target:"res",
+                    chain:[
+                        {access:"send", params:["{{}}"]}
+                    ],
+                    assign:"{{hello}}!"
                 }
             ]
         },
