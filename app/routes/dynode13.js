@@ -26,28 +26,6 @@ const json = [
          },
          actions: [
              
-            {
-                 target:"req",
-                 chain:[
-                     {access:"isAuthenticated", params:[]}
-                 ],
-                 assign:"newAuth"
-             },
-             {
-                 target:"console",
-                 chain:[
-                     {access:"log", params:["{{newAuth}}!"]}
-                 ],
-                assign:"logAuth"
-             },
-             {
-                 ifs:[["{{urlpath}}","==","/hello"]],
-                 target:"res",
-                 chain:[
-                     {access:"send", params:["{{newAuth}}"]}
-                 ],
-                 assign:"{{hello}}!"
-             },
              {
                  if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                  set:{condition1:true}
@@ -306,6 +284,29 @@ const json = [
                  ],
                  assign:"passportSession"
              },
+
+            {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
+            },
+            {
+                target:"console",
+                chain:[
+                    {access:"log", params:["{{newAuth}}"]}
+                ],
+               assign:"logAuth"
+            },
+            {
+                ifs:[["{{urlpath}}","==","/hello"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:["{{newAuth}}"]}
+                ],
+                assign:"{{hello}}!"
+            },
              {
                  target:"dyRouter",
                  chain:[
