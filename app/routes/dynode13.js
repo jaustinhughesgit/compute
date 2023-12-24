@@ -237,6 +237,10 @@ let middlewareFunctions = json.map(stepConfig => {
         lib.context["urlpath"] = req.path
         lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
+        console.log(lib)
+        console.log("lib:json", JSON.stringify(lib))
+        console.log("lib.context", JSON.stringify(lib.context))
+        console.log("lib.req", JSON.stringify(lib.req))
     };
 });
 
