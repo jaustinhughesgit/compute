@@ -162,6 +162,7 @@ const json = [
                  params:["((err))", "((user))", "((info))"], 
                  chain:[],
                  run:[
+                    {access:"user", params:["((user))"]}
                     {access:"next", params:[]}
                  ],
                  assign:"callbackFunction"
