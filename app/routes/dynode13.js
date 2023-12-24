@@ -181,13 +181,29 @@ const json = [
             modules: {
              },
              actions: [
+
+                {
+                    params:["((err))"], 
+                    chain:[],
+                    run:[
+                    {access:"next", params:[]}
+                    ],
+                    assign:"loginCallback"
+                },
                 {
                     target:"req",
                     chain:[
                         {access:"logIn", params:[]}
                     ],
                     assign:"logIn"
-                },
+                }
+            ]
+        },
+        {
+           //e:21,
+           modules: {
+            },
+            actions: [
                 {
                     target:"req",
                     chain:[
