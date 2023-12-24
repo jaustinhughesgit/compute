@@ -54,7 +54,7 @@ const json = [
                  assign:"callbackFunction"
              },
              {
-                 target:"passport-microsoft",
+                 target:"{{passport-microsoft}}",
                  chain:[
                  {access:"Strategy", params:[
                      {
@@ -72,6 +72,13 @@ const json = [
                      new:true}
                  ],
                  assign:"passportmicrosoft"
+             },
+             {
+                 target:"{{passport}}",
+                 chain:[
+                     {access:"use", params:["{{passportmicrosoft}}"]}
+                 ],
+                 assign:"newStrategy"
              },
              {
                  target:"{{passport}}",
