@@ -183,6 +183,9 @@ const json = [
              actions: [
 
                 {
+                    set:{"user":{}}
+                },
+                {
                     params:["((err))"], 
                     chain:[],
                     run:[
@@ -193,7 +196,7 @@ const json = [
                 {
                     target:"req",
                     chain:[
-                        {access:"logIn", params:[]}
+                        {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
                     ],
                     assign:"logIn"
                 }
