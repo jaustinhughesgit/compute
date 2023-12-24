@@ -189,7 +189,8 @@ const json = [
                     params:["((err))"], 
                     chain:[],
                     run:[
-                    {access:"next", params:[]}
+                        {access:"user", params:[]},
+                        {access:"next", params:[]}
                     ],
                     assign:"loginCallback"
                 },
@@ -506,6 +507,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                         }
                     } else if (runAction.access == "next") {
                         next();
+                    } else if (runAction.access == "user") {
+                        console.log("runAction",runAction)
+                        console.log("runParams",runParams)
                     }
                 }
             }
