@@ -175,7 +175,16 @@ const json = [
                      {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
                  ],
                  assign:"newAuthentication"
+             },
+             {
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:["{{}}"]}
+                ],
+                assign:"{{callbackPage}}!"
              }
+
           ]
          },
          {
