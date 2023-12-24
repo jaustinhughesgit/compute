@@ -188,6 +188,7 @@ const json = [
                     set:{"user":{}}
                 },
                 {
+                    ifs:[["{{urlpath}}","!=","/goodbye"]],
                     params:["((err))"], 
                     chain:[],
                     run:[
@@ -197,6 +198,7 @@ const json = [
                     assign:"loginCallback"
                 },
                 {
+                    ifs:[["{{urlpath}}","!=","/goodbye"]],
                     target:"req",
                     chain:[
                         {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
@@ -209,7 +211,7 @@ const json = [
                     chain:[
                         {access:"send", params:["{{}}"]}
                     ],
-                    assign:"{{hello}}!"
+                    assign:"{{goodbye}}!"
                 }
             ]
         },
