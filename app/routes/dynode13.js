@@ -74,7 +74,7 @@ const json = [
                  assign:"passportmicrosoft"
              },
              {
-                 target:"passport",
+                 target:"{{passport}}",
                  chain:[
                      {access:"initialize", params:[]}
                  ],
@@ -90,7 +90,7 @@ const json = [
          },
          actions: [
             {
-                target:"passport",
+                target:"{{passport}}",
                 chain:[
                     {access:"session", params:[], express:true}
                 ],
@@ -115,7 +115,7 @@ const json = [
                  assign:"serializeFunction"
              },
              {
-                 target:"passport",
+                 target:"{{passport}}",
                  chain:[
                      {access:"serializeUser", params:["{{serializeFunction}}"]}
                  ],
@@ -130,7 +130,7 @@ const json = [
                  assign:"deserializeFunction"
              },
              {
-                 target:"passport",
+                 target:"{{passport}}",
                  chain:[
                      {access:"deserializeUser", params:["{{deserializeFunction}}"]}
                  ],
@@ -145,7 +145,7 @@ const json = [
              },
              {
                 ifs:[["{{urlpath}}","==","/microsoft"]],
-                 target:"passport",
+                 target:"{{passport}}",
                  chain:[
                      {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true},
                  ],
@@ -153,7 +153,7 @@ const json = [
              },
              {
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                 target:"passport",
+                 target:"{{passport}}",
                  chain:[
                      {access:"authenticate", params:["microsoft", { failureRedirect: '/' }], express:true},
                  ],
