@@ -172,7 +172,7 @@ const json = [
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                  target:"{{passport}}",
                  chain:[
-                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{authenticateFunction}}"], express:true},
+                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{authenticateFunction}}"], express:true, next:false},
                  ],
                  assign:"newAuthentication"
              }
@@ -718,7 +718,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
+                                        if (chainAction.next){
                                         result = methodFunction(...chainParams)(req, res, next);
+                                        } else {
+                                            result = methodFunction(...chainParams)(req, res);
+                                        }
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
@@ -728,7 +732,11 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
+                                    if (chainAction.next){
                                     result = result[chainAction.access](...chainParams)(req, res, next);
+                                    } else {
+                                        result = result[chainAction.access](...chainParams)(req, res);
+                                    }
                                 } else {
                                     try{
                                     result = result[chainAction.access](...chainParams);
