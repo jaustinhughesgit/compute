@@ -52,7 +52,7 @@ const json = [
                      {access:"((done))", params:[null, "((profile))"]}
                  ],
                  assign:"callbackFunction"
-             }*/,
+             },
              {
                  target:"{{passport-microsoft}}",
                  chain:[
@@ -67,7 +67,7 @@ const json = [
                          state: false,
                          type: "Web",
                          scope: ["user.read"]
-                     },"{{strategyFunction}}"
+                     },"{{callbackFunction}}"
                  ],
                      new:true}
                  ],
@@ -82,13 +82,14 @@ const json = [
              },
              {
                  next:true
-             }
+             }*/
          ]
-     },
+     }/*,
      {
         modules: {
          },
          actions: [
+            
              {
                  target:"{{passport}}",
                  chain:[
@@ -113,9 +114,36 @@ const json = [
            modules: {
             },
             actions: [
-                {
-                    set:{"serializers":true}
-                },
+             {
+                 params:["((user))", "((done))"], 
+                 chain:[],
+                 run:[
+                     {access:"((done))", params:[null, "((user))"]}
+                 ],
+                 assign:"serializeFunction"
+             },
+             {
+                 target:"{{passport}}",
+                 chain:[
+                     {access:"serializeUser", params:["{{serializeFunction}}"]}
+                 ],
+                 assign:"serializeUser"
+             },
+             {
+                 params:["((user))", "((done))"], 
+                 chain:[],
+                 "run":[
+                     {access:"((done))", params:[null, "((user))"]}
+                 ],
+                 assign:"deserializeFunction"
+             },
+             {
+                 target:"{{passport}}",
+                 chain:[
+                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
+                 ],
+                 assign:"deserializeUser"
+             },
              {
                  target:"{{passport}}",
                  chain:[
@@ -130,7 +158,7 @@ const json = [
                      {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true},
                  ],
                  assign:"newAuthentication"
-             }/*,
+             },
              {
                  params:["((err))", "((user))", "((info))"], 
                  chain:[],
@@ -140,16 +168,15 @@ const json = [
                  ],
 
                  assign:"callbackFunction"
-             }*/,
+             },
              {
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                  target:"{{passport}}",
                  chain:[
-                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{authenticateFunction}}"], express:true, next:false},
+                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
                  ],
                  assign:"newAuthentication"
              }
-
           ]
          },
          {
@@ -158,7 +185,7 @@ const json = [
              },
              actions: [
 
-                /*{
+                {
                     set:{"user":{}}
                 },
                 {
@@ -169,19 +196,13 @@ const json = [
                         {access:"next", params:[]}
                     ],
                     assign:"loginCallback"
-                }
+                },
                 {
                     target:"req",
                     chain:[
-                        {access:"logIn", params:["{user}", "{{logInFunction}}"]}
+                        {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
                     ],
                     assign:"logIn"
-                }*/
-                {
-                    set:{"applyLogin":true}
-                },
-                {
-                    next:true
                 }
             ]
         },
@@ -206,57 +227,61 @@ const json = [
                     assign:"{{hello}}!"
                 }
          ]
-     }
+     }*/
 ]
-let serializersDone = false
+function one(req, res, next) {
+    console.log("lib.passport",lib.passport)
+    res.json({ "hello":"world"})
+}
+/*
+function two(req, res, next) {
+    req.local.passport.session()(req, res, next);
+}
+
+function three(req, res) {
+    req.local.passport.serializeUser((user, done) => {
+        done(null, user);
+    });
+
+    req.local.passport.deserializeUser((obj, done) => {
+        done(null, obj);
+    });
+
+    req.local.passport.use(new req.local.MicrosoftStrategy({
+        clientID: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+        scope: ['user.read']
+    }, (accessToken, refreshToken, profile, done) => {
+        done(null, profile);
+    }));
+
+
+    if (req.path === "/auth/microsoft") {
+        req.local.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
+    }
+
+    if (req.path === "/auth/microsoft/callback") {
+        req.local.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
+            next()
+        })(req, res);
+    } else {
+        res.send("Page not found");
+    }
+}
+*/
+
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
-        lib.console = console;
-
-
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        if (lib.context.serializers && !serializersDone){
-            console.log("111111111111")
-            req.local.passport.serializeUser((user, done) => {
-                done(null, user);
-            });
-        
-            req.local.passport.deserializeUser((obj, done) => {
-                done(null, obj);
-            });
-            serializersDone = true
-        }
-        if (lib.context.authenticateFunction == undefined){ 
-            lib.context.authenticateFunction = (err, user, info) => {
-                console.log("user::",user);
-                console.log("info::",info);
-                lib.req.userInfo = user
-                lib.context.user = user
-                next(user)
-            };
-
-            
-            lib.context.strategyFunction = (accessToken, refreshToken, profile, done) => {
-                done(null, profile);
-            }
-        }
-        if (lib.context.applyLogin){
-            lib.req.logIn(lib.req.user, (err) => {
-                if (err) {
-                    return lib.res.redirect('/');
-                }
-                //return lib.res.json({ "isAuthenticated": lib.req.isAuthenticated(), "user":req.user});
-            });
-        }
         lib.context["urlpath"] = req.path
-        lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
-lib.dyRouter.all('/*', ...middlewareFunctions);
+lib.dyRouter.all('/*', ...middlewareFunctions, one));
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
@@ -462,7 +487,6 @@ function createFunctionFromAction(action, context, req, res, next) {
             if (action.params && action.params[index]) {
                 const paramName = action.params[index].replace(/\(\(|\)\)/g, '');
                 acc[paramName] = arg;
-                console.log("arg", arg)
             }
             return acc;
         }, {});
@@ -521,8 +545,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                         const methodName = runAction.access.slice(2, -2);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
-                            console.log("result", result)
-                            console.log("runParams", runParams)
                         } else {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
@@ -712,11 +734,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
                                     if (chainAction.express){
-                                        if (chainAction.next){
                                         result = methodFunction(...chainParams)(req, res, next);
-                                        } else {
-                                            result = methodFunction(...chainParams)(req, res);
-                                        }
                                     } else {
                                         result = methodFunction(...chainParams);
                                     }
@@ -726,11 +744,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    if (chainAction.next || chainAction.next == undefined){
                                     result = result[chainAction.access](...chainParams)(req, res, next);
-                                    } else {
-                                        result = result[chainAction.access](...chainParams)(req, res);
-                                    }
                                 } else {
                                     try{
                                     result = result[chainAction.access](...chainParams);
