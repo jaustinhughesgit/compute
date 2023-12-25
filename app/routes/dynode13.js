@@ -263,8 +263,9 @@ function three(req, res) {
         done(null, profile);
     }));
 
-
+    console.log("req.path", req.path)
     if (req.path === "/auth/microsoft") {
+        console.log("authenticate")
         lib.context.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
     }
 
