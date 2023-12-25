@@ -113,36 +113,9 @@ const json = [
            modules: {
             },
             actions: [
-             {
-                 params:["((user))", "((done))"], 
-                 chain:[],
-                 run:[
-                     {access:"((done))", params:[null, "((user))"]}
-                 ],
-                 assign:"serializeFunction"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"serializeUser", params:["{{serializeFunction}}"]}
-                 ],
-                 assign:"serializeUser"
-             },
-             {
-                 params:["((user))", "((done))"], 
-                 chain:[],
-                 "run":[
-                     {access:"((done))", params:[null, "((user))"]}
-                 ],
-                 assign:"deserializeFunction"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
-                 ],
-                 assign:"deserializeUser"
-             },
+                {
+                    set:{"serializers":true}
+                },
              {
                  target:"{{passport}}",
                  chain:[
@@ -235,7 +208,7 @@ const json = [
          ]
      }
 ]
-
+let serializersDone = false
 let middlewareFunctions = json.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -244,6 +217,16 @@ let middlewareFunctions = json.map(stepConfig => {
 
 
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        if (lib.context.serializers && !serializersDone){
+            req.local.passport.serializeUser((user, done) => {
+                done(null, user);
+            });
+        
+            req.local.passport.deserializeUser((obj, done) => {
+                done(null, obj);
+            });
+            serializersDone = true
+        }
         if (lib.context.authenticateFunction == undefined){ 
             lib.context.authenticateFunction = (err, user, info) => {
                 console.log("user::",user);
