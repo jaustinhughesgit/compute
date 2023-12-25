@@ -204,7 +204,7 @@ const json = [
                         {access:"next", params:[]}
                     ],
                     assign:"loginCallback"
-                }*/,
+                }*/
                 {
                     target:"req",
                     chain:[
