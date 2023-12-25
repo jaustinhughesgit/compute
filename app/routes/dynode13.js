@@ -264,12 +264,12 @@ function three(req, res) {
     }));
 
     console.log("req.path", req.path)
-    if (req.path === "/auth/microsoft") {
+    if (req.path === "/microsoft") {
         console.log("authenticate")
         lib.context.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
     }
 
-    if (req.path === "/auth/microsoft/callback") {
+    if (req.path === "/microsoft/callback") {
         lib.context.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
                 console.log("user",user)
                 req.userInfo = user;
