@@ -44,7 +44,11 @@ const json = [
                 chain:[
                 ],
                 assign:"passport-microsoft"
-            }/*,
+            },
+            {
+                next:true
+            }
+            /*,
              {
                  params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                  chain:[],
