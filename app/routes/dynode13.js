@@ -218,6 +218,7 @@ let middlewareFunctions = json.map(stepConfig => {
 
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         if (lib.context.serializers && !serializersDone){
+            console.log("111111111111")
             req.local.passport.serializeUser((user, done) => {
                 done(null, user);
             });
