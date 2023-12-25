@@ -235,7 +235,7 @@ const json = [
 ]
 function one(req, res, next) {
     console.log("lib.passport",lib.context.passport)
-    lib.context.MicrosoftStrategy = lib.context.passport-microsoft.Strategy;
+    lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
 }
