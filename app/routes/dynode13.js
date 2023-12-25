@@ -235,7 +235,62 @@ const json = [
 ]
 function one(req, res, next) {
     console.log("lib.passport",lib.context.passport)
-    res.json({ "hello":"world"})
+    lib.context.MicrosoftStrategy = lib.context.passport-microsoft.Strategy;
+    lib.context.passport.initialize()(req, res, next);
+    //res.json({ "hello":"world"})
+}
+function two(req, res, next) {
+    lib.context.passport.session()(req, res, next);
+}
+function three(req, res) {
+    lib.context.passport.serializeUser((user, done) => {
+        done(null, user);
+    });
+
+    lib.context.passport.deserializeUser((obj, done) => {
+        done(null, obj);
+    });
+
+    lib.context.passport.use(new lib.context.MicrosoftStrategy({
+        clientID: process.env.MICROSOFT_CLIENT_ID,
+        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+        scope: ['user.read']
+    }, (accessToken, refreshToken, profile, done) => {
+        done(null, profile);
+    }));
+
+
+    if (req.path === "/auth/microsoft") {
+        lib.context.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
+    }
+
+    if (req.path === "/auth/microsoft/callback") {
+        lib.context.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
+            if (err || !user) {
+                res.redirect('/');
+            } else {
+                req.userInfo = user;
+                next(); 
+            }
+        })(req, res);
+    } else {
+        res.send("Page not found");
+    }
+}
+function four(req, res) {
+    if (!req.userInfo) {
+        return res.redirect('/');
+    }
+    req.logIn(req.userInfo, (err) => {
+        if (err) {
+            return res.redirect('/');
+        }
+        return res.json({
+            "isAuthenticated": req.isAuthenticated(),
+            "user": req.userInfo 
+        });
+    });
 }
 /*
 function two(req, res, next) {
@@ -285,7 +340,7 @@ let middlewareFunctions = json.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middlewareFunctions, one);
+lib.dyRouter.all('/*', ...middlewareFunctions, one, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
