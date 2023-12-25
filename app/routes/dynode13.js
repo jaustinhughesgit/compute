@@ -48,6 +48,21 @@ const json = [
             {
                 next:true
             }
+        ]
+    },
+    {
+        modules: {
+         },
+         actions: [
+            {
+                 target:"{{passport}}",
+                 chain:[
+                     {access:"initialize", params:[], express:true}
+                 ],
+                 assign:"passportInitialize"
+             }
+        ]
+    }
             /*,
              {
                  params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
@@ -86,9 +101,9 @@ const json = [
              },
              {
                  next:true
-             }*/
+             }
          ]
-     }/*,
+     },
      {
         modules: {
          },
@@ -237,7 +252,7 @@ function one(req, res, next) {
     console.log("lib.passport",lib.context.passport)
     lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
-    lib.context.passport.initialize()(req, res, next);
+    //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
 }
 function two(req, res, next) {
