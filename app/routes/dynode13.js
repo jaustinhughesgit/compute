@@ -225,14 +225,6 @@ const json = [
                         {access:"send", params:["{{}}"]}
                     ],
                     assign:"{{hello}}!"
-                },
-                {
-                   ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                   target:"res",
-                   chain:[
-                       {access:"send", params:["{{}}"]}
-                   ],
-                   assign:"{{callbackPage}}!"
                 }
          ]
      }
