@@ -732,7 +732,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 }
                             } else {
                                 if (chainAction.express){
-                                    if (chainAction.next){
+                                    if (chainAction.next || chainAction.next == undefined){
                                     result = result[chainAction.access](...chainParams)(req, res, next);
                                     } else {
                                         result = result[chainAction.access](...chainParams)(req, res);
