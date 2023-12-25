@@ -246,7 +246,7 @@ let middlewareFunctions = json.map(stepConfig => {
                 if (err) {
                     return lib.res.redirect('/');
                 }
-                return lib.res.json({ "isAuthenticated": lib.req.isAuthenticated(), "user":req.user});
+                //return lib.res.json({ "isAuthenticated": lib.req.isAuthenticated(), "user":req.user});
             });
         }
         lib.context["urlpath"] = req.path
