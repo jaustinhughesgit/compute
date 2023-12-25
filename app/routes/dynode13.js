@@ -60,7 +60,10 @@ const json = [
                      {access:"initialize", params:[], express:true}
                  ],
                  assign:"passportInitialize"
-             }
+             },
+            {
+                next:true
+            }
         ]
     }
             /*,
