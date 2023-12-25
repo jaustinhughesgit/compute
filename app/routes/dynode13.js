@@ -249,7 +249,7 @@ let middlewareFunctions = json.map(stepConfig => {
                 if (err) {
                     return res.redirect('/');
                 }
-                return res.json({ "isAuthenticated": req.isAuthenticated() });
+                return res.json({ "isAuthenticated": req.isAuthenticated(), "userContext":lib.context.user, "reqUser":lib.req.user });
             }
             lib.context.strategyFunction = (accessToken, refreshToken, profile, done) => {
                 done(null, profile);
