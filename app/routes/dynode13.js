@@ -236,13 +236,16 @@ const json = [
 function one(req, res, next) {
     console.log("lib.passport",lib.context.passport)
     lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
+    console.log("one")
     lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
 }
 function two(req, res, next) {
+    console.log("two")
     lib.context.passport.session()(req, res, next);
 }
 function three(req, res) {
+    console.log("three")
     lib.context.passport.serializeUser((user, done) => {
         done(null, user);
     });
@@ -267,18 +270,16 @@ function three(req, res) {
 
     if (req.path === "/auth/microsoft/callback") {
         lib.context.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
-            if (err || !user) {
-                res.redirect('/');
-            } else {
+                console.log("user",user)
                 req.userInfo = user;
                 next(); 
-            }
         })(req, res);
     } else {
         res.send("Page not found");
     }
 }
 function four(req, res) {
+    console.log("four")
     if (!req.userInfo) {
         return res.redirect('/');
     }
