@@ -196,13 +196,19 @@ const json = [
                         {access:"next", params:[]}
                     ],
                     assign:"loginCallback"
-                }*/
+                }
                 {
                     target:"req",
                     chain:[
-                        {access:"logIn", params:["{{user}}", "{{logInFunction}}"]}
+                        {access:"logIn", params:["{user}", "{{logInFunction}}"]}
                     ],
                     assign:"logIn"
+                }*/
+                {
+                    set:{"applyLogin":true}
+                },
+                {
+                    next:true
                 }
             ]
         },
@@ -242,23 +248,27 @@ let middlewareFunctions = json.map(stepConfig => {
             lib.context.authenticateFunction = (err, user, info) => {
                 console.log("user::",user);
                 console.log("info::",info);
+                lib.req.userInfo = user
                 lib.context.user = user
-                next()
+                next(user)
             };
-            lib.context.logInFunction =  (err) => {
-                if (err) {
-                    return res.redirect('/');
-                }
-                return res.json({ "isAuthenticated": req.isAuthenticated(), "userContext":lib.context.user, "reqUser":lib.req.user });
-            }
+
+            
             lib.context.strategyFunction = (accessToken, refreshToken, profile, done) => {
                 done(null, profile);
             }
         }
+        if (lib.context.applyLogin){
+            lib.req.logIn(user, (err) => {
+                if (err) {
+                    return lib.res.redirect('/');
+                }
+                return lib.res.json({ "isAuthenticated": lib.req.isAuthenticated(), "user":req.user});
+            });
+        }
         lib.context["urlpath"] = req.path
         lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
-        console.log("lib.req.user",lib.req.user)
     };
 });
 
