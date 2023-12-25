@@ -243,11 +243,13 @@ let middlewareFunctions = json.map(stepConfig => {
         lib.req = req;
         lib.res = res;
         lib.console = console;
+
+
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib.context["urlpath"] = req.path
         lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
-        console.log(lib)
+        console.log("lib.req.user",lib.req.user)
     };
 });
 
@@ -516,6 +518,8 @@ function createFunctionFromAction(action, context, req, res, next) {
                         const methodName = runAction.access.slice(2, -2);
                         if (typeof scope[methodName] === 'function') {
                             result = scope[methodName](...runParams);
+                            console.log("result", result)
+                            console.log("runParams", runParams)
                         } else {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
