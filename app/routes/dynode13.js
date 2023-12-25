@@ -281,7 +281,7 @@ let middlewareFunctions = json.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middlewareFunctions, one));
+lib.dyRouter.all('/*', ...middlewareFunctions, one);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
