@@ -234,7 +234,7 @@ const json = [
      }*/
 ]
 function one(req, res, next) {
-    console.log("lib.passport",lib.passport)
+    console.log("lib.passport",lib.context.passport)
     res.json({ "hello":"world"})
 }
 /*
