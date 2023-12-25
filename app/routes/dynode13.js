@@ -44,7 +44,7 @@ const json = [
                 chain:[
                 ],
                 assign:"passport-microsoft"
-            },
+            }/*,
              {
                  params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                  chain:[],
@@ -52,7 +52,7 @@ const json = [
                      {access:"((done))", params:[null, "((profile))"]}
                  ],
                  assign:"callbackFunction"
-             },
+             }*/,
              {
                  target:"{{passport-microsoft}}",
                  chain:[
@@ -67,7 +67,7 @@ const json = [
                          state: false,
                          type: "Web",
                          scope: ["user.read"]
-                     },"{{callbackFunction}}"
+                     },"{{strategyFunction}}"
                  ],
                      new:true}
                  ],
@@ -157,7 +157,7 @@ const json = [
                      {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true},
                  ],
                  assign:"newAuthentication"
-             },
+             }/*,
              {
                  params:["((err))", "((user))", "((info))"], 
                  chain:[],
@@ -167,12 +167,12 @@ const json = [
                  ],
 
                  assign:"callbackFunction"
-             },
+             }*/,
              {
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                  target:"{{passport}}",
                  chain:[
-                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
+                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{authenticateFunction}}"], express:true},
                  ],
                  assign:"newAuthentication"
              },
@@ -193,7 +193,7 @@ const json = [
              },
              actions: [
 
-                {
+                /*{
                     set:{"user":{}}
                 },
                 {
@@ -204,11 +204,11 @@ const json = [
                         {access:"next", params:[]}
                     ],
                     assign:"loginCallback"
-                },
+                }*/,
                 {
                     target:"req",
                     chain:[
-                        {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
+                        {access:"logIn", params:["{{user}}", "{{logInFunction}}"]}
                     ],
                     assign:"logIn"
                 }
@@ -246,6 +246,23 @@ let middlewareFunctions = json.map(stepConfig => {
 
 
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        if (lib.context.authenticateFunction == undefined){ 
+            lib.context.authenticateFunction = (err, user, info) => {
+                console.log("user::",user);
+                console.log("info::",info);
+                lib.context.user = user
+                next()
+            };
+            lib.context.logInFunction =  (err) => {
+                if (err) {
+                    return res.redirect('/');
+                }
+                return res.json({ "isAuthenticated": req.isAuthenticated() });
+            }
+            lib.context.strategyFunction = (accessToken, refreshToken, profile, done) => {
+                done(null, profile);
+            }
+        }
         lib.context["urlpath"] = req.path
         lib.context["strategy"] = req.path.startsWith('/auth') ? req.path.split("/")[2] : "";
         await initializeModules(lib.context, stepConfig, req, res, next);
