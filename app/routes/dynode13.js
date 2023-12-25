@@ -259,7 +259,7 @@ let middlewareFunctions = json.map(stepConfig => {
             }
         }
         if (lib.context.applyLogin){
-            lib.req.logIn(user, (err) => {
+            lib.req.logIn(lib.req.user, (err) => {
                 if (err) {
                     return lib.res.redirect('/');
                 }
