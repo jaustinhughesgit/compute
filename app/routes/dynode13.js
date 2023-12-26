@@ -596,6 +596,8 @@ function createFunctionFromAction(action, context, req, res, next) {
 }
 
 function replaceParams(param, context, scope, args) {
+    console.log("==context", context)
+    console.log("==scope", scope)
     if (param) {
         if (typeof param === 'string'){
             if (param.startsWith('((') && param.endsWith('))')) {
@@ -603,7 +605,7 @@ function replaceParams(param, context, scope, args) {
                 const keys = paramName.split('.');
                 let value = keys.reduce((currentContext, key) => {
                     return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-                }, context);
+                }, scope);
                 if (!isNaN(value)) {
                     return args[value];
                 }
