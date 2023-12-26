@@ -10,10 +10,6 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-lib.AWS.config.update({ region: 'us-east-1' });
-lib.dynamodbLL = new lib.AWS.DynamoDB();
-lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
-
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -185,15 +181,11 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
-                "set":{"displayName":""}
-            },
-            {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
-                    {access:"{{displayName}}", params:["((user.displayName))"]},
                    {access:"next", params:[]}
                 ],
 
@@ -573,13 +565,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
                             console.log("runParams", runParams)
-
-
-                            for (const paramItem of runParams){
-                                let val = replaceParams(runParams[0], context, scope, args);
-                                console.log("val++", val)
-                                lib.context[runAction.access.slice(2,-2)] = val
-                            }
+                            lib.context[runAction.access.slice(2,-2)] = runParams
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
@@ -607,22 +593,6 @@ function replaceParams(param, context, scope, args) {
                 if (!isNaN(paramName)) {
                     return args[paramName];
                 }
-
-                if (param.includes(".")){
-                    console.log("includes .")
-                    const keys = paramName.split('.');
-                    console.log("keys", keys)
-                    let value = keys.reduce((currentContext, key) => {
-                        console.log("key2", key, currentContext)
-                        if (currentContext && currentContext[key] !== undefined) {
-                            console.log("returning currentContext[key]", currentContext[key], key, currentContext)
-                            return currentContext[key];
-                        }
-                    }, lib.context);
-                    console.log("value", value)
-                    return value
-                }
-
                 return scope[paramName] || context[paramName] || param;
             }
         } else {
@@ -847,43 +817,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
     return result;
 }
-/*
-async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
-    console.log("inside regOAuth", email)
-    const params = { TableName: 'account', Key: { "email": email } };
-    console.log(params)
-    const coll = await dynamodb.get(params).promise();
-    console.log(coll)
-    if (coll.hasOwnProperty("Item")) {
-        res.send("Email already registered through another method.");
-    } else {
-        const uniqueId = uuidv4();
-        const currentDate = new Date();
-        const isoFormat = currentDate.toISOString();
-        const item = {
-            id: uniqueId,
-            email: email,
-            first: firstName,
-            last: lastName,
-            creationDate: isoFormat,
-            proxyEmail: realEmail,
-            verified: false,
-            password: hasPass
-            // No password is saved for OAuth users
-        };
 
-        const insertParams = {
-            TableName: 'account',
-            Item: item
-        };
-        try {
-            await dynamodb.put(insertParams).promise();
-            res.redirect('/dashboard');
-            //res.send("Account Created!");
-        } catch (error) {
-            res.status(500).json({ error: "Error inserting into DynamoDB" });
-        }
-    }
-}
-*/
 module.exports = lib.dyRouter;
