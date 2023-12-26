@@ -14,11 +14,11 @@ function one(req, res, next) {
     req.local = {}
     req.local.passport = require('passport');
     req.local.MicrosoftStrategy = require('passport-microsoft').Strategy;
-    app.use(passport.initialize());
+    app.use(req.local.passport.initialize());
 }
 
 function two(req, res, next) {
-    app.use(passport.session());
+    app.use(req.local.passport.session());
 }
 
 function three(req, res, next) {
