@@ -151,7 +151,6 @@ const json2 = [
                 assign:"newStrategy"
             },
             {
-                ifs:[["{{urlpath}}","==","/auth/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true, next:false},
