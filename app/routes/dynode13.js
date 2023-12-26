@@ -82,6 +82,7 @@ const json2 = [
 
 function two(req, res, next) {
     console.log("two")
+    console.log(lib)
     lib.context.passport.session()(req, res, next);
 }
 function three(req, res, next) {
