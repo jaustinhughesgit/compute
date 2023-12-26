@@ -22,7 +22,7 @@ function two(req, res, next) {
     req.local.passport.session()(req, res, next);
 }
 
-function three(req, res) {
+function three(req, res, next) {
     req.local.passport.serializeUser((user, done) => {
         done(null, user);
     });
@@ -47,7 +47,7 @@ function three(req, res) {
 
     if (req.path === "/auth/microsoft/callback") {
         req.local.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
-            next()
+            next() //next is undefined
         })(req, res);
     } else {
         res.send("Page not found");
