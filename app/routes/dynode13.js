@@ -46,7 +46,7 @@ const json1 = [
             {
                 target:"passport",
                 chain:[
-                    {access:"initialize", params:[], express:true, next:true}
+                    {access:"initialize", params:[]}
                 ],
                 assign:"passportInitialize"
             }
@@ -77,7 +77,7 @@ const json1 = [
             {
                 target:"passport",
                 chain:[
-                    {access:"session", params:[], express:true, next:true}
+                    {access:"session", params:[]}
                 ],
                 assign:"passportSession"
             }
