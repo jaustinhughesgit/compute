@@ -170,7 +170,7 @@ const json1 = [
                 ifs:[["{{urlpath}}","==","/hello"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:["{{}}"]}
+                    {access:"send", params:["{{newAuth}}"]}
                 ],
                 assign:"hello"
             },
