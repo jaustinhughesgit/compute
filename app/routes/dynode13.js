@@ -72,7 +72,7 @@ const json2 = [
                     {access:"Strategy", params:[]}
                 ],
                 assign:"MicrosoftStrategy"
-            }
+            },
             {
                 target:"passport",
                 chain:[
