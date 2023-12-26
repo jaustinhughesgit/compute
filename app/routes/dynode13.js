@@ -237,7 +237,7 @@ function one(req, res, next){
     next();
 }
 
-lib.dyRouter.all('/*', ...middleware1, one, ...middleware1);
+lib.dyRouter.all('/*', ...middleware1, one, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
