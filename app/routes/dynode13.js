@@ -228,10 +228,11 @@ let middleware2 = json2.map(stepConfig => {
 });
 
 function one(req, res, next){
-    lib.context["reqSession"] = req.session
-    lib.context["reqAuth"] = req.isAuthenticated()
-
-    if (req.session && req.isAuthenticated()) {
+    lib.context["reqSession"] = lib.req.session
+    lib.context["reqAuth"] = lib.req.isAuthenticated()
+    console.log("reqSession", lib.context["reqSession"])
+    console.log("reqAuth", lib.context["reqAuth"])
+    if (lib.req.session && lib.req.isAuthenticated()) {
         res.json(lib.context)
     }
     next();
