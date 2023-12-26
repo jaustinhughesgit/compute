@@ -58,7 +58,7 @@ function one(req, res, next) {
     console.log("one")
     lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
-    next();
+    //next();
 }
 
 const json2 = [
