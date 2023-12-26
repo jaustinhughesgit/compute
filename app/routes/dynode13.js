@@ -185,16 +185,16 @@ const json2 = [
 
 function four(req, res) {
     console.log("four")
-    if (!req.userInfo) {
+    if (lib.context.user == {}) {
         return res.redirect('/');
     }
-    req.logIn(req.userInfo, (err) => {
+    req.logIn(lib.context.user, (err) => {
         if (err) {
             return res.redirect('/');
         }
         return res.json({
             "isAuthenticated": req.isAuthenticated(),
-            "user": req.userInfo 
+            "user": lib.context.user
         });
     });
 }
