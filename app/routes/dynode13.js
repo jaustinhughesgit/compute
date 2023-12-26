@@ -529,9 +529,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
                         } else {
-                            console.log("runAction.access.splice(2,-2)",runAction.access.splice(2,-2))
-                            console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.splice(2,-2)])
-                            result = lib.context[runAction.access.splice(2,-2)]
+                            console.log("runAction.access.splice(2,-2)",runAction.access.slice(2,-2))
+                            console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
+                            result = lib.context[runAction.access.slice(2,-2)]
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
