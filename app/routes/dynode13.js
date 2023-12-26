@@ -53,14 +53,6 @@ const json1 = [
     }
 ]
 
-function one(req, res, next) {
-    //lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
-    console.log("one")
-    //lib.context.passport.initialize()(req, res, next);
-    //res.json({ "hello":"world"})
-    next();
-}
-
 const json2 = [
     {
        modules: {
@@ -69,7 +61,7 @@ const json2 = [
             {
                 target:"passport-microsoft",
                 chain:[
-                    {access:"Strategy"}
+                    {access:"Strategy", params:[]}
                 ],
                 assign:"MicrosoftStrategy"
             },
