@@ -83,11 +83,12 @@ const json2 = [
 
 function two(req, res, next) {
     console.log("two")
-    console.log(lib)
+    console.log(lib.context)
     lib.context.passport.session()(req, res, next);
 }
 function three(req, res, next) {
     console.log("three")
+    console.log(lib.context)
     lib.context.passport.serializeUser((user, done) => {
         done(null, user);
     });
