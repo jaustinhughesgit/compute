@@ -151,9 +151,10 @@ const json2 = [
                 assign:"newStrategy"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
-                    {access:"authenticate", params:["microsoft"], express:true, next:false},
+                    {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true, next:false},
                 ],
                 assign:"newAuthentication"
             },
@@ -165,13 +166,6 @@ const json2 = [
 ]
 
 function three(req, res, next) {
-
-
-    console.log("req.path", req.path)
-    if (req.path === "/microsoft") {
-        console.log("authenticate")
-        lib.context.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
-    }
 
     if (req.path === "/microsoft/callback") {
         lib.context.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
