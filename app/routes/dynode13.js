@@ -185,7 +185,7 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
-                "set":{"displayName":""}
+                "set":{"displyName":""}
             },
             {
                 params:["((err))", "((user))", "((info))"], 
@@ -193,7 +193,7 @@ const json2 = [
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
-                    {access:"{{displayName}}", params:["((user.displayName))"]},
+                    {access:"{{displyName}}", params:["((user.displyName))"]},
                    {access:"next", params:[]}
                 ],
 
@@ -573,15 +573,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
                             console.log("runParams", runParams)
-                            
-                            for (const paramItem of runParams){
-                                if (Array.isArray(paramItem)) {
-                                    lib.context[runAction.access.slice(2,-2)] = replaceParams(paramItem[0], context, scope, args);
-                                } else {
-                                    lib.context[runAction.access.slice(2,-2)] = replaceParams(paramItem, context, scope, args);
-                                }
-                            }
-                            //lib.context[runAction.access.slice(2,-2)] = runParams[0]
+                            lib.context[runAction.access.slice(2,-2)] = runParams
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
@@ -602,36 +594,14 @@ function createFunctionFromAction(action, context, req, res, next) {
 }
 
 function replaceParams(param, context, scope, args) {
-    console.log("==context", context)
-    console.log("==scope", scope)
     if (param) {
         if (typeof param === 'string'){
             if (param.startsWith('((') && param.endsWith('))')) {
                 const paramName = param.slice(2, -2);
-                const keys = paramName.split('.');
-                console.log("keys", keys)
-                let value = keys.reduce((currentContext, key) => {
-                    console.log("currentContext",currentContext)
-                    try{
-                        console.log("currentContext[key]",currentContext[key])
-                    } catch (err){
-                        console.log("err",err)
-                    }
-                    if (currentContext && currentContext[key] !== undefined) {
-                        console.log("returning currentContext[key]")
-                        return currentContext[key];
-                    } else {
-                        console.log("undefined")
-                        return undefined;
-                    }
-                }, context);
-
-                if (!isNaN(value)) {
-                    console.log("!isNaN")
-                    return args[value];
+                if (!isNaN(paramName)) {
+                    return args[paramName];
                 }
-                console.log("else returning scope[value] || context[value] || param")
-                return scope[value] || context[value] || param;
+                return scope[paramName] || context[paramName] || param;
             }
         } else {
             console.log("typeof param", typeof param)
