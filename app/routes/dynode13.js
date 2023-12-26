@@ -58,6 +58,7 @@ function one(req, res, next) {
     console.log("one")
     //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
+    next();
 }
 
 const json2 = [
@@ -67,6 +68,9 @@ const json2 = [
             {access:"initialize", params:[], express:true}
         ],
         assign:"passportInitialize"
+    },
+    {
+        next:true
     }
 ]
 
