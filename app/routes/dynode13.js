@@ -203,6 +203,20 @@ const json1 = [
     }
 ]
 
+function isLoggedIn(req, res, next) {
+    console.log("req.session",req.session)
+    console.log("req.isAuthenticated()",req.isAuthenticated())
+    if (req.session && req.isAuthenticated()) {
+        next();
+    } else {
+        res.redirect('/auth/microsoft');
+    }
+}
+
+app.get('/auth/dashboard', isLoggedIn, (req, res) => {
+    res.send('Welcome to your dashboard');
+});
+
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
