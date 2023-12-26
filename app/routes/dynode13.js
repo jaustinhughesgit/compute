@@ -198,7 +198,7 @@ const json2 = [
             {
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{user}}"]}
+                    {access:"json", params:["{{}}"]}
                 ]
             }
         ]
@@ -230,6 +230,8 @@ let middleware2 = json2.map(stepConfig => {
 function one(req, res, next){
     lib.context["reqSession"] = lib.req.session
     lib.context["reqAuth"] = lib.req.isAuthenticated()
+    lib.context["reqSession"] = req.session
+    lib.context["reqAuth"] = req.isAuthenticated()
     console.log("reqSession", lib.context["reqSession"])
     console.log("reqAuth", lib.context["reqAuth"])
     if (lib.req.session && lib.req.isAuthenticated()) {
