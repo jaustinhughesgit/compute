@@ -82,10 +82,7 @@ const json1 = [
                 assign:"passportSession"
             }
         ]
-    }
-]
-
-const json2 = [
+    },
     {
        modules: {
         },
@@ -180,9 +177,7 @@ const json2 = [
                 assign:"newAuthentication"
             }
         ]
-    }
-]
-const json3 = [
+    },
     {
        modules: {
         },
@@ -215,38 +210,7 @@ let middleware1 = json1.map(stepConfig => {
     };
 });
 
-let middleware2 = json2.map(stepConfig => {
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
-
-let middleware3 = json3.map(stepConfig => {
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib.context["urlpath"] = req.path
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
-/*
-let middleware4 = json4.map(stepConfig => {
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib.context["urlpath"] = req.path
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
-*/
-lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3);
+lib.dyRouter.all('/*', ...middleware1);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
