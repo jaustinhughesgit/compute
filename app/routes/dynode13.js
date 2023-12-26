@@ -561,8 +561,10 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(item, context) {
+    console.log("item context", item, context)
     let processedItem = item;
     if (typeof processedItem === 'string') {
+        console.log("processedItem typeof", processedItem)
         processedItem = processString(processedItem, context);
         console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
@@ -573,7 +575,8 @@ function replacePlaceholders(item, context) {
 }
 
 function processString(str, context) {
-
+    console.log("str",str)
+    let tmpStr = "";
     if (str.startsWith('{{')) {
         tmpStr = str.slice(2, -2);
     } else {
