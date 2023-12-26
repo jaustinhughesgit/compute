@@ -37,15 +37,6 @@ const json1 = [
                 assign:"passport-microsoft"
             },
             {
-                next:true
-            }
-         ]
-    },
-    {
-       modules: {
-        },
-        actions: [
-            {
                 target:"passport-microsoft",
                 chain:[
                     {access:"Strategy"}
