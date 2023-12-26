@@ -70,7 +70,7 @@ const json1 = [
                 chain:[
                     {access:"send", params:["{{}}"]}
                 ],
-                assign:"{{hello}}!"
+                assign:"hello"
             },
             {
                 target:"passport",
