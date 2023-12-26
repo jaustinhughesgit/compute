@@ -616,7 +616,7 @@ function replaceParams(param, context, scope, args) {
                         }
                     }, context);
                     console.log("value", value)
-                    param = value
+                    return value
                 }
 
                 return scope[paramName] || context[paramName] || param;
