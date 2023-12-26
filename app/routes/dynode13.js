@@ -575,8 +575,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("runParams", runParams)
 
 
-
-                            lib.context[runAction.access.slice(2,-2)] = runParams[0]
+                            for (const paramItem of runParams){
+                                lib.context[runAction.access.slice(2,-2)] = replaceParams(runParams[0], context, scope, args);
+                            }
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
