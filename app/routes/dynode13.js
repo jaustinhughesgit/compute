@@ -47,15 +47,6 @@ const json1 = [
                 assign:"passport-microsoft"
             },
             {
-                target:"{{passport-microsoft}}",
-                chain:[
-                    {
-                        assign:"Strategy"
-                    }
-                ],
-                assign:"MicrosoftStrategy"
-            },
-            {
                 next:true
             }
          ]
@@ -63,11 +54,11 @@ const json1 = [
 ]
 
 function one(req, res, next) {
-    //lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
+    lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
     //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
-    //next();
+    next();
 }
 
 const json2 = [
@@ -88,11 +79,13 @@ const json2 = [
 
 function two(req, res, next) {
     console.log("two")
+    console.log(lib)
     console.log(lib.context)
     lib.context.passport.session()(req, res, next);
 }
 function three(req, res, next) {
     console.log("three")
+    console.log(lib)
     console.log(lib.context)
     lib.context.passport.serializeUser((user, done) => {
         done(null, user);
@@ -184,7 +177,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
@@ -619,9 +612,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     return processParam(param, context, true)
                 });
             } else {
-                result = result[chainAction.access]
-                return
-                //chainParams = [];
+                chainParams = [];
             }
             if (chainAction.access && !chainAction.params) {   
                 result = result[chainAction.access];
