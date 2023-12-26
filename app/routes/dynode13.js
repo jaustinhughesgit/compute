@@ -65,7 +65,9 @@ const json1 = [
                 assign:"passportSession"
             }
         ]
-    },
+    }
+]    
+const json2 = [
     {
        modules: {
         },
@@ -196,22 +198,12 @@ const json1 = [
             {
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{newAuth}}"]}
+                    {access:"json", params:["{{user}}"]}
                 ]
             }
         ]
     }
 ]
-
-function isLoggedIn(req, res, next) {
-    if (req.session && req.isAuthenticated()) {
-        lib.context["reqSession"] = req.session
-        lib.context["reqAuth"] = req.isAuthenticated()
-        next();
-    } else {
-        res.redirect('/auth/microsoft');
-    }
-}
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -224,7 +216,28 @@ let middleware1 = json1.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', isLoggedIn, ...middleware1);
+let middleware2 = json2.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+
+function one(req, res, next){
+    lib.context["reqSession"] = req.session
+    lib.context["reqAuth"] = req.isAuthenticated()
+
+    if (req.session && req.isAuthenticated()) {
+        res.json(lib.context)
+    }
+    next();
+}
+
+lib.dyRouter.all('/*', ...middleware1, one, ...middleware1);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
