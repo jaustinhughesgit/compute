@@ -244,7 +244,19 @@ function one(req, res, next){
     next();
 }
 
-lib.dyRouter.all('/*', ...middleware1, one, ...middleware2);
+function four(req, res){
+    if (err || !user) {
+        return res.redirect('/');
+    }
+    req.logIn(user, (err) => {
+        if (err) {
+            return res.redirect('/');
+        }
+        return res.json({ "isAuthenticated": req.isAuthenticated(), "user":req.user});
+    });
+}
+
+lib.dyRouter.all('/*', ...middleware1, one, four)//...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
