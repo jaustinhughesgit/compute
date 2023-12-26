@@ -56,6 +56,22 @@ const json1 = [
        modules: {
         },
         actions: [
+
+            {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
+            },
+            {
+                ifs:[["{{urlpath}}","==","/hello"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:["{{}}"]}
+                ],
+                assign:"{{hello}}!"
+            },
             {
                 target:"passport",
                 chain:[
