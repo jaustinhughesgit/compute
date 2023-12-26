@@ -592,8 +592,15 @@ function processString(str, context) {
         console.log("str", tempStr)
         return lib[tempStr];
     }
+    
+    if (lib.context[tmpStr]){
+        console.log("lib context found", tmpStr)
+        console.log("lib.context[tmpStr]", lib.context[tmpStr])
+        return lib.context[tmpStr]
+    }
 
     try {
+        console.log("resolve", require.resolve("/tmp/node_modules/"+tempStr))
         if (require.resolve("/tmp/node_modules/"+tempStr)) {
             console.log("/tmp/node_modules/"+tempStr)
             return require("/tmp/node_modules/"+tempStr);
@@ -602,11 +609,6 @@ function processString(str, context) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
-    if (lib.context[tmpStr]){
-        console.log("lib context found", tmpStr)
-        console.log("lib.context[tmpStr]", lib.context[tmpStr])
-        return lib.context[tmpStr]
-    }
 
     const singlePlaceholderRegex = /^\{\{([^}]+)\}\}!?$/
     const singleMatch = str.match(singlePlaceholderRegex);
