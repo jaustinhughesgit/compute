@@ -121,6 +121,41 @@ const json2 = [
                 assign:"deserializeUser"
             },
             {
+                params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
+                chain:[],
+                run:[
+                    {access:"((done))", params:[null, "((profile))"]}
+                ],
+                assign:"callbackFunction"
+            },
+            {
+                target:"passport-microsoft",
+                chain:[
+                {access:"Strategy", params:[
+                    {
+                        clientID: process.env.MICROSOFT_CLIENT_ID,
+                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+                        resource: "https://graph.microsoft.com/",
+                        tenant: process.env.MICROSOFT_TENANT_ID,
+                        prompt: "login",
+                        state: false,
+                        type: "Web",
+                        scope: ["user.read"]
+                    },"{{callbackFunction}}"
+                ],
+                    new:true}
+                ],
+                assign:"passportmicrosoft"
+            },
+            {
+                target:"passport",
+                chain:[
+                    {access:"use", params:["{{passportmicrosoft}}"]}
+                ],
+                assign:"newStrategy"
+            },
+            {
                 next:true
             }
         ]
@@ -128,15 +163,6 @@ const json2 = [
 ]
 
 function three(req, res, next) {
-
-    lib.context.passport.use(new lib.context.MicrosoftStrategy({
-        clientID: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-        scope: ['user.read']
-    }, (accessToken, refreshToken, profile, done) => {
-        done(null, profile);
-    }));
 
     console.log("req.path", req.path)
     if (req.path === "/microsoft") {
