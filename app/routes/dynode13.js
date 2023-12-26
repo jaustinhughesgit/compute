@@ -58,21 +58,6 @@ const json1 = [
         actions: [
 
             {
-                target:"req",
-                chain:[
-                    {access:"isAuthenticated", params:[]}
-                ],
-                assign:"newAuth"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/hello"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:["{{}}"]}
-                ],
-                assign:"hello"
-            },
-            {
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
@@ -173,7 +158,22 @@ const json1 = [
                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
                 ],
                 assign:"newAuthentication"
-            }
+            },
+            {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
+            },
+            {
+                ifs:[["{{urlpath}}","==","/hello"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:["{{}}"]}
+                ],
+                assign:"hello"
+            },
         ]
     },
     {
