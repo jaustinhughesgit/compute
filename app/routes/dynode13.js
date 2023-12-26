@@ -142,10 +142,14 @@ const json1 = [
                 "set":{"user":""}
             },
             {
+                "set":{"newAuth":""}
+            },
+            {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
-                   {access:"{{user}}", params:["((user))"]},
+                    {access:"{{user}}", params:["((user))"]},
+                    {access:"{{newAuth}}", params:[true]},
                    {access:"next", params:[]}
                 ],
 
@@ -158,7 +162,8 @@ const json1 = [
                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
                 ],
                 assign:"newAuthentication"
-            }/*,
+            }
+            /*,
             {
                 target:"req",
                 chain:[
@@ -174,6 +179,7 @@ const json1 = [
                 ],
                 assign:"hello"
             },*/
+            //MAYBE THIS WILL WORK TOMORROW. IT WAS NEVER COMMITTED. Seems like urlpath having issues in conditions, meaning our processString function is sending back the require not the url path.
         ]
     },
     {
@@ -190,7 +196,7 @@ const json1 = [
             {
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{user}}"]}
+                    {access:"json", params:["{{newAuth}}"]}
                 ]
             }
         ]
