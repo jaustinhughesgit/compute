@@ -10,6 +10,10 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
+lib.AWS.config.update({ region: 'us-east-1' });
+lib.dynamodbLL = new lib.AWS.DynamoDB();
+lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
+
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -58,6 +62,23 @@ const json1 = [
         actions: [
 
             {
+                target:"dyRouter",
+                chain:[
+                    {access:"use", params:["{{passportInitialize}}"]}
+                ],
+                assign:"useInitialize"
+            },
+            {
+                next:true
+            }
+        ]
+    },
+    {
+       modules: {
+        },
+        actions: [
+
+            {
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
@@ -66,6 +87,25 @@ const json1 = [
             }
         ]
     },
+    {
+       modules: {
+        },
+        actions: [
+
+            {
+                target:"dyRouter",
+                chain:[
+                    {access:"use", params:["{{passportSession}}"]}
+                ],
+                assign:"useSession"
+            },
+            {
+                next:true
+            }
+        ]
+    }
+]    
+const json2 = [
     {
        modules: {
         },
@@ -145,11 +185,15 @@ const json1 = [
                 "set":{"newAuth":""}
             },
             {
+                "set":{"displayName":""}
+            },
+            {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
+                    {access:"{{displayName}}", params:["((user.displayName))"]},
                    {access:"next", params:[]}
                 ],
 
@@ -196,7 +240,7 @@ const json1 = [
             {
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{newAuth}}"]}
+                    {access:"json", params:["{{}}"]}
                 ]
             }
         ]
@@ -214,7 +258,31 @@ let middleware1 = json1.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middleware1);
+let middleware2 = json2.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+
+function one(req, res, next){
+    lib.context["reqSession"] = lib.req.session
+    lib.context["reqAuth"] = lib.req.isAuthenticated()
+    lib.context["reqSession"] = req.session
+    lib.context["reqAuth"] = req.isAuthenticated()
+    console.log("reqSession", lib.context["reqSession"])
+    console.log("reqAuth", lib.context["reqAuth"])
+    //if (lib.req.session && lib.req.isAuthenticated()) {
+        //res.json(lib.context)
+    //}
+    next();
+}
+
+lib.dyRouter.all('/*', ...middleware1, one, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -505,7 +573,13 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
                             console.log("runParams", runParams)
-                            lib.context[runAction.access.slice(2,-2)] = runParams
+
+
+                            for (const paramItem of runParams){
+                                let val = replaceParams(runParams[0], context, scope, args);
+                                console.log("val++", val)
+                                lib.context[runAction.access.slice(2,-2)] = val
+                            }
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
@@ -533,6 +607,22 @@ function replaceParams(param, context, scope, args) {
                 if (!isNaN(paramName)) {
                     return args[paramName];
                 }
+
+                if (param.includes(".")){
+                    console.log("includes .")
+                    const keys = paramName.split('.');
+                    console.log("keys", keys)
+                    let value = keys.reduce((currentContext, key) => {
+                        console.log("key2", key, currentContext)
+                        if (currentContext && currentContext[key] !== undefined) {
+                            console.log("returning currentContext[key]", currentContext[key], key, currentContext)
+                            return currentContext[key];
+                        }
+                    }, lib.context);
+                    console.log("value", value)
+                    return value
+                }
+
                 return scope[paramName] || context[paramName] || param;
             }
         } else {
@@ -757,5 +847,43 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
     return result;
 }
+/*
+async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
+    console.log("inside regOAuth", email)
+    const params = { TableName: 'account', Key: { "email": email } };
+    console.log(params)
+    const coll = await dynamodb.get(params).promise();
+    console.log(coll)
+    if (coll.hasOwnProperty("Item")) {
+        res.send("Email already registered through another method.");
+    } else {
+        const uniqueId = uuidv4();
+        const currentDate = new Date();
+        const isoFormat = currentDate.toISOString();
+        const item = {
+            id: uniqueId,
+            email: email,
+            first: firstName,
+            last: lastName,
+            creationDate: isoFormat,
+            proxyEmail: realEmail,
+            verified: false,
+            password: hasPass
+            // No password is saved for OAuth users
+        };
 
+        const insertParams = {
+            TableName: 'account',
+            Item: item
+        };
+        try {
+            await dynamodb.put(insertParams).promise();
+            res.redirect('/dashboard');
+            //res.send("Account Created!");
+        } catch (error) {
+            res.status(500).json({ error: "Error inserting into DynamoDB" });
+        }
+    }
+}
+*/
 module.exports = lib.dyRouter;
