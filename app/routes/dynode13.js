@@ -239,15 +239,19 @@ let middleware4 = json4.map(stepConfig => {
 lib.dyRouter.all('/*', ...middleware1, middleware2, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
+    console.log(1)
     if (arguments.length === 1) {
+        console.log(2)
         return !!left;
     }
 
     if (!Array.isArray(conditions)) {
+        console.log(3)
         conditions = [{ condition: conditions, right: right }];
     }
 
     return conditions.reduce((result, cond) => {
+        console.log(4)
         const currentResult = checkCondition(left, cond.condition, cond.right, context);
         if (operator === "&&") {
             return result && currentResult;
@@ -260,6 +264,7 @@ function condition(left, conditions, right, operator = "&&", context) {
 }
 
 function checkCondition(left, condition, right, context) {
+    console.log(5)
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
     switch (condition) {
@@ -392,8 +397,11 @@ async function initializeModules(context, config, req, res, next) {
         if (action.if) {
             runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
         } else if (action.ifs) {
+            console.log(action.ifs)
             for (const ifObject of action.ifs) {
+                console.log("ifObject", ifObject)
                 runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
+                console.log("runAction",runAction)
                 if (!runAction) {
                     break;
                 }
