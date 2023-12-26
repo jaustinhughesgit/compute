@@ -24,15 +24,6 @@ const json1 = [
              "passport-microsoft":"passport-microsoft"
          },
          actions: [
-             {
-                 next:true
-             }
-         ]
-     },
-     {
-        modules: {
-         },
-         actions: [
             {
                 target:"passport",
                 chain:[
