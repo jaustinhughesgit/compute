@@ -175,31 +175,14 @@ const json2 = [
                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"{{passport}}",
                 chain:[
-                    {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
+                    {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
                 ],
                 assign:"newAuthentication"
-            }
-            {
-                next:true
             }
         ]
     }
 ]
 
-function three(req, res, next) {
-
-
-    
-    if (req.path === "/microsoft/callback") {
-        lib.context.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
-                console.log("user",user)
-                req.userInfo = user;
-                next(); 
-        })(req, res);
-    } else {
-        res.send("Page not found");
-    }
-}
 function four(req, res) {
     console.log("four")
     if (!req.userInfo) {
@@ -259,7 +242,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, middleware2, three, four);
+lib.dyRouter.all('/*', ...middleware1, middleware2, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
