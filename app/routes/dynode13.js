@@ -185,6 +185,9 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
+                "set":{"userName":""}
+            },
+            {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
@@ -603,12 +606,24 @@ function replaceParams(param, context, scope, args) {
             if (param.startsWith('((') && param.endsWith('))')) {
                 const paramName = param.slice(2, -2);
                 const keys = paramName.split('.');
+                console.log("keys", keys)
                 let value = keys.reduce((currentContext, key) => {
-                    return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+                    console.log("currentContext",currentContext)
+                    console.log("currentContext[key]",currentContext[key])
+                    if (currentContext && currentContext[key] !== undefined) {
+                        console.log("returning currentContext[key]")
+                        return currentContext[key];
+                    } else {
+                        console.log("undefined")
+                        return undefined;
+                    }
                 }, context);
+
                 if (!isNaN(value)) {
+                    console.log("!isNaN")
                     return args[value];
                 }
+                console.log("else returning scope[value] || context[value] || param")
                 return scope[value] || context[value] || param;
             }
         } else {
