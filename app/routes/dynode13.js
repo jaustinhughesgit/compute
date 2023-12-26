@@ -267,6 +267,8 @@ function checkCondition(left, condition, right, context) {
     console.log(5)
     left = replacePlaceholders(left, context)
     right = replacePlaceholders(right, context)
+    console.log("left",left)
+    console.log("right",right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
