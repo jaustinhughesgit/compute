@@ -185,11 +185,15 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
+                "set":{"userName":""}
+            },
+            {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
+                    {access:"{{userName}}", params:["((user))"]}
                    {access:"next", params:[]}
                 ],
 
@@ -569,7 +573,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
                             console.log("runParams", runParams)
-                            lib.context[runAction.access.slice(2,-2)] = runParams
+                            lib.context[runAction.access.slice(2,-2)] = runParams[0]
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
