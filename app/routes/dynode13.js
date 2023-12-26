@@ -204,18 +204,14 @@ const json1 = [
 ]
 
 function isLoggedIn(req, res, next) {
-    console.log("req.session",req.session)
-    console.log("req.isAuthenticated()",req.isAuthenticated())
     if (req.session && req.isAuthenticated()) {
+        lib.context["reqSession"] = req.session
+        lib.context["reqAuth"] = req.isAuthenticated()
         next();
     } else {
         res.redirect('/auth/microsoft');
     }
 }
-
-lib.dyRouter.get('/auth/dashboard', (req, res) => {
-    res.send('Welcome to your dashboard');
-});
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -228,7 +224,7 @@ let middleware1 = json1.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middleware1);
+lib.dyRouter.all('/*', isLoggedIn, ...middleware1);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
