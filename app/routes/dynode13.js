@@ -54,7 +54,7 @@ const json1 = [
 ]
 
 function one(req, res, next) {
-    //lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
+    lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
     //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
@@ -66,13 +66,6 @@ const json2 = [
        modules: {
         },
         actions: [
-            {
-                target:"{{passport-microsoft}}",
-                chain:[
-                    {access:"Strategy", params:[]}
-                ],
-                assign:"MicrosoftStrategy"
-            },
             {
                 target:"passport",
                 chain:[
@@ -181,7 +174,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
