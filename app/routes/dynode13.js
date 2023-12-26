@@ -240,7 +240,7 @@ const json2 = [
             {
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{}}"]}
+                    {access:"send", params:["{{newAuth}}"]}
                 ]
             }
         ]
