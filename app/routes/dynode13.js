@@ -62,7 +62,7 @@ const json1 = [
                 chain:[
                     {access:"use", params:["{{passportInitialize}}"]}
                 ],
-                assign:"useInitialize"
+                assign:"{{useInitialize}}!"
             },
             {
                 next:true
@@ -93,7 +93,7 @@ const json1 = [
                 chain:[
                     {access:"use", params:["{{passportSession}}"]}
                 ],
-                assign:"useSession"
+                assign:"{{useSession}}!"
             },
             {
                 next:true
