@@ -2,7 +2,7 @@ const express = require('express');
 const serverless = require('serverless-http');
 const app = express();
 const session = require('express-session');
-
+app.set('trust proxy', 1);
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
