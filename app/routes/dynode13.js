@@ -91,20 +91,37 @@ const json3 = [
     }
 ]
 
+const json4 = [
+    {
+       modules: {
+        },
+        actions: [
+            {
+                params:["((user))", "((done))"], 
+                chain:[],
+                run:[
+                    {access:"((done))", params:[null, "((user))"]}
+                ],
+                assign:"serializeFunction"
+            },
+            {
+                target:"passport",
+                chain:[
+                    {access:"serializeUser", params:["{{serializeFunction}}"]}
+                ],
+                assign:"serializeUser"
+            },
+            {
+                next:true
+            }
+        ]
+    }
+]
 
-/*function two(req, res, next) {
-    console.log("two")
-    console.log(lib)
-    console.log(lib.context)
-    lib.context.passport.session()(req, res, next);
-}*/
 function three(req, res, next) {
     console.log("three")
     console.log(lib)
     console.log(lib.context)
-    lib.context.passport.serializeUser((user, done) => {
-        done(null, user);
-    });
 
     lib.context.passport.deserializeUser((obj, done) => {
         done(null, obj);
@@ -181,7 +198,7 @@ let middleware3 = json3.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-/*
+
 let middleware4 = json4.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -191,8 +208,8 @@ let middleware4 = json4.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-*/
-lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3, three, four);
+
+lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3, middleware4, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
