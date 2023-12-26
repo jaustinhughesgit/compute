@@ -67,6 +67,13 @@ const json2 = [
         },
         actions: [
             {
+                target:"passport-microsoft",
+                chain:[
+                    {access:"Strategy", params:[]}
+                ],
+                assign:"MicrosoftStrategy"
+            }
+            {
                 target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true}
@@ -174,7 +181,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, middleware2, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
