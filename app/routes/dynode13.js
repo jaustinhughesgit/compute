@@ -160,7 +160,7 @@ const json2 = [
             },
             {
                 "set":{"user":{}}
-            }
+            },
             {
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
