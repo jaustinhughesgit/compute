@@ -63,14 +63,20 @@ function one(req, res, next) {
 
 const json2 = [
     {
-        target:"{{passport}}",
-        chain:[
-            {access:"initialize", params:[], express:true}
-        ],
-        assign:"passportInitialize"
-    },
-    {
-        next:true
+       modules: {
+        },
+        actions: [
+            {
+                target:"{{passport}}",
+                chain:[
+                    {access:"initialize", params:[], express:true}
+                ],
+                assign:"passportInitialize"
+            },
+            {
+                next:true
+            }
+        ]
     }
 ]
 
@@ -144,7 +150,7 @@ let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
-        //lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
