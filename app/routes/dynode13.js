@@ -159,7 +159,7 @@ const json2 = [
                 assign:"newAuthentication"
             },
             {
-                "set":{"user":{}}
+                "set":{"user":""}
             },
             {
                 params:["((err))", "((user))", "((info))"], 
@@ -182,23 +182,27 @@ const json2 = [
         ]
     }
 ]
-
-function four(req, res) {
-    console.log("four")
-    if (lib.context.user == {}) {
-        return res.redirect('/');
+const json3 = [
+    {
+       modules: {
+        },
+        actions: [
+            {
+                ifs:[["{{user}}","==",""]],
+                target:"res",
+                chain:[
+                    {access:"json", params:[{"loggedIn":false}]}
+                ]
+            },
+            {
+                target:"res",
+                chain:[
+                    {access:"json", params:["{{user}}"]}
+                ]
+            }
+        ]
     }
-    req.logIn(lib.context.user, (err) => {
-        if (err) {
-            return res.redirect('/');
-        }
-        return res.json({
-            "isAuthenticated": req.isAuthenticated(),
-            "user": lib.context.user
-        });
-    });
-}
-
+]
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -221,7 +225,7 @@ let middleware2 = json2.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-/*
+
 let middleware3 = json3.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -231,7 +235,7 @@ let middleware3 = json3.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
+/*
 let middleware4 = json4.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -242,7 +246,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, middleware2, four);
+lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
