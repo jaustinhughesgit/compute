@@ -56,7 +56,7 @@ const json1 = [
 function one(req, res, next) {
     lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
-    //lib.context.passport.initialize()(req, res, next);
+    lib.context.passportInitialize = lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
     next();
 }
@@ -177,7 +177,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, one, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
