@@ -128,13 +128,6 @@ const json2 = [
 ]
 
 function three(req, res, next) {
-    console.log("three")
-    console.log(lib)
-    console.log(lib.context)
-
-    lib.context.passport.deserializeUser((obj, done) => {
-        done(null, obj);
-    });
 
     lib.context.passport.use(new lib.context.MicrosoftStrategy({
         clientID: process.env.MICROSOFT_CLIENT_ID,
