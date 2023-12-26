@@ -19,7 +19,6 @@ lib.dyRouter.use(lib.session({
 
 const json1 = [
     {
-        //e:4,
         modules: {
              "passport":"passport",
              "passport-microsoft":"passport-microsoft"
@@ -76,12 +75,29 @@ const json2 = [
     }
 ]
 
-function two(req, res, next) {
+const json3 = [
+    {
+       modules: {
+        },
+        actions: [
+            {
+                target:"passport",
+                chain:[
+                    {access:"session", params:[], express:true}
+                ],
+                assign:"passportSession"
+            }
+        ]
+    }
+]
+
+
+/*function two(req, res, next) {
     console.log("two")
     console.log(lib)
     console.log(lib.context)
     lib.context.passport.session()(req, res, next);
-}
+}*/
 function three(req, res, next) {
     console.log("three")
     console.log(lib)
@@ -155,7 +171,7 @@ let middleware2 = json2.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-/*
+
 let middleware3 = json3.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -165,7 +181,7 @@ let middleware3 = json3.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
+/*
 let middleware4 = json4.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -176,7 +192,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
