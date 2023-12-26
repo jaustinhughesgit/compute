@@ -60,7 +60,7 @@ const json2 = [
             {
                 target:"passport-microsoft",
                 chain:[
-                    {access:"Strategy", params:[]}
+                    {access:"Strategy"}
                 ],
                 assign:"MicrosoftStrategy"
             },
