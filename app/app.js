@@ -3,7 +3,6 @@ const serverless = require('serverless-http');
 const app = express();
 const session = require('express-session');
 
-// Session configuration
 app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -54,7 +53,7 @@ function three(req, res) {
                 if (err) {
                     return res.redirect('/');
                 }
-                return res.json({ "isAuthenticated": req.isAuthenticated(), "user":req.user});
+                return res.redirect('/auth/dashboard');
             });
         })(req, res);
     } else {
