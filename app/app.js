@@ -64,6 +64,16 @@ function four(req, res) {
     }
 }
 
+function logSessionCookie(req, res, next) {
+    const sessionCookie = req.cookies['connect.sid']; // The default name for Express session cookies
+    if (sessionCookie) {
+        console.log('Session Cookie:', sessionCookie);
+    } else {
+        console.log('No Session Cookie found');
+    }
+    next(); // Continue to the next middleware or route handler
+}
+
 function isLoggedIn(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
@@ -71,7 +81,7 @@ function isLoggedIn(req, res, next) {
     res.redirect('/auth/microsoft');
 }
 
-app.get('/auth/dashboard', one, two, three, isLoggedIn, (req, res) => {
+app.get('/auth/dashboard', one, two, three, isLoggedIn, logSessionCookie, (req, res) => {
     res.send('Welcome to your dashboard');
 });
 
