@@ -67,7 +67,7 @@ const json2 = [
         },
         actions: [
             {
-                target:"passport",
+                target:"{{passport}}",
                 chain:[
                     {access:"initialize", params:[], express:true}
                 ],
