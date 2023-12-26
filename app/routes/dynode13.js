@@ -563,14 +563,16 @@ function replaceParams(param, context, scope, args) {
 function replacePlaceholders(item, context) {
     console.log("item context", item, context)
     let processedItem = item;
+    console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
         console.log("processedItem typeof", processedItem)
         processedItem = processString(processedItem, context);
         console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
+        console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
-
+    console.log("returning")
     return processedItem;
 }
 
