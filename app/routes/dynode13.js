@@ -54,7 +54,7 @@ const json1 = [
 ]
 
 function one(req, res, next) {
-    lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
+    //lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
     //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
@@ -66,6 +66,13 @@ const json2 = [
        modules: {
         },
         actions: [
+            {
+                target:"passport-microsoft",
+                chain:[
+                    {access:"Strategy"}
+                ],
+                assign:"MicrosoftStrategy"
+            },
             {
                 target:"{{passport}}",
                 chain:[
@@ -226,7 +233,9 @@ function checkCondition(left, condition, right, context) {
 
 async function processAction(action, context, req, res, next) {
     if (action.target) {
+        console.log("getModuleInstance")
         let moduleInstance = replacePlaceholders(action.target, context);
+        console.log("moduleInstance", moduleInstance)
         let args = [];
                 if (action.from) {
                     args = action.from.map(item => {
@@ -242,30 +251,43 @@ async function processAction(action, context, req, res, next) {
                 }
         let result;
         if (typeof moduleInstance === 'function') {
+            console.log("moduleINstance is a function")
             if (args.length == 0) {
+                console.log("args length is 0")
                 result = moduleInstance;
             } else {
+                console.log("args length > 0")
                 result = moduleInstance(...args); 
             }
         } else {
+            console.log("moduleInstance is not a function")
             result = moduleInstance;
         }
+        console.log("applyMethodChain", result, action, context)
         result = await applyMethodChain(result, action, context, res, req, next);
+        console.log("result", result)
         if (action.assign) {
+            console.log(1)
             if (action.assign.includes('{{')) {
+                console.log(2)
                 let isFunctionExecution = action.assign.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
                 if (isFunctionExecution) {
+                    console.log(3)
                     if (typeof result === 'function'){
+                        console.log(4)
                         let tempFunction = () => result;
                         context[assignKey] = tempFunction();
                     } else {
+                        console.log(5)
                         context[assignKey] = result
                     }
                 } else {
+                    console.log(6)
                     context[assignKey] = result;
                 }
             } else {
+                console.log(7)
                 context[action.assign] = result;
             }
         }
@@ -403,6 +425,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (result && typeof result[chainAction.access] === 'function') {
+                        console.log("this is a function")
                         result = result[chainAction.access](...chainParams);
                     } else {
                         console.error(`Method ${chainAction.access} is not a function on result`);
@@ -486,16 +509,23 @@ function replacePlaceholders(item, context) {
 }
 
 function processString(str, context) {
-    if (lib[str]) {
+
+    if (runAction.access.startsWith('{{')) {
+        tmpStr = str.slice(2, -2);
+    } else {
+        tempStr = str
+    }
+
+    if (lib[tempStr]) {
         console.log("lib", lib)
-        console.log("str", str)
-        return lib[str];
+        console.log("str", tempStr)
+        return lib[tempStr];
     }
 
     try {
-        if (require.resolve("/tmp/node_modules/"+str)) {
-            console.log("/tmp/node_modules/"+str)
-            return require("/tmp/node_modules/"+str);
+        if (require.resolve("/tmp/node_modules/"+tempStr)) {
+            console.log("/tmp/node_modules/"+tempStr)
+            return require("/tmp/node_modules/"+tempStr);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
