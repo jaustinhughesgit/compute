@@ -50,8 +50,7 @@ const json1 = [
                 target:"{{passport-microsoft}}",
                 chain:[
                     {
-                        assign:"Strategy",
-                        params:[]
+                        assign:"Strategy"
                     }
                 ],
                 assign:"MicrosoftStrategy"
@@ -620,7 +619,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     return processParam(param, context, true)
                 });
             } else {
-                chainParams = [];
+                result = result[chainAction.access]
+                return
+                //chainParams = [];
             }
             if (chainAction.access && !chainAction.params) {   
                 result = result[chainAction.access];
