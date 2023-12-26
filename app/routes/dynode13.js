@@ -49,10 +49,7 @@ const json1 = [
                 next:true
             }
          ]
-    }
-]
-
-const json2 = [
+    },
     {
        modules: {
         },
@@ -72,10 +69,7 @@ const json2 = [
                 assign:"passportInitialize"
             }
         ]
-    }
-]
-
-const json3 = [
+    },
     {
        modules: {
         },
@@ -178,7 +172,7 @@ let middleware1 = json1.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
+/*
 let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -198,7 +192,7 @@ let middleware3 = json3.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
+*/
 let middleware4 = json4.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -209,7 +203,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middleware1, middleware2, middleware3, middleware4, three, four);
+lib.dyRouter.all('/*', ...middleware1, middleware4, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
