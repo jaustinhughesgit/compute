@@ -43,6 +43,12 @@ const json1 = [
             {
                 target:"passport-microsoft",
                 chain:[
+                ],
+                assign:"passport-microsoft"
+            },
+            {
+                target:"{{passport-microsoft}}",
+                chain:[
                     {
                         assign:"Strategy",
                         params:[]
