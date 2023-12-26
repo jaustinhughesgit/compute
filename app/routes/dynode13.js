@@ -510,7 +510,7 @@ function replacePlaceholders(item, context) {
 
 function processString(str, context) {
 
-    if (runAction.access.startsWith('{{')) {
+    if (str.startsWith('{{')) {
         tmpStr = str.slice(2, -2);
     } else {
         tempStr = str
