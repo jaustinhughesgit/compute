@@ -213,7 +213,7 @@ function isLoggedIn(req, res, next) {
     }
 }
 
-app.get('/auth/dashboard', isLoggedIn, (req, res) => {
+lib.dyRouter.get('/auth/dashboard', isLoggedIn, (req, res) => {
     res.send('Welcome to your dashboard');
 });
 
