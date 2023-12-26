@@ -9,6 +9,7 @@ lib.s3 = new lib.AWS.S3();
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
+
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -16,7 +17,7 @@ lib.dyRouter.use(lib.session({
     cookie: { secure: true } 
 }));
 
-const json = [
+const json1 = [
     {
         //e:4,
         modules: {
@@ -48,216 +49,27 @@ const json = [
             {
                 next:true
             }
-        ]
-    },
-    {
-        modules: {
-         },
-         actions: [
-            {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"initialize", params:[], express:true}
-                 ],
-                 assign:"passportInitialize"
-             },
-            {
-                next:true
-            }
-        ]
+         ]
     }
-            /*,
-             {
-                 params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
-                 chain:[],
-                 run:[
-                     {access:"((done))", params:[null, "((profile))"]}
-                 ],
-                 assign:"callbackFunction"
-             },
-             {
-                 target:"{{passport-microsoft}}",
-                 chain:[
-                 {access:"Strategy", params:[
-                     {
-                         clientID: process.env.MICROSOFT_CLIENT_ID,
-                         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-                         callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-                         resource: "https://graph.microsoft.com/",
-                         tenant: process.env.MICROSOFT_TENANT_ID,
-                         prompt: "login",
-                         state: false,
-                         type: "Web",
-                         scope: ["user.read"]
-                     },"{{callbackFunction}}"
-                 ],
-                     new:true}
-                 ],
-                 assign:"passportmicrosoft"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"initialize", params:[], express:true}
-                 ],
-                 assign:"passportInitialize"
-             },
-             {
-                 next:true
-             }
-         ]
-     },
-     {
-        modules: {
-         },
-         actions: [
-            
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"use", params:["{{passportmicrosoft}}"]}
-                 ],
-                 assign:"newStrategy"
-             },
-            {
-                target:"{{passport}}",
-                chain:[
-                    {access:"session", params:[], express:true}
-                ],
-                assign:"passportSession"
-            },
-            {
-                next:true
-            }
-         ]
-        },
-        {
-           //e:21,
-           modules: {
-            },
-            actions: [
-             {
-                 params:["((user))", "((done))"], 
-                 chain:[],
-                 run:[
-                     {access:"((done))", params:[null, "((user))"]}
-                 ],
-                 assign:"serializeFunction"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"serializeUser", params:["{{serializeFunction}}"]}
-                 ],
-                 assign:"serializeUser"
-             },
-             {
-                 params:["((user))", "((done))"], 
-                 chain:[],
-                 "run":[
-                     {access:"((done))", params:[null, "((user))"]}
-                 ],
-                 assign:"deserializeFunction"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
-                 ],
-                 assign:"deserializeUser"
-             },
-             {
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"use", params:["{{passportmicrosoft}}"]}
-                 ],
-                 assign:"newStrategy"
-             },
-             {
-                ifs:[["{{urlpath}}","==","/microsoft"]],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true},
-                 ],
-                 assign:"newAuthentication"
-             },
-             {
-                 params:["((err))", "((user))", "((info))"], 
-                 chain:[],
-                 run:[
-                    {access:"user", params:["((user))"]},
-                    {access:"next", params:[]}
-                 ],
-
-                 assign:"callbackFunction"
-             },
-             {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                 target:"{{passport}}",
-                 chain:[
-                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
-                 ],
-                 assign:"newAuthentication"
-             }
-          ]
-         },
-         {
-            //e:21,
-            modules: {
-             },
-             actions: [
-
-                {
-                    set:{"user":{}}
-                },
-                {
-                    params:["((err))"], 
-                    chain:[],
-                    run:[
-                        {access:"user", params:[]},
-                        {access:"next", params:[]}
-                    ],
-                    assign:"loginCallback"
-                },
-                {
-                    target:"req",
-                    chain:[
-                        {access:"logIn", params:["{{user}}", "{{loginCallback}}"]}
-                    ],
-                    assign:"logIn"
-                }
-            ]
-        },
-        {
-           //e:21,
-           modules: {
-            },
-            actions: [
-                {
-                    target:"req",
-                    chain:[
-                        {access:"isAuthenticated", params:[]}
-                    ],
-                    assign:"newAuth"
-                },
-                {
-                    ifs:[["{{urlpath}}","==","/hello"]],
-                    target:"res",
-                    chain:[
-                        {access:"send", params:["{{}}"]}
-                    ],
-                    assign:"{{hello}}!"
-                }
-         ]
-     }*/
 ]
+
 function one(req, res, next) {
-    console.log("lib.passport",lib.context.passport)
     lib.context.MicrosoftStrategy = lib.context["passport-microsoft"].Strategy;
     console.log("one")
     //lib.context.passport.initialize()(req, res, next);
     //res.json({ "hello":"world"})
 }
+
+const json2 = [
+    {
+        target:"{{passport}}",
+        chain:[
+            {access:"initialize", params:[], express:true}
+        ],
+        assign:"passportInitialize"
+    }
+]
+
 function two(req, res, next) {
     console.log("two")
     lib.context.passport.session()(req, res, next);
@@ -312,45 +124,9 @@ function four(req, res) {
         });
     });
 }
-/*
-function two(req, res, next) {
-    req.local.passport.session()(req, res, next);
-}
-
-function three(req, res) {
-    req.local.passport.serializeUser((user, done) => {
-        done(null, user);
-    });
-
-    req.local.passport.deserializeUser((obj, done) => {
-        done(null, obj);
-    });
-
-    req.local.passport.use(new req.local.MicrosoftStrategy({
-        clientID: process.env.MICROSOFT_CLIENT_ID,
-        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-        scope: ['user.read']
-    }, (accessToken, refreshToken, profile, done) => {
-        done(null, profile);
-    }));
 
 
-    if (req.path === "/auth/microsoft") {
-        req.local.passport.authenticate('microsoft', { scope: ['user.read'] })(req, res);
-    }
-
-    if (req.path === "/auth/microsoft/callback") {
-        req.local.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
-            next()
-        })(req, res);
-    } else {
-        res.send("Page not found");
-    }
-}
-*/
-
-let middlewareFunctions = json.map(stepConfig => {
+let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
@@ -360,7 +136,37 @@ let middlewareFunctions = json.map(stepConfig => {
     };
 });
 
-lib.dyRouter.all('/*', ...middlewareFunctions, one, two, three, four);
+let middleware2 = json2.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib.context["urlpath"] = req.path
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+/*
+let middleware3 = json3.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib.context["urlpath"] = req.path
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+
+let middleware4 = json4.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib.context["urlpath"] = req.path
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+*/
+lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
