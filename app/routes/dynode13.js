@@ -10,9 +10,9 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-AWS.config.update({ region: 'us-east-1' });
-const dynamodbLL = new AWS.DynamoDB();
-const dynamodb = new AWS.DynamoDB.DocumentClient();
+lib.AWS.config.update({ region: 'us-east-1' });
+lib.dynamodbLL = new lib.AWS.DynamoDB();
+lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 
 lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
