@@ -22,7 +22,7 @@ function two(req, res, next) {
     req.local.passport.session()(req, res, next);
 }
 
-function three(req, res, next) {
+function three(req, res) {
     req.local.passport.serializeUser((user, done) => {
         done(null, user);
     });
@@ -47,23 +47,21 @@ function three(req, res, next) {
 
     if (req.path === "/auth/microsoft/callback") {
         req.local.passport.authenticate('microsoft', { failureRedirect: '/' }, (err, user, info) => {
-            next() //next is undefined
+            if (err || !user) {
+                return res.redirect('/');
+            }
+            req.logIn(user, (err) => {
+                if (err) {
+                    return res.redirect('/');
+                }
+                return res.json({ "isAuthenticated": req.isAuthenticated(), "user":req.user});
+            });
         })(req, res);
     } else {
         res.send("Page not found");
     }
 }
 
-function four(req, res){
-    if (err || !user) {
-        return res.redirect('/');
-    }
-    req.logIn(user, (err) => {
-        if (err) {
-            return res.redirect('/');
-        }
-        return res.json({ "isAuthenticated": req.isAuthenticated(), "user":req.user});
-    });
 }
 
 function isLoggedIn(req, res, next) {
@@ -77,6 +75,6 @@ app.get('/auth/dashboard', isLoggedIn, (req, res) => {
     res.send('Welcome to your dashboard');
 });
 
-app.all('/*', one, two, three, four);
+app.all('/*', one, two, three);
 
 module.exports.lambdaHandler = serverless(app);
