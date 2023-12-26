@@ -185,7 +185,7 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
-                "set":{"displyName":""}
+                "set":{"displayName":""}
             },
             {
                 params:["((err))", "((user))", "((info))"], 
@@ -193,7 +193,7 @@ const json2 = [
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
-                    {access:"{{displyName}}", params:["((user.displyName))"]},
+                    {access:"{{displayName}}", params:["((user.displayName))"]},
                    {access:"next", params:[]}
                 ],
 
@@ -618,7 +618,7 @@ function replaceParams(param, context, scope, args) {
                             console.log("returning currentContext[key]", currentContext[key], key, currentContext)
                             return currentContext[key];
                         }
-                    }, context);
+                    }, lib.context);
                     console.log("value", value)
                     return value
                 }
