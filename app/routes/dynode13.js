@@ -573,9 +573,14 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
                             console.log("runParams", runParams)
-                            for (const paramItem of runParams[0]){
-                                console.log("paramItem", paramItems[0]);
-                                lib.context[runAction.access.slice(2,-2)] = replaceParams(paramItems[0], context, scope, args);
+                            let tempParams = runParams
+                            if (Array.isArray(runParams)) {
+                                tempParams = runParams[0]
+                            }
+
+                            for (const paramItem of tempParams){
+                                console.log("paramItem", tempParams);
+                                lib.context[runAction.access.slice(2,-2)] = replaceParams(tempParams, context, scope, args);
                             }
                             //lib.context[runAction.access.slice(2,-2)] = runParams[0]
                         }
