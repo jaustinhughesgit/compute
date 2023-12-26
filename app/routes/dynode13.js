@@ -58,45 +58,11 @@ const json1 = [
         actions: [
 
             {
-                target:"dyRouter",
-                chain:[
-                    {access:"use", params:["{{passportInitialize}}"]}
-                ],
-                assign:"useInitialize"
-            },
-            {
-                next:true
-            }
-        ]
-    },
-    {
-       modules: {
-        },
-        actions: [
-
-            {
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
-            }
-        ]
-    },
-    {
-       modules: {
-        },
-        actions: [
-
-            {
-                target:"dyRouter",
-                chain:[
-                    {access:"use", params:["{{passportSession}}"]}
-                ],
-                assign:"useSession"
-            },
-            {
-                next:true
             }
         ]
     }
