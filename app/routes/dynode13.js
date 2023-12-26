@@ -576,7 +576,9 @@ function createFunctionFromAction(action, context, req, res, next) {
 
 
                             for (const paramItem of runParams){
-                                lib.context[runAction.access.slice(2,-2)] = replaceParams(runParams[0], context, scope, args);
+                                let val = replaceParams(runParams[0], context, scope, args);
+                                console.log("val++", val)
+                                lib.context[runAction.access.slice(2,-2)] = val
                             }
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
@@ -607,9 +609,11 @@ function replaceParams(param, context, scope, args) {
                 }
 
                 if (param.includes(".")){
+                    console.log("includes .")
                     const keys = paramName.split('.');
                     console.log("keys", keys)
                     let value = keys.reduce((currentContext, key) => {
+                        console.log("key2", key, currentContext)
                         if (currentContext && currentContext[key] !== undefined) {
                             console.log("returning currentContext[key]", currentContext[key], key, currentContext)
                             return currentContext[key];
