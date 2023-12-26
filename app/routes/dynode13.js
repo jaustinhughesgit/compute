@@ -184,7 +184,7 @@ let middleware4 = json4.map(stepConfig => {
     };
 });
 */
-lib.dyRouter.all('/*', ...middleware1, one, middleware2, two, three, four);
+lib.dyRouter.all('/*', ...middleware1, middleware2, two, three, four);
 
 function condition(left, conditions, right, operator = "&&", context) {
     if (arguments.length === 1) {
