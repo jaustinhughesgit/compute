@@ -609,7 +609,11 @@ function replaceParams(param, context, scope, args) {
                 console.log("keys", keys)
                 let value = keys.reduce((currentContext, key) => {
                     console.log("currentContext",currentContext)
-                    console.log("currentContext[key]",currentContext[key])
+                    try{
+                        console.log("currentContext[key]",currentContext[key])
+                    } catch (err){
+                        console.log("err",err)
+                    }
                     if (currentContext && currentContext[key] !== undefined) {
                         console.log("returning currentContext[key]")
                         return currentContext[key];
