@@ -67,11 +67,11 @@ const json2 = [
         },
         actions: [
             {
-                target:"passport-microsoft",
+                target:"{{passport-microsoft}}",
                 chain:[
                     {access:"Strategy", params:[]}
                 ],
-                assign:"{{MicrosoftStrategy}}"
+                assign:"MicrosoftStrategy"
             },
             {
                 target:"passport",
