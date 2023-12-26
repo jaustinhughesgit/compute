@@ -193,7 +193,7 @@ const json2 = [
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
-                    {access:"{{userName}}", params:["((user))"]}
+                    {access:"{{userName}}", params:["((user))"]},
                    {access:"next", params:[]}
                 ],
 
