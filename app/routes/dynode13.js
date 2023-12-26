@@ -527,12 +527,16 @@ function createFunctionFromAction(action, context, req, res, next) {
 
 function replaceParams(param, context, scope, args) {
     if (param) {
-        if (param.startsWith('((') && param.endsWith('))')) {
-            const paramName = param.slice(2, -2);
-            if (!isNaN(paramName)) {
-                return args[paramName];
+        if (typeof param === 'string'){
+            if (param.startsWith('((') && param.endsWith('))')) {
+                const paramName = param.slice(2, -2);
+                if (!isNaN(paramName)) {
+                    return args[paramName];
+                }
+                return scope[paramName] || context[paramName] || param;
             }
-            return scope[paramName] || context[paramName] || param;
+        } else {
+            console.log("typeof param", typeof param)
         }
     }
     return param;
