@@ -265,10 +265,12 @@ function condition(left, conditions, right, operator = "&&", context) {
 
 function checkCondition(left, condition, right, context) {
     console.log(5)
+    console.log("left1", left)
     left = replacePlaceholders(left, context)
+    console.log("left2",left)
+    console.log("right1", right)
     right = replacePlaceholders(right, context)
-    console.log("left",left)
-    console.log("right",right)
+    console.log("right2",right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
