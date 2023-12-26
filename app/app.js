@@ -21,7 +21,7 @@ function two(req, res, next) {
     req.local.passport.session()(req, res, next);
 }
 
-function three(req, res) {
+function three(req, res, next) {
     req.local.passport.serializeUser((user, done) => {
         done(null, user);
     });
@@ -29,7 +29,10 @@ function three(req, res) {
     req.local.passport.deserializeUser((obj, done) => {
         done(null, obj);
     });
+    next();
+}
 
+function four(req, res) {
     req.local.passport.use(new req.local.MicrosoftStrategy({
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
@@ -68,10 +71,10 @@ function isLoggedIn(req, res, next) {
     res.redirect('/auth/microsoft');
 }
 
-app.get('/auth/dashboard', isLoggedIn, (req, res) => {
+app.get('/auth/dashboard', one, two, three, isLoggedIn, (req, res) => {
     res.send('Welcome to your dashboard');
 });
 
-app.all('/*', one, two, three);
+app.all('/*', one, two, three, four);
 
 module.exports.lambdaHandler = serverless(app);
