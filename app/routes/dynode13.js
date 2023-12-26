@@ -158,7 +158,7 @@ const json1 = [
                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
                 ],
                 assign:"newAuthentication"
-            },
+            }/*,
             {
                 target:"req",
                 chain:[
@@ -173,7 +173,7 @@ const json1 = [
                     {access:"send", params:["{{newAuth}}"]}
                 ],
                 assign:"hello"
-            },
+            },*/
         ]
     },
     {
