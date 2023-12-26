@@ -583,6 +583,10 @@ function processString(str, context) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
+    if (lib.context[tmpStr]){
+        return lib.context[tmpStr]
+    }
+
     const singlePlaceholderRegex = /^\{\{([^}]+)\}\}!?$/
     const singleMatch = str.match(singlePlaceholderRegex);
 
