@@ -4,11 +4,18 @@ lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
 lib.fs = require('fs');
-lib.session = require('express-session');
+session = require('express-session');
 lib.s3 = new lib.AWS.S3();
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
+
+lib.dyRouter.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
 
 const json1 = [
     {
