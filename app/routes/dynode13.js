@@ -159,6 +159,27 @@ const json2 = [
                 assign:"newAuthentication"
             },
             {
+                "set":{"user":{}}
+            }
+            {
+                params:["((err))", "((user))", "((info))"], 
+                chain:[],
+                run:[
+                   {access:"{{user}}", params:["((user))"]},
+                   {access:"next", params:[]}
+                ],
+
+                assign:"callbackFunction"
+            },
+            {
+               ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                target:"{{passport}}",
+                chain:[
+                    {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true},
+                ],
+                assign:"newAuthentication"
+            }
+            {
                 next:true
             }
         ]
@@ -516,8 +537,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
-                        }
-                        if (runAction.subtract && typeof runAction.subtract === 'number'){
+                        }else if (runAction.subtract && typeof runAction.subtract === 'number'){
                             const contextKey = runAction.access.slice(2, -2); 
                             let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
@@ -525,6 +545,10 @@ function createFunctionFromAction(action, context, req, res, next) {
                             } else {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
+                        } else {
+                            console.log("runAction.access.splice(2,-2)",runAction.access.splice(2,-2))
+                            console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.splice(2,-2)])
+                            result = lib.context[runAction.access.splice(2,-2)]
                         }
                     } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
                         const methodName = runAction.access.slice(2, -2);
@@ -536,11 +560,6 @@ function createFunctionFromAction(action, context, req, res, next) {
                         }
                     } else if (runAction.access == "next") {
                         next();
-                    } else if (runAction.access == "user") {
-                        console.log("req",req)
-                        console.log("res",res)
-                        console.log("runAction", runAction)
-                        console.log("runParams", runParams)
                     }
                 }
             }
@@ -592,7 +611,7 @@ function processString(str, context) {
         console.log("str", tempStr)
         return lib[tempStr];
     }
-    
+
     if (lib.context[tmpStr]){
         console.log("lib context found", tmpStr)
         console.log("lib.context[tmpStr]", lib.context[tmpStr])
