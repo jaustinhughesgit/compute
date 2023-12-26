@@ -605,7 +605,7 @@ function replaceParams(param, context, scope, args) {
                 const keys = paramName.split('.');
                 let value = keys.reduce((currentContext, key) => {
                     return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-                }, scope);
+                }, context);
                 if (!isNaN(value)) {
                     return args[value];
                 }
