@@ -74,7 +74,7 @@ const json2 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                target:"{{passport}}",
+                target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true}
                 ],
