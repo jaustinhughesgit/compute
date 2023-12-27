@@ -45,7 +45,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                ifs:[["{{urlpath}}","==","/microsoft"]],
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"AAA",
                 chain:[
                     {access:"session", param:[{
@@ -67,19 +67,11 @@ const json1 = [
         },
         actions: [
             {
-                set:{"Lion":"Rawr"}
-            },
-            {
-                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true, next:true}
                 ],
                 assign:"passportInitialize"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                next:true
             }
         ]
     },
@@ -88,19 +80,11 @@ const json1 = [
         },
         actions: [
             {
-                set:{"cat":"meow"}
-            },
-            {
-                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
-                next:true
             }
         ]
     }
