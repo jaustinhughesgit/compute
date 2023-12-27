@@ -304,6 +304,7 @@ let middleware1 = json1.map(stepConfig => {
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
         lib.context["sessionID"] = req.sessionID
+        console.log('connect.sid:', req.cookies['connect.sid']);
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
@@ -348,13 +349,13 @@ function condition(left, conditions, right, operator = "&&", context) {
 }
 
 function checkCondition(left, condition, right, context) {
-    console.log(5)
-    console.log("left1", left)
+    //console.log(5)
+    //console.log("left1", left)
     left = replacePlaceholders(left, context)
-    console.log("left2",left)
-    console.log("right1", right)
+    //console.log("left2",left)
+    //console.log("right1", right)
     right = replacePlaceholders(right, context)
-    console.log("right2",right)
+    //console.log("right2",right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -378,9 +379,9 @@ function checkCondition(left, condition, right, context) {
 
 async function processAction(action, context, req, res, next) {
     if (action.target) {
-        console.log("getModuleInstance")
+        //console.log("getModuleInstance")
         let moduleInstance = replacePlaceholders(action.target, context);
-        console.log("moduleInstance", moduleInstance)
+        //console.log("moduleInstance", moduleInstance)
         let args = [];
                 if (action.from) {
                     args = action.from.map(item => {
@@ -396,43 +397,43 @@ async function processAction(action, context, req, res, next) {
                 }
         let result;
         if (typeof moduleInstance === 'function') {
-            console.log("moduleINstance is a function")
+            //console.log("moduleINstance is a function")
             if (args.length == 0) {
-                console.log("args length is 0")
+                //console.log("args length is 0")
                 result = moduleInstance;
             } else {
-                console.log("args length > 0")
+                //console.log("args length > 0")
                 result = moduleInstance(...args); 
             }
         } else {
-            console.log("moduleInstance is not a function")
+            //console.log("moduleInstance is not a function")
             result = moduleInstance;
         }
-        console.log("applyMethodChain", result, action, context)
+        //console.log("applyMethodChain", result, action, context)
         result = await applyMethodChain(result, action, context, res, req, next);
-        console.log("result", result)
+        //console.log("result", result)
         if (action.assign) {
-            console.log(1)
+            //console.log(1)
             if (action.assign.includes('{{')) {
-                console.log(2)
+                //console.log(2)
                 let isFunctionExecution = action.assign.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
                 if (isFunctionExecution) {
-                    console.log(3)
+                    //console.log(3)
                     if (typeof result === 'function'){
-                        console.log(4)
+                        //console.log(4)
                         let tempFunction = () => result;
                         context[assignKey] = tempFunction();
                     } else {
-                        console.log(5)
+                        //console.log(5)
                         context[assignKey] = result
                     }
                 } else {
-                    console.log(6)
+                    //console.log(6)
                     context[assignKey] = result;
                 }
             } else {
-                console.log(7)
+                //console.log(7)
                 context[action.assign] = result;
             }
         }
@@ -440,9 +441,9 @@ async function processAction(action, context, req, res, next) {
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            console.log("action/////", action)
+            //console.log("action/////", action)
             let result = createFunctionFromAction(action, context, req, res, next)
-            console.log("result/////",result)
+            //console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
                     context[assignKey] =  result()
@@ -450,7 +451,7 @@ async function processAction(action, context, req, res, next) {
                     context[assignKey] =  result;
                 }
             } else {
-                console.log("no !")
+                //console.log("no !")
                 if (typeof result === 'function'){
                     console.log("executing function", JSON.stringify(result))
                 }
@@ -486,11 +487,11 @@ async function initializeModules(context, config, req, res, next) {
             if (action.if) {
                 runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
             } else if (action.ifs) {
-                console.log(action.ifs)
+                //console.log(action.ifs)
                 for (const ifObject of action.ifs) {
-                    console.log("ifObject", ifObject)
+                    //console.log("ifObject", ifObject)
                     runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
-                    console.log("runAction",runAction)
+                    //console.log("runAction",runAction)
                     if (!runAction) {
                         break;
                     }
@@ -575,7 +576,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (result && typeof result[chainAction.access] === 'function') {
-                        console.log("this is a function")
+                        //console.log("this is a function")
                         result = result[chainAction.access](...chainParams);
                     } else {
                         console.error(`Method ${chainAction.access} is not a function on result`);
@@ -609,15 +610,15 @@ function createFunctionFromAction(action, context, req, res, next) {
                                 console.error(`'${contextKey}' is not a number or not found in context`);
                             }
                         } else {
-                            console.log("runAction.access.splice(2,-2)",runAction.access.slice(2,-2))
-                            console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
+                            //console.log("runAction.access.splice(2,-2)",runAction.access.slice(2,-2))
+                            //console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
                             result = lib.context[runAction.access.slice(2,-2)]
-                            console.log("runParams", runParams)
+                            //console.log("runParams", runParams)
 
 
                             for (const paramItem of runParams){
                                 let val = replaceParams(runParams[0], context, scope, args);
-                                console.log("val++", val)
+                                //console.log("val++", val)
                                 lib.context[runAction.access.slice(2,-2)] = val
                             }
                         }
@@ -673,23 +674,23 @@ function replaceParams(param, context, scope, args) {
 }
 
 function replacePlaceholders(item, context) {
-    console.log("item context", item, context)
+    //console.log("item context", item, context)
     let processedItem = item;
     console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
-        console.log("processedItem typeof", processedItem)
+        //console.log("processedItem typeof", processedItem)
         processedItem = processString(processedItem, context);
-        console.log("processedItem", processedItem)
+        //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
-        console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
+        //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
         processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
-    console.log("returning")
+    //console.log("returning")
     return processedItem;
 }
 
 function processString(str, context) {
-    console.log("str",str)
+    //console.log("str",str)
     let tmpStr = "";
     if (str.startsWith('{{')) {
         tmpStr = str.slice(2, -2);
@@ -698,21 +699,21 @@ function processString(str, context) {
     }
 
     if (lib[tempStr]) {
-        console.log("lib", lib)
-        console.log("str", tempStr)
+        //console.log("lib", lib)
+        //console.log("str", tempStr)
         return lib[tempStr];
     }
 
     if (lib.context[tmpStr]){
-        console.log("lib context found", tmpStr)
-        console.log("lib.context[tmpStr]", lib.context[tmpStr])
+        //console.log("lib context found", tmpStr)
+        //console.log("lib.context[tmpStr]", lib.context[tmpStr])
         return lib.context[tmpStr]
     }
 
     try {
-        console.log("resolve", require.resolve("/tmp/node_modules/"+tempStr))
+        //console.log("resolve", require.resolve("/tmp/node_modules/"+tempStr))
         if (require.resolve("/tmp/node_modules/"+tempStr)) {
-            console.log("/tmp/node_modules/"+tempStr)
+            //console.log("/tmp/node_modules/"+tempStr)
             return require("/tmp/node_modules/"+tempStr);
         }
     } catch (e) {
