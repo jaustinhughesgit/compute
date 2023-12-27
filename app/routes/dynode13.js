@@ -240,10 +240,9 @@ const json2 = [
                 assign:"newAuth"
             },
             {
-                ifs:[["{{urlpath}}","==","/dashboard2"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a>{{newAuth}}']}
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a>']}
                 ]
             },
             {
