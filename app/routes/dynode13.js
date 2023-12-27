@@ -225,20 +225,21 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:["{{}}"]} // need to save user details to dynamodb and give the user a uuid4 cookie
+                    {access:"redirect", params:["/auth/dashboard2"]} // need to save user details to dynamodb and give the user a uuid4 cookie
                 ]
-            },
+            },/*
             {
                 target:"req",
                 chain:[
                     {access:"isAuthenticated", params:[]}
                 ],
                 assign:"newAuth"
-            },
+            }*/,
             {
+                ifs:[["{{urlpath}}","==","/dashboard2"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['{{}}']}
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a>']}
                 ]
             },
             {
@@ -252,40 +253,28 @@ const json2 = [
     }
 ]
 
+// WHAT IS CAUSING THE IF CONDITION TO BE SPOILED.
+
+function firstRun(req, res, next){
+    lib.req = req;
+    lib.res = res;
+    lib["urlpath"] = req.path
+    lib.context["urlpath"] = req.path
+}
+
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
 let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        //lib["urlpath"] = req.path
-        //lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
-function one(req, res, next){
-    lib.context["reqSession"] = lib.req.session
-    lib.context["reqAuth"] = lib.req.isAuthenticated()
-    lib.context["reqSession"] = req.session
-    lib.context["reqAuth"] = req.isAuthenticated()
-    console.log("reqSession", lib.context["reqSession"])
-    console.log("reqAuth", lib.context["reqAuth"])
-    if (lib.req.session && lib.req.isAuthenticated()) {
-        res.json(lib.context)
-    }
-    next();
-}
 
 lib.dyRouter.all('/*', ...middleware1, ...middleware2);
 
