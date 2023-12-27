@@ -242,14 +242,14 @@ const json2 = [
             {
                 target:"res",
                 chain:[
-                    {access:"send", params:['{{newAuth}}']}
+                    {access:"send", params:['{{}}']}
                 ]
             },
             {
                 ifs:[["{{urlpath}}","==","/account"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['{{newAuth}}']}
+                    {access:"send", params:['{{}}']}
                 ]
             }
         ]
