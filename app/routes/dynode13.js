@@ -52,7 +52,8 @@ const json1 = [
                         secret: process.env.SESSION_SECRET,
                         resave: false,
                         saveUninitialized: true,
-                        cookie: { secure: true } 
+                        cookie: { secure: true },
+                        sameSite: 'None'
                     }], express:true, next:true}
                 ],
                 assign:"sessionSecret"
@@ -110,10 +111,10 @@ const json2 = [
                 assign:"serializeUser"
             },
             {
-                params:["((user))", "((done))"], 
+                params:["((obj))", "((done))"], 
                 chain:[],
                 "run":[
-                    {access:"((done))", params:[null, "((user))"]}
+                    {access:"((done))", params:[null, "((obj))"]}
                 ],
                 assign:"deserializeFunction"
             },
@@ -215,7 +216,7 @@ const json2 = [
         },
         actions: [
             {
-                ifs:[["{{user}}","==",""]],
+                ifs:[["{{user}}","==",""],["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
                     {access:"json", params:[{"loggedIn":false}]}
