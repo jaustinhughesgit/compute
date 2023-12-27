@@ -9,7 +9,8 @@ lib.root.session = require('express-session');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
-
+const cookieParser = require('cookie-parser');
+lib.app.use(cookieParser(process.env.SESSION_SECRET));
 lib.app.use(lib.root.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
