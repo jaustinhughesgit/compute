@@ -73,10 +73,6 @@ const json1 = [
                     {access:"initialize", params:[], express:true, next:true}
                 ],
                 assign:"passportInitialize"
-            },
-            {
-                ifs:[["{{urlpath}}","!=","/microsoft"]],
-                next:true
             }
         ]
     },
