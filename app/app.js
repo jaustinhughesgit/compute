@@ -10,6 +10,13 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
 
+lib.app.use(lib.root.session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
+
 const json1 = [
     {
         modules: {
