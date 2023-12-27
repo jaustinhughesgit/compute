@@ -67,6 +67,10 @@ const json1 = [
         },
         actions: [
             {
+                set:{"Lion":"Rawr"}
+            },
+            {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true, next:true}
@@ -79,7 +83,6 @@ const json1 = [
        modules: {
         },
         actions: [
-
             {
                 target:"passport",
                 chain:[
