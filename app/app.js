@@ -34,7 +34,7 @@ function three(req, res, next) {
     next();
 }
 
-function four(req, res) {
+function four(req, res, next) {
     req.local.passport.use(new req.local.MicrosoftStrategy({
         clientID: process.env.MICROSOFT_CLIENT_ID,
         clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
