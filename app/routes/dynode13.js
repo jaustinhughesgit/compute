@@ -11,7 +11,7 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-lib.dyRouter.use(lib.session({
+lib.dyRouter.use(lib.AAA.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
