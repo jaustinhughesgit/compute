@@ -172,7 +172,13 @@ const json2 = [
                 "set":{"newAuth":""}
             },
             {
-                "set":{"displayName":""}
+                set:{firstName:""}
+            },
+            {
+                set:{lastName:""}
+            },
+            {
+                set:{email:""}
             },
             {
                 params:["((err))", "((user))", "((info))"], 
@@ -180,8 +186,9 @@ const json2 = [
                 run:[
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
-                    {access:"{{displayName}}", params:["((user.displayName))"]},
-                    {access:"{{oath}}", params:["one", "two", "three", "four", "five", "six"]},
+                    {access:"{{firstName}}", params:["((user._json.givenName))"]},
+                    {access:"{{lastName}}", params:["((user._json.surname))"]},
+                    {access:"{{email}}", params:["((user._json.mail))"]},
                    {access:"next", params:[]}
                 ],
 
@@ -245,8 +252,8 @@ const json2 = [
 ]
 
 // WHAT IS CAUSING THE IF CONDITION TO BE SPOILED.
-
-/*async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
+/*
+async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
     console.log("inside regOAuth", email)
     const params = { TableName: 'account', Key: { "email": email } };
     console.log(params)
@@ -282,16 +289,12 @@ const json2 = [
             res.status(500).json({ error: "Error inserting into DynamoDB" });
         }
     }
-}*/
-function newFunction (one, two, three, four, five, six){
-    console.log("------")
-    console.log("------")
-    console.log(one, two, three, four, five, six)
 }
+
 
 lib.oath = newFunction
 //registerOAuthUser
-//(email, firstName, lastName, res, realEmail, false);
+//(email, firstName, lastName, res, realEmail, false);*/
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
