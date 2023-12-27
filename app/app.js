@@ -15,10 +15,12 @@ function one(req, res, next) {
     req.local.passport = require('passport');
     req.local.MicrosoftStrategy = require('passport-microsoft').Strategy;
     app.use(req.local.passport.initialize());
+    next()
 }
 
 function two(req, res, next) {
     app.use(req.local.passport.session());
+    next()
 }
 
 function three(req, res, next) {
