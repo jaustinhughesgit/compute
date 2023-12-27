@@ -94,7 +94,7 @@ const json1 = [
                 assign:"passportSession"
             },
             {
-                ifs:[["{{urlpath}}","!=","/microsoft"]],
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 next:true
             }
         ]
