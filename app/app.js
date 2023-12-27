@@ -9,7 +9,7 @@ lib.root.session = require('express-session');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
-const cookieParser = require('cookie-parser');
+
 lib.app.use(lib.root.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -17,34 +17,27 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
-lib.app.use(cookieParser(process.env.SESSION_SECRET));
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
-lib.app.use((req, res, next) => {
-    // The raw cookie value
-    const rawCookie = req.cookies['connect.sid'];
-    console.log("rawCookie",rawCookie)
-    if (rawCookie) {
-      // Parse the raw cookie to get only the session ID part
-      // The cookie value is usually in the format 's:<session_id>.<signature>'
-      const parsedSid = rawCookie.split('.')[0].split(':')[1];
-  
-      // Compare the parsed session ID from the cookie to the session ID from the request
-      if (parsedSid === req.sessionID) {
-        console.log('Session IDs match:', parsedSid);
-      } else {
-        console.log('Session IDs do not match. Parsed:', parsedSid, 'Actual:', req.sessionID);
-      }
-    } else {
-      console.log('Session cookie not found.');
-    }
-  
-    next();
-  });
-/*
 AWS.config.update({ region: 'us-east-1' });
-const dynamodbLL = new AWS.DynamoDB();
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-*/
+lib.dynamodbLL = new lib.AWS.DynamoDB();
+lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
+lib.SM = new lib.AWS.SecretsManager();
+
+async function getPrivateKey() {
+    const secretName = "public/1var/s3";
+    try {
+        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
+        const secret = JSON.parse(data.SecretString);
+        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
+        return pKey
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
+    }
+}
+
 const json1 = [
     {
         modules: {
@@ -274,51 +267,6 @@ const json2 = [
         ]
     }
 ]
-
-// WHAT IS CAUSING THE IF CONDITION TO BE SPOILED.
-/*
-async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
-    console.log("inside regOAuth", email)
-    const params = { TableName: 'account', Key: { "email": email } };
-    console.log(params)
-    const coll = await dynamodb.get(params).promise();
-    console.log(coll)
-    if (coll.hasOwnProperty("Item")) {
-        res.send("Email already registered through another method.");
-    } else {
-        const uniqueId = uuidv4();
-        const currentDate = new Date();
-        const isoFormat = currentDate.toISOString();
-        const item = {
-            id: uniqueId,
-            email: email,
-            first: firstName,
-            last: lastName,
-            creationDate: isoFormat,
-            proxyEmail: realEmail,
-            verified: false,
-            password: hasPass
-            // No password is saved for OAuth users
-        };
-
-        const insertParams = {
-            TableName: 'account',
-            Item: item
-        };
-        try {
-            await dynamodb.put(insertParams).promise();
-            res.redirect('/dashboard');
-            //res.send("Account Created!");
-        } catch (error) {
-            res.status(500).json({ error: "Error inserting into DynamoDB" });
-        }
-    }
-}
-
-lib.oath = newFunction
-//registerOAuthUser
-//(email, firstName, lastName, res, realEmail, false);*/
-
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -911,5 +859,25 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
     return result;
 }
+
+var cookiesRouter;
+app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
+            app.use('/:type(cookies|url)', function(req, res, next) {
+                req.type = req.params.type; // Capture the type (cookies or url)
+                next('route'); // Pass control to the next route
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
+});
 
 module.exports.lambdaHandler = serverless(lib.app);
