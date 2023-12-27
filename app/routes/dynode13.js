@@ -242,7 +242,7 @@ const json2 = [
             {
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a>']}
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a><br/>{{newAuth}}']}
                 ]
             },
             {
