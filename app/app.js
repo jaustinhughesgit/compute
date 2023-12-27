@@ -9,14 +9,14 @@ lib.root.session = require('express-session');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
-const cookieParser = require('cookie-parser');
-lib.app.use(cookieParser(process.env.SESSION_SECRET));
+lib.root.cookieParser = require('cookie-parser');
 lib.app.use(lib.root.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
     cookie: { secure: true } 
 }));
+lib.app.use(lib.root.cookieParser(process.env.SESSION_SECRET));
 /*
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
@@ -292,10 +292,19 @@ async function registerOAuthUser(email, firstName, lastName, res, realEmail, has
     }
 }
 
-
 lib.oath = newFunction
 //registerOAuthUser
 //(email, firstName, lastName, res, realEmail, false);*/
+
+function one (req, req, next){
+    try{
+        console.log('connect.sid2:', req.cookies['connect.sid']);
+        } catch (err){
+
+            console.log("no cookie: error")
+        }
+        next();
+}
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -305,9 +314,6 @@ let middleware1 = json1.map(stepConfig => {
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
         lib.context["sessionID"] = req.sessionID
-        try{
-        console.log('connect.sid1:', req.cookies['connect.sid']);
-        } catch (err){}
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
@@ -320,14 +326,11 @@ let middleware2 = json2.map(stepConfig => {
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
         lib.context["sessionID"] = req.sessionID
-        try{
-        console.log('connect.sid2:', req.cookies['connect.sid']);
-        } catch (err){}
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
-lib.app.all('/*', ...middleware1, ...middleware2);
+lib.app.all('/*', one, ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
