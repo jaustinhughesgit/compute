@@ -191,23 +191,6 @@ const json2 = [
                 ifs:[["{{urlpath}}","!=","/microsoft/callback"]],
                 next:true
             }
-            /*,
-            {
-                target:"req",
-                chain:[
-                    {access:"isAuthenticated", params:[]}
-                ],
-                assign:"newAuth"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/hello"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:["{{newAuth}}"]}
-                ],
-                assign:"hello"
-            },*/
-            //MAYBE THIS WILL WORK TOMORROW. IT WAS NEVER COMMITTED. Seems like urlpath having issues in conditions, meaning our processString function is sending back the require not the url path.
         ]
     },
     {
