@@ -88,12 +88,9 @@ const json1 = [
             {
                 target:"passport",
                 chain:[
-                    {access:"session", params:[], express:true, next:false}
+                    {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
-            },
-            {
-                next:true
             }
         ]
     }
