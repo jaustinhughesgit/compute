@@ -1,5 +1,5 @@
 var express = require('express');
-let lib = {};
+let lib = global;
 lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
