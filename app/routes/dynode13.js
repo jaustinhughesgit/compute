@@ -88,11 +88,19 @@ const json1 = [
         },
         actions: [
             {
+                set:{"cat":"meow"}
+            },
+            {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
+            }},
+            {
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                next:true
             }
         ]
     }
