@@ -304,7 +304,9 @@ let middleware1 = json1.map(stepConfig => {
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
         lib.context["sessionID"] = req.sessionID
+        try{
         console.log('connect.sid:', req.cookies['connect.sid']);
+        } catch (){}
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
