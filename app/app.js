@@ -1,4 +1,5 @@
 const express = require('express');
+const serverless = require('serverless-http');
 const session = require('express-session');
 const passport = require('passport');
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
