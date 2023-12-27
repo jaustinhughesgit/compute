@@ -45,7 +45,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"AAA",
                 chain:[
                     {access:"session", param:[{
@@ -67,11 +67,15 @@ const json1 = [
         },
         actions: [
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true, next:true}
                 ],
                 assign:"passportInitialize"
+            },
+            {
+                next:true
             }
         ]
     },
