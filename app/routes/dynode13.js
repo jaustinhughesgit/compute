@@ -45,6 +45,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"AAA",
                 chain:[
                     {access:"session", param:[{
@@ -57,6 +58,7 @@ const json1 = [
                 assign:"sessionSecret"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"initialize", params:[], express:true, next:true}
@@ -71,6 +73,7 @@ const json1 = [
         actions: [
 
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"session", params:[], express:true, next:true}
@@ -86,6 +89,7 @@ const json2 = [
         },
         actions: [
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 params:["((user))", "((done))"], 
                 chain:[],
                 run:[
@@ -94,6 +98,7 @@ const json2 = [
                 assign:"serializeFunction"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"serializeUser", params:["{{serializeFunction}}"]}
@@ -101,6 +106,7 @@ const json2 = [
                 assign:"serializeUser"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 params:["((user))", "((done))"], 
                 chain:[],
                 "run":[
@@ -109,6 +115,7 @@ const json2 = [
                 assign:"deserializeFunction"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"deserializeUser", params:["{{deserializeFunction}}"]}
@@ -116,6 +123,7 @@ const json2 = [
                 assign:"deserializeUser"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
                 chain:[],
                 run:[
@@ -124,6 +132,7 @@ const json2 = [
                 assign:"callbackFunction"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport-microsoft",
                 chain:[
                 {access:"Strategy", params:[
@@ -139,6 +148,7 @@ const json2 = [
                 assign:"passportmicrosoft"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
                     {access:"use", params:["{{passportmicrosoft}}"]}
