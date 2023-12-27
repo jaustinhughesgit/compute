@@ -170,7 +170,7 @@ const json2 = [
                         resave: false,
                         saveUninitialized: true,
                         cookie: { secure: true } 
-                    }], express:true}
+                    }], express:true, next:false}
                 ],
                 assign:"sessionSecret"
             },
