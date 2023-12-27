@@ -17,6 +17,10 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
+AWS.config.update({ region: 'us-east-1' });
+const dynamodbLL = new AWS.DynamoDB();
+const dynamodb = new AWS.DynamoDB.DocumentClient();
+
 const json1 = [
     {
         modules: {
@@ -177,6 +181,7 @@ const json2 = [
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
                     {access:"{{displayName}}", params:["((user.displayName))"]},
+                    {access:"{{oath}}", params:["one", "two", "three", "four", "five", "six"]}
                    {access:"next", params:[]}
                 ],
 
@@ -241,6 +246,52 @@ const json2 = [
 
 // WHAT IS CAUSING THE IF CONDITION TO BE SPOILED.
 
+/*async function registerOAuthUser(email, firstName, lastName, res, realEmail, hasPass) {
+    console.log("inside regOAuth", email)
+    const params = { TableName: 'account', Key: { "email": email } };
+    console.log(params)
+    const coll = await dynamodb.get(params).promise();
+    console.log(coll)
+    if (coll.hasOwnProperty("Item")) {
+        res.send("Email already registered through another method.");
+    } else {
+        const uniqueId = uuidv4();
+        const currentDate = new Date();
+        const isoFormat = currentDate.toISOString();
+        const item = {
+            id: uniqueId,
+            email: email,
+            first: firstName,
+            last: lastName,
+            creationDate: isoFormat,
+            proxyEmail: realEmail,
+            verified: false,
+            password: hasPass
+            // No password is saved for OAuth users
+        };
+
+        const insertParams = {
+            TableName: 'account',
+            Item: item
+        };
+        try {
+            await dynamodb.put(insertParams).promise();
+            res.redirect('/dashboard');
+            //res.send("Account Created!");
+        } catch (error) {
+            res.status(500).json({ error: "Error inserting into DynamoDB" });
+        }
+    }
+}*/
+function newFunction (one, two, three, four, five, six){
+    console.log("------")
+    console.log("------")
+    console.log(one, two, three, four, five, six)
+}
+
+lib.oath = newFunction
+//registerOAuthUser
+//(email, firstName, lastName, res, realEmail, false);
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
