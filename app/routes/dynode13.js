@@ -76,6 +76,9 @@ const json1 = [
                     {access:"initialize", params:[], express:true, next:true}
                 ],
                 assign:"passportInitialize"
+            },
+            {
+                next:true
             }
         ]
     },
