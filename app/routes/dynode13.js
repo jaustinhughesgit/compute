@@ -86,15 +86,13 @@ const json1 = [
         actions: [
 
             {
-                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"passport",
                 chain:[
-                    {access:"session", params:[], express:true, next:true}
+                    {access:"session", params:[], express:true, next:false}
                 ],
                 assign:"passportSession"
             },
             {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 next:true
             }
         ]
