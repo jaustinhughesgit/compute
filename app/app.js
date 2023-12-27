@@ -5,8 +5,15 @@ const passport = require('passport');
 const MicrosoftStrategy = require('passport-microsoft').Strategy;
 const app = express();
 
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: true,
+    cookie: { secure: true } 
+}));
+
 app.use(passport.initialize());
-app.use(passport.session());
+passport.session()(req, res, next);
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
