@@ -181,7 +181,7 @@ const json2 = [
                     {access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
                     {access:"{{displayName}}", params:["((user.displayName))"]},
-                    {access:"{{oath}}", params:["one", "two", "three", "four", "five", "six"]}
+                    {access:"{{oath}}", params:["one", "two", "three", "four", "five", "six"]},
                    {access:"next", params:[]}
                 ],
 
