@@ -6,7 +6,7 @@ lib.app = express();
 lib.path = require('path');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
-let loadMods = require('scripts/processConfig.js')
+let loadMods = require('./scripts/processConfig.js')
 
 const json1 = [
     {
