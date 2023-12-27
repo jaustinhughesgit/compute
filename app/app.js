@@ -239,28 +239,30 @@ const json2 = [
 
 // WHAT IS CAUSING THE IF CONDITION TO BE SPOILED.
 
-function firstRun(req, res, next){
-    lib.req = req;
-    lib.res = res;
-    lib["urlpath"] = req.path
-    lib.context["urlpath"] = req.path
-}
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
 let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
 
-lib.app.all('/*', firstRun, ...middleware1, ...middleware2);
+lib.app.all('/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
