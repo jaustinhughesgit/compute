@@ -190,6 +190,9 @@ const json2 = [
                     {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
                 ],
                 assign:"newAuthentication"
+            },
+            {
+                next:true
             }
             /*,
             {
