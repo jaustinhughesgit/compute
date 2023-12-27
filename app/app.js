@@ -9,7 +9,7 @@ lib.root.session = require('express-session');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
-lib.root.cookieParser = require('cookie-parser');
+const cookieParser = require('cookie-parser');
 lib.app.use(lib.root.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
@@ -17,9 +17,9 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
-lib.app.use(lib.root.cookieParser(process.env.SESSION_SECRET));
+lib.app.use(cookieParser(process.env.SESSION_SECRET));
 
-app.use((req, res, next) => {
+lib.app.use((req, res, next) => {
     // The raw cookie value
     const rawCookie = req.cookies['connect.sid'];
   
