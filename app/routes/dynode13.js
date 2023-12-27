@@ -4,13 +4,13 @@ lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
 lib.fs = require('fs');
-session = require('express-session');
+lib.session = require('express-session');
 lib.s3 = new lib.AWS.S3();
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-lib.dyRouter.use(session({
+lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
@@ -202,7 +202,7 @@ const json2 = [
             {
                 target:"res",
                 chain:[
-                    {access:"send", params:["Hello World"]}
+                    {access:"json", params:["{{}}"]}
                 ]
             }
         ]
@@ -244,19 +244,7 @@ function one(req, res, next){
     next();
 }
 
-function four(req, res){
-    if (err || !user) {
-        return res.redirect('/');
-    }
-    req.logIn(user, (err) => {
-        if (err) {
-            return res.redirect('/');
-        }
-        return res.json({ "isAuthenticated": req.isAuthenticated(), "user":req.user});
-    });
-}
-
-lib.dyRouter.all('/*', ...middleware1, one, four)//...middleware2);
+lib.dyRouter.all('/*', ...middleware1, one, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
