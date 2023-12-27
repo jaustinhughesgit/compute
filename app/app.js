@@ -211,7 +211,7 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/auth/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {access:"redirect", params:["/dashboard2"]} // need to save user details to dynamodb and give the user a uuid4 cookie
+                    {access:"send", params:["{{}}"]} // need to save user details to dynamodb and give the user a uuid4 cookie
                 ]
             },/*
             {
