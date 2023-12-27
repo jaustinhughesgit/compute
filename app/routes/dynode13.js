@@ -229,7 +229,7 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {access:"redirect", params:["/auth/dashboard"]}
+                    {access:"redirect", params:["/auth/dashboard2"]}
                 ]
             },
             {
@@ -240,7 +240,7 @@ const json2 = [
                 assign:"newAuth"
             },
             {
-                ifs:[["{{urlpath}}","==","/dashboard"]],
+                ifs:[["{{urlpath}}","==","/dashboard2"]],
                 target:"res",
                 chain:[
                     {access:"send", params:['<h1>Dashboard</h1><a href="/auth/account">Account</a>{{newAuth}}']}
@@ -273,8 +273,8 @@ let middleware2 = json2.map(stepConfig => {
         lib.req = req;
         lib.res = res;
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
+        //lib["urlpath"] = req.path
+        //lib.context["urlpath"] = req.path
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
