@@ -192,6 +192,7 @@ const json2 = [
                 assign:"newAuthentication"
             },
             {
+                ifs:[["{{urlpath}}","!=","/microsoft/callback"]],
                 next:true
             }
             /*,
