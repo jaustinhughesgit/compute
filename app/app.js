@@ -22,7 +22,7 @@ lib.app.use(cookieParser(process.env.SESSION_SECRET));
 lib.app.use((req, res, next) => {
     // The raw cookie value
     const rawCookie = req.cookies['connect.sid'];
-  
+    console.log("rawCookie",rawCookie)
     if (rawCookie) {
       // Parse the raw cookie to get only the session ID part
       // The cookie value is usually in the format 's:<session_id>.<signature>'
