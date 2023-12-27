@@ -826,4 +826,4 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-module.exports.lambdaHandler = serverless(app);
+module.exports.lambdaHandler = serverless(lib.app);
