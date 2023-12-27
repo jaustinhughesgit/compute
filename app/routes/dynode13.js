@@ -4,6 +4,8 @@ lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
 lib.fs = require('fs');
+lib.root = {}
+lib.root.session = require('express-session');
 lib.s3 = new lib.AWS.S3();
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
@@ -43,6 +45,19 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
+                target:"root",
+                chain:[
+                    {access:"session", param:[{
+                        secret: process.env.SESSION_SECRET,
+                        resave: false,
+                        saveUninitialized: true,
+                        cookie: { secure: true },
+                        sameSite: 'None'
+                    }], express:true, next:true}
+                ],
+                assign:"sessionSecret"
+            },
+            {
                 next:true
             }
         ]
@@ -57,6 +72,19 @@ const json1 = [
                     {access:"initialize", params:[], express:true, next:true}
                 ],
                 assign:"passportInitialize"
+            }
+        ]
+    },
+    {
+       modules: {
+        },
+        actions: [
+            {
+                target:"passport",
+                chain:[
+                    {access:"session", params:[], express:true, next:true}
+                ],
+                assign:"passportSession"
             }
         ]
     }
