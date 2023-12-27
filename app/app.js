@@ -62,7 +62,7 @@ function four(req, res) {
             });
         })(req, res);
     } else {
-        res.send("Page not found");
+        next()
     }
 }
 
@@ -83,7 +83,7 @@ function isLoggedIn(req, res, next) {
     res.redirect('/auth/microsoft');
 }
 
-app.get('/auth/dashboard', one, two, three, isLoggedIn, logSessionCookie, (req, res) => {
+app.get('/auth/dashboard', one, two, three, four, isLoggedIn, logSessionCookie, (req, res) => {
     res.send('Welcome to your dashboard');
 });
 
