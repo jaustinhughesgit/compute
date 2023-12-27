@@ -4,6 +4,8 @@ let lib = {};
 lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
+lib.root = {}
+lib.root.session = require('express-session');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
@@ -12,8 +14,7 @@ const json1 = [
     {
         modules: {
              "passport":"passport",
-             "passport-microsoft":"passport-microsoft",
-             "express-session":"express-session"
+             "passport-microsoft":"passport-microsoft"
          },
          actions: [
             {
@@ -29,12 +30,6 @@ const json1 = [
                 assign:"passport-microsoft"
             },
             {
-                target:"express-session",
-                chain:[
-                ],
-                assign:"express-session"
-            },
-            {
                 target:"passport-microsoft",
                 chain:[
                     {access:"Strategy"}
@@ -42,7 +37,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                target:"express-session",
+                target:"root",
                 chain:[
                     {access:"session", param:[{
                         secret: process.env.SESSION_SECRET,
