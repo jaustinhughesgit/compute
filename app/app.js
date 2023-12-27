@@ -225,7 +225,7 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/dashboard2"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>']}
+                    {access:"redirect", params:['/account']}
                 ]
             },
             {
