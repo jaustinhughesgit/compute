@@ -78,6 +78,7 @@ const json1 = [
                 assign:"passportInitialize"
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 next:true
             }
         ]
