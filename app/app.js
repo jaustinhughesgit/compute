@@ -16,7 +16,30 @@ lib.app.use(lib.root.session({
     saveUninitialized: true,
     cookie: { secure: true } 
 }));
+
 lib.app.use(lib.root.cookieParser(process.env.SESSION_SECRET));
+
+app.use((req, res, next) => {
+    // The raw cookie value
+    const rawCookie = req.cookies['connect.sid'];
+  
+    if (rawCookie) {
+      // Parse the raw cookie to get only the session ID part
+      // The cookie value is usually in the format 's:<session_id>.<signature>'
+      const parsedSid = rawCookie.split('.')[0].split(':')[1];
+  
+      // Compare the parsed session ID from the cookie to the session ID from the request
+      if (parsedSid === req.sessionID) {
+        console.log('Session IDs match:', parsedSid);
+      } else {
+        console.log('Session IDs do not match. Parsed:', parsedSid, 'Actual:', req.sessionID);
+      }
+    } else {
+      console.log('Session cookie not found.');
+    }
+  
+    next();
+  });
 /*
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
@@ -296,15 +319,6 @@ lib.oath = newFunction
 //registerOAuthUser
 //(email, firstName, lastName, res, realEmail, false);*/
 
-function one (req, req, next){
-    try{
-        console.log('connect.sid2:', req.cookies['connect.sid']);
-        } catch (err){
-
-            console.log("no cookie: error")
-        }
-        next();
-}
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -330,7 +344,7 @@ let middleware2 = json2.map(stepConfig => {
     };
 });
 
-lib.app.all('/*', one, ...middleware1, ...middleware2);
+lib.app.all('/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
