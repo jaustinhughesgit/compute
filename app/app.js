@@ -303,7 +303,7 @@ let middleware1 = json1.map(stepConfig => {
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
-        lib["sessionID"] = req.sessionID
+        lib.context["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
@@ -315,8 +315,7 @@ let middleware2 = json2.map(stepConfig => {
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
-        
-        lib["sessionID"] = req.sessionID
+        lib.context["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
