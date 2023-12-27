@@ -55,6 +55,9 @@ const json1 = [
                     }], express:true, next:true}
                 ],
                 assign:"sessionSecret"
+            },
+            {
+                next:true
             }
         ]
     },
