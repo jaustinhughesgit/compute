@@ -184,7 +184,7 @@ const json2 = [
                 params:["((err))", "((user))", "((info))"], 
                 chain:[],
                 run:[
-                    {access:"{{user}}", params:["((user))"]},
+                    //{access:"{{user}}", params:["((user))"]},
                     {access:"{{newAuth}}", params:[true]},
                     {access:"{{firstName}}", params:["((user._json.givenName))"]},
                     {access:"{{lastName}}", params:["((user._json.surname))"]},
@@ -303,6 +303,7 @@ let middleware1 = json1.map(stepConfig => {
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
+        lib["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
@@ -314,6 +315,7 @@ let middleware2 = json2.map(stepConfig => {
         lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
         lib["urlpath"] = req.path
         lib.context["urlpath"] = req.path
+        lib["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
