@@ -91,9 +91,6 @@ const json1 = [
                     {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
-            },
-            {
-                next:true
             }
         ]
     }
