@@ -229,18 +229,18 @@ const json2 = [
                 ]
             },
             {
-                target:"req",
-                chain:[
-                    {access:"isAuthenticated", params:[]}
-                ],
-                assign:"newAuth"
-            },
-            {
                 ifs:[["{{urlpath}}","==","/dashboard"]],
                 target:"res",
                 chain:[
                     {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>{{newAuth}}']}
                 ]
+            },
+            {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
             },
             {
                 ifs:[["{{urlpath}}","==","/account"]],
