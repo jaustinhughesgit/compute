@@ -16,11 +16,11 @@ lib.app.use(lib.root.session({
     saveUninitialized: true,
     cookie: { secure: true } 
 }));
-
+/*
 AWS.config.update({ region: 'us-east-1' });
 const dynamodbLL = new AWS.DynamoDB();
 const dynamodb = new AWS.DynamoDB.DocumentClient();
-
+*/
 const json1 = [
     {
         modules: {
