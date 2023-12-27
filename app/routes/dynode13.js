@@ -232,7 +232,7 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/dashboard"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>{{newAuth}}']}
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>']}
                 ]
             },
             {
