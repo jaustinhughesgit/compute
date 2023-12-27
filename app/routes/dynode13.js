@@ -11,12 +11,12 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-/*lib.dyRouter.use(lib.session({
+lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
     cookie: { secure: true } 
-}));*/
+}));
 
 const json1 = [
     {
@@ -43,7 +43,7 @@ const json1 = [
                     {access:"Strategy"}
                 ],
                 assign:"MicrosoftStrategy"
-            },
+            }/*,
             {
                 target:"AAA",
                 chain:[
@@ -56,7 +56,7 @@ const json1 = [
                     }], express:true, next:true}
                 ],
                 assign:"sessionSecret"
-            },
+            }*/,
             {
                 next:true
             }
