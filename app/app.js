@@ -9,11 +9,12 @@ app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
-    cookie: { secure: true } 
+    cookie: { secure: true },
+    sameSite: 'None'
 }));
 
 app.use(passport.initialize());
-passport.session()(req, res, next);
+app.use(passport.session());
 
 passport.serializeUser((user, done) => done(null, user));
 passport.deserializeUser((obj, done) => done(null, obj));
