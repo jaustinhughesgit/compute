@@ -80,7 +80,7 @@ function isLoggedIn(req, res, next) {
     if (req.isAuthenticated()) {
         return next();
     }
-    res.redirect('/auth/microsoft');
+    //res.redirect('/auth/microsoft');
 }
 
 app.get('/auth/dashboard', one, two, three, four, isLoggedIn, logSessionCookie, (req, res) => {
