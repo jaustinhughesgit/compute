@@ -223,9 +223,31 @@ const json2 = [
                 ]
             },
             {
+                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {access:"json", params:["{{}}"]}
+                    {access:"redirect", params:["/dashboard"]}
+                ]
+            },
+            {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
+            },
+            {
+                ifs:[["{{urlpath}}","==","/dashboard"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>{{newAuth}}']}
+                ]
+            },
+            {
+                ifs:[["{{urlpath}}","==","/account"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:['{{newAuth}}']}
                 ]
             }
         ]
