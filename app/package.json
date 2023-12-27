@@ -1,30 +1,20 @@
 {
   "name": "app",
   "version": "1.0.0",
-  "description": "compute sample for NodeJS",
+  "description": "",
   "main": "app.js",
-  "repository": "https://github.com/jaustinhughesgit/aws",
-  "author": "SAM CLI",
-  "license": "MIT",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
   "dependencies": {
-    "@mirohq/miro-api": "^2.1.0",
-    "@octokit/rest": "^20.0.2",
-    "@pinecone-database/pinecone": "^1.1.2",
-    "aws-sdk": "^2.1470.0",
-    "bcrypt": "^5.1.1",
-    "body-parser": "^1.20.2",
-    "cookie-parser": "^1.4.6",
-    "deep-object-diff": "^1.1.9",
-    "ejs": "^3.1.9",
+    "aws-sdk": "^2.1526.0",
+    "child_process": "^1.0.2",
     "express": "^4.18.2",
     "express-session": "^1.17.3",
-    "express-validator": "^7.0.1",
-    "fs": "^0.0.1-security",
-    "jsonwebtoken": "^9.0.2",
-    "openai": "^4.20.1",
-    "puppeteer": "^21.6.1",
+    "path": "^0.12.7",
     "serverless-http": "^3.2.0",
-    "uuid": "^9.0.1"
-  },
-  "scripts": {}
+    "util": "^0.12.5"
+  }
 }
