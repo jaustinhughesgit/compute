@@ -45,7 +45,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                ifs:[["{{urlpath}}","==","/microsoft/callback"]],
+                ifs:[["{{urlpath}}","==","/microsoft"]],
                 target:"AAA",
                 chain:[
                     {access:"session", param:[{
