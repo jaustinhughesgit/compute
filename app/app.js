@@ -1,42 +1,9 @@
-const AWS = require('aws-sdk');
 const express = require('express');
-const serverless = require('serverless-http');
-const path = require('path');
-const app = express();
-const bodyParser = require('body-parser');
-const { v4: uuidv4 } = require('uuid');
-//var passport = require('passport');
 const session = require('express-session');
+const passport = require('passport');
+const MicrosoftStrategy = require('passport-microsoft').Strategy;
 
-console.log("test")
-
-AWS.config.update({ region: 'us-east-1' });
-const dynamodbLL = new AWS.DynamoDB();
-const dynamodb = new AWS.DynamoDB.DocumentClient();
-const SM = new AWS.SecretsManager();
-
-async function getPrivateKey() {
-    const secretName = "public/1var/s3";
-    try {
-        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
-        const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
-        return pKey
-    } catch (error) {
-        console.error("Error fetching secret:", error);
-        throw error;
-    }
-}
-
-function ensureAuthenticated(req, res, next) {
-    if (req.isAuthenticated()) {
-        return next();
-    }
-    res.redirect('/login');
-}
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+const app = express();
 
 app.use(session({
     secret: process.env.SESSION_SECRET,
@@ -45,120 +12,55 @@ app.use(session({
     cookie: { secure: true } 
 }));
 
-//app.use(passport.initialize());
-//app.use(passport.session());
+app.use(passport.initialize());
+app.use(passport.session());
 
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
+passport.serializeUser((user, done) => done(null, user));
+passport.deserializeUser((obj, done) => done(null, obj));
 
-var indexRouter = require('./routes/index');
-var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
+passport.use(new MicrosoftStrategy({
+    clientID: process.env.MICROSOFT_CLIENT_ID,
+    clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
+    callbackURL: "https://compute.1var.com/auth/microsoft/callback",
+    scope: ['user.read']
+  },
+  (accessToken, refreshToken, profile, done) => {
+    // asynchronous verification
+    process.nextTick(() => {
+      return done(null, profile);
+    });
+  }
+));
 
+// Route to start Microsoft authentication
+app.get('/auth/microsoft',
+  passport.authenticate('microsoft', { scope: ['user.read'] }),
+  (req, res) => {
+    // The request will be redirected to Microsoft for authentication, so this function will not be called.
+  });
 
+// Microsoft authentication callback
+app.get('/auth/microsoft/callback', 
+  passport.authenticate('microsoft', { failureRedirect: '/' }),
+  (req, res) => {
+    // Successful authentication, redirect to dashboard
+    res.redirect('/dashboard');
+  });
 
-var loginRouter = require('./routes/login')
-var dashboardRouter = require('./routes/dashboard');
-const githubRouter = require('./routes/github');
-const authRouter = require('./routes/dynode13');
-//const dynode10Router = require('./routes/dynode10');
-const miroRouter = require('./routes/miro');
-const embeddingsRouter = require('./routes/embeddings');
-const pineconeRouter = require('./routes/pinecone');
-const crawlRouter = require('./routes/crawl');
-
-
-/*
-var strategiesConfig = {
-    "microsoft": {
-        strategyModule: 'passport-microsoft',
-        strategyName: 'Strategy', // Adjust this based on how the strategy is actually exported
-        config: {
-            clientID: process.env.MICROSOFT_CLIENT_ID,
-            clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-            callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-            resource: 'https://graph.microsoft.com/',
-            tenant: process.env.MICROSOFT_TENANT_ID,
-            prompt: 'login',
-            state: false,
-            type: 'Web',
-            scope: ['user.read'],
-        }
-    }
-};
-
-app.get('/auth/:strategy', async (req, res, next) => {
-    const strategy = req.params.strategy;
-    try {
-        if (!strategiesConfig[strategy]) {
-            throw new Error(`Configuration for ${strategy} not found`);
-        }
-        const strategyConfig = strategiesConfig[strategy];
-        const StrategyModule = require(strategyConfig.strategyModule);
-        const Strategy = StrategyModule[strategyConfig.strategyName];
-        passport.use(new Strategy(strategyConfig.config, (token, tokenSecret, profile, done) => {
-            // Your authentication logic
-            done(null, profile);
-        }));
-        passport.authenticate(strategy)(req, res, next);
-    } catch (error) {
-        res.status(404).send(`Error loading strategy: ${strategy}. ${error.message}`);
-    }
+// Dashboard route
+app.get('/dashboard', ensureAuthenticated, (req, res) => {
+  res.send('<h1>Dashboard</h1><a href="/account">Account</a>');
 });
 
-app.all('/auth/:strategy/callback', (req, res, next) => {
-    const strategy = req.params.strategy;
-    passport.authenticate(strategy, (err, user) => {
-        if (err || !user) {
-            return res.redirect('/login?error=true');
-        }
-        req.login(user, (err) => {
-            if (err) {
-                return next(err);
-            }
-            return res.redirect('/dashboard');
-        });
-    })(req, res, next);
+// Account route
+app.get('/account', ensureAuthenticated, (req, res) => {
+  res.send('<h1>Account Details</h1>');
 });
 
-passport.serializeUser(function(user, done) {
-    done(null, user);
-});
-
-passport.deserializeUser(function(obj, done) {
-    done(null, obj);
-});*/
-
-app.use('/', indexRouter);
-app.use('/login', loginRouter);
-app.use('/controller', controllerRouter);
-app.use('/dashboard', ensureAuthenticated, dashboardRouter);
-app.use('/auth', authRouter)
-app.use('/github', githubRouter);
-app.use('/dynode13', authRouter);
-app.use('/miro', miroRouter);
-app.use('/embeddings', embeddingsRouter);
-app.use('/pinecone', pineconeRouter);
-app.use('/crawl', crawlRouter);
-
-
-var cookiesRouter;
-app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
-            app.use('/:type(cookies|url)', function(req, res, next) {
-                req.type = req.params.type; // Capture the type (cookies or url)
-                next('route'); // Pass control to the next route
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});
+// Function to ensure the user is authenticated
+function ensureAuthenticated(req, res, next) {
+  if (req.isAuthenticated()) { return next(); }
+  res.redirect('/');
+}
 
 module.exports.lambdaHandler = serverless(app);
