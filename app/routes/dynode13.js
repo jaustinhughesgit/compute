@@ -52,7 +52,7 @@ const json1 = [
                         resave: false,
                         saveUninitialized: true,
                         cookie: { secure: true } 
-                    }], express:true}
+                    }], express:true, next:false}
                 ],
                 assign:"sessionSecret"
             },
@@ -161,18 +161,6 @@ const json2 = [
             },
             {
                 "set":{"displayName":""}
-            },
-            {
-                target:"AAA",
-                chain:[
-                    {access:"session", param:[{
-                        secret: process.env.SESSION_SECRET,
-                        resave: false,
-                        saveUninitialized: true,
-                        cookie: { secure: true } 
-                    }], express:true, next:false}
-                ],
-                assign:"sessionSecret"
             },
             {
                 params:["((err))", "((user))", "((info))"], 
