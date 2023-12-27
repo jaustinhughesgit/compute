@@ -1,5 +1,5 @@
 var express = require('express');
-let lib = global;
+let lib = {};
 lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
@@ -11,12 +11,12 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
 
-lib.dyRouter.use(lib.AAA.session({
+/*lib.dyRouter.use(lib.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
     cookie: { secure: true } 
-}));
+}));*/
 
 const json1 = [
     {
@@ -43,7 +43,7 @@ const json1 = [
                     {access:"Strategy"}
                 ],
                 assign:"MicrosoftStrategy"
-            }/*,
+            },
             {
                 target:"AAA",
                 chain:[
@@ -56,7 +56,7 @@ const json1 = [
                     }], express:true, next:true}
                 ],
                 assign:"sessionSecret"
-            }*/,
+            },
             {
                 next:true
             }
@@ -229,10 +229,17 @@ const json2 = [
                 ]
             },
             {
+                target:"req",
+                chain:[
+                    {access:"isAuthenticated", params:[]}
+                ],
+                assign:"newAuth"
+            },
+            {
                 ifs:[["{{urlpath}}","==","/dashboard"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>']}
+                    {access:"send", params:['<h1>Dashboard</h1><a href="/account">Account</a>{{newAuth}}']}
                 ]
             },
             {
@@ -281,7 +288,7 @@ function one(req, res, next){
     next();
 }
 
-lib.dyRouter.all('/*', ...middleware1, one, ...middleware2);
+lib.dyRouter.all('/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
