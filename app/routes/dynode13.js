@@ -3,26 +3,16 @@ let lib = {};
 lib.AWS = require('aws-sdk');
 lib.dyRouter = express.Router();
 lib.path = require('path');
-lib.fs = require('fs');
-lib.root = {}
-lib.root.session = require('express-session');
-lib.s3 = new lib.AWS.S3();
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('../scripts/processConfig.js')
-
-/*lib.dyRouter.use(lib.session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: true } 
-}));*/
 
 const json1 = [
     {
         modules: {
              "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
+             "passport-microsoft":"passport-microsoft",
+             "express-session":"express-session"
          },
          actions: [
             {
@@ -38,6 +28,12 @@ const json1 = [
                 assign:"passport-microsoft"
             },
             {
+                target:"express-session",
+                chain:[
+                ],
+                assign:"express-session"
+            },
+            {
                 target:"passport-microsoft",
                 chain:[
                     {access:"Strategy"}
@@ -45,7 +41,7 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                target:"root",
+                target:"express-session",
                 chain:[
                     {access:"session", param:[{
                         secret: process.env.SESSION_SECRET,
@@ -229,7 +225,7 @@ const json2 = [
                 ifs:[["{{urlpath}}","==","/microsoft/callback"]],
                 target:"res",
                 chain:[
-                    {access:"redirect", params:["/auth/dashboard2"]}
+                    {access:"send", params:["{{}}"]} // need to save user details to dynamodb and give the user a uuid4 cookie
                 ]
             },
             {
