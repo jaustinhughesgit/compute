@@ -75,6 +75,7 @@ const json1 = [
                 assign:"passportInitialize"
             },
             {
+                ifs:[["{{urlpath}}","!=","/microsoft"]],
                 next:true
             }
         ]
@@ -91,6 +92,10 @@ const json1 = [
                     {access:"session", params:[], express:true, next:true}
                 ],
                 assign:"passportSession"
+            },
+            {
+                ifs:[["{{urlpath}}","!=","/microsoft"]],
+                next:true
             }
         ]
     }
