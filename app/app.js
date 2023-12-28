@@ -71,12 +71,6 @@ const json1 = [
                 assign:"MicrosoftStrategy"
             },
             {
-                target:"moment-timezone",
-                chain:[
-                ],
-                assign:"moment-timezone"
-            },
-            {
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                 set:{condition1:true}
             },
@@ -87,19 +81,19 @@ const json1 = [
             {
                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                set:{first:5}
-           },
-           {
+            },
+            {
               if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
               set:{second:0}
-          },
-           {
+            },
+            {
                while:["{{first}}", ">","{{second}}"],
                params:[],
                run:[
                    {access:"{{first}}", subtract:1, params:[]}
                ],
                assign:"{{first}}!"
-           },
+            },
             {
                 target: "moment-timezone",
                 chain: [
@@ -132,7 +126,8 @@ const json1 = [
                 chain: [
                     { access: "format", params: ["HH:mm"] }
                 ]
-            },{
+            },
+            {
                 target: "fs",
                 chain: [
                     {
@@ -231,8 +226,7 @@ const json1 = [
         ]
     },
     {
-       modules: {
-        },
+       modules: {},
         actions: [
             {
                 target:"passport",
@@ -244,8 +238,7 @@ const json1 = [
         ]
     },
     {
-       modules: {
-        },
+       modules: {},
         actions: [
             {
                 target:"passport",
@@ -259,8 +252,7 @@ const json1 = [
 ]    
 const json2 = [
     {
-       modules: {
-        },
+       modules: {},
         actions: [
             {
                 params:["((user))", "((done))"], 
@@ -390,14 +382,7 @@ const json2 = [
                 chain:[
                     {access:"send", params:["{{}}"]} // need to save user details to dynamodb and give the user a uuid4 cookie
                 ]
-            },/*
-            {
-                target:"req",
-                chain:[
-                    {access:"isAuthenticated", params:[]}
-                ],
-                assign:"newAuth"
-            }*/,
+            },
             {
                 ifs:[["{{urlpath}}","==","/auth/dashboard2"]],
                 target:"res",
