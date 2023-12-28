@@ -52,18 +52,6 @@ const json1 = [
          },
          actions: [
             {
-                target:"passport",
-                chain:[
-                ],
-                assign:"passport"
-            },
-            {
-                target:"passport-microsoft",
-                chain:[
-                ],
-                assign:"passport-microsoft"
-            },
-            {
                 target:"passport-microsoft",
                 chain:[
                     {access:"Strategy"}
