@@ -51,6 +51,32 @@ const json0 = [
          },
          actions: [
             {
+                target:"passport",
+                chain:[
+                ],
+                assign:"passport"
+            },
+            {
+                target:"passport-microsoft",
+                chain:[
+                ],
+                assign:"passport-microsoft"
+            },
+            {
+                target:"passport-microsoft",
+                chain:[
+                    {access:"Strategy"}
+                ],
+                assign:"MicrosoftStrategy"
+            },
+            {
+                target:"moment-timezone",
+                chain:[
+                ],
+                assign:"moment-timezone"
+            },
+
+            {
                 target: "moment-timezone",
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
@@ -94,25 +120,6 @@ const json1 = [
         modules: {
          },
          actions: [
-            {
-                target:"passport",
-                chain:[
-                ],
-                assign:"passport"
-            },
-            {
-                target:"passport-microsoft",
-                chain:[
-                ],
-                assign:"passport-microsoft"
-            },
-            {
-                target:"passport-microsoft",
-                chain:[
-                    {access:"Strategy"}
-                ],
-                assign:"MicrosoftStrategy"
-            },
             {
                 target:"root",
                 chain:[
