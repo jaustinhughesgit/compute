@@ -7,6 +7,7 @@ lib.path = require('path');
 lib.root = {}
 lib.root.session = require('express-session');
 lib.fs = require('fs');
+lib.bodyParser = require('body-parser');
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
