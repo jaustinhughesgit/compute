@@ -4,6 +4,7 @@ let lib = {};
 lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
+lib.fs = require('fs');
 lib.root = {}
 lib.root.session = require('express-session');
 const { promisify } = require('util');
