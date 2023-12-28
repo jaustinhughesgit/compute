@@ -108,6 +108,31 @@ const json1 = [
                 assign: "timeInDubai"
             },
             {
+                target: "moment-timezone",
+                assign: "justTime",
+                from: ["{{timeInDubai}}!"],
+                chain: [
+                    { access: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
+                target: "moment-timezone",
+                assign: "timeInDubai2",
+                from: ["{{timeInDubai}}"],
+                chain: [
+                    { access: "add", params: [1, "hours"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ]
+            },
+            {
+                target: "moment-timezone",
+                assign: "justTime2",
+                from: ["{{timeInDubai2}}!"],
+                chain: [
+                    { access: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
                 target:"root",
                 chain:[
                     {access:"session", param:[{
