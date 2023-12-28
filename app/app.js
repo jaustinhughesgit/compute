@@ -51,30 +51,6 @@ const json0 = [
          },
          actions: [
             {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{condition1:true}
-            },
-            {
-                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{condition2:true}
-            },
-            {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{first:5}
-            },
-            {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{second:0}
-            },
-            /*{
-                while:["{{first}}", ">","{{second}}"],
-                params:[],
-                run:[
-                    {access:"{{first}}", subtract:1, params:[]}
-                ],
-                assign:"{{first}}!"
-            },*/
-            {
                 target: "moment-timezone",
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
@@ -105,89 +81,6 @@ const json0 = [
                 from: ["{{timeInDubai2}}!"],
                 chain: [
                     { access: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                target: "fs",
-                chain: [
-                    {
-                        access: "readFileSync",
-                        params: ["/var/task/app/routes/../example.txt", "utf8"],
-                    }
-                ],
-                assign: "fileContents"
-            },
-            {
-                target: "fs",
-                access: "writeFileSync",
-                params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
-            },
-            {
-                target: "fs",
-                chain: [
-                    {
-                        access: "readFileSync",
-                        params: ['/tmp/tempFile.txt', "utf8"],
-                    }
-                ],
-                assign: "tempFileContents"
-            },
-            {
-                target: "s3",
-                chain: [
-                    {
-                        access: "upload",
-                        params: [{
-                            "Bucket": "public.1var.com",
-                            "Key": "test.html",
-                            "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
-                        }]
-                    },
-                    {
-                        access: "promise",
-                        params: []
-                    }
-                ],
-                assign: "s3UploadResult"
-            },
-            {
-                target: "s3",
-                chain: [
-                    {
-                        access: "getObject",
-                        params: [{
-                            Bucket: "public.1var.com",
-                            Key: "test.html"
-                        }]
-                    },
-                    {
-                        access: "promise",
-                        params: []
-                    }
-                ],
-                assign: "s3Response"
-            },
-            {
-                target: "s3Response",
-                chain: [
-                    {
-                        access: "Body"
-                    },
-                    {
-                        access: "toString",
-                        params: ["utf-8"]
-                    }
-                ],
-                assign: "s3Data"
-            },
-            {
-                //ifs: [["{{urlpath}}", "==", "/test"]],
-                target: "res",
-                chain: [
-                    {
-                        access: "send",
-                        params: ["Hello World"]
-                    }
                 ]
             },
             {
