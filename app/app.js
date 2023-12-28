@@ -17,8 +17,8 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+lib.app.use(express.json());
+lib.app.use(express.urlencoded({ extended: true }));
 lib.app.set('views', lib.path.join(__dirname, 'views'));
 lib.app.set('view engine', 'ejs');
 
