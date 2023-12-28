@@ -859,7 +859,7 @@ function processString(str, context) {
         tempStr = str
     }
 
-    if (lib[tempStr]) {
+    if (lib[tmpStr]) {
         //console.log("lib", lib)
         //console.log("str", tempStr)
         return lib[tempStr];
