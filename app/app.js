@@ -17,8 +17,8 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
+lib.app.set('views', lib.path.join(__dirname, 'views'));
+lib.app.set('view engine', 'ejs');
 
 AWS.config.update({ region: 'us-east-1' });
 lib.SM = new lib.AWS.SecretsManager();
@@ -859,16 +859,16 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-app.use('/', indexRouter);
+lib.app.use('/', indexRouter);
 
 var cookiesRouter;
-app.use(async (req, res, next) => {
+lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey);
-            app.use('/:type(cookies|url)', function(req, res, next) {
+            lib.app.use('/:type(cookies|url)', function(req, res, next) {
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
             }, cookiesRouter);
