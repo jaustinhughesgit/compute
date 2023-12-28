@@ -206,13 +206,10 @@ const json1 = [
                 assign: "s3Data"
             },
             {
-                //ifs: [["{{urlpath}}", "==", "/test"]],
-                target: "res",
-                chain: [
-                    {
-                        access: "send",
-                        params: ["{{s3Data}}"]
-                    }
+                ifs:[["{{urlpath}}","==","/auth/test"]],
+                target:"res",
+                chain:[
+                    {access:"send", params:['{{s3Data}}']}
                 ]
             },
             {
