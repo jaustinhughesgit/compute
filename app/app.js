@@ -191,8 +191,9 @@ const json1 = [
                     }
                 ],
                 assign: "s3Response"
-            },{
-                target: "s3Response",
+            },
+            {
+                target: "{{s3Response}}",
                 chain: [
                     {
                         access: "Body"
@@ -202,7 +203,7 @@ const json1 = [
                         params: ["utf-8"]
                     }
                 ],
-                assign: "s3Data"
+                assign: "{{s3Data}}"
             },
             {
                 target:"root",
