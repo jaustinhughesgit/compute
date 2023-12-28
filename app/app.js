@@ -1017,7 +1017,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 } else {
                                     try{
                                         console.log("try")
-                                    result = result[chainAction.access](...chainParams);
+                                    result = result//[chainAction.access](...chainParams);
                                     } catch(err){
                                         console.log("err", err)
                                         result = result
