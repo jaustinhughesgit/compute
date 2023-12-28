@@ -165,7 +165,7 @@ const json1 = [
                         params: [{
                             "Bucket": "public.1var.com",
                             "Key": "test.html",
-                            "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
+                            "Body": "<html><head></head><body>Welcome to 1 VAR! 22222222222222asdasdfasdfasdfsadf</body></html>"
                         }]
                     },
                     {
