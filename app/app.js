@@ -193,6 +193,12 @@ const json1 = [
                 assign: "s3Response"
             },
             {
+                target: "s3Response",
+                chain: [
+                ],
+                assign: "s3Data"
+            },
+            {
                 target:"root",
                 chain:[
                     {access:"session", param:[{
@@ -812,7 +818,8 @@ function replacePlaceholders(item, context) {
 }
 
 function processString(str, context) {
-    //console.log("str",str)
+    console.log("1 str",str)
+    console.log("2 context",context)
     let tmpStr = "";
     if (str.startsWith('{{')) {
         tmpStr = str.slice(2, -2);
@@ -821,28 +828,28 @@ function processString(str, context) {
     }
 
     if (lib[tempStr]) {
-        //console.log("lib", lib)
-        //console.log("str", tempStr)
+        console.log("3 lib", lib)
+        console.log("4 str", tempStr)
         return lib[tempStr];
     }
 
     if (lib.context[tmpStr]){
-        //console.log("lib context found", tmpStr)
-        //console.log("lib.context[tmpStr]", lib.context[tmpStr])
+        console.log("5 lib context found", tmpStr)
+        console.log("6 lib.context[tmpStr]", lib.context[tmpStr])
         return lib.context[tmpStr]
     }
 
     try {
-        //console.log("resolve", require.resolve("/tmp/node_modules/"+tempStr))
+        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tempStr))
         if (require.resolve("/tmp/node_modules/"+tempStr)) {
-            //console.log("/tmp/node_modules/"+tempStr)
+            console.log("8 /tmp/node_modules/"+tempStr)
             return require("/tmp/node_modules/"+tempStr);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
-
+    console.log("9 after")
     const singlePlaceholderRegex = /^\{\{([^}]+)\}\}!?$/
     const singleMatch = str.match(singlePlaceholderRegex);
 
