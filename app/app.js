@@ -190,18 +190,11 @@ const json1 = [
                         params: []
                     }
                 ],
-                assign: "s3Response"
+                assign: "{{s3Response}}!"
             },
             {
-                target: "{{s3Response}}!",
+                target: "s3Response",
                 chain: [
-                    {
-                        access: "Body"
-                    },
-                    {
-                        access: "toString",
-                        params: ["utf-8"]
-                    }
                 ],
                 assign: "s3Data"
             },
@@ -548,7 +541,7 @@ async function processAction(action, context, req, res, next) {
         result = await applyMethodChain(result, action, context, res, req, next);
         console.log("result", result)
         if (action.assign) {
-            console.log(1)
+            console.log(1, action.assign)
             if (action.assign.includes('{{')) {
                 console.log(2)
                 let isFunctionExecution = action.assign.endsWith('!');
