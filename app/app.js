@@ -46,7 +46,8 @@ const json1 = [
     {
         modules: {
              "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
+             "passport-microsoft":"passport-microsoft",
+             "moment-timezone": "moment-timezone"
          },
          actions: [
             {
@@ -67,6 +68,20 @@ const json1 = [
                     {access:"Strategy"}
                 ],
                 assign:"MicrosoftStrategy"
+            },
+            {
+                target:"moment-timezone",
+                chain:[
+                ],
+                assign:"moment-timezone"
+            },
+            {
+                target: "moment-timezone",
+                chain: [
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
             },
             {
                 target:"root",
