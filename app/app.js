@@ -204,7 +204,7 @@ const json1 = [
                     }
                 ],
                 assign: "s3Data"
-            }
+            },
             {
                 target:"root",
                 chain:[
