@@ -42,7 +42,7 @@ async function getPrivateKey() {
     }
 }
 
-const json0 = [
+const json1 = [
     {
         modules: {
              "passport":"passport",
@@ -50,6 +50,20 @@ const json0 = [
              "moment-timezone": "moment-timezone"
          },
          actions: [
+            {
+                target:"moment-timezone",
+                chain:[
+                ],
+                assign:"moment-timezone"
+            },
+            {
+                target: "moment-timezone",
+                chain: [
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
+            },
             {
                 target:"passport",
                 chain:[
@@ -69,57 +83,6 @@ const json0 = [
                 ],
                 assign:"MicrosoftStrategy"
             },
-            {
-                target:"moment-timezone",
-                chain:[
-                ],
-                assign:"moment-timezone"
-            },
-
-            {
-                target: "moment-timezone",
-                chain: [
-                    { access: "tz", params: ["Asia/Dubai"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-            {
-                target: "moment-timezone",
-                assign: "justTime",
-                from: ["{{timeInDubai}}!"],
-                chain: [
-                    { access: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                target: "moment-timezone",
-                assign: "timeInDubai2",
-                from: ["{{timeInDubai}}"],
-                chain: [
-                    { access: "add", params: [1, "hours"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ]
-            },
-            {
-                target: "moment-timezone",
-                assign: "justTime2",
-                from: ["{{timeInDubai2}}!"],
-                chain: [
-                    { access: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                next:true
-            }
-        ]
-    }
-]
-const json1 = [
-    {
-        modules: {
-         },
-         actions: [
             {
                 target:"root",
                 chain:[
@@ -324,17 +287,7 @@ const json2 = [
     }
 ]
 
-let middleware0 = json0.map(stepConfig => {
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        lib.context["sessionID"] = req.sessionID
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
+
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -383,7 +336,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 var indexRouter = require('./routes/index');
-lib.app.all('/auth/*', ...middleware0, ...middleware1, ...middleware2);
+lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
