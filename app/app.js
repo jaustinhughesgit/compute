@@ -300,6 +300,9 @@ let middleware2 = json2.map(stepConfig => {
 
 var cookiesRouter;
 
+var indexRouter = require('./routes/index');
+lib.app.all('/auth/*', ...middleware1, ...middleware2);
+
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
@@ -320,8 +323,6 @@ lib.app.use(async (req, res, next) => {
     }
 });
 
-var indexRouter = require('./routes/index');
-lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
