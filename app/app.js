@@ -193,7 +193,7 @@ const json1 = [
                 assign: "s3Response"
             },
             {
-                target: "s3Response",
+                target: "{{s3Response}}",
                 chain: [
                 ],
                 assign: "s3Data"
