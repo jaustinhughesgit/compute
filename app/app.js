@@ -2,7 +2,8 @@ var express = require('express');
 const serverless = require('serverless-http');
 let lib = {};
 lib.AWS = require('aws-sdk');
-lib.app = express();
+const app = express();
+lib.app = app
 lib.path = require('path');
 lib.root = {}
 lib.root.session = require('express-session');
@@ -17,10 +18,10 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
-lib.app.use(express.json());
-lib.app.use(express.urlencoded({ extended: true }));
-lib.app.set('views', lib.path.join(__dirname, 'views'));
-lib.app.set('view engine', 'ejs');
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('views', lib.path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
 
 lib.SM = new lib.AWS.SecretsManager();
 
@@ -293,13 +294,13 @@ let middleware2 = json2.map(stepConfig => {
 
 
 var cookiesRouter;
-lib.app.use(async (req, res, next) => {
+app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey);
-            lib.app.use('/:type(cookies|url)', function(req, res, next) {
+            app.use('/:type(cookies|url)', function(req, res, next) {
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
             }, cookiesRouter);
@@ -315,6 +316,7 @@ lib.app.use(async (req, res, next) => {
 
 var indexRouter = require('./routes/index');
 lib.app.all('/auth/*', ...middleware1, ...middleware2);
+lib.app.use('/', indexRouter);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -882,7 +884,6 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-lib.app.use('/', indexRouter);
 
 
 module.exports.lambdaHandler = serverless(lib.app);
