@@ -186,7 +186,7 @@ const json0 = [
                 chain: [
                     {
                         access: "send",
-                        params: ["{{s3Data}}"]
+                        params: ["Hello World"]
                     }
                 ]
             },
