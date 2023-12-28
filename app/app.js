@@ -1,17 +1,15 @@
 var express = require('express');
 const serverless = require('serverless-http');
-let lib = {};
-lib.AWS = require('aws-sdk');
+const AWS = require('aws-sdk');
 const app = express();
-lib.app = app
-lib.path = require('path');
-lib.root = {}
-lib.root.session = require('express-session');
-const { promisify } = require('util');
-lib.exec = promisify(require('child_process').exec);
-let loadMods = require('./scripts/processConfig.js')
 
-lib.app.use(lib.root.session({
+const path = require('path');
+
+const session = require('express-session');
+const { promisify } = require('util');
+const exec = promisify(require('child_process').exec);
+
+app.use(session({
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: true,
@@ -20,15 +18,15 @@ lib.app.use(lib.root.session({
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.set('views', lib.path.join(__dirname, 'views'));
+app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
-lib.SM = new lib.AWS.SecretsManager();
+SM = new AWS.SecretsManager();
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
-        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
+        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
         let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
         return pKey
@@ -63,8 +61,8 @@ app.use(async (req, res, next) => {
 
 var indexRouter = require('./routes/index');
 
-lib.app.use('/', indexRouter);
+app.use('/', indexRouter);
 
 
 
-module.exports.lambdaHandler = serverless(lib.app);
+module.exports.lambdaHandler = serverless(app);
