@@ -981,17 +981,26 @@ async function applyMethodChain(target, action, context, res, req, next) {
                     if (chainAction.new) {
                         result = new result[chainAction.access](...chainParams);
                     } else {
+                        console.log("ELSE result", result)
+                        console.log("ELSE chainAction.access", chainAction.access)
+                        console.log("ELSE chainParams", chainParams)
+                        console.log("z1")
                         if (chainAction.access && chainAction.access.length != 0){
+                            console.log("z2")
                             if (chainAction.access.startsWith('{{')) {
+                                console.log("z3")
                                 const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
+                                    console.log("z4")
                                     if (chainAction.express){
+                                        console.log("z5")
                                         if (chainAction.next || chainAction.next == undefined){
                                             result = methodFunction(...chainParams)(req, res, next);
                                         } else {
                                             result = methodFunction(...chainParams)(req, res);
                                         }
                                     } else {
+                                        console.log("z6")
                                         result = methodFunction(...chainParams);
                                     }
                                 } else {
@@ -1007,8 +1016,10 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                     }
                                 } else {
                                     try{
+                                        console.log("try")
                                     result = result[chainAction.access](...chainParams);
                                     } catch(err){
+                                        console.log("err", err)
                                         result = result
                                     }
                                 }
