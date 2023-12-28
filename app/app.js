@@ -30,24 +30,9 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
-async function getPrivateKey() {
-    const secretName = "public/1var/s3";
-    try {
-        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
-        const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
-        return pKey
-    } catch (error) {
-        console.error("Error fetching secret:", error);
-        throw error;
-    }
-}
-
 const json1 = [
     {
         modules: {
-             "passport":"passport",
-             "passport-microsoft":"passport-microsoft",
              "moment-timezone": "moment-timezone"
          },
          actions: [
@@ -166,6 +151,7 @@ const json1 = [
                         params: [{
                             Bucket: "public.1var.com",
                             Key: "test.html"
+                            //VersionId: 'DESIRED_VERSION_ID'
                         }]
                     },
                     {
@@ -214,7 +200,10 @@ const json1 = [
         ]
     },
     {
-       modules: {},
+       modules: {
+        "passport":"passport",
+        "passport-microsoft":"passport-microsoft"
+    },
         actions: [
             {
                 target:"passport",
@@ -412,6 +401,20 @@ let middleware2 = json2.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
+
+
+async function getPrivateKey() {
+    const secretName = "public/1var/s3";
+    try {
+        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
+        const secret = JSON.parse(data.SecretString);
+        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
+        return pKey
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
+    }
+}
 
 var cookiesRouter;
 
