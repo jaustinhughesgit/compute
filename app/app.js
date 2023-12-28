@@ -4,7 +4,6 @@ let lib = {};
 lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
-lib.fs = require('fs');
 lib.root = {}
 lib.root.session = require('express-session');
 const { promisify } = require('util');
@@ -272,8 +271,6 @@ const json2 = [
     }
 ]
 
-
-
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -300,9 +297,6 @@ let middleware2 = json2.map(stepConfig => {
 
 var cookiesRouter;
 
-var indexRouter = require('./routes/index');
-lib.app.all('/auth/*', ...middleware1, ...middleware2);
-
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
@@ -323,6 +317,8 @@ lib.app.use(async (req, res, next) => {
     }
 });
 
+var indexRouter = require('./routes/index');
+lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -699,7 +695,7 @@ function processString(str, context) {
         tempStr = str
     }
 
-    if (lib[tmpStr]) {
+    if (lib[tempStr]) {
         //console.log("lib", lib)
         //console.log("str", tempStr)
         return lib[tempStr];
