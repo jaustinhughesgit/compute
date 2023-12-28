@@ -22,7 +22,11 @@ lib.app.use(express.urlencoded({ extended: true }));
 lib.app.set('views', lib.path.join(__dirname, 'views'));
 lib.app.set('view engine', 'ejs');
 
+lib.AWS.config.update({ region: 'us-east-1' });
+lib.dynamodbLL = new lib.AWS.DynamoDB();
+lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
+lib.s3 = new lib.AWS.S3();
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -37,11 +41,163 @@ async function getPrivateKey() {
     }
 }
 
-const json1 = [
+const json0 = [
     {
         modules: {
              "passport":"passport",
-             "passport-microsoft":"passport-microsoft"
+             "passport-microsoft":"passport-microsoft",
+             "moment-timezone": "moment-timezone"
+         },
+         actions: [
+            {
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{condition1:true}
+            },
+            {
+                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{condition2:true}
+            },
+            {
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{first:5}
+            },
+            {
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{second:0}
+            },
+            {
+                while:["{{first}}", ">","{{second}}"],
+                params:[],
+                run:[
+                    {access:"{{first}}", subtract:1, params:[]}
+                ],
+                assign:"{{first}}!"
+            },
+            {
+                target: "moment-timezone",
+                chain: [
+                    { access: "tz", params: ["Asia/Dubai"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ],
+                assign: "timeInDubai"
+            },
+            {
+                target: "moment-timezone",
+                assign: "justTime",
+                from: ["{{timeInDubai}}!"],
+                chain: [
+                    { access: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
+                target: "moment-timezone",
+                assign: "timeInDubai2",
+                from: ["{{timeInDubai}}"],
+                chain: [
+                    { access: "add", params: [1, "hours"] },
+                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
+                ]
+            },
+            {
+                target: "moment-timezone",
+                assign: "justTime2",
+                from: ["{{timeInDubai2}}!"],
+                chain: [
+                    { access: "format", params: ["HH:mm"] }
+                ]
+            },
+            {
+                target: "fs",
+                chain: [
+                    {
+                        access: "readFileSync",
+                        params: ["/var/task/app/routes/../example.txt", "utf8"],
+                    }
+                ],
+                assign: "fileContents"
+            },
+            {
+                target: "fs",
+                access: "writeFileSync",
+                params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
+            },
+            {
+                target: "fs",
+                chain: [
+                    {
+                        access: "readFileSync",
+                        params: ['/tmp/tempFile.txt', "utf8"],
+                    }
+                ],
+                assign: "tempFileContents"
+            },
+            {
+                target: "s3",
+                chain: [
+                    {
+                        access: "upload",
+                        params: [{
+                            "Bucket": "public.1var.com",
+                            "Key": "test.html",
+                            "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
+                        }]
+                    },
+                    {
+                        access: "promise",
+                        params: []
+                    }
+                ],
+                assign: "s3UploadResult"
+            },
+            {
+                target: "s3",
+                chain: [
+                    {
+                        access: "getObject",
+                        params: [{
+                            Bucket: "public.1var.com",
+                            Key: "test.html"
+                        }]
+                    },
+                    {
+                        access: "promise",
+                        params: []
+                    }
+                ],
+                assign: "s3Response"
+            },
+            {
+                target: "{{s3Response}}",
+                chain: [
+                    {
+                        access: "Body"
+                    },
+                    {
+                        access: "toString",
+                        params: ["utf-8"]
+                    }
+                ],
+                assign: "{{s3Data}}"
+            },
+            {
+                ifs: [["{{urlpath}}", "==", "/test"]],
+                target: "res",
+                chain: [
+                    {
+                        access: "send",
+                        params: ["{{s3Data}}"]
+                    }
+                ]
+            },
+            {
+                next:true
+            }
+        ]
+    }
+]
+const json1 = [
+    {
+        modules: {
          },
          actions: [
             {
@@ -267,6 +423,18 @@ const json2 = [
     }
 ]
 
+let middleware0 = json0.map(stepConfig => {
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
+        lib.context["sessionID"] = req.sessionID
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
@@ -291,8 +459,8 @@ let middleware2 = json2.map(stepConfig => {
     };
 });
 
-
 var cookiesRouter;
+
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
@@ -314,7 +482,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 var indexRouter = require('./routes/index');
-lib.app.all('/auth/*', ...middleware1, ...middleware2);
+lib.app.all('/auth/*', ...middleware0, ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -883,6 +1051,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
 }
 
 lib.app.use('/', indexRouter);
-
 
 module.exports.lambdaHandler = serverless(lib.app);
