@@ -66,14 +66,14 @@ const json0 = [
                 if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
                 set:{second:0}
             },
-            {
+            /*{
                 while:["{{first}}", ">","{{second}}"],
                 params:[],
                 run:[
                     {access:"{{first}}", subtract:1, params:[]}
                 ],
                 assign:"{{first}}!"
-            },
+            },*/
             {
                 target: "moment-timezone",
                 chain: [
@@ -168,7 +168,7 @@ const json0 = [
                 assign: "s3Response"
             },
             {
-                target: "{{s3Response}}",
+                target: "s3Response",
                 chain: [
                     {
                         access: "Body"
@@ -178,10 +178,10 @@ const json0 = [
                         params: ["utf-8"]
                     }
                 ],
-                assign: "{{s3Data}}"
+                assign: "s3Data"
             },
             {
-                ifs: [["{{urlpath}}", "==", "/test"]],
+                //ifs: [["{{urlpath}}", "==", "/test"]],
                 target: "res",
                 chain: [
                     {
