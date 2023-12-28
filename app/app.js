@@ -190,7 +190,7 @@ const json1 = [
                         params: []
                     }
                 ],
-                assign: "{{s3Response}}"
+                assign: "s3Response"
             },
             {
                 target: "{{s3Response}}!",
