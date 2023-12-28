@@ -1,27 +1,9 @@
-var express = require('express');
-const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
-const app = express();
-
+const express = require('express');
+const serverless = require('serverless-http');
 const path = require('path');
 
-const session = require('express-session');
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
-
-app.use(session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: true } 
-}));
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.set('views', path.join(__dirname, 'views'));
-app.set('view engine', 'ejs');
-
-SM = new AWS.SecretsManager();
+const SM = new AWS.SecretsManager();
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -36,13 +18,20 @@ async function getPrivateKey() {
     }
 }
 
+const app = express();
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
+
+var indexRouter = require('./routes/index');
 
 var cookiesRouter;
+
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
-            console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey);
             app.use('/:type(cookies|url)', function(req, res, next) {
@@ -59,10 +48,6 @@ app.use(async (req, res, next) => {
     }
 });
 
-var indexRouter = require('./routes/index');
-
 app.use('/', indexRouter);
-
-
 
 module.exports.lambdaHandler = serverless(app);
