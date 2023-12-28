@@ -193,6 +193,19 @@ const json1 = [
                 assign: "s3Response"
             },
             {
+                target: "{{s3Response}}!",
+                chain: [
+                    {
+                        access: "Body"
+                    },
+                    {
+                        access: "toString",
+                        params: ["utf-8"]
+                    }
+                ],
+                assign: "s3Data"
+            },
+            {
                 target:"root",
                 chain:[
                     {access:"session", param:[{
@@ -519,43 +532,43 @@ async function processAction(action, context, req, res, next) {
                 }
         let result;
         if (typeof moduleInstance === 'function') {
-            //console.log("moduleINstance is a function")
+            console.log("moduleINstance is a function")
             if (args.length == 0) {
-                //console.log("args length is 0")
+                console.log("args length is 0")
                 result = moduleInstance;
             } else {
-                //console.log("args length > 0")
+                console.log("args length > 0")
                 result = moduleInstance(...args); 
             }
         } else {
-            //console.log("moduleInstance is not a function")
+            console.log("moduleInstance is not a function")
             result = moduleInstance;
         }
-        //console.log("applyMethodChain", result, action, context)
+        console.log("applyMethodChain", result, action, context)
         result = await applyMethodChain(result, action, context, res, req, next);
-        //console.log("result", result)
+        console.log("result", result)
         if (action.assign) {
-            //console.log(1)
+            console.log(1)
             if (action.assign.includes('{{')) {
-                //console.log(2)
+                console.log(2)
                 let isFunctionExecution = action.assign.endsWith('!');
                 let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
                 if (isFunctionExecution) {
-                    //console.log(3)
+                    console.log(3)
                     if (typeof result === 'function'){
-                        //console.log(4)
+                        console.log(4)
                         let tempFunction = () => result;
                         context[assignKey] = tempFunction();
                     } else {
-                        //console.log(5)
+                        console.log(5)
                         context[assignKey] = result
                     }
                 } else {
-                    //console.log(6)
+                    console.log(6)
                     context[assignKey] = result;
                 }
             } else {
-                //console.log(7)
+                console.log(7)
                 context[action.assign] = result;
             }
         }
@@ -1004,7 +1017,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                 } else {
                                     try{
                                         console.log("try")
-                                    result = result//[chainAction.access](...chainParams);
+                                    result = result[chainAction.access](...chainParams);
                                     } catch(err){
                                         console.log("err", err)
                                         result = result
