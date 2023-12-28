@@ -206,7 +206,7 @@ const json1 = [
                 assign: "s3Data"
             },
             {
-                ifs: [["{{urlpath}}", "==", "/test"]],
+                //ifs: [["{{urlpath}}", "==", "/test"]],
                 target: "res",
                 chain: [
                     {
