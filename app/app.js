@@ -131,6 +131,65 @@ const json1 = [
                 chain: [
                     { access: "format", params: ["HH:mm"] }
                 ]
+            },{
+                target: "fs",
+                chain: [
+                    {
+                        access: "readFileSync",
+                        params: ["/var/task/app/routes/../example.txt", "utf8"],
+                    }
+                ],
+                assign: "fileContents"
+            },
+            {
+                target: "fs",
+                access: "writeFileSync",
+                params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
+            },
+            {
+                target: "fs",
+                chain: [
+                    {
+                        access: "readFileSync",
+                        params: ['/tmp/tempFile.txt', "utf8"],
+                    }
+                ],
+                assign: "tempFileContents"
+            },
+            {
+                target: "s3",
+                chain: [
+                    {
+                        access: "upload",
+                        params: [{
+                            "Bucket": "public.1var.com",
+                            "Key": "test.html",
+                            "Body": "<html><head></head><body>Welcome to 1 VAR!</body></html>"
+                        }]
+                    },
+                    {
+                        access: "promise",
+                        params: []
+                    }
+                ],
+                assign: "s3UploadResult"
+            },
+            {
+                target: "s3",
+                chain: [
+                    {
+                        access: "getObject",
+                        params: [{
+                            Bucket: "public.1var.com",
+                            Key: "test.html"
+                        }]
+                    },
+                    {
+                        access: "promise",
+                        params: []
+                    }
+                ],
+                assign: "s3Response"
             },
             {
                 target:"root",
