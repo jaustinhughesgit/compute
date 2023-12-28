@@ -188,15 +188,16 @@ const json1 = [
                     {
                         access: "promise",
                         params: []
+                    },
+                    {
+                        access: "Body"
+                    },
+                    {
+                        access: "toString",
+                        params: ["utf-8"]
                     }
                 ],
                 assign: "s3Response"
-            },
-            {
-                target: "{{s3Response}}",
-                chain: [
-                ],
-                assign: "s3Data"
             },
             {
                 target:"root",
