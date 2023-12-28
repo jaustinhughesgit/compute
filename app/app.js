@@ -17,10 +17,11 @@ lib.app.use(lib.root.session({
     cookie: { secure: true } 
 }));
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 lib.app.set('views', lib.path.join(__dirname, 'views'));
 lib.app.set('view engine', 'ejs');
 
-AWS.config.update({ region: 'us-east-1' });
 lib.SM = new lib.AWS.SecretsManager();
 
 async function getPrivateKey() {
@@ -288,6 +289,28 @@ let middleware2 = json2.map(stepConfig => {
         lib.context["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
+});
+
+
+var cookiesRouter;
+lib.app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            console.log("-----cookiesRouter")
+            const privateKey = await getPrivateKey();
+            cookiesRouter = require('./routes/cookies')(privateKey);
+            lib.app.use('/:type(cookies|url)', function(req, res, next) {
+                req.type = req.params.type; // Capture the type (cookies or url)
+                next('route'); // Pass control to the next route
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
 });
 
 var indexRouter = require('./routes/index');
@@ -861,25 +884,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
 lib.app.use('/', indexRouter);
 
-var cookiesRouter;
-lib.app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            console.log("-----cookiesRouter")
-            const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey);
-            lib.app.use('/:type(cookies|url)', function(req, res, next) {
-                req.type = req.params.type; // Capture the type (cookies or url)
-                next('route'); // Pass control to the next route
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});
 
 module.exports.lambdaHandler = serverless(lib.app);
