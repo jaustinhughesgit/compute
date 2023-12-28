@@ -76,6 +76,30 @@ const json1 = [
                 assign:"moment-timezone"
             },
             {
+                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{condition1:true}
+            },
+            {
+                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
+                set:{condition2:true}
+            },
+            {
+               if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+               set:{first:5}
+           },
+           {
+              if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
+              set:{second:0}
+          },
+           {
+               while:["{{first}}", ">","{{second}}"],
+               params:[],
+               run:[
+                   {access:"{{first}}", subtract:1, params:[]}
+               ],
+               assign:"{{first}}!"
+           },
+            {
                 target: "moment-timezone",
                 chain: [
                     { access: "tz", params: ["Asia/Dubai"] },
