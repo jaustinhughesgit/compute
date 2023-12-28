@@ -251,14 +251,14 @@ const json2 = [
                 assign:"newAuth"
             }*/,
             {
-                ifs:[["{{urlpath}}","==","/dashboard2"]],
+                ifs:[["{{urlpath}}","==","/auth/dashboard2"]],
                 target:"res",
                 chain:[
-                    {access:"send", params:['<h1>Login Success</h1><a href="/account">CONTINUE</a>']}
+                    {access:"send", params:['<h1>Login Success</h1><a href="/auth/account">CONTINUE</a>']}
                 ]
             },
             {
-                ifs:[["{{urlpath}}","==","/account"]],
+                ifs:[["{{urlpath}}","==","/auth/account"]],
                 target:"res",
                 chain:[
                     {access:"send", params:['{{}}']}
@@ -292,7 +292,7 @@ let middleware2 = json2.map(stepConfig => {
     };
 });
 
-lib.app.all('/*', ...middleware1, ...middleware2);
+lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -864,6 +864,7 @@ var cookiesRouter;
 app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
+            console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey, dynamodb);
             app.use('/:type(cookies|url)', function(req, res, next) {
