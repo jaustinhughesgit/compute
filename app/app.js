@@ -824,13 +824,13 @@ function processString(str, context) {
     if (str.startsWith('{{')) {
         tmpStr = str.slice(2, -2);
     } else {
-        tempStr = str
+        tmpStr = str
     }
 
-    if (lib[tempStr]) {
+    if (lib[tmpStr]) {
         console.log("3 lib", lib)
-        console.log("4 str", tempStr)
-        return lib[tempStr];
+        console.log("4 str", tepStr)
+        return lib[tmpStr];
     }
 
     if (lib.context[tmpStr]){
@@ -840,10 +840,10 @@ function processString(str, context) {
     }
 
     try {
-        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tempStr))
-        if (require.resolve("/tmp/node_modules/"+tempStr)) {
-            console.log("8 /tmp/node_modules/"+tempStr)
-            return require("/tmp/node_modules/"+tempStr);
+        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tmpStr))
+        if (require.resolve("/tmp/node_modules/"+tmpStr)) {
+            console.log("8 /tmp/node_modules/"+tmpStr)
+            return require("/tmp/node_modules/"+tmpStr);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
