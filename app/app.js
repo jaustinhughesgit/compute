@@ -829,7 +829,7 @@ function processString(str, context) {
 
     if (lib[tmpStr]) {
         console.log("3 lib", lib)
-        console.log("4 str", tepStr)
+        console.log("4 str", tmpStr)
         return lib[tmpStr];
     }
 
