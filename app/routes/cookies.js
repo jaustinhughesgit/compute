@@ -29,7 +29,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
 
         console.log("subdomainData",subdomainData)
         console.log("fileID", fileID)
-        const expires = 30000; // .5 minutes in milliseconds
+        const expires = 30000;
         const url = "https://public.1var.com/test.json";
         const policy = JSON.stringify({
             Statement: [
@@ -54,7 +54,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             for (const cookieName in cookies) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
-            console.log("::::", req)
             res.json({"ok":true,"name":attributeName.Items[0].r});
         }   
     });
