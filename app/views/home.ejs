@@ -142,6 +142,17 @@ let boundingBox = calculateBoundingBox(boxes);
 drawDashedBox(boundingBox);
 drawGroupLabel(boundingBox);
 
+// Function to format and set JSON text in the textarea
+function formatAndSetJSON(val) {
+    // Get the textarea element by its ID
+    var textarea = document.getElementById("message");
+    
+    // Convert the JSON object into a formatted string
+    var formattedJSON = JSON.stringify(val, null, 4); // 4 spaces for indentation
+    
+    // Set the formatted JSON string as the value of the textarea
+    textarea.value = formattedJSON;
+}
 
 
         let isDragging = false;
@@ -199,6 +210,12 @@ drawGroupLabel(boundingBox);
                         //alert(boxes[i].text);
                         var span = document.getElementById("selected"); // Get the span element by its ID
                         span.textContent = boxes[i].text;
+                        let jsonObj = {
+                            key: {
+                                key: ""
+                            }
+                        };
+                        formatAndSetJSON(jsonObj)
                         break;
                     }
                 }
