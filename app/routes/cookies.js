@@ -39,9 +39,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         const children = entity.Items[0].t
         console.log(children)
 
-        console.log("subByE", subByE)
         console.log("subBySU", subBySU)
-        console.log("subByA", subByA)
+        //console.log("subByA", subByA)
+        //console.log("subByE", subByE)
         console.log("fileID", fileID)
 
         const expires = 30000;
