@@ -45,13 +45,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         const head = await getWord(entity.Items[0].a)
 
         let response = {}
-        response[subBySU.Items[0].su] = {meta:{name:head}, children:{}}
+        response[subBySU.Items[0].su] = {meta:{name:head.Items[0].r}, children:{}}
 
         for (const child of children) {
             const childEntity = await getEntity(child);
             const childSub = await getSub(child, "e")
             const childName = await getWord(childEntity.Items[0].a)
-            response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName, childred:{}}}
+            response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName.Items[0].r, childred:{}}}
         }
 
         console.log(children)
