@@ -573,6 +573,81 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
             }
         });
     });
+
+    router.post('/createSubdomainTable', function(req, res) {
+        const tableParams = {
+            AttributeDefinitions: [
+                {
+                    AttributeName: 'su',
+                    AttributeType: 'S'
+                },
+                {
+                    AttributeName: 'a',
+                    AttributeType: 'S'
+                }
+            ],
+            KeySchema: [
+                {
+                    AttributeName: 'su',
+                    KeyType: 'HASH'
+                }
+            ],
+            GlobalSecondaryIndexes: [ 
+                {
+                    IndexName: 'aIndex',
+                    KeySchema: [
+                        {
+                            AttributeName: 'a',
+                            KeyType: 'HASH'
+                        }
+                    ],
+                    Projection: {
+                        ProjectionType: 'ALL'
+                    }
+                }
+            ],
+            BillingMode: 'PAY_PER_REQUEST',  // You're using on-demand capacity, so you don't specify ProvisionedThroughput
+            TableName: 'subdomains'
+        };
+    
+        dynamodbLL.createTable(tableParams, (err, data) => {
+            if (err) {
+                console.error("Unable to create table. Error JSON:", JSON.stringify(err, null, 2));
+                return res.status(500).send(err); // You might want to handle error differently
+            } else {
+                console.log("Created table. Table description JSON:", JSON.stringify(data, null, 2));
+                res.render('controller', {results: JSON.stringify(data)});
+            }
+        });
+    });
+
+
+    router.post('/addSubdomain', function(req, res) {
+        const uniqueId = uuidv4();
+        createSubdomain(uniqueId,"1","1")
+    });
+
+    const createSubdomain = async (su, a, e) => {
+        const params = {
+            TableName: 'entities',
+            Item: {
+                su: su,
+                a: a,
+                e: e
+            }
+        };
+    
+        try {
+            await dynamodb.put(params).promise();
+            console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
+            return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
+        } catch (error) {
+            console.error("Error creating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+
+    
     
     router.post('/createEntity', async function(req, res) {
         try {
