@@ -584,6 +584,10 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                 {
                     AttributeName: 'a',
                     AttributeType: 'S'
+                },
+                {
+                    AttributeName: 'e',
+                    AttributeType: 'S'
                 }
             ],
             KeySchema: [
