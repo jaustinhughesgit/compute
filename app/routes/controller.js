@@ -645,7 +645,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     router.post('/addSubdomain', async function(req, res) {
         console.log("/addSubdomain")
         const uniqueId = uuidv4();
-        let response = await createSubdomain(uniqueId,"1","1")
+        let response = await createSubdomain(uniqueId,"12","2")
 
         res.render('controller', {results: JSON.stringify(response)});
     });

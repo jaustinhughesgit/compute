@@ -25,6 +25,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         return await dynamodb.query(params).promise()
     }
 
+    async function getWord(a){
+        params = { TableName: 'words', KeyConditionExpression: 'a = :a', ExpressionAttributeValues: {':a': a} };
+        return await dynamodb.query(params).promise()
+    }
 
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
@@ -37,6 +41,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
 
         const entity = await getEntity(subBySU.Items[0].e)
         const children = entity.Items[0].t
+
+        const head = await getWord(entity.Items[0].a)
+
+        let response = {}
+        response[subBySU.Items[0].su] = {meta:head, children:{}}
+
+        for (const child of children) {
+            const childEntity = await getSub(subBySU.Items[0].e, "e");
+
+            //response[head].children[childEntity]
+        }
+
         console.log(children)
 
         console.log("subBySU", subBySU)
