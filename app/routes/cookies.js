@@ -55,7 +55,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
             console.log("::::", req)
-            res.json({"ok":true,"name":attributeName});
+            res.json({"ok":true,"name":attributeName.Items[0].r});
         }   
     });
     return router;
