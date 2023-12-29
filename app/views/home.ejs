@@ -210,11 +210,7 @@ function formatAndSetJSON(val) {
                         //alert(boxes[i].text);
                         var span = document.getElementById("selected"); // Get the span element by its ID
                         span.textContent = boxes[i].text;
-                        let jsonObj = {
-                            key: {
-                                key: ""
-                            }
-                        };
+                        let jsonObj = {key: {key: ""}};
                         formatAndSetJSON(jsonObj)
                         break;
                     }
