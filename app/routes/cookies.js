@@ -7,6 +7,11 @@ module.exports = function(privateKey) {
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     router.get('/*', async function(req, res, next) {
         console.log(")))))",req)
+        console.log(")))))",req.path)
+        console.log(")))))",req.apiGateway.event.path)
+        const reqPath = req.apiGateway.event.path
+        const fileID = reqPath.split("/")[2]
+        console.log("fileID", fileID)
         const expires = 30000; // .5 minutes in milliseconds
         const url = "https://public.1var.com/test.json";
         const policy = JSON.stringify({
