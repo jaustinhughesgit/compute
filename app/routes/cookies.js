@@ -21,7 +21,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
     }
 
     async function getEntity(e){
-        params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: {':e': encodeURI} };
+        params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: {':e': e} };
         return await dynamodb.query(params).promise()
     }
 
