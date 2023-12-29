@@ -7,6 +7,8 @@ lib.path = require('path');
 lib.root = {}
 lib.root.session = require('express-session');
 lib.fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
+lib.uuidv4 = uuidv4
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
@@ -435,7 +437,12 @@ lib.app.use(async (req, res, next) => {
     }
 });
 
+var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+app.use('/controller', controllerRouter);
+
 var indexRouter = require('./routes/index');
+lib.app.use('/', indexRouter);
+
 lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
@@ -1016,6 +1023,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-lib.app.use('/', indexRouter);
 
 module.exports.lambdaHandler = serverless(lib.app);
