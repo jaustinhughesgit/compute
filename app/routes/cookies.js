@@ -7,7 +7,7 @@ async function getEntity(e, dynamodb){
         TableName: 'entities',
         KeyConditionExpression: 'e = :e',
         ExpressionAttributeValues: {
-          ':e': subdomainData.Items[0].e
+          ':e': e
         }
       };
       const entityDetails = await dynamodb.query(params).promise()
