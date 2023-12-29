@@ -1,16 +1,28 @@
 var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
-module.exports = function(privateKey) {
+module.exports = function(privateKey, dynamodb, dynamodbLL) {
     var router = express.Router();
     const keyPairId = 'K2LZRHRSYZRU3Y'; 
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     router.get('/*', async function(req, res, next) {
-        console.log(")))))",req)
-        console.log(")))))",req.path)
-        console.log(")))))",req.apiGateway.event.path)
         const reqPath = req.apiGateway.event.path
         const fileID = reqPath.split("/")[2]
+
+        const params = {
+            TableName: 'subdomains',
+            KeyConditionExpression: 'su = :su',
+            ExpressionAttributeValues: {
+              ':su': fileID
+            }
+          };
+          dynamodb.query(params, function(err, data) {
+            if (err) {
+              console.log("Error", err);
+            } else {
+              console.log("Success", data.Items);
+            }
+          });
         console.log("fileID", fileID)
         const expires = 30000; // .5 minutes in milliseconds
         const url = "https://public.1var.com/test.json";

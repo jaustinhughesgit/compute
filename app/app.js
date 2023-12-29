@@ -422,7 +422,7 @@ lib.app.use(async (req, res, next) => {
         try {
             console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey);
+            cookiesRouter = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL);
             lib.app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
