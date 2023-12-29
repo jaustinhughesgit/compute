@@ -423,7 +423,7 @@ lib.app.use(async (req, res, next) => {
             console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey);
-            lib.app.use('/:type(cookies|url)', function(req, res, next) {
+            lib.app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type; // Capture the type (cookies or url)
                 next('route'); // Pass control to the next route
             }, cookiesRouter);
