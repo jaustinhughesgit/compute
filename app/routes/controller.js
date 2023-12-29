@@ -604,6 +604,18 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
                     Projection: {
                         ProjectionType: 'ALL'
                     }
+                },
+                {
+                    IndexName: 'eIndex',
+                    KeySchema: [
+                        {
+                            AttributeName: 'e',
+                            KeyType: 'HASH'
+                        }
+                    ],
+                    Projection: {
+                        ProjectionType: 'ALL'
+                    }
                 }
             ],
             BillingMode: 'PAY_PER_REQUEST',  // You're using on-demand capacity, so you don't specify ProvisionedThroughput

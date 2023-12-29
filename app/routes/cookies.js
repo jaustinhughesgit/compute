@@ -40,13 +40,17 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
               ':a': subdomainData.Items[0].a
             }
           };
-          const attributeName = await dynamodb.query(params2).promise()
+          const attributeName = await dynamodb.query(params2).promise();
 
-          const entityDetails = await getEntity(subdomainData.Items[0].e, dynamodb)
+          const entityDetails = await getEntity(subdomainData.Items[0].e, dynamodb);
 
         console.log("entityDetails", entityDetails)
         console.log("subdomainData", subdomainData)
+        console.log("attributeName", attributeName)
         console.log("fileID", fileID)
+
+        
+
         const expires = 30000;
         const url = "https://public.1var.com/test.json";
         const policy = JSON.stringify({
