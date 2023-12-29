@@ -69,7 +69,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             for (const cookieName in cookies) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
-            res.json({"ok":true,"entity":{"name":attributeName.Items[0].r}});
+            res.json({"ok":true,"entity":{"name":subBySU.Items[0].r}});
         }   
     });
     return router;
