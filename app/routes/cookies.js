@@ -18,6 +18,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
           };
           const subdomainData = await dynamodb.query(params).promise()
 
+          const params2 = {
+            TableName: 'words',
+            KeyConditionExpression: 'a = :a',
+            ExpressionAttributeValues: {
+              ':a': subdomainData.Items[0].a
+            }
+          };
+          const attributeName = await dynamodb.query(params2).promise()
+
         console.log("subdomainData",subdomainData)
         console.log("fileID", fileID)
         const expires = 30000; // .5 minutes in milliseconds
@@ -46,7 +55,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
             console.log("::::", req)
-            res.json({"ok":true,"name":"austin"});
+            res.json({"ok":true,"name":attributeName});
         }   
     });
     return router;
