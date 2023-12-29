@@ -51,7 +51,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             const childEntity = await getEntity(child);
             const childSub = await getSub(child, "e")
             const childName = await getWord(childEntity.Items[0].a)
-            response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName.Items[0].r, childred:{}}}
+            response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName.Items[0].r}, children:{}}
         }
 
         console.log(children)
