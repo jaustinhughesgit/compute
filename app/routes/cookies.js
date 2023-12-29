@@ -45,16 +45,17 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         const head = await getWord(entity.Items[0].a)
 
         let response = {}
-        response[subBySU.Items[0].su] = {meta:head, children:{}}
+        response[subBySU.Items[0].su] = {meta:{name:head}, children:{}}
 
         for (const child of children) {
-            const childEntity = await getSub(subBySU.Items[0].e, "e");
-
-            //response[head].children[childEntity]
+            const childEntity = await getEntity(child);
+            const childSub = await getSub(child, "e")
+            const childName = await getWord(childEntity.Items[0].a)
+            response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName, childred:{}}}
         }
 
         console.log(children)
-
+        console.log(response)
         console.log("subBySU", subBySU)
         //console.log("subByA", subByA)
         //console.log("subByE", subByE)
@@ -85,7 +86,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             for (const cookieName in cookies) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
-            res.json({"ok":true,"entity":{"name":subBySU.Items[0].r}});
+            res.json({"ok":true,"response":response});
         }   
     });
     return router;
