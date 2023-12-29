@@ -638,17 +638,17 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     });
 
 
-    router.post('/addSubdomain', function(req, res) {
+    router.post('/addSubdomain', async function(req, res) {
         console.log("/addSubdomain")
         const uniqueId = uuidv4();
-        let response = createSubdomain(uniqueId,"1","1")
+        let response = await createSubdomain(uniqueId,"1","1")
 
         res.render('controller', {results: JSON.stringify(response)});
     });
 
     const createSubdomain = async (su, a, e) => {
         console.log(su, a, e)
-        const params = {
+        const paramsAA = {
             TableName: 'subdomains',
             Item: {
                 su: su,
@@ -659,7 +659,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
     
         try {
             console.log("trying")
-            const response = await dynamodb.put(params).promise();
+            const response = await dynamodb.put(paramsAA).promise();
             console.log(response)
             console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
             return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
