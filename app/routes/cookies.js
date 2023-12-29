@@ -16,13 +16,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
               ':su': fileID
             }
           };
-          dynamodb.query(params, function(err, data) {
-            if (err) {
-              console.log("Error", err);
-            } else {
-              console.log("Success", data.Items);
-            }
-          });
+          const subdomainData = await dynamodb.query(params).promise()
+
+        console.log("subdomainData",subdomainData)
         console.log("fileID", fileID)
         const expires = 30000; // .5 minutes in milliseconds
         const url = "https://public.1var.com/test.json";
