@@ -438,7 +438,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
-app.use('/controller', controllerRouter);
+lib.app.use('/controller', controllerRouter);
 
 var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
