@@ -502,7 +502,7 @@ module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
     router.post('/addWords', async (req, res) => {
         try {
-            const words = ["Company","Technology","KPMG","PY","HR","ID","State","Name","Car","Austin","Honda","City","Road","Street","Lake","test","Monastery","River","New"];
+            const words = ["Key", "House","Tree","Mouse"];
             await initializeCounter();
             let status = {
                 added:[],
