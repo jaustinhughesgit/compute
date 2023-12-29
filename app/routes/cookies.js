@@ -10,7 +10,7 @@ async function getEntity(e, dynamodb){
           ':e': e
         }
       };
-      const entityDetails = await dynamodb.query(params).promise()
+      return await dynamodb.query(params).promise()
 }
 
 
