@@ -55,6 +55,10 @@
         <button id="clickMode">Click</button>
     </div>
     <div id="rightbar">
+        <div>Selected:<span id="selected"></span></div>
+        <textarea id="message" name="message" rows="4" cols="50">
+            Please enter your message here...
+              </textarea>
     </div>
     <div id="board-container">
         <div id="board">
@@ -187,7 +191,9 @@ drawGroupLabel(boundingBox);
                 var y = e.clientY - rect.top;
                 for (var i = 0; i < boxes.length; i++) {
                     if (isInsideBox(x, y, boxes[i])) {
-                        alert(boxes[i].text);
+                        //alert(boxes[i].text);
+                        var span = document.getElementById("selected"); // Get the span element by its ID
+                        span.textContent = boxes[i].text;
                         break;
                     }
                 }
