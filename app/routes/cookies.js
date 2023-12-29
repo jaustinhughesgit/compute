@@ -34,15 +34,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         console.log("attributeName", attributeName)
         console.log("fileID", fileID)
 
-        const params3 = {
-            TableName: 'words',
-            IndexName: 'sIndex', // Using the secondary index
-            KeyConditionExpression: 's = :s',
-            ExpressionAttributeValues: {
-                ':s': word
-            }
-        };
-
         const expires = 30000;
         const url = "https://public.1var.com/test.json";
         const policy = JSON.stringify({
