@@ -31,7 +31,7 @@ module.exports = function(privateKey) {
             for (const cookieName in cookies) {
                 res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
             }
-            res.render('cookies', { title: 'Test' });
+            res.json({"ok":true});
         }   
     });
     return router;
