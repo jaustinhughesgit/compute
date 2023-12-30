@@ -44,7 +44,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         const name = head.Items[0].r
         console.log("6", name)
         let obj = {};
-        obj[fileID] = {meta: {name: name},children: {}};
+        obj[fileID] = {meta: {name: name, expanded:false},children: {}};
         if (children){
             for (let child of children) {
                 const subByE = await getSub(child, "e");
