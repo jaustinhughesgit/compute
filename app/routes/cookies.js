@@ -48,63 +48,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         return obj
     }
 
-    router.get('/*', async function(req, res, next) {
-        const reqPath = req.apiGateway.event.path
-        const action = reqPath.split("/")[2]
-        
-        var response = {}
-        if (action == "get"){
-            const fileID = reqPath.split("/")[3]
-            response = await convertToJSON(fileID)
-        } else if (action == "add") {
-            const fileID = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const headUUID = reqPath.split("/")[5]
-            const e = await incrementCounterAndGetNewValue('eCounter');
-            const aNew = await incrementCounterAndGetNewValue('wCounter');
-            const a = await createWord(aNew.toString(), newEntityName);
-            const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v);
-
-            const parent = await getSub(fileID, "su");
-            const eParent = await getEntity(parent.Items[0].e)
-            const details2 = await addVersion(eParent, "t", e.toString(), null);
-            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
-
-            response = await convertToJSON(headUUID)
-        }
-
-
-        const expires = 30000;
-        const url = "https://public.1var.com/test.json";
-        const policy = JSON.stringify({
-            Statement: [
-                {
-                    Resource: url,
-                    Condition: {
-                        DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
-                    }
-                }
-            ]
-        });
-        if (req.type === 'url'){
-            const signedUrl = signer.getSignedUrl({
-                url: url,
-                policy: policy
-            });
-            res.json({ signedUrl: signedUrl });
-        } else {
-            const cookies = signer.getSignedCookie({
-                policy: policy
-            });
-            for (const cookieName in cookies) {
-                res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
-            }
-            res.json({"ok":true,"response":response});
-        }   
-    });
-    return router;
-
     const updateEntity = async (e, col, val, v, c) => {
         const params = {
             TableName: 'entities',
@@ -282,4 +225,62 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             throw error; // Rethrow the error for the caller to handle
         }
     };
+
+    router.get('/*', async function(req, res, next) {
+        const reqPath = req.apiGateway.event.path
+        const action = reqPath.split("/")[2]
+        
+        var response = {}
+        if (action == "get"){
+            const fileID = reqPath.split("/")[3]
+            response = await convertToJSON(fileID)
+        } else if (action == "add") {
+            const fileID = reqPath.split("/")[3]
+            const newEntityName = reqPath.split("/")[4]
+            const headUUID = reqPath.split("/")[5]
+            const e = await incrementCounterAndGetNewValue('eCounter');
+            const aNew = await incrementCounterAndGetNewValue('wCounter');
+            const a = await createWord(aNew.toString(), newEntityName);
+            const details = await addVersion(e.toString(), "a", a.toString(), null);
+            const result = await createEntity(e.toString(), a.toString(), details.v);
+
+            const parent = await getSub(fileID, "su");
+            const eParent = await getEntity(parent.Items[0].e)
+            const details2 = await addVersion(eParent, "t", e.toString(), null);
+            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
+
+            response = await convertToJSON(headUUID)
+        }
+
+
+        const expires = 30000;
+        const url = "https://public.1var.com/test.json";
+        const policy = JSON.stringify({
+            Statement: [
+                {
+                    Resource: url,
+                    Condition: {
+                        DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
+                    }
+                }
+            ]
+        });
+        if (req.type === 'url'){
+            const signedUrl = signer.getSignedUrl({
+                url: url,
+                policy: policy
+            });
+            res.json({ signedUrl: signedUrl });
+        } else {
+            const cookies = signer.getSignedCookie({
+                policy: policy
+            });
+            for (const cookieName in cookies) {
+                res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+            }
+            res.json({"ok":true,"response":response});
+        }   
+    });
+    return router;
+
 }
