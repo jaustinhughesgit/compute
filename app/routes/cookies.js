@@ -30,24 +30,50 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         return await dynamodb.query(params).promise()
     }
 
+    //pass subdomain, entity, word into this function as the same as element
+    async function convertToJSON(fileID) {
+        console.log("1", fileID)
+        const subBySU = await getSub(fileID, "su");
+        console.log("2", subBySU)
+        const entity = await getEntity(subBySU.Items[0].e)
+        console.log("3", entity)
+        const children = entity.Items[0].t
+        console.log("4", children)
+        const head = await getWord(entity.Items[0].a)
+        console.log("5", head)
+        const name = head.Items[0].r
+        console.log("6", name)
+        let obj = {};
+        obj[fileID] = {meta: {name: name},children: {}};
+        for (let child of children) {
+            if (child.tagName.toLowerCase() === 'div') {
+                Object.assign(obj[fileID].children, convertToJSON(child));
+            }
+        }
+        return obj
+    }
+
+
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
         const action = reqPath.split("/")[2]
         const fileID = reqPath.split("/")[3]
 
-        const subBySU = await getSub(fileID, "su");
+        let response = convertToJSON(fileID)
+        console.log("response", response)
+        //const subBySU = await getSub(fileID, "su");
         //const subByA = await getSub(subBySU.Items[0].a, "a");
         //const subByE = await getSub(subBySU.Items[0].e, "e");
 
-        const entity = await getEntity(subBySU.Items[0].e)
-        const children = entity.Items[0].t
+        //const entity = await getEntity(subBySU.Items[0].e)
+        //const children = entity.Items[0].t
 
-        const head = await getWord(entity.Items[0].a)
+        //const head = await getWord(entity.Items[0].a)
 
-        let response = {}
-        response[subBySU.Items[0].su] = {meta:{name:head.Items[0].r}, children:{}}
+        //let response = {}
+        //response[subBySU.Items[0].su] = {meta:{name:head.Items[0].r}, children:{}}
 
-        if (children != [] && children != "" && children != undefined){
+        /*if (children != [] && children != "" && children != undefined){
             for (const child of children) {
                 const childEntity = await getEntity(child);
                 const childSub = await getSub(child, "e")
@@ -63,7 +89,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         console.log("subBySU", subBySU)
         //console.log("subByA", subByA)
         //console.log("subByE", subByE)
-        console.log("fileID", fileID)
+        console.log("fileID", fileID)*/
 
         const expires = 30000;
         const url = "https://public.1var.com/test.json";
