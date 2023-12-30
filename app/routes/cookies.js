@@ -45,10 +45,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         console.log("6", name)
         let obj = {};
         obj[fileID] = {meta: {name: name},children: {}};
-        for (let child of children) {
-            const subByE = await getSub(child, "e");
-                let uuid = subByE.Items[0].su
-                Object.assign(obj[fileID].children, await convertToJSON(uuid));
+        if (children){
+            for (let child of children) {
+                const subByE = await getSub(child, "e");
+                    let uuid = subByE.Items[0].su
+                    Object.assign(obj[fileID].children, await convertToJSON(uuid));
+            }
         }
         return obj
     }
