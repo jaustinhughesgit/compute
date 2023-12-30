@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
 
-module.exports = function(privateKey, dynamodb, dynamodbLL) {
+module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     var router = express.Router();
     const keyPairId = 'K2LZRHRSYZRU3Y'; 
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
