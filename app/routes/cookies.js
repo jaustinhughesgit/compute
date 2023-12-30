@@ -226,6 +226,29 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         }
     };
 
+    const createSubdomain = async (su, a, e) => {
+        console.log(su, a, e)
+        const paramsAA = {
+            TableName: 'subdomains',
+            Item: {
+                su: su,
+                a: a,
+                e: e
+            }
+        };
+    
+        try {
+            console.log("trying")
+            const response = await dynamodb.put(paramsAA).promise();
+            console.log(response)
+            console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
+            return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
+        } catch (error) {
+            console.error("Error creating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
         const action = reqPath.split("/")[2]
@@ -243,12 +266,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
             const result = await createEntity(e.toString(), a.toString(), details.v);
-
+            const uniqueId = uuidv4();
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
             const parent = await getSub(fileID, "su");
+            console.log("parent", parent)
             const eParent = await getEntity(parent.Items[0].e)
+            console.log("eParent",eParent)
             const details2 = await addVersion(eParent, "t", e.toString(), null);
-            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
+            console.log("details2",details2)
 
+
+            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
+            console.log("updateParent",updateParent)
             response = await convertToJSON(headUUID)
         }
 
