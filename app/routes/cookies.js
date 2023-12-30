@@ -30,19 +30,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         return await dynamodb.query(params).promise()
     }
 
-    //pass subdomain, entity, word into this function as the same as element
     async function convertToJSON(fileID) {
-        console.log("1", fileID)
         const subBySU = await getSub(fileID, "su");
-        console.log("2", subBySU)
         const entity = await getEntity(subBySU.Items[0].e)
-        console.log("3", entity)
         const children = entity.Items[0].t
-        console.log("4", children)
         const head = await getWord(entity.Items[0].a)
-        console.log("5", head)
         const name = head.Items[0].r
-        console.log("6", name)
         let obj = {};
         obj[fileID] = {meta: {name: name, expanded:true},children: {}};
         if (children){
@@ -55,43 +48,25 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         return obj
     }
 
-
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
         const action = reqPath.split("/")[2]
         const fileID = reqPath.split("/")[3]
-
-        let response = await convertToJSON(fileID)
-        console.log("response", response)
-        //const subBySU = await getSub(fileID, "su");
-        //const subByA = await getSub(subBySU.Items[0].a, "a");
-        //const subByE = await getSub(subBySU.Items[0].e, "e");
-
-        //const entity = await getEntity(subBySU.Items[0].e)
-        //const children = entity.Items[0].t
-
-        //const head = await getWord(entity.Items[0].a)
-
-        //let response = {}
-        //response[subBySU.Items[0].su] = {meta:{name:head.Items[0].r}, children:{}}
-
-        /*if (children != [] && children != "" && children != undefined){
-            for (const child of children) {
-                const childEntity = await getEntity(child);
-                const childSub = await getSub(child, "e")
-                const childName = await getWord(childEntity.Items[0].a)
-                response[subBySU.Items[0].su].children[childSub.Items[0].su] = {meta:{name:childName.Items[0].r}, children:{}}
-            }
-        } else {
-            console.log("children is:", children)
+        var response = {}
+        if (action == "get"){
+           response = await convertToJSON(fileID)
+        } else if (action == "add") {
+            const newEntityName = reqPath.split("/")[4]
+            const headUUID = reqPath.split("/")[5]
+            const e = await incrementCounterAndGetNewValue('eCounter');
+            const aNew = await incrementCounterAndGetNewValue('wCounter');
+            const a = await createWord(aNew.toString(), newEntityName);
+            const details = await addVersion(e.toString(), "a", a.toString(), null);
+            //const updateParent = await updateEntity();
+            const result = await createEntity(e.toString(), a.toString(), details.v);
+            response = await convertToJSON(headUUID)
         }
 
-        console.log(children)
-        console.log(response)
-        console.log("subBySU", subBySU)
-        //console.log("subByA", subByA)
-        //console.log("subByE", subByE)
-        console.log("fileID", fileID)*/
 
         const expires = 30000;
         const url = "https://public.1var.com/test.json";
@@ -122,4 +97,182 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         }   
     });
     return router;
+
+    const updateEntity = async (e, col, val, v, c) => {
+        const params = {
+            TableName: 'entities',
+            Key: {
+                e: e
+            },
+            UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
+            ExpressionAttributeValues: {
+                ':val': [val], // Wrap val in an array
+                ':empty_list': [], // An empty list to initialize if col does not exist
+                ':v': v,
+                ':c': c
+            }
+        };
+    
+        try {
+            await dynamodb.update(params).promise();
+            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
+            return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
+        } catch (error) {
+            console.error("Error updating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
+
+    const wordExists = async (word) => {
+        const params = {
+            TableName: 'words',
+            IndexName: 'sIndex', // Using the secondary index
+            KeyConditionExpression: 's = :s',
+            ExpressionAttributeValues: {
+                ':s': word
+            }
+        };
+    
+        const result = await dynamodb.query(params).promise();
+        if (result.Items.length > 0) {
+            return { exists: true, id: result.Items[0].a };
+        } else {
+            return { exists: false };
+        }
+    };
+
+    const incrementCounterAndGetNewValue = async (tableName) => {
+        const response = await dynamodb.update({
+            TableName: tableName,
+            Key: { pk: tableName },
+            UpdateExpression: "ADD #cnt :val",
+            ExpressionAttributeNames: { '#cnt': 'x' },
+            ExpressionAttributeValues: { ':val': 1 },
+            ReturnValues: "UPDATED_NEW"
+        }).promise();
+    
+        return response.Attributes.x;
+    };
+
+    const createWord = async (id, word) => {
+        const lowerCaseWord = word.toLowerCase();
+    
+        // Check if the word already exists in the database
+        const checkResult = await wordExists(lowerCaseWord);
+        if (checkResult.exists) {
+            return checkResult.id;
+        }
+    
+        // If the word does not exist, insert it
+        await dynamodb.put({
+            TableName: 'words',
+            Item: {
+                a: id,
+                r: word,
+                s: lowerCaseWord
+            }
+        }).promise();
+    
+        return id;
+    };
+
+    async function addVersion(newE, col, val, forceC){
+        try {
+            const id = await incrementCounterAndGetNewValue('vCounter');
+    
+            let newCValue;
+            let newSValue; // s value to be determined based on forceC
+    
+            // Query the database to find the latest record for the given e
+            const queryResult = await dynamodb.query({
+                TableName: 'versions',
+                IndexName: 'eIndex',
+                KeyConditionExpression: 'e = :eValue',
+                ExpressionAttributeValues: {
+                    ':eValue': newE
+                },
+                ScanIndexForward: false, // false for descending order
+                Limit: 1 // we only need the latest record
+            }).promise();
+    
+            if (forceC !== null && forceC !== undefined) {
+                newCValue = forceC;
+                // Increment s only if forceC is provided and there are existing records
+                if (queryResult.Items.length > 0) {
+                    const latestSValue = parseInt(queryResult.Items[0].s);
+                    newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
+                } else {
+                    newSValue = 1; // default if no records are found
+                }
+            } else {
+                newSValue = 1; // Set s to 1 if forceC is null
+                newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
+            }
+    
+            let previousVersionId, previousVersionDate;
+            if (queryResult.Items.length > 0) {
+                const latestRecord = queryResult.Items[0];
+                previousVersionId = latestRecord.v; // Store the v of the last record
+                previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
+            }
+
+            // Initialize col as an array and add val to it
+            const colArray = [val];
+    
+            // Insert the new record with the c, s, and p values
+            const newRecord = {
+                v: id.toString(),
+                c: newCValue.toString(),
+                e: newE,
+                s: newSValue.toString(),
+                p: previousVersionId, // Set the p attribute to the v of the last record
+                [col]: colArray,
+                d: Date.now()
+            };
+    
+            await dynamodb.put({
+                TableName: 'versions',
+                Item: newRecord
+            }).promise();
+    
+            // Update the last record with the n attribute
+            if (previousVersionId && previousVersionDate) {
+                await dynamodb.update({
+                    TableName: 'versions',
+                    Key: {
+                        v: previousVersionId,
+                        d: previousVersionDate
+                    },
+                    UpdateExpression: 'set n = :newV',
+                    ExpressionAttributeValues: {
+                        ':newV': id.toString()
+                    }
+                }).promise();
+            }
+            return {v:id.toString(), c:newCValue.toString()};
+        } catch (error) {
+            console.error("Error adding record:", error);
+            return null
+        }
+    };
+
+    const createEntity = async (e, a, v) => {
+        const params = {
+            TableName: 'entities',
+            Item: {
+                e: e,
+                a: a,
+                v: v
+            }
+        };
+    
+        try {
+            await dynamodb.put(params).promise();
+            console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
+            return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
+        } catch (error) {
+            console.error("Error creating entity:", error);
+            throw error; // Rethrow the error for the caller to handle
+        }
+    };
 }
