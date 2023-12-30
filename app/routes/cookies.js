@@ -47,7 +47,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         obj[fileID] = {meta: {name: name},children: {}};
         for (let child of children) {
             if (child.tagName.toLowerCase() === 'div') {
-                Object.assign(obj[fileID].children, convertToJSON(child));
+                Object.assign(obj[fileID].children, await convertToJSON(child));
             }
         }
         return obj
@@ -59,7 +59,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         const action = reqPath.split("/")[2]
         const fileID = reqPath.split("/")[3]
 
-        let response = convertToJSON(fileID)
+        let response = await convertToJSON(fileID)
         console.log("response", response)
         //const subBySU = await getSub(fileID, "su");
         //const subByA = await getSub(subBySU.Items[0].a, "a");
