@@ -270,13 +270,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
             const parent = await getSub(fileID, "su");
             console.log("parent", parent)
-            const eParent = await getEntity(parent.Items[0].e)
-            console.log("eParent",eParent)
-            const details2 = await addVersion(eParent, "t", e.toString(), null);
+            //const eParent = await getEntity(parent.Items[0].e)
+            //console.log("eParent",eParent)
+            const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
             console.log("details2",details2)
 
 
-            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
+            const updateParent = await updateEntity(parent.Items[0].e, "t", e.toString(), details2.v, details2.c);
             console.log("updateParent",updateParent)
             response = await convertToJSON(headUUID)
         }
