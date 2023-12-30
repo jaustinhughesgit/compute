@@ -51,19 +51,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
         const action = reqPath.split("/")[2]
-        const fileID = reqPath.split("/")[3]
+        
         var response = {}
         if (action == "get"){
-           response = await convertToJSON(fileID)
+            const fileID = reqPath.split("/")[3]
+            response = await convertToJSON(fileID)
         } else if (action == "add") {
+            const fileID = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
-            //const updateParent = await updateEntity();
             const result = await createEntity(e.toString(), a.toString(), details.v);
+
+            const parent = await getSub(fileID, "su");
+            const eParent = await getEntity(parent.Items[0].e)
+            const details2 = await addVersion(eParent, "t", e.toString(), null);
+            const updateParent = await updateEntity(eParent, "t", e.toString(), details2.v, details2.c);
+
             response = await convertToJSON(headUUID)
         }
 
