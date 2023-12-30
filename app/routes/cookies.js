@@ -46,9 +46,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL) {
         let obj = {};
         obj[fileID] = {meta: {name: name},children: {}};
         for (let child of children) {
-            if (child.tagName.toLowerCase() === 'div') {
                 Object.assign(obj[fileID].children, await convertToJSON(child));
-            }
         }
         return obj
     }
