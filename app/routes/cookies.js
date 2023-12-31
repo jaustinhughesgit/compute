@@ -30,7 +30,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return await dynamodb.query(params).promise()
     }
 
-    async function convertToJSON(fileID) {
+    async function convertToJSON(fileID, parentPath = []) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
         const children = entity.Items[0].t
@@ -38,14 +38,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const name = head.Items[0].r
         let obj = {};
         obj[fileID] = {meta: {name: name, expanded:true},children: {}};
+        let pth = {}
+        paths[fileID] = [...parentPath, fileID];
         if (children){
             for (let child of children) {
                 const subByE = await getSub(child, "e");
                     let uuid = subByE.Items[0].su
-                    Object.assign(obj[fileID].children, await convertToJSON(uuid));
+                    let childResponse = await convertToJSON(uuid, paths[fileID]);
+                    Object.assign(obj[fileID].children, childResponse.obj);
+                    Object.assign(paths, childResponse.paths);
             }
         }
-        return obj
+        return { obj: obj, paths: paths };
     }
 
     const updateEntity = async (e, col, val, v, c) => {
