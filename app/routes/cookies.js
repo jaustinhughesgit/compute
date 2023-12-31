@@ -49,6 +49,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     Object.assign(paths, childResponse.paths);
             }
         }
+        obj[Object.keys(obj)[0]].meta.expanded = true; // first true so it can be clicked
         return { obj: obj, paths: paths };
     }
 
