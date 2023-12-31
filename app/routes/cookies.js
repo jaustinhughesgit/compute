@@ -38,7 +38,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const name = head.Items[0].r
         let obj = {};
         obj[fileID] = {meta: {name: name, expanded:true},children: {}};
-        let pth = {}
+        let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
             for (let child of children) {
