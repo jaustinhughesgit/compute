@@ -34,10 +34,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
         const children = entity.Items[0].t
+        const linked = entity.Items[0].l
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
         let obj = {};
-        obj[fileID] = {meta: {name: name, expanded:false},children: {}};
+        obj[fileID] = {meta: {name: name, expanded:false},children: {}, linked:{}};
         let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
@@ -47,6 +48,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     let childResponse = await convertToJSON(uuid, paths[fileID]);
                     Object.assign(obj[fileID].children, childResponse.obj);
                     Object.assign(paths, childResponse.paths);
+            }
+        }
+        if (linked){
+            for (let link of linked) {
+                const subByE = await getSub(link, "e");
+                    let uuid = subByE.Items[0].su
+                    let linkResponse = await convertToJSON(uuid, paths[fileID]);
+                    Object.assign(obj[fileID].linked, linkResponse.obj);
+                    Object.assign(paths, linkResponse.paths);
             }
         }
         return { obj: obj, paths: paths };
