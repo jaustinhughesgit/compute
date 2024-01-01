@@ -41,7 +41,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const groupName = await getWord(groups.Items[group].a)
             console.log("subByA",subByA)
             console.log("groupName", groupName)
-            groupObjs.push({"groupId":subByA.su, "name":groupName})
+            groupObjs.push({"groupId":subByA.Items[0].su, "name":groupName.Items[0].r})
         }
 
         return groupObjs
