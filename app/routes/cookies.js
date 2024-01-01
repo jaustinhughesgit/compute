@@ -65,7 +65,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
     const updateEntity = async (e, col, val, v, c) => {
         console.log(e, col, val, v, c)
-        if (Array.isArray(val)){
+        if (col == "t"){
             const params = {
                 TableName: 'entities',
                 Key: {
@@ -319,9 +319,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("4")
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
             console.log("5")
-            const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
+            const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), null);
             console.log("6")
-            const updateParent = await updateEntity(parent.Items[0].e, "t", e.toString(), details2.v, details2.c);
+            const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
             console.log("7")
             const group = eParent.Items[0].g
             console.log("group", group)
