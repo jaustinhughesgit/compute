@@ -66,8 +66,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     const updateEntity = async (e, col, val, v, c) => {
         console.log(e, col, val, v, c)
         let params = {}
-        if (col === "t"){
-            console.log("col = t")
+        if (col === "t" || col === "f"){
+            console.log("col === f || col === f")
             params = {
                 "TableName": 'entities',
                 "Key": {
