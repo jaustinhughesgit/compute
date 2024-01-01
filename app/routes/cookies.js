@@ -65,9 +65,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
     const updateEntity = async (e, col, val, v, c) => {
         console.log(e, col, val, v, c)
+        const params = {}
         if (col === "t"){
             console.log("col = t")
-            const params = {
+            params = {
                 "TableName": 'entities',
                 "Key": {
                     "e": e
@@ -82,7 +83,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             };
         } else {
             console.log("col is not t")
-            const params = {
+            params = {
                 "TableName": 'entities',
                 "Key": { "e": e }, 
                 "UpdateExpression": `set ${col} = if_not_exists(${col}, :val), v = :v, c = :c`,
