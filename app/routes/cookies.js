@@ -32,7 +32,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
     async function getGroups(){
         params = { TableName: 'groups' };
-        let groups = await dynamoDb.scan(params).promise();
+        let groups = await dynamodb.scan(params).promise();
         console.log(groups)
         return groups
     }
