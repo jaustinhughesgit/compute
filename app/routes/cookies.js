@@ -66,6 +66,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     const updateEntity = async (e, col, val, v, c) => {
         console.log(e, col, val, v, c)
         if (col == "t"){
+            console.log("col = t")
             const params = {
                 TableName: 'entities',
                 Key: {
@@ -80,6 +81,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 }
             };
         } else {
+            console.log("col is not t")
             const params = {
                 TableName: 'entities',
                 Key: { e: e }, 
@@ -94,6 +96,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
        
     
         try {
+            console.log("params", params)
             await dynamodb.update(params).promise();
             console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
             return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
