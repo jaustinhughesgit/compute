@@ -34,6 +34,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         params = { TableName: 'groups' };
         let groups = await dynamoDb.scan(params).promise();
         console.log(groups)
+        return groups
     }
     
 
@@ -325,7 +326,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const parentID = reqPath.split("/")[4]
             console.log("childID", childID)
             console.log("parentID",parentID)
-            getGroups()
+            
         }
 
 
