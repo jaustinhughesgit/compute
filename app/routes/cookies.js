@@ -64,6 +64,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     }
 
     const updateEntity = async (e, col, val, v, c) => {
+        console.log(e, col, val, v, c)
         if (Array.isArray(val)){
             const params = {
                 TableName: 'entities',
