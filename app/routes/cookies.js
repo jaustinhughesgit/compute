@@ -262,6 +262,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             throw error; // Rethrow the error for the caller to handle
         }
     };
+    
 
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
@@ -276,17 +277,21 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const e = await incrementCounterAndGetNewValue('eCounter');
+            const parent = await getSub(fileID, "su");
+            const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
+            const group = parent.Items[0].g
+            const details3 = await addVersion(parent.Items[0].e, "g", group, null);
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
             const result = await createEntity(e.toString(), a.toString(), details.v);
+            const detailsB = await addVersion(e.toString(), "g", group, null);
+            const result2 = await updateEntity(e.toString(),"g" , group, details.v, details.c)
             const uniqueId = uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
-            const parent = await getSub(fileID, "su");
             console.log("parent", parent)
             //const eParent = await getEntity(parent.Items[0].e)
             //console.log("eParent",eParent)
-            const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
             console.log("details2",details2)
 
 
