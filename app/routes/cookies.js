@@ -38,7 +38,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
         let obj = {};
-        obj[fileID] = {meta: {name: name, expanded:false},children: {}, linked:{}};
+        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}};
         let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
