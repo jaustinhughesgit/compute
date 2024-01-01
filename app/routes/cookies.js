@@ -157,11 +157,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
     async function addVersion(newE, col, val, forceC){
         try {
+            console.log("01")
             const id = await incrementCounterAndGetNewValue('vCounter');
     
+            console.log("02")
             let newCValue;
             let newSValue; // s value to be determined based on forceC
     
+            console.log("03")
             // Query the database to find the latest record for the given e
             const queryResult = await dynamodb.query({
                 TableName: 'versions',
@@ -174,6 +177,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 Limit: 1 // we only need the latest record
             }).promise();
     
+            console.log("04")
             if (forceC !== null && forceC !== undefined) {
                 newCValue = forceC;
                 // Increment s only if forceC is provided and there are existing records
@@ -188,6 +192,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
             }
     
+            console.log("05")
             let previousVersionId, previousVersionDate;
             if (queryResult.Items.length > 0) {
                 const latestRecord = queryResult.Items[0];
@@ -195,9 +200,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
             }
 
+            console.log("06")
             // Initialize col as an array and add val to it
             const colArray = [val];
     
+            console.log("07")
             // Insert the new record with the c, s, and p values
             const newRecord = {
                 v: id.toString(),
@@ -208,12 +215,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 [col]: colArray,
                 d: Date.now()
             };
+            console.log("08")
     
             await dynamodb.put({
                 TableName: 'versions',
                 Item: newRecord
             }).promise();
     
+            console.log("09")
             // Update the last record with the n attribute
             if (previousVersionId && previousVersionDate) {
                 await dynamodb.update({
@@ -228,6 +237,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     }
                 }).promise();
             }
+            console.log("010")
             return {v:id.toString(), c:newCValue.toString()};
         } catch (error) {
             console.error("Error adding record:", error);
@@ -297,19 +307,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("eParent",eParent)
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
+            console.log("0")
             const a = await createWord(aNew.toString(), newEntityName);
+            console.log("1")
             const details = await addVersion(e.toString(), "a", a.toString(), null);
+            console.log("2")
             const result = await createEntity(e.toString(), a.toString(), details.v);
+            console.log("3")
             const uniqueId = await uuidv4();
+            console.log("4")
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
+            console.log("5")
             const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
+            console.log("6")
             const updateParent = await updateEntity(parent.Items[0].e, "t", e.toString(), details2.v, details2.c);
-            
+            console.log("7")
             const group = eParent.Items[0].g
             console.log("group", group)
-            const details3 = await addVersion(e, "g", group, null);
+            const details3 = await addVersion(e.toString(), "g", group, null);
             console.log("details3", details3)
-            const updateParent3 = await updateEntity(e, "g", group, details3.v, details3.c);
+            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
             console.log("updateParent",updateParent)
             console.log("updateParent3",updateParent3)
             response = await convertToJSON(headUUID)
