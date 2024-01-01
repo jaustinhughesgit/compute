@@ -293,9 +293,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             
             const group = eParent.Items[0].g
             console.log("group", group)
-            const details3 = await addVersion(e.toString(), "g", group, null);
+            const details3 = await addVersion(e, "g", group, null);
             console.log("details3", details3)
-            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
+            const updateParent3 = await updateEntity(e, "g", group, details3.v, details3.c);
             console.log("updateParent",updateParent)
             console.log("updateParent3",updateParent3)
             response = await convertToJSON(headUUID)
