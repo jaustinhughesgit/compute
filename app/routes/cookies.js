@@ -34,7 +34,17 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         params = { TableName: 'groups' };
         let groups = await dynamodb.scan(params).promise();
         console.log(groups)
-        return groups
+        let groupObjs = []
+        for (group in groups.Items){
+            console.log("group", group, group.a)
+            const subByA = await getSub(group.a, "a");
+            const groupName = await getWord(group.a)
+            console.log("subByA",subByA)
+            console.log("groupName", groupName)
+            groupObjs.push({"groupId":subByA.su, "name":groupName})
+        }
+
+        return groupObjs
     }
     
 
