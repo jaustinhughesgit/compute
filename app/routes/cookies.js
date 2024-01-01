@@ -64,19 +64,34 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     }
 
     const updateEntity = async (e, col, val, v, c) => {
-        const params = {
-            TableName: 'entities',
-            Key: {
-                e: e
-            },
-            UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
-            ExpressionAttributeValues: {
-                ':val': [val], // Wrap val in an array
-                ':empty_list': [], // An empty list to initialize if col does not exist
-                ':v': v,
-                ':c': c
-            }
-        };
+        if (Array.isArray(val)){
+            const params = {
+                TableName: 'entities',
+                Key: {
+                    e: e
+                },
+                UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
+                ExpressionAttributeValues: {
+                    ':val': [val], // Wrap val in an array
+                    ':empty_list': [], // An empty list to initialize if col does not exist
+                    ':v': v,
+                    ':c': c
+                }
+            };
+        } else {
+            const params = {
+                TableName: 'entities',
+                Key: {
+                    e: e
+                },
+                UpdateExpression: `set ${col} = val, v = :v, c = :c`,
+                ExpressionAttributeValues: {
+                    ':val': val, // Wrap val in an array
+                    ':v': v,
+                    ':c': c
+                }
+            };
+        }
     
         try {
             await dynamodb.update(params).promise();
