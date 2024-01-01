@@ -44,6 +44,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (children){
             for (let child of children) {
                 const subByE = await getSub(child, "e");
+                console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
                     let childResponse = await convertToJSON(uuid, paths[fileID]);
                     Object.assign(obj[fileID].children, childResponse.obj);
@@ -270,6 +271,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         var response = {}
         if (action == "get"){
             const fileID = reqPath.split("/")[3]
+            console.log(">>>>>>>>>", fileID)
             response = await convertToJSON(fileID)
         } else if (action == "add") {
             const fileID = reqPath.split("/")[3]
@@ -284,7 +286,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
             const result = await createEntity(e.toString(), a.toString(), details.v);
-            const uniqueId = uuidv4();
+            const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
             const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
             const updateParent = await updateEntity(parent.Items[0].e, "t", e.toString(), details2.v, details2.c);
