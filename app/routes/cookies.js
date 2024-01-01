@@ -65,15 +65,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
     const updateEntity = async (e, col, val, v, c) => {
         console.log(e, col, val, v, c)
-        if (col == "t"){
+        if (col === "t"){
             console.log("col = t")
             const params = {
-                TableName: 'entities',
-                Key: {
-                    e: e
+                "TableName": 'entities',
+                "Key": {
+                    "e": e
                 },
-                UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
-                ExpressionAttributeValues: {
+                "UpdateExpression": `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
+                "ExpressionAttributeValues": {
                     ':val': [val], // Wrap val in an array
                     ':empty_list': [], // An empty list to initialize if col does not exist
                     ':v': v,
@@ -83,10 +83,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else {
             console.log("col is not t")
             const params = {
-                TableName: 'entities',
-                Key: { e: e }, 
-                UpdateExpression: `set ${col} = if_not_exists(${col}, :val), v = :v, c = :c`,
-                ExpressionAttributeValues: {
+                "TableName": 'entities',
+                "Key": { "e": e }, 
+                "UpdateExpression": `set ${col} = if_not_exists(${col}, :val), v = :v, c = :c`,
+                "ExpressionAttributeValues": {
                     ':val': val,
                     ':v': v,
                     ':c': c
