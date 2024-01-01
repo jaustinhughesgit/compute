@@ -30,6 +30,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return await dynamodb.query(params).promise()
     }
 
+    async function getGroups(){
+        params = { TableName: 'groups' };
+        let groups = await dynamoDb.scan(params).promise();
+        console.log(groups)
+    }
+    
+
     async function convertToJSON(fileID, parentPath = []) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
@@ -38,7 +45,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
         let obj = {};
-        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}};
+        let goupList = await getGroups()
+        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}, groups:groupList};
         let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
@@ -312,6 +320,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details3 = await addVersion(e.toString(), "g", group, null);
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
             response = await convertToJSON(headUUID)
+        } else if (action == "link"){
+            const childID = reqPath.split("/")[3]
+            const parentID = reqPath.split("/")[4]
+            console.log("childID", childID)
+            console.log("parentID",parentID)
+            getGroups()
         }
 
 
