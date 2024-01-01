@@ -82,7 +82,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const params = {
                 TableName: 'entities',
                 Key: { e: e },
-                UpdateExpression: `set ${col} = if_not_exists(${col}, :default_val), v = :v, c = :c`,
+                UpdateExpression: `set ${col} = if_not_exists(${col}, :default_val, :val), v = :v, c = :c`,
                 ExpressionAttributeValues: {
                     ':val': val,
                     ':default_val': val, // Set default value for col if it doesn't exist
