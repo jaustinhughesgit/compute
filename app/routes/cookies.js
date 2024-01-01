@@ -275,6 +275,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const fileID = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
+            const parent = await getSub(fileID, "su");
+            console.log("parent", parent)
+            const eParent = await getEntity(parent.Items[0].e)
+            console.log("eParent",eParent)
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
@@ -282,16 +286,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const result = await createEntity(e.toString(), a.toString(), details.v);
             const uniqueId = uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
-            const parent = await getSub(fileID, "su");
-            console.log("parent", parent)
-            //const eParent = await getEntity(parent.Items[0].e)
-            //console.log("eParent",eParent)
             const details2 = await addVersion(parent.Items[0].e, "t", e.toString(), null);
-            console.log("details2",details2)
-
-
             const updateParent = await updateEntity(parent.Items[0].e, "t", e.toString(), details2.v, details2.c);
+            const group = eParent.Items[0].g
+            const details3 = await addVersion(parent.Items[0].e, "g", group, null);
+            const updateParent3 = await updateEntity(parent.Items[0].e, "g", group, details3.v, details3.c);
             console.log("updateParent",updateParent)
+            console.log("updateParent3",updateParent3)
             response = await convertToJSON(headUUID)
         }
 
