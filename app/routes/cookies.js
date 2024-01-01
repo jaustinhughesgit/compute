@@ -309,6 +309,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), null);
             console.log("6")
             const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
+            console.log("5")
+            const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), null);
+            console.log("6")
+            const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c);
             console.log("7")
             const group = eParent.Items[0].g
             console.log("group", group)
