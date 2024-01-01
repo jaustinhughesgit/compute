@@ -81,12 +81,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else {
             const params = {
                 TableName: 'entities',
-                Key: {
-                    e: e
-                },
-                UpdateExpression: `set ${col} = val, v = :v, c = :c`,
+                Key: { e: e },
+                UpdateExpression: `set ${col} = :val, v = :v, c = :c`, // Directly set the value
+                ConditionExpression: `attribute_exists(${col})`, // Ensure the attribute exists
                 ExpressionAttributeValues: {
-                    ':val': val, // Wrap val in an array
+                    ':val': val,
                     ':v': v,
                     ':c': c
                 }
