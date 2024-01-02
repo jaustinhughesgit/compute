@@ -341,10 +341,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     async function linkEntities(childID, parentID){
         var childE = await getSub(childID, "su");
         var parentE = await getSub(parentID, "su");
-        var detailsChild = await addVersion(childE.Items[0].e, "o", parentE.Items[0].e, null);
+
+        const eParent = await getEntity(parentE.Items[0].e)
+        const eChild = await getEntity(childE.Items[0].e)
+
+        var detailsChild = await addVersion(childE.Items[0].e, "o", parentE.Items[0].e, eChild.Items[0].c);
         var updateEntityC = await updateEntity(childE.Items[0].e, "o", parentE.Items[0].e, detailsChild.v, detailsChild.c)
 
-        var detailsParent = await addVersion(parentE.Items[0].e, "l", childE.Items[0].e, null);
+        var detailsParent = await addVersion(parentE.Items[0].e, "l", childE.Items[0].e, eParent.Items[0].c);
         var updateEntityP = await updateEntity(parentE.Items[0].e, "l", childE.Items[0].e, detailsParent.v, detailsParent.c)
 
         return "success"
@@ -371,12 +375,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
-            const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), null);
+            const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
             const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
-            const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), null);
+            const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1");
             const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c);
             const group = eParent.Items[0].g
-            const details3 = await addVersion(e.toString(), "g", group, null);
+            const details3 = await addVersion(e.toString(), "g", group, "1");
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
             response = await convertToJSON(headUUID)
         } else if (action == "link"){
