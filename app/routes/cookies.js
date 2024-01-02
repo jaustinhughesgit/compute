@@ -370,22 +370,32 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else if (action == "newGroup"){
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
+            console.log("11111")
             const aNewG = await incrementCounterAndGetNewValue('wCounter');
+            console.log("222222")
             const aG = await createWord(aNewG.toString(), newGroupName);
+            console.log("333333")
             const aNewE = await incrementCounterAndGetNewValue('wCounter');
+            console.log("444444")
             const aE = await createWord(aNewE.toString(), headEntityName);
+            console.log("555555")
             const gNew = await incrementCounterAndGetNewValue('gCounter');
+            console.log("666666")
             const e = await incrementCounterAndGetNewValue('eCounter');
-
+            console.log("777777")
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
-
+            console.log("888888")            
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,null,null,gNew.toString().toString())
+            let subRes = await createSubdomain(uniqueId,0,0,gNew.toString().toString())
+            console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
+            console.log("00000000")
             const result = await createEntity(e.toString(), aE.toString(), details.v); //DO I NEED details.c
+            console.log("AAAAAAAA")
             const uniqueId2 = await uuidv4();
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),null)
-
+            console.log("BBBBBBBB")
+            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),0)
+            console.log("CCCCCC")
             response  = await convertToJSON(uniqueId2)
         }
 
