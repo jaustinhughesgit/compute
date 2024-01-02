@@ -216,10 +216,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 ScanIndexForward: false, // false for descending order
                 Limit: 1 // we only need the latest record
             }).promise();
-    
+            console.log("addVersion", newE, col, val, forceC)
             console.log("queryResult----",queryResult)
-            if (forceC !== null && forceC !== undefined) {
+            if (forceC !== undefined) {
                 newCValue = forceC;
+
                 // Increment s only if forceC is provided and there are existing records
                 if (queryResult.Items.length > 0) {
                     const latestSValue = parseInt(queryResult.Items[0].s);
