@@ -291,13 +291,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
     };
 
-    const createEntity = async (e, a, v) => {
+    const createEntity = async (e, a, v, g) => {
         const params = {
             TableName: 'entities',
             Item: {
                 e: e,
                 a: a,
-                v: v
+                v: v,
+                g: g
             }
         };
     
@@ -365,7 +366,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v);
+            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString())
             const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), null);
@@ -406,7 +407,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
             console.log("00000000")
-            const result = await createEntity(e.toString(), aE.toString(), details.v); //DO I NEED details.c
+            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString()); //DO I NEED details.c
             console.log("AAAAAAAA")
             const uniqueId2 = await uuidv4();
             console.log("BBBBBBBB")
