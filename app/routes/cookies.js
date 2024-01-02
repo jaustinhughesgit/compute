@@ -218,7 +218,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             }).promise();
             console.log("addVersion", newE, col, val, forceC)
             console.log("queryResult----",queryResult)
-            if (forceC !== undefined) {
+            if (forceC) {
                 newCValue = forceC;
 
                 // Increment s only if forceC is provided and there are existing records
