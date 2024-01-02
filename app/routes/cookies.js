@@ -16,6 +16,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             params = { TableName: 'subdomains',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': val} }
         } else if (key == "a"){
             params = { TableName: 'subdomains',IndexName: 'aIndex',KeyConditionExpression: 'a = :a',ExpressionAttributeValues: {':a': val} }
+        } else if (key == "g"){
+            params = { TableName: 'subdomains',IndexName: 'gIndex',KeyConditionExpression: 'g = :g',ExpressionAttributeValues: {':g': val} }
         }
         return await dynamodb.query(params).promise()
     }
@@ -37,14 +39,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         let groupObjs = []
         for (group in groups.Items){
             console.log("group", group, groups.Items[group].a)
-            const subByA = await getSub(groups.Items[group].a, "a");
+            const subByG = await getSub(groups.Items[group].g, "g");
             const groupName = await getWord(groups.Items[group].a)
             console.log("subByA",subByA)
             console.log("groupName", groupName)
             const subByE = await getSub(groups.Items[group].e, "e");
 
             // get head of group id and send the uuid
-            groupObjs.push({"groupId":subByA.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
+            groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
         }
 
         return groupObjs
