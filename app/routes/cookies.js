@@ -50,7 +50,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return groupObjs
     }
     
-
     async function convertToJSON(fileID, parentPath = []) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
@@ -306,6 +305,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
     };
 
+    async function linkEntities(childID, parentID){
+        var childE = await getSub(childID, "su");
+        const detailsChild = await addVersion(childE, "o", parentE, null);
+        updateEntity = async (childE, "o", parentE, detailsChild.v, detailsChild.c)
+
+        var parentE = await getSub(parentID, "su");
+        const detailsParent = await addVersion(parentE, "l", childE, null);
+        updateEntity = async (parentE, "l", childE, detailsParent.v, detailsParent.c)
+
+        return "success"
+    }
+
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
         const action = reqPath.split("/")[2]
@@ -340,7 +351,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const parentID = reqPath.split("/")[4]
             console.log("childID", childID)
             console.log("parentID",parentID)
-            
+            await linkEntities(childID, parentID)
+            response = await convertToJSON(childID)
         }
 
 
