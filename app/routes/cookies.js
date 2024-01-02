@@ -242,7 +242,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const colArray = [val];
     
             // Insert the new record with the c, s, and p values
-            const newRecord = {
+            const newRecord = {}
+        if (col === "t" || col === "f" || col === "l" || col === "o"){
+            newRecord = {
                 v: id.toString(),
                 c: newCValue.toString(),
                 e: newE,
@@ -251,6 +253,17 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 [col]: colArray,
                 d: Date.now()
             };
+        } else {
+            newRecord = {
+                v: id.toString(),
+                c: newCValue.toString(),
+                e: newE,
+                s: newSValue.toString(),
+                p: previousVersionId, // Set the p attribute to the v of the last record
+                [col]: val,
+                d: Date.now()
+            };
+        }
     
             await dynamodb.put({
                 TableName: 'versions',
