@@ -182,6 +182,19 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return id;
     };
 
+    const createGroup = async (gid, groupNameID, entityID) => {
+    
+        await dynamodb.put({
+            TableName: 'groups',
+            Item: {
+                g: gid,
+                a: groupNameID,
+                e: entityID
+            }
+        }).promise();
+        return gid;
+    };
+
     async function addVersion(newE, col, val, forceC){
         try {
             const id = await incrementCounterAndGetNewValue('vCounter');
@@ -282,14 +295,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
     };
 
-    const createSubdomain = async (su, a, e) => {
+    const createSubdomain = async (su, a, e, g) => {
         console.log(su, a, e)
         const paramsAA = {
             TableName: 'subdomains',
             Item: {
                 su: su,
                 a: a,
-                e: e
+                e: e,
+                g: g
             }
         };
     
@@ -353,6 +367,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("parentID",parentID)
             await linkEntities(childID, parentID)
             response = await convertToJSON(childID)
+        } else if (action == "newGroup"){
+            const newGroupName = reqPath.split("/")[3]
+            const headEntityName = reqPath.split("/")[4]
+            const aNewG = await incrementCounterAndGetNewValue('wCounter');
+            const aG = await createWord(aNewG.toString(), newGroupName);
+            const aNewE = await incrementCounterAndGetNewValue('wCounter');
+            const aE = await createWord(aNewE.toString(), headEntityName);
+            const gNew = await incrementCounterAndGetNewValue('gCounter');
+            const e = await incrementCounterAndGetNewValue('eCounter');
+
+            const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
+
+            const uniqueId = await uuidv4();
+            let subRes = await createSubdomain(uniqueId,null,null,gNew.toString().toString())
+            const details = await addVersion(e.toString(), "a", aE.toString(), null);
+            const result = await createEntity(e.toString(), aE.toString(), details.v); //DO I NEED details.c
+            const uniqueId2 = await uuidv4();
+            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),null)
+
+            response  = await convertToJSON(uniqueId2)
         }
 
 
