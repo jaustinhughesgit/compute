@@ -9,14 +9,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
 
     async function getSub(val, key){
+        console.log("val",val,"key",key)
         let params
         if (key == "su"){
             params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: {':su': val} };
-        } else if (key == "e"){
+        } else if (key === "e"){
             params = { TableName: 'subdomains',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': val} }
-        } else if (key == "a"){
+        } else if (key === "a"){
             params = { TableName: 'subdomains',IndexName: 'aIndex',KeyConditionExpression: 'a = :a',ExpressionAttributeValues: {':a': val} }
-        } else if (key == "g"){
+        } else if (key === "g"){
             params = { TableName: 'subdomains',IndexName: 'gIndex',KeyConditionExpression: 'g = :g',ExpressionAttributeValues: {':g': val} }
         }
         return await dynamodb.query(params).promise()
