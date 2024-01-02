@@ -42,7 +42,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const subByG = await getSub(groups.Items[group].g.toString(), "g");
             const groupName = await getWord(groups.Items[group].a.toString())
             const subByE = await getSub(groups.Items[group].e.toString(), "e");
-
+            console.log("subByG", subByG)
+            console.log("groupName", groupName)
+            console.log("subByE", subByE)
             // get head of group id and send the uuid
             groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
         }
