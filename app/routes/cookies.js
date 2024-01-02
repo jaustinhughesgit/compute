@@ -308,11 +308,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     async function linkEntities(childID, parentID){
         var childE = await getSub(childID, "su");
         const detailsChild = await addVersion(childE, "o", parentE, null);
-        updateEntity = async (childE, "o", parentE, detailsChild.v, detailsChild.c)
+        updateEntity = await updateEntity(childE, "o", parentE, detailsChild.v, detailsChild.c)
 
         var parentE = await getSub(parentID, "su");
         const detailsParent = await addVersion(parentE, "l", childE, null);
-        updateEntity = async (parentE, "l", childE, detailsParent.v, detailsParent.c)
+        updateEntity = await updateEntity(parentE, "l", childE, detailsParent.v, detailsParent.c)
 
         return "success"
     }
