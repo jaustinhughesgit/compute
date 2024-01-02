@@ -299,7 +299,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     };
 
     const createSubdomain = async (su, a, e, g) => {
-        console.log(su, a, e)
+        console.log(su, a, e, g)
         const paramsAA = {
             TableName: 'subdomains',
             Item: {
@@ -389,7 +389,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
             console.log("888888")            
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,0,0,gNew.toString().toString())
+            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString().toString())
             console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
             console.log("00000000")
@@ -397,7 +397,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("AAAAAAAA")
             const uniqueId2 = await uuidv4();
             console.log("BBBBBBBB")
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),0)
+            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
             console.log("CCCCCC")
             response  = await convertToJSON(uniqueId2)
         }
