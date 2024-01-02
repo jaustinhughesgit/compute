@@ -217,6 +217,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 Limit: 1 // we only need the latest record
             }).promise();
     
+            console.log("queryResult----",queryResult)
             if (forceC !== null && forceC !== undefined) {
                 newCValue = forceC;
                 // Increment s only if forceC is provided and there are existing records
@@ -401,7 +402,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const e = await incrementCounterAndGetNewValue('eCounter');
             console.log("777777")
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
-            console.log("888888")            
+            console.log("888888")
             const uniqueId = await uuidv4();
             console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
