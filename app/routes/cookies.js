@@ -403,7 +403,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
             console.log("888888")            
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString().toString())
+            console.log(uniqueId, "0", "0", )
+            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
             console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
             console.log("00000000")
