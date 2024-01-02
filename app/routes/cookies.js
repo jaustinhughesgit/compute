@@ -59,8 +59,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
         let obj = {};
-        let groupList = await getGroups()
-        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}, groups:groupList};
+        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}};
         let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
@@ -82,7 +81,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     Object.assign(paths, linkResponse.paths);
             }
         }
-        return { obj: obj, paths: paths };
+
+        let groupList = await getGroups()
+        return { obj: obj, paths: paths, groups: groupList };
     }
 
     const updateEntity = async (e, col, val, v, c) => {
