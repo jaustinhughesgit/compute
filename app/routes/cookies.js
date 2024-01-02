@@ -242,7 +242,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const colArray = [val];
     
             // Insert the new record with the c, s, and p values
-            const newRecord = {}
+            let newRecord = {}
         if (col === "t" || col === "f" || col === "l" || col === "o"){
             newRecord = {
                 v: id.toString(),
