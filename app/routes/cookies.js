@@ -451,7 +451,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             
             path.forEach(id => {
                 console.log("child")
-                currentObj = currentObj[id].children;
+                if (Object.keys(currentObj[id].children).length > 0){
+                    currentObj = currentObj[id].children;
+                }
                 console.log(currentObj)
             });
             const headUsingObj  = await convertToJSON(headUsingObj)
