@@ -46,7 +46,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return groupObjs
     }
     
-    async function convertToJSON(fileID, parentPath = []) {
+    async function convertToJSON(fileID, parentPath = [], isUsing) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
         const children = entity.Items[0].t
@@ -60,7 +60,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
         obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, using: using, linked:{}};
         let paths = {}
-        paths[fileID] = [...parentPath, fileID];
+        if (isUsing){
+            paths[fileID] = [...parentPath];
+        } else {
+            paths[fileID] = [...parentPath, fileID];
+        }
         if (children){
             for (let child of children) {
                 const subByE = await getSub(child, "e");
@@ -79,9 +83,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("subBySU", subBySU)
             console.log("USING:::paths", paths)
             console.log("USING:::paths[fileID]", paths[fileID])
-            console.log("USING:::woFirstPath", paths[fileID].shift())
             
-            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID].shift())
+            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true)
             console.log("headUsingObj", JSON.stringify(headUsingObj))
             //obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
             Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
