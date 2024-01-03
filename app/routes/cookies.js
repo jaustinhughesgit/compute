@@ -445,7 +445,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("mainObj",mainObj)
             let path = mainObj.paths[newUsingName];
             console.log(path)
-            let currentObj = mainObj;
+            let currentObj = mainObj.obj;
             path.forEach(id => {
                 console.log("child", id, currentObj[id])
                 if (Object.keys(currentObj[id].children).length > 0){
