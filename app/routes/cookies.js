@@ -421,6 +421,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
             console.log("CCCCCC")
             response  = await convertToJSON(uniqueId2)
+        } else if (action == "newGroup"){
+            const newUsingName = reqPath.split("/")[3]
+            const headUsingName = reqPath.split("/")[4]
+            const using = await getSub(newUsingName, "su");
+            const ug = await getEntity(using.Items[0].e)
+            const used = await getSub(headUsingName, "su");
+            const ud = await getEntity(used.Items[0].e)
+            const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
+            const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
         }
 
 
