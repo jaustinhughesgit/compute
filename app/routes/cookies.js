@@ -54,7 +54,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (mapping){
             if (mapping.hasOwnProperty(subBySU.Items[0].e)){
                 console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
-                children = mapping[subBySU.Items[0].e]
+                children = {}//mapping[subBySU.Items[0].e]
             } else {
                 children = entity.Items[0].t
             }
