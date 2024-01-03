@@ -45,7 +45,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
         return groupObjs
     }
-    
+    let convertCounter = 0
     async function convertToJSON(fileID, parentPath = [], isUsing, mapping) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
@@ -54,7 +54,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (mapping){
             if (mapping.hasOwnProperty(subBySU.Items[0].e)){
                 console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
-                children = {}//mapping[subBySU.Items[0].e]
+                children = mapping[subBySU.Items[0].e]
             } else {
                 children = entity.Items[0].t
             }
@@ -81,7 +81,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 const subByE = await getSub(child, "e");
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
+
+                    if (convertCounter < 200) {
                     let childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
+                    convertCounter++;
+                    }
 
                     
 
@@ -118,6 +122,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         
         console.log("DONE", JSON.stringify(obj))
         let groupList = await getGroups()
+    
         return { obj: obj, paths: paths, groups: groupList };
     }
 
