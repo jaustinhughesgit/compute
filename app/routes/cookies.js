@@ -80,7 +80,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("subBySU", subBySU)
             const headUsingObj  = await convertToJSON(subOfHead.Items[0].su)
             console.log("headUsingObj", JSON.stringify(headUsingObj))
-            obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
+            //obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
+            Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
             Object.assign(paths, headUsingObj.paths);
             obj[fileID].meta["usingMeta"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
