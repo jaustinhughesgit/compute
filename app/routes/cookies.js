@@ -46,13 +46,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return groupObjs
     }
     
-    async function convertToJSON(fileID, parentPath = [], isUsing, mapping = {}) {
+    async function convertToJSON(fileID, parentPath = [], isUsing, mapping) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
         let children 
         
-        if (Object.keys(mapping).length > 0){
-            children = mapping[subBySU.Items[0].e]
+        if (mapping){
+            if (mapping.hasOwnProperty(subBySU.Items[0].e)){
+                console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
+                children = mapping[subBySU.Items[0].e]
+            } else {
+                children = entity.Items[0].t
+            }
         } else {
             children = entity.Items[0].t
         }
@@ -105,7 +110,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             for (let link of linked) {
                 const subByE = await getSub(link, "e");
                 let uuid = subByE.Items[0].su
-                let linkResponse = await convertToJSON(uuid, paths[fileID], false, {});
+                let linkResponse = await convertToJSON(uuid, paths[fileID], false);
                 Object.assign(obj[fileID].linked, linkResponse.obj);
                 Object.assign(paths, linkResponse.paths);
             }
