@@ -68,24 +68,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     let uuid = subByE.Items[0].su
                     let childResponse = await convertToJSON(uuid, paths[fileID]);
 
-                    if (using){
-                        console.log("using", )
-                        const subOfHead = await getSub(entity.Items[0].u, "e");
-                        console.log("subBySU", subBySU)
-                        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su)
-                        console.log("headUsingObj", JSON.stringify(headUsingObj))
-                        childResponse.obj[subBySU.Items[0].e].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
-                        childResponse.obj[subBySU.Items[0].e].meta["usingMeta"] = {
-                            "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
-                            "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
-                            "id": Object.keys(headUsingObj.obj)[0]
-                        }
-                    }
+                    
 
                     Object.assign(obj[fileID].children, childResponse.obj);
                     Object.assign(paths, childResponse.paths);
             }
         }
+        if (using){
+            console.log("using", )
+            const subOfHead = await getSub(entity.Items[0].u, "e");
+            console.log("subBySU", subBySU)
+            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su)
+            console.log("headUsingObj", JSON.stringify(headUsingObj))
+            obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
+            obj[fileID].meta["usingMeta"] = {
+                "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
+                "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
+                "id": Object.keys(headUsingObj.obj)[0]
+            }
+        }
+
         if (linked){
             for (let link of linked) {
                 const subByE = await getSub(link, "e");
