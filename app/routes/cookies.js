@@ -450,7 +450,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const headSub = await getSub(ug.Items[0].h, "e");
             const mainObj  = await convertToJSON(headSub.Items[0].su)
  
-
+            response = mainObj
             // get head of newUsingName
             // convertToJson the head
             // convertToJson the headUsingName
