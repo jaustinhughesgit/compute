@@ -438,6 +438,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             //const usingHead = getHead("entity",newUsingName)
+            const headSub = await getSub(using.Items[0].h, "e");
+            const mainObj  = await convertToJSON(headSub.Items[0].su)
+
+            let path = mainObj.paths[newUsingName];
+            if (!path) {
+                console.error("UUID not found in paths:", uuid);
+                return;
+            }
+
+            let currentObj = mainObj;
+            
+            path.forEach(id => {
+                console.log("child")
+                currentObj = currentObj[id].children;
+                console.log(currentObj)
+            });
+            const headUsingObj  = await convertToJSON(headUsingObj)
+            currentObj.children = headUsingObj[Object.keys(headUsingObj)[0]].children
+            response = mainObj;
+
             // get head of newUsingName
             // convertToJson the head
             // convertToJson the headUsingName
@@ -447,7 +467,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             // send the collective response.
             // well need some meta that designates the entities that are used.
 
-            response  = await convertToJSON(headUsingName)
         }
 
 
