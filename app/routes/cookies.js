@@ -458,7 +458,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
             const headUsingObj  = await convertToJSON(headUsingName)
             console.log("headUsingObj", headUsingObj)
-            currentObj.children = headUsingObj[headUsingName].children
+            currentObj.children = headUsingObj.obj[headUsingName].children
             console.log("ll",currentObj.children)
             console.log("mainObj==>", mainObj)
             response = mainObj;
