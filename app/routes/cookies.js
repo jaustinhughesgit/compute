@@ -438,7 +438,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             //const usingHead = getHead("entity",newUsingName)
-            const headSub = await getSub(using.Items[0].h, "e");
+            const headSub = await getSub(ug.Items[0].h, "e");
             const mainObj  = await convertToJSON(headSub.Items[0].su)
 
             let path = mainObj.paths[newUsingName];
