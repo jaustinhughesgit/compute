@@ -67,6 +67,21 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
                     let childResponse = await convertToJSON(uuid, paths[fileID]);
+
+                    if (using){
+                        console.log("using", )
+                        const subOfHead = await getSub(entity.Items[0].u, "e");
+                        console.log("subBySU", subBySU)
+                        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su)
+                        console.log("headUsingObj", JSON.stringify(headUsingObj))
+                        childResponse.obj[subBySU.Items[0].e].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
+                        childResponse.obj[subBySU.Items[0].e].meta["usingMeta"] = {
+                            "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
+                            "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
+                            "id": Object.keys(headUsingObj.obj)[0]
+                        }
+                    }
+
                     Object.assign(obj[fileID].children, childResponse.obj);
                     Object.assign(paths, childResponse.paths);
             }
@@ -80,31 +95,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 Object.assign(paths, linkResponse.paths);
             }
         }
-        if (using){
-            console.log("using", )
-            let path = paths[fileID];
-            console.log("path", path)
-            let currentObj = obj;
-            console.log("currentObj", JSON.stringify(currentObj))
-            path.forEach(id => {
-                console.log("path.for", id, path[id])
-                if (Object.keys(currentObj[id].children).length > 0){
-                    console.log("currentObj[id]", currentObj[id])
-                    console.log("children", currentObj[id].children)
-                    currentObj = currentObj[id].children;
-                }
-            });
-            const subBySU = await getSub(fileID, "e");
-            console.log("subBySU", subBySU)
-            const headUsingObj  = await convertToJSON(subBySU.Items[0].su)
-            console.log("headUsingObj", JSON.stringify(headUsingObj))
-            currentObj[subBySU.Items[0].e].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
-            currentObj[subBySU.Items[0].e].meta["usingMeta"] = {
-                "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
-                "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
-                "id": Object.keys(headUsingObj.obj)[0]
-            }
-        }
+        
         console.log("DONE", JSON.stringify(obj))
         let groupList = await getGroups()
         return { obj: obj, paths: paths, groups: groupList };
