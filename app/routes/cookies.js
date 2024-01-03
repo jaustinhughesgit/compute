@@ -438,19 +438,16 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             //const usingHead = getHead("entity",newUsingName)
+            console.log("ug..h", ug.Items[0].h)
             const headSub = await getSub(ug.Items[0].h, "e");
+            console.log("headSub",headSub)
             const mainObj  = await convertToJSON(headSub.Items[0].su)
-
+            console.log("mainObj",mainObj)
             let path = mainObj.paths[newUsingName];
-            if (!path) {
-                console.error("UUID not found in paths:", uuid);
-                return;
-            }
-
+            console.log(path)
             let currentObj = mainObj;
-            
             path.forEach(id => {
-                console.log("child")
+                console.log("child", id, currentObj[id])
                 if (Object.keys(currentObj[id].children).length > 0){
                     currentObj = currentObj[id].children;
                 }
