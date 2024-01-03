@@ -75,18 +75,20 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             }
         }
         if (using){
-            console.log("using", )
             const subOfHead = await getSub(entity.Items[0].u, "e");
             console.log("subBySU", subBySU)
-            let woFirstPath = paths[fileID].shift()
-            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, woFirstPath)
+            console.log("USING:::paths", paths)
+            console.log("USING:::paths[fileID]", paths[fileID])
+            console.log("USING:::woFirstPath", paths[fileID].shift())
+            
+            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID].shift())
             console.log("headUsingObj", JSON.stringify(headUsingObj))
             //obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
             Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
 
 
             // PATHS NEEDS TO HAVE THE MAINOBJ PATH AND THE REFFERENCED PATH COMBINED SO THE APP CAN FOLLOW IT THROUGH THE HIERARCHY.
-  
+
             Object.assign(paths, headUsingObj.paths);
             obj[fileID].meta["usingMeta"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
