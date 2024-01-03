@@ -81,9 +81,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 const subByE = await getSub(child, "e");
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
-
+                    let childResponse = {}
                     if (convertCounter < 200) {
-                    let childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
+
+                    childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
                     convertCounter++;
                     }
 
