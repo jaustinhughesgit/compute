@@ -85,7 +85,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
 
             // PATHS NEEDS TO HAVE THE MAINOBJ PATH AND THE REFFERENCED PATH COMBINED SO THE APP CAN FOLLOW IT THROUGH THE HIERARCHY.
-
+            let woFirstPath = headUsingObj.paths.shift()
             Object.assign(paths, headUsingObj.paths);
             obj[fileID].meta["usingMeta"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
