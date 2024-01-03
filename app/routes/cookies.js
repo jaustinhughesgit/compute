@@ -55,7 +55,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const name = head.Items[0].r
         let obj = {};
         let using = false;
-        if (entity.Items[0].u === "1"){
+        if (entity.Items[0].u){
             using = true
         }
         obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, using: using, linked:{}};
