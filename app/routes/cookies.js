@@ -294,7 +294,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     };
 
     const createEntity = async (e, a, v, g, h) => {
-        const params = {}
+        var params = {}
         if (h){
             params = {
                 TableName: 'entities',
