@@ -87,6 +87,23 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     Object.assign(paths, linkResponse.paths);
             }
         }
+        if (using){
+            let path = paths[fileID];
+            let currentObj = obj;
+            path.forEach(id => {
+                if (Object.keys(currentObj[id].children).length > 0){
+                    currentObj = currentObj[id].children;
+                }
+            });
+            const subBySU = await getSub(fileID, "e");
+            const headUsingObj  = await convertToJSON(subBySU.Items[0].su)
+            currentObj[subBySU.Items[0].e].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
+            currentObj[subBySU.Items[0].e].meta["usingMeta"] = {
+                "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
+                "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
+                "id": Object.keys(headUsingObj.obj)[0]
+            }
+        }
 
         let groupList = await getGroups()
         return { obj: obj, paths: paths, groups: groupList };
@@ -448,21 +465,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
             const headSub = await getSub(ug.Items[0].h, "e");
             const mainObj  = await convertToJSON(headSub.Items[0].su)
-            let path = mainObj.paths[newUsingName];
-            let currentObj = mainObj.obj;
-            path.forEach(id => {
-                if (Object.keys(currentObj[id].children).length > 0){
-                    currentObj = currentObj[id].children;
-                }
-            });
-            const headUsingObj  = await convertToJSON(headUsingName)
-            currentObj[newUsingName].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
-            currentObj[newUsingName].meta["using"] = {
-                "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
-                "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
-                "id": Object.keys(headUsingObj.obj)[0]
-            }
-            response = mainObj;
+ 
 
             // get head of newUsingName
             // convertToJson the head
