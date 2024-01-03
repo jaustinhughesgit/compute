@@ -61,7 +61,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
         let obj = {};
-        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, linked:{}};
+        let using = false;
+        if (entity.Items[0].u === "1"){
+            using = true
+        }
+        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, using: using, linked:{}};
         let paths = {}
         paths[fileID] = [...parentPath, fileID];
         if (children){
@@ -438,34 +442,26 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             //const usingHead = getHead("entity",newUsingName)
-            console.log("ug..h", ug.Items[0].h)
+            
+            //THIS WORKS FOR ONE USING ENTITY, WE NEED IT FOR ALL USINGS IN THE RESPONSE. WE NEED TO GET THEM BY THE "u" COLUMN
+            // MAKE THE USING ENTITY HAVE THE DATA INSIDE THE BOX, OR IN THE RIGH PANNEL, MAYBE COLOR IT
+
             const headSub = await getSub(ug.Items[0].h, "e");
-            console.log("headSub",headSub)
             const mainObj  = await convertToJSON(headSub.Items[0].su)
-            console.log("mainObj",mainObj)
             let path = mainObj.paths[newUsingName];
-            console.log(path)
             let currentObj = mainObj.obj;
             path.forEach(id => {
-                console.log("child", id, currentObj[id])
                 if (Object.keys(currentObj[id].children).length > 0){
                     currentObj = currentObj[id].children;
                 }
-                console.log(currentObj)
             });
-            console.log(">>mainObj",mainObj)
-            console.log(">>headUsingName",headUsingName)
-
             const headUsingObj  = await convertToJSON(headUsingName)
-            console.log("headUsingObj", headUsingObj)
             currentObj[newUsingName].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
             currentObj[newUsingName].meta["using"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
                 "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
                 "id": Object.keys(headUsingObj.obj)[0]
             }
-            console.log("ll",currentObj.children)
-            console.log("mainObj==>", JSON.stringify(mainObj))
             response = mainObj;
 
             // get head of newUsingName
