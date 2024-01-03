@@ -293,16 +293,30 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
     };
 
-    const createEntity = async (e, a, v, g) => {
-        const params = {
-            TableName: 'entities',
-            Item: {
-                e: e,
-                a: a,
-                v: v,
-                g: g
-            }
-        };
+    const createEntity = async (e, a, v, g, h) => {
+
+        if (h){
+            const params = {
+                TableName: 'entities',
+                Item: {
+                    e: e,
+                    a: a,
+                    v: v,
+                    g: g,
+                    h: h
+                }
+            };
+        } else {
+            const params = {
+                TableName: 'entities',
+                Item: {
+                    e: e,
+                    a: a,
+                    v: v,
+                    g: g
+                }
+            };
+        }
     
         try {
             await dynamodb.put(params).promise();
@@ -372,7 +386,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
             const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g);
+            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, null);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
             const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
@@ -414,7 +428,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
             console.log("00000000")
-            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString()); //DO I NEED details.c
+            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), "1"); //DO I NEED details.c
             console.log("AAAAAAAA")
             const uniqueId2 = await uuidv4();
             console.log("BBBBBBBB")
@@ -430,6 +444,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const ud = await getEntity(used.Items[0].e)
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
+
+            // get head of 
+
+
             response  = await convertToJSON(headUsingName)
         }
 
