@@ -46,10 +46,16 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         return groupObjs
     }
     
-    async function convertToJSON(fileID, parentPath = [], isUsing) {
+    async function convertToJSON(fileID, parentPath = [], isUsing, mapping = {}) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
-        const children = entity.Items[0].t
+        let children 
+        
+        if (Object.keys(mapping).length > 0){
+            children = mapping[subBySU.Items[0].e]
+        } else {
+            children = entity.Items[0].t
+        }
         const linked = entity.Items[0].l
         const head = await getWord(entity.Items[0].a)
         const name = head.Items[0].r
@@ -70,7 +76,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 const subByE = await getSub(child, "e");
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
-                    let childResponse = await convertToJSON(uuid, paths[fileID]);
+                    let childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
 
                     
 
@@ -83,14 +89,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("subBySU", subBySU)
             console.log("USING:::paths", paths)
             console.log("USING:::paths[fileID]", paths[fileID])
-            
-            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true)
+            const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m)
             console.log("headUsingObj", JSON.stringify(headUsingObj))
-            //obj[fileID].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
             Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
-
-
-            // PATHS NEEDS TO HAVE THE MAINOBJ PATH AND THE REFFERENCED PATH COMBINED SO THE APP CAN FOLLOW IT THROUGH THE HIERARCHY.
 
             Object.assign(paths, headUsingObj.paths);
             obj[fileID].meta["usingMeta"] = {
@@ -104,7 +105,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             for (let link of linked) {
                 const subByE = await getSub(link, "e");
                 let uuid = subByE.Items[0].su
-                let linkResponse = await convertToJSON(uuid, paths[fileID]);
+                let linkResponse = await convertToJSON(uuid, paths[fileID], false, {});
                 Object.assign(obj[fileID].linked, linkResponse.obj);
                 Object.assign(paths, linkResponse.paths);
             }
