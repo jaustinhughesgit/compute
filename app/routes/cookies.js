@@ -9,7 +9,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
 
     async function getSub(val, key){
-        console.log("val",val,"key",key)
         let params
         if (key == "su"){
             params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: {':su': val} };
@@ -36,17 +35,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     async function getGroups(){
         params = { TableName: 'groups' };
         let groups = await dynamodb.scan(params).promise();
-        console.log(groups)
         let groupObjs = []
         for (group in groups.Items){
-            console.log("group", group, groups.Items[group].a.toString())
             const subByG = await getSub(groups.Items[group].g.toString(), "g");
             const groupName = await getWord(groups.Items[group].a.toString())
             const subByE = await getSub(groups.Items[group].e.toString(), "e");
-            console.log("subByG", subByG)
-            console.log("groupName", groupName)
-            console.log("subByE", subByE)
-            // get head of group id and send the uuid
             groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
         }
 
@@ -81,22 +74,30 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (linked){
             for (let link of linked) {
                 const subByE = await getSub(link, "e");
-                    let uuid = subByE.Items[0].su
-                    let linkResponse = await convertToJSON(uuid, paths[fileID]);
-                    Object.assign(obj[fileID].linked, linkResponse.obj);
-                    Object.assign(paths, linkResponse.paths);
+                let uuid = subByE.Items[0].su
+                let linkResponse = await convertToJSON(uuid, paths[fileID]);
+                Object.assign(obj[fileID].linked, linkResponse.obj);
+                Object.assign(paths, linkResponse.paths);
             }
         }
         if (using){
+            console.log("using", )
             let path = paths[fileID];
+            console.log("path", path)
             let currentObj = obj;
+            console.log("currentObj", JSON.stringify(currentObj))
             path.forEach(id => {
+                console.log("path.for", id, path[id])
                 if (Object.keys(currentObj[id].children).length > 0){
+                    console.log("currentObj[id]", currentObj[id])
+                    console.log("children", currentObj[id].children)
                     currentObj = currentObj[id].children;
                 }
             });
             const subBySU = await getSub(fileID, "e");
+            console.log("subBySU", subBySU)
             const headUsingObj  = await convertToJSON(subBySU.Items[0].su)
+            console.log("headUsingObj", JSON.stringify(headUsingObj))
             currentObj[subBySU.Items[0].e].children = headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children
             currentObj[subBySU.Items[0].e].meta["usingMeta"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
@@ -104,13 +105,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 "id": Object.keys(headUsingObj.obj)[0]
             }
         }
-
+        console.log("DONE", JSON.stringify(obj))
         let groupList = await getGroups()
         return { obj: obj, paths: paths, groups: groupList };
     }
 
     const updateEntity = async (e, col, val, v, c) => {
-        console.log(e, col, val, v, c)
         let params = {}
         if (col === "t" || col === "f"){
             console.log("col === f || col === f")
@@ -143,9 +143,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
        
     
         try {
-            console.log("params", params)
             await dynamodb.update(params).promise();
-            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
+            //console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
             return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
         } catch (error) {
             console.error("Error updating entity:", error);
@@ -242,8 +241,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 ScanIndexForward: false, // false for descending order
                 Limit: 1 // we only need the latest record
             }).promise();
-            console.log("addVersion", newE, col, val, forceC)
-            console.log("queryResult----",queryResult)
             if (forceC) {
                 newCValue = forceC;
 
@@ -334,7 +331,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     
         try {
             await dynamodb.put(params).promise();
-            console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
+            //console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
             return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
         } catch (error) {
             console.error("Error creating entity:", error);
@@ -343,7 +340,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     };
 
     const createSubdomain = async (su, a, e, g) => {
-        console.log(su, a, e, g)
         const paramsAA = {
             TableName: 'subdomains',
             Item: {
@@ -355,10 +351,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         };
     
         try {
-            console.log("trying")
             const response = await dynamodb.put(paramsAA).promise();
-            console.log(response)
-            console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
+            //console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
             return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
         } catch (error) {
             console.error("Error creating entity:", error);
@@ -414,40 +408,25 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else if (action == "link"){
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
-            console.log("childID", childID)
-            console.log("parentID",parentID)
             await linkEntities(childID, parentID)
             response = await convertToJSON(childID)
         } else if (action == "newGroup"){
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
-            console.log("11111")
             const aNewG = await incrementCounterAndGetNewValue('wCounter');
-            console.log("222222")
             const aG = await createWord(aNewG.toString(), newGroupName);
-            console.log("333333")
             const aNewE = await incrementCounterAndGetNewValue('wCounter');
-            console.log("444444")
             const aE = await createWord(aNewE.toString(), headEntityName);
-            console.log("555555")
             const gNew = await incrementCounterAndGetNewValue('gCounter');
-            console.log("666666")
             const e = await incrementCounterAndGetNewValue('eCounter');
-            console.log("777777")
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
-            console.log("888888")
             const uniqueId = await uuidv4();
             console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
-            console.log("9999999")
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
-            console.log("00000000")
             const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
-            console.log("AAAAAAAA")
             const uniqueId2 = await uuidv4();
-            console.log("BBBBBBBB")
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
-            console.log("CCCCCC")
             response  = await convertToJSON(uniqueId2)
         } else if (action == "useGroup"){
             const newUsingName = reqPath.split("/")[3]
