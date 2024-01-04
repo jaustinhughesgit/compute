@@ -513,12 +513,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const group = eParent.Items[0].g
             const details3 = await addVersion(e.toString(), "g", group, "1");
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
-            response = await convertToJSON(headUUID)
+            mainObj = await convertToJSON(headUUID)
         } else if (action == "link"){
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
             await linkEntities(childID, parentID)
-            response = await convertToJSON(childID)
+            mainObj = await convertToJSON(childID)
         } else if (action == "newGroup"){
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
