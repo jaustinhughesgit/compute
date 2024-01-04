@@ -69,7 +69,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (entity.Items[0].u){
             using = true
         }
-        obj[fileID] = {meta: {name: name, expanded:false, head:entity.Items[0].h},children: {}, using: using, linked:{}};
+        let subByE = getSub(entity.Items[0].h, "e")
+        obj[fileID] = {meta: {name: name, expanded:false, head:subByE.Items[0].su},children: {}, using: using, linked:{}};
         let paths = {}
         if (isUsing){
             paths[fileID] = [...parentPath];
@@ -529,7 +530,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const subRefParent = await getSub(referencedParent, "su");
             const subMapParent = await getSub(mappedParent, "su");
             const mpE = await getEntity(subMapParent.Items[0].e)
-            const mrE = await getEntity(subRefParent.Items[0].e)
 
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
@@ -546,7 +546,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("mpE.Items[0]",mpE.Items[0])
             const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
             console.log("details2a", details2a)
-            const updateParent = await updateEntity(mrE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
+            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
             
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
