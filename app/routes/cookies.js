@@ -152,11 +152,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("col is m")
             console.log(val[Object.keys(val)[0]])
             params = {
-                "TableName": "entities", // Replace with your table's name
+                "TableName": "entities",
                 "Key": {
                     "e": "e" // Replace with your item's primary key and value
                 },
-                "UpdateExpression": `set #m = if_not_exists(#m, :emptyMap), #m.#val = :valList, #v = :v, #c = :c`,
+                "UpdateExpression": `set #m.#val = if_not_exists(#m.#val, :valList), #v = :v, #c = :c`,
                 "ExpressionAttributeNames": {
                     '#m': 'm',
                     '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
@@ -164,7 +164,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
                 },
                 "ExpressionAttributeValues": {
-                    ":emptyMap": {},
                     ":valList": val[Object.keys(val)[0]], // The value for '#val'
                     ":v": v, // The value you want to set for 'v'
                     ":c": c  // The value you want to set for 'c'
