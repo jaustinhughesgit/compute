@@ -163,7 +163,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             console.log("col is m")
             console.log(val[Object.keys(val)[0]])
 
-            let params1 = {
+            let params2 = {
                 TableName: "entities",
                 Key: {
                     "e": e // Replace with your item's primary key and value
@@ -177,7 +177,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                     ":emptyList": [] // Providing an empty list as a default for #m.#val if it doesn't exist
                 }
             };
-            await dynamodb.update(params1).promise();
+            await dynamodb.update(params2).promise();
 
 
 
