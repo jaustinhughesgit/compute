@@ -483,12 +483,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
     router.get('/*', async function(req, res, next) {
         const reqPath = req.apiGateway.event.path
+        console.log("reqPath",reqPath)
         const action = reqPath.split("/")[2]
         
         var response = {}
         var actionFile = ""
         var mainObj = {}
-        if (action == "get"){
+        if (action === "get"){
             const fileID = reqPath.split("/")[3]
             response = await convertToJSON(fileID)
         } else if (action == "add") {
@@ -514,12 +515,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const details3 = await addVersion(e.toString(), "g", group, "1");
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
             mainObj = await convertToJSON(headUUID)
-        } else if (action == "link"){
+        } else if (action === "link"){
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
             await linkEntities(childID, parentID)
             mainObj = await convertToJSON(childID)
-        } else if (action == "newGroup"){
+        } else if (action === "newGroup"){
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
             const aNewG = await incrementCounterAndGetNewValue('wCounter');
@@ -539,7 +540,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             actionFile = uniqueId2
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
             mainObj  = await convertToJSON(uniqueId2)
-        } else if (action == "useGroup"){
+        } else if (action === "useGroup"){
             const newUsingName = reqPath.split("/")[3]
             const headUsingName = reqPath.split("/")[4]
             const using = await getSub(newUsingName, "su");
@@ -550,7 +551,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             const headSub = await getSub(ug.Items[0].h, "e");
             mainObj  = await convertToJSON(headSub.Items[0].su)
-        } else if (action == "map"){
+        } else if (action === "map"){
             const referencedParent = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const mappedParent = reqPath.split("/")[5]
@@ -582,13 +583,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             mainObj  = await convertToJSON(headEntity)
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
-        } else if (action == "file"){
+        } else if (action === "file"){
             const actionFile = reqPath.split("/")[3]
 
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
-
+        console.log("1", actionFile)
+        console.log("2", action)
         if (action == "file"){
             const expires = 90000;
             const url = "https://public.1var.com/actions/"+actionFile+".json";
