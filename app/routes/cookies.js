@@ -508,20 +508,21 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const mappedParent = reqPath.split("/")[5]
             const subRefParent = await getSub(referencedParent, "su");
             const subMapParent = await getSub(mappedParent, "su");
+            const mpE = await getEntity(subMapParent.Items[0].e)
 
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
             const a = await createWord(aNew.toString(), newEntityName);
 
             const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v, subMapParent.Items[0].g, subMapParent.Items[0].h);
+            const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h);
 
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
 
             let newM = {}
-            newM[mappedParent.Items[0].e] = e.toString()
-            const details2 = await addVersion(mappedParent.Items[0].e.toString(), "m", newM, eParent.Items[0].c);
+            newM[subRefParent.Items[0].e] = e.toString()
+            const details2 = await addVersion(subRefParent.Items[0].e.toString(), "m", newM, eParent.Items[0].c);
             const updateParent = await updateEntity(parent.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);
         }
 
