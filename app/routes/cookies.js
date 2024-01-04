@@ -530,6 +530,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const subRefParent = await getSub(referencedParent, "su");
             const subMapParent = await getSub(mappedParent, "su");
             const mpE = await getEntity(subMapParent.Items[0].e)
+            const mrE = await getEntity(subRefParent.Items[0].e)
 
             const e = await incrementCounterAndGetNewValue('eCounter');
             const aNew = await incrementCounterAndGetNewValue('wCounter');
@@ -542,11 +543,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
 
             let newM = {}
-            newM[subRefParent.Items[0].e] = e.toString()
-            console.log("mpE.Items[0]",mpE.Items[0])
-            const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
+            newM[mrE.Items[0].e] = e.toString()
+            console.log("mrE.Items[0]",mrE.Items[0])
+            const details2a = await addVersion(mrE.Items[0].e.toString(), "m", newM, mrE.Items[0].c);
             console.log("details2a", details2a)
-            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
+            const updateParent = await updateEntity(mrE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
             
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
