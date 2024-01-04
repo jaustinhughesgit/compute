@@ -162,25 +162,43 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             /////////////////////// WORKING ON THIS: START
             console.log("col is m")
             console.log(val[Object.keys(val)[0]])
-            params = {
-                "TableName": "entities",
-                "Key": {
+
+            let params1 = {
+                TableName: "entities",
+                Key: {
                     "e": e // Replace with your item's primary key and value
                 },
-                "UpdateExpression": `set #m.#val = list_append(#m.#val, :newVal), #v = :v, #c = :c`,
-                "ExpressionAttributeNames": {
+                UpdateExpression: "set #m.#val = if_not_exists(#m.#val, :emptyList)",
+                ExpressionAttributeNames: {
+                    '#m': 'm',
+                    '#val': Object.keys(val)[0] // Assuming this is a correct and valid attribute name
+                },
+                ExpressionAttributeValues: {
+                    ":emptyList": [] // Providing an empty list as a default for #m.#val if it doesn't exist
+                }
+            };
+            await dynamodb.update(params1).promise();
+
+
+
+            let params = {
+                TableName: "entities",
+                Key: {
+                    "e": e // Replace with your item's primary key and value
+                },
+                UpdateExpression: "set #m.#val = list_append(#m.#val, :newVal), #v = :v, #c = :c",
+                ExpressionAttributeNames: {
                     '#m': 'm',
                     '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
                     '#v': 'v', // Assuming 'v' is the attribute name you're trying to update
                     '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
                 },
-                "ExpressionAttributeValues": {
+                ExpressionAttributeValues: {
                     ":newVal": [val[Object.keys(val)[0]]], // The new value to append into '#val'
                     ":v": v, // The value you want to set for 'v'
                     ":c": c  // The value you want to set for 'c'
                 }
             };
-            /////////////////////////WORKING ON THIS: END
 
 
 
