@@ -405,8 +405,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
     const createFile = async (su) => {
             const jsonObject = {
-                key1: 'value1',
-                key2: 'value2'
+                "entity": us
             };
             const jsonString = JSON.stringify(jsonObject);
             const bucketParams = {
