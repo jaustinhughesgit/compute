@@ -583,36 +583,36 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         }
         mainObj["file"] = actionFile
         response = mainObj
-
-        const expires = 90000;
-        console.log("https://public.1var.com/actions/"+actionFile+".json")
-        const url = "https://public.1var.com/actions/"+actionFile+".json";
-        const policy = JSON.stringify({
-            Statement: [
-                {
-                    Resource: url,
-                    Condition: {
-                        DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
+        await setTimeout(function() {
+            const expires = 90000;
+            console.log("https://public.1var.com/actions/"+actionFile+".json")
+            const url = "https://public.1var.com/actions/"+actionFile+".json";
+            const policy = JSON.stringify({
+                Statement: [
+                    {
+                        Resource: url,
+                        Condition: {
+                            DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
+                        }
                     }
+                ]
+            });
+            if (req.type === 'url'){
+                const signedUrl = signer.getSignedUrl({
+                    url: url,
+                    policy: policy
+                });
+                res.json({ signedUrl: signedUrl });
+            } else {
+                const cookies = signer.getSignedCookie({
+                    policy: policy
+                });
+                for (const cookieName in cookies) {
+                    res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                 }
-            ]
+                res.json({"ok":true,"response":response});
+            }   
         });
-        if (req.type === 'url'){
-            const signedUrl = signer.getSignedUrl({
-                url: url,
-                policy: policy
-            });
-            res.json({ signedUrl: signedUrl });
-        } else {
-            const cookies = signer.getSignedCookie({
-                policy: policy
-            });
-            for (const cookieName in cookies) {
-                res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
-            }
-            res.json({"ok":true,"response":response});
-        }   
-    });
-    return router;
-
+        return router;
+    }, 1500);
 }
