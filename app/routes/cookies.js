@@ -583,9 +583,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
-        setTimeout(() => {
             const expires = 90000;
-            const url = "https://public.1var.com/actions/"+encodeURIComponent(actionFile)+".json";
+            const url = "https://public.1var.com/actions/"+actionFile.trim()+".json";
             console.log("url", url)
             const policy = JSON.stringify({
                 Statement: [
@@ -614,7 +613,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 console.log("response", response)
                 res.json({"ok":true,"response":response});
             }   
-        }, 5000);
     });
     return router;
 
