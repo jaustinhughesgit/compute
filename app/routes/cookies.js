@@ -160,7 +160,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             params = {
                 "TableName": "entities",
                 "Key": {
-                    "e": "e" // Replace with your item's primary key and value
+                    "e": e // Replace with your item's primary key and value
                 },
                 "UpdateExpression": `set #m.#val = :valList, #v = :v, #c = :c`,
                 "ExpressionAttributeNames": {
