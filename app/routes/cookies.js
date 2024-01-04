@@ -158,8 +158,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 ExpressionAttributeNames: {
                     "#m": "m",
                     "#val": Object.keys(val)[0],
-                    ':v': v,
-                    ':c': c
+                    ':v': v.toString(),
+                    ':c': c.toString()
                 },
                 ExpressionAttributeValues: {
                     ":valList": [val[Object.keys(val)[0]]]
