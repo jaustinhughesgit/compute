@@ -69,8 +69,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         if (entity.Items[0].u){
             using = true
         }
-        let subByE = getSub(entity.Items[0].h, "e")
-        obj[fileID] = {meta: {name: name, expanded:false, head:subByE.Items[0].su},children: {}, using: using, linked:{}};
+        console.log("entity", entity)
+        console.log("entity.Items[0].h", entity.Items[0].h)
+        let subH = getSub(entity.Items[0].h, "e")
+        console.log(subH)
+        console.log("subH.Items[0].su",subH.Items[0].su)
+        obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}};
         let paths = {}
         if (isUsing){
             paths[fileID] = [...parentPath];
