@@ -581,12 +581,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
 
         }
-        mainObj["file"] = actionFile
+        mainObj["file"] = actionFile + ""
         response = mainObj
         setTimeout(() => {
             const expires = 90000;
-            console.log("https://public.1var.com/actions/"+actionFile+".json")
-            const url = "https://public.1var.com/actions/"+actionFile+".json";
+            const url = "https://public.1var.com/actions/"+encodeURIComponent(actionFile)+".json";
             const policy = JSON.stringify({
                 Statement: [
                     {
@@ -614,7 +613,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 console.log("response", response)
                 res.json({"ok":true,"response":response});
             }   
-        }, 2500);
+        }, 1500);
     });
     return router;
 
