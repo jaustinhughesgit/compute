@@ -607,12 +607,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 const cookies = signer.getSignedCookie({
                     policy: policy
                 });
+                console.log("cookies", cookies)
                 for (const cookieName in cookies) {
                     res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                 }
+                console.log("response", response)
                 res.json({"ok":true,"response":response});
             }   
-        }, 1500);
+        }, 2500);
     });
     return router;
 
