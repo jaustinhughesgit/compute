@@ -588,6 +588,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
+
+        if (action == "file"){
             const expires = 90000;
             const url = "https://public.1var.com/actions/"+actionFile+".json";
             console.log("url", url)
@@ -618,6 +620,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 console.log("response", response)
                 res.json({"ok":true,"response":response});
             }   
+        } else {
+            res.json({"ok":true,"response":response});
+
+        }
     });
     return router;
 
