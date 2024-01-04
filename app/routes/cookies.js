@@ -325,7 +325,13 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else if (col === "m"){
             const entity = await getEntity(newE)
             //entity = await getEntity() // getting the entity which called the using
-            colVal = entity.Items[0].m // storing the mapping object
+            if (entity.Items[0].m){
+                console.log("entity.Items[0].m",entity.Items[0].m)
+                colVal = entity.Items[0].m // storing the mapping object
+            } else {
+                colVal = {}
+                console.log("colVal", colVal)
+            }
             colVal[Object.keys(val)[0]] = [val[Object.keys(val)[0]]] // adding or updating the value to be the array of the new entity created
             //This should ensure the entity that is using another hierarchy gets the mapping of any child objects attached to the refferenced hierarchy.
             //DO WE NEED TO PUSH IT, MAYBE WE NEED TO CHECK IF THE VAL OR THE PARENT EXIST AND PUSH OR REPLACE IT IF IT DOES.
@@ -371,6 +377,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     }
                 }).promise();
             }
+            console.log("v,c,m",id.toString(),newCValue.toString(), newM)
             return {v:id.toString(), c:newCValue.toString(), m:newM};
         } catch (error) {
             console.error("Error adding record:", error);
@@ -523,7 +530,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             let newM = {}
             newM[subRefParent.Items[0].e] = e.toString()
             const details2 = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
-            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);
+            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);/////LAST ERROR IS ON THIS LINE
+            //SEEMS LIKE DETAILS2.M IS NOT THE OBJECT.
         }
 
 
