@@ -411,7 +411,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const jsonString = JSON.stringify(jsonObject);
             const bucketParams = {
                 Bucket: 'public.1var.com',
-                Key: "actions/"+su,
+                Key: "actions/"+su+".json",
                 Body: jsonString,
                 ContentType: 'application/json'
             };
@@ -584,7 +584,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         mainObj["file"] = actionFile + ""
         response = mainObj
             const expires = 90000;
-            const url = "https://public.1var.com/actions/4a1de2ba-9b1c-4b53-9107-d0a22c6f62c5.json";
+            const url = "https://public.1var.com/actions/"+actionFile+".json";
             console.log("url", url)
             const policy = JSON.stringify({
                 Statement: [
