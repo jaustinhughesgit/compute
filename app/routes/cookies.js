@@ -155,17 +155,20 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 "Key": {
                     "e": "e" // Replace with your item's primary key and value
                 },
-                "UpdateExpression": `set #m.#val = :valList, v = :v, c = :c`,
+                "UpdateExpression": `set #m.#val = :valList, #v = :v, #c = :c`,
                 "ExpressionAttributeNames": {
-                    '#m':'m',
-                    '#val': Object.keys(val)[0],
-                    ':v': v,
-                    ':c': c
+                    '#m': 'm',
+                    '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
+                    '#v': 'v', // Assuming 'v' is the attribute name you're trying to update
+                    '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
                 },
                 "ExpressionAttributeValues": {
-                    ":valList": [val[Object.keys(val)[0]]]
+                    ":valList": [val[Object.keys(val)[0]]], // The value for '#val'
+                    ":v": v, // The value you want to set for 'v'
+                    ":c": c  // The value you want to set for 'c'
                 }
             };
+            
             /////////////////////////WORKING ON THIS: END
 
 
