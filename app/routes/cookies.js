@@ -486,6 +486,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         const action = reqPath.split("/")[2]
         
         var response = {}
+        var actionFile = ""
+        var mainObj = {}
         if (action == "get"){
             const fileID = reqPath.split("/")[3]
             response = await convertToJSON(fileID)
@@ -534,8 +536,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const uniqueId2 = await uuidv4();
             const fileResult = await createFile(uniqueId2)
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
-
-            response  = await convertToJSON(uniqueId2)
+            actionFile = uniqueId2
+            mainObj  = await convertToJSON(uniqueId2)
         } else if (action == "useGroup"){
             const newUsingName = reqPath.split("/")[3]
             const headUsingName = reqPath.split("/")[4]
@@ -546,8 +548,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
             const headSub = await getSub(ug.Items[0].h, "e");
-            const mainObj  = await convertToJSON(headSub.Items[0].su)
-            response = mainObj
+            mainObj  = await convertToJSON(headSub.Items[0].su)
         } else if (action == "map"){
             const referencedParent = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
@@ -575,16 +576,16 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             console.log("details2a", details2a)
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
             
-            const mainObj  = await convertToJSON(headEntity)
-            response = mainObj
+            mainObj  = await convertToJSON(headEntity)
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
 
         }
-
+        mainObj["file"] = actionFile
+        response = mainObj
 
         const expires = 30000;
-        const url = "https://public.1var.com/test.json";
+        const url = "https://public.1var.com/"+actionFile+".json";
         const policy = JSON.stringify({
             Statement: [
                 {
