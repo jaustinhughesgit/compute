@@ -504,6 +504,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
+            const fileResult = await createFile(subRes)
+            actionFile = subRes
             const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
             const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
             const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1");
@@ -535,8 +537,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const fileID = await uuidv4();
             const uniqueId2 = await uuidv4();
             const fileResult = await createFile(uniqueId2)
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
             actionFile = uniqueId2
+            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
             mainObj  = await convertToJSON(uniqueId2)
         } else if (action == "useGroup"){
             const newUsingName = reqPath.split("/")[3]
@@ -568,6 +570,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
+            const fileResult = await createFile(uniqueId)
+            actionFile = uniqueId
 
             let newM = {}
             newM[mrE.Items[0].e] = e.toString()
