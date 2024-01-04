@@ -163,7 +163,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
                 },
                 "ExpressionAttributeValues": {
-                    ":valList": [val[Object.keys(val)[0]]], // The value for '#val'
+                    ":valList": val[Object.keys(val)[0]], // The value for '#val'
                     ":v": v, // The value you want to set for 'v'
                     ":c": c  // The value you want to set for 'c'
                 }
