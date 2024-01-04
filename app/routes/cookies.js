@@ -585,6 +585,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         response = mainObj
 
         const expires = 30000;
+        console.log("ACTION FILE:", actionFile)
+        console.log("ACTION PATH:", "https://public.1var.com/actions/"+actionFile+".json")
         const url = "https://public.1var.com/actions/"+actionFile+".json";
         const policy = JSON.stringify({
             Statement: [
