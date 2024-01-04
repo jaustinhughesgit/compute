@@ -531,6 +531,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const referencedParent = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const mappedParent = reqPath.split("/")[5]
+            const headEntity = reqPath.split("/")[6]
             const subRefParent = await getSub(referencedParent, "su");
             const subMapParent = await getSub(mappedParent, "su");
             const mpE = await getEntity(subMapParent.Items[0].e)
@@ -553,6 +554,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("details2a", details2a)
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
             
+            const mainObj  = await convertToJSON(headEntity)
+            response = mainObj
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
 
