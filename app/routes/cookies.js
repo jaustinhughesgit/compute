@@ -128,6 +128,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     }
 
     const updateEntity = async (e, col, val, v, c) => {
+        console.log("updateEntity",e, col, val, v, c)
         let params = {}
         if (col === "t" || col === "f"){
             console.log("col === f || col === f")
@@ -158,8 +159,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 ExpressionAttributeNames: {
                     "#m": "m",
                     "#val": Object.keys(val)[0],
-                    ':v': v.toString(),
-                    ':c': c.toString()
+                    ':v': v,
+                    ':c': c
                 },
                 ExpressionAttributeValues: {
                     ":valList": [val[Object.keys(val)[0]]]
@@ -185,7 +186,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
        
     
         try {
+            console.log("params",params)
             await dynamodb.update(params).promise();
+            console.log("done");
             console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
             return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
         } catch (error) {
@@ -529,8 +532,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
             let newM = {}
             newM[subRefParent.Items[0].e] = e.toString()
-            const details2 = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
-            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);/////LAST ERROR IS ON THIS LINE
+            console.log("mpE.Items[0]",mpE.Items[0])
+            const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
+            console.log("details2a", details2a)
+            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);/////LAST ERROR IS ON THIS LINE
             //SEEMS LIKE DETAILS2.M IS NOT THE OBJECT.
         }
 
