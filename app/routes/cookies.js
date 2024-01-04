@@ -144,6 +144,31 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     ':c': c
                 }
             };
+        } else if (col === "m"){
+
+
+            /////////////////////// WORKING ON THIS: START
+            console.log("col is m")
+            params = {
+                TableName: "entities", // Replace with your table's name
+                Key: {
+                    "e": "e" // Replace with your item's primary key and value
+                },
+                UpdateExpression: "set #m.#val = :valList, v = :v, c = :c",
+                ExpressionAttributeNames: {
+                    "#m": "m",
+                    "#val": Object.keys(val)[0],
+                    ':v': v,
+                    ':c': c
+                },
+                ExpressionAttributeValues: {
+                    ":valList": [val[Object.keys(val)[0]]]
+                }
+            };
+            /////////////////////////WORKING ON THIS: END
+
+
+
         } else {
             console.log("col is not t")
             params = {
@@ -161,7 +186,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
     
         try {
             await dynamodb.update(params).promise();
-            //console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
+            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
             return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
         } catch (error) {
             console.error("Error updating entity:", error);
@@ -281,10 +306,12 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             }
 
             // Initialize col as an array and add val to it
-            const colArray = [val];
+            let colVal = [val];
     
             // Insert the new record with the c, s, and p values
             let newRecord = {}
+
+            let newM = {}
         if (col === "t" || col === "f" || col === "l" || col === "o"){
             newRecord = {
                 v: id.toString(),
@@ -292,10 +319,28 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 e: newE,
                 s: newSValue.toString(),
                 p: previousVersionId, // Set the p attribute to the v of the last record
-                [col]: colArray,
+                [col]: colVal,
                 d: Date.now()
             };
-        } else {
+        } else if (col === "m"){
+            const entity = await getEntity(newE)
+            //entity = await getEntity() // getting the entity which called the using
+            colVal = entity.Items[0].m // storing the mapping object
+            colVal[Object.keys(val)[0]] = [val[Object.keys(val)[0]]] // adding or updating the value to be the array of the new entity created
+            //This should ensure the entity that is using another hierarchy gets the mapping of any child objects attached to the refferenced hierarchy.
+            //DO WE NEED TO PUSH IT, MAYBE WE NEED TO CHECK IF THE VAL OR THE PARENT EXIST AND PUSH OR REPLACE IT IF IT DOES.
+            newM = colVal
+            newRecord = {
+                v: id.toString(),
+                c: newCValue.toString(),
+                e: newE,
+                s: newSValue.toString(),
+                p: previousVersionId, // Set the p attribute to the v of the last record
+                [col]: colVal,
+                d: Date.now()
+            };
+
+        }else {
             newRecord = {
                 v: id.toString(),
                 c: newCValue.toString(),
@@ -326,7 +371,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     }
                 }).promise();
             }
-            return {v:id.toString(), c:newCValue.toString()};
+            return {v:id.toString(), c:newCValue.toString(), m:newM};
         } catch (error) {
             console.error("Error adding record:", error);
             return null
@@ -454,24 +499,30 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             const ud = await getEntity(used.Items[0].e)
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
-            //const usingHead = getHead("entity",newUsingName)
-            
-            //THIS WORKS FOR ONE USING ENTITY, WE NEED IT FOR ALL USINGS IN THE RESPONSE. WE NEED TO GET THEM BY THE "u" COLUMN
-            // MAKE THE USING ENTITY HAVE THE DATA INSIDE THE BOX, OR IN THE RIGH PANNEL, MAYBE COLOR IT
-
             const headSub = await getSub(ug.Items[0].h, "e");
             const mainObj  = await convertToJSON(headSub.Items[0].su)
- 
             response = mainObj
-            // get head of newUsingName
-            // convertToJson the head
-            // convertToJson the headUsingName
-            // grap the using entity and stick the headUsingName object into it, but keep the newUsingName UUID
-            // locate all the mappings in the same group as the newUsingName
-            // convertToJSON the mapping entity uuids and stick them into the mapped target UUUID
-            // send the collective response.
-            // well need some meta that designates the entities that are used.
+        } else if (action == "map"){
+            const referencedParent = reqPath.split("/")[3]
+            const newEntityName = reqPath.split("/")[4]
+            const mappedParent = reqPath.split("/")[5]
+            const subRefParent = await getSub(referencedParent, "su");
+            const subMapParent = await getSub(mappedParent, "su");
 
+            const e = await incrementCounterAndGetNewValue('eCounter');
+            const aNew = await incrementCounterAndGetNewValue('wCounter');
+            const a = await createWord(aNew.toString(), newEntityName);
+
+            const details = await addVersion(e.toString(), "a", a.toString(), null);
+            const result = await createEntity(e.toString(), a.toString(), details.v, subMapParent.Items[0].g, subMapParent.Items[0].h);
+
+            const uniqueId = await uuidv4();
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
+
+            let newM = {}
+            newM[mappedParent.Items[0].e] = e.toString()
+            const details2 = await addVersion(mappedParent.Items[0].e.toString(), "m", newM, eParent.Items[0].c);
+            const updateParent = await updateEntity(parent.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);
         }
 
 
