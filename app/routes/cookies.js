@@ -2,7 +2,7 @@ var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
 
-module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
+module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     var router = express.Router();
     const keyPairId = 'K2LZRHRSYZRU3Y'; 
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -403,6 +403,25 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         }
     };
 
+    const createFile = async (su) => {
+            const jsonObject = {
+                key1: 'value1',
+                key2: 'value2'
+            };
+            const jsonString = JSON.stringify(jsonObject);
+            const bucketParams = {
+                Bucket: 'public.1var.com',
+                Key: "actions/"+su,
+                Body: jsonString,
+                ContentType: 'application/json'
+            };
+            const data = await s3.putObject(bucketParams).promise();
+            console.log(`File uploaded successfully to ${bucketParams.Bucket}/${bucketParams.Key}`);
+            console.log(data);
+            return true;
+
+    }
+
     const createEntity = async (e, a, v, g, h) => {
         const params = {
                 TableName: 'entities',
@@ -414,7 +433,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                     h: h
                 }
             };
-        
     
         try {
             await dynamodb.put(params).promise();
@@ -512,8 +530,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
             const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
+            const fileID = await uuidv4();
             const uniqueId2 = await uuidv4();
+            const fileResult = await createFile(uniqueId2)
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
+
             response  = await convertToJSON(uniqueId2)
         } else if (action == "useGroup"){
             const newUsingName = reqPath.split("/")[3]
