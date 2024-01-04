@@ -148,7 +148,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
         } else if (col === "m"){
             params1 = {
                 "TableName": "entities",
-                "Key": {"e": "e"},
+                "Key": {"e": e},
                 "UpdateExpression": `set #m = if_not_exists(#m, :emptyMap)`,
                 "ExpressionAttributeNames": {'#m': 'm'},
                 "ExpressionAttributeValues": {":emptyMap": {}}
@@ -547,6 +547,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             console.log("details2a", details2a)
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);/////LAST ERROR IS ON THIS LINE
             //SEEMS LIKE DETAILS2.M IS NOT THE OBJECT.
+
         }
 
 
