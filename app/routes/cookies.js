@@ -522,8 +522,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
 
             let newM = {}
             newM[subRefParent.Items[0].e] = e.toString()
-            const details2 = await addVersion(subRefParent.Items[0].e.toString(), "m", newM, eParent.Items[0].c);
-            const updateParent = await updateEntity(parent.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);
+            const details2 = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
+            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2.m, details2.v, details2.c);
         }
 
 
