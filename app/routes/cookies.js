@@ -146,8 +146,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 }
             };
         } else if (col === "m"){
-
-
+            params1 = {
+                "TableName": "entities",
+                "Key": {"e": "e"},
+                "UpdateExpression": `set #m = if_not_exists(#m, :emptyMap)`,
+                "ExpressionAttributeNames": {'#m': 'm'},
+                "ExpressionAttributeValues": {":emptyMap": {}}
+            };
+            await dynamodb.update(params1).promise();
             /////////////////////// WORKING ON THIS: START
             console.log("col is m")
             console.log(val[Object.keys(val)[0]])
@@ -156,7 +162,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
                 "Key": {
                     "e": "e" // Replace with your item's primary key and value
                 },
-                "UpdateExpression": `set #m.#val = if_not_exists(#m.#val, :valList), #v = :v, #c = :c`,
+                "UpdateExpression": `set #m.#val = :valList, #v = :v, #c = :c`,
                 "ExpressionAttributeNames": {
                     '#m': 'm',
                     '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
