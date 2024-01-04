@@ -582,6 +582,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             mainObj  = await convertToJSON(headEntity)
             // m is being added to Primary and it needs to be added to PrimaryChild
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
+        } else if (action == "file"){
+            const actionFile = reqPath.split("/")[3]
 
         }
         mainObj["file"] = actionFile + ""
