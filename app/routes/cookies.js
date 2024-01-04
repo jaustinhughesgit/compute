@@ -151,18 +151,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4) {
             /////////////////////// WORKING ON THIS: START
             console.log("col is m")
             params = {
-                TableName: "entities", // Replace with your table's name
-                Key: {
+                "TableName": "entities", // Replace with your table's name
+                "Key": {
                     "e": "e" // Replace with your item's primary key and value
                 },
-                UpdateExpression: "set #m.#val = :valList, v = :v, c = :c",
-                ExpressionAttributeNames: {
-                    "#m": "m",
-                    "#val": Object.keys(val)[0],
+                "UpdateExpression": `set #m.#val = :valList, v = :v, c = :c`,
+                "ExpressionAttributeNames": {
+                    '#m':'m',
+                    '#val': Object.keys(val)[0],
                     ':v': v,
                     ':c': c
                 },
-                ExpressionAttributeValues: {
+                "ExpressionAttributeValues": {
                     ":valList": [val[Object.keys(val)[0]]]
                 }
             };
