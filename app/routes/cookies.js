@@ -404,6 +404,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     };
 
     const createFile = async (su) => {
+            console.log("createFile=", su)
             const jsonObject = {
                 "entity": su
             };
