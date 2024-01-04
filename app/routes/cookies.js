@@ -167,7 +167,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 "Key": {
                     "e": e // Replace with your item's primary key and value
                 },
-                "UpdateExpression": `set #m.#val = list_append(if_not_exists(#m.#val, :emptyList), :newVal), #v = :v, #c = :c`,
+                "UpdateExpression": `set #m.#val = list_append(#m.#val, :newVal), #v = :v, #c = :c`,
                 "ExpressionAttributeNames": {
                     '#m': 'm',
                     '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
@@ -175,7 +175,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                     '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
                 },
                 "ExpressionAttributeValues": {
-                    ":emptyList": [], // Providing an empty list as a default for #m.#val if it doesn't exist
                     ":newVal": [val[Object.keys(val)[0]]], // The new value to append into '#val'
                     ":v": v, // The value you want to set for 'v'
                     ":c": c  // The value you want to set for 'c'
