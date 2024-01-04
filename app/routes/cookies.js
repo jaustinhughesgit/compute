@@ -583,7 +583,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         }
         mainObj["file"] = actionFile
         response = mainObj
-        await setTimeout(function() {
+        setTimeout(() => {
             const expires = 90000;
             console.log("https://public.1var.com/actions/"+actionFile+".json")
             const url = "https://public.1var.com/actions/"+actionFile+".json";
@@ -612,7 +612,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 }
                 res.json({"ok":true,"response":response});
             }   
-        });
-        return router;
-    }, 1500);
+        }, 1500);
+    });
+    return router;
+
 }
