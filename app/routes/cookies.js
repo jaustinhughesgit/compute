@@ -35,25 +35,15 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
     async function getGroups(){
         params = { TableName: 'groups' };
-        console.log("params",params)
         let groups = await dynamodb.scan(params).promise();
-        console.log("groups", groups)
         let groupObjs = []
         for (group in groups.Items){
-            console.log("group",group)
-            console.log("groups.Items[group].g.toString()",groups.Items[group].g.toString())
-            console.log("groups.Items[group].a.toString()",groups.Items[group].a.toString())
-            console.log("groups.Items[group].e.toString()",groups.Items[group].e.toString())
             const subByG = await getSub(groups.Items[group].g.toString(), "g");
-            console.log("subByG",subByG)
             const groupName = await getWord(groups.Items[group].a.toString())
-            console.log("groupName",groupName)
             const subByE = await getSub(groups.Items[group].e.toString(), "e");
-            console.log("subByE",subByE)
             groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
-            console.log("groupObjs",groupObjs)
         }
-        console.log("returning groupObjs", groupObjs)
+
         return groupObjs
     }
     let convertCounter = 0
@@ -92,18 +82,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         } else {
             paths[fileID] = [...parentPath, fileID];
         }
-        console.log("paths", paths)
-        console.log("children", children)
         if (children){
             for (let child of children) {
-                console.log("child",child)
                 const subByE = await getSub(child, "e");
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
-                    console.log("uuid", uuid)
                     let childResponse = {}
                     if (convertCounter < 200) {
-                    console.log("convertCounter",convertCounter)
+
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
                     convertCounter++;
                     }
@@ -306,7 +292,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     };
 
     const createGroup = async (gid, groupNameID, entityID) => {
-        console.log("createGroup", gid, groupNameID, entityID)
+    
         await dynamodb.put({
             TableName: 'groups',
             Item: {
@@ -527,173 +513,154 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         var response = {}
         var actionFile = ""
         var mainObj = {}
-        if (action === "get"){
-            const fileID = reqPath.split("/")[3]
-            actionFile = fileID
-            mainObj = await convertToJSON(fileID)
-        } else if (action == "add") {
-            const fileID = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const headUUID = reqPath.split("/")[5]
-            const parent = await getSub(fileID, "su");
-            const eParent = await getEntity(parent.Items[0].e)
-            const e = await incrementCounterAndGetNewValue('eCounter');
-            const aNew = await incrementCounterAndGetNewValue('wCounter');
-            const a = await createWord(aNew.toString(), newEntityName);
-            const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h);
-            const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
-            const fileResult = await createFile(uniqueId)
-            actionFile = uniqueId
-            const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
-            const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
-            const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1");
-            const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c);
-            const group = eParent.Items[0].g
-            const details3 = await addVersion(e.toString(), "g", group, "1");
-            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
-            mainObj = await convertToJSON(headUUID)
-        } else if (action === "link"){
-            const childID = reqPath.split("/")[3]
-            const parentID = reqPath.split("/")[4]
-            await linkEntities(childID, parentID)
-            mainObj = await convertToJSON(childID)
-        } else if (action === "newGroup"){
-            console.log("1")
-            const newGroupName = reqPath.split("/")[3]
-            console.log("2",newGroupName)
-            const headEntityName = reqPath.split("/")[4]
-            console.log("3",headEntityName)
-            const aNewG = await incrementCounterAndGetNewValue('wCounter');
-            console.log("4",aNewG)
-            const aG = await createWord(aNewG.toString(), newGroupName);
-            console.log("5",aG)
-            const aNewE = await incrementCounterAndGetNewValue('wCounter');
-            console.log("6",aNewE)
-            const aE = await createWord(aNewE.toString(), headEntityName);
-            console.log("7",aE)
-            const gNew = await incrementCounterAndGetNewValue('gCounter');
-            console.log("8",gNew)
-            const e = await incrementCounterAndGetNewValue('eCounter');
-            console.log("9",e)
-            const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
-            console.log("10",groupID)
-            const uniqueId = await uuidv4();
-            console.log("11",uniqueId)
-            console.log(uniqueId, "0", "0", )
-            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
-            console.log("12",subRes)
-            const details = await addVersion(e.toString(), "a", aE.toString(), null);
-            console.log("13",details)
-            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
-            console.log("14",result)
-            const uniqueId2 = await uuidv4();
-            console.log("15",uniqueId2)
-            const fileResult = await createFile(uniqueId2)
-            console.log("16",fileResult)
-            actionFile = uniqueId2
-            console.log("17",actionFile)
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
-            console.log("18",subRes2)
-            mainObj  = await convertToJSON(uniqueId2)
-            console.log("19",mainObj)
-        } else if (action === "useGroup"){
-            const newUsingName = reqPath.split("/")[3]
-            const headUsingName = reqPath.split("/")[4]
-            const using = await getSub(newUsingName, "su");
-            const ug = await getEntity(using.Items[0].e)
-            const used = await getSub(headUsingName, "su");
-            const ud = await getEntity(used.Items[0].e)
-            const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
-            const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
-            const headSub = await getSub(ug.Items[0].h, "e");
-            mainObj  = await convertToJSON(headSub.Items[0].su)
-        } else if (action === "map"){
-            const referencedParent = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const mappedParent = reqPath.split("/")[5]
-            const headEntity = reqPath.split("/")[6]
-            const subRefParent = await getSub(referencedParent, "su");
-            const subMapParent = await getSub(mappedParent, "su");
-            const mpE = await getEntity(subMapParent.Items[0].e)
-            const mrE = await getEntity(subRefParent.Items[0].e)
+        if (req.method === 'GET' || req.method === 'GET'){
+            if (action === "get"){
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
+                mainObj = await convertToJSON(fileID)
+            } else if (action == "add") {
+                const fileID = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const headUUID = reqPath.split("/")[5]
+                const parent = await getSub(fileID, "su");
+                const eParent = await getEntity(parent.Items[0].e)
+                const e = await incrementCounterAndGetNewValue('eCounter');
+                const aNew = await incrementCounterAndGetNewValue('wCounter');
+                const a = await createWord(aNew.toString(), newEntityName);
+                const details = await addVersion(e.toString(), "a", a.toString(), null);
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h);
+                const uniqueId = await uuidv4();
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
+                const fileResult = await createFile(uniqueId)
+                actionFile = uniqueId
+                const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
+                const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
+                const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1");
+                const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c);
+                const group = eParent.Items[0].g
+                const details3 = await addVersion(e.toString(), "g", group, "1");
+                const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c);
+                mainObj = await convertToJSON(headUUID)
+            } else if (action === "link"){
+                const childID = reqPath.split("/")[3]
+                const parentID = reqPath.split("/")[4]
+                await linkEntities(childID, parentID)
+                mainObj = await convertToJSON(childID)
+            } else if (action === "newGroup"){
+                const newGroupName = reqPath.split("/")[3]
+                const headEntityName = reqPath.split("/")[4]
+                const aNewG = await incrementCounterAndGetNewValue('wCounter');
+                const aG = await createWord(aNewG.toString(), newGroupName);
+                const aNewE = await incrementCounterAndGetNewValue('wCounter');
+                const aE = await createWord(aNewE.toString(), headEntityName);
+                const gNew = await incrementCounterAndGetNewValue('gCounter');
+                const e = await incrementCounterAndGetNewValue('eCounter');
+                const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
+                const uniqueId = await uuidv4();
+                console.log(uniqueId, "0", "0", )
+                let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
+                const details = await addVersion(e.toString(), "a", aE.toString(), null);
+                const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
+                const uniqueId2 = await uuidv4();
+                const fileResult = await createFile(uniqueId2)
+                actionFile = uniqueId2
+                let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
+                mainObj  = await convertToJSON(uniqueId2)
+            } else if (action === "useGroup"){
+                const newUsingName = reqPath.split("/")[3]
+                const headUsingName = reqPath.split("/")[4]
+                const using = await getSub(newUsingName, "su");
+                const ug = await getEntity(using.Items[0].e)
+                const used = await getSub(headUsingName, "su");
+                const ud = await getEntity(used.Items[0].e)
+                const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c);
+                const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c);
+                const headSub = await getSub(ug.Items[0].h, "e");
+                mainObj  = await convertToJSON(headSub.Items[0].su)
+            } else if (action === "map"){
+                const referencedParent = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const mappedParent = reqPath.split("/")[5]
+                const headEntity = reqPath.split("/")[6]
+                const subRefParent = await getSub(referencedParent, "su");
+                const subMapParent = await getSub(mappedParent, "su");
+                const mpE = await getEntity(subMapParent.Items[0].e)
+                const mrE = await getEntity(subRefParent.Items[0].e)
 
-            const e = await incrementCounterAndGetNewValue('eCounter');
-            const aNew = await incrementCounterAndGetNewValue('wCounter');
-            const a = await createWord(aNew.toString(), newEntityName);
+                const e = await incrementCounterAndGetNewValue('eCounter');
+                const aNew = await incrementCounterAndGetNewValue('wCounter');
+                const a = await createWord(aNew.toString(), newEntityName);
 
-            const details = await addVersion(e.toString(), "a", a.toString(), null);
-            const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h);
+                const details = await addVersion(e.toString(), "a", a.toString(), null);
+                const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h);
 
-            const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
-            const fileResult = await createFile(uniqueId)
-            actionFile = uniqueId
+                const uniqueId = await uuidv4();
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
+                const fileResult = await createFile(uniqueId)
+                actionFile = uniqueId
 
-            let newM = {}
-            newM[mrE.Items[0].e] = e.toString()
-            console.log("mpE.Items[0]",mpE.Items[0])
-            const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
-            console.log("details2a", details2a)
-            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
-            
-            mainObj  = await convertToJSON(headEntity)
-            // m is being added to Primary and it needs to be added to PrimaryChild
-            // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
-        } else if (action === "file"){
-            actionFile = reqPath.split("/")[3]
-            console.log("file")
-            mainObj = await convertToJSON(actionFile)
+                let newM = {}
+                newM[mrE.Items[0].e] = e.toString()
+                console.log("mpE.Items[0]",mpE.Items[0])
+                const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
+                console.log("details2a", details2a)
+                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
+                
+                mainObj  = await convertToJSON(headEntity)
+                // m is being added to Primary and it needs to be added to PrimaryChild
+                // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
+            } else if (action === "file"){
+                actionFile = reqPath.split("/")[3]
+                mainObj = await convertToJSON(actionFile)
 
-        } else if (action === "saveFile"){
-            console.log("saveFile1")
-            actionFile = reqPath.split("/")[3]
-            console.log("saveFile2")
-            mainObj = await convertToJSON(actionFile)
-            console.log("saving")
-            console.log(req.body)
-            const fileResult = await createFile(actionFile)
-            console.log("saveFile3")
-        }
-        mainObj["file"] = actionFile + ""
-        response = mainObj
-        console.log("1", actionFile)
-        console.log("2", action)
-        if (action == "file"){
-            const expires = 90000;
-            const url = "https://public.1var.com/actions/"+actionFile+".json";
-            console.log("url", url)
-            const policy = JSON.stringify({
-                Statement: [
-                    {
-                        Resource: url,
-                        Condition: {
-                            DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
+            } else if (action === "saveFile"){
+                actionFile = reqPath.split("/")[3]
+                mainObj = await convertToJSON(actionFile)
+                console.log("saving")
+                console.log(req.body)
+                const fileResult = await createFile(actionFile)
+            }
+            mainObj["file"] = actionFile + ""
+            response = mainObj
+            console.log("1", actionFile)
+            console.log("2", action)
+            if (action == "file"){
+                const expires = 90000;
+                const url = "https://public.1var.com/actions/"+actionFile+".json";
+                console.log("url", url)
+                const policy = JSON.stringify({
+                    Statement: [
+                        {
+                            Resource: url,
+                            Condition: {
+                                DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
+                            }
                         }
+                    ]
+                });
+                if (req.type === 'url'){
+                    const signedUrl = signer.getSignedUrl({
+                        url: url,
+                        policy: policy
+                    });
+                    res.json({ signedUrl: signedUrl });
+                } else {
+                    const cookies = signer.getSignedCookie({
+                        policy: policy
+                    });
+                    console.log("cookies", cookies)
+                    for (const cookieName in cookies) {
+                        res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
-                ]
-            });
-            if (req.type === 'url'){
-                const signedUrl = signer.getSignedUrl({
-                    url: url,
-                    policy: policy
-                });
-                res.json({ signedUrl: signedUrl });
+                    console.log("response", response)
+                    res.json({"ok":true,"response":response});
+                }   
             } else {
-                const cookies = signer.getSignedCookie({
-                    policy: policy
-                });
-                console.log("cookies", cookies)
-                for (const cookieName in cookies) {
-                    res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
-                }
-                console.log("response", response)
                 res.json({"ok":true,"response":response});
-            }   
-        } else {
-            res.json({"ok":true,"response":response});
 
+            }
+        } else {
+            res.json({})
         }
     });
     return router;
