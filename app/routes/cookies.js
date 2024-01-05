@@ -611,6 +611,10 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         } else if (action === "file"){
             actionFile = reqPath.split("/")[3]
 
+        } else if (action === "saveFile"){
+            actionFile = reqPath.split("/")[3]
+            console.log("saving")
+            console.log(req.body)
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
