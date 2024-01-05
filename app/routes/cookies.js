@@ -617,6 +617,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             mainObj = await convertToJSON(actionFile)
             console.log("saving")
             console.log(req.body)
+            const fileResult = await createFile(actionFile)
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
