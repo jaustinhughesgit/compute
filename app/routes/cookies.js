@@ -511,6 +511,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         var mainObj = {}
         if (action === "get"){
             const fileID = reqPath.split("/")[3]
+            actionFile = fileID
             mainObj = await convertToJSON(fileID)
         } else if (action == "add") {
             const fileID = reqPath.split("/")[3]
