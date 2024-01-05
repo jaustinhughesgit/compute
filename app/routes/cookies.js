@@ -610,9 +610,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
         } else if (action === "file"){
             actionFile = reqPath.split("/")[3]
+            //mainObj = await convertToJSON(fileID)
 
         } else if (action === "saveFile"){
             actionFile = reqPath.split("/")[3]
+            mainObj = await convertToJSON(fileID)
             console.log("saving")
             console.log(req.body)
         }
