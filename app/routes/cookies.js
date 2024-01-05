@@ -5,8 +5,10 @@ const bodyParser = require('body-parser');
 
 module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     var router = express.Router();
+    router.use(bodyParser.json());
     const keyPairId = 'K2LZRHRSYZRU3Y'; 
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
+    let convertCounter = 0
 
 
     async function getSub(val, key){
@@ -46,7 +48,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
         return groupObjs
     }
-    let convertCounter = 0
+    
     async function convertToJSON(fileID, parentPath = [], isUsing, mapping) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
@@ -181,6 +183,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             await dynamodb.update(params2).promise();
 
 
+            ///////////////////////////
+            ///////////////////////////
+            // Object.keys(val)[0] takes the first object and adds it every time its called. This is why it keeps duplicating both the key and value
+            ///////////////////////////
+            ///////////////////////////
 
 
 
@@ -498,7 +505,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
         return "success"
     }
-    router.use(bodyParser.json());
+    
     router.all('/*', async function(req, res, next) {
         console.log("req==>", req)
         const reqPath = req.apiGateway.event.path
@@ -601,7 +608,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 console.log("mpE.Items[0]",mpE.Items[0])
                 const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
                 console.log("details2a", details2a)
-                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", details2a.m, details2a.v, details2a.c);
+                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", newM, details2a.v, details2a.c);
                 
                 mainObj  = await convertToJSON(headEntity)
                 // m is being added to Primary and it needs to be added to PrimaryChild
@@ -660,6 +667,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             res.json({})
         }
     });
-    return router;
 
+    return router;
 }
