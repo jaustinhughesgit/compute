@@ -306,7 +306,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     };
 
     const createGroup = async (gid, groupNameID, entityID) => {
-    
+        console.log("createGroup", gid, groupNameID, entityID)
         await dynamodb.put({
             TableName: 'groups',
             Item: {
