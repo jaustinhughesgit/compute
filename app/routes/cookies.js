@@ -608,7 +608,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 console.log("mpE.Items[0]",mpE.Items[0])
                 const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
                 console.log("details2a", details2a)
-                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", newM, details2a.v, details2a.c);
+                let addM = {}
+                addM[mrE.Items[0].e] = [e.toString()]
+                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c);
                 
                 mainObj  = await convertToJSON(headEntity)
                 // m is being added to Primary and it needs to be added to PrimaryChild
