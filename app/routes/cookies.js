@@ -184,7 +184,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
 
 
-            let params = {
+            params = {
                 "TableName": "entities",
                 "Key": {
                     "e": e // Replace with your item's primary key and value
