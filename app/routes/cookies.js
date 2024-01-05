@@ -501,7 +501,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         return "success"
     }
 
-    router.get('/*', async function(req, res, next) {
+    router.all('/*', async function(req, res, next) {
+        console.log("req==>", req)
         const reqPath = req.apiGateway.event.path
         console.log("reqPath",reqPath)
         const action = reqPath.split("/")[2]
