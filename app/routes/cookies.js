@@ -1,7 +1,6 @@
 var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
-const bodyParser = require('body-parser');
 
 module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     var router = express.Router();
@@ -501,14 +500,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
         return "success"
     }
-    router.use(bodyParser.json());
+
     router.all('/*', async function(req, res, next) {
-        console.log("req==>", req)
         const reqPath = req.apiGateway.event.path
         console.log("reqPath",reqPath)
         const action = reqPath.split("/")[2]
-        const requestBody = req.body;
-        console.log("requestBody", req.body)
         
         var response = {}
         var actionFile = ""
@@ -610,14 +606,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
         } else if (action === "file"){
             actionFile = reqPath.split("/")[3]
-            //mainObj = await convertToJSON(fileID)
 
-        } else if (action === "saveFile"){
-            actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile)
-            console.log("saving")
-            console.log(req.body)
-            const fileResult = await createFile(actionFile)
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
