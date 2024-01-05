@@ -1,6 +1,7 @@
 var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
+const bodyParser = require('body-parser');
 
 module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     var router = express.Router();
@@ -500,12 +501,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
         return "success"
     }
-
+    router.use(bodyParser.json());
     router.all('/*', async function(req, res, next) {
         console.log("req==>", req)
         const reqPath = req.apiGateway.event.path
         console.log("reqPath",reqPath)
         const action = reqPath.split("/")[2]
+        const requestBody = req.body;
+        console.log("requestBody", req.body)
         
         var response = {}
         var actionFile = ""
