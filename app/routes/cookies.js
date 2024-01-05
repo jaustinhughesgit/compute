@@ -546,25 +546,44 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             await linkEntities(childID, parentID)
             mainObj = await convertToJSON(childID)
         } else if (action === "newGroup"){
+            console.log("1")
             const newGroupName = reqPath.split("/")[3]
+            console.log("2",newGroupName)
             const headEntityName = reqPath.split("/")[4]
+            console.log("3",headEntityName)
             const aNewG = await incrementCounterAndGetNewValue('wCounter');
+            console.log("4",aNewG)
             const aG = await createWord(aNewG.toString(), newGroupName);
+            console.log("5",aG)
             const aNewE = await incrementCounterAndGetNewValue('wCounter');
+            console.log("6",aNewE)
             const aE = await createWord(aNewE.toString(), headEntityName);
+            console.log("7",aE)
             const gNew = await incrementCounterAndGetNewValue('gCounter');
+            console.log("8",gNew)
             const e = await incrementCounterAndGetNewValue('eCounter');
+            console.log("9",e)
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString());
+            console.log("10",groupID)
             const uniqueId = await uuidv4();
+            console.log("11",uniqueId)
             console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString())
+            console.log("12",subRes)
             const details = await addVersion(e.toString(), "a", aE.toString(), null);
+            console.log("13",details)
             const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
+            console.log("14",result)
             const uniqueId2 = await uuidv4();
+            console.log("15",uniqueId2)
             const fileResult = await createFile(uniqueId2)
+            console.log("16",fileResult)
             actionFile = uniqueId2
+            console.log("17",actionFile)
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
+            console.log("18",subRes2)
             mainObj  = await convertToJSON(uniqueId2)
+            console.log("19",mainObj)
         } else if (action === "useGroup"){
             const newUsingName = reqPath.split("/")[3]
             const headUsingName = reqPath.split("/")[4]
@@ -610,14 +629,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
         } else if (action === "file"){
             actionFile = reqPath.split("/")[3]
-            //mainObj = await convertToJSON(fileID)
+            console.log("file")
+            mainObj = await convertToJSON(actionFile)
 
         } else if (action === "saveFile"){
+            console.log("saveFile1")
             actionFile = reqPath.split("/")[3]
+            console.log("saveFile2")
             mainObj = await convertToJSON(actionFile)
             console.log("saving")
             console.log(req.body)
             const fileResult = await createFile(actionFile)
+            console.log("saveFile3")
         }
         mainObj["file"] = actionFile + ""
         response = mainObj
