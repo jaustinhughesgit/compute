@@ -424,12 +424,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         }
     };
 
-    const createFile = async (su) => {
+    const createFile = async (su, fileData) => {
             console.log("createFile=", su)
-            const jsonObject = {
-                "entity": su
-            };
-            const jsonString = JSON.stringify(jsonObject);
+            const jsonString = JSON.stringify(fileData);
             const bucketParams = {
                 Bucket: 'public.1var.com',
                 Key: "actions/"+su+".json",
@@ -531,7 +528,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h);
                 const uniqueId = await uuidv4();
                 let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
-                const fileResult = await createFile(uniqueId)
+                const fileResult = await createFile(uniqueId, {})
                 actionFile = uniqueId
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c);
                 const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c);
@@ -562,7 +559,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 const details = await addVersion(e.toString(), "a", aE.toString(), null);
                 const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString()); //DO I NEED details.c
                 const uniqueId2 = await uuidv4();
-                const fileResult = await createFile(uniqueId2)
+                const fileResult = await createFile(uniqueId2, {})
                 actionFile = uniqueId2
                 let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0")
                 mainObj  = await convertToJSON(uniqueId2)
@@ -596,7 +593,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
                 const uniqueId = await uuidv4();
                 let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
-                const fileResult = await createFile(uniqueId)
+                const fileResult = await createFile(uniqueId, {})
                 actionFile = uniqueId
 
                 let newM = {}
@@ -618,7 +615,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 mainObj = await convertToJSON(actionFile)
                 console.log("saving")
                 console.log(req.body)
-                const fileResult = await createFile(actionFile)
+                const fileResult = await createFile(actionFile, req.body.body)
             }
             mainObj["file"] = actionFile + ""
             response = mainObj
