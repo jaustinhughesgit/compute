@@ -614,7 +614,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
         } else if (action === "saveFile"){
             actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(fileID)
+            mainObj = await convertToJSON(actionFile)
             console.log("saving")
             console.log(req.body)
         }
