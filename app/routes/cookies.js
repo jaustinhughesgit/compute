@@ -35,15 +35,25 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
     async function getGroups(){
         params = { TableName: 'groups' };
+        console.log("params",params)
         let groups = await dynamodb.scan(params).promise();
+        console.log("groups", groups)
         let groupObjs = []
         for (group in groups.Items){
+            console.log("group",group)
+            console.log("groups.Items[group].g.toString()",groups.Items[group].g.toString())
+            console.log("groups.Items[group].a.toString()",groups.Items[group].a.toString())
+            console.log("groups.Items[group].e.toString()",groups.Items[group].e.toString())
             const subByG = await getSub(groups.Items[group].g.toString(), "g");
+            console.log("subByG",subByG)
             const groupName = await getWord(groups.Items[group].a.toString())
+            console.log("groupName",groupName)
             const subByE = await getSub(groups.Items[group].e.toString(), "e");
+            console.log("subByE",subByE)
             groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
+            console.log("groupObjs",groupObjs)
         }
-
+        console.log("returning groupObjs", groupObjs)
         return groupObjs
     }
     let convertCounter = 0
@@ -82,14 +92,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         } else {
             paths[fileID] = [...parentPath, fileID];
         }
+        console.log("paths", paths)
+        console.log("children", children)
         if (children){
             for (let child of children) {
+                console.log("child",child)
                 const subByE = await getSub(child, "e");
                 console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
+                    console.log("uuid", uuid)
                     let childResponse = {}
                     if (convertCounter < 200) {
-
+                    console.log("convertCounter",convertCounter)
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
                     convertCounter++;
                     }
