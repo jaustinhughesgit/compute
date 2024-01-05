@@ -513,7 +513,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         var response = {}
         var actionFile = ""
         var mainObj = {}
-        if (req.method === 'GET' || req.method === 'GET'){
+        if (req.method === 'GET' || req.method === 'POST'){
             if (action === "get"){
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
