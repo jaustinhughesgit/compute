@@ -422,6 +422,7 @@ var cookiesRouter;
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
+            console.log("req",req)
             console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
