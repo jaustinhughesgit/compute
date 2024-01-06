@@ -459,7 +459,7 @@ async function loadJSON(req, res, next){
         Bucket: 'public.1var.com', 
         Key: 'actions'+splitUrlPath[2]+'.json'
       };
-      const data = await s3.getObject(params).promise();
+      const data = await lib.s3.getObject(params).promise();
       json1 = JSON.parse(data.Body.toString());
     next();
 }
