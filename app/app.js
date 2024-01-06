@@ -480,7 +480,7 @@ async function loadJSON(req, res, next){
     next();
 }
 
-lib.app.all('/auth/*', loadJSON, ...middleware1, afterMiddleware);
+lib.app.all('/auth/*', loadJSON, ...middleware1);
 //lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
