@@ -31,6 +31,49 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
+var json1 = [{
+    "modules": {
+        "moment-timezone": "moment-timezone"
+    },
+    "actions": [
+        {
+            "set": {
+                "appTimeZone": "Asia/Dubai"
+            }
+        },
+        {
+            "target": "moment-timezone",
+            "chain": [
+                {
+                    "access": "tz",
+                    "params": [
+                        "{{appTimeZone}}"
+                    ]
+                },
+                {
+                    "access": "format",
+                    "params": [
+                        "YYYY-MM-DD HH:mm:ss"
+                    ]
+                }
+            ],
+            "assign": "timeInDubai"
+        },
+        {
+            "target": "res",
+            "chain": [
+                {
+                    "access": "send",
+                    "params": [
+                        "{{timeInDubai}}"
+                    ]
+                }
+            ]
+        }
+    ]
+}]
+
+/*
 const json1 = [
     {
         modules: {
@@ -378,6 +421,7 @@ const json2 = [
         ]
     }
 ]
+*/
 
 let middleware1 = json1.map(stepConfig => {
     return async (req, res, next) => {
@@ -391,7 +435,7 @@ let middleware1 = json1.map(stepConfig => {
     };
 });
 
-let middleware2 = json2.map(stepConfig => {
+/*let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
@@ -401,7 +445,7 @@ let middleware2 = json2.map(stepConfig => {
         lib.context["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
-});
+});*/
 
 
 async function getPrivateKey() {
@@ -446,7 +490,12 @@ lib.app.use('/controller', controllerRouter);
 var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
-lib.app.all('/auth/*', ...middleware1, ...middleware2);
+function loadJSON(req, res, next){
+    console.log("loadJSON", req)
+}
+
+lib.app.all('/auth/*', loadJSON, ...middleware1);
+//lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
