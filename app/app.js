@@ -476,7 +476,7 @@ async function loadJSON(req, res, next){
       const data = await lib.s3.getObject(params).promise();
       console.log("data",data)
       s3Data = await JSON.parse(data.Body.toString());
-      lib.json1.push(s3Data)
+      lib.json1 = [s3Data]
       console.log("json1",lib.json1)
     next();
 }
