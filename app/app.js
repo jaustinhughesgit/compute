@@ -31,7 +31,6 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
-lib.json1 = []
 
 /*
 const json1 = [
