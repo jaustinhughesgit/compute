@@ -10,7 +10,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     let convertCounter = 0
 
-
     async function getSub(val, key){
         let params
         if (key == "su"){
@@ -53,7 +52,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         const subBySU = await getSub(fileID, "su");
         const entity = await getEntity(subBySU.Items[0].e)
         let children 
-        
         if (mapping){
             if (mapping.hasOwnProperty(subBySU.Items[0].e)){
                 console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
@@ -72,11 +70,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         if (entity.Items[0].u){
             using = true
         }
-        console.log("entity", entity)
-        console.log("entity.Items[0].h", entity.Items[0].h)
         let subH = await getSub(entity.Items[0].h, "e")
-        console.log(subH)
-        console.log("subH.Items[0].su",subH.Items[0].su)
         obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}};
         let paths = {}
         if (isUsing){
@@ -87,7 +81,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
         if (children){
             for (let child of children) {
                 const subByE = await getSub(child, "e");
-                console.log("subByE", subByE)
                     let uuid = subByE.Items[0].su
                     let childResponse = {}
                     if (convertCounter < 200) {
@@ -95,22 +88,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping);
                     convertCounter++;
                     }
-
-                    
-
                     Object.assign(obj[fileID].children, childResponse.obj);
                     Object.assign(paths, childResponse.paths);
             }
         }
         if (using){
             const subOfHead = await getSub(entity.Items[0].u, "e");
-            console.log("subBySU", subBySU)
-            console.log("USING:::paths", paths)
-            console.log("USING:::paths[fileID]", paths[fileID])
             const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m)
-            console.log("headUsingObj", JSON.stringify(headUsingObj))
             Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
-
             Object.assign(paths, headUsingObj.paths);
             obj[fileID].meta["usingMeta"] = {
                 "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
@@ -129,17 +114,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             }
         }
         
-        console.log("DONE", JSON.stringify(obj))
         let groupList = await getGroups()
     
         return { obj: obj, paths: paths, groups: groupList };
     }
 
     const updateEntity = async (e, col, val, v, c) => {
-        console.log("updateEntity",e, col, val, v, c)
         let params = {}
         if (col === "t" || col === "f"){
-            console.log("col === f || col === f")
             params = {
                 "TableName": 'entities',
                 "Key": {
@@ -162,8 +144,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 "ExpressionAttributeValues": {":emptyMap": {}}
             };
             await dynamodb.update(params1).promise();
-            console.log("col is m")
-            console.log(val[Object.keys(val)[0]])
 
             let params2 = {
                 "TableName": 'entities',
@@ -200,7 +180,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 }
             };
         } else {
-            console.log("col is not t")
             params = {
                 "TableName": 'entities',
                 "Key": { "e": e }, 
@@ -212,11 +191,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 }
             };
         }
-       
     
         try {
             await dynamodb.update(params).promise();
-            return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
         } catch (error) {
             console.error("Error updating entity:", error);
             throw error; // Rethrow the error for the caller to handle

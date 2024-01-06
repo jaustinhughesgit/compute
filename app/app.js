@@ -13,8 +13,6 @@ const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
 let loadMods = require('./scripts/processConfig.js')
 
-console.log("asdf");
-
 lib.app.use(lib.root.session({
     secret: process.env.SESSION_SECRET,
     resave: false,
