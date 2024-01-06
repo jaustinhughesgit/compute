@@ -450,7 +450,7 @@ lib.app.use('/controller', controllerRouter);
 var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
-function loadJSON(req, res, next){
+async function loadJSON(req, res, next){
     console.log("loadJSON", req)
     let urlPath = req.path
     let splitUrlPath = urlPath.split("/")
