@@ -31,47 +31,7 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
-var json1 = [{
-    "modules": {
-        "moment-timezone": "moment-timezone"
-    },
-    "actions": [
-        {
-            "set": {
-                "appTimeZone": "Asia/Dubai"
-            }
-        },
-        {
-            "target": "moment-timezone",
-            "chain": [
-                {
-                    "access": "tz",
-                    "params": [
-                        "{{appTimeZone}}"
-                    ]
-                },
-                {
-                    "access": "format",
-                    "params": [
-                        "YYYY-MM-DD HH:mm:ss"
-                    ]
-                }
-            ],
-            "assign": "timeInDubai"
-        },
-        {
-            "target": "res",
-            "chain": [
-                {
-                    "access": "send",
-                    "params": [
-                        "{{timeInDubai}}"
-                    ]
-                }
-            ]
-        }
-    ]
-}]
+var json1 = []
 
 /*
 const json1 = [
@@ -492,6 +452,15 @@ lib.app.use('/', indexRouter);
 
 function loadJSON(req, res, next){
     console.log("loadJSON", req)
+    let urlPath = req.path
+    let splitUrlPath = urlPath.split("/")
+
+    const params = {
+        Bucket: 'public.1var.com', 
+        Key: 'actions'+splitUrlPath[2]+'.json'
+      };
+      const data = await s3.getObject(params).promise();
+      json1 = JSON.parse(data.Body.toString());
     next();
 }
 
