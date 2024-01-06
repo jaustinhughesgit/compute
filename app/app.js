@@ -381,20 +381,7 @@ const json2 = [
     }
 ]
 */
-function createMiddleware() {
-    return lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
-        };
-    });
-}
+
 /*let middleware1 = lib.json1.map(stepConfig => {
     console.log("middleware1")
     return async (req, res, next) => {
@@ -463,21 +450,26 @@ lib.app.use('/controller', controllerRouter);
 var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
+function createMiddleware() {
+    return lib.json1.map(stepConfig => {
+        console.log("middleware1");
+        return async (req, res, next) => {
+            lib.req = req;
+            lib.res = res;
+            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+            lib["urlpath"] = req.path
+            lib.context["urlpath"] = req.path
+            lib.context["sessionID"] = req.sessionID
+            await initializeModules(lib.context, stepConfig, req, res, next);
+        };
+    });
+}
+
 async function loadJSON(req, res, next){
-    console.log("loadJSON", req)
-    let urlPath = req.path
-    let splitUrlPath = urlPath.split("/")
-    console.log("splitUrlPath",splitUrlPath)
-    console.log("splitUrlPath[2]",splitUrlPath[2])
-    const params = {
-        Bucket: 'public.1var.com', 
-        Key: 'actions/'+splitUrlPath[2]+'.json'
-      };
-      const data = await lib.s3.getObject(params).promise();
-      console.log("data",data)
-      s3Data = await JSON.parse(data.Body.toString());
-      lib.json1 = [s3Data]
-      console.log("json1",lib.json1)
+    const params = { Bucket: 'public.1var.com', Key: 'actions/'+req.path.split("/")[2]+'.json'};
+    const data = await lib.s3.getObject(params).promise();
+    s3Data = await JSON.parse(data.Body.toString());
+    lib.json1 = [s3Data]
     next();
 }
 
@@ -485,6 +477,7 @@ lib.app.all('/auth/*', loadJSON, (req, res, next) => {
     const middleware = createMiddleware();
     executeMiddlewares(middleware, req, res, next);
 });
+
 //lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function executeMiddlewares(middlewares, req, res, next, index = 0) {
