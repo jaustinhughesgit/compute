@@ -147,8 +147,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 },
                 "UpdateExpression": `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
                 "ExpressionAttributeValues": {
-                    ':val': [val], // Wrap val in an array
-                    ':empty_list': [], // An empty list to initialize if col does not exist
+                    ':val': [val],
+                    ':empty_list': [],
                     ':v': v,
                     ':c': c
                 }
@@ -162,57 +162,43 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 "ExpressionAttributeValues": {":emptyMap": {}}
             };
             await dynamodb.update(params1).promise();
-            /////////////////////// WORKING ON THIS: START
             console.log("col is m")
             console.log(val[Object.keys(val)[0]])
 
             let params2 = {
                 "TableName": 'entities',
                 "Key": {
-                    "e": e // Replace with your item's primary key and value
+                    "e": e 
                 },
                 "UpdateExpression": "set #m.#val = if_not_exists(#m.#val, :emptyList)",
                 "ExpressionAttributeNames": {
                     '#m': 'm',
-                    '#val': Object.keys(val)[0] // Assuming this is a correct and valid attribute name
+                    '#val': Object.keys(val)[0]
                 },
                 "ExpressionAttributeValues": {
-                    ":emptyList": [] // Providing an empty list as a default for #m.#val if it doesn't exist
+                    ":emptyList": []
                 }
             };
             await dynamodb.update(params2).promise();
 
-
-            ///////////////////////////
-            ///////////////////////////
-            // Object.keys(val)[0] takes the first object and adds it every time its called. This is why it keeps duplicating both the key and value
-            ///////////////////////////
-            ///////////////////////////
-
-
-
-
             params = {
                 "TableName": "entities",
                 "Key": {
-                    "e": e // Replace with your item's primary key and value
+                    "e": e 
                 },
                 "UpdateExpression": "set #m.#val = list_append(#m.#val, :newVal), #v = :v, #c = :c",
                 "ExpressionAttributeNames": {
                     '#m': 'm',
-                    '#val': Object.keys(val)[0], // Assuming this is a correct and valid attribute name
-                    '#v': 'v', // Assuming 'v' is the attribute name you're trying to update
-                    '#c': 'c'  // Assuming 'c' is the attribute name you're trying to update
+                    '#val': Object.keys(val)[0], 
+                    '#v': 'v', 
+                    '#c': 'c'
                 },
                 "ExpressionAttributeValues": {
-                    ":newVal": val[Object.keys(val)[0]], // The new value to append into '#val'
-                    ":v": v, // The value you want to set for 'v'
-                    ":c": c  // The value you want to set for 'c'
+                    ":newVal": val[Object.keys(val)[0]],
+                    ":v": v, 
+                    ":c": c 
                 }
             };
-
-
-
         } else {
             console.log("col is not t")
             params = {
@@ -229,10 +215,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
        
     
         try {
-            console.log("params",params)
             await dynamodb.update(params).promise();
-            console.log("done");
-            console.log(`Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`);
             return `Entity updated with e: ${e}, ${col}: ${val}, v: ${v}, c: ${c}`;
         } catch (error) {
             console.error("Error updating entity:", error);
@@ -243,7 +226,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     const wordExists = async (word) => {
         const params = {
             TableName: 'words',
-            IndexName: 'sIndex', // Using the secondary index
+            IndexName: 'sIndex',
             KeyConditionExpression: 's = :s',
             ExpressionAttributeValues: {
                 ':s': word
@@ -279,20 +262,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     const createWord = async (id, word) => {
         const lowerCaseWord = word.toLowerCase();
     
-        // Check if the word already exists in the database
         const checkResult = await wordExists(lowerCaseWord);
         if (checkResult.exists) {
             return checkResult.id;
         }
     
-        // If the word does not exist, insert it
         await dynamodb.put({
             TableName: 'words',
-            Item: {
-                a: id,
-                r: word,
-                s: lowerCaseWord
-            }
+            Item: { a: id, r: word, s: lowerCaseWord }
         }).promise();
     
         return id;
@@ -316,9 +293,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             const id = await incrementCounterAndGetNewValue('vCounter');
     
             let newCValue;
-            let newSValue; // s value to be determined based on forceC
+            let newSValue;
     
-            // Query the database to find the latest record for the given e
             const queryResult = await dynamodb.query({
                 TableName: 'versions',
                 IndexName: 'eIndex',
@@ -326,68 +302,59 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 ExpressionAttributeValues: {
                     ':eValue': newE
                 },
-                ScanIndexForward: false, // false for descending order
-                Limit: 1 // we only need the latest record
+                ScanIndexForward: false,
+                Limit: 1
             }).promise();
             if (forceC) {
                 newCValue = forceC;
 
-                // Increment s only if forceC is provided and there are existing records
                 if (queryResult.Items.length > 0) {
                     const latestSValue = parseInt(queryResult.Items[0].s);
                     newSValue = isNaN(latestSValue) ? 1 : latestSValue + 1;
                 } else {
-                    newSValue = 1; // default if no records are found
+                    newSValue = 1;
                 }
             } else {
-                newSValue = 1; // Set s to 1 if forceC is null
+                newSValue = 1;
                 newCValue = queryResult.Items.length > 0 ? parseInt(queryResult.Items[0].c) + 1 : 1;
             }
     
             let previousVersionId, previousVersionDate;
             if (queryResult.Items.length > 0) {
                 const latestRecord = queryResult.Items[0];
-                previousVersionId = latestRecord.v; // Store the v of the last record
-                previousVersionDate = latestRecord.d; // Store the d (sort key) of the last record
+                previousVersionId = latestRecord.v;
+                previousVersionDate = latestRecord.d;
             }
 
-            // Initialize col as an array and add val to it
             let colVal = [val];
-    
-            // Insert the new record with the c, s, and p values
             let newRecord = {}
-
             let newM = {}
+
         if (col === "t" || col === "f" || col === "l" || col === "o"){
             newRecord = {
                 v: id.toString(),
                 c: newCValue.toString(),
                 e: newE,
                 s: newSValue.toString(),
-                p: previousVersionId, // Set the p attribute to the v of the last record
+                p: previousVersionId,
                 [col]: colVal,
                 d: Date.now()
             };
         } else if (col === "m"){
             const entity = await getEntity(newE)
-            //entity = await getEntity() // getting the entity which called the using
             if (entity.Items[0].m){
-                console.log("entity.Items[0].m",entity.Items[0].m)
-                colVal = entity.Items[0].m // storing the mapping object
+                colVal = entity.Items[0].m
             } else {
                 colVal = {}
-                console.log("colVal", colVal)
             }
-            colVal[Object.keys(val)[0]] = [val[Object.keys(val)[0]]] // adding or updating the value to be the array of the new entity created
-            //This should ensure the entity that is using another hierarchy gets the mapping of any child objects attached to the refferenced hierarchy.
-            //DO WE NEED TO PUSH IT, MAYBE WE NEED TO CHECK IF THE VAL OR THE PARENT EXIST AND PUSH OR REPLACE IT IF IT DOES.
+            colVal[Object.keys(val)[0]] = [val[Object.keys(val)[0]]]
             newM = colVal
             newRecord = {
                 v: id.toString(),
                 c: newCValue.toString(),
                 e: newE,
                 s: newSValue.toString(),
-                p: previousVersionId, // Set the p attribute to the v of the last record
+                p: previousVersionId,
                 [col]: colVal,
                 d: Date.now()
             };
@@ -398,7 +365,7 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 c: newCValue.toString(),
                 e: newE,
                 s: newSValue.toString(),
-                p: previousVersionId, // Set the p attribute to the v of the last record
+                p: previousVersionId,
                 [col]: val,
                 d: Date.now()
             };
@@ -409,7 +376,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 Item: newRecord
             }).promise();
     
-            // Update the last record with the n attribute
             if (previousVersionId && previousVersionDate) {
                 await dynamodb.update({
                     TableName: 'versions',
@@ -423,7 +389,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                     }
                 }).promise();
             }
-            console.log("v,c,m",id.toString(),newCValue.toString(), newM)
             return {v:id.toString(), c:newCValue.toString(), m:newM};
         } catch (error) {
             console.error("Error adding record:", error);
@@ -432,7 +397,6 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     };
 
     const createFile = async (su, fileData) => {
-            console.log("createFile=", su)
             const jsonString = JSON.stringify(fileData);
             const bucketParams = {
                 Bucket: 'public.1var.com',
@@ -441,27 +405,18 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 ContentType: 'application/json'
             };
             const data = await s3.putObject(bucketParams).promise();
-            console.log(`File uploaded successfully to ${bucketParams.Bucket}/${bucketParams.Key}`);
-            console.log(data);
             return true;
 
     }
 
     const createEntity = async (e, a, v, g, h) => {
         const params = {
-                TableName: 'entities',
-                Item: {
-                    e: e,
-                    a: a,
-                    v: v,
-                    g: g,
-                    h: h
-                }
-            };
+            TableName: 'entities',
+            Item: { e: e, a: a, v: v, g: g, h: h }
+        };
     
         try {
             await dynamodb.put(params).promise();
-            //console.log(`Entity created with e: ${e}, a: ${a}, v: ${v}`);
             return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
         } catch (error) {
             console.error("Error creating entity:", error);
@@ -472,17 +427,11 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     const createSubdomain = async (su, a, e, g) => {
         const paramsAA = {
             TableName: 'subdomains',
-            Item: {
-                su: su,
-                a: a,
-                e: e,
-                g: g
-            }
+            Item: { su: su, a: a, e: e, g: g }
         };
     
         try {
             const response = await dynamodb.put(paramsAA).promise();
-            //console.log(`Entity created with su: ${su}, a: ${a}, e: ${e}`);
             return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
         } catch (error) {
             console.error("Error creating entity:", error);

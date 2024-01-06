@@ -31,7 +31,6 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
-
 /*
 const json1 = [
     {
@@ -426,13 +425,11 @@ var cookiesRouter;
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
-            console.log("req",req)
-            console.log("-----cookiesRouter")
             const privateKey = await getPrivateKey();
             cookiesRouter = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
             lib.app.use('/:type(cookies|url)*', function(req, res, next) {
-                req.type = req.params.type; // Capture the type (cookies or url)
-                next('route'); // Pass control to the next route
+                req.type = req.params.type;
+                next('route');
             }, cookiesRouter);
             next();
         } catch (error) {
@@ -445,9 +442,11 @@ lib.app.use(async (req, res, next) => {
 });
 
 var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+
 lib.app.use('/controller', controllerRouter);
 
 var indexRouter = require('./routes/index');
+
 lib.app.use('/', indexRouter);
 
 function createMiddleware() {
@@ -1065,6 +1064,5 @@ async function applyMethodChain(target, action, context, res, req, next) {
     }
     return result;
 }
-
 
 module.exports.lambdaHandler = serverless(lib.app);
