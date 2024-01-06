@@ -31,7 +31,7 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
-var json1 = []
+lib.json1 = []
 
 /*
 const json1 = [
@@ -383,7 +383,8 @@ const json2 = [
 ]
 */
 
-let middleware1 = json1.map(stepConfig => {
+let middleware1 = lib.json1.map(stepConfig => {
+    console.log("middleware1")
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
@@ -462,7 +463,7 @@ async function loadJSON(req, res, next){
       };
       const data = await lib.s3.getObject(params).promise();
       console.log("data",data)
-      json1 = JSON.parse(data.Body.toString());
+      lib.json1 = JSON.parse(data.Body.toString());
       console.log("json1",json1)
     next();
 }
