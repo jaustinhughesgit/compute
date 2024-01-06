@@ -492,6 +492,7 @@ lib.app.use('/', indexRouter);
 
 function loadJSON(req, res, next){
     console.log("loadJSON", req)
+    next();
 }
 
 lib.app.all('/auth/*', loadJSON, ...middleware1);
