@@ -507,13 +507,9 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     }
     
     router.all('/*', async function(req, res, next) {
-        console.log("req==>", req)
         const reqPath = req.apiGateway.event.path
-        console.log("reqPath",reqPath)
         const action = reqPath.split("/")[2]
-        const requestBody = req.body;
-        console.log("requestBody", req.body)
-        
+        const requestBody = req.body;  
         var response = {}
         var actionFile = ""
         var mainObj = {}
@@ -590,31 +586,22 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                 const subMapParent = await getSub(mappedParent, "su");
                 const mpE = await getEntity(subMapParent.Items[0].e)
                 const mrE = await getEntity(subRefParent.Items[0].e)
-
                 const e = await incrementCounterAndGetNewValue('eCounter');
                 const aNew = await incrementCounterAndGetNewValue('wCounter');
                 const a = await createWord(aNew.toString(), newEntityName);
-
                 const details = await addVersion(e.toString(), "a", a.toString(), null);
                 const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h);
-
                 const uniqueId = await uuidv4();
                 let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0")
                 const fileResult = await createFile(uniqueId, {})
                 actionFile = uniqueId
-
                 let newM = {}
                 newM[mrE.Items[0].e] = e.toString()
-                console.log("mpE.Items[0]",mpE.Items[0])
                 const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c);
-                console.log("details2a", details2a)
                 let addM = {}
                 addM[mrE.Items[0].e] = [e.toString()]
                 const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c);
-                
                 mainObj  = await convertToJSON(headEntity)
-                // m is being added to Primary and it needs to be added to PrimaryChild
-                // Look into if we have to have group as an int in meta. Maybe we could assign the groupid and look at paths for the last record assigned to the used hierarchy.
             } else if (action === "file"){
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile)
@@ -622,28 +609,16 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
             } else if (action === "saveFile"){
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile)
-                console.log("saving")
-                console.log(req.body)
                 const fileResult = await createFile(actionFile, req.body.body)
             }
+
             mainObj["file"] = actionFile + ""
             response = mainObj
-            console.log("1", actionFile)
-            console.log("2", action)
+
             if (action == "file"){
                 const expires = 90000;
                 const url = "https://public.1var.com/actions/"+actionFile+".json";
-                console.log("url", url)
-                const policy = JSON.stringify({
-                    Statement: [
-                        {
-                            Resource: url,
-                            Condition: {
-                                DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
-                            }
-                        }
-                    ]
-                });
+                const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
                 if (req.type === 'url'){
                     const signedUrl = signer.getSignedUrl({
                         url: url,
@@ -651,19 +626,14 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
                     });
                     res.json({ signedUrl: signedUrl });
                 } else {
-                    const cookies = signer.getSignedCookie({
-                        policy: policy
-                    });
-                    console.log("cookies", cookies)
+                    const cookies = signer.getSignedCookie({policy: policy});
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
-                    console.log("response", response)
                     res.json({"ok":true,"response":response});
                 }   
             } else {
                 res.json({"ok":true,"response":response});
-
             }
         } else {
             res.json({})
