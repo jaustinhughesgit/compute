@@ -31,6 +31,7 @@ lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
 
+lib.json1 = []
 
 /*
 const json1 = [
@@ -382,6 +383,18 @@ const json2 = [
 ]
 */
 
+let middleware1 = lib.json1.map(stepConfig => {
+    console.log("middleware1")
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
+        lib.context["sessionID"] = req.sessionID
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
 
 /*let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
@@ -438,35 +451,6 @@ lib.app.use('/controller', controllerRouter);
 var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
-
-function createMiddleware() {
-    return lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
-        };
-    });
-}
-
-/*let middleware1 = lib.json1.map(stepConfig => {
-    console.log("middleware1")
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        lib.context["sessionID"] = req.sessionID
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});*/
-
 async function loadJSON(req, res, next){
     console.log("loadJSON", req)
     let urlPath = req.path
@@ -479,24 +463,13 @@ async function loadJSON(req, res, next){
       };
       const data = await lib.s3.getObject(params).promise();
       console.log("data",data)
-      lib.json1 = await JSON.parse(data.Body.toString());
-      console.log("lib.json1",lib.json1)
+      s3Data = await JSON.parse(data.Body.toString());
+      lib.json1.push(s3Data)
+      console.log("json1",lib.json1)
     next();
 }
 
-lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    const middleware = createMiddleware();
-    executeMiddlewares(middleware, req, res, next);
-});
-
-function executeMiddlewares(middlewares, req, res, next, index = 0) {
-    if (index < middlewares.length) {
-        middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
-    } else {
-        next();
-    }
-}
-
+lib.app.all('/auth/*', loadJSON, ...middleware1);
 //lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
