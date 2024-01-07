@@ -424,7 +424,8 @@ lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
-            cookiesRouter = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
+            let {setupRouter, getSub} = require('./routes/cookies')
+            cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
             lib.app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');
@@ -463,11 +464,8 @@ function createMiddleware() {
 }
 
 async function loadJSON(req, res, next){
-    const privateKey = await getPrivateKey();
-    var cookiesR = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
-    console.log("getSub ---------")
-    console.log(cookiesR)
-    const parent = await cookiesR.getSub(req.path.split("/")[2], "su", lib.dynamodb);
+    let {setupRouter, getSub} = require('./routes/cookies')
+    const parent = await getSub(req.path.split("/")[2], "su", lib.dynamodb);
     console.log("parent----------")
     console.log(parent)
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+req.path.split("/")[2]+'.json'};
