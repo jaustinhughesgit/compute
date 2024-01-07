@@ -4,9 +4,7 @@ const AWS = require('aws-sdk');
 const bodyParser = require('body-parser');
 var router = express.Router();
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
-
 let convertCounter = 0
-
 
 async function getSub(val, key, dynamodb){
     console.log("getSub")
