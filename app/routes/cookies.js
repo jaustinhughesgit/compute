@@ -459,7 +459,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             console.log("get")
             const fileID = reqPath.split("/")[3]
             actionFile = fileID
-            mainObj = await convertToJSON(fileID, null, null, null, dynamodb)
+            mainObj = await convertToJSON(fileID, [], null, null, dynamodb)
         } else if (action == "add") {
             console.log("add")
             const fileID = reqPath.split("/")[3]
@@ -483,13 +483,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const group = eParent.Items[0].g
             const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
-            mainObj = await convertToJSON(headUUID, null, null, null, dynamodb)
+            mainObj = await convertToJSON(headUUID, [], null, null, dynamodb)
         } else if (action === "link"){
             console.log("link")
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
             await linkEntities(childID, parentID)
-            mainObj = await convertToJSON(childID, null, null, null, dynamodb)
+            mainObj = await convertToJSON(childID, [], null, null, dynamodb)
         } else if (action === "newGroup"){
             console.log("newGroup")
             const newGroupName = reqPath.split("/")[3]
@@ -510,7 +510,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", dynamodb)
-            mainObj  = await convertToJSON(uniqueId2, null, null, null, dynamodb)
+            mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb)
         } else if (action === "useGroup"){
             console.log("useGroup")
             const newUsingName = reqPath.split("/")[3]
@@ -522,7 +522,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
             const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
-            mainObj  = await convertToJSON(headSub.Items[0].su, null, null, null, dynamodb)
+            mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, dynamodb)
         } else if (action === "map"){
             console.log("map")
             const referencedParent = reqPath.split("/")[3]
@@ -548,16 +548,16 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             let addM = {}
             addM[mrE.Items[0].e] = [e.toString()]
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
-            mainObj  = await convertToJSON(headEntity, null, null, null, dynamodb)
+            mainObj  = await convertToJSON(headEntity, [], null, null, dynamodb)
         } else if (action === "file"){
             console.log("file")
             actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, null, null, null, dynamodb)
+            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb)
 
         } else if (action === "saveFile"){
             console.log("saveFile")
             actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, null, null, null, dynamodb)
+            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb)
             const fileResult = await createFile(actionFile, req.body.body, s3)
         }
 
