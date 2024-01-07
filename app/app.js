@@ -463,15 +463,31 @@ function createMiddleware() {
     });
 }
 
+async function retrieveAndParseJSON(fileName) {
+    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
+    const data = await lib.s3.getObject(params).promise();
+    return JSON.parse(data.Body.toString());
+  }
+
 async function loadJSON(req, res, next){
     let {setupRouter, getSub} = require('./routes/cookies')
     const parent = await getSub(req.path.split("/")[2], "su", lib.dynamodb);
     console.log("parent----------")
     console.log(parent)
-    const params = { Bucket: 'public.1var.com', Key: 'actions/'+req.path.split("/")[2]+'.json'};
-    const data = await lib.s3.getObject(params).promise();
-    s3Data = await JSON.parse(data.Body.toString());
-    lib.json1 = [s3Data]
+    const arrayOfJSON = [];
+    let fileArray = ["f957589d-954e-4d11-853a-d5a4ebbe5750","c299ef8b-d127-4450-bd94-febdea5721c4"]
+
+    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
+    
+    // Use Promise.all to wait for all promises to resolve
+    const results = await Promise.all(promises);
+    
+    // Push the results into arrayOfJSON
+    results.forEach(result => arrayOfJSON.push(result));
+
+    console.log("arrayOfJSON", arrayOfJSON)
+    
+    lib.json1 = arrayOfJSON
     next();
 }
 
