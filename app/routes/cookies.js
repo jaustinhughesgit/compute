@@ -566,11 +566,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
     }
 }
 
-module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
-    
-    router.all('/*', async function(req, res, next) {
-        route (req, res, next, privateKey, dynamodb, uuidv4, s3)
+async function mainFunction (privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
+    await router.all('/*', async function(req, res, next) {
+        await route (req, res, next, privateKey, dynamodb, uuidv4, s3)
     });
-
     return router;
 }
+
+module.exports = mainFunction
