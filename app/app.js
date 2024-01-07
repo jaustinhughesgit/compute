@@ -467,7 +467,7 @@ async function loadJSON(req, res, next){
     var cookiesR = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
     console.log("getSub ---------")
     console.log(cookiesR)
-    const parent = await cookiesR.getSub(req.path.split("/")[2], "su", lib.dynamodb);
+    const parent = await cookiesR.helloWorld()//.getSub(req.path.split("/")[2], "su", lib.dynamodb);
     console.log("parent----------")
     console.log(parent)
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+req.path.split("/")[2]+'.json'};

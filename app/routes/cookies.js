@@ -589,6 +589,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
 }
 
 module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
+
+    function helloWorld(){
+        return "HELLO!"
+    }
+
     router.use(bodyParser.json());
     
     router.all('/*', async function(req, res, next) {
