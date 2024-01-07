@@ -588,7 +588,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
     }
 }
 
-module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
+function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
     router.use(bodyParser.json());
     
     router.all('/*', async function(req, res, next) {
@@ -597,4 +597,8 @@ module.exports = function(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
     return router;
 }
-module.exports.getSub = getSub
+
+module.exports = {
+    setupRouter,
+    getSub
+}
