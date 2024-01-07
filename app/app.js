@@ -420,7 +420,7 @@ async function getPrivateKey() {
 
 var cookiesRouter;
 
-async function cookiesRoute(req, res, next) {
+lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
@@ -437,10 +437,6 @@ async function cookiesRoute(req, res, next) {
     } else {
         next();
     }
-}
-
-lib.app.use(async (req, res, next) => {
-    await cookiesRoute(req, res, next)
 });
 
 var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
