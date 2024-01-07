@@ -463,6 +463,7 @@ function createMiddleware() {
 }
 
 async function loadJSON(req, res, next){
+    const privateKey = await getPrivateKey();
     var cookiesR = require('./routes/cookies')(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
     console.log("getSub ---------")
     console.log(cookiesR)
