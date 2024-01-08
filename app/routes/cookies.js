@@ -235,10 +235,12 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
     return response.Attributes.x;
 };
 
-/*const getHead = async (by, uuid, dynamodb) => {
-    const subBySU = await getSub(uuid, "su", dynamodb);
+const getHead = async (by, value, dynamodb) => {
+    const subBySU = await getSub(uuid, by, dynamodb);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-}*/
+    const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
+    return headSub
+}
 
 const createWord = async (id, word, dynamodb) => {
     console.log("createWord")
@@ -600,5 +602,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
 module.exports = {
     setupRouter,
+    getHead,
     convertToJSON
 }
