@@ -600,5 +600,5 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
 
 module.exports = {
     setupRouter,
-    getSub
+    convertToJSON
 }

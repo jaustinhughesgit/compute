@@ -470,8 +470,8 @@ async function retrieveAndParseJSON(fileName) {
   }
 
 async function loadJSON(req, res, next){
-    let {setupRouter, getSub} = require('./routes/cookies')
-    const parent = await getSub(req.path.split("/")[2], "su", lib.dynamodb);
+    let {setupRouter, convertToJSON} = require('./routes/cookies')
+    const parent = await convertToJSON(req.path.split("/")[2], [], null, null, lib.dynamodb)
     console.log("parent----------")
     console.log(parent)
     const arrayOfJSON = [];
