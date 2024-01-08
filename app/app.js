@@ -475,7 +475,7 @@ async function loadJSON(req, res, next){
     console.log("parent----------")
     console.log(parent)
     const arrayOfJSON = [];
-    let fileArray = ['cfe5d53f-f99c-4a6c-abeb-52002d5c8e55', '4ab3a150-8dbb-4334-a0d9-199cf51596d6', '60fc7f44-c21f-4de6-a0f2-b0d556e88c0d']//["f957589d-954e-4d11-853a-d5a4ebbe5750","c299ef8b-d127-4450-bd94-febdea5721c4"]
+    let fileArray = ["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
     const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
     
