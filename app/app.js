@@ -949,36 +949,44 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
 }
 
 function processParam(param, context) {
+    // Handle string type parameters
     if (typeof param === 'string') {
-        if (param == "{{}}"){
+        // If the parameter exactly matches "{{}}", return the whole context
+        if (param === "{{}}") {
             return context;
         }
-        if (param.startsWith('{{')) {
+        // If the parameter contains one or more instances of "{{...}}"
+        if (param.includes('{{')) {
+            // Find all instances of "{{...}}" and replace them with the appropriate value from the context
+            return param.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
+                let isFunctionExecution = key.endsWith('!');
+                let actualKey = isFunctionExecution ? key.slice(0, -1) : key;
+                let value = context[actualKey];
 
-            let isFunctionExecution = param.endsWith('!');
-            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-            let value = context[key];
+                if (isFunctionExecution && typeof value === 'function') {
+                    return value();
+                }
 
-            if (isFunctionExecution && typeof value === 'function') {
-                return value();
-            }
-
-            if (value !== undefined) {
-                return value;
-            } else {
-                return key;
-            }
+                return value !== undefined ? value : actualKey;
+            });
         }
+        // If the parameter is a simple string without "{{...}}", return it as is
         return param;
-    } else if (Array.isArray(param)) {
+    }
+    // Handle array type parameters
+    else if (Array.isArray(param)) {
         return param.map(item => processParam(item, context));
-    } else if (typeof param === 'object' && param !== null) {
+    }
+    // Handle object type parameters
+    else if (typeof param === 'object' && param !== null) {
         const processedParam = {};
         for (const [key, value] of Object.entries(param)) {
             processedParam[key] = processParam(value, context);
         }
         return processedParam;
-    } else {
+    }
+    // Return the parameter as is for other types
+    else {
         return param;
     }
 }
@@ -1036,7 +1044,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                         console.log("z1")
                         if (chainAction.access && chainAction.access.length != 0){
                             console.log("z2")
-                            if (chainAction.access.includes('{{')) {
+                            if (chainAction.access.startsWith('{{')) {
                                 console.log("z3")
                                 const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
