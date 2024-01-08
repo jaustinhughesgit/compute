@@ -1036,7 +1036,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                         console.log("z1")
                         if (chainAction.access && chainAction.access.length != 0){
                             console.log("z2")
-                            if (chainAction.access.startsWith('{{')) {
+                            if (chainAction.access.includes('{{')) {
                                 console.log("z3")
                                 const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
