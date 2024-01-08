@@ -476,7 +476,7 @@ async function loadJSON(req, res, next){
     console.log("parent----------")
     console.log(parent)
     const arrayOfJSON = [];
-    let fileArray = ["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
+    let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
     const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
     
