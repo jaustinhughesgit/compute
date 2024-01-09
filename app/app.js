@@ -456,6 +456,7 @@ function createMiddleware() {
         return async (req, res, next) => {
             lib.req = req;
             lib.res = res;
+            lib.next = next;
             lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
             lib["urlpath"] = req.path
             lib.context["urlpath"] = req.path
@@ -1032,6 +1033,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
             if (chainAction.access && !chainAction.params) {   
                 result = result[chainAction.access];
             } else if (chainAction.new) {
+                
                 result = instantiateWithNew(result[chainAction.access], chainParams);
             } else if (typeof result[chainAction.access] === 'function') {
                 if (chainAction.access === 'promise') {
