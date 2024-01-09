@@ -1073,7 +1073,12 @@ async function applyMethodChain(target, action, context, res, req, next) {
                                     if (chainAction.next || chainAction.next == undefined){
                                     result = result[chainAction.access](...chainParams)(req, res, lib.next);
                                     } else {
-                                        result = result[chainAction.access](...chainParams)(req, res);
+                                        try{
+                                            result = result[chainAction.access](...chainParams)(req, res);
+                                        } catch (err) {
+                                            console.log("next is not found:", err)
+                                            result = result[chainAction.access](...chainParams)(req, res, lib.next);
+                                        }
                                     }
                                 } else {
                                     try{
