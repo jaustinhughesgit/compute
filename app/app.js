@@ -456,7 +456,6 @@ function createMiddleware() {
         return async (req, res, next) => {
             lib.req = req;
             lib.res = res;
-            lib.next = next;
             lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
             lib["urlpath"] = req.path
             lib.context["urlpath"] = req.path
@@ -1071,13 +1070,16 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             } else {
                                 if (chainAction.express){
                                     if (chainAction.next || chainAction.next == undefined){
-                                    result = result[chainAction.access](...chainParams)(req, res, lib.next);
+                                        try{    
+                                            result = result[chainAction.access](...chainParams)(req, res, next);
+                                        } catch (err){
+                                            console.log("next is not a constructor err:",err)
+                                        }
                                     } else {
                                         try{
                                             result = result[chainAction.access](...chainParams)(req, res);
-                                        } catch (err) {
-                                            console.log("next is not found:", err)
-                                            result = result[chainAction.access](...chainParams)(req, res, lib.next);
+                                        } catch (err){
+                                            console.log("next is not a constructor err:",err)
                                         }
                                     }
                                 } else {
