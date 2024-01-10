@@ -828,7 +828,7 @@ let middleware1 = lib.json1.map(stepConfig => {
 
 lib.app.all('/auth/*', ...middleware1, ...middleware2);
 */
-function condition(left, conditions, right, operator = "&&", context) {
+function condition(left, conditions, right, operator = "&&", context, scope) {
     console.log(1)
     if (arguments.length === 1) {
         console.log(2)
@@ -842,7 +842,7 @@ function condition(left, conditions, right, operator = "&&", context) {
 
     return conditions.reduce((result, cond) => {
         console.log(4)
-        const currentResult = checkCondition(left, cond.condition, cond.right, context);
+        const currentResult = checkCondition(left, cond.condition, cond.right, context, scope);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -853,13 +853,13 @@ function condition(left, conditions, right, operator = "&&", context) {
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right, context) {
+function checkCondition(left, condition, right, context, scope) {
     //console.log(5)
     //console.log("left1", left)
-    left = replacePlaceholders(left, context)
+    left = replacePlaceholders(left, context, scope)
     //console.log("left2",left)
     //console.log("right1", right)
-    right = replacePlaceholders(right, context)
+    right = replacePlaceholders(right, context, scope)
     //console.log("right2",right)
     switch (condition) {
         case '==': return left == right;
@@ -882,10 +882,10 @@ function checkCondition(left, condition, right, context) {
     }
 }
 
-async function processAction(action, context, req, res, next) {
+async function processAction(action, context, req, res, next, scope) {
     if (action.target) {
         //console.log("getModuleInstance")
-        let moduleInstance = replacePlaceholders(action.target, context);
+        let moduleInstance = replacePlaceholders(action.target, context, scope);
         //console.log("moduleInstance", moduleInstance)
         let args = [];
                 if (action.from) {
@@ -914,8 +914,8 @@ async function processAction(action, context, req, res, next) {
             console.log("moduleInstance is not a function")
             result = moduleInstance;
         }
-        console.log("applyMethodChain", result, action, context)
-        result = await applyMethodChain(result, action, context, res, req, next);
+        console.log("applyMethodChain", result, action, context, scope)
+        result = await applyMethodChain(result, action, context, res, req, next, scope);
         console.log("result", result)
         if (action.assign) {
             console.log(1, action.assign)
@@ -984,16 +984,16 @@ async function processAction(action, context, req, res, next) {
     }
 }
 
-async function runActionFunction(action, context, req, res, next){
+async function runActionFunction(action, context, req, res, next, scope){
     if (action != undefined){
         let runAction = true;
         if (action.if) {
-            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
+            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context, scope);
         } else if (action.ifs) {
             //console.log(action.ifs)
             for (const ifObject of action.ifs) {
                 //console.log("ifObject", ifObject)
-                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
+                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context, scope);
                 //console.log("runAction",runAction)
                 if (!runAction) {
                     break;
@@ -1004,8 +1004,9 @@ async function runActionFunction(action, context, req, res, next){
         if (runAction) {
             if (action.set) {
                 for (const key in action.set) {
-                    
-                    context[key] = replacePlaceholders(action.set[key], context);
+                    //((user)) needs to be managed in reeplacePlaceholders
+                    //it could be a function and  we'll nee to account foor that.
+                    context[key] = replacePlaceholders(action.set[key], context, scope);
                 }
             }
 
@@ -1013,8 +1014,8 @@ async function runActionFunction(action, context, req, res, next){
                 let whileChecker = 0
                 let LEFT = action.while[0]
                 let RIGHT = action.while[2]
-                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                        await processAction(action, context, req, res, next);
+                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context, scope)) {
+                        await processAction(action, context, req, res, next, scope);
                     whileChecker++;
                     if (whileChecker == 10){
                         break;
@@ -1025,10 +1026,10 @@ async function runActionFunction(action, context, req, res, next){
             if (action.whiles) {
                 let whileChecker = 0
                 for (const whileCondition of action.whiles) {
-                    while (condition(replacePlaceholders(whileCondition[0], context), 
-                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
+                    while (condition(replacePlaceholders(whileCondition[0], context, scope), 
+                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context, scope) }], 
                                     null, "&&", context)) {
-                            await processAction(action, context, req, res, next);
+                            await processAction(action, context, req, res, next, scope);
                         whileChecker++;
                         if (whileChecker == 10){
                             break;
@@ -1038,7 +1039,7 @@ async function runActionFunction(action, context, req, res, next){
             }
 
             if (!action.while){
-                await processAction(action, context, req, res, next);
+                await processAction(action, context, req, res, next, scope);
             }
             if (action.assign && action.params) {
                 return "continue";
@@ -1105,7 +1106,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                await runActionFunction(runAction, context, req, res, next)
+                await runActionFunction(runAction, context, req, res, next, scope)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
@@ -1190,23 +1191,23 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context) {
+function replacePlaceholders(item, context, scope) {
     //console.log("item context", item, context)
     let processedItem = item;
     console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
         //console.log("processedItem typeof", processedItem)
-        processedItem = processString(processedItem, context);
+        processedItem = processString(processedItem, context, scope);
         //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
         //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context, scope));
     }
     //console.log("returning")
     return processedItem;
 }
 
-function processString(str, context) {
+function processString(str, context, scope) {
     console.log("1 str",str)
     console.log("2 context",context)
     let tmpStr = "";
@@ -1245,7 +1246,7 @@ function processString(str, context) {
     if (singleMatch) {
         const keyPath = singleMatch[1];
         const isFunctionExecution = str.endsWith('}}!');
-        let value = resolveValueFromContext(keyPath, context);
+        let value = resolveValueFromContext(keyPath, context, false, scope);
 
         if (isFunctionExecution && typeof value === 'function') {
             return value();
@@ -1259,7 +1260,7 @@ function processString(str, context) {
         if (isFunctionExecution) {
             keyPath = keyPath.slice(0, -1); 
         }
-        let value = resolveValueFromContext(keyPath, context);
+        let value = resolveValueFromContext(keyPath, context, false, scope);
         if (isFunctionExecution && typeof value === 'function') {
             return value();
         }
@@ -1327,7 +1328,7 @@ function processParam(param, context) {
     }
 }*/
 
-function processParam(param, context) {
+function processParam(param, context, scope) {
     if (typeof param === 'string') {
         if (param == "{{}}"){
             return context;
@@ -1350,11 +1351,11 @@ function processParam(param, context) {
         }
         return param;
     } else if (Array.isArray(param)) {
-        return param.map(item => processParam(item, context));
+        return param.map(item => processParam(item, context, scope));
     } else if (typeof param === 'object' && param !== null) {
         const processedParam = {};
         for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value, context);
+            processedParam[key] = processParam(value, context, scope);
         }
         return processedParam;
     } else {
@@ -1362,7 +1363,7 @@ function processParam(param, context) {
     }
 }
 
-async function applyMethodChain(target, action, context, res, req, next) {
+async function applyMethodChain(target, action, context, res, req, next, scope) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
@@ -1373,7 +1374,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
         let params;
 
         if (action.params) {
-            params = replacePlaceholders(action.params, context);
+            params = replacePlaceholders(action.params, context, scope);
         } else {
             params = [];
         }
@@ -1393,7 +1394,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
-                    return processParam(param, context, true)
+                    return processParam(param, context, scope)
                 });
             } else {
                 chainParams = [];
@@ -1418,7 +1419,7 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             console.log("z2")
                             if (chainAction.access.startsWith('{{')) {
                                 console.log("z3")
-                                const methodFunction = replacePlaceholders(chainAction.access, context)
+                                const methodFunction = replacePlaceholders(chainAction.access, context, scope)
                                 if (typeof methodFunction === 'function') {
                                     console.log("z4")
                                     if (chainAction.express){
