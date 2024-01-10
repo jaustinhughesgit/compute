@@ -1067,8 +1067,8 @@ async function createFunctionFromAction(action, context, req, res, next) {
         console.log("scope", scope)
         if (action.chain) {
             for (const chainAction of action.chain) {
-                const chainParams = await Array.isArray(chainAction.params) ? chainAction.params.map(async param => {
-                    return await replaceParams(param, context, scope, args);
+                const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
+                    return replaceParams(param, context, scope, args);
                 }) : [];
 
                 if (typeof chainAction.access === 'string') {
@@ -1092,8 +1092,8 @@ async function createFunctionFromAction(action, context, req, res, next) {
         }
         if (action.run) {
             for (const runAction of action.run) {
-                const runParams = await Array.isArray(runAction.params) ? runAction.params.map(async param => {
-                    return await replaceParams(param, context, scope, args);
+                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
+                    return replaceParams(param, context, scope, args);
                 }) : [];
                 console.log("runAction", runAction)
                 if (typeof runAction.access === 'string') {
@@ -1101,7 +1101,7 @@ async function createFunctionFromAction(action, context, req, res, next) {
                         console.log("starts with {{")
                         if (runAction.add && typeof runAction.add === 'number'){
                             const contextKey = runAction.access.slice(2, -2);
-                            let val = await replacePlaceholders(runAction.access, context);
+                            let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val + runAction.add;
                             } else {
@@ -1109,7 +1109,7 @@ async function createFunctionFromAction(action, context, req, res, next) {
                             }
                         }else if (runAction.subtract && typeof runAction.subtract === 'number'){
                             const contextKey = runAction.access.slice(2, -2); 
-                            let val = await replacePlaceholders(runAction.access, context);
+                            let val = replacePlaceholders(runAction.access, context);
                             if (typeof val === 'number') {
                                 result = val - runAction.subtract; 
                             } else {
@@ -1123,7 +1123,7 @@ async function createFunctionFromAction(action, context, req, res, next) {
 
 
                             for (const paramItem of runParams){
-                                let val = await replaceParams(runParams[0], context, scope, args);
+                                let val = replaceParams(runParams[0], context, scope, args);
                                 //console.log("val++", val)
                                 lib.context[runAction.access.slice(2,-2)] = val
                             }
@@ -1136,8 +1136,8 @@ async function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
-                    } else if (runAction.access == "next") {
-                        next();
+                    } else if (runAction.next == true) {
+                        await processAction(action, context, req, res, next);
                     }
                 }
             }
