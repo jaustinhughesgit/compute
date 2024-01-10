@@ -447,45 +447,16 @@ async function retrieveAndParseJSON(fileName) {
 var middleware = []
 lib.app.use(async (req, res, next) => {
     if (req.path.startsWith('/auth')) {
-    console.log("req.path",req.path)
-    let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
-    const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
-    const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
-    console.log("parent----------")
-    console.log(parent)
-    const arrayOfJSON = [];
-    let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
-
-    const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
-    
-    // Use Promise.all to wait for all promises to resolve
-    const results = await Promise.all(promises);
-    
-    // Push the results into arrayOfJSON
-    await results.forEach(result => arrayOfJSON.push(result));
-
-    console.log("arrayOfJSON", arrayOfJSON)
-    
-    lib.json1 = arrayOfJSON
-    middleware = await lib.json1.map(stepConfig => {
-        console.log("middleware1")
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
-        };
-    });
-}
-    
+        lib.json1 = arrayOfJSON
+        middleware = await lib.json1.map(stepConfig => {
+            return async (req, res, next) => {
+                await initializeModules(req, res, next);
+            };
+        });
+    }
 next()
-
 });
-
-lib.app.all('/auth/*', middleware);
+lib.app.all('/auth/*', ...middleware);
 
 
 
