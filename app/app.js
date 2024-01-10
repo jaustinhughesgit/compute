@@ -31,368 +31,6 @@ lib.s3 = new lib.AWS.S3();
 
 lib.process = process
 
-/*
-lib.json1 = [
-    {
-        modules: {
-             "moment-timezone": "moment-timezone"
-         },
-         actions: [
-            {
-                target:"passport-microsoft",
-                chain:[
-                    {access:"Strategy"}
-                ],
-                assign:"MicrosoftStrategy"
-            },
-            {
-                if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{condition1:true}
-            },
-            {
-                if:[10, [{ condition: '>', right: 25 },{ condition: '<', right: 20 }], null, "&&"],
-                set:{condition2:true}
-            },
-            {
-               if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-               set:{first:5}
-            },
-            {
-              if:[10, [{ condition: '>', right: 5 },{ condition: '<', right: 20 }], null, "&&"],
-              set:{second:0}
-            },
-            {
-               while:["{{first}}", ">","{{second}}"],
-               params:[],
-               run:[
-                   {access:"{{first}}", subtract:1, params:[]}
-               ],
-               assign:"{{first}}!"
-            },
-            {
-                target: "moment-timezone",
-                chain: [
-                    { access: "tz", params: ["Asia/Dubai"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ],
-                assign: "timeInDubai"
-            },
-            {
-                target: "moment-timezone",
-                assign: "justTime",
-                from: ["{{timeInDubai}}!"],
-                chain: [
-                    { access: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                target: "moment-timezone",
-                assign: "timeInDubai2",
-                from: ["{{timeInDubai}}"],
-                chain: [
-                    { access: "add", params: [1, "hours"] },
-                    { access: "format", params: ["YYYY-MM-DD HH:mm:ss"] }
-                ]
-            },
-            {
-                target: "moment-timezone",
-                assign: "justTime2",
-                from: ["{{timeInDubai2}}!"],
-                chain: [
-                    { access: "format", params: ["HH:mm"] }
-                ]
-            },
-            {
-                target: "fs",
-                chain: [
-                    {
-                        access: "readFileSync",
-                        params: ["/var/task/app/routes/../example.txt", "utf8"],
-                    }
-                ],
-                assign: "fileContents"
-            },
-            {
-                target: "fs",
-                access: "writeFileSync",
-                params: ['/tmp/tempFile.txt', "{{timeInDubai2}} 222This is a test file content {{timeInDubai2}}", 'utf8']
-            },
-            {
-                target: "fs",
-                chain: [
-                    {
-                        access: "readFileSync",
-                        params: ['/tmp/tempFile.txt', "utf8"],
-                    }
-                ],
-                assign: "tempFileContents"
-            },
-            {
-                target: "s3",
-                chain: [
-                    {
-                        access: "upload",
-                        params: [{
-                            "Bucket": "public.1var.com",
-                            "Key": "test.html",
-                            "Body": "<html><head></head><body>Welcome to 1 VAR! 22222222222222asdasdfasdfasdfsadf</body></html>"
-                        }]
-                    },
-                    {
-                        access: "promise",
-                        params: []
-                    }
-                ],
-                assign: "s3UploadResult"
-            },
-            {
-                target: "s3",
-                chain: [
-                    {
-                        access: "getObject",
-                        params: [{
-                            Bucket: "public.1var.com",
-                            Key: "test.html"
-                            //VersionId: 'DESIRED_VERSION_ID'
-                        }]
-                    },
-                    {
-                        access: "promise",
-                        params: []
-                    }
-                ],
-                assign: "s3Response"
-            },
-            {
-                target: "s3Response",
-                chain: [
-                    {
-                        access: "Body"
-                    },
-                    {
-                        access: "toString",
-                        params: ["utf-8"]
-                    }
-                ],
-                assign: "s3Data"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/test"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:['{{s3Data}}']}
-                ]
-            },
-            {
-                target:"root",
-                chain:[
-                    {access:"session", param:[{
-                        secret: process.env.SESSION_SECRET,
-                        resave: false,
-                        saveUninitialized: true,
-                        cookie: { secure: true },
-                        sameSite: 'None'
-                    }], express:true, next:true}
-                ],
-                assign:"sessionSecret"
-            },
-            {
-                next:true
-            }
-        ]
-    },
-    {
-       modules: {
-        "passport":"passport",
-        "passport-microsoft":"passport-microsoft"
-    },
-        actions: [
-            {
-                target:"passport",
-                chain:[
-                    {access:"initialize", params:[], express:true, next:true}
-                ],
-                assign:"passportInitialize"
-            }
-        ]
-    },
-    {
-       modules: {},
-        actions: [
-            {
-                target:"passport",
-                chain:[
-                    {access:"session", params:[], express:true, next:true}
-                ],
-                assign:"passportSession"
-            }
-        ]
-    }
-]    
-lib.json2 = [
-    {
-       modules: {},
-        actions: [
-            {
-                params:["((user))", "((done))"], 
-                chain:[],
-                run:[
-                    {access:"((done))", params:[null, "((user))"]}
-                ],
-                assign:"serializeFunction"
-            },
-            {
-                target:"passport",
-                chain:[
-                    {access:"serializeUser", params:["{{serializeFunction}}"]}
-                ],
-                assign:"serializeUser"
-            },
-            {
-                params:["((obj))", "((done))"], 
-                chain:[],
-                "run":[
-                    {access:"((done))", params:[null, "((obj))"]}
-                ],
-                assign:"deserializeFunction"
-            },
-            {
-                target:"passport",
-                chain:[
-                    {access:"deserializeUser", params:["{{deserializeFunction}}"]}
-                ],
-                assign:"deserializeUser"
-            },
-            {
-                params:["((accessToken))", "((refreshToken))", "((profile))", "((done))"], 
-                chain:[],
-                run:[
-                    {access:"((done))", params:[null, "((profile))"]}
-                ],
-                assign:"callbackFunction"
-            },
-            {
-                target:"passport-microsoft",
-                chain:[
-                {access:"Strategy", params:[
-                    {
-                        clientID: process.env.MICROSOFT_CLIENT_ID,
-                        clientSecret: process.env.MICROSOFT_CLIENT_SECRET,
-                        callbackURL: "https://compute.1var.com/auth/microsoft/callback",
-                        scope: ['user.read']
-                    },"{{callbackFunction}}"
-                ],
-                    new:true}
-                ],
-                assign:"passportmicrosoft"
-            },
-            {
-                target:"passport",
-                chain:[
-                    {access:"use", params:["{{passportmicrosoft}}"]}
-                ],
-                assign:"newStrategy"
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/microsoft"]],
-                target:"passport",
-                chain:[
-                    {access:"authenticate", params:["microsoft", { scope: ['user.read'] }], express:true, next:false},
-                ],
-                assign:"newAuthentication"
-            },
-            {
-                "set":{"user":""}
-            },
-            {
-                "set":{"newAuth":""}
-            },
-            {
-                set:{firstName:""}
-            },
-            {
-                set:{lastName:""}
-            },
-            {
-                set:{email:""}
-            },
-            {
-                params:["((err))", "((user))", "((info))"], 
-                chain:[],
-                run:[
-                    {access:"{{user}}", params:["((user))"]},
-                    {access:"{{newAuth}}", params:[true]},
-                    {access:"{{firstName}}", params:["((user._json.givenName))"]},
-                    {access:"{{lastName}}", params:["((user._json.surname))"]},
-                    {access:"{{email}}", params:["((user._json.mail))"]},
-                   {access:"next", params:[]}
-                ],
-
-                assign:"callbackFunction"
-            },
-            {
-               ifs:[["{{urlpath}}","==","/auth/microsoft/callback"]],
-                target:"{{passport}}",
-                chain:[
-                    {access:"authenticate", params:["microsoft", { failureRedirect: '/' }, "{{callbackFunction}}"], express:true, next:false},
-                ],
-                assign:"newAuthentication"
-            },
-            {
-                ifs:[["{{urlpath}}","!=","/auth/microsoft/callback"]],
-                next:true
-            }
-        ]
-    },
-    {
-       modules: {
-        },
-        actions: [
-            {
-                ifs:[["{{user}}","==",""],["{{urlpath}}","==","/auth/microsoft/callback"]],
-                target:"res",
-                chain:[
-                    {access:"json", params:[{"loggedIn":false}]}
-                ]
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/microsoft/callback"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:["{{}}"]} // need to save user details to dynamodb and give the user a uuid4 cookie
-                ]
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/dashboard2"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:['<h1>Login Success</h1><a href="/auth/account">CONTINUE</a>']}
-                ]
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/account"]],
-                target:"res",
-                chain:[
-                    {access:"send", params:['{{}}']}
-                ]
-            }
-        ]
-    }
-]
-
-let middleware2 = lib.json2.map(stepConfig => {
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        lib.context["sessionID"] = req.sessionID
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
-*/
-
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
@@ -495,7 +133,6 @@ lib.app.use(async (req, res, next) => {
 });
 
 lib.app.all('/auth/*', (req, res, next) => {
-    console.log("=================================")
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
@@ -510,326 +147,7 @@ lib.app.all('/auth/*', (req, res, next) => {
     }
 });
 
-
-
-/*
-lib.json2 = [
-    {
-        "modules": {
-            "passport": "passport",
-            "passport-microsoft": "passport-microsoft"
-        },
-        "actions": [
-            {
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "initialize",
-                        "params": [],
-                        "express": true,
-                        "next": true
-                    }
-                ],
-                "assign": "passportInitialize"
-            }
-        ]
-    },
-    {
-        "modules": {},
-        "actions": [
-            {
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "session",
-                        "params": [],
-                        "express": true,
-                        "next": true
-                    }
-                ],
-                "assign": "passportSession"
-            }
-        ]
-    },
-    {
-        "modules": {},
-        "actions": [
-            {
-                "params": [
-                    "((user))",
-                    "((done))"
-                ],
-                "chain": [],
-                "run": [
-                    {
-                        "access": "((done))",
-                        "params": [
-                            null,
-                            "((user))"
-                        ]
-                    }
-                ],
-                "assign": "serializeFunction"
-            },
-            {
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "serializeUser",
-                        "params": [
-                            "{{serializeFunction}}"
-                        ]
-                    }
-                ],
-                "assign": "serializeUser"
-            },
-            {
-                "params": [
-                    "((obj))",
-                    "((done))"
-                ],
-                "chain": [],
-                "run": [
-                    {
-                        "access": "((done))",
-                        "params": [
-                            null,
-                            "((obj))"
-                        ]
-                    }
-                ],
-                "assign": "deserializeFunction"
-            },
-            {
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "deserializeUser",
-                        "params": [
-                            "{{deserializeFunction}}"
-                        ]
-                    }
-                ],
-                "assign": "deserializeUser"
-            },
-            {
-                "params": [
-                    "((accessToken))",
-                    "((refreshToken))",
-                    "((profile))",
-                    "((done))"
-                ],
-                "chain": [],
-                "run": [
-                    {
-                        "access": "((done))",
-                        "params": [
-                            null,
-                            "((profile))"
-                        ]
-                    }
-                ],
-                "assign": "callbackFunction"
-            },
-            {
-                "target": "passport-microsoft",
-                "chain": [
-                    {
-                        "access": "Strategy",
-                        "params": [
-                            {
-                                "clientID": "91f33fda-5064-4821-88ed-f70b6e4f4985",
-                                "clientSecret": "PxX8Q~rPsa7DaEHDxaMRsb~i7VMwz~H~nnPCya7q",
-                                "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
-                                "scope": [
-                                    "user.read"
-                                ]
-                            },
-                            "callbackFunction"
-                        ],
-                        "new": true
-                    }
-                ],
-                "assign": "passportmicrosoft"
-            },
-            {
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "use",
-                        "params": [
-                            "{{passportmicrosoft}}"
-                        ]
-                    }
-                ],
-                "assign": "newStrategy"
-            },
-            {
-                "ifs": [
-                    [
-                        "{{urlpath}}",
-                        "==",
-                        "/auth/microsoft"
-                    ]
-                ],
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "authenticate",
-                        "params": [
-                            "microsoft",
-                            {
-                                "scope": [
-                                    "user.read"
-                                ]
-                            }
-                        ],
-                        "express": true,
-                        "next": false
-                    }
-                ],
-                "assign": "newAuthentication"
-            },
-            {
-                "set": {
-                    "user": ""
-                }
-            },
-            {
-                "set": {
-                    "newAuth": ""
-                }
-            },
-            {
-                "set": {
-                    "email": ""
-                }
-            },
-            {
-                "params": [
-                    "((err))",
-                    "((user))",
-                    "((info))"
-                ],
-                "chain": [],
-                "run": [
-                    {
-                        "access": "{{user}}",
-                        "params": [
-                            "((user))"
-                        ]
-                    },
-                    {
-                        "access": "{{newAuth}}",
-                        "params": [
-                            true
-                        ]
-                    },
-                    {
-                        "access": "{{email}}",
-                        "params": [
-                            "((user._json.mail))"
-                        ]
-                    },
-                    {
-                        "access": "next",
-                        "params": []
-                    }
-                ],
-                "assign": "callbackFunction2"
-            },
-            {
-                "ifs": [
-                    [
-                        "{{urlpath}}",
-                        "==",
-                        "/auth/microsoft/callback"
-                    ]
-                ],
-                "target": "passport",
-                "chain": [
-                    {
-                        "access": "authenticate",
-                        "params": [
-                            "microsoft",
-                            {
-                                "failureRedirect": "/"
-                            },
-                            "{{callbackFunction2}}"
-                        ],
-                        "express": true,
-                        "next": true
-                    }
-                ],
-                "assign": "newAuthentication2"
-            },
-            {
-                "ifs": [
-                    [
-                        "{{urlpath}}",
-                        "!=",
-                        "/auth/microsoft/callback"
-                    ]
-                ],
-                "next": true
-            }
-        ]
-    },
-    {
-        "modules": {},
-        "actions": [
-            {
-                "ifs": [
-                    [
-                        "{{user}}",
-                        "==",
-                        ""
-                    ], ["{{urlpath}}","==","/auth/microsoft/callback"]
-                ],
-                "target": "res",
-                "chain": [
-                    {
-                        "access": "json",
-                        "params": [
-                            {
-                                "loggedIn": false
-                            }
-                        ]
-                    }
-                ]
-            },
-            {
-                ifs:[["{{urlpath}}","==","/auth/microsoft/callback"]],
-                "target": "res",
-                "chain": [
-                    {
-                        "access": "send",
-                        "params": [
-                            "{{}}"
-                        ]
-                    }
-                ]
-            }
-        ]
-    }
-]*/
-/*
-let middleware1 = lib.json1.map(stepConfig => {
-    console.log("middleware1")
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        lib.context["sessionID"] = req.sessionID
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});
-
-lib.app.all('/auth/*', ...middleware1, ...middleware2);
-*/
-function condition(left, conditions, right, operator = "&&", context, scope) {
+function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
     if (arguments.length === 1) {
         console.log(2)
@@ -843,7 +161,7 @@ function condition(left, conditions, right, operator = "&&", context, scope) {
 
     return conditions.reduce((result, cond) => {
         console.log(4)
-        const currentResult = checkCondition(left, cond.condition, cond.right, context, scope);
+        const currentResult = checkCondition(left, cond.condition, cond.right, context);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -854,13 +172,13 @@ function condition(left, conditions, right, operator = "&&", context, scope) {
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right, context, scope) {
+function checkCondition(left, condition, right, context) {
     //console.log(5)
     //console.log("left1", left)
-    left = replacePlaceholders(left, context, scope)
+    left = replacePlaceholders(left, context)
     //console.log("left2",left)
     //console.log("right1", right)
-    right = replacePlaceholders(right, context, scope)
+    right = replacePlaceholders(right, context)
     //console.log("right2",right)
     switch (condition) {
         case '==': return left == right;
@@ -883,12 +201,10 @@ function checkCondition(left, condition, right, context, scope) {
     }
 }
 
-async function processAction(action, context, req, res, next, scope) {
-    console.log("pA1")
+async function processAction(action, context, req, res, next) {
     if (action.target) {
-        console.log("pA2")
         //console.log("getModuleInstance")
-        let moduleInstance = replacePlaceholders(action.target, context, scope);
+        let moduleInstance = replacePlaceholders(action.target, context);
         //console.log("moduleInstance", moduleInstance)
         let args = [];
                 if (action.from) {
@@ -917,8 +233,8 @@ async function processAction(action, context, req, res, next, scope) {
             console.log("moduleInstance is not a function")
             result = moduleInstance;
         }
-        console.log("applyMethodChain", result, action, context, scope)
-        result = await applyMethodChain(result, action, context, res, req, next, scope);
+        console.log("applyMethodChain", result, action, context)
+        result = await applyMethodChain(result, action, context, res, req, next);
         console.log("result", result)
         if (action.assign) {
             console.log(1, action.assign)
@@ -946,12 +262,11 @@ async function processAction(action, context, req, res, next, scope) {
             }
         }
     } else if (action.assign && action.params) {
-        console.log("pA3")
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             //console.log("action/////", action)
-            let result = createFunctionFromAction(action, context, req, res, next, scope)
+            let result = createFunctionFromAction(action, context, req, res, next)
             //console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
@@ -966,27 +281,8 @@ async function processAction(action, context, req, res, next, scope) {
                 }
                 context[assignKey] = result;
             }
-        } else if (action.assign.includes('((')) {
-            let isFunctionExecution = action.assign.endsWith('!');
-            let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            let result = createFunctionFromAction(action, scope, req, res, next, scope)
-            console.log("NESTED FUNCTION DONEZO", result)
-            if (isFunctionExecution) {
-                if (typeof result === 'function'){
-                    scope[assignKey] =  result()
-                } else {
-                    scope[assignKey] =  result;
-                }
-            } else {
-                //console.log("no !")
-                if (typeof result === 'function'){
-                    console.log("executing function", JSON.stringify(result))
-                }
-                scope[assignKey] = result;
-                console.log("BOTTOM SCOPE", scope)
-            }
         } else {
-            context[action.assign] = createFunctionFromAction(action, context, req, res, next, scope)
+            context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
     if (action.execute) {
@@ -1007,17 +303,16 @@ async function processAction(action, context, req, res, next, scope) {
     }
 }
 
-async function runActionFunction(action, context, req, res, next, scope){
-    console.log("runActionFunction scope:", scope)
+async function runActionFunction(action, context, req, res, next){
     if (action != undefined){
         let runAction = true;
         if (action.if) {
-            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context, scope);
+            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
         } else if (action.ifs) {
             //console.log(action.ifs)
             for (const ifObject of action.ifs) {
                 //console.log("ifObject", ifObject)
-                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context, scope);
+                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
                 //console.log("runAction",runAction)
                 if (!runAction) {
                     break;
@@ -1030,7 +325,7 @@ async function runActionFunction(action, context, req, res, next, scope){
                 for (const key in action.set) {
                     //((user)) needs to be managed in reeplacePlaceholders
                     //it could be a function and  we'll nee to account foor that.
-                    context[key] = replacePlaceholders(action.set[key], context, scope);
+                    context[key] = replacePlaceholders(action.set[key], context);
                 }
             }
 
@@ -1038,8 +333,8 @@ async function runActionFunction(action, context, req, res, next, scope){
                 let whileChecker = 0
                 let LEFT = action.while[0]
                 let RIGHT = action.while[2]
-                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context, scope)) {
-                        await processAction(action, context, req, res, next, scope);
+                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
+                        await processAction(action, context, req, res, next);
                     whileChecker++;
                     if (whileChecker == 10){
                         break;
@@ -1050,10 +345,10 @@ async function runActionFunction(action, context, req, res, next, scope){
             if (action.whiles) {
                 let whileChecker = 0
                 for (const whileCondition of action.whiles) {
-                    while (condition(replacePlaceholders(whileCondition[0], context, scope), 
-                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context, scope) }], 
+                    while (condition(replacePlaceholders(whileCondition[0], context), 
+                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
                                     null, "&&", context)) {
-                            await processAction(action, context, req, res, next, scope);
+                            await processAction(action, context, req, res, next);
                         whileChecker++;
                         if (whileChecker == 10){
                             break;
@@ -1063,8 +358,7 @@ async function runActionFunction(action, context, req, res, next, scope){
             }
 
             if (!action.while){
-                console.log("processAction")
-                await processAction(action, context, req, res, next, scope);
+                await processAction(action, context, req, res, next);
             }
             if (action.assign && action.params) {
                 return "continue";
@@ -1081,22 +375,16 @@ async function runActionFunction(action, context, req, res, next, scope){
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = await runActionFunction(action, context, req, res, next, {});
+        let runResponse = await runActionFunction(action, context, req, res, next);
         if (runResponse == "contune"){
             continue
         }
     }
 }
 
-function createFunctionFromAction(action, context, req, res, next, parentScope) {
+function createFunctionFromAction(action, context, req, res, next) {
     return async function(...args) {
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("!!!!!!!!!!!!!!!!!!!!!!")
-        console.log("args",args)
+
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
@@ -1105,9 +393,7 @@ function createFunctionFromAction(action, context, req, res, next, parentScope) 
             }
             return acc;
         }, {});
-        scope = Object.assign({}, parentScope, scope);
         console.log("scope", scope)
-        // DO WE NEED CHAIN IN NEW FUNCTIONS WHERE CHAIN IS = []?
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = await Array.isArray(chainAction.params) ? chainAction.params.map(async param => {
@@ -1133,14 +419,13 @@ function createFunctionFromAction(action, context, req, res, next, parentScope) 
                 }
             }
         }
-        console.log("action",action)
         if (action.run) {
             for (const runAction of action.run) {
                 /*const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                await runActionFunction(runAction, context, req, res, next, scope)
+                await runActionFunction(runAction, context, req, res, next)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
@@ -1225,23 +510,23 @@ function replaceParams(param, context, scope, args) {
     return param;
 }
 
-function replacePlaceholders(item, context, scope) {
+function replacePlaceholders(item, context) {
     //console.log("item context", item, context)
     let processedItem = item;
     console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
         //console.log("processedItem typeof", processedItem)
-        processedItem = processString(processedItem, context, scope);
+        processedItem = processString(processedItem, context);
         //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
         //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context, scope));
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
     //console.log("returning")
     return processedItem;
 }
 
-function processString(str, context, scope) {
+function processString(str, context) {
     console.log("1 str",str)
     console.log("2 context",context)
     let tmpStr = "";
@@ -1280,7 +565,7 @@ function processString(str, context, scope) {
     if (singleMatch) {
         const keyPath = singleMatch[1];
         const isFunctionExecution = str.endsWith('}}!');
-        let value = resolveValueFromContext(keyPath, context, false, scope);
+        let value = resolveValueFromContext(keyPath, context);
 
         if (isFunctionExecution && typeof value === 'function') {
             return value();
@@ -1294,7 +579,7 @@ function processString(str, context, scope) {
         if (isFunctionExecution) {
             keyPath = keyPath.slice(0, -1); 
         }
-        let value = resolveValueFromContext(keyPath, context, false, scope);
+        let value = resolveValueFromContext(keyPath, context);
         if (isFunctionExecution && typeof value === 'function') {
             return value();
         }
@@ -1362,7 +647,7 @@ function processParam(param, context) {
     }
 }*/
 
-function processParam(param, context, scope) {
+function processParam(param, context) {
     if (typeof param === 'string') {
         if (param == "{{}}"){
             return context;
@@ -1385,11 +670,11 @@ function processParam(param, context, scope) {
         }
         return param;
     } else if (Array.isArray(param)) {
-        return param.map(item => processParam(item, context, scope));
+        return param.map(item => processParam(item, context));
     } else if (typeof param === 'object' && param !== null) {
         const processedParam = {};
         for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value, context, scope);
+            processedParam[key] = processParam(value, context);
         }
         return processedParam;
     } else {
@@ -1397,7 +682,7 @@ function processParam(param, context, scope) {
     }
 }
 
-async function applyMethodChain(target, action, context, res, req, next, scope) {
+async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
@@ -1408,7 +693,7 @@ async function applyMethodChain(target, action, context, res, req, next, scope) 
         let params;
 
         if (action.params) {
-            params = replacePlaceholders(action.params, context, scope);
+            params = replacePlaceholders(action.params, context);
         } else {
             params = [];
         }
@@ -1428,7 +713,7 @@ async function applyMethodChain(target, action, context, res, req, next, scope) 
 
             if (chainAction.params) {
                 chainParams = chainAction.params.map(param => {
-                    return processParam(param, context, scope)
+                    return processParam(param, context, true)
                 });
             } else {
                 chainParams = [];
@@ -1453,7 +738,7 @@ async function applyMethodChain(target, action, context, res, req, next, scope) 
                             console.log("z2")
                             if (chainAction.access.startsWith('{{')) {
                                 console.log("z3")
-                                const methodFunction = replacePlaceholders(chainAction.access, context, scope)
+                                const methodFunction = replacePlaceholders(chainAction.access, context)
                                 if (typeof methodFunction === 'function') {
                                     console.log("z4")
                                     if (chainAction.express){
