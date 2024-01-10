@@ -1054,7 +1054,7 @@ async function initializeModules(context, config, req, res, next) {
 }
 
 async function createFunctionFromAction(action, context, req, res, next) {
-    return async function(...args) {
+    return await function(...args) {
 
         let result;
         let scope = args.reduce((acc, arg, index) => {
