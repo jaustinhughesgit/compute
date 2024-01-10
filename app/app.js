@@ -456,18 +456,18 @@ lib.app.use(async (req, res, next) => {
     const arrayOfJSON = [];
     let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
-    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
+    const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
     
     // Use Promise.all to wait for all promises to resolve
     const results = await Promise.all(promises);
     
     // Push the results into arrayOfJSON
-    results.forEach(result => arrayOfJSON.push(result));
+    await results.forEach(result => arrayOfJSON.push(result));
 
     console.log("arrayOfJSON", arrayOfJSON)
     
     lib.json1 = arrayOfJSON
-    middleware = lib.json1.map(stepConfig => {
+    middleware = await lib.json1.map(stepConfig => {
         console.log("middleware1")
         return async (req, res, next) => {
             lib.req = req;
@@ -480,13 +480,13 @@ lib.app.use(async (req, res, next) => {
         };
     });
 }
-    next();
+    
+await lib.app.all('/auth/*', middleware);
 
 });
 
 
 
-lib.app.all('/auth/*', middleware);
 
 
 /*
