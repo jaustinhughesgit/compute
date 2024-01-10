@@ -495,6 +495,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 lib.app.all('/auth/*', (req, res, next) => {
+    console.log("=================================")
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
@@ -1066,7 +1067,13 @@ async function initializeModules(context, config, req, res, next) {
 
 function createFunctionFromAction(action, context, req, res, next) {
     return async function(...args) {
-
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("!!!!!!!!!!!!!!!!!!!!!!")
+        console.log("args",args)
         let result;
         let scope = args.reduce((acc, arg, index) => {
             if (action.params && action.params[index]) {
