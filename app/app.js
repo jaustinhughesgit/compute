@@ -1137,7 +1137,7 @@ async function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (runAction.next == true) {
-                        await processAction(action, context, req, res, next);
+                        await processAction(runAction, context, req, res, next);
                     }
                 }
             }
