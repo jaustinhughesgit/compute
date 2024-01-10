@@ -494,6 +494,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 lib.app.all('/auth/*', (req, res, next) => {
+    lib.next = next;
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
