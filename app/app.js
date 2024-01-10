@@ -948,7 +948,7 @@ async function processAction(action, context, req, res, next, scope) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             //console.log("action/////", action)
-            let result = createFunctionFromAction(action, context, req, res, next)
+            let result = createFunctionFromAction(action, context, req, res, next, scope)
             //console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
@@ -963,8 +963,27 @@ async function processAction(action, context, req, res, next, scope) {
                 }
                 context[assignKey] = result;
             }
+        } else if (action.assign.includes('((')) {
+            let isFunctionExecution = action.assign.endsWith('!');
+            let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
+            let result = createFunctionFromAction(action, scope, req, res, next, scope)
+            console.log("NESTED FUNCTION DONEZO", result)
+            if (isFunctionExecution) {
+                if (typeof result === 'function'){
+                    scope[assignKey] =  result()
+                } else {
+                    scope[assignKey] =  result;
+                }
+            } else {
+                //console.log("no !")
+                if (typeof result === 'function'){
+                    console.log("executing function", JSON.stringify(result))
+                }
+                scope[assignKey] = result;
+                console.log("BOTTOM SCOPE", scope)
+            }
         } else {
-            context[action.assign] = createFunctionFromAction(action, context, req, res, next)
+            context[action.assign] = createFunctionFromAction(action, context, req, res, next, scope)
         }
     } 
     if (action.execute) {
@@ -1058,14 +1077,14 @@ async function runActionFunction(action, context, req, res, next, scope){
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = await runActionFunction(action, context, req, res, next);
+        let runResponse = await runActionFunction(action, context, req, res, next, {});
         if (runResponse == "contune"){
             continue
         }
     }
 }
 
-function createFunctionFromAction(action, context, req, res, next) {
+function createFunctionFromAction(action, context, req, res, next, parentScope) {
     return async function(...args) {
         console.log("!!!!!!!!!!!!!!!!!!!!!!")
         console.log("!!!!!!!!!!!!!!!!!!!!!!")
@@ -1082,7 +1101,9 @@ function createFunctionFromAction(action, context, req, res, next) {
             }
             return acc;
         }, {});
+        scope = Object.assign({}, parentScope, scope);
         console.log("scope", scope)
+        // DO WE NEED CHAIN IN NEW FUNCTIONS WHERE CHAIN IS = []?
         if (action.chain) {
             for (const chainAction of action.chain) {
                 const chainParams = await Array.isArray(chainAction.params) ? chainAction.params.map(async param => {
