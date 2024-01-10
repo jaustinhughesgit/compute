@@ -1403,7 +1403,8 @@ async function applyMethodChain(target, action, context, res, req, next) {
 }
 
 var middleware = []
-async function loadJSON(req, res, next){
+async function loadJSON(){
+    const middlewareArray = [ async (req, res, next) => {
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
     const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
@@ -1442,6 +1443,8 @@ async function loadJSON(req, res, next){
         };
     });
     next();
+}]
+return middlewareArray
 }
 
 
@@ -1475,7 +1478,8 @@ async function initializeApp() {
     var indexRouter = await require('./routes/index');
 
     await lib.app.use('/', indexRouter);
-    await lib.app.use(loadJSON);
+    const middlewareArray = await loadJSON();
+    app.use(middlewareArray);
     await lib.app.all('/auth/*', ...middleware)
 }
 
