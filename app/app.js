@@ -381,18 +381,7 @@ const json2 = [
 ]
 */
 
-/*let middleware1 = lib.json1.map(stepConfig => {
-    console.log("middleware1")
-    return async (req, res, next) => {
-        lib.req = req;
-        lib.res = res;
-        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-        lib["urlpath"] = req.path
-        lib.context["urlpath"] = req.path
-        lib.context["sessionID"] = req.sessionID
-        await initializeModules(lib.context, stepConfig, req, res, next);
-    };
-});*/
+
 
 /*let middleware2 = json2.map(stepConfig => {
     return async (req, res, next) => {
@@ -451,7 +440,7 @@ var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
 
-
+/*
 async function retrieveAndParseJSON(fileName) {
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
     const data = await lib.s3.getObject(params).promise();
@@ -519,7 +508,321 @@ function executeMiddlewares(middlewares, req, res, next, index = 0) {
         next();
     }
 }
-//lib.app.all('/auth/*', ...middleware1, ...middleware2);
+*/
+const json2 = [
+    {
+        "modules": {
+            "passport": "passport",
+            "passport-microsoft": "passport-microsoft"
+        },
+        "actions": [
+            {
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "initialize",
+                        "params": [],
+                        "express": true,
+                        "next": true
+                    }
+                ],
+                "assign": "{{passportInitialize}}"
+            }
+        ]
+    },
+    {
+        "modules": {},
+        "actions": [
+            {
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "session",
+                        "params": [],
+                        "express": true,
+                        "next": true
+                    }
+                ],
+                "assign": "{{passportSession}}"
+            }
+        ]
+    },
+    {
+        "modules": {},
+        "actions": [
+            {
+                "params": [
+                    "((user))",
+                    "((done))"
+                ],
+                "chain": [],
+                "run": [
+                    {
+                        "access": "((done))",
+                        "params": [
+                            null,
+                            "((user))"
+                        ]
+                    }
+                ],
+                "assign": "{{serializeFunction}}"
+            },
+            {
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "serializeUser",
+                        "params": [
+                            "{{serializeFunction}}"
+                        ]
+                    }
+                ],
+                "assign": "{{serializeUser}}"
+            },
+            {
+                "params": [
+                    "((obj))",
+                    "((done))"
+                ],
+                "chain": [],
+                "run": [
+                    {
+                        "access": "((done))",
+                        "params": [
+                            null,
+                            "((obj))"
+                        ]
+                    }
+                ],
+                "assign": "{{deserializeFunction}}"
+            },
+            {
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "deserializeUser",
+                        "params": [
+                            "{{deserializeFunction}}"
+                        ]
+                    }
+                ],
+                "assign": "{{deserializeUser}}"
+            },
+            {
+                "params": [
+                    "((accessToken))",
+                    "((refreshToken))",
+                    "((profile))",
+                    "((done))"
+                ],
+                "chain": [],
+                "run": [
+                    {
+                        "access": "((done))",
+                        "params": [
+                            null,
+                            "((profile))"
+                        ]
+                    }
+                ],
+                "assign": "{{callbackFunction}}"
+            },
+            {
+                "target": "passport-microsoft",
+                "chain": [
+                    {
+                        "access": "Strategy",
+                        "params": [
+                            {
+                                "clientID": "91f33fda-5064-4821-88ed-f70b6e4f4985",
+                                "clientSecret": "PxX8Q~rPsa7DaEHDxaMRsb~i7VMwz~H~nnPCya7q",
+                                "callbackURL": "https://compute.1var.com/auth/microsoft/callback",
+                                "scope": [
+                                    "user.read"
+                                ]
+                            },
+                            "{{callbackFunction}}"
+                        ],
+                        "new": true
+                    }
+                ],
+                "assign": "passportmicrosoft"
+            },
+            {
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "use",
+                        "params": [
+                            "{{passportmicrosoft}}"
+                        ]
+                    }
+                ],
+                "assign": "{{newStrategy}}"
+            },
+            {
+                "ifs": [
+                    [
+                        "{{urlpath}}",
+                        "==",
+                        "/auth/microsoft"
+                    ]
+                ],
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "authenticate",
+                        "params": [
+                            "microsoft",
+                            {
+                                "scope": [
+                                    "user.read"
+                                ]
+                            }
+                        ],
+                        "express": true,
+                        "next": false
+                    }
+                ],
+                "assign": "{{newAuthentication}}"
+            },
+            {
+                "set": {
+                    "user": ""
+                }
+            },
+            {
+                "set": {
+                    "newAuth": ""
+                }
+            },
+            {
+                "set": {
+                    "email": ""
+                }
+            },
+            {
+                "params": [
+                    "((err))",
+                    "((user))",
+                    "((info))"
+                ],
+                "chain": [],
+                "run": [
+                    {
+                        "access": "{{user}}",
+                        "params": [
+                            "((user))"
+                        ]
+                    },
+                    {
+                        "access": "{{newAuth}}",
+                        "params": [
+                            true
+                        ]
+                    },
+                    {
+                        "access": "{{email}}",
+                        "params": [
+                            "((user._json.mail))"
+                        ]
+                    },
+                    {
+                        "access": "next",
+                        "params": []
+                    }
+                ],
+                "assign": "callbackFunction2"
+            },
+            {
+                "ifs": [
+                    [
+                        "{{urlpath}}",
+                        "==",
+                        "/auth/microsoft/callback"
+                    ]
+                ],
+                "target": "{{passport}}",
+                "chain": [
+                    {
+                        "access": "authenticate",
+                        "params": [
+                            "microsoft",
+                            {
+                                "failureRedirect": "/"
+                            },
+                            "{{callbackFunction2}}"
+                        ],
+                        "express": true,
+                        "next": false
+                    }
+                ],
+                "assign": "newAuthentication2"
+            },
+            {
+                "ifs": [
+                    [
+                        "{{urlpath}}",
+                        "!=",
+                        "/auth/microsoft/callback"
+                    ]
+                ],
+                "next": true
+            }
+        ]
+    },
+    {
+        "modules": {},
+        "actions": [
+            {
+                "ifs": [
+                    [
+                        "{{user}}",
+                        "==",
+                        ""
+                    ]
+                ],
+                "target": "res",
+                "chain": [
+                    {
+                        "access": "json",
+                        "params": [
+                            {
+                                "loggedIn": false
+                            }
+                        ]
+                    }
+                ]
+            },
+            {
+                "target": "res",
+                "chain": [
+                    {
+                        "access": "send",
+                        "params": [
+                            "{{}}"
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+]
+
+let middleware2 = lib.json2.map(stepConfig => {
+    console.log("middleware1")
+    return async (req, res, next) => {
+        lib.req = req;
+        lib.res = res;
+        lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+        lib["urlpath"] = req.path
+        lib.context["urlpath"] = req.path
+        lib.context["sessionID"] = req.sessionID
+        await initializeModules(lib.context, stepConfig, req, res, next);
+    };
+});
+
+lib.app.all('/auth/*', ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
