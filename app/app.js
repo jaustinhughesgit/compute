@@ -444,6 +444,7 @@ async function retrieveAndParseJSON(fileName) {
     return JSON.parse(data.Body.toString());
   }
 
+var middleware = []
 async function loadJSON(req, res, next){
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
@@ -464,11 +465,7 @@ async function loadJSON(req, res, next){
     console.log("arrayOfJSON", arrayOfJSON)
     
     lib.json1 = arrayOfJSON
-    next();
-}
-
-function createMiddleware() {
-    return lib.json1.map(stepConfig => {
+    middleware = lib.json1.map(stepConfig => {
         console.log("middleware1");
         return async (req, res, next) => {
             lib.req = req;
@@ -480,10 +477,11 @@ function createMiddleware() {
             await initializeModules(lib.context, stepConfig, req, res, next);
         };
     });
+    next();
 }
-const dynamicMiddleware = createMiddleware();
 
-lib.app.all('/auth/*', loadJSON, ...dynamicMiddleware)
+
+lib.app.all('/auth/*', loadJSON, middleware)
 
 /*
 lib.json2 = [
