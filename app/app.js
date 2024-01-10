@@ -565,10 +565,10 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{serializeFunction}}"
+                "assign": "serializeFunction"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "serializeUser",
@@ -577,7 +577,7 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{serializeUser}}"
+                "assign": "serializeUser"
             },
             {
                 "params": [
@@ -594,10 +594,10 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{deserializeFunction}}"
+                "assign": "deserializeFunction"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "deserializeUser",
@@ -606,7 +606,7 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{deserializeUser}}"
+                "assign": "deserializeUser"
             },
             {
                 "params": [
@@ -625,7 +625,7 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{callbackFunction}}"
+                "assign": "callbackFunction"
             },
             {
                 "target": "passport-microsoft",
@@ -641,7 +641,7 @@ lib.json2 = [
                                     "user.read"
                                 ]
                             },
-                            "{{callbackFunction}}"
+                            "callbackFunction"
                         ],
                         "new": true
                     }
@@ -649,7 +649,7 @@ lib.json2 = [
                 "assign": "passportmicrosoft"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "use",
@@ -658,7 +658,7 @@ lib.json2 = [
                         ]
                     }
                 ],
-                "assign": "{{newStrategy}}"
+                "assign": "newStrategy"
             },
             {
                 "ifs": [
@@ -668,7 +668,7 @@ lib.json2 = [
                         "/auth/microsoft"
                     ]
                 ],
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "authenticate",
@@ -684,7 +684,7 @@ lib.json2 = [
                         "next": false
                     }
                 ],
-                "assign": "{{newAuthentication}}"
+                "assign": "newAuthentication"
             },
             {
                 "set": {
@@ -742,7 +742,7 @@ lib.json2 = [
                         "/auth/microsoft/callback"
                     ]
                 ],
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "authenticate",
