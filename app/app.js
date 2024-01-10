@@ -1476,7 +1476,7 @@ async function loadJSON(req, res, next){
 async function initializeApp() {
     await app.use(loadJSON);
     await lib.app.all('/auth/*', ...middleware)
-    module.exports.lambdaHandler = serverless(lib.app);
 }
 
 initializeApp();
+module.exports.lambdaHandler = serverless(lib.app);
