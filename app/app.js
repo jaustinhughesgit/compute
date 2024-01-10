@@ -446,6 +446,7 @@ async function retrieveAndParseJSON(fileName) {
 
 var middleware = []
 lib.app.use(async (req, res, next) => {
+    if (req.path.startsWith('/auth')) {
     console.log("req.path",req.path)
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
@@ -478,7 +479,9 @@ lib.app.use(async (req, res, next) => {
             await initializeModules(lib.context, stepConfig, req, res, next);
         };
     });
+}
     next();
+
 });
 
 
