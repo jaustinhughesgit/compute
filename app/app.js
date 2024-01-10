@@ -1101,6 +1101,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                 }
             }
         }
+        console.log("action",action)
         if (action.run) {
             for (const runAction of action.run) {
                 /*const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
