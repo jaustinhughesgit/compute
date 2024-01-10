@@ -1049,12 +1049,13 @@ async function runAction(action, context, req, res, next){
             }
         }
     }
+    return ""
 }
 
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = runAction(action, context, req, res, next);
+        let runResponse = await runAction(action, context, req, res, next);
         if (runResponse == "contune"){
             continue
         }
