@@ -445,7 +445,7 @@ async function retrieveAndParseJSON(fileName) {
   }
 
 var middleware = []
-async function loadJSON(req, res, next){
+async function loadJSON(){
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
     const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
@@ -454,18 +454,18 @@ async function loadJSON(req, res, next){
     const arrayOfJSON = [];
     let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
-    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
+    const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
     
     // Use Promise.all to wait for all promises to resolve
     const results = await Promise.all(promises);
     
     // Push the results into arrayOfJSON
-    results.forEach(result => arrayOfJSON.push(result));
+    await results.forEach(result => arrayOfJSON.push(result));
 
     console.log("arrayOfJSON", arrayOfJSON)
     
     lib.json1 = arrayOfJSON
-    middleware = lib.json1.map(stepConfig => {
+    middleware = await lib.json1.map(stepConfig => {
         console.log("middleware1");
         return async (req, res, next) => {
             lib.req = req;
@@ -477,11 +477,12 @@ async function loadJSON(req, res, next){
             await initializeModules(lib.context, stepConfig, req, res, next);
         };
     });
-    next();
+    lib.app.all('/auth/*', middleware )
 }
 
+loadJSON()
 
-lib.app.all('/auth/*', loadJSON, middleware[0], middleware[1], middleware[2] )
+
 
 /*
 lib.json2 = [
