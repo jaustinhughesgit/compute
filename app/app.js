@@ -445,7 +445,7 @@ async function retrieveAndParseJSON(fileName) {
   }
 
 var middleware = []
-async function loadJSON(){
+async function loadJSON(req, res, next){
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
     const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
@@ -479,8 +479,9 @@ async function loadJSON(){
     });
     lib.app.all('/auth/*', middleware )
 }
-
-loadJSON()
+lib.app.use((req, res, next) => {
+loadJSON(req, res, next)
+});
 
 
 
