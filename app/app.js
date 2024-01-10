@@ -985,6 +985,7 @@ async function processAction(action, context, req, res, next, scope) {
 }
 
 async function runActionFunction(action, context, req, res, next, scope){
+    console.log("runActionFunction scope:", scope)
     if (action != undefined){
         let runAction = true;
         if (action.if) {
