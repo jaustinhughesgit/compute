@@ -1053,8 +1053,8 @@ async function initializeModules(context, config, req, res, next) {
     }
 }
 
-function createFunctionFromAction(action, context, req, res, next) {
-    return function(...args) {
+async function createFunctionFromAction(action, context, req, res, next) {
+    return await async function(...args) {
 
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -1096,7 +1096,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                processAction(runAction, context, req, res, next)
+                //processAction(runAction, context, req, res, next)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
@@ -1141,7 +1141,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     } else if (runAction.access == "next") {
                         next();
                     }*/
-                }
+                //}
             }
         }
         return result;
