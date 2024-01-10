@@ -459,7 +459,6 @@ async function retrieveAndParseJSON(fileName) {
   }
 
 async function loadJSON(req, res, next){
-    lib.next = next
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
     const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
@@ -492,12 +491,13 @@ function createMiddleware() {
             lib["urlpath"] = req.path
             lib.context["urlpath"] = req.path
             lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
+            await initializeModules(lib.context, stepConfig, req, res, lib.next);
         };
     });
 }
 
 lib.app.all('/auth/*', loadJSON, (req, res, next) => {
+    lib.next = next
     const middleware = createMiddleware();
     executeMiddlewares(middleware, req, res, next);
 });
@@ -505,7 +505,7 @@ lib.app.all('/auth/*', loadJSON, (req, res, next) => {
 
 function executeMiddlewares(middlewares, req, res, next, index = 0) {
     //if (index < middlewares.length) {
-        lib.next = next
+        
         middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
     //} else {
         //next();
@@ -600,7 +600,7 @@ async function processAction(action, context, req, res, next) {
             result = moduleInstance;
         }
         console.log("applyMethodChain", result, action, context)
-        result = await applyMethodChain(result, action, context, res, req, lib.next);
+        result = await applyMethodChain(result, action, context, res, req, next);
         console.log("result", result)
         if (action.assign) {
             console.log(1, action.assign)
@@ -632,7 +632,7 @@ async function processAction(action, context, req, res, next) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
             //console.log("action/////", action)
-            let result = createFunctionFromAction(action, context, req, res, lib.next)
+            let result = createFunctionFromAction(action, context, req, res, next)
             //console.log("result/////",result)
             if (isFunctionExecution) {
                 if (typeof result === 'function'){
@@ -648,14 +648,14 @@ async function processAction(action, context, req, res, next) {
                 context[assignKey] = result;
             }
         } else {
-            context[action.assign] = createFunctionFromAction(action, context, req, res, lib.next)
+            context[action.assign] = createFunctionFromAction(action, context, req, res, next)
         }
     } 
     if (action.execute) {
         const functionName = action.execute;
         if (typeof context[functionName] === 'function') {
             if (action.express) {
-                await context[functionName](req, res, lib.next);
+                await context[functionName](req, res, next);
             } else {
                 await context[functionName];
             }
@@ -665,11 +665,11 @@ async function processAction(action, context, req, res, next) {
     }
     
     if (action.next) {
-        lib.next();
+        next();
     }
 }
 
-async function initializeModules(context, config, req, res, lib.next) {
+async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
         if (action != undefined){
@@ -700,7 +700,7 @@ async function initializeModules(context, config, req, res, lib.next) {
                     let LEFT = action.while[0]
                     let RIGHT = action.while[2]
                     while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                            await processAction(action, context, req, res, lib.next);
+                            await processAction(action, context, req, res, next);
                         whileChecker++;
                         if (whileChecker == 10){
                             break;
@@ -714,7 +714,7 @@ async function initializeModules(context, config, req, res, lib.next) {
                         while (condition(replacePlaceholders(whileCondition[0], context), 
                                         [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
                                         null, "&&", context)) {
-                                await processAction(action, context, req, res, lib.next);
+                                await processAction(action, context, req, res, next);
                             whileChecker++;
                             if (whileChecker == 10){
                                 break;
@@ -724,7 +724,7 @@ async function initializeModules(context, config, req, res, lib.next) {
                 }
 
                 if (!action.while){
-                    await processAction(action, context, req, res, lib.next);
+                    await processAction(action, context, req, res, next);
                 }
                 if (action.assign && action.params) {
                     continue;
@@ -738,7 +738,7 @@ async function initializeModules(context, config, req, res, lib.next) {
     }
 }
 
-function createFunctionFromAction(action, context, req, res, lib.next) {
+function createFunctionFromAction(action, context, req, res, next) {
     return function(...args) {
 
         let result;
@@ -821,7 +821,7 @@ function createFunctionFromAction(action, context, req, res, lib.next) {
                             return;
                         }
                     } else if (runAction.access == "next") {
-                        lib.next();
+                        next();
                     }
                 }
             }
@@ -997,7 +997,7 @@ function processParam(param, context) {
     }
 }
 
-async function applyMethodChain(target, action, context, res, req, lib.next) {
+async function applyMethodChain(target, action, context, res, req, next) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
@@ -1059,7 +1059,7 @@ async function applyMethodChain(target, action, context, res, req, lib.next) {
                                     if (chainAction.express){
                                         console.log("z5")
                                         if (chainAction.next || chainAction.next == undefined){
-                                            result = methodFunction(...chainParams)(req, res, lib.next);
+                                            result = methodFunction(...chainParams)(req, res, next);
                                         } else {
                                             result = methodFunction(...chainParams)(req, res);
                                         }
@@ -1075,7 +1075,7 @@ async function applyMethodChain(target, action, context, res, req, lib.next) {
                                 if (chainAction.express){
                                     if (chainAction.next || chainAction.next == undefined){
                                         try{    
-                                            result = result[chainAction.access](...chainParams)(req, res, lib.next);
+                                            result = result[chainAction.access](...chainParams)(req, res, next);
                                         } catch (err){
                                             console.log("next is not a constructor err:",err)
                                         }
