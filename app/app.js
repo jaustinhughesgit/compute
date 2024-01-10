@@ -1063,7 +1063,6 @@ async function initializeModules(context, config, req, res, next) {
 }
 
 function createFunctionFromAction(action, context, req, res, next) {
-    console.log("argsNew",args)
     return async function(...args) {
 
         let result;
