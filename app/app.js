@@ -485,7 +485,7 @@ async function retrieveAndParseJSON(fileName) {
 let isMiddlewareInitialized = false;
 let middlewareCache = [];
 
-app.use(async (req, res, next) => {
+lib.app.use(async (req, res, next) => {
     if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
         middlewareCache = await initializeMiddleware();
         isMiddlewareInitialized = true;
