@@ -884,7 +884,9 @@ function checkCondition(left, condition, right, context, scope) {
 }
 
 async function processAction(action, context, req, res, next, scope) {
+    console.log("pA1")
     if (action.target) {
+        console.log("pA2")
         //console.log("getModuleInstance")
         let moduleInstance = replacePlaceholders(action.target, context, scope);
         //console.log("moduleInstance", moduleInstance)
@@ -944,6 +946,7 @@ async function processAction(action, context, req, res, next, scope) {
             }
         }
     } else if (action.assign && action.params) {
+        console.log("pA3")
         if (action.assign.includes('{{')) {
             let isFunctionExecution = action.assign.endsWith('!');
             let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
@@ -1060,6 +1063,7 @@ async function runActionFunction(action, context, req, res, next, scope){
             }
 
             if (!action.while){
+                console.log("processAction")
                 await processAction(action, context, req, res, next, scope);
             }
             if (action.assign && action.params) {
