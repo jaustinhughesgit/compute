@@ -1067,8 +1067,8 @@ function createFunctionFromAction(action, context, req, res, next) {
         console.log("scope", scope)
         if (action.chain) {
             for (const chainAction of action.chain) {
-                const chainParams = Array.isArray(chainAction.params) ? chainAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
+                const chainParams = await Array.isArray(chainAction.params) ? chainAction.params.map(async param => {
+                    return await replaceParams(param, context, scope, args);
                 }) : [];
 
                 if (typeof chainAction.access === 'string') {
@@ -1096,7 +1096,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                //processAction(runAction, context, req, res, next)
+                await processAction(runAction, context, req, res, next)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
