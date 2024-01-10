@@ -467,7 +467,7 @@ async function loadJSON(req, res, next){
     next();
 }
 
-function createMiddleware() {
+function createMiddleware(req, res, next) {
     return (req, res, next) => {
         // lib.json1.map returns an array of configurations for each middleware
         return lib.json1.map(stepConfig => {
@@ -482,7 +482,7 @@ function createMiddleware() {
                 lib.context["sessionID"] = req.sessionID;
                 
                 // Call the middleware-specific initialization
-                await initializeModules(lib.context, stepConfig, req, res, next);
+                await initializeModules(lib.context, stepConfig, req, res, lib.next);
 
                 // Move to the next middleware
                 next();
@@ -492,7 +492,8 @@ function createMiddleware() {
 }
 
 lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    const middlewareChain = createMiddleware();
+    lib.next = next
+    const middlewareChain = createMiddleware(req, res, next);
     const middlewares = middlewareChain(req, res, next);
     executeMiddlewares(middlewares, req, res, next);
 });
