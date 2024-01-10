@@ -481,11 +481,11 @@ lib.app.use(async (req, res, next) => {
     });
 }
     
-await lib.app.all('/auth/*', middleware);
+next()
 
 });
 
-
+lib.app.all('/auth/*', middleware);
 
 
 
