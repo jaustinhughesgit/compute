@@ -517,7 +517,7 @@ lib.json2 = [
         },
         "actions": [
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "initialize",
@@ -526,7 +526,7 @@ lib.json2 = [
                         "next": true
                     }
                 ],
-                "assign": "{{passportInitialize}}"
+                "assign": "passportInitialize"
             }
         ]
     },
@@ -534,7 +534,7 @@ lib.json2 = [
         "modules": {},
         "actions": [
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "session",
@@ -543,7 +543,7 @@ lib.json2 = [
                         "next": true
                     }
                 ],
-                "assign": "{{passportSession}}"
+                "assign": "passportSession"
             }
         ]
     },
@@ -780,7 +780,7 @@ lib.json2 = [
                         "{{user}}",
                         "==",
                         ""
-                    ]
+                    ], ["{{urlpath}}","==","/auth/microsoft/callback"]
                 ],
                 "target": "res",
                 "chain": [
@@ -795,6 +795,7 @@ lib.json2 = [
                 ]
             },
             {
+                ifs:[["{{urlpath}}","==","/auth/microsoft/callback"]],
                 "target": "res",
                 "chain": [
                     {
