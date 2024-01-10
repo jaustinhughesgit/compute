@@ -444,7 +444,6 @@ async function retrieveAndParseJSON(fileName) {
     return JSON.parse(data.Body.toString());
   }
 
-var middleware = []
 async function loadJSON(req, res, next){
     let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
     const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
@@ -454,36 +453,59 @@ async function loadJSON(req, res, next){
     const arrayOfJSON = [];
     let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
-    const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
+    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
     
     // Use Promise.all to wait for all promises to resolve
     const results = await Promise.all(promises);
     
     // Push the results into arrayOfJSON
-    await results.forEach(result => arrayOfJSON.push(result));
+    results.forEach(result => arrayOfJSON.push(result));
 
     console.log("arrayOfJSON", arrayOfJSON)
     
     lib.json1 = arrayOfJSON
-    middleware = await lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
-        };
-    });
-    lib.app.all('/auth/*', middleware )
+    next();
 }
-lib.app.use((req, res, next) => {
-loadJSON(req, res, next)
+
+function createMiddleware() {
+    return (req, res, next) => {
+        // lib.json1.map returns an array of configurations for each middleware
+        return lib.json1.map(stepConfig => {
+            console.log("middleware1");
+            return async (req, res, next) => {
+                // Setup and processing for each middleware
+                lib.req = req;
+                lib.res = res;
+                lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+                lib["urlpath"] = req.path;
+                lib.context["urlpath"] = req.path;
+                lib.context["sessionID"] = req.sessionID;
+                
+                // Call the middleware-specific initialization
+                await initializeModules(lib.context, stepConfig, req, res, next);
+
+                // Move to the next middleware
+                next();
+            };
+        });
+    };
+}
+
+lib.app.all('/auth/*', loadJSON, (req, res, next) => {
+    const middlewareChain = createMiddleware();
+    const middlewares = middlewareChain(req, res, next);
+    executeMiddlewares(middlewares, req, res, next);
 });
 
 
+function executeMiddlewares(middlewares, req, res, next, index = 0) {
+    if (index < middlewares.length) {
+        lib.next = next
+        middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
+    } else {
+        next();
+    }
+}
 
 /*
 lib.json2 = [
