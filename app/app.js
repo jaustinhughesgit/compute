@@ -31,7 +31,7 @@ lib.s3 = new lib.AWS.S3();
 
 lib.process = process
 
-
+/*
 lib.json1 = [
     {
         modules: {
@@ -391,7 +391,7 @@ let middleware2 = lib.json2.map(stepConfig => {
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
 });
-
+*/
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -437,7 +437,7 @@ var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
 
-/*
+
 async function retrieveAndParseJSON(fileName) {
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
     const data = await lib.s3.getObject(params).promise();
@@ -505,7 +505,7 @@ function executeMiddlewares(middlewares, req, res, next, index = 0) {
         next();
     }
 }
-*/
+
 /*
 lib.json2 = [
     {
@@ -807,7 +807,7 @@ lib.json2 = [
         ]
     }
 ]*/
-
+/*
 let middleware1 = lib.json1.map(stepConfig => {
     console.log("middleware1")
     return async (req, res, next) => {
@@ -822,7 +822,7 @@ let middleware1 = lib.json1.map(stepConfig => {
 });
 
 lib.app.all('/auth/*', ...middleware1, ...middleware2);
-
+*/
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
     if (arguments.length === 1) {
