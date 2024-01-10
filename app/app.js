@@ -508,7 +508,7 @@ function createMiddleware() {
 lib.app.all('/auth/*', loadJSON, (req, res, next) => {
     const middlewareChain = createMiddleware();
     const middlewares = middlewareChain(req, res, next);
-    executeMiddlewares(middleware, req, res, next);
+    executeMiddlewares(middlewares, req, res, next);
 });
 
 
