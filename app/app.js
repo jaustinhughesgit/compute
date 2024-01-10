@@ -31,8 +31,8 @@ lib.s3 = new lib.AWS.S3();
 
 lib.process = process
 
-/*
-const json1 = [
+
+lib.json1 = [
     {
         modules: {
              "moment-timezone": "moment-timezone"
@@ -229,7 +229,7 @@ const json1 = [
         ]
     }
 ]    
-const json2 = [
+lib.json2 = [
     {
        modules: {},
         actions: [
@@ -379,11 +379,8 @@ const json2 = [
         ]
     }
 ]
-*/
 
-
-
-/*let middleware2 = json2.map(stepConfig => {
+let middleware2 = lib.json2.map(stepConfig => {
     return async (req, res, next) => {
         lib.req = req;
         lib.res = res;
@@ -393,7 +390,7 @@ const json2 = [
         lib.context["sessionID"] = req.sessionID
         await initializeModules(lib.context, stepConfig, req, res, next);
     };
-});*/
+});
 
 
 async function getPrivateKey() {
@@ -509,6 +506,7 @@ function executeMiddlewares(middlewares, req, res, next, index = 0) {
     }
 }
 */
+/*
 lib.json2 = [
     {
         "modules": {
@@ -517,19 +515,7 @@ lib.json2 = [
         },
         "actions": [
             {
-                target:"passport",
-                chain:[
-                ],
-                assign:"passport"
-            },
-            {
-                target:"passport-microsoft",
-                chain:[
-                ],
-                assign:"passport-microsoft"
-            },
-            {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "initialize",
@@ -546,7 +532,7 @@ lib.json2 = [
         "modules": {},
         "actions": [
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "session",
@@ -580,7 +566,7 @@ lib.json2 = [
                 "assign": "serializeFunction"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "serializeUser",
@@ -609,7 +595,7 @@ lib.json2 = [
                 "assign": "deserializeFunction"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "deserializeUser",
@@ -640,7 +626,7 @@ lib.json2 = [
                 "assign": "callbackFunction"
             },
             {
-                "target": "{{passport-microsoft}}",
+                "target": "passport-microsoft",
                 "chain": [
                     {
                         "access": "Strategy",
@@ -661,7 +647,7 @@ lib.json2 = [
                 "assign": "passportmicrosoft"
             },
             {
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "use",
@@ -680,7 +666,7 @@ lib.json2 = [
                         "/auth/microsoft"
                     ]
                 ],
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "authenticate",
@@ -754,7 +740,7 @@ lib.json2 = [
                         "/auth/microsoft/callback"
                     ]
                 ],
-                "target": "{{passport}}",
+                "target": "passport",
                 "chain": [
                     {
                         "access": "authenticate",
@@ -820,9 +806,9 @@ lib.json2 = [
             }
         ]
     }
-]
+]*/
 
-let middleware2 = lib.json2.map(stepConfig => {
+let middleware1 = lib.json1.map(stepConfig => {
     console.log("middleware1")
     return async (req, res, next) => {
         lib.req = req;
@@ -835,7 +821,7 @@ let middleware2 = lib.json2.map(stepConfig => {
     };
 });
 
-lib.app.all('/auth/*', ...middleware2);
+lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
@@ -1278,6 +1264,9 @@ function resolveValueFromContext(keyPath, context, convertToString = false) {
     return value;
 }
 
+
+/*
+//NEW PROCESSPARAM
 function processParam(param, context) {
     // Handle string type parameters
     if (typeof param === 'string') {
@@ -1317,6 +1306,41 @@ function processParam(param, context) {
     }
     // Return the parameter as is for other types
     else {
+        return param;
+    }
+}*/
+
+function processParam(param, context) {
+    if (typeof param === 'string') {
+        if (param == "{{}}"){
+            return context;
+        }
+        if (param.startsWith('{{')) {
+
+            let isFunctionExecution = param.endsWith('!');
+            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
+            let value = context[key];
+
+            if (isFunctionExecution && typeof value === 'function') {
+                return value();
+            }
+
+            if (value !== undefined) {
+                return value;
+            } else {
+                return key;
+            }
+        }
+        return param;
+    } else if (Array.isArray(param)) {
+        return param.map(item => processParam(item, context));
+    } else if (typeof param === 'object' && param !== null) {
+        const processedParam = {};
+        for (const [key, value] of Object.entries(param)) {
+            processedParam[key] = processParam(value, context);
+        }
+        return processedParam;
+    } else {
         return param;
     }
 }
@@ -1398,17 +1422,9 @@ async function applyMethodChain(target, action, context, res, req, next) {
                             } else {
                                 if (chainAction.express){
                                     if (chainAction.next || chainAction.next == undefined){
-                                        try{    
                                             result = result[chainAction.access](...chainParams)(req, res, next);
-                                        } catch (err){
-                                            console.log("next is not a constructor err:",err)
-                                        }
                                     } else {
-                                        try{
                                             result = result[chainAction.access](...chainParams)(req, res);
-                                        } catch (err){
-                                            console.log("next is not a constructor err:",err)
-                                        }
                                     }
                                 } else {
                                     try{
