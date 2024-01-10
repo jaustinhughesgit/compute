@@ -451,6 +451,7 @@ var indexRouter = require('./routes/index');
 lib.app.use('/', indexRouter);
 
 
+
 async function retrieveAndParseJSON(fileName) {
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
     const data = await lib.s3.getObject(params).promise();
@@ -480,10 +481,10 @@ async function loadJSON(req, res, next){
     next();
 }
 
-lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    const middleware = lib.json1.map(stepConfig => {
+function createMiddleware() {
+    return lib.json1.map(stepConfig => {
         console.log("middleware1");
-        return async () => {
+        return async (req, res, next) => {
             lib.req = req;
             lib.res = res;
             lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
@@ -493,18 +494,22 @@ lib.app.all('/auth/*', loadJSON, (req, res, next) => {
             await initializeModules(lib.context, stepConfig, req, res, next);
         };
     });
+}
+
+lib.app.all('/auth/*', loadJSON, (req, res, next) => {
+    const middleware = createMiddleware();
     executeMiddlewares(middleware, req, res, next);
 });
 
-//lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function executeMiddlewares(middlewares, req, res, next, index = 0) {
-    if (index < middlewares.length) {
+    //if (index < middlewares.length) {
         middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
-    } else {
-        next();
-    }
+    //} else {
+        //next();
+    //}
 }
+//lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
 function condition(left, conditions, right, operator = "&&", context) {
     console.log(1)
