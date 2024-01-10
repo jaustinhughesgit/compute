@@ -1053,8 +1053,8 @@ async function initializeModules(context, config, req, res, next) {
     }
 }
 
-async function createFunctionFromAction(action, context, req, res, next) {
-    return async function(...args) {
+function createFunctionFromAction(action, context, req, res, next) {
+    return function(...args) {
 
         let result;
         let scope = args.reduce((acc, arg, index) => {
@@ -1137,7 +1137,7 @@ async function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (runAction.next == true) {
-                        await processAction(runAction, context, req, res, next);
+                        processAction(action, context, req, res, next);
                     }
                 }
             }
