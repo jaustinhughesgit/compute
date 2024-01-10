@@ -406,7 +406,35 @@ async function getPrivateKey() {
     }
 }
 
+var cookiesRouter;
 
+lib.app.use(async (req, res, next) => {
+    if (!cookiesRouter) {
+        try {
+            const privateKey = await getPrivateKey();
+            let {setupRouter, getSub} = require('./routes/cookies')
+            cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
+            lib.app.use('/:type(cookies|url)*', function(req, res, next) {
+                req.type = req.params.type;
+                next('route');
+            }, cookiesRouter);
+            next();
+        } catch (error) {
+            console.error("Failed to retrieve private key:", error);
+            res.status(500).send("Server Error");
+        }
+    } else {
+        next();
+    }
+});
+
+var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+
+lib.app.use('/controller', controllerRouter);
+
+var indexRouter = require('./routes/index');
+
+lib.app.use('/', indexRouter);
 
 
 
@@ -416,48 +444,45 @@ async function retrieveAndParseJSON(fileName) {
     return JSON.parse(data.Body.toString());
   }
 
-/*
-function createMiddleware() {
-    return (req, res, next) => {
-        // lib.json1.map returns an array of configurations for each middleware
-        return lib.json1.map(stepConfig => {
-            console.log("middleware1");
-            return async (req, res, next) => {
-                // Setup and processing for each middleware
-                lib.req = req;
-                lib.res = res;
-                lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-                lib["urlpath"] = req.path;
-                lib.context["urlpath"] = req.path;
-                lib.context["sessionID"] = req.sessionID;
-                
-                // Call the middleware-specific initialization
-                await initializeModules(lib.context, stepConfig, req, res, next);
+var middleware = []
+lib.app.use(async (req, res, next) => {
+    let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
+    const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
+    const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
+    console.log("parent----------")
+    console.log(parent)
+    const arrayOfJSON = [];
+    let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
 
-                // Move to the next middleware
-                next();
-            };
-        });
-    };
-}
+    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
+    
+    // Use Promise.all to wait for all promises to resolve
+    const results = await Promise.all(promises);
+    
+    // Push the results into arrayOfJSON
+    results.forEach(result => arrayOfJSON.push(result));
 
-lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    const middlewareChain = createMiddleware();
-    const middlewares = middlewareChain(req, res, next);
-    executeMiddlewares(middlewares, req, res, next);
+    console.log("arrayOfJSON", arrayOfJSON)
+    
+    lib.json1 = arrayOfJSON
+    middleware = lib.json1.map(stepConfig => {
+        console.log("middleware1")
+        return async (req, res, next) => {
+            lib.req = req;
+            lib.res = res;
+            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+            lib["urlpath"] = req.path
+            lib.context["urlpath"] = req.path
+            lib.context["sessionID"] = req.sessionID
+            await initializeModules(lib.context, stepConfig, req, res, next);
+        };
+    });
+    next();
 });
 
 
-function executeMiddlewares(middlewares, req, res, next, index = 0) {
-    if (index < middlewares.length) {
-        lib.next = next
-        middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
-    } else {
-        next();
-    }
-}*/
 
-
+lib.app.all('/auth/*', middleware);
 
 
 /*
@@ -1402,86 +1427,4 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-var middleware = []
-async function loadJSON(){
-    const middlewareArray = [ async (req, res, next) => {
-    let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
-    const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
-    const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
-    console.log("parent----------")
-    console.log(parent)
-    const arrayOfJSON = [];
-    let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
-
-    const promises = fileArray.map(fileName => retrieveAndParseJSON(fileName));
-    
-    // Use Promise.all to wait for all promises to resolve
-    const results = await Promise.all(promises);
-    
-    // Push the results into arrayOfJSON
-    results.forEach(result => arrayOfJSON.push(result));
-
-    console.log("arrayOfJSON", arrayOfJSON)
-    
-    lib.json1 = arrayOfJSON
-    middleware = lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            // Setup and processing for each middleware
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path;
-            lib.context["urlpath"] = req.path;
-            lib.context["sessionID"] = req.sessionID;
-            
-            // Call the middleware-specific initialization
-            await initializeModules(lib.context, stepConfig, req, res, next);
-
-            // Move to the next middleware
-            next();
-        };
-    });
-    next();
-}]
-return middlewareArray
-}
-
-
-async function initializeApp() {
-    var cookiesRouter;
-
-    await lib.app.use(async (req, res, next) => {
-        if (!cookiesRouter) {
-            try {
-                const privateKey = await getPrivateKey();
-                let {setupRouter, getSub} = require('./routes/cookies')
-                cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
-                lib.app.use('/:type(cookies|url)*', function(req, res, next) {
-                    req.type = req.params.type;
-                    next('route');
-                }, cookiesRouter);
-                next();
-            } catch (error) {
-                console.error("Failed to retrieve private key:", error);
-                res.status(500).send("Server Error");
-            }
-        } else {
-            next();
-        }
-    });
-
-    var controllerRouter = await require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
-
-    await lib.app.use('/controller', controllerRouter);
-
-    var indexRouter = await require('./routes/index');
-
-    await lib.app.use('/', indexRouter);
-    const middlewareArray = await loadJSON();
-    lib.app.use(middlewareArray);
-    await lib.app.all('/auth/*', ...middleware)
-}
-
-initializeApp();
 module.exports.lambdaHandler = serverless(lib.app);
