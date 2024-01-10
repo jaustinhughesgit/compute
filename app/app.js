@@ -984,38 +984,50 @@ async function processAction(action, context, req, res, next) {
     }
 }
 
-async function initializeModules(context, config, req, res, next) {
-    require('module').Module._initPaths();
-    for (const action of config.actions) {
-        if (action != undefined){
-            let runAction = true;
-            if (action.if) {
-                runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
-            } else if (action.ifs) {
-                //console.log(action.ifs)
-                for (const ifObject of action.ifs) {
-                    //console.log("ifObject", ifObject)
-                    runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
-                    //console.log("runAction",runAction)
-                    if (!runAction) {
+async function runAction(action, context, req, res, next){
+    if (action != undefined){
+        let runAction = true;
+        if (action.if) {
+            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
+        } else if (action.ifs) {
+            //console.log(action.ifs)
+            for (const ifObject of action.ifs) {
+                //console.log("ifObject", ifObject)
+                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
+                //console.log("runAction",runAction)
+                if (!runAction) {
+                    break;
+                }
+            }
+        }
+
+        if (runAction) {
+            if (action.set) {
+                for (const key in action.set) {
+                    
+                    context[key] = replacePlaceholders(action.set[key], context);
+                }
+            }
+
+            if (action.while) {
+                let whileChecker = 0
+                let LEFT = action.while[0]
+                let RIGHT = action.while[2]
+                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
+                        await processAction(action, context, req, res, next);
+                    whileChecker++;
+                    if (whileChecker == 10){
                         break;
                     }
                 }
             }
 
-            if (runAction) {
-                if (action.set) {
-                    for (const key in action.set) {
-
-                        context[key] = replacePlaceholders(action.set[key], context);
-                    }
-                }
-
-                if (action.while) {
-                    let whileChecker = 0
-                    let LEFT = action.while[0]
-                    let RIGHT = action.while[2]
-                    while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
+            if (action.whiles) {
+                let whileChecker = 0
+                for (const whileCondition of action.whiles) {
+                    while (condition(replacePlaceholders(whileCondition[0], context), 
+                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
+                                    null, "&&", context)) {
                             await processAction(action, context, req, res, next);
                         whileChecker++;
                         if (whileChecker == 10){
@@ -1023,33 +1035,28 @@ async function initializeModules(context, config, req, res, next) {
                         }
                     }
                 }
-
-                if (action.whiles) {
-                    let whileChecker = 0
-                    for (const whileCondition of action.whiles) {
-                        while (condition(replacePlaceholders(whileCondition[0], context), 
-                                        [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
-                                        null, "&&", context)) {
-                                await processAction(action, context, req, res, next);
-                            whileChecker++;
-                            if (whileChecker == 10){
-                                break;
-                            }
-                        }
-                    }
-                }
-
-                if (!action.while){
-                    await processAction(action, context, req, res, next);
-                }
-                if (action.assign && action.params) {
-                    continue;
-                }
-
-                if (action.execute) {
-                    continue; 
-                }
             }
+
+            if (!action.while){
+                await processAction(action, context, req, res, next);
+            }
+            if (action.assign && action.params) {
+                return "continue";
+            }
+
+            if (action.execute) {
+                return "continue";
+            }
+        }
+    }
+}
+
+async function initializeModules(context, config, req, res, next) {
+    require('module').Module._initPaths();
+    for (const action of config.actions) {
+        let runResponse = runAction(action, context, req, res, next);
+        if (runResponse == "contune"){
+            continue
         }
     }
 }
@@ -1097,18 +1104,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                if (typeof runAction.access === 'string') {
-                    if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
-                        const methodName = runAction.access.slice(2, -2);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...runParams);
-                        }
-                    } else {
-                        await processAction(runAction, context, req, res, next)
-                    }
-                } else {
-                    await processAction(runAction, context, req, res, next)
-                }
+                await runAction(runAction, context, req, res, next)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
