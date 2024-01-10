@@ -754,7 +754,7 @@ lib.json2 = [
                             "{{callbackFunction2}}"
                         ],
                         "express": true,
-                        "next": false
+                        "next": true
                     }
                 ],
                 "assign": "newAuthentication2"
