@@ -1006,6 +1006,7 @@ async function initializeModules(context, config, req, res, next) {
             if (runAction) {
                 if (action.set) {
                     for (const key in action.set) {
+
                         context[key] = replacePlaceholders(action.set[key], context);
                     }
                 }
@@ -1096,7 +1097,18 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                await processAction(runAction, context, req, res, next)
+                if (typeof runAction.access === 'string') {
+                    if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
+                        const methodName = runAction.access.slice(2, -2);
+                        if (typeof scope[methodName] === 'function') {
+                            result = scope[methodName](...runParams);
+                        }
+                    } else {
+                        await processAction(runAction, context, req, res, next)
+                    }
+                } else {
+                    await processAction(runAction, context, req, res, next)
+                }
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
