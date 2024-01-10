@@ -406,35 +406,7 @@ async function getPrivateKey() {
     }
 }
 
-var cookiesRouter;
 
-lib.app.use(async (req, res, next) => {
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
-            lib.app.use('/:type(cookies|url)*', function(req, res, next) {
-                req.type = req.params.type;
-                next('route');
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
-});
-
-var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
-
-lib.app.use('/controller', controllerRouter);
-
-var indexRouter = require('./routes/index');
-
-lib.app.use('/', indexRouter);
 
 
 
@@ -1474,6 +1446,35 @@ async function loadJSON(req, res, next){
 
 
 async function initializeApp() {
+    var cookiesRouter;
+
+    await lib.app.use(async (req, res, next) => {
+        if (!cookiesRouter) {
+            try {
+                const privateKey = await getPrivateKey();
+                let {setupRouter, getSub} = require('./routes/cookies')
+                cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
+                lib.app.use('/:type(cookies|url)*', function(req, res, next) {
+                    req.type = req.params.type;
+                    next('route');
+                }, cookiesRouter);
+                next();
+            } catch (error) {
+                console.error("Failed to retrieve private key:", error);
+                res.status(500).send("Server Error");
+            }
+        } else {
+            next();
+        }
+    });
+
+    var controllerRouter = await require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+
+    await lib.app.use('/controller', controllerRouter);
+
+    var indexRouter = await require('./routes/index');
+
+    await lib.app.use('/', indexRouter);
     await lib.app.use(loadJSON);
     await lib.app.all('/auth/*', ...middleware)
 }
