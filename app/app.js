@@ -444,7 +444,7 @@ async function retrieveAndParseJSON(fileName) {
     return JSON.parse(data.Body.toString());
   }
 
-var middleware = []
+let middleware
 lib.app.use(async (req, res, next) => {
     if (req.path.startsWith('/auth')) {
     console.log("req.path",req.path)
