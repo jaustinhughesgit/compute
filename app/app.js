@@ -1474,7 +1474,7 @@ async function loadJSON(req, res, next){
 
 
 async function initializeApp() {
-    await app.use(loadJSON);
+    await lib.app.use(loadJSON);
     await lib.app.all('/auth/*', ...middleware)
 }
 
