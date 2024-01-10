@@ -1479,7 +1479,7 @@ async function initializeApp() {
 
     await lib.app.use('/', indexRouter);
     const middlewareArray = await loadJSON();
-    app.use(middlewareArray);
+    lib.app.use(middlewareArray);
     await lib.app.all('/auth/*', ...middleware)
 }
 
