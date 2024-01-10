@@ -509,7 +509,7 @@ function executeMiddlewares(middlewares, req, res, next, index = 0) {
     }
 }
 */
-const json2 = [
+lib.json2 = [
     {
         "modules": {
             "passport": "passport",
