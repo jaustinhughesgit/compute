@@ -500,12 +500,12 @@ lib.app.all('/auth/*', (req, res, next) => {
             if (index < middlewareCache.length) {
                 middlewareCache[index](req, res, () => runMiddleware(index + 1));
             } else {
-                //next();
+                next();
             }
         };
         runMiddleware(0);
     } else {
-        //next();
+        next();
     }
 });
 
@@ -1092,10 +1092,12 @@ function createFunctionFromAction(action, context, req, res, next) {
         }
         if (action.run) {
             for (const runAction of action.run) {
-                const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
+                /*const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
-                }) : [];
+                }) : [];*/
                 console.log("runAction", runAction)
+                processAction(runAction, context, req, res, next)
+                /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
                         console.log("starts with {{")
@@ -1136,9 +1138,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                             console.error(`Callback method ${methodName} is not a function`);
                             return;
                         }
-                    } else if (runAction.next == true) {
-                        processAction(action, context, req, res, next);
-                    }
+                    } else if (runAction.access == "next") {
+                        next();
+                    }*/
                 }
             }
         }
