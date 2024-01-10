@@ -984,7 +984,7 @@ async function processAction(action, context, req, res, next) {
     }
 }
 
-async function runAction(action, context, req, res, next){
+async function runActionFunction(action, context, req, res, next){
     if (action != undefined){
         let runAction = true;
         if (action.if) {
@@ -1055,7 +1055,7 @@ async function runAction(action, context, req, res, next){
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = await runAction(action, context, req, res, next);
+        let runResponse = await runActionFunction(action, context, req, res, next);
         if (runResponse == "contune"){
             continue
         }
@@ -1105,7 +1105,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                     return replaceParams(param, context, scope, args);
                 }) : [];*/
                 console.log("runAction", runAction)
-                await runAction(runAction, context, req, res, next)
+                await runActionFunction(runAction, context, req, res, next)
                 /*
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
