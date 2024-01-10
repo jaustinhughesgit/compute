@@ -450,20 +450,6 @@ var indexRouter = require('./routes/index');
 
 lib.app.use('/', indexRouter);
 
-function createMiddleware() {
-    return lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, next);
-        };
-    });
-}
 
 async function retrieveAndParseJSON(fileName) {
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
@@ -495,7 +481,18 @@ async function loadJSON(req, res, next){
 }
 
 lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    const middleware = createMiddleware();
+    const middleware = lib.json1.map(stepConfig => {
+        console.log("middleware1");
+        return async () => {
+            lib.req = req;
+            lib.res = res;
+            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+            lib["urlpath"] = req.path
+            lib.context["urlpath"] = req.path
+            lib.context["sessionID"] = req.sessionID
+            await initializeModules(lib.context, stepConfig, req, res, next);
+        };
+    });
     executeMiddlewares(middleware, req, res, next);
 });
 
