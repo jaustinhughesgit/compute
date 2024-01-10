@@ -1096,9 +1096,10 @@ function createFunctionFromAction(action, context, req, res, next) {
                 const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
                     return replaceParams(param, context, scope, args);
                 }) : [];
-
+                console.log("runAction", runAction)
                 if (typeof runAction.access === 'string') {
                     if (runAction.access.startsWith('{{')) {
+                        console.log("starts with {{")
                         if (runAction.add && typeof runAction.add === 'number'){
                             const contextKey = runAction.access.slice(2, -2);
                             let val = replacePlaceholders(runAction.access, context);
@@ -1137,7 +1138,9 @@ function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (runAction.access == "next") {
-                        lib.next();
+                        console.log("next()")
+                        console.log(next)
+                        next();
                     }
                 }
             }
