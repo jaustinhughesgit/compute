@@ -476,6 +476,7 @@ async function retrieveAndParseJSON(fileName) {
                 lib["urlpath"] = req.path.split("?")[0];
                 lib.context["urlpath"] = req.path.split("?")[0];
                 lib.context["sessionID"] = req.sessionID;
+                lib.next = next;
                 await initializeModules(lib.context, stepConfig, req, res, next);
             };
         });
@@ -1136,7 +1137,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                             return;
                         }
                     } else if (runAction.access == "next") {
-                        next();
+                        lib.next();
                     }
                 }
             }
