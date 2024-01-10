@@ -482,34 +482,42 @@ async function loadJSON(req, res, next){
 }
 
 function createMiddleware() {
-    return lib.json1.map(stepConfig => {
-        console.log("middleware1");
-        return async (req, res, next) => {
-            lib.req = req;
-            lib.res = res;
-            lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-            lib["urlpath"] = req.path
-            lib.context["urlpath"] = req.path
-            lib.context["sessionID"] = req.sessionID
-            await initializeModules(lib.context, stepConfig, req, res, lib.next);
-        };
-    });
+    return (req, res, next) => {
+        // lib.json1.map returns an array of configurations for each middleware
+        return lib.json1.map(stepConfig => {
+            console.log("middleware1");
+            return async (req, res, next) => {
+                // Setup and processing for each middleware
+                lib.req = req;
+                lib.res = res;
+                lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
+                lib["urlpath"] = req.path;
+                lib.context["urlpath"] = req.path;
+                lib.context["sessionID"] = req.sessionID;
+                
+                // Call the middleware-specific initialization
+                await initializeModules(lib.context, stepConfig, req, res, next);
+
+                // Move to the next middleware
+                next();
+            };
+        });
+    };
 }
 
 lib.app.all('/auth/*', loadJSON, (req, res, next) => {
-    lib.next = next
-    const middleware = createMiddleware();
+    const middlewareChain = createMiddleware();
+    const middlewares = middlewareChain(req, res, next);
     executeMiddlewares(middleware, req, res, next);
 });
 
 
 function executeMiddlewares(middlewares, req, res, next, index = 0) {
-    //if (index < middlewares.length) {
-        
+    if (index < middlewares.length) {
         middlewares[index](req, res, () => executeMiddlewares(middlewares, req, res, next, index + 1));
-    //} else {
-        //next();
-    //}
+    } else {
+        next();
+    }
 }
 //lib.app.all('/auth/*', ...middleware1, ...middleware2);
 
