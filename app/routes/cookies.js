@@ -451,7 +451,7 @@ async function linkEntities(childID, parentID){
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
     console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
-    const reqPath = req.apiGateway.event.path
+    const reqPath = req.apiGateway.event.path.split("?")[0]
     const action = reqPath.split("/")[2]
     const requestBody = req.body;  
     var response = {}

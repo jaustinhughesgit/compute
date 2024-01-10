@@ -449,12 +449,12 @@ async function retrieveAndParseJSON(fileName) {
     if (req.path.startsWith('/auth')) {
         console.log("req.path",req.path)
         let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
-        const head = await getHead("su", req.path.split("/")[2], lib.dynamodb)
+        const head = await getHead("su", req.path.split("/")[2].split("?")[0], lib.dynamodb)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
         console.log("parent----------")
         console.log(parent)
         const arrayOfJSON = [];
-        let fileArray = parent.paths[req.path.split("/")[2]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
+        let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
     
         const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
         
