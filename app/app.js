@@ -496,6 +496,7 @@ lib.app.use(async (req, res, next) => {
 
 lib.app.all('/auth/*', (req, res, next) => {
     lib.next = next;
+    console.log("next!",JSON.stringify(next))
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
@@ -1139,7 +1140,7 @@ function createFunctionFromAction(action, context, req, res, next) {
                         }
                     } else if (runAction.access == "next") {
                         console.log("next()")
-                        console.log(next)
+                        console.log(JSON.stringify(next))
                         next();
                         break;
                         next();
