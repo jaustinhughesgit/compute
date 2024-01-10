@@ -445,7 +445,7 @@ async function retrieveAndParseJSON(fileName) {
   }
 
 
-  async function initializeMiddleware() {
+  async function initializeMiddleware(req, res, next) {
     if (req.path.startsWith('/auth')) {
         console.log("req.path",req.path)
         let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
@@ -487,7 +487,7 @@ let middlewareCache = [];
 
 lib.app.use(async (req, res, next) => {
     if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
-        middlewareCache = await initializeMiddleware();
+        middlewareCache = await initializeMiddleware(req, res, next);
         isMiddlewareInitialized = true;
     }
     next();
