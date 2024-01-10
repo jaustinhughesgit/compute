@@ -481,7 +481,7 @@ async function loadJSON(req, res, next){
 }
 
 
-lib.app.all('/auth/*', loadJSON, middleware)
+lib.app.all('/auth/*', loadJSON, middleware[0], middleware[1], middleware[2] )
 
 /*
 lib.json2 = [
