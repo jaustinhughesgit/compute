@@ -147,14 +147,21 @@ function getNestedContext(context, nestedPath) {
     const parts = nestedPath.split('.');
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
+        console.log("tempContext",tempContext)
         for (let part of parts) {
+            console.log("part", part, parts)
+            console.log("tempContext[part]",tempContext[part])
             if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
                 tempContext[part] = {"value":{}, "context":{}};
             }
+            console.log("END1:", tempContext[part])
+            console.log("END2:", tempContext[part].context)
             tempContext = tempContext[part].context;
         }
+        console.log("RETURN")
         return tempContext;
     }
+    console.log("RETURN ELSE")
     return context
 }
 
