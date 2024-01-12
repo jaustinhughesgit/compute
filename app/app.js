@@ -351,18 +351,18 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
-        console.log("moduleInstance", moduleInstance)
+        //let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
+        //console.log("moduleInstance", moduleInstance)
 
-        console.log("PA:action.target", action.target)
+        //console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
-        console.log("PS:isObj", isObj)
+        //console.log("PS:isObj", isObj)
         let strClean = await removeBrackets(action.target, isObj, false);
-        console.log("PA:strClean", strClean)
+        //console.log("PA:strClean", strClean)
         let target = getKeyAndPath(strClean, nestedPath);
-        console.log("PA:target", target)
+        //console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
-        console.log("PA:nestedContext", nestedContext)
+        //console.log("PA:nestedContext", nestedContext)
         let value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
@@ -388,7 +388,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
         console.log("value", value)
         result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
-        console.log("result", result)
+        console.log("result:After", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
             console.log("assignExecuted", assignExecuted)
@@ -463,7 +463,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
     }
-
+    console.log("applyMethodChain",target, action, context, nestedPath)
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
 
     if (action.chain && result) {
@@ -505,6 +505,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                         console.log("2.2")
                         if (chainAction.access && accessClean.length != 0){
                             console.log("2.3")
+                            const methodFunction = replacePlaceholders(accessClean, context)
                             if (chainAction.express){
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
@@ -512,14 +513,14 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("accessClean", accessClean)
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
-                                        
-                                        result = result[accessClean](...chainParams)(req, res, next);
+                                        //Authenticator is not being returned with session here.
+                                        result = methodFunction(...chainParams)(req, res, next);
                                 } else {
-                                        result = result[accessClean](...chainParams)(req, res);
+                                        result = methodFunction(...chainParams)(req, res);
                                 }
                             } else {
                                 try{
-                                result = result[accessClean](...chainParams);
+                                result = result(...chainParams);
                                 } catch(err){
                                     result = result
                                 }
