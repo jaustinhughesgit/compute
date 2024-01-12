@@ -510,3 +510,5 @@ function createFunctionFromAction(action, context, nestedContext, req, res, next
         return result;
     };
 }
+
+module.exports.lambdaHandler = serverless(lib.app);
