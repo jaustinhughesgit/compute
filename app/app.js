@@ -145,13 +145,14 @@ async function initializeModules(context, config, req, res, next) {
 
 function getNestedContext(context, nestedPath) {
     const parts = nestedPath.split('.');
+    console.log("parts",parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
         console.log("tempContext",tempContext)
         let partCounter = 0
         for (let part of parts) {
-            console.log("partCounter", partCounter, "parts.length()", parts.length())
-            if (partCounter < parts.length()){ //skips last path
+            console.log("partCounter", partCounter, "parts.length()", parts.length)
+            if (partCounter < parts.length){ //skips last path
                 console.log("part", part, parts)
                 console.log("tempContext[part]",tempContext[part])
                 if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
