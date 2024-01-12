@@ -268,6 +268,10 @@ async function processString(str, context, nestedPath) {
     let nestedContext = await getNestedContext(context, target.path)
     console.log("nestedContext.hasOwnProperty(strClean)",nestedContext.hasOwnProperty(strClean))
 
+
+////////////////////////////////
+
+
     console.log("nestedContext",nestedContext)
 
     if (lib[str]) {
@@ -275,13 +279,16 @@ async function processString(str, context, nestedPath) {
         console.log("4 str", str)
         return lib[str];
     }
+    console.log("1!!!")
 
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
+        console.log("2!!!!", value)
         if (value != {} && value){
             return isExecuted ? await value() : value
         }
     }
+    console.log("3!!!")
 
     if (isObj && nestedPath == "../" && lib.hasOwnProperty(target.key)){
         let value = lib[target.key].value
@@ -392,7 +399,10 @@ async function processAction(action, context, nestedPath, req, res, next) {
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
+
+        console.log("BEFORE::::::")
         nestedContext[target.key].value = await replacePlaceholders(target.key, context, nestedPath);
+        console.log("AFTER::::::::")
         let args = [];
 
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
