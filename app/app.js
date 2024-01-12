@@ -387,7 +387,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
         console.log("PA:nestedContext", nestedContext)
-        if (nestedContext.hasOwnProperty(target.key)){
+        if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
         nestedContext[target.key].value = await replacePlaceholders(target.key, context, nestedPath);
