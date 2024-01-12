@@ -348,6 +348,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
         let value = nestedContext[target.value]?.value;
         let args = [];
 
+        let moduleInstance = replacePlaceholders(action.target, context);
+
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
         if (value){
             if (action.from) {
@@ -367,8 +369,24 @@ async function processAction(action, context, nestedPath, req, res, next) {
                  value = value(...args); 
             }
         }
+
+        let result;
+        if (typeof moduleInstance === 'function') {
+            console.log("moduleINstance is a function")
+            if (args.length == 0) {
+                console.log("args length is 0")
+                result = moduleInstance;
+            } else {
+                console.log("args length > 0")
+                result = moduleInstance(...args); 
+            }
+        } else {
+            console.log("moduleInstance is not a function")
+            result = moduleInstance;
+        }
+
         console.log("value", value)
-        let result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
+        result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
         console.log("result", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
