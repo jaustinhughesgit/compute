@@ -459,6 +459,11 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
 async function applyMethodChain(target, action, context, nestedPath, res, req, next) {
     let result = target;
+    if (nestedPath == "") {
+        nestedPath = action.target
+    } else {
+        nestedPath += "." + action.target
+    }
     console.log("typeof result", typeof result)
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
