@@ -349,7 +349,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
                  value = value(...args); 
             }
         }
-
+        console.log("value", value)
         let result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
         console.log("result", result)
         if (action.assign) {
@@ -422,7 +422,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
 async function applyMethodChain(target, action, context, nestedPath, res, req, next) {
     let result = target;
-
+    console.log("typeof result", typeof result)
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
     }
@@ -446,23 +446,32 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
 
             let accessClean = chainAction.access
             if (accessClean){
+                console.log("1")
                 const isObj = isOnePlaceholder(accessClean)
+                console.log("1:isObj", isObj)
                 accessClean = removeBrackets(accessClean, isObj, false);
+                console.log("1:accessClean", accessClean)
             }
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
                 result = instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
+                console.log("2")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
+                    console.log("2.1")
                     if (chainAction.new) {
                         result = new result[accessClean](...chainParams);
                     } else {
+                        console.log("2.2")
                         if (chainAction.access && accessClean.length != 0){
+                            console.log("2.3")
                             if (chainAction.express){
+                                console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
+                                    console.log("2.5")
                                         result = result[accessClean](...chainParams)(req, res, next);
                                 } else {
                                         result = result[accessClean](...chainParams)(req, res);
