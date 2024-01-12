@@ -267,9 +267,7 @@ async function processString(str, context, nestedPath) {
     console.log("target", target)
     let nestedContext = await getNestedContext(context, target.path)
     console.log("nestedContext.hasOwnProperty(strClean)",nestedContext.hasOwnProperty(strClean))
-    if (!nestedContext.hasOwnProperty(strClean)){
-        nestedContext[strClean] = {"value":{}, "context":{}}
-    }
+
     console.log("nestedContext",nestedContext)
 
     if (lib[str]) {
@@ -294,7 +292,10 @@ async function processString(str, context, nestedPath) {
 
     // IN THE OLD V0.6 IT HAS CONDITIONS FOR LIB.MODULES.HASOWNPROPERTY. WE CAN USE THIS HERE INSTEAD.
 
-    try {
+    try {    
+        if (!nestedContext.hasOwnProperty(strClean)){
+            nestedContext[strClean] = {"value":{}, "context":{}}
+        }
         console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
         if (require.resolve("/tmp/node_modules/"+target.key)) {
             console.log("8 /tmp/node_modules/"+target.key)
