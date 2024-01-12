@@ -200,8 +200,10 @@ function checkCondition(left, condition, right, context, nestedPath) {
 }
 
 function replacePlaceholders(item, context, nestedPath) {
+    console.log("replacePlaceholders", item, context, nestedPath) 
     let processedItem = item;
     if (typeof processedItem === 'string') {
+        console.log("string")
         processedItem = processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
         processedItem =  processedItem.map(element => replacePlaceholders(element, context, nestedPath));
@@ -350,8 +352,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
         let value = nestedContext[target.value]?.value;
         let args = [];
 
-        let moduleInstance = replacePlaceholders(action.target, context);
-
+        let moduleInstance = replacePlaceholders(action.target, context, nestedPath);
+        console.log("moduleInstance", moduleInstance)
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
         if (value){
             if (action.from) {
