@@ -164,6 +164,7 @@ function getNestedContext(context, nestedPath) {
             }
         }
         console.log("RETURN")
+        tempContext[parts[parts.length-1]] = {"value":{}, "context":{}}
         return tempContext;
     }
     console.log("RETURN ELSE")
