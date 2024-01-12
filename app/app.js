@@ -95,19 +95,15 @@ async function retrieveAndParseJSON(fileName) {
     return JSON.parse(data.Body.toString());
 }
 
-async function processConfig(config, initialContext) {
+async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
-    for (const [key, value] of Object.entries(config.modules, context)) {
-        console.log("key", key)
-        console.log("value", value)
-        let newPath = await installModule(value, context);
-        console.log("newPath-2", newPath)
+    for (const [key, value] of Object.entries(config.modules, lib)) {
+        let newPath = await installModule(value, context, lib);
     }
-    console.log("context-2",context)
     return context;
 }
 
-async function installModule(moduleName, context) {
+async function installModule(moduleName, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
     await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
     return "/tmp/node_modules/"+moduleName
@@ -250,6 +246,12 @@ function processString(str, context, nestedPath) {
     console.log("target", target)
     let nestedContext = getNestedContext(context, target.path)
     console.log("nestedContextnestedContext")
+
+    if (lib[str]) {
+        console.log("3 lib", lib)
+        console.log("4 str", str)
+        return lib[str];
+    }
 
     if (isObj && nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
