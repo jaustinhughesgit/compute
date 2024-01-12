@@ -516,7 +516,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                             const methodFunction = await replacePlaceholders(accessClean, context, nestedPath)
                             console.log("methodFunction", methodFunction)
                             let nestedContext = await getNestedContext(context, nestedPath);
-                            nestedContext[accessClean] = methodFunction
+                            nestedContext[accessClean].value = methodFunction
                             console.log("new nestedContext", nestedContext)
                             if (chainAction.express){
                                 console.log("2.4")
@@ -526,13 +526,13 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
                                         //Authenticator is not being returned with session here.
-                                        result = nestedContext[accessClean](...chainParams)(req, res, next);
+                                        result = nestedContext[accessClean].value(...chainParams)(req, res, next);
                                 } else {
-                                        result = nestedContext[accessClean](...chainParams)(req, res);
+                                        result = nestedContext[accessClean].value(...chainParams)(req, res);
                                 }
                             } else {
                                 try{
-                                result = nestedContext[accessClean](...chainParams);
+                                result = nestedContext[accessClean].value(...chainParams);
                                 } catch(err){
                                     result = result
                                 }
@@ -552,6 +552,10 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
 }
 
 function createFunctionFromAction(action, context, nestedContext, req, res, next) {
+    console.log("----------")
+    console.log("----------")
+    console.log("----------")
+    console.log("createFunctionFromAction", action, context, nestedContext)
     return async function(...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
@@ -567,9 +571,14 @@ function createFunctionFromAction(action, context, nestedContext, req, res, next
                 let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
                 let param = getKeyAndPath(paramClean, nestedPath);
                 let nestedContext = await getNestedContext(context, param.path);
+                console.log("cFFA nestedContext",nestedContext)
+                console.log("cFFA paramExecuted",paramExecuted)
+                console.log("cFFA param",param)
                 if (paramExecuted && paramObj && typeof arg === "function"){
+                    console.log("is a function")
                     nestedContext[param.value] = arg();
                 } else {
+                    console.log("is not a function", arg)
                     nestedContext[param.value] = arg;
                 }
             }
