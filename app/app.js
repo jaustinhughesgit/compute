@@ -249,7 +249,7 @@ async function processString(str, context, nestedPath) {
     let target = getKeyAndPath(strClean, nestedPath)
     console.log("target", target)
     let nestedContext = await getNestedContext(context, target.path)
-    console.log("nestedContextnestedContext")
+    console.log("nestedContext",nestedContext)
 
     if (lib[str]) {
         console.log("3 lib", lib)
@@ -505,7 +505,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                         console.log("2.2")
                         if (chainAction.access && accessClean.length != 0){
                             console.log("2.3")
-                            const methodFunction = replacePlaceholders(accessClean, context)
+                            const methodFunction = replacePlaceholders(accessClean, context, nestedPath)
                             if (chainAction.express){
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
