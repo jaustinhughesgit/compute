@@ -1,50 +1,36 @@
 var express = require('express');
 const serverless = require('serverless-http');
+// SEE IF WE CAN INCORPORATE LIB INTO EACH INITIAL WEB CALL SO IT'S NOT EXPOSED TO OTHER USERS WHO USE THE INVOKE!!!!!!!!!!!!!!!!!!!!!
 let lib = {};
 lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
 lib.root = {}
+lib.process = process
 lib.root.session = require('express-session');
 lib.fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 lib.uuidv4 = uuidv4
 const { promisify } = require('util');
 lib.exec = promisify(require('child_process').exec);
-let loadMods = require('./scripts/processConfig.js')
-
-lib.app.use(lib.root.session({
-    secret: process.env.SESSION_SECRET,
-    resave: false,
-    saveUninitialized: true,
-    cookie: { secure: true } 
-}));
-
+lib.app.use(lib.root.session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
 lib.app.set('views', lib.path.join(__dirname, 'views'));
 lib.app.set('view engine', 'ejs');
-
 lib.AWS.config.update({ region: 'us-east-1' });
 lib.dynamodbLL = new lib.AWS.DynamoDB();
 lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
 lib.SM = new lib.AWS.SecretsManager();
 lib.s3 = new lib.AWS.S3();
-
-lib.process = process
-
-async function getPrivateKey() {
-    const secretName = "public/1var/s3";
-    try {
-        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
-        const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
-        return pKey
-    } catch (error) {
-        console.error("Error fetching secret:", error);
-        throw error;
-    }
-}
-
+let isMiddlewareInitialized = false;
+let middlewareCache = [];
+let whileLimit = 100;
 var cookiesRouter;
+var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+var indexRouter = require('./routes/index');
+
+lib.app.use('/controller', controllerRouter);
+
+lib.app.use('/', indexRouter);
 
 lib.app.use(async (req, res, next) => {
     if (!cookiesRouter) {
@@ -65,64 +51,6 @@ lib.app.use(async (req, res, next) => {
         next();
     }
 });
-
-var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
-
-lib.app.use('/controller', controllerRouter);
-
-var indexRouter = require('./routes/index');
-
-lib.app.use('/', indexRouter);
-
-
-
-async function retrieveAndParseJSON(fileName) {
-    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
-    const data = await lib.s3.getObject(params).promise();
-    return JSON.parse(data.Body.toString());
-  }
-
-
-  async function initializeMiddleware(req, res, next) {
-    if (req.path.startsWith('/auth')) {
-        console.log("req.path",req.path)
-        let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
-        const head = await getHead("su", req.path.split("/")[2].split("?")[0], lib.dynamodb)
-        const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
-        console.log("parent----------")
-        console.log(parent)
-        const arrayOfJSON = [];
-        let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]]; //["cf5728e1-856e-4417-82e9-ca3660babde8", "52af4786-0bfb-4731-8212-f0dfb040789f", "5761cc66-7614-4cd5-9d2e-2653b9acb70b"]////////////////////////////////////////////////////
-    
-        const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
-        
-        // Use Promise.all to wait for all promises to resolve
-        const results = await Promise.all(promises);
-        
-        // Push the results into arrayOfJSON
-        await results.forEach(result => arrayOfJSON.push(result));
-    
-        console.log("arrayOfJSON", arrayOfJSON)
-        
-        lib.json1 = arrayOfJSON
-        return lib.json1.map(stepConfig => {
-            return async (req, res, next) => {
-                console.log("middleware1");
-                lib.req = req;
-                lib.res = res;
-                lib.context = await loadMods.processConfig(stepConfig, lib.context, lib);
-                lib["urlpath"] = req.path.split("?")[0];
-                lib.context["urlpath"] = req.path.split("?")[0];
-                lib.context["sessionID"] = req.sessionID;
-                lib.next = next;
-                await initializeModules(lib.context, stepConfig, req, res, next);
-            };
-        });
-    }
-}
-
-let isMiddlewareInitialized = false;
-let middlewareCache = [];
 
 lib.app.use(async (req, res, next) => {
     if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
@@ -147,39 +75,108 @@ lib.app.all('/auth/*', (req, res, next) => {
     }
 });
 
-function condition(left, conditions, right, operator = "&&", context) {
-    console.log(1)
-    if (arguments.length === 1) {
-        console.log(2)
-        return !!left;
+async function getPrivateKey() {
+    const secretName = "public/1var/s3";
+    try {
+        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
+        const secret = JSON.parse(data.SecretString);
+        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
+        return pKey
+    } catch (error) {
+        console.error("Error fetching secret:", error);
+        throw error;
     }
+}
+
+async function retrieveAndParseJSON(fileName) {
+    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
+    const data = await lib.s3.getObject(params).promise();
+    return JSON.parse(data.Body.toString());
+}
+
+async function processConfig(userJSON, initialContext) {
+    const context = { ...initialContext };
+    for (const [key, value] of Object.entries(userJSON.modules)) {
+        await installModule(value, context);
+    }
+    return context;
+}
+
+async function installModule(moduleName, context) {
+    const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
+    lib.modules[moduleName] = moduleName
+    await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
+    return "/tmp/node_modules/"+moduleName
+}
+
+async function initializeMiddleware(req, res, next) {
+    //maybe we don't need res or next. delete them later and check!
+    if (req.path.startsWith('/auth')) {
+        let {setupRouter, getHead, convertToJSON} = require('./routes/cookies')
+        const head = await getHead("su", req.path.split("/")[2].split("?")[0], lib.dynamodb)
+        const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
+        let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
+        const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
+        const results = await Promise.all(promises);
+        const arrayOfJSON = [];
+        await results.forEach(result => arrayOfJSON.push(result));
+        return arrayOfJSON.map(userJSON => {
+            return async (req, res, next) => {
+                lib.context = await processConfig(userJSON, lib.context, lib);
+                lib.context["urlpath"] = req.path.split("?")[0];
+                lib.context["sessionID"] = req.sessionID;
+                await initializeModules(lib.context, userJSON, req, res, next);
+            };
+        });
+    }
+}
+
+async function initializeModules(context, config, req, res, next) {
+    require('module').Module._initPaths();
+    for (const action of config.actions) {
+        let runResponse = await runAction(action, context, "",req, res, next);
+        if (runResponse == "contune"){
+            continue
+        }
+    }
+}
+
+function getNestedContext(context, nestedPath) {
+    const parts = nestedPath.split('.');
+    if (nestedPath && nestedPath != ""){
+        let tempContext = context;
+        for (let part of parts) {
+            if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
+                current[part] = {"value":{}, "context":{}};
+            }
+            tempContext = tempContext[part].context;
+        }
+    }
+    return tempContext;
+}
+
+function condition(left, conditions, right, operator = "&&", context, nestedPath) {
+    //need an updated condition for if left is the only argument then return it's value (bool or truthy)
 
     if (!Array.isArray(conditions)) {
-        console.log(3)
         conditions = [{ condition: conditions, right: right }];
     }
 
     return conditions.reduce((result, cond) => {
-        console.log(4)
-        const currentResult = checkCondition(left, cond.condition, cond.right, context);
+        const currentResult = checkCondition(left, cond.condition, cond.right, context, nestedPath);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
             return result || currentResult;
         } else {
-            throw new Error("Invalid operator");
+            console.log("Invalid operator");
         }
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right, context) {
-    //console.log(5)
-    //console.log("left1", left)
-    left = replacePlaceholders(left, context)
-    //console.log("left2",left)
-    //console.log("right1", right)
-    right = replacePlaceholders(right, context)
-    //console.log("right2",right)
+function checkCondition(left, condition, right, context, nestedPath) {
+    left = replacePlaceholders(left, context, nestedPath)
+    right = replacePlaceholders(right, context, nestedPath)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -201,119 +198,78 @@ function checkCondition(left, condition, right, context) {
     }
 }
 
-async function processAction(action, context, req, res, next) {
-    if (action.target) {
-        //console.log("getModuleInstance")
-        let moduleInstance = replacePlaceholders(action.target, context);
-        //console.log("moduleInstance", moduleInstance)
-        let args = [];
-                if (action.from) {
-                    args = action.from.map(item => {
-                        let isFunctionExecution = item.endsWith('!');
-                        let key = isFunctionExecution ? item.slice(2, -3) : item.slice(2, -2);
-                        let value = context[key];
-                
-                        if (isFunctionExecution && typeof value === 'function') {
-                            return value();
-                        }
-                        return value;
-                    });
-                }
-        let result;
-        if (typeof moduleInstance === 'function') {
-            console.log("moduleINstance is a function")
-            if (args.length == 0) {
-                console.log("args length is 0")
-                result = moduleInstance;
-            } else {
-                console.log("args length > 0")
-                result = moduleInstance(...args); 
-            }
-        } else {
-            console.log("moduleInstance is not a function")
-            result = moduleInstance;
-        }
-        console.log("applyMethodChain", result, action, context)
-        result = await applyMethodChain(result, action, context, res, req, next);
-        console.log("result", result)
-        if (action.assign) {
-            console.log(1, action.assign)
-            if (action.assign.includes('{{')) {
-                console.log(2)
-                let isFunctionExecution = action.assign.endsWith('!');
-                let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-                if (isFunctionExecution) {
-                    console.log(3)
-                    if (typeof result === 'function'){
-                        console.log(4)
-                        let tempFunction = () => result;
-                        context[assignKey] = tempFunction();
-                    } else {
-                        console.log(5)
-                        context[assignKey] = result
-                    }
-                } else {
-                    console.log(6)
-                    context[assignKey] = result;
-                }
-            } else {
-                console.log(7)
-                context[action.assign] = result;
-            }
-        }
-    } else if (action.assign && action.params) {
-        if (action.assign.includes('{{')) {
-            let isFunctionExecution = action.assign.endsWith('!');
-            let assignKey = isFunctionExecution ? action.assign.slice(2, -3) : action.assign.slice(2, -2);
-            //console.log("action/////", action)
-            let result = createFunctionFromAction(action, context, req, res, next)
-            //console.log("result/////",result)
-            if (isFunctionExecution) {
-                if (typeof result === 'function'){
-                    context[assignKey] =  result()
-                } else {
-                    context[assignKey] =  result;
-                }
-            } else {
-                //console.log("no !")
-                if (typeof result === 'function'){
-                    console.log("executing function", JSON.stringify(result))
-                }
-                context[assignKey] = result;
-            }
-        } else {
-            context[action.assign] = createFunctionFromAction(action, context, req, res, next)
-        }
-    } 
-    if (action.execute) {
-        const functionName = action.execute;
-        if (typeof context[functionName] === 'function') {
-            if (action.express) {
-                await context[functionName](req, res, next);
-            } else {
-                await context[functionName];
-            }
-        } else {
-            console.error(`No function named ${functionName} found in context`);
-        }
+function replacePlaceholders(item, context, nestedPath) {
+    let processedItem = item;
+    if (typeof processedItem === 'string') {
+        processedItem = processString(processedItem, context, nestedPath);
+    } else if (Array.isArray(processedItem)) {
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context, nestedPath));
     }
-    
-    if (action.next) {
-        next();
+    return processedItem;
+}
+
+function isOnePlaceholder(str) {
+    if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
+        return str.indexOf("{{", 2) === -1;
+    }
+    return false;
+}
+
+function removeBrackets(str){
+    return isObj ? str.slice(2, isExecuted ? -3 : -2) : str
+}
+
+function getKeyAndPath(str, nestedPath){
+    let val = str.split(".");
+    let key = str;
+    let path = "";
+    if (val.length > 1){
+        key = val[val.length]
+        path = str.slice(0, -1).join(".")
+    }
+    if (nestedPath != ""){
+        path = nestedPath + "." + path
+    }
+    return {key:key, path:path}
+}
+
+function processString(str, context, nestedPath) {
+    const isExecuted = str.endsWith('}}!');
+    const isObj = isOnePlaceholder(str)
+    let strClean = removeBrackets(str);
+    let target = getKeyAndPath(strClean, nestedPath)
+    let nestedContext = getNestedContext(context, target.path)
+
+    if (isObj && nestedContext.hasOwnProperty(target.key)){
+        let value = nestedContext[target.key].value
+        return isExecuted ? value() : value
+    }
+
+    if (isObj && nestedPath == "../" && lib.hasOwnProperty(target.key)){
+        let value = lib[target.key].value
+        return isExecuted ? value() : value
+    }
+
+    if (isObj && lib.modules.hasOwnProperty(target.key)){
+        return require("/tmp/node_modules/"+target.key);
+    }
+
+    if (!isObj){
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+            let target = getKeyAndPath(keyPath, nestedPath)
+            let value = getNestedContext(context, target.path)?.[target.key].value;
+            return value !== undefined ? value : match; 
+        });
     }
 }
 
-async function runActionFunction(action, context, req, res, next){
+async function runAction(action, context, nestedPath, req, res, next){
     if (action != undefined){
         let runAction = true;
+        //DON'T FORGET TO UPDATE JSON TO NOT INCLUDE THE S IN IF !!!!!!!!!!!!!!!!!!
         if (action.if) {
-            runAction = condition(action.if[0], action.if[1], action.if[2], action.if[3], context);
-        } else if (action.ifs) {
-            //console.log(action.ifs)
-            for (const ifObject of action.ifs) {
-                //console.log("ifObject", ifObject)
-                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context);
-                //console.log("runAction",runAction)
+            for (const ifObject of action.if) {
+                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context, nestedPath);
                 if (!runAction) {
                     break;
                 }
@@ -321,36 +277,14 @@ async function runActionFunction(action, context, req, res, next){
         }
 
         if (runAction) {
-            if (action.set) {
-                for (const key in action.set) {
-                    //((user)) needs to be managed in reeplacePlaceholders
-                    //it could be a function and  we'll nee to account foor that.
-                    context[key] = replacePlaceholders(action.set[key], context);
-                }
-            }
-
+            //DON"T FORGET TO UPDATE JSON TO NOT INCLUDE S IN WHILE !!!!!!!!!!!!!!!!!!!!
             if (action.while) {
-                let whileChecker = 0
-                let LEFT = action.while[0]
-                let RIGHT = action.while[2]
-                while (condition(LEFT, [{ condition: action.while[1], right: RIGHT }], null, "&&", context)) {
-                        await processAction(action, context, req, res, next);
-                    whileChecker++;
-                    if (whileChecker == 10){
-                        break;
-                    }
-                }
-            }
-
-            if (action.whiles) {
-                let whileChecker = 0
-                for (const whileCondition of action.whiles) {
-                    while (condition(replacePlaceholders(whileCondition[0], context), 
-                                    [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context) }], 
-                                    null, "&&", context)) {
-                            await processAction(action, context, req, res, next);
+                let whileCounter = 0
+                for (const whileCondition of action.while) {
+                    while (condition(replacePlaceholders(whileCondition[0], context, nestedPath), [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context, nestedPath) }], null, "&&", context, nestedPath)) {
+                        await processAction(action, context, nestedPath, req, res, next);
                         whileChecker++;
-                        if (whileChecker == 10){
+                        if (whileCounter >= whileLimit){
                             break;
                         }
                     }
@@ -358,8 +292,9 @@ async function runActionFunction(action, context, req, res, next){
             }
 
             if (!action.while){
-                await processAction(action, context, req, res, next);
+                await processAction(action, context, nestedPath, req, res, next);
             }
+
             if (action.assign && action.params) {
                 return "continue";
             }
@@ -372,411 +307,168 @@ async function runActionFunction(action, context, req, res, next){
     return ""
 }
 
-async function initializeModules(context, config, req, res, next) {
-    require('module').Module._initPaths();
-    for (const action of config.actions) {
-        let runResponse = await runActionFunction(action, context, req, res, next);
-        if (runResponse == "contune"){
-            continue
-        }
-    }
+function addValueToNestedKey(key, nestedContext, value){
+    nestedContext[key].value = value;
 }
 
-function createFunctionFromAction(action, context, req, res, next) {
-    return async function(...args) {
+async function processAction(action, context, nestedPath, req, res, next) {
 
-        let result;
-        let scope = args.reduce((acc, arg, index) => {
-            if (action.params && action.params[index]) {
-                const paramName = action.params[index].replace(/\(\(|\)\)/g, '');
-                acc[paramName] = arg;
-            }
-            return acc;
-        }, {});
-        console.log("scope", scope)
-        if (action.chain) {
-            for (const chainAction of action.chain) {
-                const chainParams = await Array.isArray(chainAction.params) ? chainAction.params.map(async param => {
-                    return await replaceParams(param, context, scope, args);
-                }) : [];
+    if (action.set) {
+        for (const key in action.set) {
+            let set = getKeyAndPath(key, nestedPath);
+            let nestedContext = getNestedContext(context, set.path);
+            addValueToNestedKey(set.key, nestedContext, replacePlaceholders(action.set[key], context, nestedPath));
+        }
+    }
 
-                if (typeof chainAction.access === 'string') {
-                    if (chainAction.access.startsWith('((') && chainAction.access.endsWith('))')) {
-                        const methodName = chainAction.access.slice(2, -2);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...chainParams);
-                        } else {
-                            console.error(`Callback method ${methodName} is not a function`);
-                            return;
-                        }
-                    } else if (result && typeof result[chainAction.access] === 'function') {
-                        //console.log("this is a function")
-                        result = result[chainAction.access](...chainParams);
-                    } else {
-                        console.error(`Method ${chainAction.access} is not a function on result`);
-                        return;
+    if (action.target) {
+        let strClean = removeBrackets(action.target);
+        let target = getKeyAndPath(strClean, nestedPath);
+        let nestedContext = getNestedContext(context, target.path);
+        let value = nestedContext[target.value]?.value;
+        let args = [];
+
+        // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
+        if (value){
+            if (action.from) {
+                args = action.from.map(item => {
+                    const fromExecuted = item.endsWith('}}!');
+                    const fromObj = isOnePlaceholder(item);
+                    let value = replacePlaceholders(item, context, nestedPath);
+                    if (fromObj && fromExecuted && typeof value === 'function') {
+                        return value();
                     }
-                }
-            }
-        }
-        if (action.run) {
-            for (const runAction of action.run) {
-                /*const runParams = Array.isArray(runAction.params) ? runAction.params.map(param => {
-                    return replaceParams(param, context, scope, args);
-                }) : [];*/
-                console.log("runAction", runAction)
-                await runActionFunction(runAction, context, req, res, next)
-                /*
-                if (typeof runAction.access === 'string') {
-                    if (runAction.access.startsWith('{{')) {
-                        console.log("starts with {{")
-                        if (runAction.add && typeof runAction.add === 'number'){
-                            const contextKey = runAction.access.slice(2, -2);
-                            let val = replacePlaceholders(runAction.access, context);
-                            if (typeof val === 'number') {
-                                result = val + runAction.add;
-                            } else {
-                                console.error(`'${contextKey}' is not a number or not found in context`);
-                            }
-                        }else if (runAction.subtract && typeof runAction.subtract === 'number'){
-                            const contextKey = runAction.access.slice(2, -2); 
-                            let val = replacePlaceholders(runAction.access, context);
-                            if (typeof val === 'number') {
-                                result = val - runAction.subtract; 
-                            } else {
-                                console.error(`'${contextKey}' is not a number or not found in context`);
-                            }
-                        } else {
-                            //console.log("runAction.access.splice(2,-2)",runAction.access.slice(2,-2))
-                            //console.log("lib.context[runAction.access.splice(2,-2)]",lib.context[runAction.access.slice(2,-2)])
-                            result = lib.context[runAction.access.slice(2,-2)]
-                            //console.log("runParams", runParams)
-
-
-                            for (const paramItem of runParams){
-                                let val = replaceParams(runParams[0], context, scope, args);
-                                //console.log("val++", val)
-                                lib.context[runAction.access.slice(2,-2)] = val
-                            }
-                        }
-                    } else if (runAction.access.startsWith('((') && runAction.access.endsWith('))')) {
-                        const methodName = runAction.access.slice(2, -2);
-                        if (typeof scope[methodName] === 'function') {
-                            result = scope[methodName](...runParams);
-                        } else {
-                            console.error(`Callback method ${methodName} is not a function`);
-                            return;
-                        }
-                    } else if (runAction.access == "next") {
-                        next();
-                    }*/
-                //}
-            }
-        }
-        return result;
-    };
-}
-
-function replaceParams(param, context, scope, args) {
-    if (param) {
-        if (typeof param === 'string'){
-            if (param.startsWith('((') && param.endsWith('))')) {
-                const paramName = param.slice(2, -2);
-                if (!isNaN(paramName)) {
-                    return args[paramName];
-                }
-
-                if (param.includes(".")){
-                    console.log("includes .")
-                    const keys = paramName.split('.');
-                    console.log("keys", keys)
-                    let value = keys.reduce((currentContext, key) => {
-                        console.log("key2", key, currentContext)
-                        if (currentContext && currentContext[key] !== undefined) {
-                            console.log("returning currentContext[key]", currentContext[key], key, currentContext)
-                            return currentContext[key];
-                        }
-                    }, lib.context);
-                    console.log("value", value)
-                    return value
-                }
-
-                return scope[paramName] || context[paramName] || param;
-            }
-        } else {
-            console.log("typeof param", typeof param)
-        }
-    }
-    return param;
-}
-
-function replacePlaceholders(item, context) {
-    //console.log("item context", item, context)
-    let processedItem = item;
-    console.log("typeof processedItem", typeof processedItem)
-    if (typeof processedItem === 'string') {
-        //console.log("processedItem typeof", processedItem)
-        processedItem = processString(processedItem, context);
-        //console.log("processedItem", processedItem)
-    } else if (Array.isArray(processedItem)) {
-        //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
-    }
-    //console.log("returning")
-    return processedItem;
-}
-
-function processString(str, context) {
-    console.log("1 str",str)
-    console.log("2 context",context)
-    let tmpStr = "";
-    if (str.startsWith('{{')) {
-        tmpStr = str.slice(2, -2);
-    } else {
-        tmpStr = str
-    }
-
-    if (lib[tmpStr]) {
-        console.log("3 lib", lib)
-        console.log("4 str", tmpStr)
-        return lib[tmpStr];
-    }
-
-    if (lib.context[tmpStr]){
-        console.log("5 lib context found", tmpStr)
-        console.log("6 lib.context[tmpStr]", lib.context[tmpStr])
-        return lib.context[tmpStr]
-    }
-
-    try {
-        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tmpStr))
-        if (require.resolve("/tmp/node_modules/"+tmpStr)) {
-            console.log("8 /tmp/node_modules/"+tmpStr)
-            return require("/tmp/node_modules/"+tmpStr);
-        }
-    } catch (e) {
-        console.error(`Module '${str}' cannot be resolved:`, e);
-    }
-
-    console.log("9 after")
-    const singlePlaceholderRegex = /^\{\{([^}]+)\}\}!?$/
-    const singleMatch = str.match(singlePlaceholderRegex);
-
-    if (singleMatch) {
-        const keyPath = singleMatch[1];
-        const isFunctionExecution = str.endsWith('}}!');
-        let value = resolveValueFromContext(keyPath, context);
-
-        if (isFunctionExecution && typeof value === 'function') {
-            return value();
-        } else {
-            return value;
-        }
-    }
-
-    return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-        let isFunctionExecution = match.endsWith('}}!');
-        if (isFunctionExecution) {
-            keyPath = keyPath.slice(0, -1); 
-        }
-        let value = resolveValueFromContext(keyPath, context);
-        if (isFunctionExecution && typeof value === 'function') {
-            return value();
-        }
-        return value !== undefined ? value : match; 
-    });
-}
-
-function resolveValueFromContext(keyPath, context, convertToString = false) {
-    const keys = keyPath.split('.');
-    let value = keys.reduce((currentContext, key) => {
-        return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-    }, context);
-    if (typeof value === 'function') {
-        value = value();
-    }
-    if (convertToString && value !== undefined) {
-        return String(value); 
-    }
-    return value;
-}
-
-
-/*
-//NEW PROCESSPARAM
-function processParam(param, context) {
-    // Handle string type parameters
-    if (typeof param === 'string') {
-        // If the parameter exactly matches "{{}}", return the whole context
-        if (param === "{{}}") {
-            return context;
-        }
-        // If the parameter contains one or more instances of "{{...}}"
-        if (param.includes('{{')) {
-            // Find all instances of "{{...}}" and replace them with the appropriate value from the context
-            return param.replace(/\{\{([^}]+)\}\}/g, (match, key) => {
-                let isFunctionExecution = key.endsWith('!');
-                let actualKey = isFunctionExecution ? key.slice(0, -1) : key;
-                let value = context[actualKey];
-
-                if (isFunctionExecution && typeof value === 'function') {
-                    return value();
-                }
-
-                return value !== undefined ? value : actualKey;
-            });
-        }
-        // If the parameter is a simple string without "{{...}}", return it as is
-        return param;
-    }
-    // Handle array type parameters
-    else if (Array.isArray(param)) {
-        return param.map(item => processParam(item, context));
-    }
-    // Handle object type parameters
-    else if (typeof param === 'object' && param !== null) {
-        const processedParam = {};
-        for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value, context);
-        }
-        return processedParam;
-    }
-    // Return the parameter as is for other types
-    else {
-        return param;
-    }
-}*/
-
-function processParam(param, context) {
-    if (typeof param === 'string') {
-        if (param == "{{}}"){
-            return context;
-        }
-        if (param.startsWith('{{')) {
-
-            let isFunctionExecution = param.endsWith('!');
-            let key = isFunctionExecution ? param.slice(2, -3) : param.slice(2, -2);
-            let value = context[key];
-
-            if (isFunctionExecution && typeof value === 'function') {
-                return value();
+                    return value;
+                });
             }
 
-            if (value !== undefined) {
-                return value;
+            if (typeof value === 'function' && args.length > 0) {
+                 value = value(...args); 
+            }
+        }
+
+        let result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
+
+        if (action.assign) {
+            const assignExecuted = action.assign.endsWith('}}!');
+            const assignObj = isOnePlaceholder(action.assign);
+            let strClean = removeBrackets(action.assign);
+            let assign = getKeyAndPath(strClean, nestedPath);
+            let nestedContext = getNestedContext(context, assign.path);
+
+            if (assignObj && assignExecuted && typeof result === 'function') {
+                let tempFunction = () => result;
+                let newResult = tempFunction()
+                addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
-                return key;
+                addValueToNestedKey(action.assign, nestedContext, result)
             }
         }
-        return param;
-    } else if (Array.isArray(param)) {
-        return param.map(item => processParam(item, context));
-    } else if (typeof param === 'object' && param !== null) {
-        const processedParam = {};
-        for (const [key, value] of Object.entries(param)) {
-            processedParam[key] = processParam(value, context);
+    } else if (action.assign && action.params) {
+        const assignExecuted = action.assign.endsWith('}}!');
+        const assignObj = isOnePlaceholder(action.assign);
+        let strClean = removeBrackets(action.assign);
+        let assign = getKeyAndPath(strClean, nestedPath);
+        let nestedContext = getNestedContext(context, assign.path);
+
+        if (assignObj) {
+            let result = createFunctionFromAction(action, context, nestedContext, req, res, next)
+
+            if (assignExecuted && typeof result === 'function'){
+                    result = result()
+            } else if (typeof result === 'function'){
+                    result = JSON.stringify(result);
+            }
+            addValueToNestedKey(assign.key, nestedContext, result);
+        } else {
+            addValueToNestedKey(action.assign, nestedContext, createFunctionFromAction(action, context, nestedContext, req, res, next));
         }
-        return processedParam;
-    } else {
-        return param;
+    } 
+
+    if (action.execute) {
+        let strClean = removeBrackets(action.assign);
+        let execute = getKeyAndPath(strClean, nestedPath);
+        let nestedContext = getNestedContext(context, execute.path);
+        let value = nestedContext[execute.value]
+        // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
+        if (typeof value === 'function') {
+            if (action.express) {
+                if (!action.next){
+                    await value.value(req, res);
+                } else {
+                    await value.value(req, res, next); 
+                }
+            } else {
+                await value.value;
+            }
+        } else {
+            console.error(`No function named ${functionName} found in context`);
+        }
+    }
+    
+    if (action.next) {
+        next();
     }
 }
 
-async function applyMethodChain(target, action, context, res, req, next) {
+async function applyMethodChain(target, action, context, nestedPath, res, req, next) {
     let result = target;
 
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
     }
 
-    if (action.access) {
-        let params;
-
-        if (action.params) {
-            params = replacePlaceholders(action.params, context);
-        } else {
-            params = [];
-        }
-        if (action.new) {
-            result = instantiateWithNew(result, params);
-        } else {
-            result = typeof result === 'function' ? result(...params) : result && typeof result[action.access] === 'function' ? result[action.access](...params) : result[action.access] === 'object' ? result[action.access] : null;
-        }
-    }
+    // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
 
     if (action.chain && result) {
         for (const chainAction of action.chain) {
+            let chainParams;
+
+            // I FORGOT ABOUT THIS RETURN CAPABILITY. IT RETURNS WHAT THE "VALUE" OF WHAT CHAINACTION.RETURN HOLDS. 
             if (chainAction.hasOwnProperty('return')) {
                 return chainAction.return;
             }
-            let chainParams;
 
             if (chainAction.params) {
-                chainParams = chainAction.params.map(param => {
-                    return processParam(param, context, true)
-                });
+                chainParams = replacePlaceholders(chainAction.params, context, nestedPath)
             } else {
                 chainParams = [];
             }
-            if (chainAction.access && !chainAction.params) {   
-                result = result[chainAction.access];
-            } else if (chainAction.new) {
-                
-                result = instantiateWithNew(result[chainAction.access], chainParams);
-            } else if (typeof result[chainAction.access] === 'function') {
-                if (chainAction.access === 'promise') {
+
+            let accessClean = chainAction.access
+            if (accessClean){
+                let accessClean = removeBrackets(accessClean);
+            }
+            if (accessClean && !chainAction.params) {
+                result = result[accessClean];
+            } else if (accessClean && chainAction.new && chainAction.params) {
+                result = instantiateWithNew(result[accessClean], chainParams);
+            } else if (typeof result[accessClean] === 'function') {
+                if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
                     if (chainAction.new) {
-                        result = new result[chainAction.access](...chainParams);
+                        result = new result[accessClean](...chainParams);
                     } else {
-                        console.log("ELSE result", result)
-                        console.log("ELSE chainAction.access", chainAction.access)
-                        console.log("ELSE chainParams", chainParams)
-                        console.log("z1")
-                        if (chainAction.access && chainAction.access.length != 0){
-                            console.log("z2")
-                            if (chainAction.access.startsWith('{{')) {
-                                console.log("z3")
-                                const methodFunction = replacePlaceholders(chainAction.access, context)
-                                if (typeof methodFunction === 'function') {
-                                    console.log("z4")
-                                    if (chainAction.express){
-                                        console.log("z5")
-                                        if (chainAction.next || chainAction.next == undefined){
-                                            result = methodFunction(...chainParams)(req, res, next);
-                                        } else {
-                                            result = methodFunction(...chainParams)(req, res);
-                                        }
-                                    } else {
-                                        console.log("z6")
-                                        result = methodFunction(...chainParams);
-                                    }
+                        if (chainAction.access && accessClean.length != 0){
+                            if (chainAction.express){
+                                if (chainAction.next || chainAction.next == undefined){
+                                        result = result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    console.error(`Method ${methodName} is not a function in context`);
-                                    return;
+                                        result = result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
-                                if (chainAction.express){
-                                    console.log("chainAction")
-                                    if (chainAction.next || chainAction.next == undefined){
-                                            result = result[chainAction.access](...chainParams)(req, res, next);
-                                    } else {
-                                            result = result[chainAction.access](...chainParams)(req, res);
-                                    }
-                                } else {
-                                    try{
-                                        console.log("try")
-                                    result = result[chainAction.access](...chainParams);
-                                    } catch(err){
-                                        console.log("err", err)
-                                        result = result
-                                    }
+                                try{
+                                result = result[accessClean](...chainParams);
+                                } catch(err){
+                                    result = result
                                 }
                             }
                         }
                     }
                 }
+            } else if (!accessClean && chainAction.params){
+                // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
@@ -786,4 +478,35 @@ async function applyMethodChain(target, action, context, res, req, next) {
     return result;
 }
 
-module.exports.lambdaHandler = serverless(lib.app);
+function createFunctionFromAction(action, context, nestedContext, req, res, next) {
+    return async function(...args) {
+        const assignExecuted = action.assign.endsWith('}}!');
+        const assignObj = isOnePlaceholder(action.assign);
+        let strClean = removeBrackets(action.assign);
+        let assign = getKeyAndPath(strClean, nestedPath);
+        let nestedContext = getNestedContext(context, assign.path);
+        let result;
+
+        args.reduce((unusedObj, arg, index) => {
+            if (action.params && action.params[index]) {
+                const paramExecuted = action.params[index].endsWith('}}!');
+                const paramObj = isOnePlaceholder(action.params[index]);
+                let paramClean = removeBrackets(action.params[index]);
+                let param = getKeyAndPath(paramClean, nestedPath);
+                let nestedContext = getNestedContext(context, param.path);
+                if (paramExecuted && paramObj && typeof arg === "function"){
+                    nestedContext[param.value] = arg();
+                } else {
+                    nestedContext[param.value] = arg;
+                }
+            }
+        }, {});
+
+        if (action.run) {
+            for (const runAction of action.run) {
+                result = await runAction(runAction, context, nestedContext, req, res, next)
+            }
+        }
+        return result;
+    };
+}
