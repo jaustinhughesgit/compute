@@ -351,14 +351,19 @@ async function processAction(action, context, nestedPath, req, res, next) {
         }
 
         let result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
-
+        console.log("result", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
+            console.log("assignExecuted", assignExecuted)
             const assignObj = isOnePlaceholder(action.assign);
+            console.log("assignObj", assignObj)
             let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
+            console.log("strClean", strClean)
             let assign = getKeyAndPath(strClean, nestedPath);
+            console.log("assign", assign)
+            console.log("context/assign.path", context, assign.path)
             let nestedContext = getNestedContext(context, assign.path);
-
+            console.log("nestedContext",nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
                 let newResult = tempFunction()
