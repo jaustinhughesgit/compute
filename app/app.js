@@ -98,6 +98,7 @@ async function retrieveAndParseJSON(fileName) {
 async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
     for (const [key, value] of Object.entries(config.modules, context)) {
+
         let newPath = await installModule(value, context, lib);
     }
     return context;
@@ -106,6 +107,7 @@ async function processConfig(config, initialContext, lib) {
 async function installModule(moduleName, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
     await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
+    lib.modules[moduleName] = moduleName
     return "/tmp/node_modules/"+moduleName
 }
 
@@ -382,7 +384,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         }
 
         console.log("value", value)
-        result = await applyMethodChain(result, action, context, nestedPath, res, req, next);
+        result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
         console.log("result", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
