@@ -278,7 +278,9 @@ async function processString(str, context, nestedPath) {
 
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
-        return isExecuted ? await value() : value
+        if (value != {} && value){
+            return isExecuted ? await value() : value
+        }
     }
 
     if (isObj && nestedPath == "../" && lib.hasOwnProperty(target.key)){
