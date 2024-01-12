@@ -216,7 +216,7 @@ function isOnePlaceholder(str) {
     return false;
 }
 
-function removeBrackets(str){
+function removeBrackets(str, isObj, isExecuted){
     return isObj ? str.slice(2, isExecuted ? -3 : -2) : str
 }
 
@@ -237,7 +237,7 @@ function getKeyAndPath(str, nestedPath){
 function processString(str, context, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = isOnePlaceholder(str)
-    let strClean = removeBrackets(str);
+    let strClean = removeBrackets(str, isObj, isExecuted);
     let target = getKeyAndPath(strClean, nestedPath)
     let nestedContext = getNestedContext(context, target.path)
 
@@ -323,7 +323,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        let strClean = removeBrackets(action.target);
+        const isObj = isOnePlaceholder(action.target)
+        let strClean = removeBrackets(action.target, isObj, false);
         let target = getKeyAndPath(strClean, nestedPath);
         let nestedContext = getNestedContext(context, target.path);
         let value = nestedContext[target.value]?.value;
@@ -353,7 +354,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
             const assignObj = isOnePlaceholder(action.assign);
-            let strClean = removeBrackets(action.assign);
+            let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
             let assign = getKeyAndPath(strClean, nestedPath);
             let nestedContext = getNestedContext(context, assign.path);
 
@@ -368,7 +369,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
     } else if (action.assign && action.params) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
-        let strClean = removeBrackets(action.assign);
+        let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = getKeyAndPath(strClean, nestedPath);
         let nestedContext = getNestedContext(context, assign.path);
 
@@ -387,7 +388,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
     } 
 
     if (action.execute) {
-        let strClean = removeBrackets(action.assign);
+        const isObj = isOnePlaceholder(action.execute)
+        let strClean = removeBrackets(action.execute, isObj, false);//false but will be executed below
         let execute = getKeyAndPath(strClean, nestedPath);
         let nestedContext = getNestedContext(context, execute.path);
         let value = nestedContext[execute.value]
@@ -438,7 +440,8 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
 
             let accessClean = chainAction.access
             if (accessClean){
-                let accessClean = removeBrackets(accessClean);
+                const isObj = isOnePlaceholder(accessClean)
+                accessClean = removeBrackets(accessClean, isObj, false);
             }
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
@@ -483,7 +486,7 @@ function createFunctionFromAction(action, context, nestedContext, req, res, next
     return async function(...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
-        let strClean = removeBrackets(action.assign);
+        let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = getKeyAndPath(strClean, nestedPath);
         let nestedContext = getNestedContext(context, assign.path);
         let result;
@@ -492,7 +495,7 @@ function createFunctionFromAction(action, context, nestedContext, req, res, next
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = isOnePlaceholder(action.params[index]);
-                let paramClean = removeBrackets(action.params[index]);
+                let paramClean = removeBrackets(action.params[index], paramObj, paramExecuted);
                 let param = getKeyAndPath(paramClean, nestedPath);
                 let nestedContext = getNestedContext(context, param.path);
                 if (paramExecuted && paramObj && typeof arg === "function"){
