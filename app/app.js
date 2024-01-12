@@ -148,7 +148,7 @@ function getNestedContext(context, nestedPath) {
     console.log("parts",parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
-        console.log("tempContext",tempContext)
+        console.log("tempContext:before",tempContext)
         let partCounter = 0
         for (let part of parts) {
             console.log("partCounter", partCounter, "parts.length()", parts.length)
@@ -165,6 +165,7 @@ function getNestedContext(context, nestedPath) {
         }
         console.log("RETURN")
         tempContext[parts[parts.length-1]] = {"value":{}, "context":{}}
+        console.log("tempContext:after", tempContext)
         return tempContext;
     }
     console.log("RETURN ELSE")
@@ -368,17 +369,17 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
     if (action.target) {
         //let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
-        //console.log("moduleInstance", moduleInstance)
+        console.log("moduleInstance", moduleInstance)
 
-        //console.log("PA:action.target", action.target)
+        console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
-        //console.log("PS:isObj", isObj)
+        console.log("PS:isObj", isObj)
         let strClean = await removeBrackets(action.target, isObj, false);
-        //console.log("PA:strClean", strClean)
+        console.log("PA:strClean", strClean)
         let target = getKeyAndPath(strClean, nestedPath);
-        //console.log("PA:target", target)
+        console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
-        //console.log("PA:nestedContext", nestedContext)
+        console.log("PA:nestedContext", nestedContext)
         let value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
@@ -402,7 +403,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
             }
         }
 
-        console.log("value", value)
+        nestedContext[action.target].value = value
         result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
         console.log("result:After", result)
         if (action.assign) {
@@ -529,11 +530,13 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                         console.log("2.2")
                         if (chainAction.access && accessClean.length != 0){
                             console.log("2.3")
+
                             const methodFunction = await replacePlaceholders(accessClean, context, nestedPath)
                             console.log("methodFunction", methodFunction)
                             let nestedContext = await getNestedContext(context, nestedPath);
                             console.log("new nestedContext", nestedContext)
-                            nestedContext[accessClean].value = methodFunction
+                            nestedContext[action.target].value[accessClean].value = methodFunction
+                            console.log("new2 nestedContext", nestedContext)
                             if (chainAction.express){
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
@@ -542,9 +545,10 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
                                         //Authenticator is not being returned with session here.
-                                        result = nestedContext[accessClean].value(...chainParams)(req, res, next);
+                                        result = nestedContext[action.target].value[accessClean](...chainParams)(req, res, next);
+                                    console.log("result222", result)
                                 } else {
-                                        result = nestedContext[accessClean].value(...chainParams)(req, res);
+                                        result = nestedContext[action.target].value[accessClean](...chainParams)(req, res);
                                 }
                             } else {
                                 try{
