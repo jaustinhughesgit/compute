@@ -294,7 +294,9 @@ async function processString(str, context, nestedPath) {
 
     try {    
         if (!nestedContext.hasOwnProperty(strClean)){
+            console.log("creating nestedContext obj", strClean)
             nestedContext[strClean] = {"value":{}, "context":{}}
+            console.log("created",nestedContext[strClean], nestedContext )
         }
         console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
         if (require.resolve("/tmp/node_modules/"+target.key)) {
@@ -385,6 +387,9 @@ async function processAction(action, context, nestedPath, req, res, next) {
         console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
         console.log("PA:nestedContext", nestedContext)
+        if (nestedContext.hasOwnProperty(target.key)){
+            nestedContext[target.key] = {"value":{}, "context":{}}
+        }
         nestedContext[target.key].value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
