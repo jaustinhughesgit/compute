@@ -149,7 +149,7 @@ function getNestedContext(context, nestedPath) {
         let tempContext = context;
         for (let part of parts) {
             if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
-                current[part] = {"value":{}, "context":{}};
+                tempContext[part] = {"value":{}, "context":{}};
             }
             tempContext = tempContext[part].context;
         }
