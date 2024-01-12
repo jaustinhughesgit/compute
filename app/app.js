@@ -235,6 +235,9 @@ function getKeyAndPath(str, nestedPath){
     if (nestedPath != ""){
         path = nestedPath + "." + path
     }
+    if (path.endsWith(".")){
+        path = path.slice(0,-1)
+    }
     return {key:key, path:path}
 }
 
