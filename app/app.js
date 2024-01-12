@@ -156,15 +156,15 @@ function getNestedContext(context, nestedPath) {
     return context
 }
 
-function condition(left, conditions, right, operator = "&&", context, nestedPath) {
+async function condition(left, conditions, right, operator = "&&", context, nestedPath) {
     //need an updated condition for if left is the only argument then return it's value (bool or truthy)
 
     if (!Array.isArray(conditions)) {
         conditions = [{ condition: conditions, right: right }];
     }
 
-    return conditions.reduce((result, cond) => {
-        const currentResult = checkCondition(left, cond.condition, cond.right, context, nestedPath);
+    return await conditions.reduce(async (result, cond) => {
+        const currentResult = await checkCondition(left, cond.condition, cond.right, context, nestedPath);
         if (operator === "&&") {
             return result && currentResult;
         } else if (operator === "||") {
@@ -175,9 +175,9 @@ function condition(left, conditions, right, operator = "&&", context, nestedPath
     }, operator === "&&");
 }
 
-function checkCondition(left, condition, right, context, nestedPath) {
-    left = replacePlaceholders(left, context, nestedPath)
-    right = replacePlaceholders(right, context, nestedPath)
+async function checkCondition(left, condition, right, context, nestedPath) {
+    left = await replacePlaceholders(left, context, nestedPath)
+    right = await replacePlaceholders(right, context, nestedPath)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -199,14 +199,14 @@ function checkCondition(left, condition, right, context, nestedPath) {
     }
 }
 
-function replacePlaceholders(item, context, nestedPath) {
+async function replacePlaceholders(item, context, nestedPath) {
     console.log("replacePlaceholders", item, context, nestedPath) 
     let processedItem = item;
     if (typeof processedItem === 'string') {
         console.log("string")
-        processedItem = processString(processedItem, context, nestedPath);
+        processedItem = await processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context, nestedPath));
+        processedItem =  processedItem.map(async element => await replacePlaceholders(element, context, nestedPath));
     }
     return processedItem;
 }
@@ -236,17 +236,17 @@ function getKeyAndPath(str, nestedPath){
     return {key:key, path:path}
 }
 
-function processString(str, context, nestedPath) {
+async function processString(str, context, nestedPath) {
     console.log("processString", str, context, nestedPath)
     const isExecuted = str.endsWith('}}!');
     console.log("isExecuted",isExecuted)
     const isObj = isOnePlaceholder(str)
     console.log("isObj", isObj)
-    let strClean = removeBrackets(str, isObj, isExecuted);
+    let strClean = await removeBrackets(str, isObj, isExecuted);
     console.log("strClean", strClean)
     let target = getKeyAndPath(strClean, nestedPath)
     console.log("target", target)
-    let nestedContext = getNestedContext(context, target.path)
+    let nestedContext = await getNestedContext(context, target.path)
     console.log("nestedContextnestedContext")
 
     if (lib[str]) {
@@ -257,12 +257,12 @@ function processString(str, context, nestedPath) {
 
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
-        return isExecuted ? value() : value
+        return isExecuted ? await value() : value
     }
 
     if (isObj && nestedPath == "../" && lib.hasOwnProperty(target.key)){
         let value = lib[target.key].value
-        return isExecuted ? value() : value
+        return isExecuted ? await value() : value
     }
 
     console.log("lib.modules", lib.modules)
@@ -272,16 +272,16 @@ function processString(str, context, nestedPath) {
         console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
         if (require.resolve("/tmp/node_modules/"+target.key)) {
             console.log("8 /tmp/node_modules/"+target.key)
-            return require("/tmp/node_modules/"+target.key);
+            return await require("/tmp/node_modules/"+target.key);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
     if (!isObj){
-        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+        return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             let target = getKeyAndPath(keyPath, nestedPath)
-            let value = getNestedContext(context, target.path)?.[target.key].value;
+            let value = await getNestedContext(context, target.path)?.[target.key].value;
             return value !== undefined ? value : match; 
         });
     }
@@ -293,7 +293,7 @@ async function runAction(action, context, nestedPath, req, res, next){
         //DON'T FORGET TO UPDATE JSON TO NOT INCLUDE THE S IN IF !!!!!!!!!!!!!!!!!!
         if (action.if) {
             for (const ifObject of action.if) {
-                runAction = condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context, nestedPath);
+                runAction = await condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], context, nestedPath);
                 if (!runAction) {
                     break;
                 }
@@ -305,7 +305,7 @@ async function runAction(action, context, nestedPath, req, res, next){
             if (action.while) {
                 let whileCounter = 0
                 for (const whileCondition of action.while) {
-                    while (condition(replacePlaceholders(whileCondition[0], context, nestedPath), [{ condition: whileCondition[1], right: replacePlaceholders(whileCondition[2], context, nestedPath) }], null, "&&", context, nestedPath)) {
+                    while (condition(await replacePlaceholders(whileCondition[0], context, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], context, nestedPath) }], null, "&&", context, nestedPath)) {
                         await processAction(action, context, nestedPath, req, res, next);
                         whileChecker++;
                         if (whileCounter >= whileLimit){
@@ -346,28 +346,29 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 
     if (action.target) {
+        let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
+        console.log("moduleInstance", moduleInstance)
+
         console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
         console.log("PS:isObj", isObj)
-        let strClean = removeBrackets(action.target, isObj, false);
+        let strClean = await removeBrackets(action.target, isObj, false);
         console.log("PA:strClean", strClean)
         let target = getKeyAndPath(strClean, nestedPath);
         console.log("PA:target", target)
-        let nestedContext = getNestedContext(context, target.path);
+        let nestedContext = await getNestedContext(context, target.path);
         console.log("PA:nestedContext", nestedContext)
-        let value = nestedContext[target.value]?.value;
+        let value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
-        let moduleInstance = replacePlaceholders(action.target, context, nestedPath);
-        console.log("moduleInstance", moduleInstance)
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
         if (value){
             if (action.from) {
-                args = action.from.map(item => {
+                args = await action.from.map(async item => {
                     console.log("map:item", item)
                     const fromExecuted = item.endsWith('}}!');
                     const fromObj = isOnePlaceholder(item);
-                    let value = replacePlaceholders(item, context, nestedPath);
+                    let value = await replacePlaceholders(item, context, nestedPath);
                     if (fromObj && fromExecuted && typeof value === 'function') {
                         return value();
                     }
@@ -380,39 +381,24 @@ async function processAction(action, context, nestedPath, req, res, next) {
             }
         }
 
-        let result;
-        if (typeof moduleInstance === 'function') {
-            console.log("moduleINstance is a function")
-            if (args.length == 0) {
-                console.log("args length is 0")
-                result = moduleInstance;
-            } else {
-                console.log("args length > 0")
-                result = moduleInstance(...args); 
-            }
-        } else {
-            console.log("moduleInstance is not a function")
-            result = moduleInstance;
-        }
-
         console.log("value", value)
-        result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
+        result = await applyMethodChain(result, action, context, nestedPath, res, req, next);
         console.log("result", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
             console.log("assignExecuted", assignExecuted)
             const assignObj = isOnePlaceholder(action.assign);
             console.log("assignObj", assignObj)
-            let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
+            let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
             console.log("strClean", strClean)
             let assign = getKeyAndPath(strClean, nestedPath);
             console.log("assign", assign)
             console.log("context/assign.path", context, assign.path)
-            let nestedContext = getNestedContext(context, assign.path);
+            let nestedContext = await getNestedContext(context, assign.path);
             console.log("nestedContext",nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
-                let newResult = tempFunction()
+                let newResult = await tempFunction()
                 addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
                 addValueToNestedKey(action.assign, nestedContext, result)
@@ -421,12 +407,12 @@ async function processAction(action, context, nestedPath, req, res, next) {
     } else if (action.assign && action.params) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
-        let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
+        let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = getKeyAndPath(strClean, nestedPath);
-        let nestedContext = getNestedContext(context, assign.path);
+        let nestedContext = await getNestedContext(context, assign.path);
 
         if (assignObj) {
-            let result = createFunctionFromAction(action, context, nestedContext, req, res, next)
+            let result = await createFunctionFromAction(action, context, nestedContext, req, res, next)
 
             if (assignExecuted && typeof result === 'function'){
                     result = result()
@@ -435,15 +421,15 @@ async function processAction(action, context, nestedPath, req, res, next) {
             }
             addValueToNestedKey(assign.key, nestedContext, result);
         } else {
-            addValueToNestedKey(action.assign, nestedContext, createFunctionFromAction(action, context, nestedContext, req, res, next));
+            addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, context, nestedContext, req, res, next));
         }
     } 
 
     if (action.execute) {
         const isObj = isOnePlaceholder(action.execute)
-        let strClean = removeBrackets(action.execute, isObj, false);//false but will be executed below
+        let strClean = await removeBrackets(action.execute, isObj, false);//false but will be executed below
         let execute = getKeyAndPath(strClean, nestedPath);
-        let nestedContext = getNestedContext(context, execute.path);
+        let nestedContext = await getNestedContext(context, execute.path);
         let value = nestedContext[execute.value]
         // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
         if (typeof value === 'function') {
@@ -485,7 +471,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
             }
 
             if (chainAction.params) {
-                chainParams = replacePlaceholders(chainAction.params, context, nestedPath)
+                chainParams = await replacePlaceholders(chainAction.params, context, nestedPath)
             } else {
                 chainParams = [];
             }
@@ -495,13 +481,13 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                 console.log("1")
                 const isObj = isOnePlaceholder(accessClean)
                 console.log("1:isObj", isObj)
-                accessClean = removeBrackets(accessClean, isObj, false);
+                accessClean = await removeBrackets(accessClean, isObj, false);
                 console.log("1:accessClean", accessClean)
             }
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
-                result = instantiateWithNew(result[accessClean], chainParams);
+                result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("2")
                 if (accessClean === 'promise') {
@@ -547,18 +533,18 @@ function createFunctionFromAction(action, context, nestedContext, req, res, next
     return async function(...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
-        let strClean = removeBrackets(action.assign, assignObj, assignExecuted);
+        let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = getKeyAndPath(strClean, nestedPath);
-        let nestedContext = getNestedContext(context, assign.path);
+        let nestedContext = await getNestedContext(context, assign.path);
         let result;
 
-        args.reduce((unusedObj, arg, index) => {
+        args.reduce(async (unusedObj, arg, index) => {
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = isOnePlaceholder(action.params[index]);
-                let paramClean = removeBrackets(action.params[index], paramObj, paramExecuted);
+                let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
                 let param = getKeyAndPath(paramClean, nestedPath);
-                let nestedContext = getNestedContext(context, param.path);
+                let nestedContext = await getNestedContext(context, param.path);
                 if (paramExecuted && paramObj && typeof arg === "function"){
                     nestedContext[param.value] = arg();
                 } else {
