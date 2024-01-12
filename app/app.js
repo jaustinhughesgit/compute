@@ -506,6 +506,10 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                         if (chainAction.access && accessClean.length != 0){
                             console.log("2.3")
                             const methodFunction = replacePlaceholders(accessClean, context, nestedPath)
+                            console.log("methodFunction", methodFunction)
+                            let nestedContext = await getNestedContext(context, assign.path);
+                            nestedContext[accessClean] = methodFunction
+                            console.log("new nestedContext", nestedContext)
                             if (chainAction.express){
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
@@ -514,13 +518,13 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
                                         //Authenticator is not being returned with session here.
-                                        result = methodFunction(...chainParams)(req, res, next);
+                                        result = nestedContext[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                        result = methodFunction(...chainParams)(req, res);
+                                        result = nestedContext[accessClean](...chainParams)(req, res);
                                 }
                             } else {
                                 try{
-                                result = result(...chainParams);
+                                result = nestedContext[accessClean](...chainParams);
                                 } catch(err){
                                     result = result
                                 }
