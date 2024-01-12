@@ -284,7 +284,7 @@ async function processString(str, context, nestedPath) {
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
         console.log("2!!!!", value)
-        if (value != {} && value){
+        if (Object.keys(value).length > 0 && value){
             return isExecuted ? await value() : value
         }
     }
@@ -379,7 +379,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         for (const key in action.set) {
             let set = getKeyAndPath(key, nestedPath);
             let nestedContext = getNestedContext(context, set.path);
-            addValueToNestedKey(set.key, nestedContext, replacePlaceholders(action.set[key], context, nestedPath));
+            addValueToNestedKey(set.key, nestedContext, await replacePlaceholders(action.set[key], context, nestedPath));
         }
     }
 
