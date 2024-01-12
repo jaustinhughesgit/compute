@@ -152,8 +152,9 @@ function getNestedContext(context, nestedPath) {
             }
             tempContext = tempContext[part].context;
         }
+        return tempContext;
     }
-    return tempContext;
+    return context
 }
 
 function condition(left, conditions, right, operator = "&&", context, nestedPath) {
