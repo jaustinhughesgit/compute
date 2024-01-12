@@ -480,7 +480,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(result, action, context, nestedPath, res, req, next) {
-    console.log("applyMethodChain",target, action, context, nestedPath)
+    console.log("applyMethodChain",result, action, context, nestedPath)
     if (nestedPath == "") {
         nestedPath = action.target
     } else {
