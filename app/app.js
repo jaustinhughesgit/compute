@@ -2,6 +2,7 @@ var express = require('express');
 const serverless = require('serverless-http');
 // SEE IF WE CAN INCORPORATE LIB INTO EACH INITIAL WEB CALL SO IT'S NOT EXPOSED TO OTHER USERS WHO USE THE INVOKE!!!!!!!!!!!!!!!!!!!!!
 let lib = {};
+lib.modules = {};
 lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
