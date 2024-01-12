@@ -164,11 +164,11 @@ function getNestedContext(context, nestedPath) {
             }
         }
         console.log("RETURN")
-        tempContext[parts[parts.length-1]] = {"value":{}, "context":{}}
         console.log("tempContext:after", tempContext)
         return tempContext;
     }
     console.log("RETURN ELSE")
+
     return context
 }
 
@@ -266,6 +266,10 @@ async function processString(str, context, nestedPath) {
     let target = getKeyAndPath(strClean, nestedPath)
     console.log("target", target)
     let nestedContext = await getNestedContext(context, target.path)
+    console.log("nestedContext.hasOwnProperty(strClean)",nestedContext.hasOwnProperty(strClean))
+    if (nestedContext.hasOwnProperty(strClean)){
+        nestedContext[strClean] = {"value":{}, "context":{}}
+    }
     console.log("nestedContext",nestedContext)
 
     if (lib[str]) {
