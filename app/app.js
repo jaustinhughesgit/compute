@@ -270,6 +270,9 @@ async function processString(str, context, nestedPath) {
     console.log("lib.modules", lib.modules)
     console.log("target.key", target.key)
     console.log("hasOwnProperty", lib.modules.hasOwnProperty(target.key))
+
+    // IN THE OLD V0.6 IT HAS CONDITIONS FOR LIB.MODULES.HASOWNPROPERTY. WE CAN USE THIS HERE INSTEAD.
+
     try {
         console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
         if (require.resolve("/tmp/node_modules/"+target.key)) {
@@ -506,6 +509,10 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
                                     console.log("2.5")
+                                        console.log("accessClean", accessClean)
+                                        console.log("chainParams", chainParams)
+                                        console.log("result", result)
+                                        
                                         result = result[accessClean](...chainParams)(req, res, next);
                                 } else {
                                         result = result[accessClean](...chainParams)(req, res);
