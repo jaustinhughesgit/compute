@@ -267,7 +267,7 @@ async function processString(str, context, nestedPath) {
     console.log("target", target)
     let nestedContext = await getNestedContext(context, target.path)
     console.log("nestedContext.hasOwnProperty(strClean)",nestedContext.hasOwnProperty(strClean))
-    if (nestedContext.hasOwnProperty(strClean)){
+    if (!nestedContext.hasOwnProperty(strClean)){
         nestedContext[strClean] = {"value":{}, "context":{}}
     }
     console.log("nestedContext",nestedContext)
