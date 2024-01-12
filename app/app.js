@@ -479,7 +479,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 }
 
-async function applyMethodChain(result, action, context, nestedPath, res, req, next) {
+async function applyMethodChain(target, action, context, nestedPath, res, req, next) {
+    let result = target
     console.log("applyMethodChain",result, action, context, nestedPath)
     if (nestedPath == "") {
         nestedPath = action.target
@@ -534,13 +535,6 @@ async function applyMethodChain(result, action, context, nestedPath, res, req, n
                         console.log("2.2")
                         if (chainAction.access && accessClean.length != 0){
                             console.log("2.3")
-
-                            //const methodFunction = await replacePlaceholders(accessClean, context, nestedPath)
-                            //console.log("methodFunction", methodFunction)
-                            //let nestedContext = await getNestedContext(context, nestedPath);
-                            //console.log("new nestedContext", nestedContext)
-                            //nestedContext[action.target].value[accessClean].value = methodFunction
-                            //console.log("new2 nestedContext", nestedContext)
                             if (chainAction.express){
                                 console.log("2.4")
                                 if (chainAction.next || chainAction.next == undefined){
