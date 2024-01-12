@@ -97,7 +97,7 @@ async function retrieveAndParseJSON(fileName) {
 
 async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
-    for (const [key, value] of Object.entries(config.modules, lib)) {
+    for (const [key, value] of Object.entries(config.modules, context)) {
         let newPath = await installModule(value, context, lib);
     }
     return context;
@@ -255,7 +255,7 @@ function processString(str, context, nestedPath) {
         return lib[str];
     }
 
-    if (isObj && nestedContext.hasOwnProperty(target.key)){
+    if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
         return isExecuted ? value() : value
     }
@@ -268,8 +268,14 @@ function processString(str, context, nestedPath) {
     console.log("lib.modules", lib.modules)
     console.log("target.key", target.key)
     console.log("hasOwnProperty", lib.modules.hasOwnProperty(target.key))
-    if (isObj && lib.modules.hasOwnProperty(target.key)){
-        return require("/tmp/node_modules/"+target.key);
+    try {
+        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tmpStr))
+        if (require.resolve("/tmp/node_modules/"+tmpStr)) {
+            console.log("8 /tmp/node_modules/"+tmpStr)
+            return require("/tmp/node_modules/"+tmpStr);
+        }
+    } catch (e) {
+        console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
     if (!isObj){
