@@ -152,7 +152,7 @@ function getNestedContext(context, nestedPath) {
         let partCounter = 0
         for (let part of parts) {
             console.log("partCounter", partCounter, "parts.length()", parts.length)
-            if (partCounter < parts.length){ //skips last path
+            if (partCounter < parts.length-1){ //skips last path
                 console.log("part", part, parts)
                 console.log("tempContext[part]",tempContext[part])
                 if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
