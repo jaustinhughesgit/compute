@@ -507,7 +507,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                             console.log("2.3")
                             const methodFunction = replacePlaceholders(accessClean, context, nestedPath)
                             console.log("methodFunction", methodFunction)
-                            let nestedContext = await getNestedContext(context, assign.path);
+                            let nestedContext = await getNestedContext(context, nestedPath);
                             nestedContext[accessClean] = methodFunction
                             console.log("new nestedContext", nestedContext)
                             if (chainAction.express){
