@@ -464,6 +464,9 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     } else {
         nestedPath += "." + action.target
     }
+    if (nestedPath.endsWith(".")){
+        nestedPath = nestedPath.slice(0,-1)
+    }
     console.log("typeof result", typeof result)
     function instantiateWithNew(constructor, args) {
         return new constructor(...args);
