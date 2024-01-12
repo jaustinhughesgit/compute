@@ -269,10 +269,10 @@ function processString(str, context, nestedPath) {
     console.log("target.key", target.key)
     console.log("hasOwnProperty", lib.modules.hasOwnProperty(target.key))
     try {
-        console.log("7 resolve", require.resolve("/tmp/node_modules/"+tmpStr))
-        if (require.resolve("/tmp/node_modules/"+tmpStr)) {
-            console.log("8 /tmp/node_modules/"+tmpStr)
-            return require("/tmp/node_modules/"+tmpStr);
+        console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
+        if (require.resolve("/tmp/node_modules/"+target.key)) {
+            console.log("8 /tmp/node_modules/"+target.key)
+            return require("/tmp/node_modules/"+target.key);
         }
     } catch (e) {
         console.error(`Module '${str}' cannot be resolved:`, e);
