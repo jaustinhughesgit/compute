@@ -148,15 +148,19 @@ function getNestedContext(context, nestedPath) {
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
         console.log("tempContext",tempContext)
+        let partCounter = 0
         for (let part of parts) {
-            console.log("part", part, parts)
-            console.log("tempContext[part]",tempContext[part])
-            if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
-                tempContext[part] = {"value":{}, "context":{}};
+            console.log("partCounter", partCounter, "parts.length()", parts.length())
+            if (partCounter < parts.length()){ //skips last path
+                console.log("part", part, parts)
+                console.log("tempContext[part]",tempContext[part])
+                if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
+                    tempContext[part] = {"value":{}, "context":{}};
+                }
+                console.log("END1:", tempContext[part])
+                console.log("END2:", tempContext[part].context)
+                tempContext = tempContext[part];
             }
-            console.log("END1:", tempContext[part])
-            console.log("END2:", tempContext[part].context)
-            tempContext = tempContext[part].context;
         }
         console.log("RETURN")
         return tempContext;
