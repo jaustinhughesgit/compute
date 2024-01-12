@@ -62,7 +62,6 @@ lib.app.use(async (req, res, next) => {
 });
 
 lib.app.all('/auth/*', (req, res, next) => {
-    console.log(req)
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
@@ -141,7 +140,7 @@ async function initializeMiddleware(req, res, next) {
 async function initializeModules(context, config, req, res, next) {
     require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = await runAction(action, context, "", req, res, next);
+        let runResponse = await runAction(action, context, "",req, res, next);
         if (runResponse == "contune"){
             continue
         }
@@ -150,16 +149,30 @@ async function initializeModules(context, config, req, res, next) {
 
 function getNestedContext(context, nestedPath) {
     const parts = nestedPath.split('.');
+    console.log("parts",parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
+        console.log("tempContext:before",tempContext)
         let partCounter = 0
         for (let part of parts) {
-            if (partCounter < parts.length-1){
-                tempContext = tempContext[part].context;
+            console.log("partCounter", partCounter, "parts.length()", parts.length)
+            if (partCounter < parts.length-1){ //skips last path
+                console.log("part", part, parts)
+                console.log("tempContext[part]",tempContext[part])
+                if (tempContext[part] === undefined || !(tempContext[part] instanceof Object)) {
+                    tempContext[part] = {"value":{}, "context":{}};
+                }
+                console.log("END1:", tempContext[part])
+                console.log("END2:", tempContext[part].context)
+                tempContext = tempContext[part];
             }
         }
+        console.log("RETURN")
+        console.log("tempContext:after", tempContext)
         return tempContext;
     }
+    console.log("RETURN ELSE")
+
     return context
 }
 
@@ -245,20 +258,66 @@ function getKeyAndPath(str, nestedPath){
     }
     return {key:key, path:path}
 }
-
-//"passport", {passport:{value:[funciton],context:{}}, ""
+//"initialize", {"passport":[funciton]}, "passport"
 async function processString(str, context, nestedPath) {
+    console.log("processString", str, context, nestedPath)
     const isExecuted = str.endsWith('}}!');
+    console.log("isExecuted",isExecuted)
     const isObj = isOnePlaceholder(str)
+    console.log("isObj", isObj)
     let strClean = await removeBrackets(str, isObj, isExecuted);
+    console.log("strClean", strClean)
     let target = getKeyAndPath(strClean, nestedPath)
+    console.log("target", target)
     let nestedContext = await getNestedContext(context, target.path)
+    console.log("nestedContext.hasOwnProperty(strClean)",nestedContext.hasOwnProperty(strClean))
+
+
+////////////////////////////////
+
+
+    console.log("nestedContext",nestedContext)
+
+    if (lib[str]) {
+        console.log("3 lib", lib)
+        console.log("4 str", str)
+        return lib[str];
+    }
+    console.log("1!!!")
 
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
+        console.log("2!!!!", value)
         if (Object.keys(value).length > 0 && value){
             return isExecuted ? await value() : value
         }
+    }
+    console.log("3!!!")
+
+    if (isObj && nestedPath == "../" && lib.hasOwnProperty(target.key)){
+        let value = lib[target.key].value
+        return isExecuted ? await value() : value
+    }
+
+    console.log("lib.modules", lib.modules)
+    console.log("target.key", target.key)
+    console.log("hasOwnProperty", lib.modules.hasOwnProperty(target.key))
+
+    // IN THE OLD V0.6 IT HAS CONDITIONS FOR LIB.MODULES.HASOWNPROPERTY. WE CAN USE THIS HERE INSTEAD.
+
+    try {    
+        if (!nestedContext.hasOwnProperty(strClean)){
+            console.log("creating nestedContext obj", strClean)
+            nestedContext[strClean] = {"value":{}, "context":{}}
+            console.log("created",nestedContext[strClean], nestedContext )
+        }
+        console.log("7 resolve", require.resolve("/tmp/node_modules/"+target.key))
+        if (require.resolve("/tmp/node_modules/"+target.key)) {
+            console.log("8 /tmp/node_modules/"+target.key)
+            return await require("/tmp/node_modules/"+target.key);
+        }
+    } catch (e) {
+        console.error(`Module '${str}' cannot be resolved:`, e);
     }
 
     if (!isObj){
@@ -329,15 +388,34 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 
     if (action.target) {
+        //let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
+        //console.log("moduleInstance", moduleInstance)
+
+        console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
+        console.log("PS:isObj", isObj)
         let strClean = await removeBrackets(action.target, isObj, false);
+        console.log("PA:strClean", strClean)
         let target = getKeyAndPath(strClean, nestedPath);
+        console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
+        console.log("PA:nestedContext", nestedContext)
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
 
+///////////////////////
+//        when I require a model it's using target and putting npm into target.value
+//        when I access that I need to put it in assign.value
+//        this is getting mixed up and passport.session
+//        either we need to create an empty target object and assign it the npm, or create the npm object in the module download
+/////////////////////////
+
+
+
+        console.log("BEFORE::::::")
         value = await replacePlaceholders(target.key, context, nestedPath);
+        console.log("AFTER::::::::")
         let args = [];
 
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
@@ -360,19 +438,26 @@ async function processAction(action, context, nestedPath, req, res, next) {
             }
         }
 
+        console.log("typeof nestedContext[target.key].value", typeof nestedContext[target.key].value)
         result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
+        console.log("result:After", result)
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
+            console.log("assignExecuted", assignExecuted)
             const assignObj = isOnePlaceholder(action.assign);
+            console.log("assignObj", assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
+            console.log("strClean", strClean)
             let assign = getKeyAndPath(strClean, nestedPath);
+            console.log("assign", assign)
+            console.log("context/assign.path", context, assign.path)
             let nestedContext = await getNestedContext(context, assign.path);
+            console.log("nestedContext",nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
                 let newResult = await tempFunction()
                 addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
-                console.log("addValueToNestedKey", action.assign, nestedContext, result)
                 addValueToNestedKey(action.assign, nestedContext, result)
             }
         }
