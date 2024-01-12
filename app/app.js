@@ -385,11 +385,11 @@ async function processAction(action, context, nestedPath, req, res, next) {
         console.log("PA:target", target)
         let nestedContext = await getNestedContext(context, target.path);
         console.log("PA:nestedContext", nestedContext)
-        let value = await replacePlaceholders(target.key, context, nestedPath);
+        nestedContext[target.key].value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
-        if (value){
+        if (nestedContext[target.key].value){
             if (action.from) {
                 args = await action.from.map(async item => {
                     console.log("map:item", item)
@@ -403,12 +403,12 @@ async function processAction(action, context, nestedPath, req, res, next) {
                 });
             }
 
-            if (typeof value === 'function' && args.length > 0) {
-                 value = value(...args); 
+            if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
+                nestedContext[target.key].value = value(...args); 
             }
         }
 
-        nestedContext[target.key].value = value
+        console.log("typeof nestedContext[target.key].value", typeof nestedContext[target.key].value)
         result = await applyMethodChain(nestedContext[target.key].value, action, context, nestedPath, res, req, next);
         console.log("result:After", result)
         if (action.assign) {
