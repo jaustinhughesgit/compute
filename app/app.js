@@ -369,7 +369,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
     if (action.target) {
         //let moduleInstance = await replacePlaceholders(action.target, context, nestedPath);
-        console.log("moduleInstance", moduleInstance)
+        //console.log("moduleInstance", moduleInstance)
 
         console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
