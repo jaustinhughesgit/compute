@@ -333,10 +333,15 @@ async function processAction(action, context, nestedPath, req, res, next) {
     }
 
     if (action.target) {
+        console.log("PA:action.target", action.target)
         const isObj = isOnePlaceholder(action.target)
+        console.log("PS:isObj", isObj)
         let strClean = removeBrackets(action.target, isObj, false);
+        console.log("PA:strClean", strClean)
         let target = getKeyAndPath(strClean, nestedPath);
+        console.log("PA:target", target)
         let nestedContext = getNestedContext(context, target.path);
+        console.log("PA:nestedContext", nestedContext)
         let value = nestedContext[target.value]?.value;
         let args = [];
 
@@ -344,6 +349,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         if (value){
             if (action.from) {
                 args = action.from.map(item => {
+                    console.log("map:item", item)
                     const fromExecuted = item.endsWith('}}!');
                     const fromObj = isOnePlaceholder(item);
                     let value = replacePlaceholders(item, context, nestedPath);
