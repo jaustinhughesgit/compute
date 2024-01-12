@@ -236,11 +236,17 @@ function getKeyAndPath(str, nestedPath){
 }
 
 function processString(str, context, nestedPath) {
+    console.log("processString", str, context, nestedPath)
     const isExecuted = str.endsWith('}}!');
+    console.log("isExecuted",isExecuted)
     const isObj = isOnePlaceholder(str)
+    console.log("isObj", isObj)
     let strClean = removeBrackets(str, isObj, isExecuted);
+    console.log("strClean", strClean)
     let target = getKeyAndPath(strClean, nestedPath)
+    console.log("target", target)
     let nestedContext = getNestedContext(context, target.path)
+    console.log("nestedContextnestedContext")
 
     if (isObj && nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
@@ -252,6 +258,9 @@ function processString(str, context, nestedPath) {
         return isExecuted ? value() : value
     }
 
+    console.log("lib.modules", lib.modules)
+    console.log("target.key", target.key)
+    console.log("hasOwnProperty", lib.modules.hasOwnProperty(target.key))
     if (isObj && lib.modules.hasOwnProperty(target.key)){
         return require("/tmp/node_modules/"+target.key);
     }
