@@ -623,7 +623,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
         if (action.run) {
             for (const act of action.run) {
                 console.log("999",)
-                let newNestedPath = nestedPath+"."+assign.key + "." + act.target
+                let newNestedPath = nestedPath+"."+assign.key + "." + removeBrackets(act.target, true, false);
                 console.log("newNestedPath", newNestedPath)
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
