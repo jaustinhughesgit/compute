@@ -127,7 +127,7 @@ async function initializeMiddleware(req, res, next) {
         const results = await Promise.all(promises);
         const arrayOfJSON = [];
         results.forEach(result => arrayOfJSON.push(result));
-        return arrayOfJSON.map(userJSON => {
+        let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
             return async (req, res, next) => {
                 lib.context = await processConfig(userJSON, lib.context, lib);
                 lib.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
@@ -135,6 +135,7 @@ async function initializeMiddleware(req, res, next) {
                 await initializeModules(lib.context, userJSON, req, res, next);
             };
         });
+        return await Promise.all(resultArrayOfJSON)
     }
 }
 
@@ -217,7 +218,7 @@ async function replacePlaceholders(item, context, nestedPath) {
             console.log("element", element, context, nestedPath)
             await replacePlaceholders(element, context, nestedPath)});
     }
-    return processedItem;
+    return await Promise.all(processedItem);
 }
 
 async function isOnePlaceholder(str) {
@@ -381,6 +382,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
                     }
                     return value;
                 });
+                await Promise.all(args)
             }
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
