@@ -278,6 +278,7 @@ async function processString(str, context, nestedPath) {
         if (Object.keys(value).length > 0 && value){
             return isExecuted ? await value() : value
         }
+        return value
     }
     console.log("33333333")
     if (!isObj){
@@ -522,7 +523,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
                 console.log("instantiateWithNew:::: result", result, "accessClean", accessClean, "chainParams", chainParams, "result[accessClean]", result[accessClean])
-                result = await instantiateWithNew(result[accessClean], chainParams);
+                result = await instantiateWithNew(result[accessClean].value, chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("2")
                 if (accessClean === 'promise') {
