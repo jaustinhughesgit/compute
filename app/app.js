@@ -255,7 +255,10 @@ async function processString(str, context, nestedPath) {
     let nestedContext = await getNestedContext(context, target.path)
 
     if (nestedContext.hasOwnProperty(target.key)){
-        let value  = resolveValueFromContext(target.key, nestedContext);
+        let value = nestedContext[target.key].value
+        if (typeof value === 'function') {
+            value = value();
+        }
         if (Object.keys(value).length > 0 && value){
             return isExecuted ? await value() : value
         }
@@ -268,21 +271,6 @@ async function processString(str, context, nestedPath) {
             return value !== undefined ? value : match; 
         });
     }
-}
-
-
-function resolveValueFromContext(keyPath, context, convertToString = false) {
-    const keys = keyPath.split('.');
-    let value = keys.reduce((currentContext, key) => {
-        return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
-    }, context);
-    if (typeof value === 'function') {
-        value = value();
-    }
-    if (convertToString && value !== undefined) {
-        return String(value); 
-    }
-    return value;
 }
 
 async function runAction(action, context, nestedPath, req, res, next){
@@ -502,7 +490,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("accessClean", accessClean)
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
-
+                                        
                                         //Authenticator is not being returned with session here.
                                         result = result[accessClean](...chainParams)(req, res, next);
                                     console.log("result222", result)
