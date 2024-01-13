@@ -214,10 +214,13 @@ async function replacePlaceholders(item, context, nestedPath) {
         console.log("string")
         processedItem = await processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
+        console.log("processItem", processItem)
         processedItem =  processedItem.map(async element => {
             console.log("element", element, context, nestedPath)
             await replacePlaceholders(element, context, nestedPath)});
         await Promise.all(processedItem);
+    } else {
+        console.log("not a string", processedItem)
     }
     return processedItem;
 }
@@ -514,6 +517,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
+                console.log("instantiateWithNew:::: result", result, "accessClean", accessClean, "chainParams", chainParams, "result[accessClean]", result[accessClean])
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("2")
