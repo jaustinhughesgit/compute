@@ -154,8 +154,10 @@ async function getNestedContext(context, nestedPath) {
     if (nestedPath && nestedPath != ""){
         let tempContext = context;
         let partCounter = 0
+        console.log("parts", parts)
         for (let part of parts) {
             if (partCounter < parts.length-1){
+                console.log("part",part, tempContext[part])
                 tempContext = tempContext[part].context;
             }
         }
@@ -626,6 +628,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
                 }
+                
                 let newNestedContext = await getNestedContext(context, newNestedPath);
                 addValueToNestedKey(act.target, newNestedContext, {})
                 console.log("runAction", act, context, newNestedPath)
