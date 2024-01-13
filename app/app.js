@@ -469,10 +469,10 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     console.log("applyMethodChain",result, action, context, nestedPath)
     if (nestedPath == "") {
         console.log("^^^^^", action.target)
-        nestedPath = action.target
+        nestedPath = target.assign
     } else {
         console.log("~~~~~~~", action.target)
-        nestedPath += "." + action.target
+        nestedPath += "." + target.assign
     }
     if (nestedPath.endsWith(".")){
         nestedPath = nestedPath.slice(0,-1)
