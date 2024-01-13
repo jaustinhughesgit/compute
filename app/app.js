@@ -490,8 +490,6 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("accessClean", accessClean)
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
-                                        
-                                        //Authenticator is not being returned with session here.
                                         result = result[accessClean](...chainParams)(req, res, next);
                                     console.log("result222", result)
                                 } else {
@@ -518,11 +516,11 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     return result;
 }
 
-function createFunctionFromAction(action, context, nestedContext, req, res, next) {
+function createFunctionFromAction(action, context, nestedPath, req, res, next) {
     console.log("----------")
     console.log("----------")
     console.log("----------")
-    console.log("createFunctionFromAction", action, context, nestedContext)
+    console.log("createFunctionFromAction", action, context, nestedPath)
     return async function(...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
