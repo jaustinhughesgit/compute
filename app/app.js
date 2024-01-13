@@ -232,6 +232,7 @@ function removeBrackets(str, isObj, isExecuted){
 }
 
 function getKeyAndPath(str, nestedPath){
+    console.log("getKeyAndPath", str, nestedPath)
     let val = str.split(".");
     let key = str;
     let path = "";
@@ -405,7 +406,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(context, assign.path);
 
         if (assignObj) {
-            let result = await createFunctionFromAction(action, context, nestedPath, req, res, next)
+            console.log("action==>", action, nestedPath, assign)
+            let result = await createFunctionFromAction(action, context, assign.path, req, res, next)
 
             if (assignExecuted && typeof result === 'function'){
                     result = result()
@@ -414,7 +416,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
             }
             addValueToNestedKey(assign.key, nestedContext, result);
         } else {
-            addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, context, nestedPath, req, res, next));
+            console.log("action2===>", action, nestedPath, assign)
+            addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, context, assign.path, req, res, next));
         }
     } 
 
@@ -540,12 +543,13 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
     console.log("----------")
     console.log("----------")
     console.log("----------")
-    console.log("createFunctionFromAction", action, context, nestedPath)
+    console.log("createFunctionFromAction", action, context, "nestedPath =", nestedPath)
     return async function(...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = getKeyAndPath(strClean, nestedPath);
+        console.log("assign.path", assign.path)
         let nestedContext = await getNestedContext(context, assign.path);
         let result;
         console.log("||assignExecuted",assignExecuted)
