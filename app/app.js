@@ -269,8 +269,9 @@ async function processString(str, context, nestedPath) {
     console.log("222222222",nestedContext, target)
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
+        console.log("value", value)
         console.log("typeof value", typeof value)
-        if (typeof value === 'function') {
+        if (typeof value === 'function' && isExecuted) {
             console.log("running the function");
             value = await value();
         }
