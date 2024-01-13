@@ -319,7 +319,10 @@ async function runAction(action, context, nestedPath, req, res, next){
 }
 
 function addValueToNestedKey(key, nestedContext, value){
-
+    console.log("addValueToNestedKey", key, nestedContext, value)
+    if (!nestedContext.hasOwnProperty(key)){
+        nestedContext[key] = {"value":{}, "context":{}}
+    }
     nestedContext[key].value = value;
 }
 
@@ -329,7 +332,14 @@ async function processAction(action, context, nestedPath, req, res, next) {
         for (const key in action.set) {
             let set = getKeyAndPath(key, nestedPath);
             let nestedContext = getNestedContext(context, set.path);
-            addValueToNestedKey(set.key, nestedContext, await replacePlaceholders(action.set[key], context, nestedPath));
+            console.log("action.set",action.set)
+            console.log("context", context)
+            console.log("nestedPath", nestedPath)
+            console.log("set", set)
+            console.log("key", key)
+
+            let value = await replacePlaceholders(action.set[key], context, nestedPath)
+            addValueToNestedKey(set.key, nestedContext, value);
         }
     }
 
@@ -375,6 +385,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
                 let newResult = await tempFunction()
+                console.log("%% action.assign", action.assign, nestedContext, newResult)
                 addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
                 console.log("addValueToNestedKey", action.assign, nestedContext, result)
