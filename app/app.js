@@ -475,7 +475,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     if (nestedPath.startsWith(".")){
         nestedPath = nestedPath.slice(1)
     }
-    
+
     console.log("typeof result", typeof result)
     async function instantiateWithNew(constructor, args) {
         console.log("instantiateWithNew", constructor, args)
@@ -561,14 +561,21 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
     console.log("----------")
     console.log("----------")
     console.log("createFunctionFromAction", action, context, "nestedPath =", nestedPath)
+    console.log("111")
     return async function(...args) {
+        console.log("222")
         const assignExecuted = action.assign.endsWith('}}!');
+        console.log("333")
         const assignObj = await isOnePlaceholder(action.assign);
+        console.log("444")
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
+        console.log("555")
         console.log("******* nestedPath 8",nestedPath)
         let assign = await getKeyAndPath(strClean, nestedPath);
+        console.log("666")
         console.log("assign.path", assign.path)
         let nestedContext = await getNestedContext(context, assign.path);
+        console.log("777")
         let result;
         console.log("||assignExecuted",assignExecuted)
         console.log("||",assignObj)
@@ -577,6 +584,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
         console.log("||nestedContext", nestedContext)
 
         await args.reduce(async (unusedObj, arg, index) => {
+            console.log("888")
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = await isOnePlaceholder(action.params[index]);
@@ -584,30 +592,30 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
                 console.log("******* nestedPath 9",nestedPath)
                 let param = await getKeyAndPath(paramClean, nestedPath);
-                let nestedContext = await getNestedContext(context, param.path);
-                console.log("cFFA nestedContext",nestedContext)
+                let paramNestedContext = await getNestedContext(context, param.path);
+                console.log("cFFA nestedContext",paramNestedContext)
                 console.log("cFFA paramExecuted",paramExecuted)
                 console.log("cFFA param",param)
                 if (paramExecuted && paramObj && typeof arg === "function"){
                     console.log("is a function")
-                    nestedContext[param.value] = await arg();
+                    paramNestedContext[param.value] = await arg();
                 } else {
                     console.log("is not a function", arg)
-                    nestedContext[param.value] = arg;
+                    paramNestedContext[param.value] = arg;
                 }
             }
         }, {});
 
         if (action.run) {
             for (const act of action.run) {
+                console.log("999", act)
                 let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath", newNestedPath)
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
                 }
-                let newNestedContext = await getNestedContext(context, newNestedPath);
-                console.log("runAction", act, context, newNestedContext)
-                result = await runAction(act, context, newNestedContext, req, res, next)
+                console.log("runAction", act, context, newNestedPath)
+                result = await runAction(act, context, newNestedPath, req, res, next)
             }
         }
         return result;
