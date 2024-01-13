@@ -213,7 +213,9 @@ async function replacePlaceholders(item, context, nestedPath) {
         console.log("string")
         processedItem = await processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
-        processedItem =  processedItem.map(async element => await replacePlaceholders(element, context, nestedPath));
+        processedItem =  processedItem.map(async element => {
+            console.log("element", element, context, nestedPath)
+            await replacePlaceholders(element, context, nestedPath)});
     }
     return processedItem;
 }
@@ -253,7 +255,7 @@ async function processString(str, context, nestedPath) {
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let target = getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(context, target.path)
-
+    console.log("222222222")
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
         if (typeof value === 'function') {
@@ -263,7 +265,7 @@ async function processString(str, context, nestedPath) {
             return isExecuted ? await value() : value
         }
     }
-
+    console.log("33333333")
     if (!isObj){
         return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             let target = getKeyAndPath(keyPath, nestedPath)
@@ -453,6 +455,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     }
     console.log("typeof result", typeof result)
     function instantiateWithNew(constructor, args) {
+        console.log("instantiateWithNew", constructor, args)
         return new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
@@ -467,6 +470,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
             }
 
             if (chainAction.params) {
+                console.log("chainAction.params", chainAction.params, context, nestedPath)
                 chainParams = await replacePlaceholders(chainAction.params, context, nestedPath)
             } else {
                 chainParams = [];
