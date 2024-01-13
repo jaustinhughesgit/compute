@@ -222,6 +222,7 @@ async function replacePlaceholders(item, context, nestedPath) {
     } else {
         console.log("not a string", processedItem)
     }
+    console.log("returning processedItem", item, nestedPath, "==>", processedItem)
     return processedItem;
 }
 
