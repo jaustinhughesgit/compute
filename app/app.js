@@ -269,7 +269,9 @@ async function processString(str, context, nestedPath) {
     console.log("222222222",nestedContext, target)
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
+        console.log("typeof value", typeof value)
         if (typeof value === 'function') {
+            console.log("running the function");
             value = await value();
         }
         if (Object.keys(value).length > 0 && value){
@@ -571,7 +573,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
     console.log("----------")
     console.log("createFunctionFromAction", action, context, "nestedPath =", nestedPath)
     console.log("111")
-    return async function(...args) {
+    return  async function (...args) {
         console.log("222")
         const assignExecuted = action.assign.endsWith('}}!');
         console.log("333")
