@@ -563,9 +563,9 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
         }, {});
 
         if (action.run) {
-            for (const action of action.run) {
-                console.log("runAction", action, context, nestedContext)
-                result = await runAction(action, context, nestedContext, req, res, next)
+            for (const act of action.run) {
+                console.log("runAction", act, context, nestedContext)
+                result = await runAction(act, context, nestedContext, req, res, next)
             }
         }
         return result;
