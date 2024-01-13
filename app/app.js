@@ -126,12 +126,12 @@ async function initializeMiddleware(req, res, next) {
         const promises = await fileArray.map(fileName => retrieveAndParseJSON(fileName));
         const results = await Promise.all(promises);
         const arrayOfJSON = [];
-        await results.forEach(result => arrayOfJSON.push(result));
+        results.forEach(result => arrayOfJSON.push(result));
         return arrayOfJSON.map(userJSON => {
             return async (req, res, next) => {
                 lib.context = await processConfig(userJSON, lib.context, lib);
-                lib.context["urlpath"] = req.path.split("?")[0];
-                lib.context["sessionID"] = req.sessionID;
+                lib.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
+                lib.context["sessionID"] = {"value":req.sessionID, "context":{}}
                 await initializeModules(lib.context, userJSON, req, res, next);
             };
         });
@@ -255,7 +255,7 @@ async function processString(str, context, nestedPath) {
     let nestedContext = await getNestedContext(context, target.path)
 
     if (nestedContext.hasOwnProperty(target.key)){
-        let value = nestedContext[target.key].value
+        let value  = resolveValueFromContext(target.key, nestedContext);
         if (Object.keys(value).length > 0 && value){
             return isExecuted ? await value() : value
         }
@@ -268,6 +268,21 @@ async function processString(str, context, nestedPath) {
             return value !== undefined ? value : match; 
         });
     }
+}
+
+
+function resolveValueFromContext(keyPath, context, convertToString = false) {
+    const keys = keyPath.split('.');
+    let value = keys.reduce((currentContext, key) => {
+        return currentContext && currentContext[key] !== undefined ? currentContext[key] : undefined;
+    }, context);
+    if (typeof value === 'function') {
+        value = value();
+    }
+    if (convertToString && value !== undefined) {
+        return String(value); 
+    }
+    return value;
 }
 
 async function runAction(action, context, nestedPath, req, res, next){
@@ -487,6 +502,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
                                         console.log("accessClean", accessClean)
                                         console.log("chainParams", chainParams)
                                         console.log("result", result)
+
                                         //Authenticator is not being returned with session here.
                                         result = result[accessClean](...chainParams)(req, res, next);
                                     console.log("result222", result)
