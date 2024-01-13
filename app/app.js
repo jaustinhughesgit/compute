@@ -262,7 +262,7 @@ async function processString(str, context, nestedPath) {
     console.log("******* nestedPath 1",nestedPath)
     let target = await getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(context, target.path)
-    console.log("222222222")
+    console.log("222222222",nestedContext, target)
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
         if (typeof value === 'function') {
@@ -365,7 +365,7 @@ async function processAction(action, context, nestedPath, req, res, next) {
         console.log("target>>>>", target)
         let nestedContext = await getNestedContext(context, target.path);
         console.log("nestedContext>>>>",nestedContext)
-        
+
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
