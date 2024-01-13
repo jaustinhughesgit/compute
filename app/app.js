@@ -109,7 +109,7 @@ async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
     await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
     lib.modules[moduleName] = moduleName
-    if (context.hasOwnProperty(contextKey)){
+    if (!context.hasOwnProperty(contextKey)){
         context[contextKey] = {"value":{}, "context":{}}
     }
     context[contextKey].value = await require("/tmp/node_modules/"+moduleName);
