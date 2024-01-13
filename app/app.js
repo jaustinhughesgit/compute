@@ -362,11 +362,15 @@ async function processAction(action, context, nestedPath, req, res, next) {
 
         console.log("******* nestedPath 4",nestedPath)
         let target = await getKeyAndPath(strClean, nestedPath);
+        console.log("target>>>>", target)
         let nestedContext = await getNestedContext(context, target.path);
+        console.log("nestedContext>>>>",nestedContext)
+        
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
 
+        console.log("replacePlaceholders>>>>",target.key, context, nestedPath)
         value = await replacePlaceholders(target.key, context, nestedPath);
         let args = [];
 
@@ -608,12 +612,13 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
         if (action.run) {
             for (const act of action.run) {
-                console.log("999", act)
+                console.log("999",)
                 let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath", newNestedPath)
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
                 }
+                let newNestedContext = await getNestedContext(context, newNestedPath);
                 console.log("runAction", act, context, newNestedPath)
                 result = await runAction(act, context, newNestedPath, req, res, next)
             }
