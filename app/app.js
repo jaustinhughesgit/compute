@@ -627,6 +627,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
                     newNestedPath = newNestedPath.slice(1)
                 }
                 let newNestedContext = await getNestedContext(context, newNestedPath);
+                addValueToNestedKey(act.target, newNestedContext, {})
                 console.log("runAction", act, context, newNestedPath)
                 result = await runAction(act, context, newNestedPath, req, res, next)
             }
