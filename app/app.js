@@ -270,7 +270,7 @@ async function processString(str, context, nestedPath) {
         let value = nestedContext[target.key].value
         console.log("value", value)
         console.log("typeof value", typeof value)
-        if (typeof value === 'function' && isExecuted) {
+        if (typeof value === 'function') {
             console.log("running the function");
             value = await value();
         }
