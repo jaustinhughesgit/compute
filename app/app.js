@@ -218,7 +218,7 @@ async function replacePlaceholders(item, context, nestedPath) {
         processedItem =  processedItem.map(async element => {
             console.log("element", element, context, nestedPath)
             await replacePlaceholders(element, context, nestedPath)});
-        await Promise.all(processedItem);
+        //await Promise.all(processedItem);
     } else {
         console.log("not a string", processedItem)
     }
