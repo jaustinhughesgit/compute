@@ -390,8 +390,8 @@ async function processAction(action, context, nestedPath, req, res, next) {
                 nestedContext[target.key].value = value(...args); 
             }
         }
-
-        result = await applyMethodChain(value, action, context, nestedPath, res, req, next);
+        let newNestedPath = nestedPath + "." + target.key
+        result = await applyMethodChain(value, action, context, newNestedPath, res, req, next);
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
             const assignObj = await isOnePlaceholder(action.assign);
@@ -467,16 +467,15 @@ async function processAction(action, context, nestedPath, req, res, next) {
 async function applyMethodChain(target, action, context, nestedPath, res, req, next) {
     let result = target
     console.log("applyMethodChain",result, action, context, nestedPath)
-    if (nestedPath == "") {
-        console.log("^^^^^", action.target)
-        nestedPath = target.assign
-    } else {
-        console.log("~~~~~~~", action.target)
-        nestedPath += "." + target.assign
-    }
+
     if (nestedPath.endsWith(".")){
         nestedPath = nestedPath.slice(0,-1)
     }
+
+    if (nestedPath.startsWith(".")){
+        nestedPath = nestedPath.slice(1)
+    }
+    
     console.log("typeof result", typeof result)
     async function instantiateWithNew(constructor, args) {
         console.log("instantiateWithNew", constructor, args)
