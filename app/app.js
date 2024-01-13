@@ -274,6 +274,7 @@ async function processString(str, context, nestedPath) {
 }
 
 async function runAction(action, context, nestedPath, req, res, next){
+    console.log("runAction", action)
     if (action != undefined){
         let runAction = true;
         //DON'T FORGET TO UPDATE JSON TO NOT INCLUDE THE S IN IF !!!!!!!!!!!!!!!!!!
@@ -318,11 +319,12 @@ async function runAction(action, context, nestedPath, req, res, next){
 }
 
 function addValueToNestedKey(key, nestedContext, value){
+
     nestedContext[key].value = value;
 }
 
 async function processAction(action, context, nestedPath, req, res, next) {
-
+    console.log("processAction", action)
     if (action.set) {
         for (const key in action.set) {
             let set = getKeyAndPath(key, nestedPath);
@@ -516,7 +518,7 @@ async function applyMethodChain(target, action, context, nestedPath, res, req, n
     return result;
 }
 
-function createFunctionFromAction(action, context, nestedPath, req, res, next) {
+async function createFunctionFromAction(action, context, nestedPath, req, res, next) {
     console.log("----------")
     console.log("----------")
     console.log("----------")
@@ -529,7 +531,7 @@ function createFunctionFromAction(action, context, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(context, assign.path);
         let result;
 
-        args.reduce(async (unusedObj, arg, index) => {
+        await args.reduce(async (unusedObj, arg, index) => {
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = isOnePlaceholder(action.params[index]);
@@ -551,6 +553,7 @@ function createFunctionFromAction(action, context, nestedPath, req, res, next) {
 
         if (action.run) {
             for (const runAction of action.run) {
+                console.log("runAction", runAction, context, nestedContext)
                 result = await runAction(runAction, context, nestedContext, req, res, next)
             }
         }
