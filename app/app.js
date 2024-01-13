@@ -214,7 +214,7 @@ async function replacePlaceholders(item, context, nestedPath) {
         console.log("string")
         processedItem = await processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
-        console.log("processItem", processItem)
+        console.log("processedItem", processedItem)
         processedItem =  processedItem.map(async element => {
             console.log("element", element, context, nestedPath)
             await replacePlaceholders(element, context, nestedPath)});
