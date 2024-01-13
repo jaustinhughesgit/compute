@@ -212,10 +212,10 @@ async function replacePlaceholders(item, context, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
         console.log("string")
-        newProcessedItem1 = await processString(processedItem, context, nestedPath);
+        newProcessedItem = await processString(processedItem, context, nestedPath);
     } else if (Array.isArray(processedItem)) {
         console.log("processedItem", processedItem)
-        newProcessedItem2 =  processedItem.map(async element => {
+        let newProcessedItem2 =  processedItem.map(async element => {
             console.log("element", element, context, nestedPath)
             await replacePlaceholders(element, context, nestedPath)});
         await Promise.all(newProcessedItem2);
@@ -224,8 +224,8 @@ async function replacePlaceholders(item, context, nestedPath) {
         console.log("not a string", processedItem)
     }
     
-    console.log("returning processedItem", item, nestedPath, "==>", processedItem1)
-    return processedItem1;
+    console.log("returning processedItem", item, nestedPath, "==>", processedItem)
+    return processedItem;
 }
 
 async function isOnePlaceholder(str) {
