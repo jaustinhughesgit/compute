@@ -238,14 +238,17 @@ function getKeyAndPath(str, nestedPath){
     if (val.length > 1){
         key = val[val.length]
         path = str.slice(0, -1).join(".")
+        console.log("$$$ path", path)
     }
     if (nestedPath != ""){
+        console.log("$$$ nestedPath", nestedPath)
         path = nestedPath + "." + path
     }
     if (path.endsWith(".")){
+        console.log("path ends with .")
         path = path.slice(0,-1)
     }
-    return {key:key, path:path}
+    return {"key":key, "path":path}
 }
 
 //"passport", {passport:{value:[funciton],context:{}}, ""
@@ -573,7 +576,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
         if (action.run) {
             for (const act of action.run) {
-                let newNestedPath = assign.path+"."+assign.key
+                let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath", newNestedPath)
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
