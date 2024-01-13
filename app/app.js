@@ -545,6 +545,11 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
         let assign = getKeyAndPath(strClean, nestedPath);
         let nestedContext = await getNestedContext(context, assign.path);
         let result;
+        console.log("||assignExecuted",assignExecuted)
+        console.log("||",assignObj)
+        console.log("||",strClean)
+        console.log("||assign",assign)
+        console.log("||nestedContext", nestedContext)
 
         await args.reduce(async (unusedObj, arg, index) => {
             if (action.params && action.params[index]) {
@@ -568,8 +573,14 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
         if (action.run) {
             for (const act of action.run) {
-                console.log("runAction", act, context, nestedContext)
-                result = await runAction(act, context, nestedContext, req, res, next)
+                let newNestedPath = assign.path+"."+assign.key
+                console.log("newNestedPath", newNestedPath)
+                if (newNestedPath.startsWith(".")){
+                    newNestedPath = newNestedPath.slice(1)
+                }
+                let newNestedContext = await getNestedContext(context, newNestedPath);
+                console.log("runAction", act, context, newNestedContext)
+                result = await runAction(act, context, newNestedContext, req, res, next)
             }
         }
         return result;
