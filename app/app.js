@@ -628,7 +628,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
                 const isTargetObj = await isOnePlaceholder(act.target);
                 let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
                 console.log("999",)
-                let newNestedPath = nestedPath+"."+assign.key + "." + targetClean
+                let newNestedPath = nestedPath+"."+assign.key + "." + assign.key
                 console.log("newNestedPath", newNestedPath)
                 if (newNestedPath.startsWith(".")){
                     newNestedPath = newNestedPath.slice(1)
