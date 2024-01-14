@@ -7,7 +7,7 @@ lib.AWS = require('aws-sdk');
 lib.app = express();
 lib.path = require('path');
 lib.root = {"value":"", "context":{}}
-lib.root.context.process = process
+//lib.root.context.process = process
 lib.root.context.session = require('express-session');
 lib.fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
@@ -404,6 +404,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
+
             await addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, libs, assign.path, req, res, next));
         }
     } 
@@ -520,12 +521,18 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         let assign = await getKeyAndPath(strClean, nestedPath);
         let nestedContext = await getNestedContext(libs, assign.path);
         let result;
+        console.log("createFunctionFromAction : action", action)
+        console.log("createFunctionFromAction : nestedPath", nestedPath)
+        console.log("createFunctionFromAction : args", args)
+        console.log("createFunctionFromAction : assign", assign)
+        console.log("createFunctionFromAction : nestedContext", nestedContext)
         let addToNested = await args.reduce(async (unusedObj, arg, index) => {
+            console.log("888")
             if (action.params && action.params[index]) {
 
                 //we need to create objects out of these params so that the run can target them. Currently params are saved at lib.context
                 //and they need to be in the newNestedContext. 
-
+                console.log("------Inside args reduce")
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = await isOnePlaceholder(action.params[index]);
                 let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
@@ -539,6 +546,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 }
             }
         }, nestedContext);
+        console.log("createFunctionFromAction : addToNested", addToNested)
 
         if (action.run) {
             for (const act of action.run) {
