@@ -622,7 +622,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
         if (action.run) {
             for (const act of action.run) {
-                const targeetExecuted = act.target.endsWith('}}!');
+                const targetExecuted = act.target.endsWith('}}!');
                 const isTargetObj = await isOnePlaceholder(act.target);
                 let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
                 console.log("999",)
