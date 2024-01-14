@@ -155,9 +155,9 @@ async function getNestedContext(libs, nestedPath) {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
-            //if (partCounter < parts.length-1){
+            if (partCounter < parts.length-1){
                 tempContext = tempContext[part].context;
-            //}
+            }
         }
         return tempContext;
     }
