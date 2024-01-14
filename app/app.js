@@ -159,8 +159,12 @@ async function getNestedContext(context, nestedPath) {
 
         for (let part of parts) {
             if (partCounter < parts.length-1){
+                try{
                 console.log("part",part, tempContext[part])
                 tempContext = tempContext[part].context;
+                } catch (err){
+                    console.log("ERROR:", err)
+                }
             }
         }
         return tempContext;
