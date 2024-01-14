@@ -602,10 +602,14 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
         console.log("||",strClean)
         console.log("||assign",assign)
         console.log("||nestedContext", nestedContext)
-
+        console.log("||args", args)
         await args.reduce(async (unusedObj, arg, index) => {
             console.log("888")
             if (action.params && action.params[index]) {
+
+                //we need to create objects out of these params so that the run can target them. Currently params are saved at lib.context
+                //and they need to be in the newNestedContext. 
+
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = await isOnePlaceholder(action.params[index]);
                 let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
@@ -628,6 +632,9 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
 
         if (action.run) {
             for (const act of action.run) {
+                //We don't need to create an object in newNestedContext, that is the params job. We need to access it and create a new 
+                //obj that saves the output.
+
                 const targetExecuted = act.target.endsWith('}}!');
                 const isTargetObj = await isOnePlaceholder(act.target);
                 let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
