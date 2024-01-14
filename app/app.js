@@ -639,7 +639,7 @@ async function createFunctionFromAction(action, context, nestedPath, req, res, n
                 }
                 
                 let newNestedContext = await getNestedContext(context, newNestedPath);
-                addValueToNestedKey(act.target, newNestedContext, {})
+                addValueToNestedKey(targetClean, newNestedContext, {})
                 console.log("runAction", act, context, newNestedPath)
                 result = await runAction(act, context, newNestedPath, req, res, next)
             }
