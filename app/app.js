@@ -386,10 +386,14 @@ async function addValueToNestedKey(key, nestedContext, value){
     console.log("########################")
     console.log("addValueToNestedKey")
     console.log(key, value, nestedContext)
-    if (!nestedContext.hasOwnProperty(key)){
-        nestedContext[key] = {"value":{}, "context":{}}
+    if (value == undefined || key == undefined){
+        console.log("key/value undefined")
+    } else {
+        if (!nestedContext.hasOwnProperty(key)){
+            nestedContext[key] = {"value":{}, "context":{}}
+        }
+        nestedContext[key].value = value;
     }
-    nestedContext[key].value = value;
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
