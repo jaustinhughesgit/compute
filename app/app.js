@@ -555,7 +555,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else if (accessClean && chainAction.new && chainAction.params) {
                 console.log("result", result, accessClean, result[accessClean], chainParams) // ERROR IS HERE
                 result = 
-                result = await instantiateWithNew(result, chainParams);
+                result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 if (accessClean === 'promise') {
                     result = await result.promise();
