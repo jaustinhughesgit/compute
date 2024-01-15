@@ -257,20 +257,39 @@ async function processString(str, libs, nestedPath) {
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let target = await getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(libs, target.path)
+
+    console.log("processString-------------------")
+    console.log("isExecuted",isExecuted)
+    console.log("isObj",isObj)
+    console.log("strClean",strClean)
+    console.log("target",target)
+    console.log("nestedContext",nestedContext)
+
     if (nestedContext.hasOwnProperty(target.key)){
+        console.log("1")
         let value = nestedContext[target.key].value
+        console.log("value1", value)
+        console.log("typeof value1", typeof value)
         if (typeof value === 'function') {
+            console.log("2")
             value = await value();
         }
+        console.log("Object.keys(value).length",Object.keys(value).length)
         if (Object.keys(value).length > 0 && value){
+            console.log("3")
             return isExecuted ? await value() : value
         }
+        console.log("4")
         return value
     }
     if (!isObj){
+        console.log("5")
         return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
+            console.log("keyPath",keyPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
+            console.log("target5", target)
+            console.log("value5", value)
             return value !== undefined ? value : match; 
         });
     }
@@ -479,9 +498,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             console.log("Pre Conditions ------------")
             console.log("target", target)
             console.log("action", action)
-            console.log("libs", libs)
+            console.log("libs.root.context", libs.root.context)
             console.log("nestedPath", nestedPath)
             console.log("accessClean", accessClean)
+            console.log("chainAction.params", chainAction.params)
             console.log("chainParams", chainParams)
             console.log("result", result)
 
@@ -500,24 +520,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         if (chainAction.access && accessClean.length != 0){
                             if (chainAction.express){
                                 if (chainAction.next || chainAction.next == undefined){
-                                    console.log("next true or undefined ------------")
-                                    console.log("target", target)
-                                    console.log("action", action)
-                                    console.log("libs", libs)
-                                    console.log("nestedPath", nestedPath)
-                                    console.log("accessClean", accessClean)
-                                    console.log("chainParams", chainParams)
-                                    console.log("result", result)
+                                    console.log("next true or undefined ---")
                                         result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    console.log("next false ------------------")
-                                    console.log("target", target)
-                                    console.log("action", action)
-                                    console.log("libs", libs)
-                                    console.log("nestedPath", nestedPath)
-                                    console.log("accessClean", accessClean)
-                                    console.log("chainParams", chainParams)
-                                    console.log("result", result)
+                                    console.log("next false ---")
                                         result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
