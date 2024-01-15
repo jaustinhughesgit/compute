@@ -272,7 +272,7 @@ async function getKeyAndPath(str, nestedPath){
     let key = str;
     let path = "";
     if (str.startsWith("~/")){
-        //val[0] = val[0].replace("~/", "")
+        val[0] = val[0].replace("~/", "")
         val.unshift("root")
     }
     if (val.length > 1){
@@ -407,6 +407,12 @@ async function addValueToNestedKey(key, nestedContext, value){
         }
         nestedContext[key].value = value;
     }
+    try{
+        console.log(lib.root.context.callbackFunction.context)
+    } catch (err){}
+    try{
+        console.log(lib.root.context.callbackFunction2.context)
+    } catch (err){}
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
