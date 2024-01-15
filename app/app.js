@@ -365,6 +365,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
+        console.log("action", action)
         const isObj = await isOnePlaceholder(action.target)
         let strClean = await removeBrackets(action.target, isObj, false);
 
@@ -375,7 +376,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
-        
+
         value = await replacePlaceholders(target.key, libs, nestedPath);
         let args = [];
 
