@@ -226,21 +226,23 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }
 
-function replacePlaceholders(item, context) {
+function replacePlaceholders(item, libs, nestedPath) {
     //console.log("item context", item, context)
     let processedItem = item;
     console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
         //console.log("processedItem typeof", processedItem)
-        processedItem = processString(processedItem, context);
+        processedItem = processString(processedItem, libs, nestedPath);
         //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
         //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
+        processedItem =  processedItem.map(element => replacePlaceholders(element, libs, nestedPath)
     }
     //console.log("returning")
     return processedItem;
 }
+
+
 
 async function isOnePlaceholder(str) {
     if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
