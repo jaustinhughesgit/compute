@@ -624,13 +624,16 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 if (param != null && param != null && param != ""){
                     const paramExecuted = param.endsWith('}}!');
                     const paramObj = await isOnePlaceholder(param);
+                    console.log("paramObj", paramObj)
                     let paramClean = await removeBrackets(param, paramObj, paramExecuted);
+                    console.log("paramClean", paramClean)
                     let newNestedPath = nestedPath+"."+assign.key
                     console.log("newNestedPath///////", newNestedPath)
                     let p = await getKeyAndPath(paramClean, newNestedPath);
                     let nestedParamContext = await getNestedContext(libs, p.path);
                     addValueToNestedKey(paramClean, nestedParamContext, {})
                     console.log("lib.root.context", lib.root.context)
+                    console.log("lib.root.context[assign.key]", lib.root.context[assign.key])
                 }
             }
         }
@@ -645,8 +648,11 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
                 console.log("addValueToNestedKey", targetClean, nestedContext, {})
                 addValueToNestedKey(targetClean, nestedContext, {})
-                console.log("runAction::::::", act, libs, nestedContext)
-                result = await runAction(act, libs, nestedContext, req, res, next)
+                let newNestedPath = nestedPath+"."+assign.key
+                console.log("newNestedPath")
+                let newNestedContext = await getNestedContext(libs, newNestedPath);
+                console.log("runAction::::::", act, libs, newNestedContext)
+                result = await runAction(act, libs, newNestedContext, req, res, next)
             }
         }
         return result;
