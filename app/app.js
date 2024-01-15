@@ -270,8 +270,12 @@ async function getKeyAndPath(str, nestedPath){
 
     let key = str;
     let path = "";
+    if (str.startsWith("~/")){
+        val.unshift("root")
+    }
     if (val.length > 1){
         key = val[val.length]
+        console.log("val", val)
         path = val.slice(0, -1)
         console.log("path1", path)
         path = path.join(".")
