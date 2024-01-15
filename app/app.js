@@ -268,7 +268,10 @@ async function getKeyAndPath(str, nestedPath){
     let path = "";
     if (val.length > 1){
         key = val[val.length]
-        path = str.slice(0, -1).join(".")
+        path = str.slice(0, -1)
+        console.log("path1", path)
+        path = path.join(".")
+        console.log("path2", path)
     }
     if (nestedPath != ""){
         path = nestedPath + "." + path
@@ -282,18 +285,18 @@ async function getKeyAndPath(str, nestedPath){
 async function processString(str, libs, nestedPath) {
     console.log("str",str, nestedPath)
     const isExecuted = str.endsWith('}}!');
+    console.log("isExecuted",isExecuted)
     const isObj = await isOnePlaceholder(str)
+    console.log("isObj",isObj)
     let strClean = await removeBrackets(str, isObj, isExecuted);
+    console.log("strClean",strClean)
     let target = await getKeyAndPath(strClean, nestedPath)
+    console.log("target",target)
     let nestedContext = await getNestedContext(libs, target.path)
+    console.log("nestedContext",nestedContext)
     let nestedValue= await getNestedValue(libs, target.path)
 
     console.log("processString-------------------")
-    console.log("isExecuted",isExecuted)
-    console.log("isObj",isObj)
-    console.log("strClean",strClean)
-    console.log("target",target)
-    console.log("nestedContext",nestedContext)
     console.log("nestedValue",nestedValue)
     console.log("libs.root.context", libs.root.context)
     console.log("typeof nestedValue", typeof nestedValue)
