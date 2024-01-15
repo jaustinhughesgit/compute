@@ -172,8 +172,10 @@ async function getNestedValue(libs, nestedPath) {
         for (let part of parts) {
             if (partCounter < parts.length-1){
                 tempContext = tempContext[part].context;
+                console.log("tempContext1", tempContext)
             } else {
                 tempContext = tempContext[part].value;
+                console.log("tempContext2", tempContext)
             }
         }
         return tempContext;
@@ -284,10 +286,10 @@ async function processString(str, libs, nestedPath) {
     console.log("target",target)
     console.log("nestedContext",nestedContext)
     console.log("nestedValue",nestedValue)
-    console.log("libs.root", libs.root)
-    console.log("libs.root.passport", libs.root.passport)
+    console.log("libs.root.context", libs.root.context)
+    console.log("libs.root.context.passport", libs.root.context.passport)
     try{
-    console.log("typeof libs.root.passport.value", libs.root.passport.value)
+    console.log("typeof libs.root.passport.value", libs.root.context.passport.value)
     } catch (err){}
     console.log("typeof nestedValue", typeof nestedValue)
     console.log(" nestedValue[target.key]",  nestedValue[target.key])
