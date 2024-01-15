@@ -170,7 +170,7 @@ async function getNestedValue(libs, nestedPath) {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
-            if (partCounter < parts.length-1){
+            if (partCounter < parts.length-1 || partCounter == 0){
                 tempContext = tempContext[part].context;
                 console.log("tempContext1", tempContext)
             } else {
