@@ -226,24 +226,20 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }
 
-async function replacePlaceholders(item, libs, nestedPath) {
+function replacePlaceholders(item, context) {
+    //console.log("item context", item, context)
     let processedItem = item;
+    console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
-        console.log("string", processedItem)
-        return await processString(processedItem, libs, nestedPath);
+        //console.log("processedItem typeof", processedItem)
+        processedItem = processString(processedItem, context);
+        //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
-        console.log("array", processedItem)
-        let newProcessedItem2 =  processedItem.map(async element => {
-            console.log("element", element, libs, nestedPath)
-            return await replacePlaceholders(element, libs, nestedPath)
-        });
-        console.log("newProcessedItem2",newProcessedItem2 )
-        return await Promise.all(newProcessedItem2);
-    } else {
-        return item
-        console.log("not a string", processedItem)
+        //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
+        processedItem =  processedItem.map(element => replacePlaceholders(element, context));
     }
-    
+    //console.log("returning")
+    return processedItem;
 }
 
 async function isOnePlaceholder(str) {
@@ -523,7 +519,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-                console.log("replacePlaceholders",chainAction.params,nestedPath)
+
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
