@@ -406,6 +406,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let set = await getKeyAndPath(key, nestedPath);
             let nestedContext = await getNestedContext(libs, set.path);
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+            console.log("addValueTo:1", set.key, nestedContext, value)
             await addValueToNestedKey(set.key, nestedContext, value);
         }
     }
@@ -463,8 +464,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
                 let newResult = await tempFunction()
+                console.log("addValueTo:2", action.assign, nestedContext, newResult)
                 await addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
+                console.log("addValueTo:3", action.assign, nestedContext, result)
                 await addValueToNestedKey(action.assign, nestedContext, result)
             }
         }
@@ -483,9 +486,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else if (typeof result === 'function'){
                     result = JSON.stringify(result);
             }
+            console.log("addValueTo:4", assign.key, nestedContext, result)
             await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
-
+            console.log("addValueTo:5", action.assign, nestedContext, "await createFunctionFromAction")
             await addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, libs, assign.path, req, res, next));
         }
     } 
@@ -661,6 +665,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     console.log("newNestedPath///////", newNestedPath)
                     let p = await getKeyAndPath(paramClean, newNestedPath);
                     let nestedParamContext = await getNestedContext(libs, p.path);
+                    console.log("addValueTo:6", paramClean, nestedParamContext, {})
                     addValueToNestedKey(paramClean, nestedParamContext, {})
                     console.log("lib.root.context", lib.root.context)
                     console.log("lib.root.context[assign.key]", lib.root.context[assign.key])
@@ -678,7 +683,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     const isTargetObj = await isOnePlaceholder(act.target);
                     let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
                     console.log("addValueToNestedKey", targetClean, nestedContext, {})
-                    addValueToNestedKey(targetClean, nestedContext, {})
+                    console.log("addValueTo:7", paramClean, nestedParamContext, {})
+                    addValueToNestedKey(paramClean, nestedParamContext, {})
                 }
                 let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath")
