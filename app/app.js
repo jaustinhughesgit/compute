@@ -297,6 +297,7 @@ async function processString(str, libs, nestedPath) {
     let target = await getKeyAndPath(strClean, nestedPath)
     console.log("target",target)
     let nestedContext = await getNestedContext(libs, target.path)
+
     console.log("nestedContext",nestedContext)
     let nestedValue= await getNestedValue(libs, target.path)
 
@@ -405,6 +406,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         for (const key in action.set) {
             let set = await getKeyAndPath(key, nestedPath);
             let nestedContext = await getNestedContext(libs, set.path);
+            console.log("$set.path", set.path, "nestedPath", nestedPath)
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
             console.log("addValueTo:1", set.key, nestedContext, value)
             await addValueToNestedKey(set.key, nestedContext, value);
@@ -661,7 +663,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     console.log("paramObj", paramObj)
                     let paramClean2 = await removeBrackets(param, paramObj, paramExecuted);
                     console.log("paramClean", paramClean2)
-                    let newNestedPath = nestedPath+"."+assign.key+"."+assign.key
+                    let newNestedPath = nestedPath+"."+assign.key
                     console.log("newNestedPath///////", newNestedPath)
                     let p = await getKeyAndPath(paramClean2, newNestedPath);
                     let nestedParamContext = await getNestedContext(libs, p.path);
