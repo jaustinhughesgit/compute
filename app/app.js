@@ -627,14 +627,10 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 const targetExecuted = act.target.endsWith('}}!');
                 const isTargetObj = await isOnePlaceholder(act.target);
                 let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
-                let newNestedPath = nestedPath+"."+assign.key + "." + assign.key
-                if (newNestedPath.startsWith(".")){
-                    newNestedPath = newNestedPath.slice(1)
-                }
-                
-                let newNestedContext = await getNestedContext(libs, newNestedPath);
-                addValueToNestedKey(targetClean, newNestedContext, {})
-                result = await runAction(act, libs, newNestedPath, req, res, next)
+                console.log("addValueToNestedKey", targetClean, nestedContext, {})
+                addValueToNestedKey(targetClean, nestedContext, {})
+                console.log("runAction::::::", act, libs, nestedContext)
+                result = await runAction(act, libs, nestedContext, req, res, next)
             }
         }
         return result;
