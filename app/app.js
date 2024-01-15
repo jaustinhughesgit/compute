@@ -653,11 +653,13 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 //We don't need to create an object in newNestedContext, that is the params job. We need to access it and create a new 
                 //obj that saves the output.
 
-                const targetExecuted = act.target.endsWith('}}!');
-                const isTargetObj = await isOnePlaceholder(act.target);
-                let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
-                console.log("addValueToNestedKey", targetClean, nestedContext, {})
-                addValueToNestedKey(targetClean, nestedContext, {})
+                if (act.hasOwnProperty("target")){
+                    const targetExecuted = act.target.endsWith('}}!');
+                    const isTargetObj = await isOnePlaceholder(act.target);
+                    let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
+                    console.log("addValueToNestedKey", targetClean, nestedContext, {})
+                    addValueToNestedKey(targetClean, nestedContext, {})
+                }
                 let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath")
                 let newNestedContext = await getNestedContext(libs, newNestedPath);
