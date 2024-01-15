@@ -236,7 +236,7 @@ function replacePlaceholders(item, libs, nestedPath) {
         //console.log("processedItem", processedItem)
     } else if (Array.isArray(processedItem)) {
         //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, libs, nestedPath)
+        processedItem =  processedItem.map(element => replacePlaceholders(element, libs, nestedPath))
     }
     //console.log("returning")
     return processedItem;
