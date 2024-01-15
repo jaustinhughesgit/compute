@@ -313,13 +313,15 @@ async function processString(str, libs, nestedPath) {
         console.log("typeof value1", typeof value)
         if (typeof value === 'function') {
             console.log("2", value)
+            if (isExecuted){
             value = await value();
+            }
         }
         console.log("Object.keys(value).length",Object.keys(value).length)
-        if (Object.keys(value).length > 0 && value){
-            console.log("3", value)
-            return isExecuted ? await value() : value
-        }
+        //if (Object.keys(value).length > 0 && value){
+        //    console.log("3", value)
+        //    return isExecuted ? await value() : value
+        //}
         console.log("4", value)
         return value
     }
