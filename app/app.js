@@ -272,7 +272,7 @@ async function getKeyAndPath(str, nestedPath){
     let key = str;
     let path = "";
     if (str.startsWith("~/")){
-        val[0] = val[0].replace("~/", "")
+        //val[0] = val[0].replace("~/", "")
         val.unshift("root")
     }
     if (val.length > 1){
