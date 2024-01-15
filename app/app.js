@@ -268,7 +268,7 @@ async function getKeyAndPath(str, nestedPath){
     let path = "";
     if (val.length > 1){
         key = val[val.length]
-        path = str.slice(0, -1)
+        path = val.slice(0, -1)
         console.log("path1", path)
         path = path.join(".")
         console.log("path2", path)
