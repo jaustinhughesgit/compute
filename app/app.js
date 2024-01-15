@@ -383,6 +383,9 @@ async function runAction(action, libs, nestedPath, req, res, next){
 }
 
 async function addValueToNestedKey(key, nestedContext, value){
+    console.log("########################")
+    console.log("addValueToNestedKey")
+    console.log(key, value, nestedContext)
     if (!nestedContext.hasOwnProperty(key)){
         nestedContext[key] = {"value":{}, "context":{}}
     }
