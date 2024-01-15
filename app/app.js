@@ -132,6 +132,8 @@ async function initializeMiddleware(req, res, next) {
                 lib.root.context = await processConfig(userJSON, lib.root.context, lib);
                 lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
                 lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
+                lib.root.req = req
+                lib.root.res = res
                 await initializeModules(lib, userJSON, req, res, next);
             };
         });
@@ -429,6 +431,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
+
         const isObj = await isOnePlaceholder(action.target)
         let strClean = await removeBrackets(action.target, isObj, false);
 
