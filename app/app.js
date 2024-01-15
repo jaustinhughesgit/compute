@@ -288,7 +288,9 @@ async function processString(str, libs, nestedPath) {
     console.log("typeof nestedValue", typeof nestedValue)
     console.log(" nestedValue[target.key]",  nestedValue[target.key])
     console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
-    if (nestedContext.hasOwnProperty(target.key)){
+    if (typeof nestedValue == "object"){
+        return nestedValue
+    } if (nestedContext.hasOwnProperty(target.key)){
         console.log("1")
         let value = nestedContext[target.key].value
         console.log("value1", value)
