@@ -619,6 +619,22 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }, nestedContext);
         console.log("createFunctionFromAction : addToNested", addToNested)
 
+        if (action.params){
+            for (param in action.params){
+                if (param != null && param != null && param != ""){
+                    const paramExecuted = param.endsWith('}}!');
+                    const paramObj = await isOnePlaceholder(param);
+                    let paramClean = await removeBrackets(param, paramObj, paramExecuted);
+                    let newNestedPath = nestedPath+"."+assign.key
+                    console.log("newNestedPath///////", newNestedPath)
+                    let param = await getKeyAndPath(paramClean, newNestedPath);
+                    let nestedParamContext = await getNestedContext(libs, param.path);
+                    addValueToNestedKey(paramClean, nestedParamContext, {})
+                    console.log("lib.root.context", lib.root.context)
+                }
+            }
+        }
+
         if (action.run) {
             for (const act of action.run) {
                 //We don't need to create an object in newNestedContext, that is the params job. We need to access it and create a new 
