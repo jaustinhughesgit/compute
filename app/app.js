@@ -659,14 +659,14 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     const paramExecuted = param.endsWith('}}!');
                     const paramObj = await isOnePlaceholder(param);
                     console.log("paramObj", paramObj)
-                    let paramClean = await removeBrackets(param, paramObj, paramExecuted);
-                    console.log("paramClean", paramClean)
+                    let paramClean2 = await removeBrackets(param, paramObj, paramExecuted);
+                    console.log("paramClean", paramClean2)
                     let newNestedPath = nestedPath+"."+assign.key
                     console.log("newNestedPath///////", newNestedPath)
-                    let p = await getKeyAndPath(paramClean, newNestedPath);
+                    let p = await getKeyAndPath(paramClean2, newNestedPath);
                     let nestedParamContext = await getNestedContext(libs, p.path);
-                    console.log("addValueTo:6", paramClean, nestedParamContext, {})
-                    addValueToNestedKey(paramClean, nestedParamContext, {})
+                    console.log("addValueTo:6", paramClean2, nestedParamContext, {})
+                    addValueToNestedKey(paramClean2, nestedParamContext, {})
                     console.log("lib.root.context", lib.root.context)
                     console.log("lib.root.context[assign.key]", lib.root.context[assign.key])
                 }
@@ -678,14 +678,14 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 //We don't need to create an object in newNestedContext, that is the params job. We need to access it and create a new 
                 //obj that saves the output.
 
-                if (act.hasOwnProperty("target")){
-                    const targetExecuted = act.target.endsWith('}}!');
-                    const isTargetObj = await isOnePlaceholder(act.target);
-                    let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
-                    console.log("addValueToNestedKey", targetClean, nestedContext, {})
-                    console.log("addValueTo:7", paramClean, nestedParamContext, {})
-                    addValueToNestedKey(paramClean, nestedParamContext, {})
-                }
+                //if (act.hasOwnProperty("target")){
+                    //const targetExecuted = act.target.endsWith('}}!');
+                    //const isTargetObj = await isOnePlaceholder(act.target);
+                    //let targetClean = await removeBrackets(act.target, isTargetObj, targetExecuted);
+                    //console.log("addValueToNestedKey", targetClean, nestedContext, {})
+                    //console.log("addValueTo:7", paramClean, nestedParamContext, {})
+                    //addValueToNestedKey(paramClean, nestedParamContext, {})
+                //}
                 let newNestedPath = nestedPath+"."+assign.key
                 console.log("newNestedPath")
                 let newNestedContext = await getNestedContext(libs, newNestedPath);
