@@ -229,11 +229,14 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
+        console.log("string", processedItem)
         return await processString(processedItem, libs, nestedPath);
     } else if (Array.isArray(processedItem)) {
+        console.log("array", processedItem)
         let newProcessedItem2 =  processedItem.map(async element => {
             console.log("element", element, libs, nestedPath)
             await replacePlaceholders(element, libs, nestedPath)});
+        console.log("newProcessedItem2")
         return await Promise.all(newProcessedItem2);
     } else {
         console.log("not a string", processedItem)
@@ -279,7 +282,7 @@ async function processString(str, libs, nestedPath) {
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
-    console.log("processString-------------------")
+    /*console.log("processString-------------------")
     console.log("isExecuted",isExecuted)
     console.log("isObj",isObj)
     console.log("strClean",strClean)
@@ -287,38 +290,34 @@ async function processString(str, libs, nestedPath) {
     console.log("nestedContext",nestedContext)
     console.log("nestedValue",nestedValue)
     console.log("libs.root.context", libs.root.context)
-    console.log("libs.root.context.passport", libs.root.context.passport)
-    try{
-    console.log("typeof libs.root.passport.value", libs.root.context.passport.value)
-    } catch (err){}
     console.log("typeof nestedValue", typeof nestedValue)
     console.log(" nestedValue[target.key]",  nestedValue[target.key])
-    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
+    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])*/
     if (nestedContext.hasOwnProperty(target.key)){
-        console.log("1")
+        //console.log("1")
         let value = nestedContext[target.key].value
-        console.log("value1", value)
-        console.log("typeof value1", typeof value)
+        //console.log("value1", value)
+        //console.log("typeof value1", typeof value)
         if (typeof value === 'function') {
-            console.log("2")
+            console.log("2", value)
             value = await value();
         }
-        console.log("Object.keys(value).length",Object.keys(value).length)
+        //console.log("Object.keys(value).length",Object.keys(value).length)
         if (Object.keys(value).length > 0 && value){
-            console.log("3")
+            console.log("3", value)
             return isExecuted ? await value() : value
         }
-        console.log("4")
+        console.log("4", value)
         return value
     }
     if (!isObj){
         console.log("5")
         return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            console.log("keyPath",keyPath)
+            //console.log("keyPath",keyPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
-            console.log("target5", target)
-            console.log("value5", value)
+            //console.log("target5", target)
+            //console.log("value5", value)
             return value !== undefined ? value : match; 
         });
     }
@@ -520,6 +519,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
+
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
