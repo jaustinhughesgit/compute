@@ -234,7 +234,8 @@ async function removeBrackets(str, isObj, isExecuted){
 }
 
 async function getKeyAndPath(str, nestedPath){
-    let val = str.split(".").pop();
+    let val = str.split(".");
+
     let key = str;
     let path = "";
     if (val.length > 1){
@@ -265,6 +266,9 @@ async function processString(str, libs, nestedPath) {
     console.log("target",target)
     console.log("nestedContext",nestedContext)
 
+    console.log("typeof nestedContext", typeof nestedContext)
+    console.log(" nestedContext[target.key]",  nestedContext[target.key])
+    console.log("typeof nestedContext[target.key]", typeof nestedContext[target.key])
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("1")
         let value = nestedContext[target.key].value
