@@ -230,6 +230,10 @@ async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
         console.log("string", processedItem)
+        if (nestedPath == "root" && processedItem == "{{callbackFunction}}"){
+            console.log("!!!!!!!!!!!!!!!!!!", lib.root.context.callbackFunction.value)
+            return lib.root.context.callbackFunction.value
+        }
         return await processString(processedItem, libs, nestedPath);
     } else if (Array.isArray(processedItem)) {
         console.log("array", processedItem)
