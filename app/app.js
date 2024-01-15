@@ -132,8 +132,8 @@ async function initializeMiddleware(req, res, next) {
                 lib.root.context = await processConfig(userJSON, lib.root.context, lib);
                 lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
                 lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
-                lib.root.context.req = req
-                lib.root.context.res = res
+                lib.root.context.req = {"value":req, "context":{}}
+                lib.root.context.res = {"value":res, "context":{}}
                 await initializeModules(lib, userJSON, req, res, next);
             };
         });
@@ -319,6 +319,7 @@ async function processString(str, libs, nestedPath) {
     console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("1")
+
         let value = nestedContext[target.key].value
         console.log("value1", value)
         console.log("typeof value1", typeof value)
