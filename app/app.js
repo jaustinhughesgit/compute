@@ -274,7 +274,6 @@ async function getKeyAndPath(str, nestedPath){
     return {"key":key, "path":path}
 }
 
-//"passport", {passport:{value:[funciton],context:{}}, ""
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
@@ -283,7 +282,7 @@ async function processString(str, libs, nestedPath) {
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
-    /*console.log("processString-------------------")
+    console.log("processString-------------------")
     console.log("isExecuted",isExecuted)
     console.log("isObj",isObj)
     console.log("strClean",strClean)
@@ -293,17 +292,17 @@ async function processString(str, libs, nestedPath) {
     console.log("libs.root.context", libs.root.context)
     console.log("typeof nestedValue", typeof nestedValue)
     console.log(" nestedValue[target.key]",  nestedValue[target.key])
-    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])*/
+    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
     if (nestedContext.hasOwnProperty(target.key)){
-        //console.log("1")
+        console.log("1")
         let value = nestedContext[target.key].value
-        //console.log("value1", value)
-        //console.log("typeof value1", typeof value)
+        console.log("value1", value)
+        console.log("typeof value1", typeof value)
         if (typeof value === 'function') {
             console.log("2", value)
             value = await value();
         }
-        //console.log("Object.keys(value).length",Object.keys(value).length)
+        console.log("Object.keys(value).length",Object.keys(value).length)
         if (Object.keys(value).length > 0 && value){
             console.log("3", value)
             return isExecuted ? await value() : value
@@ -314,11 +313,11 @@ async function processString(str, libs, nestedPath) {
     if (!isObj){
         console.log("5")
         return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            //console.log("keyPath",keyPath)
+            console.log("keyPath",keyPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
-            //console.log("target5", target)
-            //console.log("value5", value)
+            console.log("target5", target)
+            console.log("value5", value)
             return value !== undefined ? value : match; 
         });
     }
@@ -506,6 +505,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
     }
 
     async function instantiateWithNew(constructor, args) {
+        console.log("constructor", constructor)
+        console.log("args",args)
         return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
