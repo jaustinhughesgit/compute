@@ -286,7 +286,9 @@ async function processString(str, libs, nestedPath) {
     console.log("nestedValue",nestedValue)
     console.log("libs.root", libs.root)
     console.log("libs.root.passport", libs.root.passport)
+    try{
     console.log("typeof libs.root.passport.value", libs.root.passport.value)
+    } catch (err){}
     console.log("typeof nestedValue", typeof nestedValue)
     console.log(" nestedValue[target.key]",  nestedValue[target.key])
     console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
