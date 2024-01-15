@@ -132,8 +132,8 @@ async function initializeMiddleware(req, res, next) {
                 lib.root.context = await processConfig(userJSON, lib.root.context, lib);
                 lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
                 lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
-                lib.root.req = req
-                lib.root.res = res
+                lib.root.context.req = req
+                lib.root.context.res = res
                 await initializeModules(lib, userJSON, req, res, next);
             };
         });
