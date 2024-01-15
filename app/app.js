@@ -234,7 +234,7 @@ async function removeBrackets(str, isObj, isExecuted){
 }
 
 async function getKeyAndPath(str, nestedPath){
-    let val = str.split(".");
+    let val = str.split(".").pop();
     let key = str;
     let path = "";
     if (val.length > 1){
