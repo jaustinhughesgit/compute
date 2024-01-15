@@ -370,14 +370,14 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let strClean = await removeBrackets(action.target, isObj, false);
 
         let target = await getKeyAndPath(strClean, nestedPath);
-        console.log("target.path>>", target.path)
+        console.log("target>>", target)
         let nestedContext = await getNestedContext(libs, target.path);
         console.log("nestedContext>>",nestedContext)
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
 
-        value = await replacePlaceholders(target.key, libs, nestedPath);
+        value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
