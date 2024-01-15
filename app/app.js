@@ -226,23 +226,25 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }
 
-function replacePlaceholders(item, libs, nestedPath) {
-    //console.log("item context", item, context)
+async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
-    console.log("typeof processedItem", typeof processedItem)
     if (typeof processedItem === 'string') {
-        //console.log("processedItem typeof", processedItem)
-        processedItem = processString(processedItem, libs, nestedPath);
-        //console.log("processedItem", processedItem)
+        console.log("string", processedItem)
+        return await processString(processedItem, libs, nestedPath);
     } else if (Array.isArray(processedItem)) {
-        //console.log("Array.isArray(processedItem))",Array.isArray(processedItem))
-        processedItem =  processedItem.map(element => replacePlaceholders(element, libs, nestedPath))
+        console.log("array", processedItem)
+        let newProcessedItem2 =  processedItem.map(async element => {
+            console.log("element", element, libs, nestedPath)
+            return await replacePlaceholders(element, libs, nestedPath)
+        });
+        console.log("newProcessedItem2",newProcessedItem2 )
+        return await Promise.all(newProcessedItem2);
+    } else {
+        return item
+        console.log("not a string", processedItem)
     }
-    //console.log("returning")
-    return processedItem;
+    
 }
-
-
 
 async function isOnePlaceholder(str) {
     if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
