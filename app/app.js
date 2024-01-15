@@ -474,6 +474,17 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
+
+
+            console.log("Pre Conditions ------------")
+            console.log("target", target)
+            console.log("action", action)
+            console.log("libs", libs)
+            console.log("nestedPath", nestedPath)
+            console.log("accessClean", accessClean)
+            console.log("chainParams", chainParams)
+            console.log("result", result)
+
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
