@@ -620,7 +620,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("createFunctionFromAction : addToNested", addToNested)
 
         if (action.params){
-            for (param in action.params){
+            for (par in action.params){
+                let param = action.params[par]
                 if (param != null && param != null && param != ""){
                     const paramExecuted = param.endsWith('}}!');
                     const paramObj = await isOnePlaceholder(param);
