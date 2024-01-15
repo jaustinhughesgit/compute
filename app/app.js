@@ -155,9 +155,9 @@ async function getNestedContext(libs, nestedPath) {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
-            if (partCounter < parts.length-1){
+            //if (partCounter < parts.length-1){
                 tempContext = tempContext[part].context;
-            }
+            //}
         }
         return tempContext;
     }
@@ -477,7 +477,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             if (accessClean && !chainAction.params) {
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
-                console.log("result", result, accessClean, result[accessClean], chainParams)
+                console.log("result", result, accessClean, result[accessClean], chainParams) // ERROR IS HERE
                 result = await instantiateWithNew(result[accessClean].value, chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 if (accessClean === 'promise') {
@@ -489,8 +489,24 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         if (chainAction.access && accessClean.length != 0){
                             if (chainAction.express){
                                 if (chainAction.next || chainAction.next == undefined){
+                                    console.log("next true or undefined ------------")
+                                    console.log("target", target)
+                                    console.log("action", action)
+                                    console.log("libs", libs)
+                                    console.log("nestedPath", nestedPath)
+                                    console.log("accessClean", accessClean)
+                                    console.log("chainParams", chainParams)
+                                    console.log("result", result)
                                         result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
+                                    console.log("next false ------------------")
+                                    console.log("target", target)
+                                    console.log("action", action)
+                                    console.log("libs", libs)
+                                    console.log("nestedPath", nestedPath)
+                                    console.log("accessClean", accessClean)
+                                    console.log("chainParams", chainParams)
+                                    console.log("result", result)
                                         result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
