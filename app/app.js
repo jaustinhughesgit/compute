@@ -327,7 +327,7 @@ async function processString(str, libs, nestedPath) {
     }
     if (!isObj){
         console.log("5")
-        return str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
+        let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             console.log("keyPath",keyPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
@@ -335,6 +335,8 @@ async function processString(str, libs, nestedPath) {
             console.log("value5", value)
             return value !== undefined ? value : match; 
         });
+        console.log("returnValue", returnValue)
+        return returnValue
     }
     console.log("RETRUN6")
     return str
