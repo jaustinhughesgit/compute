@@ -240,6 +240,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
         console.log("newProcessedItem2",newProcessedItem2 )
         return await Promise.all(newProcessedItem2);
     } else {
+        return item
         console.log("not a string", processedItem)
     }
     
@@ -275,6 +276,7 @@ async function getKeyAndPath(str, nestedPath){
 }
 
 async function processString(str, libs, nestedPath) {
+    console.log("str",str, nestedPath)
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
@@ -548,6 +550,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
                 console.log("result", result, accessClean, result[accessClean], chainParams) // ERROR IS HERE
+                result = 
                 result = await instantiateWithNew(result, chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 if (accessClean === 'promise') {
