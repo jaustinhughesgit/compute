@@ -164,6 +164,23 @@ async function getNestedContext(libs, nestedPath) {
     return libs
 }
 
+async function getNestedValue(libs, nestedPath) {
+    const parts = nestedPath.split('.');
+    if (nestedPath && nestedPath != ""){
+        let tempContext = libs;
+        let partCounter = 0
+        for (let part of parts) {
+            if (partCounter < parts.length-1){
+                tempContext = tempContext[part].context;
+            } else {
+                tempContext = tempContext[part].value;
+            }
+        }
+        return tempContext;
+    }
+    return libs
+}
+
 async function condition(left, conditions, right, operator = "&&", libs, nestedPath) {
     //need an updated condition for if left is the only argument then return it's value (bool or truthy)
 
@@ -258,6 +275,7 @@ async function processString(str, libs, nestedPath) {
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let target = await getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(libs, target.path)
+    let nestedValue= await getNestedValue(libs, target.path)
 
     console.log("processString-------------------")
     console.log("isExecuted",isExecuted)
@@ -265,10 +283,11 @@ async function processString(str, libs, nestedPath) {
     console.log("strClean",strClean)
     console.log("target",target)
     console.log("nestedContext",nestedContext)
+    console.log("nestedValue",nestedValue)
 
-    console.log("typeof nestedContext", typeof nestedContext)
-    console.log(" nestedContext[target.key]",  nestedContext[target.key])
-    console.log("typeof nestedContext[target.key]", typeof nestedContext[target.key])
+    console.log("typeof nestedValue", typeof nestedValue)
+    console.log(" nestedValue[target.key]",  nestedValue[target.key])
+    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("1")
         let value = nestedContext[target.key].value
