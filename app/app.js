@@ -299,31 +299,31 @@ async function getKeyAndPath(str, nestedPath){
 async function processString(str, libs, nestedPath) {
     console.log("str ********************",str, nestedPath)
     const isExecuted = str.endsWith('}}!');
-    //console.log("isExecuted",isExecuted)
+    console.log("isExecuted",isExecuted)
     const isObj = await isOnePlaceholder(str)
-    //console.log("isObj",isObj)
+    console.log("isObj",isObj)
     let strClean = await removeBrackets(str, isObj, isExecuted);
-    //console.log("strClean",strClean)
+    console.log("strClean",strClean)
     let target = await getKeyAndPath(strClean, nestedPath)
-    //console.log("target",target)
+    console.log("target",target)
     let nestedContext = await getNestedContext(libs, target.path)
 
-    //console.log("nestedContext",nestedContext)
+    console.log("nestedContext",nestedContext)
     let nestedValue= await getNestedValue(libs, target.path)
 
-    //console.log("processString-------------------")
-    //console.log("nestedValue",nestedValue)
-    //console.log("libs.root.context", libs.root.context)
-    //console.log("typeof nestedValue", typeof nestedValue)
-    //console.log(" nestedValue[target.key]",  nestedValue[target.key])
-    //console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
+    console.log("processString-------------------")
+    console.log("nestedValue",nestedValue)
+    console.log("libs.root.context", libs.root.context)
+    console.log("typeof nestedValue", typeof nestedValue)
+    console.log(" nestedValue[target.key]",  nestedValue[target.key])
+    console.log("typeof nestedValue[target.key]", typeof nestedValue[target.key])
     if (nestedContext.hasOwnProperty(target.key)){
-        //console.log("1")
+        console.log("1")
         let value = nestedContext[target.key].value
-        //console.log("value1", value)
-        //console.log("typeof value1", typeof value)
+        console.log("value1", value)
+        console.log("typeof value1", typeof value)
         if (typeof value === 'function') {
-            //console.log("2", value)
+            console.log("2", value)
             if (isExecuted){
             value = await value();
             }
@@ -333,23 +333,23 @@ async function processString(str, libs, nestedPath) {
         //    console.log("3", value)
         //    return isExecuted ? await value() : value
         //}
-        //console.log("4", value)
+        console.log("4", value)
         return value
     }
     if (!isObj){
-        //console.log("5")
+        console.log("5")
         let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            //console.log("keyPath",keyPath)
+            console.log("keyPath",keyPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
-            //console.log("target5", target)
-            //console.log("value5", value)
+            console.log("target5", target)
+            console.log("value5", value)
             return value !== undefined ? value : match; 
         });
-        //console.log("returnValue", returnValue)
+        console.log("returnValue", returnValue)
         return returnValue
     }
-    //console.log("RETRUN6")
+    console.log("RETRUN6")
     return str
 }
 
