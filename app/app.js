@@ -287,7 +287,7 @@ async function getKeyAndPath(str, nestedPath){
 }
 
 async function processString(str, libs, nestedPath) {
-    console.log("str",str, nestedPath)
+    console.log("str ********************",str, nestedPath)
     const isExecuted = str.endsWith('}}!');
     console.log("isExecuted",isExecuted)
     const isObj = await isOnePlaceholder(str)
