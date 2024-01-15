@@ -426,7 +426,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 nestedContext[target.key].value = value(...args); 
             }
         }
-        let newNestedPath = nestedPath + "." + target.key
+        let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, res, req, next);
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
