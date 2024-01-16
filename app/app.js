@@ -309,6 +309,11 @@ async function processString(str, libs, nestedPath) {
                 val = valOwner.value
             }
             console.log("val", val)
+            if (typeof val === "object"){
+                val = JSON.stringify(val)
+            } else if (typeof val === "function"){
+                val = match
+            }
             return val; 
         });
 
