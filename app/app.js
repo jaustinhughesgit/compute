@@ -228,7 +228,10 @@ async function replacePlaceholders(item, libs, nestedPath) {
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 =  processedItem.map(async element => {
-            return await replacePlaceholders(element, libs, nestedPath)
+            console.log("element", element)
+            let repHolder = await replacePlaceholders(element, libs, nestedPath)
+            console.log("repHolder", repHolder)
+            return repHolder
         });
         return await Promise.all(newProcessedItem2);
     } else {
