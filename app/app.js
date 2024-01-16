@@ -505,8 +505,9 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-
+                console.log("chainAction.params:::", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
+                console.log("chainParams::::", chainParams)
             } else {
                 chainParams = [];
             }
