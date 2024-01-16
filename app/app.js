@@ -140,6 +140,7 @@ async function initializeMiddleware(req, res, next) {
             };
         });
         return await Promise.all(resultArrayOfJSON)
+        console.log("libs.root.context",libs.root.context)
     }
 }
 
@@ -150,7 +151,6 @@ async function initializeModules(libs, config, req, res, next) {
         if (runResponse == "contune"){
             continue
         }
-        console.log(libs.root.context)
     }
 }
 
