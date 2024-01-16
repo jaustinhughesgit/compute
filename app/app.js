@@ -59,7 +59,7 @@ async (req, res, next) => {
     next();
 },
 async (req, res, next) => {
-    if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
+    if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
         req.lib.middlewareCache = await initializeMiddleware(req, res, next);
         req.lib.isMiddlewareInitialized = true;
     }
