@@ -337,7 +337,7 @@ async function processString(str, libs, nestedPath) {
         console.log("4", value)
         return value
     }
-    if (!isObj){
+    if (!isObj && str.includes("{{")){
         console.log("5")
         let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             console.log("keyPath",keyPath)
