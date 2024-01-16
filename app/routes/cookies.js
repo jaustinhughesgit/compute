@@ -71,12 +71,12 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     if (entity.Items[0].u){
         using = true
     }
+    pathID = await uuidv4();
     let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}};
+    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID};
     let paths = {}
     let paths2 = {}
     //if (!pathID){
-    pathID = await uuidv4();
     //}
     if (isUsing){
         paths[fileID] = [...parentPath];
@@ -106,6 +106,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID])
         Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
         Object.assign(paths, headUsingObj.paths);
+        Object.assign(paths2, headUsingObj.paths2);
         obj[fileID].meta["usingMeta"] = {
             "name": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.name,
             "head": headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].meta.head,
