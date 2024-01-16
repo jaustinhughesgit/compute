@@ -1,15 +1,14 @@
 var express = require('express');
 const serverless = require('serverless-http');
-// SEE IF WE CAN INCORPORATE LIB INTO EACH INITIAL WEB CALL SO IT'S NOT EXPOSED TO OTHER USERS WHO USE THE INVOKE!!!!!!!!!!!!!!!!!!!!!
-AWS = require('aws-sdk');
-app = express();
-path = require('path');
-let session = require('express-session');
-fs = require('fs');
+const AWS = require('aws-sdk');
+const app = express();
+const path = require('path');
+const session = require('express-session');
+const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-uuidv4 = uuidv4
 const { promisify } = require('util');
-exec = promisify(require('child_process').exec);
+const exec = promisify(require('child_process').exec);
+
 app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
