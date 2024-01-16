@@ -311,8 +311,6 @@ async function processString(str, libs, nestedPath) {
             if (isExecuted){
             value = await value();
             }
-        } else if (typeof value === 'object'){
-
         }
         return value
     }
