@@ -295,7 +295,7 @@ async function processString(str, libs, nestedPath) {
     }
     if (!isObj && str.includes("{{")){
         console.log("str", str)
-        let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
+        return await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             console.log("match/keyPath", match, keyPath)
             let tar = await getKeyAndPath(keyPath, nestedPath)
             console.log("tar/lib", tar, lib)
@@ -311,8 +311,7 @@ async function processString(str, libs, nestedPath) {
             console.log("val", val)
             return val; 
         });
-        console.log("returnValue", returnValue)
-        return await Promise.all(returnValue);
+
     }
     return str
 }
