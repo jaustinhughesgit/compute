@@ -1,45 +1,39 @@
 var express = require('express');
 const serverless = require('serverless-http');
 // SEE IF WE CAN INCORPORATE LIB INTO EACH INITIAL WEB CALL SO IT'S NOT EXPOSED TO OTHER USERS WHO USE THE INVOKE!!!!!!!!!!!!!!!!!!!!!
-let lib = {};
-lib.modules = {};
-lib.AWS = require('aws-sdk');
-lib.app = express();
-lib.path = require('path');
-lib.root = {"value":"", "context":{}}
-//lib.root.context.process = process
-lib.root.context.session = require('express-session');
-lib.fs = require('fs');
+AWS = require('aws-sdk');
+app = express();
+path = require('path');
+let session = require('express-session');
+fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-lib.uuidv4 = uuidv4
+uuidv4 = uuidv4
 const { promisify } = require('util');
-lib.exec = promisify(require('child_process').exec);
-lib.app.use(lib.root.context.session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
-lib.app.set('views', lib.path.join(__dirname, 'views'));
-lib.app.set('view engine', 'ejs');
-lib.AWS.config.update({ region: 'us-east-1' });
-lib.dynamodbLL = new lib.AWS.DynamoDB();
-lib.dynamodb = new lib.AWS.DynamoDB.DocumentClient();
-lib.SM = new lib.AWS.SecretsManager();
-lib.s3 = new lib.AWS.S3();
-let isMiddlewareInitialized = false;
-let middlewareCache = [];
-let whileLimit = 100;
+exec = promisify(require('child_process').exec);
+app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
+app.set('views', path.join(__dirname, 'views'));
+app.set('view engine', 'ejs');
+AWS.config.update({ region: 'us-east-1' });
+dynamodbLL = new AWS.DynamoDB();
+dynamodb = new AWS.DynamoDB.DocumentClient();
+SM = new AWS.SecretsManager();
+s3 = new AWS.S3();
+
 var cookiesRouter;
-var controllerRouter = require('./routes/controller')(lib.dynamodb, lib.dynamodbLL, lib.uuidv4);
+var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var indexRouter = require('./routes/index');
 
-lib.app.use('/controller', controllerRouter);
+app.use('/controller', controllerRouter);
 
-lib.app.use('/', indexRouter);
+app.use('/', indexRouter);
 
-lib.app.use(async (req, res, next) => {
+app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
             let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, lib.dynamodb, lib.dynamodbLL, lib.uuidv4, lib.s3);
-            lib.app.use('/:type(cookies|url)*', function(req, res, next) {
+            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3);
+            app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');
             }, cookiesRouter);
@@ -53,20 +47,30 @@ lib.app.use(async (req, res, next) => {
     }
 });
 
-lib.app.all('/auth/*', 
+app.all('/auth/*', 
+async (req, res, next) => {
+    req.lib = {}
+    req.lib.modules = {};
+    req.lib.middlewareCache = []
+    req.lib.isMiddlewareInitialized = false;
+    req.lib.whileLimit = 100;
+    req.lib.root = {}
+    req.lib.root.context = {}
+    req.lib.root.context.session = session
+    next();
+},
 async (req, res, next) => {
     if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
-        middlewareCache = await initializeMiddleware(req, res, next);
-        isMiddlewareInitialized = true;
+        req.lib.middlewareCache = await initializeMiddleware(req, res, next);
+        req.lib.isMiddlewareInitialized = true;
     }
     next();
 },
 async (req, res, next) => {
-    lib.root.context = {"session": lib.root.context.session}
-    if (middlewareCache.length > 0) {
+    if (req.lib.middlewareCache.length > 0) {
         const runMiddleware = (index) => {
-            if (index < middlewareCache.length) {
-                middlewareCache[index](req, res, () => runMiddleware(index + 1));
+            if (index < req.lib.middlewareCache.length) {
+                req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
             } else {
                 next();
             }
@@ -81,7 +85,7 @@ async (req, res, next) => {
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
-        const data = await lib.SM.getSecretValue({ SecretId: secretName }).promise();
+        const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
         let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"','').replace('"','');
         return pKey
@@ -93,7 +97,7 @@ async function getPrivateKey() {
 
 async function retrieveAndParseJSON(fileName) {
     const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
-    const data = await lib.s3.getObject(params).promise();
+    const data = await s3.getObject(params).promise();
     return await JSON.parse(data.Body.toString());
 }
 
@@ -107,7 +111,7 @@ async function processConfig(config, initialContext, lib) {
 
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
-    await lib.exec(`npm install ${moduleName} ${npmConfigArgs}`); 
+    await exec(`npm install ${moduleName} ${npmConfigArgs}`); 
     lib.modules[moduleName] = moduleName
     if (!context.hasOwnProperty(contextKey)){
         context[contextKey] = {"value":{}, "context":{}}
@@ -119,8 +123,8 @@ async function installModule(moduleName, contextKey, context, lib) {
 async function initializeMiddleware(req, res, next) {
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON} = await require('./routes/cookies')
-        const head = await getHead("su", req.path.split("/")[2].split("?")[0], lib.dynamodb)
-        const parent = await convertToJSON(head.Items[0].su, [], null, null, lib.dynamodb)
+        const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
+        const parent = await convertToJSON(head.Items[0].su, [], null, null, dynamodb)
         let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
         const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName));
         const results = await Promise.all(promises);
@@ -128,12 +132,12 @@ async function initializeMiddleware(req, res, next) {
         results.forEach(result => arrayOfJSON.push(result));
         let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
             return async (req, res, next) => {
-                lib.root.context = await processConfig(userJSON, lib.root.context, lib);
-                lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
-                lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
-                lib.root.context.req = {"value":req, "context":{}}
-                lib.root.context.res = {"value":res, "context":{}}
-                await initializeModules(lib, userJSON, req, res, next);
+                req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                req.lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
+                req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
+                req.lib.root.context.req = {"value":req, "context":{}}
+                req.lib.root.context.res = {"value":res, "context":{}}
+                await initializeModules(req.lib, userJSON, req, res, next);
             };
         });
         return await Promise.all(resultArrayOfJSON)
@@ -588,4 +592,4 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
     };
 }
 
-module.exports.lambdaHandler = serverless(lib.app);
+module.exports.lambdaHandler = serverless(app);
