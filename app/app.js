@@ -285,7 +285,7 @@ async function getKeyAndPath(str, nestedPath){
 function getValueFromPath(obj, path) {
     return path.split('.').reduce((current, key) => {
         // Traverse using 'context' key and then get the 'value'
-        return current && current['context'] && current['context'][key] ? current['context'][key]['value'] : null;
+        return current && current && current[key] ? current[key] : null;
     }, obj);
 }
 
