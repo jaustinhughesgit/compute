@@ -337,6 +337,7 @@ async function processString(str, libs, nestedPath) {
         console.log("4", value)
         return value
     }
+    if ()
     if (!isObj){
         console.log("5")
         let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
@@ -350,7 +351,7 @@ async function processString(str, libs, nestedPath) {
             return value !== undefined ? value : match; 
         });
         console.log("returnValue", returnValue)
-        return returnValue
+        return await Promise.all(returnValue);
     }
     console.log("RETRUN6")
     return str
