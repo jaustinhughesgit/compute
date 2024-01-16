@@ -276,6 +276,40 @@ async function getKeyAndPath(str, nestedPath){
     return {"key":key, "path":path}
 }
 
+function getValueFromPath(obj, path) {
+    return path.split('.').reduce((current, key) => {
+        // Traverse using 'context' key and then get the 'value'
+        return current && current['context'] && current['context'][key] ? current['context'][key]['value'] : null;
+    }, obj);
+}
+
+function replaceAll(template, lib) {
+    return new Promise((resolve, reject) => {
+        try {
+            let result = template;
+
+            // Find all placeholders in the template
+            const regex = /{{(.*?)}}/g;
+            let match;
+            while ((match = regex.exec(template)) !== null) {
+                // Extract the path from the placeholder
+                const path = match[1];
+
+                // Retrieve the value for the path
+                const value = getValueFromPath(lib, path);
+
+                if (value !== null) {
+                    result = result.replace(new RegExp(`{{${path}}}`, 'g'), value);
+                }
+            }
+
+            resolve(result);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
@@ -293,32 +327,16 @@ async function processString(str, libs, nestedPath) {
         }
         return value
     }
-    if (!isObj && str.includes("{{")){
-        console.log("str", str)
-        return await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            console.log("match/keyPath", match, keyPath)
-            let tar = await getKeyAndPath(keyPath, nestedPath)
-            console.log("tar/lib", tar, lib)
-            console.log("lib.root.context", lib.root.context)
-            let nest = await getNestedContext(libs, tar.path);
-            console.log("nest", nest)
-            let valOwner = nest[tar.key]
-            console.log("valOwner",valOwner)
-            let val = undefined
-            if (valOwner.hasOwnProperty("value")){
-                val = valOwner.value
-            }
-            console.log("val", val)
-            if (typeof val === "object"){
-                val = JSON.stringify(val)
-            } else if (typeof val === "function"){
-                val = match
-            }
-            return val; 
-        });
 
+    if (typeof str === "string"){
+        return await replaceAll(str, lib)
+            .then(result => console.log(result))
+            .catch(error => console.error(error));
+    } else if (typeof str == "object"){
+        return JSON.stringify(str)
+    } else {
+        return "..."
     }
-    return str
 }
 
 async function runAction(action, libs, nestedPath, req, res, next){
