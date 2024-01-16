@@ -302,9 +302,6 @@ async function processString(str, libs, nestedPath) {
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
         if (arrowJson.length > 1){
-            console.log("arrowJson is larger than 1")
-            console.log("value", value)
-            console.log("arrowJson[1]", arrowJson[1])
             value = getValueFromPath(value, arrowJson[1]);
         }
         if (typeof value === 'function') {
@@ -563,7 +560,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         let assign = await getKeyAndPath(strClean, nestedPath);
         let nestedContext = await getNestedContext(libs, assign.path);
         let result;
+        console.log("args", args)
         let addToNested = await args.reduce(async (unusedObj, arg, index) => {
+            console.log("arg", arg)
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = await isOnePlaceholder(action.params[index]);
@@ -579,11 +578,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }, nestedContext);
 
         if (action.params){
-            console.log("action.params", action.params)
             for (par in action.params){
                 let param = action.params[par]
                 if (param != null && param != null && param != ""){
-                    console.log("param", param)
                     const paramExecuted = param.endsWith('}}!');
                     const paramObj = await isOnePlaceholder(param);
                     let paramClean2 = await removeBrackets(param, paramObj, paramExecuted);
