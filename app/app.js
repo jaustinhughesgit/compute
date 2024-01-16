@@ -71,7 +71,7 @@ async (req, res, next) => {
             if (index < req.lib.middlewareCache.length) {
                 req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
             } else {
-                next();
+                //next();
             }
         };
         await runMiddleware(0);
@@ -140,7 +140,6 @@ async function initializeMiddleware(req, res, next) {
             };
         });
         return await Promise.all(resultArrayOfJSON)
-        console.log("libs.root.context",libs.root.context)
     }
 }
 
