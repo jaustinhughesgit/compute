@@ -552,6 +552,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
+    console.log("11111111")
     return  async function (...args) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = await isOnePlaceholder(action.assign);
@@ -592,7 +593,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 }
             }
         }
-
+        console.log("222222")
+        console.log("lib.root.context", libs.root.context)
         if (action.run) {
             for (const act of action.run) {
                 let newNestedPath = nestedPath+"."+assign.key
