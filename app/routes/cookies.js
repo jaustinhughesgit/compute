@@ -80,14 +80,12 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     }
     if (isUsing){
         paths[fileID] = [...parentPath];
-    } else {
-        paths[fileID] = [...parentPath, fileID];
-    }
-    if (isUsing){
         paths2[pathID] = [...parentPath];
     } else {
+        paths[fileID] = [...parentPath, fileID];
         paths2[pathID] = [...parentPath, fileID];
     }
+
     if (children){
         for (let child of children) {
             const subByE = await getSub(child, "e", dynamodb);
@@ -95,7 +93,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
                 let childResponse = {}
                 if (convertCounter < 200) {
 
-                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, dynamodb);
+                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, dynamodb, pathID);
                 convertCounter++;
                 }
                 Object.assign(obj[fileID].children, childResponse.obj);
@@ -120,7 +118,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         for (let link of linked) {
             const subByE = await getSub(link, "e", dynamodb);
             let uuid = subByE.Items[0].su
-            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb);
+            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, pathID);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
             Object.assign(paths2, linkResponse.paths2);
