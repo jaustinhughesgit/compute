@@ -297,7 +297,15 @@ async function processString(str, libs, nestedPath) {
             let tar = await getKeyAndPath(keyPath, nestedPath)
             console.log("tar/lib", tar, lib)
             console.log("lib.root.context", lib.root.context)
-            let val = await getNestedContext(libs, tar.path)?.[tar.key].value;
+            try{
+            let nest = await getNestedContext(libs, tar.path);
+            console.log("nest", nest)
+            let valOwner = nest[tar.key]
+            console.log("valOwner",valOwner)
+            let val = undefined
+            if (valOwner.hasOwnProperty("value")){
+                val = valOwner.value
+            }
             console.log("val", val)
             return val !== undefined ? val : match; 
         });
