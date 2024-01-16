@@ -309,8 +309,9 @@ async function processString(str, libs, nestedPath) {
                 val = valOwner.value
             }
             console.log("val", val)
-            return val !== undefined ? val : match; 
+            return val; 
         });
+        console.log("returnValue", returnValue)
         return await Promise.all(returnValue);
     }
     return str
