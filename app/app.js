@@ -291,6 +291,7 @@ async function processString(str, libs, nestedPath) {
         return value
     }
     if (!isObj && str.includes("{{")){
+        console.log("str", str)
         let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
             console.log("match/keyPath", match, keyPath)
             let tar = await getKeyAndPath(keyPath, nestedPath)
