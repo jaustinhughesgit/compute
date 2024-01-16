@@ -73,6 +73,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     }
     let subH = await getSub(entity.Items[0].h, "e", dynamodb)
     obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}};
+    let paths = {}
     let paths2 = {}
     if (pathID){
         pathID = await uuidv4();
