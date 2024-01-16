@@ -123,12 +123,13 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
             let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
+            Object.assign(paths2, linkResponse.paths2);
         }
     }
     
     let groupList = await getGroups(dynamodb)
 
-    return { obj: obj, paths: paths, groups: groupList };
+    return { obj: obj, paths: paths, paths2: paths2, groups: groupList };
 }
 
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
