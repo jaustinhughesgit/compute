@@ -532,13 +532,19 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         if (chainAction.access && accessClean.length != 0){
                             if (chainAction.express){
                                 if (chainAction.next || chainAction.next == undefined){
+                                    console.log("result1:before",result)
                                     result = await result[accessClean](...chainParams)(req, res, next);
+                                    console.log("result1:after",result)
                                 } else {
+                                    console.log("result2:before",result)
                                     result = await result[accessClean](...chainParams)(req, res);
+                                    console.log("result2:after",result)
                                 }
                             } else {
                                 try{
+                                    console.log("result3:before",result)
                                 result = await result[accessClean](...chainParams);
+                                console.log("result3:after",result)
                                 } catch(err){
                                     result = result
                                 }
