@@ -150,6 +150,7 @@ async function initializeModules(libs, config, req, res, next) {
         if (runResponse == "contune"){
             continue
         }
+        console.log(lib.root.context)
     }
 }
 
