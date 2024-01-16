@@ -347,7 +347,7 @@ async function processString(str, libs, nestedPath) {
             let value = await getNestedContext(libs, target.path)?.[target.key].value;
             console.log("target5", target)
             console.log("value5", value)
-            return value !== undefined ? value : str; 
+            return value !== undefined ? value : match; 
         });
         console.log("returnValue", returnValue)
         return await Promise.all(returnValue);
