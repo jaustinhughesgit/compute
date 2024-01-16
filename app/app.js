@@ -62,6 +62,7 @@ lib.app.use(async (req, res, next) => {
 });
 
 lib.app.all('/auth/*', (req, res, next) => {
+    lib.root.context = {"session": lib.root.context.session}
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
             if (index < middlewareCache.length) {
