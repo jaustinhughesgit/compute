@@ -53,15 +53,15 @@ lib.app.use(async (req, res, next) => {
     }
 });
 
-lib.app.use(async (req, res, next) => {
+lib.app.all('/auth/*', 
+async (req, res, next) => {
     if (!isMiddlewareInitialized && req.path.startsWith('/auth')) {
         middlewareCache = await initializeMiddleware(req, res, next);
         isMiddlewareInitialized = true;
     }
     next();
-});
-
-lib.app.all('/auth/*', (req, res, next) => {
+},
+async (req, res, next) => {
     lib.root.context = {"session": lib.root.context.session}
     if (middlewareCache.length > 0) {
         const runMiddleware = (index) => {
@@ -71,11 +71,12 @@ lib.app.all('/auth/*', (req, res, next) => {
                 next();
             }
         };
-        runMiddleware(0);
+        await runMiddleware(0);
     } else {
         next();
     }
-});
+}
+);
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
