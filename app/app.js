@@ -344,19 +344,10 @@ async function processString(str, libs, nestedPath) {
             console.log("nestedPath",nestedPath)
             let target = await getKeyAndPath(keyPath, nestedPath)
             console.log("target5", target)
-            let something = await getNestedContext(libs, target.path)
-            console.log("something", something)
-            let value2 = {}
-            if (something.hasOwnProperty(target.key)){
-                console.log("something[target.key]", something[target.key])
-                if (something[target.key].hasOwnProperty("value")){
-                    value2 = something[target.key].value
-                }
-            }
+            let value = await getNestedContext(libs, target.path)?.[target.key].value;
             console.log("target5", target)
-            console.log("value5", value2)
-            console.log("match", match)
-            return value2 !== undefined ? value2 : str; 
+            console.log("value5", value)
+            return value !== undefined ? value : str; 
         });
         console.log("returnValue", returnValue)
         return await Promise.all(returnValue);
