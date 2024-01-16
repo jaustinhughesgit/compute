@@ -505,9 +505,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-                console.log("chainAction.params:::", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
-                console.log("chainParams::::", chainParams)
             } else {
                 chainParams = [];
             }
@@ -532,19 +530,13 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         if (chainAction.access && accessClean.length != 0){
                             if (chainAction.express){
                                 if (chainAction.next || chainAction.next == undefined){
-                                    console.log("result1:before",result)
                                     result = await result[accessClean](...chainParams)(req, res, next);
-                                    console.log("result1:after",result)
                                 } else {
-                                    console.log("result2:before",result)
                                     result = await result[accessClean](...chainParams)(req, res);
-                                    console.log("result2:after",result)
                                 }
                             } else {
                                 try{
-                                    console.log("result3:before",result)
                                 result = await result[accessClean](...chainParams);
-                                console.log("result3:after",result)
                                 } catch(err){
                                     result = result
                                 }
@@ -573,8 +565,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         let result;
         let addToNested = await args.reduce(async (unusedObj, arg, index) => {
             if (action.params && action.params[index]) {
-                //we need to create objects out of these params so that the run can target them. Currently params are saved at lib.context
-                //and they need to be in the newNestedContext. 
                 const paramExecuted = action.params[index].endsWith('}}!');
                 const paramObj = await isOnePlaceholder(action.params[index]);
                 let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
@@ -589,15 +579,18 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }, nestedContext);
 
         if (action.params){
+            console.log("action.params", action.params)
             for (par in action.params){
                 let param = action.params[par]
                 if (param != null && param != null && param != ""){
+                    console.log("param", param)
                     const paramExecuted = param.endsWith('}}!');
                     const paramObj = await isOnePlaceholder(param);
                     let paramClean2 = await removeBrackets(param, paramObj, paramExecuted);
                     let newNestedPath = nestedPath+"."+assign.key
                     let p = await getKeyAndPath(paramClean2, newNestedPath);
                     let nestedParamContext = await getNestedContext(libs, p.path);
+                    console.log("addValue:",paramClean2, nestedParamContext)
                     addValueToNestedKey(paramClean2, nestedParamContext, {})
                 }
             }
