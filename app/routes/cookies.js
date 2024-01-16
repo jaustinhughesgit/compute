@@ -7,7 +7,7 @@ const keyPairId = 'K2LZRHRSYZRU3Y';
 let convertCounter = 0
 
 async function getSub(val, key, dynamodb){
-    console.log("getSub")
+    //console.log("getSub")
     let params
     if (key == "su"){
         params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: {':su': val} };
@@ -22,19 +22,19 @@ async function getSub(val, key, dynamodb){
 }
 
 async function getEntity(e, dynamodb){
-    console.log("getEntity")
+    //console.log("getEntity")
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: {':e': e} };
     return await dynamodb.query(params).promise()
 }
 
 async function getWord(a, dynamodb){
-    console.log("getWord")
+    //console.log("getWord")
     params = { TableName: 'words', KeyConditionExpression: 'a = :a', ExpressionAttributeValues: {':a': a} };
     return await dynamodb.query(params).promise()
 }
 
 async function getGroups(dynamodb){
-    console.log("getGroups")
+    //console.log("getGroups")
     params = { TableName: 'groups' };
     let groups = await dynamodb.scan(params).promise();
     let groupObjs = []
@@ -49,7 +49,7 @@ async function getGroups(dynamodb){
 }
 
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb) {
-    console.log("convertToJSON")
+    //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     let children 
@@ -121,7 +121,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
 }
 
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
-    console.log("updateEntity")
+    //console.log("updateEntity")
     let params = {}
     if (col === "t" || col === "f"){
         params = {
@@ -203,7 +203,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
 };
 
 const wordExists = async (word, dynamodb) => {
-    console.log("wordExists")
+    //console.log("wordExists")
     const params = {
         TableName: 'words',
         IndexName: 'sIndex',
@@ -222,7 +222,7 @@ const wordExists = async (word, dynamodb) => {
 };
 
 const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
-    console.log("incrementCounterAndGetNewValue")
+    //console.log("incrementCounterAndGetNewValue")
     const response = await dynamodb.update({
         TableName: tableName,
         Key: { pk: tableName },
@@ -237,16 +237,16 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
 
 const getHead = async (by, value, dynamodb) => {
     const subBySU = await getSub(value, by, dynamodb);
-    console.log("subBySU", subBySU)
+    //console.log("subBySU", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("entity", entity)
+    //console.log("entity", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
-    console.log("headSub", headSub)
+    //console.log("headSub", headSub)
     return headSub
 }
 
 const createWord = async (id, word, dynamodb) => {
-    console.log("createWord")
+    //console.log("createWord")
     const lowerCaseWord = word.toLowerCase();
 
     const checkResult = await wordExists(lowerCaseWord, dynamodb);
@@ -263,7 +263,7 @@ const createWord = async (id, word, dynamodb) => {
 };
 
 const createGroup = async (gid, groupNameID, entityID, dynamodb) => {
-    console.log("createGroup")
+    //console.log("createGroup")
 
     await dynamodb.put({
         TableName: 'groups',
@@ -277,7 +277,7 @@ const createGroup = async (gid, groupNameID, entityID, dynamodb) => {
 };
 
 async function addVersion(newE, col, val, forceC, dynamodb){
-    console.log("addVersion")
+    //console.log("addVersion")
     try {
         const id = await incrementCounterAndGetNewValue('vCounter', dynamodb);
 
@@ -386,7 +386,7 @@ async function addVersion(newE, col, val, forceC, dynamodb){
 };
 
 const createFile = async (su, fileData, s3) => {
-    console.log("createFile")
+    //console.log("createFile")
         const jsonString = JSON.stringify(fileData);
         const bucketParams = {
             Bucket: 'public.1var.com',
@@ -400,7 +400,7 @@ const createFile = async (su, fileData, s3) => {
 }
 
 const createEntity = async (e, a, v, g, h, dynamodb) => {
-    console.log("createEntity")
+    //console.log("createEntity")
     const params = {
         TableName: 'entities',
         Item: { e: e, a: a, v: v, g: g, h: h }
@@ -416,7 +416,7 @@ const createEntity = async (e, a, v, g, h, dynamodb) => {
 };
 
 const createSubdomain = async (su, a, e, g, dynamodb) => {
-    console.log("createSubdomain")
+    //console.log("createSubdomain")
     const paramsAA = {
         TableName: 'subdomains',
         Item: { su: su, a: a, e: e, g: g }
@@ -432,7 +432,7 @@ const createSubdomain = async (su, a, e, g, dynamodb) => {
 };
 
 async function linkEntities(childID, parentID){
-    console.log("linkEntities")
+    //console.log("linkEntities")
     var childE = await getSub(childID, "su", dynamodb);
     var parentE = await getSub(parentID, "su", dynamodb);
 
@@ -449,7 +449,7 @@ async function linkEntities(childID, parentID){
 }
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
-    console.log("route")
+   // console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     const reqPath = req.apiGateway.event.path.split("?")[0]
     const action = reqPath.split("/")[2]
@@ -459,12 +459,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
     var mainObj = {}
     if (req.method === 'GET' || req.method === 'POST'){
         if (action === "get"){
-            console.log("get")
+            //console.log("get")
             const fileID = reqPath.split("/")[3]
             actionFile = fileID
             mainObj = await convertToJSON(fileID, [], null, null, dynamodb)
         } else if (action == "add") {
-            console.log("add")
+            //console.log("add")
             const fileID = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
@@ -488,13 +488,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
             mainObj = await convertToJSON(headUUID, [], null, null, dynamodb)
         } else if (action === "link"){
-            console.log("link")
+            //console.log("link")
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
             await linkEntities(childID, parentID)
             mainObj = await convertToJSON(childID, [], null, null, dynamodb)
         } else if (action === "newGroup"){
-            console.log("newGroup")
+            //console.log("newGroup")
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
             const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -505,7 +505,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), dynamodb);
             const uniqueId = await uuidv4();
-            console.log(uniqueId, "0", "0", )
+            //console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), dynamodb)
             const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
             const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), dynamodb); //DO I NEED details.c
@@ -515,7 +515,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", dynamodb)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb)
         } else if (action === "useGroup"){
-            console.log("useGroup")
+            //console.log("useGroup")
             const newUsingName = reqPath.split("/")[3]
             const headUsingName = reqPath.split("/")[4]
             const using = await getSub(newUsingName, "su", dynamodb);
@@ -527,7 +527,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
             mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, dynamodb)
         } else if (action === "map"){
-            console.log("map")
+            //console.log("map")
             const referencedParent = reqPath.split("/")[3]
             const newEntityName = reqPath.split("/")[4]
             const mappedParent = reqPath.split("/")[5]
@@ -553,12 +553,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
             mainObj  = await convertToJSON(headEntity, [], null, null, dynamodb)
         } else if (action === "file"){
-            console.log("file")
+            //console.log("file")
             actionFile = reqPath.split("/")[3]
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb)
 
         } else if (action === "saveFile"){
-            console.log("saveFile")
+            //console.log("saveFile")
             actionFile = reqPath.split("/")[3]
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb)
             const fileResult = await createFile(actionFile, req.body.body, s3)
@@ -568,7 +568,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         response = mainObj
 
         if (action == "file"){
-            console.log("file2")
+            //console.log("file2")
             const expires = 90000;
             const url = "https://public.1var.com/actions/"+actionFile+".json";
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});

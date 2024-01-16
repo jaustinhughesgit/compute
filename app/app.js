@@ -292,9 +292,13 @@ async function processString(str, libs, nestedPath) {
     }
     if (!isObj && str.includes("{{")){
         let returnValue = await str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            let target = await getKeyAndPath(keyPath, nestedPath)
-            let value = await getNestedContext(libs, target.path)?.[target.key].value;
-            return value !== undefined ? value : match; 
+            console.log("match/keyPath", match, keyPath)
+            let tar = await getKeyAndPath(keyPath, nestedPath)
+            console.log("tar/lib", tar, lib)
+            console.log("lib.root.context", lib.root.context)
+            let val = await getNestedContext(libs, tar.path)?.[tar.key].value;
+            console.log("val", val)
+            return val !== undefined ? val : match; 
         });
         return await Promise.all(returnValue);
     }
