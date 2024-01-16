@@ -588,7 +588,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     let nestedParamContext = await getNestedContext(libs, p.path);
                     console.log("addValue:",paramClean2, nestedParamContext)
                     await addValueToNestedKey(paramClean2, nestedParamContext, {})
-                    console.log("lib.root.context", lib.root.context)
+                    console.log("lib.root.context", libs.root.context)
                 }
             }
         }
