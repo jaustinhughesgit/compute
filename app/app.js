@@ -3,7 +3,7 @@ const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
 const app = express();
 const path = require('path');
-//const session = require('express-session');
+const session = require('express-session');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
@@ -55,7 +55,7 @@ async (req, res, next) => {
     req.lib.whileLimit = 100;
     req.lib.root = {}
     req.lib.root.context = {}
-    req.lib.root.context.session = require('express-session');
+    req.lib.root.context.session = session
     next();
 },
 async (req, res, next) => {
