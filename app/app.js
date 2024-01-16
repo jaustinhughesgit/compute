@@ -286,6 +286,8 @@ async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
+    let arrowJson = strClean.split("=>")
+    strClean = arrowJson[0]
     let target = await getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
@@ -296,6 +298,8 @@ async function processString(str, libs, nestedPath) {
             if (isExecuted){
             value = await value();
             }
+        } else if (typeof value === 'object'){
+
         }
         return value
     }
