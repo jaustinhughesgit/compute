@@ -282,6 +282,13 @@ async function getKeyAndPath(str, nestedPath){
     return {"key":key, "path":path}
 }
 
+function getValueFromPath(obj, path) {
+    return path.split('.').reduce((current, key) => {
+        // Traverse using 'context' key and then get the 'value'
+        return current && current['context'] && current['context'][key] ? current['context'][key]['value'] : null;
+    }, obj);
+}
+
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
@@ -294,6 +301,12 @@ async function processString(str, libs, nestedPath) {
 
     if (nestedContext.hasOwnProperty(target.key)){
         let value = nestedContext[target.key].value
+        if (arrowJson.length > 1){
+            console.log("arrowJson is larger than 1")
+            console.log("value", value)
+            console.log("arrowJson[1]", arrowJson[1])
+            value = getValueFromPath(value, arrowJson[1]);
+        }
         if (typeof value === 'function') {
             if (isExecuted){
             value = await value();
