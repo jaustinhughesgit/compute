@@ -100,6 +100,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
                 }
                 Object.assign(obj[fileID].children, childResponse.obj);
                 Object.assign(paths, childResponse.paths);
+                Object.assign(paths2, childResponse.paths2);
         }
     }
     if (using){
