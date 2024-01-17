@@ -629,7 +629,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
 
 
             const details28 = await addVersion(eParent.Items[0].e, "t", e.toString(), "1", dynamodb); //versioning the removal of the parent from the index
-            const updateParent28 = await updateEntity(eParent.Items[0].e, "-t", e.toString(), details25.v, details25.c, dynamodb);
+            const updateParent28 = await updateEntity(eParent.Items[0].e, "-t", e.toString(), details28.v, details28.c, dynamodb);
 
 
             const group = eParent.Items[0].g
