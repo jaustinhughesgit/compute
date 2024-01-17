@@ -147,7 +147,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
             "UpdateExpression": `REMOVE ${col.replace("-","")}[${indexToRemove}]`,
             "ReturnValues": 'ALL_NEW'
         }
-    } if (col === "t" || col === "f"){
+    } else if (col === "t" || col === "f"){
         params = {
             "TableName": 'entities',
             "Key": {
