@@ -83,9 +83,9 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         paths2[pathID] = [...parentPath2];
     } else {
         paths[fileID] = [...parentPath, fileID];
-        id2Path[fileID] = pathID
         paths2[pathID] = [...parentPath2, fileID];
     }
+    id2Path[fileID] = pathID
 
     if (children){
         for (let child of children) {
