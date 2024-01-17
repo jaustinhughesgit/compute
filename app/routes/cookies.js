@@ -558,7 +558,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const mappedParent = reqPath.split("/")[5]
             const headEntity = reqPath.split("/")[6]
             const subRefParent = await getSub(referencedParent, "su", dynamodb);
+            console.log("mappedParent",mappedParent)
             const subMapParent = await getSub(mappedParent, "su", dynamodb);
+            console.log("subMapParent",subMapParent)
             const mpE = await getEntity(subMapParent.Items[0].e, dynamodb)
             const mrE = await getEntity(subRefParent.Items[0].e, dynamodb)
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
