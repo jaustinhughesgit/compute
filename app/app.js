@@ -123,7 +123,7 @@ async function initializeMiddleware(req, res, next) {
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON} = await require('./routes/cookies')
         const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
-        const parent = await convertToJSON(head.Items[0].su, [], null, null, dynamodb)
+        const parent = await convertToJSON(head.Items[0].su, [], null, null, dynamodb, uuidv4)
         let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
         const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName));
         const results = await Promise.all(promises);
