@@ -73,7 +73,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     }
     pathID = await uuidv4();
     let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID};
+    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID};
     let paths = {}
     let paths2 = {}
     //if (!pathID){
@@ -100,6 +100,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
                 Object.assign(obj[fileID].children, childResponse.obj);
                 Object.assign(paths, childResponse.paths);
                 Object.assign(paths2, childResponse.paths2);
+
         }
     }
     if (using){
@@ -121,7 +122,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         for (let link of linked) {
             const subByE = await getSub(link, "e", dynamodb);
             let uuid = subByE.Items[0].su
-            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path);
+            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
             Object.assign(paths2, linkResponse.paths2);
@@ -130,7 +131,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     
     let groupList = await getGroups(dynamodb)
 
-    return { obj: obj, paths: paths, paths2: paths2, id2Path:id2Path, groups:groupList, usingID:usingID };
+    return { obj: obj, paths: paths, paths2: paths2, id2Path:id2Path, groups:groupList };
 }
 
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
