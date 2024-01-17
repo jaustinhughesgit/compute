@@ -48,7 +48,7 @@ async function getGroups(dynamodb){
     return groupObjs
 }
 
-async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}) {
+async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
@@ -94,7 +94,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
                 let childResponse = {}
                 if (convertCounter < 200) {
 
-                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, dynamodb, uuidv4, pathID, paths2[pathID], id2Path);
+                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                 convertCounter++;
                 }
                 Object.assign(obj[fileID].children, childResponse.obj);
@@ -103,8 +103,9 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         }
     }
     if (using){
+        usingID = fileID
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
-        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path)
+        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID)
         Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
         Object.assign(paths, headUsingObj.paths);
         Object.assign(paths2, headUsingObj.paths2);
@@ -129,7 +130,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     
     let groupList = await getGroups(dynamodb)
 
-    return { obj: obj, paths: paths, paths2: paths2, id2Path:id2Path, groups: groupList };
+    return { obj: obj, paths: paths, paths2: paths2, id2Path:id2Path, groups:groupList, usingID:usingID };
 }
 
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
