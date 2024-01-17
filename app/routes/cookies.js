@@ -528,6 +528,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
             console.log("useGroup")
+            actionFile = reqPath.split("/")[3]
             const newUsingName = reqPath.split("/")[3]
             console.log("newUsingName",newUsingName)
             const headUsingName = reqPath.split("/")[4]
