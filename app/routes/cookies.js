@@ -614,17 +614,17 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const updateList = eParent.Items[0].t
             for (u in updateList){
                 
-                const details24 = await addVersion(uEntity.Items[0].e, "-f", eParent.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
-                const updateParent24 = await updateEntity(uEntity.Items[0].e, "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
+                const details24 = await addVersion(updateList[u], "-f", eParent.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent24 = await updateEntity(updateList[u], "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
 
-                const details25 = await addVersion(eParent.Items[0].e, "-t", uEntity.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
-                const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", uEntity.Items[0].e, details25.v, details25.c, dynamodb);
+                const details25 = await addVersion(eParent.Items[0].e, "-t", updateList[u], "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", updateList[u], details25.v, details25.c, dynamodb);
                 //
-                const details26 = await addVersion(uEntity.Items[0].e, "f", e.toString(), "1", dynamodb);
-                const updateParent26 = await updateEntity(uEntity.Items[0].e, "f", e.toString(), details26.v, details26.c, dynamodb);
+                const details26 = await addVersion(updateList[u], "f", e.toString(), "1", dynamodb);
+                const updateParent26 = await updateEntity(updateList[u], "f", e.toString(), details26.v, details26.c, dynamodb);
 
-                const details27 = await addVersion(e.toString(), "t", uEntity.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
-                const updateParent27 = await updateEntity(e.toString(), "t", uEntity.Items[0].e, details27.v, details27.c, dynamodb);
+                const details27 = await addVersion(e.toString(), "t", updateList[u], "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent27 = await updateEntity(e.toString(), "t", updateList[u], details27.v, details27.c, dynamodb);
             }
 
 
