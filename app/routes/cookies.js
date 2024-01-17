@@ -207,7 +207,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
     }
 
     try {
-        await dynamodb.update(params).promise();
+        return await dynamodb.update(params).promise();
     } catch (error) {
         console.error("Error updating entity:", error);
         throw error; // Rethrow the error for the caller to handle
