@@ -527,17 +527,27 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", dynamodb)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
-            //console.log("useGroup")
+            console.log("useGroup")
             const newUsingName = reqPath.split("/")[3]
+            console.log("newUsingName",newUsingName)
             const headUsingName = reqPath.split("/")[4]
+            console.log("headUsingName",headUsingName)
             const using = await getSub(newUsingName, "su", dynamodb);
+            console.log("using",using)
             const ug = await getEntity(using.Items[0].e, dynamodb)
+            console.log("ug",ug)
             const used = await getSub(headUsingName, "su", dynamodb);
+            console.log("used",used)
             const ud = await getEntity(used.Items[0].e, dynamodb)
+            console.log("ud",ud)
             const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
+            console.log("details2", details2)
             const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
+            console.log("updateParent", updateParent)
             const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
+            console.log("headSub", headSub)
             mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, dynamodb, uuidv4)
+            console.log("mainObj", mainObj)
         } else if (action === "map"){
             //console.log("map")
             const referencedParent = reqPath.split("/")[3]
