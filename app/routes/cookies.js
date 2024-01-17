@@ -137,7 +137,17 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
     //console.log("updateEntity")
     let params = {}
-    if (col === "t" || col === "f"){
+    if (col === "-t" || col === "-f"){
+        const uEntity = await getEntity(e, dynamodb)
+        const list = uEntity.Items[0][col.replace("-","")]
+        const indexToRemove = list.indexOf(val);
+        params = {
+            "TableName": 'entities',
+            "Key": { 'e': e },
+            "UpdateExpression": `REMOVE ${col.replace("-","")}[${indexToRemove}]`,
+            "ReturnValues": 'ALL_NEW'
+        }
+    } if (col === "t" || col === "f"){
         params = {
             "TableName": 'entities',
             "Key": {
@@ -579,6 +589,55 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             addM[mrE.Items[0].e] = [e.toString()]
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
             mainObj  = await convertToJSON(headEntity, [], null, null, dynamodb, uuidv4)
+        } else if (action === "extend"){
+
+            const fileID = reqPath.split("/")[3]
+            const newEntityName = reqPath.split("/")[4]
+            const headUUID = reqPath.split("/")[5]
+            const parent = await getSub(fileID, "su", dynamodb);
+            const eParent = await getEntity(parent.Items[0].e, dynamodb)
+
+            const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+            const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+            const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+
+            const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, dynamodb);
+
+            const uniqueId = await uuidv4();
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", dynamodb)
+
+            const fileResult = await createFile(uniqueId, {}, s3)
+            actionFile = uniqueId
+            
+            //copy parent
+            const updateList = eParent.Items[0].t
+            for (u in updateList){
+                
+                const details24 = await addVersion(uEntity.Items[0].e, "-f", eParent.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent24 = await updateEntity(uEntity.Items[0].e, "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
+
+                const details25 = await addVersion(eParent.Items[0].e, "-t", uEntity.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", uEntity.Items[0].e, details25.v, details25.c, dynamodb);
+                //
+                const details26 = await addVersion(uEntity.Items[0].e, "f", e.toString(), "1", dynamodb);
+                const updateParent26 = await updateEntity(uEntity.Items[0].e, "f", e.toString(), details26.v, details26.c, dynamodb);
+
+                const details27 = await addVersion(e.toString(), "t", uEntity.Items[0].e, "1", dynamodb); //versioning the removal of the parent from the index
+                const updateParent27 = await updateEntity(e.toString(), "t", uEntity.Items[0].e, details27.v, details27.c, dynamodb);
+            }
+
+
+            const details28 = await addVersion(eParent.Items[0].e, "t", e.toString(), "1", dynamodb); //versioning the removal of the parent from the index
+            const updateParent28 = await updateEntity(eParent.Items[0].e, "-t", e.toString(), details25.v, details25.c, dynamodb);
+
+
+            const group = eParent.Items[0].g
+            const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
+            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
+            mainObj = await convertToJSON(headUUID, [], null, null, dynamodb, uuidv4)
+
+
         } else if (action === "file"){
             //console.log("file")
             actionFile = reqPath.split("/")[3]
