@@ -1,4 +1,4 @@
-var express = require('express');
+const express = require('express');
 const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
 const app = express();
@@ -65,9 +65,10 @@ async (req, res, next) => {
     }
     next();
 },
+
 async (req, res, next) => {
     if (req.lib.middlewareCache.length > 0) {
-        const runMiddleware = (index) => {
+        const runMiddleware = async (index) => {
             if (index < req.lib.middlewareCache.length) {
                 req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
             } else {
