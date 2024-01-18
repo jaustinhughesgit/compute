@@ -375,8 +375,12 @@ async function addValueToNestedKey(key, nestedContext, value){
 async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.set) {
         for (const key in action.set) {
+            const keyExecuted = key.endsWith('}}!');
+            const keyObj = await isOnePlaceholder(key);
+            let keyClean = await removeBrackets(key, keyObj, keyExecuted);
+            console.log("keyClean",keyClean)
             console.log(key, nestedPath);
-            let set = await getKeyAndPath(key, nestedPath);
+            let set = await getKeyAndPath(keyClean, nestedPath);
             console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path);
             console.log("66: nestedContext",nestedContext)
