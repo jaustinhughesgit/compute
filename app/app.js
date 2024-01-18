@@ -611,10 +611,10 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         if (action.params){
         let promises = args.map(async arg => {
             console.log("arg", arg)
-            if (action.params && action.params[index]) {
-                const paramExecuted = action.params[index].endsWith('}}!');
-                const paramObj = await isOnePlaceholder(action.params[index]);
-                let paramClean = await removeBrackets(action.params[index], paramObj, paramExecuted);
+            if (action.params && arg) {
+                const paramExecuted = arg.endsWith('}}!');
+                const paramObj = await isOnePlaceholder(arg);
+                let paramClean = await removeBrackets(arg, paramObj, paramExecuted);
                 let param = await getKeyAndPath(paramClean, nestedPath);
                 let paramNestedContext = await getNestedContext(libs, param.path);
                 if (paramExecuted && paramObj && typeof arg === "function"){
