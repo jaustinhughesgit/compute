@@ -428,16 +428,17 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let nestedContext = await getNestedContext(libs, assign.path);
             console.log("nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
+                console.log("inside", result)
                 let tempFunction = () => result;
                 let newResult = await tempFunction()
-                await addValueToNestedKey(action.assign, nestedContext, newResult)
+                await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
                 console.log("other", assign)
-                await addValueToNestedKey(action.assign, nestedContext, result)
-                console.log("if", typeof nestedContext[assign.target], assignExecuted)
-                if (typeof nestedContext[assign.target] === "function" && assignExecuted){
-                    nestedContext[assign.target](...args)
-                }
+                await addValueToNestedKey(strClean, nestedContext, result)
+                //console.log("if", typeof nestedContext[assign.target], assignExecuted)
+                //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
+                //    nestedContext[assign.target](...args)
+                //}
             }
         }
     } else if (action.assign && action.params) {
