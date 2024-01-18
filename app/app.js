@@ -294,6 +294,7 @@ async function processString(str, libs, nestedPath) {
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let arrowJson = strClean.split("=>")
     strClean = arrowJson[0]
+    console.log("strClean", strClean, str)
     let target = await getKeyAndPath(strClean, nestedPath)
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
