@@ -375,9 +375,15 @@ async function addValueToNestedKey(key, nestedContext, value){
 async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.set) {
         for (const key in action.set) {
+            console.log(key, nestedPath);
             let set = await getKeyAndPath(key, nestedPath);
+            console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path);
+            console.log("66: nestedContext",nestedContext)
+            console.log("66: action", action)
+            console.log("66: action.set[key]",action.set[key])
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+            console.log("66: value", value)
             await addValueToNestedKey(set.key, nestedContext, value);
         }
     }
