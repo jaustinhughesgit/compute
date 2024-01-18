@@ -417,17 +417,27 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         result = await applyMethodChain(value, action, libs, newNestedPath, res, req, next);
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('}}!');
+            console.log("assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
+            console.log("assignObj",assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
+            console.log("strClean",strClean)
 
             let assign = await getKeyAndPath(strClean, nestedPath);
+            console.log("assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
+            console.log("nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
                 let tempFunction = () => result;
                 let newResult = await tempFunction()
                 await addValueToNestedKey(action.assign, nestedContext, newResult)
             } else {
+                console.log("other", assign)
                 await addValueToNestedKey(action.assign, nestedContext, result)
+                console.log("if", typeof nestedContext[assign.target], assignExecuted)
+                if (typeof nestedContext[assign.target] === "function" && assignExecuted){
+                    nestedContext[assign.target](...args)
+                }
             }
         }
     } else if (action.assign && action.params) {
