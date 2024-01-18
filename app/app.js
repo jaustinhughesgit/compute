@@ -607,7 +607,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         await addValueToNestedKey(assign.key, nestedContext, {})
         let result;
         console.log("args", args)
-        let addToNested = await args.reduce(async (unusedObj, arg, index) => {
+        let paramArgs = args.reduce(async (unusedObj, arg, index) => {
             console.log("arg", arg)
             if (action.params && action.params[index]) {
                 const paramExecuted = action.params[index].endsWith('}}!');
@@ -622,9 +622,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 }
             }
         }, nestedContext);
+        console.log("Pre Promise", paramArgs)
+        let addToNested = Promise.all(paramArgs)
+        console.log("Post Promise", paramArgs)
+        console.log("Post addToNested", addToNested)
 
         if (action.params){
+            console.log("action.params", action.params)
             for (par in action.params){
+                console.log("par", par)
                 let param = action.params[par]
                 if (param != null && param != null && param != ""){
                     const paramExecuted = param.endsWith('}}!');
