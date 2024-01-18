@@ -397,7 +397,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
         if (value){
             if (action.from) {
-                args = action.from.map(async item => {
+                let promises = action.from.map(async item => {
                     const fromExecuted = item.endsWith('}}!');
                     const fromObj = await isOnePlaceholder(item);
                     let value = await replacePlaceholders(item, libs, nestedPath);
@@ -406,7 +406,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                     return value;
                 });
-                await Promise.all(args)
+                args = await Promise.all(promises)
             }
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
