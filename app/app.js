@@ -612,52 +612,57 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("args", args)
 
         if (action.params){
-        let promises = args.map(async arg => {
-            console.log("11: arg", arg)
-            if (action.params && arg) {
-                const paramExecuted1 = arg.endsWith('}}!');
-                console.log("11: paramExecuted1", paramExecuted1)
-                const paramObj1 = await isOnePlaceholder(arg);
-                console.log("11: paramObj1", paramObj1)
-                let paramClean1 = await removeBrackets(arg, paramObj1, paramExecuted1);
-                console.log("11: paramClean1", paramClean1)
-                let param1 = await getKeyAndPath(paramClean1, nestedPath);
-                console.log("11: param1", param1)
-                let paramNestedContext1 = await getNestedContext(libs, param1.path);
-                console.log("11: paramNestedContext1", paramNestedContext1)
-                if (paramExecuted1 && paramObj1 && typeof arg === "function"){
-                    console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
-                    paramNestedContext1[param1.key] = await arg();
-                } else {
-                    console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
-                    paramNestedContext1[param1.key] = arg;
+            let promises = args.map(async arg => {
+                console.log("11: arg", arg)
+                if (action.params && arg) {
+                    const paramExecuted1 = arg.endsWith('}}!');
+                    console.log("11: paramExecuted1", paramExecuted1)
+                    const paramObj1 = await isOnePlaceholder(arg);
+                    console.log("11: paramObj1", paramObj1)
+                    let paramClean1 = await removeBrackets(arg, paramObj1, paramExecuted1);
+                    console.log("11: paramClean1", paramClean1)
+                    let param1 = await getKeyAndPath(paramClean1, nestedPath);
+                    console.log("11: param1", param1)
+                    let paramNestedContext1 = await getNestedContext(libs, param1.path);
+                    console.log("11: paramNestedContext1", paramNestedContext1)
+                    if (paramExecuted1 && paramObj1 && typeof arg === "function"){
+                        console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
+                        paramNestedContext1[param1.key] = await arg();
+                    } else {
+                        console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
+                        paramNestedContext1[param1.key] = arg;
+                    }
                 }
-            }
-        })
+            })
 
-        let addToNested = await Promise.all(promises);
-        console.log("addToNested", addToNested)
+            //from params might actually create context params. 
 
-        for (par in action.params){
-            let param2 = action.params[par]
-            console.log("11: param2",param2)
-            if (param2 != null && param2 != ""){
-                const paramExecuted2 = param2.endsWith('}}!');
-                console.log("22: paramExecuted2",paramExecuted2)
-                const paramObj2 = await isOnePlaceholder(param2);
-                console.log("22: paramObj2",paramObj2)
-                let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                console.log("22: paramClean2",paramClean2)
-                let newNestedPath2 = nestedPath+"."+assign.key
-                console.log("22: newNestedPath2",newNestedPath2)
-                let p = await getKeyAndPath(paramClean2, newNestedPath2);
-                console.log("22: p",p)
-                let nestedParamContext2 = await getNestedContext(libs, p.path);
-                console.log("22: addValue:",paramClean2, nestedParamContext2)
-                await addValueToNestedKey(paramClean2, nestedParamContext2, {})
-                console.log("22: lib.root.context", libs.root.context);
+            let addToNested = await Promise.all(promises);
+            console.log("addToNested", addToNested)
+
+            let indexP = 0;
+            for (par in action.params){
+                console.log("par",par)
+                let param2 = action.params[par]
+                console.log("11: param2",param2)
+                if (param2 != null && param2 != ""){
+                    const paramExecuted2 = param2.endsWith('}}!');
+                    console.log("22: paramExecuted2",paramExecuted2)
+                    const paramObj2 = await isOnePlaceholder(param2);
+                    console.log("22: paramObj2",paramObj2)
+                    let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
+                    console.log("22: paramClean2",paramClean2)
+                    let newNestedPath2 = nestedPath+"."+assign.key
+                    console.log("22: newNestedPath2",newNestedPath2)
+                    let p = await getKeyAndPath(paramClean2, newNestedPath2);
+                    console.log("22: p",p)
+                    let nestedParamContext2 = await getNestedContext(libs, p.path);
+                    console.log("22: addValue:",args[indexP], nestedParamContext2)
+                    await addValueToNestedKey(args[indexP], nestedParamContext2, {})
+                    console.log("22: lib.root.context", libs.root.context);
+                }
+                indexP++
             }
-        }
         }
         console.log("222222")
         console.log("lib.root.context", libs.root.context)
