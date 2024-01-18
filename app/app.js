@@ -411,18 +411,31 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (value){
             if (action.from) {
                 let promises = action.from.map(async item => {
+                    console.log("from: item", item)
                     const fromExecuted = item.endsWith('}}!');
+                    console.log("from: fromExecuted", fromExecuted)
                     const fromObj = await isOnePlaceholder(item);
+                    console.log("from: fromObj", fromObj)
+                    let fromClean = await removeBrackets(item, fromObj, fromExecuted);
+                    console.log("from: fromClean", fromClean)
+                    let from = await getKeyAndPath(fromClean, nestedPath);
+                    console.log("from: from", from)
+                    let nestedContext = await getNestedContext(libs, from.path);
+                    console.log("from: nestedContext", nestedContext)
+
                     let value = await replacePlaceholders(item, libs, nestedPath);
+                    console.log("from: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
                         return value();
                     }
                     return value;
                 });
                 args = await Promise.all(promises)
+                console.log("from: args", args)
             }
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
+                console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
                 nestedContext[target.key].value = value(...args); 
             }
         }
