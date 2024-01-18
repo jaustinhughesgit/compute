@@ -638,8 +638,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         for (par in action.params){
             let param2 = action.params[par]
             console.log("11: param2",param2)
-            if (param2 != null && param != ""){
-                const paramExecuted2 = param.endsWith('}}!');
+            if (param2 != null && param2 != ""){
+                const paramExecuted2 = param2.endsWith('}}!');
                 console.log("22: paramExecuted2",paramExecuted2)
                 const paramObj2 = await isOnePlaceholder(param2);
                 console.log("22: paramObj2",paramObj2)
