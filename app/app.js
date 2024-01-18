@@ -572,9 +572,13 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
     console.log("11111111")
     return  async function (...args) {
         const assignExecuted = action.assign.endsWith('}}!');
+        console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
+        console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
+        console.log("55: strClean", strClean)
         let assign = await getKeyAndPath(strClean, nestedPath);
+        console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
         console.log("createFunctionFromAction", action, nestedContext)
         await addValueToNestedKey(assign.target, nestedContext, {})
