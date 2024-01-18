@@ -384,6 +384,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path);
             console.log("66: nestedContext",nestedContext)
+            try{
+                console.log("66:2 nestedContext", nestedContext.originalFunction)
+            } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
