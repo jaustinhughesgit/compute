@@ -232,7 +232,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
         let stringResponse = await processString(processedItem, libs, nestedPath);
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
-        let newProcessedItem2 =  processedItem.map(async element => {
+        let newProcessedItem2 = processedItem.map(async element => {
             console.log("element", element)
             let repHolder = await replacePlaceholders(element, libs, nestedPath)
             console.log("repHolder", repHolder)
@@ -430,7 +430,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (assignObj && assignExecuted && typeof result === 'function') {
                 console.log("inside", result)
                 let tempFunction = () => result;
+                console.log("tempFunction", tempFunction)
                 let newResult = await tempFunction()
+                console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
                 console.log("other", assign)
