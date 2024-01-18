@@ -158,7 +158,10 @@ async function getNestedContext(libs, nestedPath) {
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
         let partCounter = 0
+        console.log("parts",parts)
         for (let part of parts) {
+            console.log("part", part)
+            console.log("parts[part]", parts[part])
                 tempContext = tempContext[part].context;
         }
         return tempContext;
@@ -603,7 +606,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     let nestedParamContext = await getNestedContext(libs, p.path);
                     console.log("addValue:",paramClean2, nestedParamContext)
                     await addValueToNestedKey(paramClean2, nestedParamContext, {})
-                    console.log("lib.root.context", libs.root.context)
+                    console.log("lib.root.context", libs.root.context);
                 }
             }
         }
@@ -611,7 +614,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("lib.root.context", libs.root.context)
         if (action.run) {
             for (const act of action.run) {
-                let newNestedPath = nestedPath+"."+assign.key
+                let newNestedPath = nestedPath+"."+assign.key;
+                console.log("newNestedPath", newNestedPath, "libs", libs);
                 let newNestedContext = await getNestedContext(libs, newNestedPath);
                 result = await runAction(act, libs, newNestedPath, req, res, next)
             }
