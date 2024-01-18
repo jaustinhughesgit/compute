@@ -643,7 +643,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 console.log("22: paramExecuted2",paramExecuted2)
                 const paramObj2 = await isOnePlaceholder(param2);
                 console.log("22: paramObj2",paramObj2)
-                let paramClean2 = await removeBrackets(param, paramObj2, paramExecuted2);
+                let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
                 console.log("22: paramClean2",paramClean2)
                 let newNestedPath2 = nestedPath+"."+assign.key
                 console.log("22: newNestedPath2",newNestedPath2)
