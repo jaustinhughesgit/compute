@@ -1,4 +1,4 @@
-const express = require('express');
+var express = require('express');
 const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
 const app = express();
@@ -47,39 +47,38 @@ app.use(async (req, res, next) => {
 });
 
 app.all('/auth/*', 
-async (req, res, next) => {
-    req.lib = {}
-    req.lib.modules = {};
-    req.lib.middlewareCache = []
-    req.lib.isMiddlewareInitialized = false;
-    req.lib.whileLimit = 100;
-    req.lib.root = {}
-    req.lib.root.context = {}
-    req.lib.root.context.session = session
-    next();
-},
-async (req, res, next) => {
-    if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
-        req.lib.middlewareCache = await initializeMiddleware(req, res, next);
-        req.lib.isMiddlewareInitialized = true;
+    async (req, res, next) => {
+        req.lib = {}
+        req.lib.modules = {};
+        req.lib.middlewareCache = []
+        req.lib.isMiddlewareInitialized = false;
+        req.lib.whileLimit = 100;
+        req.lib.root = {}
+        req.lib.root.context = {}
+        req.lib.root.context.session = session
+        next();
+    },
+    async (req, res, next) => {
+        if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
+            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
+            req.lib.isMiddlewareInitialized = true;
+        }
+        next();
+    },
+    async (req, res, next) => {
+        if (req.lib.middlewareCache.length > 0) {
+            const runMiddleware = (index) => {
+                if (index < req.lib.middlewareCache.length) {
+                    req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
+                } else {
+                    //next();
+                }
+            };
+            await runMiddleware(0);
+        } else {
+            //next();
+        }
     }
-    next();
-},
-
-async (req, res, next) => {
-    if (req.lib.middlewareCache.length > 0) {
-        const runMiddleware = async (index) => {
-            if (index < req.lib.middlewareCache.length) {
-                req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
-            } else {
-                //next();
-            }
-        };
-        await runMiddleware(0);
-    } else {
-        //next();
-    }
-}
 );
 
 async function getPrivateKey() {
