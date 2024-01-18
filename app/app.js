@@ -576,7 +576,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign = await getKeyAndPath(strClean, nestedPath);
         let nestedContext = await getNestedContext(libs, assign.path);
-        console.log("createFunctionFromAction", assign.target, nestedContext)
+        console.log("createFunctionFromAction", action, nestedContext)
         await addValueToNestedKey(assign.target, nestedContext, {})
         let result;
         console.log("args", args)
