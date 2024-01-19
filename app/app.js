@@ -324,7 +324,7 @@ async function processString(str, libs, nestedPath) {
             while ((match = regex.exec(s)) !== null) {
                 const promise = processString(match[0]).then(replacement => {
                     s = s.replace(match[0], replacement);
-                }, lib, nestedPath);
+                }, libs, nestedPath);
                 promises.push(promise);
             }
         
