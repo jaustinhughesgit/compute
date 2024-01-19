@@ -316,9 +316,10 @@ async function processString(str, libs, nestedPath) {
     }
     if (!isObj){
         let val = str.replace(/\{\{([^}]+)\}\}/g, async (match, keyPath) => {
-            return await processString(match, libs, nestedPath); 
+            let rep = await processString(match, libs, nestedPath); 
+            return rep
         });
-        let response = Promise.all(val)
+        let response = await Promise.all(val)
         return response
     }
     return str
