@@ -674,7 +674,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 result = await runAction(act, libs, newNestedPath, req, res, next)
                 console.log("00: result", result)
             }
-            console.log("00: lib.root.context", lib.root.context)
+            console.log("00: lib.root.context", libs.root.context)
         }
         return result;
     };
