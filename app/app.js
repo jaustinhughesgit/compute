@@ -423,31 +423,30 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
-        // IS THERE A MORE INDUSTRY STANDARD TERM THAN THE WORD "FROM" THAT LLM WOULD UNDERSTAND BETTER?
         if (value){
-            if (action.from) {
-                let promises = action.from.map(async item => {
-                    console.log("from: item", item)
+            if (action.arguments) {
+                let promises = action.arguments.map(async item => {
+                    console.log("arguments: item", item)
                     const fromExecuted = item.endsWith('}}!');
-                    console.log("from: fromExecuted", fromExecuted)
+                    console.log("arguments: fromExecuted", fromExecuted)
                     const fromObj = await isOnePlaceholder(item);
-                    console.log("from: fromObj", fromObj)
+                    console.log("arguments: fromObj", fromObj)
                     let fromClean = await removeBrackets(item, fromObj, fromExecuted);
-                    console.log("from: fromClean", fromClean)
+                    console.log("arguments: fromClean", fromClean)
                     let from = await getKeyAndPath(fromClean, nestedPath);
-                    console.log("from: from", from)
+                    console.log("arguments: from", from)
                     let nestedContext = await getNestedContext(libs, from.path);
-                    console.log("from: nestedContext", nestedContext)
+                    console.log("arguments: nestedContext", nestedContext)
 
                     let value = await replacePlaceholders(item, libs, nestedPath);
-                    console.log("from: value", value)
+                    console.log("arguments: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
                         return value();
                     }
                     return value;
                 });
                 args = await Promise.all(promises)
-                console.log("from: args", args)
+                console.log("arguments: args", args)
             }
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
