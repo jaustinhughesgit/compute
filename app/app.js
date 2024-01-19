@@ -317,19 +317,13 @@ async function processString(str, libs, nestedPath) {
     if (!isObj){
 
         const regex = /\{\{([^}]+)\}\}/g;
-        let match;
+        let matches = [...str.matchAll(regex)];
 
-        function escapeRegExp(string) {
-            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); // $& means the whole matched string
-        }
-    
-        while ((match = regex.exec(str)) !== null) {
+        for (const match of matches) {
             let val = await processString(match[0], libs, nestedPath);
-            // Create a new RegExp for the current match
-            let matchRegex = new RegExp(escapeRegExp(match[0]), 'g');
-            str = str.replace(matchRegex, val);
+            str = str.replace(match[0], val);
         }
-    
+
         return str;
 
     }
