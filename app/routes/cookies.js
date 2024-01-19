@@ -416,7 +416,7 @@ const createFile = async (su, fileData, s3) => {
             Bucket: 'public.1var.com',
             Key: "actions/"+su,
             Body: jsonString,
-            ContentType: 'application/json'
+            ContentType: 'application/1var'
         };
         const data = await s3.putObject(bucketParams).promise();
         return true;
