@@ -612,7 +612,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("args", args)
 
         if (action.params){
-            let promises = args.map(async arg => {
+            /*let promises = args.map(async arg => {
                 console.log("11: arg", arg)
                 if (action.params && arg) {
                     const paramExecuted1 = arg.endsWith('}}!');
@@ -633,7 +633,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                         paramNestedContext1[param1.key] = arg;
                     }
                 }
-            })
+            })*/
 
             //from params might actually create context params. 
 
