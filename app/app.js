@@ -338,7 +338,6 @@ async function processString(str, libs, nestedPath) {
             });
             console.log("77 str", str)
             return str;
-        }
 
     }
     return str
