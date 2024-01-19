@@ -315,16 +315,23 @@ async function processString(str, libs, nestedPath) {
         return value
     }
     if (!isObj){
+
             const regex = /\{\{([^}]+)\}\}/g;
             let match;
             const promises = [];
+        
 
             while ((match = regex.exec(str)) !== null) {
                 let val = await processString(match[0], libs, nestedPath)
+                console.log("77: match[0]",match[0])
+                console.log("77: val",val)
+                console.log("77: str1", str)
                 str = str.replace(match[0], val)
+                console.log("77: str2", str)
             }
         
             return str;
+
     }
     return str
 }
