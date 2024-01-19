@@ -315,12 +315,8 @@ async function processString(str, libs, nestedPath) {
         return value
     }
     if (!isObj){
-        console.log("33: str", str)
-        console.log("33: nestedPath", nestedPath)
-        let blank = str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
-            console.log("33: match", match)
-            console.log("33: keyPath", keyPath)
-            return match; 
+        return str.replace(/\{\{([^}]+)\}\}/g, (match, keyPath) => {
+            return processString(match, libs, nestedPath); 
         });
     }
     return str
