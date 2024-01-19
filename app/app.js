@@ -67,9 +67,9 @@ app.all('/auth/*',
     },
     async (req, res, next) => {
         if (req.lib.middlewareCache.length > 0) {
-            const runMiddleware = (index) => {
+            const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
-                    req.lib.middlewareCache[index](req, res, () => runMiddleware(index + 1));
+                    await req.lib.middlewareCache[index] (req, res, async () => await runMiddleware(index + 1));
                 } else {
                     //next();
                 }
