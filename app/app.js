@@ -322,21 +322,14 @@ async function processString(str, libs, nestedPath) {
         
 
             while ((match = regex.exec(str)) !== null) {
-                console.log("77: match[0]", match[0])
-                const promise = processString(match[0], libs, nestedPath).then(replacement => {
-                    console.log("77: obj", { old: match[0], new: replacement })
-                    return { old: match[0], new: replacement };
-                });
-                promises.push(promise);
+                let val = await processString(match[0], libs, nestedPath)
+                console.log("77: match[0]",match[0])
+                console.log("77: val",val)
+                console.log("77: str1", str)
+                str = str.replace(match[0], val)
+                console.log("77: str2", str)
             }
         
-            const replacements = await Promise.all(promises);
-        
-            replacements.forEach(({ old, new: newStr }) => {
-                console.log("old", old, "newStr", newStr)
-                str = str.replace(old, newStr);
-            });
-            console.log("77 str", str)
             return str;
 
     }
