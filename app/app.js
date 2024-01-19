@@ -315,31 +315,32 @@ async function processString(str, libs, nestedPath) {
         return value
     }
     if (!isObj){
-        async function getSomething(s) {
+        async function getSomething(s){
             const regex = /\{\{([^}]+)\}\}/g;
             let match;
-            const replacements = [];
+            const promises = [];
         
             // Collect promises
+            console.log("77 s1", s)
             while ((match = regex.exec(s)) !== null) {
-                const matchStr = match[0];
-                const promise = processString(matchStr).then(replacement => {
-                    return { matchStr, replacement };
-                });
-                replacements.push(promise);
+                console.log("77: match", match)
+                console.log("77: match[0]", match[0])
+                const promise = processString(match[0]).then(replacement => {
+                    console.log("77: replacement", replacement)
+                    s = s.replace(match[0], replacement);
+                    console.log("77: s2", s)
+                }, libs, nestedPath);
+                promises.push(promise);
+                console.log("77: promise", promise)
             }
         
             // Wait for all promises to resolve
-            const resolvedReplacements = await Promise.all(replacements);
-            resolvedReplacements.forEach(({ matchStr, replacement }) => {
-                s = s.replace(matchStr, replacement);
-            });
-        
+            await Promise.all(promises);
             return s;
         }
-        
+        console.log("76: str", str)
         // Usage of the function
-        getSomething(str).then(result => console.log(result));
+        getSomething(str).then(result => {return result}); 
 
 
     }
