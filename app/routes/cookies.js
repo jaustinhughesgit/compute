@@ -761,11 +761,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
                 }
                 res.json({"ok":true,"response":response});
             }   
-        } else {
-            res.json({"ok":true,"response":response});
-        }
-
-        if (action === "reqPut"){
+        } else if (action === "reqPut"){
             const bucketName = fileLocation(isPublic)+'.1var.com';
             const fileName = actionFile;
             const expires = 90000;
@@ -785,6 +781,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
                     res.json({"ok":true,"response":response});
                 }
             });
+        } else {
+            res.json({"ok":true,"response":response});
         }
     } else {
         res.json({})
