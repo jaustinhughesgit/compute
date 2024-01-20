@@ -5,6 +5,7 @@ const bodyParser = require('body-parser');
 var router = express.Router();
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 let convertCounter = 0
+let isPublic = false
 
 async function getSub(val, key, dynamodb){
     //console.log("getSub")
@@ -51,6 +52,7 @@ async function getGroups(dynamodb){
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
+    isPublic = subBySU.Items[0].z
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     let children 
     if (mapping){
@@ -413,7 +415,7 @@ const createFile = async (su, fileData, s3) => {
     //console.log("createFile")
         const jsonString = JSON.stringify(fileData);
         const bucketParams = {
-            Bucket: 'private.1var.com',
+            Bucket: isPublic + '.1var.com',
             Key: su+".json",
             Body: jsonString,
             ContentType: 'application/json'
@@ -548,6 +550,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const parent = await getSub(fileID, "su", dynamodb);
+            isPublic = parent.Items[0].z
             const eParent = await getEntity(parent.Items[0].e, dynamodb)
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
             const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -576,6 +579,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             //console.log("newGroup")
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
+            isPublic = false
             const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
             const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
             const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -623,6 +627,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const mappedParent = reqPath.split("/")[5]
             const headEntity = reqPath.split("/")[6]
             const subRefParent = await getSub(referencedParent, "su", dynamodb);
+            isPublic = subRefParent.Items[0].z
             console.log("mappedParent",mappedParent)
             const subMapParent = await getSub(mappedParent, "su", dynamodb);
             console.log("subMapParent",subMapParent)
@@ -650,6 +655,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const parent = await getSub(fileID, "su", dynamodb);
+            isPublic = parent.Items[0].z
+            
             const eParent = await getEntity(parent.Items[0].e, dynamodb)
 
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
@@ -717,7 +724,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         if (action == "file"){
             //console.log("file2")
             const expires = 90000;
-            const url = "https://private.1var.com/"+actionFile+".json";
+            let fileLocation = "private"
+            if (isPublic == "true" || isPublic == true){
+                fileLocation = "public"
+            }
+            const url = "https://"+fileLocation+".1var.com/"+actionFile+".json";
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
             if (req.type === 'url'){
                 const signedUrl = signer.getSignedUrl({
