@@ -95,7 +95,7 @@ async function getPrivateKey() {
 }
 
 async function retrieveAndParseJSON(fileName) {
-    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName};
+    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
     const data = await s3.getObject(params).promise();
     return await JSON.parse(data.Body.toString());
 }
