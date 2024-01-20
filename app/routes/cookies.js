@@ -124,7 +124,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         for (let link of linked) {
             const subByE = await getSub(link, "e", dynamodb);
             let uuid = subByE.Items[0].su
-            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID, isPublic:subByE.Items[0].z);
+            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
             Object.assign(paths2, linkResponse.paths2);
