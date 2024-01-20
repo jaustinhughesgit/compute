@@ -721,6 +721,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             fileType = reqPath.split("/")[5]
             const subBySU = await getSub(actionFile, "su", dynamodb);
             setIsPublic(subBySU.Items[0].z)
+            console.log("subBySU",subBySU)
+            console.log("actionFile",actionFile)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "file"){
             //console.log("file")
