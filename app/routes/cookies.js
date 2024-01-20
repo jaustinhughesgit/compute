@@ -471,10 +471,14 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         let sourceBucket
         let destinationBucket
 
+
+
         if (val == true){
+            console.log("val == true")
             sourceBucket = 'private.1var.com'
             destinationBucket = 'public.1var.com'
         } else {
+            console.log("val == false")
             sourceBucket = 'public.1var.com'
             destinationBucket = 'private.1var.com'
         }
@@ -484,8 +488,9 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             Bucket: sourceBucket,
             Prefix: file
         }).promise();
-
+        console.log("versions", versions)
         for (const version of versions.Versions) {
+            console.log("version", version)
             // Copy each version to the destination bucket
             await s3.copyObject({
                 Bucket: destinationBucket,
@@ -702,6 +707,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             actionFile = reqPath.split("/")[3]
             let permission = reqPath.split("/")[4]
             const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
+            console.log("permStat", permStat)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         }
 
