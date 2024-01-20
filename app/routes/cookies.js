@@ -743,7 +743,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         mainObj["file"] = actionFile + ""
         response = mainObj
 
-        if (action == "file"){
+        if (action === "file"){
             //console.log("file2")
             const expires = 90000;
             const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile;
@@ -765,7 +765,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             res.json({"ok":true,"response":response});
         }
 
-        if (action == "reqPut"){
+        if (action === "reqPut"){
             const bucketName = fileLocation(isPublic)+'.1var.com';
             const fileName = actionFile;
             const expires = 90000;
