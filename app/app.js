@@ -82,7 +82,7 @@ app.all('/auth/*',
 );
 
 async function getPrivateKey() {
-    const secretName = "private/1var/s3";
+    const secretName = "public/1var/s3";
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
