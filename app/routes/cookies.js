@@ -467,7 +467,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
     await dynamodb.update(params).promise();
 
 
-    try {
+        let file = su + ".json"
         let sourceBucket
         let destinationBucket
 
@@ -482,31 +482,26 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         // List all versions of the object in the source bucket
         const versions = await s3.listObjectVersions({
             Bucket: sourceBucket,
-            Prefix: su
+            Prefix: file
         }).promise();
 
         for (const version of versions.Versions) {
             // Copy each version to the destination bucket
             await s3.copyObject({
                 Bucket: destinationBucket,
-                CopySource: `${sourceBucket}/${su}?versionId=${version.VersionId}`,
-                Key: su
+                CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
+                Key: file
             }).promise();
 
             // Optionally, delete the original version
             await s3.deleteObject({
                 Bucket: sourceBucket,
-                Key: su,
+                Key: file,
                 VersionId: version.VersionId
             }).promise();
         }
 
         return { status: 'All versions moved successfully' };
-    } catch (error) {
-        console.error('Error moving file versions:', error);
-        throw error;
-    }
-
 
 }
 
