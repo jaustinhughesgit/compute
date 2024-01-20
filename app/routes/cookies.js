@@ -648,7 +648,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             console.log("saveFile")
             actionFile = reqPath.split("/")[3]
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
-            console.log("req.body.body",req.body.body)
+            console.log("req.body",req.body)
             const fileResult = await createFile(actionFile, req.body.body, s3)
         }
 
