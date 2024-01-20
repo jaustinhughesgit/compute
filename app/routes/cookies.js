@@ -414,8 +414,12 @@ async function addVersion(newE, col, val, forceC, dynamodb){
 const createFile = async (su, fileData, s3) => {
     //console.log("createFile")
         const jsonString = JSON.stringify(fileData);
+        let fileLocation = "private"
+        if (isPublic == "true" || isPublic == true){
+            fileLocation = "public"
+        }
         const bucketParams = {
-            Bucket: isPublic + '.1var.com',
+            Bucket: fileLocation + '.1var.com',
             Key: su+".json",
             Body: jsonString,
             ContentType: 'application/json'
