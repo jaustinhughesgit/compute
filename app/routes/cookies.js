@@ -108,7 +108,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     if (using){
         usingID = fileID
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
-        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID, isPublic:subOfHead.Items[0].z)
+        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID)
         Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
         Object.assign(paths, headUsingObj.paths);
         Object.assign(paths2, headUsingObj.paths2);
