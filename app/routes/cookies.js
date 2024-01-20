@@ -413,7 +413,7 @@ const createFile = async (su, fileData, s3) => {
     //console.log("createFile")
         const jsonString = JSON.stringify(fileData);
         const bucketParams = {
-            Bucket: 'public.1var.com',
+            Bucket: 'private.1var.com',
             Key: "actions/"+su+".json",
             Body: jsonString,
             ContentType: 'application/json'
@@ -656,7 +656,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         if (action == "file"){
             //console.log("file2")
             const expires = 90000;
-            const url = "https://public.1var.com/actions/"+actionFile+".json";
+            const url = "https://private.1var.com/actions/"+actionFile+".json";
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
             if (req.type === 'url'){
                 const signedUrl = signer.getSignedUrl({
