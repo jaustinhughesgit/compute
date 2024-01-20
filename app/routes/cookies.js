@@ -455,7 +455,7 @@ const createSubdomain = async (su, a, e, g, z, dynamodb) => {
     }
 };
 
-const updateSubPermission = async (su, val, dynamodb) => {
+const updateSubPermission = async (su, val, dynamodb, s3) => {
     params = {
         "TableName": 'subdomains',
         "Key": { "su": su }, 
@@ -464,7 +464,50 @@ const updateSubPermission = async (su, val, dynamodb) => {
             ':val': val
         }
     };
-    return await dynamodb.update(params).promise();
+    await dynamodb.update(params).promise();
+
+
+    try {
+        let sourceBucket
+        let destinationBucket
+
+        if (z == true){
+            sourceBucket = 'private.1var.com'
+            destinationBucket = 'public.1var.com'
+        } else {
+            sourceBucket = 'public.1var.com'
+            destinationBucket = 'private.1var.com'
+        }
+
+        // List all versions of the object in the source bucket
+        const versions = await s3.listObjectVersions({
+            Bucket: sourceBucket,
+            Prefix: su
+        }).promise();
+
+        for (const version of versions.Versions) {
+            // Copy each version to the destination bucket
+            await s3.copyObject({
+                Bucket: destinationBucket,
+                CopySource: `${sourceBucket}/${su}?versionId=${version.VersionId}`,
+                Key: su
+            }).promise();
+
+            // Optionally, delete the original version
+            await s3.deleteObject({
+                Bucket: sourceBucket,
+                Key: su,
+                VersionId: version.VersionId
+            }).promise();
+        }
+
+        return { status: 'All versions moved successfully' };
+    } catch (error) {
+        console.error('Error moving file versions:', error);
+        throw error;
+    }
+
+
 }
 
 async function linkEntities(childID, parentID){
@@ -663,7 +706,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         } else if (action === "makePublic"){
             actionFile = reqPath.split("/")[3]
             let permission = reqPath.split("/")[4]
-            const permStat = await updateSubPermission(actionFile, permission, dynamodb)
+            const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         }
 
