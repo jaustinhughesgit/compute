@@ -439,21 +439,33 @@ const createEntity = async (e, a, v, g, h, dynamodb) => {
     }
 };
 
-const createSubdomain = async (su, a, e, g, dynamodb) => {
+const createSubdomain = async (su, a, e, g, z, dynamodb) => {
     //console.log("createSubdomain")
     const paramsAA = {
         TableName: 'subdomains',
-        Item: { su: su, a: a, e: e, g: g }
+        Item: { su: su, a: a, e: e, g: g, z: z }
     };
 
     try {
         const response = await dynamodb.put(paramsAA).promise();
-        return `Entity created with su: ${su}, a: ${a}, e: ${e}`;
+        return `Entity created with su: ${su}, a: ${a}, e: ${e}, z: ${z}`;
     } catch (error) {
         console.error("Error creating entity:", error);
         throw error; // Rethrow the error for the caller to handle
     }
 };
+
+const updateSubPermission = async (su, val, dynamodb) => {
+    params = {
+        "TableName": 'subdomains',
+        "Key": { "su": su }, 
+        "UpdateExpression": `set z = :val`,
+        "ExpressionAttributeValues": {
+            ':val': val
+        }
+    };
+    return await dynamodb.update(params).promise();
+}
 
 async function linkEntities(childID, parentID){
     //console.log("linkEntities")
@@ -500,7 +512,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
             const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, dynamodb);
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", dynamodb)
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
             const fileResult = await createFile(uniqueId, {}, s3)
             actionFile = uniqueId
             const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
@@ -530,13 +542,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), dynamodb);
             const uniqueId = await uuidv4();
             //console.log(uniqueId, "0", "0", )
-            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), dynamodb)
+            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
             const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
             const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), dynamodb); //DO I NEED details.c
             const uniqueId2 = await uuidv4();
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", dynamodb)
+            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
             console.log("useGroup")
@@ -579,7 +591,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
             const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, dynamodb);
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", dynamodb)
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
             const fileResult = await createFile(uniqueId, {}, s3)
             actionFile = uniqueId
             let newM = {}
@@ -605,7 +617,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, dynamodb);
 
             const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", dynamodb)
+            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
 
             const fileResult = await createFile(uniqueId, {}, s3)
             actionFile = uniqueId
@@ -648,6 +660,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             actionFile = reqPath.split("/")[3]
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
             const fileResult = await createFile(actionFile, req.body.body, s3)
+        } else if (action === "makePublic"){
+            actionFile = reqPath.split("/")[3]
+            let permission = reqPath.split("/")[4]
+            const permStat = await updateSubPermission(actionFile, permission, dynamodb)
+            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         }
 
         mainObj["file"] = actionFile + ""
