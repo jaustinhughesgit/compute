@@ -95,7 +95,11 @@ async function getPrivateKey() {
 }
 
 async function retrieveAndParseJSON(fileName, isPublic) {
-    const params = { Bucket: isPublic+'.1var.com', Key: fileName+'.json'};
+    let fileLocation = "private"
+    if (isPublic == "true" || isPublic == true){
+        fileLocation = "public"
+    }
+    const params = { Bucket: fileLocation +'.1var.com', Key: fileName+'.json'};
     const data = await s3.getObject(params).promise();
     return await JSON.parse(data.Body.toString());
 }
