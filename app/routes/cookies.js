@@ -774,11 +774,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
                 Expires: expires,
                 ContentType: fileCategory+'/'+fileType
             };
-
+            console.log("params", params)
             s3.getSignedUrl('putObject', params, (error, url) => {
                 if (error) {
                     res.status(500).json({ error: 'Error generating presigned URL' });
                 } else {
+                    console.log("preSigned URL:", url)
                     response.putURL = url
                     res.json({"ok":true,"response":response});
                 }
