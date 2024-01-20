@@ -82,7 +82,7 @@ app.all('/auth/*',
 );
 
 async function getPrivateKey() {
-    const secretName = "public/1var/s3";
+    const secretName = "private/1var/s3";
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
@@ -95,7 +95,7 @@ async function getPrivateKey() {
 }
 
 async function retrieveAndParseJSON(fileName) {
-    const params = { Bucket: 'public.1var.com', Key: 'actions/'+fileName+'.json'};
+    const params = { Bucket: 'private.1var.com', Key: 'actions/'+fileName+'.json'};
     const data = await s3.getObject(params).promise();
     return await JSON.parse(data.Body.toString());
 }
