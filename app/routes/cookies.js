@@ -410,7 +410,8 @@ async function addVersion(newE, col, val, forceC, dynamodb){
 };
 
 const createFile = async (su, fileData, s3) => {
-    //console.log("createFile")
+    console.log("createFile")
+    console.log("fileData", fileData)
         const jsonString = JSON.stringify(fileData);
         const bucketParams = {
             Bucket: 'public.1var.com',
@@ -644,9 +645,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
 
         } else if (action === "saveFile"){
-            //console.log("saveFile")
+            console.log("saveFile")
             actionFile = reqPath.split("/")[3]
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+            console.log("req.body.body",req.body.body)
             const fileResult = await createFile(actionFile, req.body.body, s3)
         }
 
