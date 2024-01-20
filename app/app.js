@@ -94,8 +94,8 @@ async function getPrivateKey() {
     }
 }
 
-async function retrieveAndParseJSON(fileName) {
-    const params = { Bucket: 'private.1var.com', Key: fileName+'.json'};
+async function retrieveAndParseJSON(fileName, isPublic) {
+    const params = { Bucket: isPublic+'.1var.com', Key: fileName+'.json'};
     const data = await s3.getObject(params).promise();
     return await JSON.parse(data.Body.toString());
 }
@@ -123,9 +123,10 @@ async function initializeMiddleware(req, res, next) {
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON} = await require('./routes/cookies')
         const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
+        let isPublic = head.Items[0].z
         const parent = await convertToJSON(head.Items[0].su, [], null, null, dynamodb, uuidv4)
         let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
-        const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName));
+        const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
         const results = await Promise.all(promises);
         const arrayOfJSON = [];
         results.forEach(result => arrayOfJSON.push(result));
