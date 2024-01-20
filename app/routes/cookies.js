@@ -75,7 +75,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     }
     pathID = await uuidv4();
     let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID};
+    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, isPublic:isPublic};
     let paths = {}
     let paths2 = {}
     //if (!pathID){
@@ -108,7 +108,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     if (using){
         usingID = fileID
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
-        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID)
+        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID, isPublic:subOfHead.Items[0].z)
         Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
         Object.assign(paths, headUsingObj.paths);
         Object.assign(paths2, headUsingObj.paths2);
@@ -124,7 +124,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         for (let link of linked) {
             const subByE = await getSub(link, "e", dynamodb);
             let uuid = subByE.Items[0].su
-            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
+            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID, isPublic:subByE.Items[0].z);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
             Object.assign(paths2, linkResponse.paths2);
