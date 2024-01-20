@@ -745,7 +745,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
 
         if (action == "file"){
             //console.log("file2")
-            const expires = 60;
+            const expires = 90000;
             const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile;
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
             if (req.type === 'url'){
@@ -768,7 +768,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         if (action == "reqPut"){
             const bucketName = fileLocation(isPublic)+'.1var.com';
             const fileName = actionFile;
-            const expires = 60;
+            const expires = 90000;
 
             const params = {
                 Bucket: bucketName,
