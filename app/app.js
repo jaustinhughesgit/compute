@@ -106,8 +106,10 @@ async function retrieveAndParseJSON(fileName, isPublic) {
 
 async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
-    for (const [key, value] of Object.entries(config.modules, context)) {
-        let newPath = await installModule(value, key, context, lib);
+    if (config.modules){
+        for (const [key, value] of Object.entries(config.modules, context)) {
+            let newPath = await installModule(value, key, context, lib);
+        }
     }
     return context;
 }
