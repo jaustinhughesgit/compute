@@ -715,7 +715,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
             mainObj = await convertToJSON(headUUID, [], null, null, dynamodb, uuidv4)
 
-
+        } else if (action === "reqPut"){
+            actionFile = reqPath.split("/")[3]
+            fileCategory = reqPath.split("/")[4]
+            fileType = reqPath.split("/")[5]
+            const subBySU = await getSub(actionFile, "su", dynamodb);
+            setIsPublic(subBySU.Items[0].z)
+            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "file"){
             //console.log("file")
             actionFile = reqPath.split("/")[3]
@@ -739,7 +745,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
 
         if (action == "file"){
             //console.log("file2")
-            const expires = 90000;
+            const expires = 60;
             const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile;
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
             if (req.type === 'url'){
@@ -757,6 +763,28 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             }   
         } else {
             res.json({"ok":true,"response":response});
+        }
+
+        if (action == "reqPut"){
+            const bucketName = fileLocation(isPublic)+'.1var.com';
+            const fileName = actionFile;
+            const expires = 60;
+
+            const params = {
+                Bucket: bucketName,
+                Key: fileName,
+                Expires: expires,
+                ContentType: fileCategory+'/'+fileType
+            };
+
+            s3.getSignedUrl('putObject', params, (error, url) => {
+                if (error) {
+                    res.status(500).json({ error: 'Error generating presigned URL' });
+                } else {
+                    response.putURL = url
+                    res.json({"ok":true,"response":response});
+                }
+            });
         }
     } else {
         res.json({})
