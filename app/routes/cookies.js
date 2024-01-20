@@ -49,10 +49,26 @@ async function getGroups(dynamodb){
     return groupObjs
 }
 
+function fileLocation(val){
+    let location = "private"
+    if (val == "true" || val == true){
+        location = "public"
+    }
+    return location
+}
+
+function setIsPublic(val){
+    if (val == "true" || val == true){
+        isPublic = true
+    } else {
+        isPublic = false
+    }
+}
+
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
-    isPublic = subBySU.Items[0].z
+    setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     let children 
     if (mapping){
@@ -75,7 +91,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     }
     pathID = await uuidv4();
     let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, isPublic:isPublic};
+    obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, location:fileLocation(isPublic)};
     let paths = {}
     let paths2 = {}
     //if (!pathID){
@@ -414,12 +430,8 @@ async function addVersion(newE, col, val, forceC, dynamodb){
 const createFile = async (su, fileData, s3) => {
     //console.log("createFile")
         const jsonString = JSON.stringify(fileData);
-        let fileLocation = "private"
-        if (isPublic == "true" || isPublic == true){
-            fileLocation = "public"
-        }
         const bucketParams = {
-            Bucket: fileLocation + '.1var.com',
+            Bucket: fileLocation(isPublic) + '.1var.com',
             Key: su+".json",
             Body: jsonString,
             ContentType: 'application/json'
@@ -554,7 +566,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const parent = await getSub(fileID, "su", dynamodb);
-            isPublic = parent.Items[0].z
+            setIsPublic(parent.Items[0].z)
             const eParent = await getEntity(parent.Items[0].e, dynamodb)
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
             const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -583,7 +595,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             //console.log("newGroup")
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
-            isPublic = false
+            setIsPublic(false)
             const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
             const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
             const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -631,7 +643,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const mappedParent = reqPath.split("/")[5]
             const headEntity = reqPath.split("/")[6]
             const subRefParent = await getSub(referencedParent, "su", dynamodb);
-            isPublic = subRefParent.Items[0].z
+            setIsPublic(subRefParent.Items[0].z);
             console.log("mappedParent",mappedParent)
             const subMapParent = await getSub(mappedParent, "su", dynamodb);
             console.log("subMapParent",subMapParent)
@@ -659,7 +671,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const newEntityName = reqPath.split("/")[4]
             const headUUID = reqPath.split("/")[5]
             const parent = await getSub(fileID, "su", dynamodb);
-            isPublic = parent.Items[0].z
+            setIsPublic(parent.Items[0].z)
             
             const eParent = await getEntity(parent.Items[0].e, dynamodb)
 
@@ -728,11 +740,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
         if (action == "file"){
             //console.log("file2")
             const expires = 90000;
-            let fileLocation = "private"
-            if (isPublic == "true" || isPublic == true){
-                fileLocation = "public"
-            }
-            const url = "https://"+fileLocation+".1var.com/"+actionFile+".json";
+            const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile+".json";
             const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
             if (req.type === 'url'){
                 const signedUrl = signer.getSignedUrl({
