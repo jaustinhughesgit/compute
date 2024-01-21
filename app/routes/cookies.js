@@ -512,8 +512,9 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             return new Promise(resolve => setTimeout(resolve, ms));
         }
 
-        for (const version of versions.Versions) {
-            await delay(1000);
+        for (let x = versions.Versions.length - 1; x >= 0; x--) {
+            const version = versions.Versions[x];
+        
             // Retrieve current metadata
             let originalMetadata = await s3.headObject({
                 Bucket: sourceBucket,
@@ -545,6 +546,9 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
                 Key: file,
                 VersionId: version.VersionId
             }).promise();
+        
+            // Wait for 1 second before processing the next version
+            await delay(1000);
         }
 
 
