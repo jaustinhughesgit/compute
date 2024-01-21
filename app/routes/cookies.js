@@ -513,12 +513,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             await s3.copyObject({
                 Bucket: destinationBucket,
                 CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
-                Key: file,
-                Metadata: {
-                    originalVersionOrder: versionOrder.toString(),
-                    originalVersionId: version.VersionId
-                },
-                MetadataDirective: "REPLACE" 
+                Key: file
             }).promise();
 
             await s3.deleteObject({
