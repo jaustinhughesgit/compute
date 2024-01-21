@@ -501,27 +501,32 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             destinationBucket = 'private.1var.com'
         }
 
-        // List all versions of the object in the source bucket
         const versions = await s3.listObjectVersions({
             Bucket: sourceBucket,
             Prefix: file
         }).promise();
+
+        let versionOrder = 1;
         console.log("versions", versions)
         for (const version of versions.Versions) {
             console.log("version", version)
-            // Copy each version to the destination bucket
             await s3.copyObject({
                 Bucket: destinationBucket,
                 CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
-                Key: file
+                Key: file,
+                Metadata: {
+                    originalVersionOrder: versionOrder.toString(),
+                    originalVersionId: version.VersionId
+                },
+                MetadataDirective: "REPLACE" 
             }).promise();
 
-            // Optionally, delete the original version
             await s3.deleteObject({
                 Bucket: sourceBucket,
                 Key: file,
                 VersionId: version.VersionId
             }).promise();
+            versionOrder++; 
         }
 
         return { status: 'All versions moved successfully' };
