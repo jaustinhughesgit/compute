@@ -507,22 +507,51 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         }).promise();
 
         console.log("versions", versions)
-        let versionOrder = versions.Versions.length;
+
+        function delay(ms) {
+            return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
         for (const version of versions.Versions) {
-            console.log("version", version)
+            await delay(1000);
+            // Retrieve current metadata
+            let originalMetadata = await s3.headObject({
+                Bucket: sourceBucket,
+                Key: file,
+                VersionId: version.VersionId
+            }).promise();
+        
+            // Prepare new metadata with original 'Content-Type'
+            let newMetadata = {
+                ...originalMetadata.Metadata, // Copy original metadata
+                'originalVersionId': version.VersionId // Add your custom metadata
+            };
+            if (originalMetadata.ContentType) {
+                newMetadata['Content-Type'] = originalMetadata.ContentType;
+            }
+        
+            // Copy the object
             await s3.copyObject({
                 Bucket: destinationBucket,
                 CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
-                Key: file
+                Key: file,
+                Metadata: newMetadata,
+                MetadataDirective: "REPLACE"
             }).promise();
-
+        
+            // Optionally, delete the original version
             await s3.deleteObject({
                 Bucket: sourceBucket,
                 Key: file,
                 VersionId: version.VersionId
             }).promise();
-            versionOrder--;
         }
+
+
+
+
+
+
 
         return { status: 'All versions moved successfully' };
 
