@@ -506,8 +506,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             Prefix: file
         }).promise();
 
-        let versionOrder = 1;
-        console.log("versions", versions)
+        let versionOrder = versions.Versions.length;
         for (const version of versions.Versions) {
             console.log("version", version)
             await s3.copyObject({
@@ -526,7 +525,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
                 Key: file,
                 VersionId: version.VersionId
             }).promise();
-            versionOrder++; 
+            versionOrder--;
         }
 
         return { status: 'All versions moved successfully' };
