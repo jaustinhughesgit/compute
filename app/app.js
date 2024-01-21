@@ -305,7 +305,12 @@ async function processString(str, libs, nestedPath) {
     let arrowJson = strClean.split("=>")
     strClean = arrowJson[0]
     console.log("strClean", strClean, str)
-    let target = await getKeyAndPath(strClean, nestedPath)
+    let target
+    if (isObj){
+        target = await getKeyAndPath(strClean, nestedPath)
+    } else {
+        target = {"key":strClean, "path":nestedPath}
+    }
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
@@ -400,7 +405,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let keyClean = await removeBrackets(key, keyObj, keyExecuted);
             console.log("keyClean",keyClean)
             console.log(key, nestedPath);
-            let set = await getKeyAndPath(keyClean, nestedPath);
+            let set
+            if (keyObj){
+                set = await getKeyAndPath(keyClean, nestedPath)
+            } else {
+                set = {"key":keyClean, "path":nestedPath}
+            }
             console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path);
             console.log("66: nestedContext",nestedContext)
@@ -419,8 +429,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
         const isObj = await isOnePlaceholder(action.target)
         let strClean = await removeBrackets(action.target, isObj, false);
-
-        let target = await getKeyAndPath(strClean, nestedPath);
+        let target
+        if (isObj){
+            target = await getKeyAndPath(strClean, nestedPath)
+        } else {
+            target = {"key":strClean, "path":nestedPath}
+        }
         let nestedContext = await getNestedContext(libs, target.path);
 
         if (!nestedContext.hasOwnProperty(target.key)){
@@ -440,7 +454,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     console.log("arguments: fromObj", fromObj)
                     let fromClean = await removeBrackets(item, fromObj, fromExecuted);
                     console.log("arguments: fromClean", fromClean)
-                    let from = await getKeyAndPath(fromClean, nestedPath);
+                    let from
+                    if (isObj){
+                        from = await getKeyAndPath(fromClean, nestedPath)
+                    } else {
+                        from = {"key":fromClean, "path":nestedPath}
+                    }
                     console.log("arguments: from", from)
                     let nestedContext = await getNestedContext(libs, from.path);
                     console.log("arguments: nestedContext", nestedContext)
@@ -470,8 +489,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("assignObj",assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
             console.log("strClean",strClean)
-
-            let assign = await getKeyAndPath(strClean, nestedPath);
+            let assign
+            if (isObj){
+                assign = await getKeyAndPath(strClean, nestedPath)
+            } else {
+                assign = {"key":strClean, "path":nestedPath}
+            }
             console.log("assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
             console.log("nestedContext", nestedContext)
@@ -495,7 +518,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         const assignExecuted = action.assign.endsWith('}}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-        let assign = await getKeyAndPath(strClean, nestedPath);
+        let assign
+        if (isObj){
+            assign = await getKeyAndPath(strClean, nestedPath)
+        } else {
+            assign = {"key":strClean, "path":nestedPath}
+        }
         let nestedContext = await getNestedContext(libs, assign.path);
         if (assignObj) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
@@ -513,7 +541,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.execute) {
         const isObj = await isOnePlaceholder(action.execute)
         let strClean = await removeBrackets(action.execute, isObj, false);//false but will be executed below
-        let execute = await getKeyAndPath(strClean, nestedPath);
+        let execute
+        if (isObj){
+            execute = await getKeyAndPath(strClean, nestedPath)
+        } else {
+            execute = {"key":strClean, "path":nestedPath}
+        }
         let nestedContext = await getNestedContext(libs, execute.path);
         let value = nestedContext[execute.value]
         // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
@@ -622,7 +655,12 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         console.log("55: strClean", strClean)
-        let assign = await getKeyAndPath(strClean, nestedPath);
+        let assign
+        if (isObj){
+            assign = await getKeyAndPath(strClean, nestedPath)
+        } else {
+            assign = {"key":strClean, "path":nestedPath}
+        }
         console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
         console.log("createFunctionFromAction", assign.key, nestedContext)
@@ -673,7 +711,12 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     console.log("22: paramClean2",paramClean2)
                     let newNestedPath2 = nestedPath+"."+assign.key
                     console.log("22: newNestedPath2",newNestedPath2)
-                    let p = await getKeyAndPath(paramClean2, newNestedPath2);
+                    let p
+                    if (isObj){
+                        p = await getKeyAndPath(paramClean2, newNestedPath2)
+                    } else {
+                        p = {"key":paramClean2, "path":newNestedPath2}
+                    }
                     console.log("22: p",p)
                     let nestedParamContext2 = await getNestedContext(libs, p.path);
                     console.log("22: addValue:",paramClean2, nestedParamContext2, args[indexP])
