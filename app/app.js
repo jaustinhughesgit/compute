@@ -745,9 +745,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 //module.exports.lambdaHandler = serverless(app);
 
 
-const lambdaHandler = serverless(app);
+const serverlessHandler = serverless(app);
 
-exports.handler = async (event, context) => {
+module.exports.lambdaHandler = async (event, context) => {
     // Check if the event is from SES
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
@@ -760,6 +760,6 @@ exports.handler = async (event, context) => {
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     } else {
         // Otherwise, it's an HTTP request, handle with Express
-        return lambdaHandler(event, context);
+        return serverlessHandler(event, context);
     }
 };
