@@ -574,7 +574,38 @@ async function linkEntities(childID, parentID){
     return "success"
 }
 
-async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
+
+async function sendEmail(ses){
+    const params = {
+        Source: 'noreply@email.1var.com', // Replace with your verified email in SES
+        Destination: {
+            ToAddresses: [
+                'austin@1var.com' // The recipient's email address
+            ]
+        },
+        Message: {
+            Subject: {
+                Data: 'Test Email from AWS SES'
+            },
+            Body: {
+                Text: {
+                    Data: 'This is a test email sent from a Lambda function using AWS SES.'
+                }
+            }
+        }
+    };
+
+    try {
+        const data = await ses.sendEmail(params).promise();
+        console.log('Email sent:', data);
+        return { statusCode: 200, body: JSON.stringify(data) };
+    } catch (error) {
+        console.error('Error sending email:', error);
+        return { statusCode: 500, body: JSON.stringify(error) };
+    }
+}
+
+async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     const reqPath = req.apiGateway.event.path.split("?")[0]
@@ -641,6 +672,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3){
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
+            sendEmail(ses)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
             console.log("useGroup")

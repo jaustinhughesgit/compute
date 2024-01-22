@@ -17,6 +17,7 @@ dynamodbLL = new AWS.DynamoDB();
 dynamodb = new AWS.DynamoDB.DocumentClient();
 SM = new AWS.SecretsManager();
 s3 = new AWS.S3();
+ses = new AWS.SES();
 
 var cookiesRouter;
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
@@ -31,7 +32,7 @@ app.use(async (req, res, next) => {
         try {
             const privateKey = await getPrivateKey();
             let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3);
+            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses);
             app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');
