@@ -575,7 +575,7 @@ async function linkEntities(childID, parentID){
 }
 
 
-async function sendEmail(ses){
+async function email(ses){
     const params = {
         Source: 'noreply@email.1var.com', // Replace with your verified email in SES
         Destination: {
@@ -672,7 +672,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
-            sendEmail(ses)
+            console.log("ses",ses)
+            let emailer = email(ses)
+            console.log(emailer)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
             console.log("useGroup")
@@ -853,11 +855,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     }
 }
 
-function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3) {
+function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses) {
     router.use(bodyParser.json());
     
     router.all('/*', async function(req, res, next) {
-        route (req, res, next, privateKey, dynamodb, uuidv4, s3)
+        route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses)
     });
 
     return router;
