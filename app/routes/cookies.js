@@ -681,7 +681,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             let subject = "1 VAR - Email Address Verification Request"
             let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
             let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
-            let emailer = await email(from, to, subject, emailText, emailHTML, ses)
+            //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
             console.log(emailer)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
