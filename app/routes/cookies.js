@@ -575,21 +575,24 @@ async function linkEntities(childID, parentID){
 }
 
 
-async function email(ses){
+async function email(from, to, subject, emailText, emailHTML, ses){
     const params = {
-        Source: 'noreply@email.1var.com', // Replace with your verified email in SES
+        Source: from, //noreply@email.1var.com
         Destination: {
             ToAddresses: [
-                'austin@1var.com' // The recipient's email address
-            ]
+                to
+            ] //'austin@1var.com'
         },
         Message: {
             Subject: {
-                Data: 'Test Email from AWS SES'
+                Data: subject
             },
             Body: {
                 Text: {
-                    Data: 'This is a test email sent from a Lambda function using AWS SES.'
+                    Data: emailText
+                },
+                Html: {
+                    Data: emailHTML
                 }
             }
         }
@@ -673,7 +676,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             actionFile = uniqueId2
             let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
             console.log("ses",ses)
-            let emailer = email(ses)
+            let from = "noreply@email.1var.com"
+            let to = "austin@1var.com"
+            let subject = "1 VAR - Email Address Verification Request"
+            let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1var.com. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+groupID
+            let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1var.com. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+groupID
+            let emailer = await email(from, to, subject, emailText, emailHTML, ses)
             console.log(emailer)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
         } else if (action === "useGroup"){
