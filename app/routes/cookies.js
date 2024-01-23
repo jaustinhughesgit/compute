@@ -165,7 +165,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
             "UpdateExpression": `REMOVE ${col.replace("-","")}[${indexToRemove}]`,
             "ReturnValues": 'ALL_NEW'
         }
-    } else if (col === "t" || col === "f"){
+    } else if (col === "t" || col === "f" || col === "l" || col === "o"){
         params = {
             "TableName": 'entities',
             "Key": {
@@ -679,8 +679,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             let from = "noreply@email.1var.com"
             let to = "austin@1var.com"
             let subject = "1 VAR - Email Address Verification Request"
-            let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1var.com. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+groupID
-            let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1var.com. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+groupID
+            let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
+            let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
             let emailer = await email(from, to, subject, emailText, emailHTML, ses)
             console.log(emailer)
             mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
