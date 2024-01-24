@@ -627,7 +627,7 @@ async function manageCookie(req, res, dynamodb, uuidv4){
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
         const ttlDurationInSeconds = 180; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-        await createCookie(ci, gi, ex, ak)
+        await createCookie(ci.toString(), gi.toString(), ex, ak)
 
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
