@@ -812,8 +812,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             console.log("permStat", permStat)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "getAccessToken"){
+
             const uniqueId = await uuidv4();
-            response = {"accessToken":accessToken};
+            response = {"accessToken":uniqueId};
         }
 
         mainObj["file"] = actionFile + ""
