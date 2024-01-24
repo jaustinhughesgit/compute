@@ -815,16 +815,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             console.log("action",action)
             const uniqueId = await uuidv4();
             console.log("uniqueId",uniqueId)
-            response = {"accessToken":uniqueId};
-            console.log("reponse", response)
+            mainObj = {"accessToken":uniqueId};
         }
 
-        if (action === "getAccessToken"){
-            console.log("not doing mainObj file")
-        } else {
-            mainObj["file"] = actionFile + ""
-            response = mainObj
-        }
+        mainObj["file"] = actionFile + ""
+        response = mainObj
 
         if (action === "file"){
             //console.log("file2")
