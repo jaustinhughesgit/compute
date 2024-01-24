@@ -818,13 +818,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         if (req.body.headers.hasOwnProperty("X-accessToken")){
             console.log("req.body.headers", req.body.headers)
             console.log("req.body.headers['X-accessToken']", req.body.headers['X-accessToken'])
-            mainObj = {"status":"TOKEN EXIST"};
+            mainObj["status"] = "TOKEN EXIST";
         } else {
             console.log("action",action)
             const uniqueId = await uuidv4();
             console.log("uniqueId",uniqueId)
 
-            mainObj = {"accessToken":uniqueId};
+            mainObj["accessToken"] = uniqueId};
             res.cookie('accessToken', uniqueId, {
                 domain: '.1var.com',
                 maxAge: 3600000, // e.g., 1 hour
