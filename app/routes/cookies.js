@@ -617,14 +617,18 @@ async function createCookie(ci, gi, ex, ak){
     return ci;
 }
 
-async function manageCookie(req, res, dynamodb, uuidv4){
+async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     console.log("req",req)
     if (req.body.headers.hasOwnProperty("X-accessToken")){
         mainObj["status"] = "TOKEN EXIST";
     } else {
+        console.log("1")
         const ak = await uuidv4();
+        console.log("2")
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
+        console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
+        console.log("4")
         const ttlDurationInSeconds = 180; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
@@ -847,7 +851,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         }
 
 
-        manageCookie(req, res, dynamodb, uuidv4)
+        manageCookie(mainObj, req, res, dynamodb, uuidv4)
         
 
         mainObj["file"] = actionFile + ""
