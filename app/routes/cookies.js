@@ -611,10 +611,10 @@ async function email(from, to, subject, emailText, emailHTML, ses){
 async function createCookie(ci, gi, ex, ak){
     await dynamodb.put({
         TableName: 'cookies',
-        Item: { ci: ci, gi: gi, ex: ex, ak: ak}
+        Item: { "ci": ci, "gi": gi, "ex": ex, "ak": ak}
     }).promise();
 
-    return id;
+    return ci;
 }
 
 async function manageCookie(req, res, dynamodb, uuidv4){
@@ -627,6 +627,7 @@ async function manageCookie(req, res, dynamodb, uuidv4){
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
         const ttlDurationInSeconds = 180; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+        console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
 
         mainObj["accessToken"] = ak;
