@@ -819,7 +819,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             console.log("reponse", response)
         }
 
-        if (action != "getaccessToken"){
+        if (action === "getAccessToken"){
+            console.log("not doing mainObj file")
+        } else {
             mainObj["file"] = actionFile + ""
             response = mainObj
         }
