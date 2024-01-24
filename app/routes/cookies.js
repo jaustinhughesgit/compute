@@ -608,6 +608,38 @@ async function email(from, to, subject, emailText, emailHTML, ses){
     }
 }
 
+async function createCookie(ci, gi, ex, ak){
+    await dynamodb.put({
+        TableName: 'cookies',
+        Item: { ci: ci, gi: gi, ex: ex}
+    }).promise();
+
+    return id;
+}
+
+async function manageCookie(req, res){
+    console.log("req",req)
+    if (req.body.headers.hasOwnProperty("X-accessToken")){
+        mainObj["status"] = "TOKEN EXIST";
+    } else {
+        const ak = await uuidv4();
+        const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
+        const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
+        const ttlDurationInSeconds = 180; // For example, 1 hour
+        const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+        await createCookie(ci, gi, ex, ak)
+
+        mainObj["accessToken"] = ak;
+        res.cookie('accessToken', ak, {
+            domain: '.1var.com',
+            maxAge: ex,
+            httpOnly: true, // Inaccessible to client-side JS
+            secure: true, // Only sent over HTTPS
+            sameSite: 'Strict' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
+        });
+    }
+}
+
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -814,25 +846,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         }
 
 
-        console.log("req",req)
-        if (req.body.headers.hasOwnProperty("X-accessToken")){
-            console.log("req.body.headers", req.body.headers)
-            console.log("req.body.headers['X-accessToken']", req.body.headers['X-accessToken'])
-            mainObj["status"] = "TOKEN EXIST";
-        } else {
-            console.log("action",action)
-            const uniqueId = await uuidv4();
-            console.log("uniqueId",uniqueId)
-
-            mainObj["accessToken"] = uniqueId;
-            res.cookie('accessToken', uniqueId, {
-                domain: '.1var.com',
-                maxAge: 3600000, // e.g., 1 hour
-                httpOnly: true, // Recommended for security, makes cookie inaccessible to client-side JS
-                secure: true, // Recommended, ensures cookie is only sent over HTTPS
-                sameSite: 'Lax' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
-            });
-        }
+        manageCookie(req, res)
         
 
         mainObj["file"] = actionFile + ""
