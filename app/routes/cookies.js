@@ -811,6 +811,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
             console.log("permStat", permStat)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+        } else if (action === "getAccessToken"){
+            const uniqueId = await uuidv4();
+            response = accessToken;
         }
 
         mainObj["file"] = actionFile + ""
