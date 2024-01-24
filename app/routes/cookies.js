@@ -813,19 +813,26 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "getAccessToken"){
             console.log("req",req)
-            const accessToken = req.cookies['accessToken'];
-            console.log("accessToken",accessToken)
-            console.log("action",action)
-            const uniqueId = await uuidv4();
-            console.log("uniqueId",uniqueId)
-            mainObj = {"accessToken":uniqueId};
-            res.cookie('accessToken', uniqueId, {
-                domain: '.1var.com',
-                maxAge: 3600000, // e.g., 1 hour
-                httpOnly: true, // Recommended for security, makes cookie inaccessible to client-side JS
-                secure: true, // Recommended, ensures cookie is only sent over HTTPS
-                sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
-            });
+            if (req.body.headers.hasOwnProperty("X-accessToken")){
+                console.log("req.body.headers", req.body.headers)
+                console.log("req.body.headers['X-accessToken']", req.body.headers['X-accessToken'])
+                mainObj = {"status":"TOKEN EXIST"};
+            } else {
+                const accessToken = req.cookies['accessToken'];
+                console.log("accessToken",accessToken)
+                console.log("action",action)
+                const uniqueId = await uuidv4();
+                console.log("uniqueId",uniqueId)
+
+                mainObj = {"accessToken":uniqueId};
+                res.cookie('accessToken', uniqueId, {
+                    domain: '.1var.com',
+                    maxAge: 3600000, // e.g., 1 hour
+                    httpOnly: true, // Recommended for security, makes cookie inaccessible to client-side JS
+                    secure: true, // Recommended, ensures cookie is only sent over HTTPS
+                    sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
+                });
+            }
         }
 
         mainObj["file"] = actionFile + ""
