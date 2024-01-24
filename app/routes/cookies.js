@@ -611,7 +611,7 @@ async function email(from, to, subject, emailText, emailHTML, ses){
 async function createCookie(ci, gi, ex, ak){
     await dynamodb.put({
         TableName: 'cookies',
-        Item: { ci: ci, gi: gi, ex: ex}
+        Item: { ci: ci, gi: gi, ex: ex, ak: ak}
     }).promise();
 
     return id;
