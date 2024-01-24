@@ -617,7 +617,7 @@ async function createCookie(ci, gi, ex, ak){
     return id;
 }
 
-async function manageCookie(req, res){
+async function manageCookie(req, res, dynamodb, uuidv4){
     console.log("req",req)
     if (req.body.headers.hasOwnProperty("X-accessToken")){
         mainObj["status"] = "TOKEN EXIST";
@@ -846,7 +846,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         }
 
 
-        manageCookie(req, res)
+        manageCookie(req, res, dynamodb, uuidv4)
         
 
         mainObj["file"] = actionFile + ""
