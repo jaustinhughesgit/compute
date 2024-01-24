@@ -812,9 +812,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             console.log("permStat", permStat)
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "getAccessToken"){
-
+            console.log("action",action)
             const uniqueId = await uuidv4();
+            console.log("uniqueId",uniqueId)
             response = {"accessToken":uniqueId};
+            console.log("reponse", response)
         }
 
         mainObj["file"] = actionFile + ""
@@ -860,6 +862,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 }
             });
         } else {
+            console.log("returning", {"ok":true,"response":response})
             res.json({"ok":true,"response":response});
         }
     } else {
