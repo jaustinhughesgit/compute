@@ -824,7 +824,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const uniqueId = await uuidv4();
             console.log("uniqueId",uniqueId)
 
-            mainObj["accessToken"] = uniqueId};
+            mainObj["accessToken"] = uniqueId;
             res.cookie('accessToken', uniqueId, {
                 domain: '.1var.com',
                 maxAge: 3600000, // e.g., 1 hour
