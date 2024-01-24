@@ -621,6 +621,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     console.log("req",req)
     if (req.body.headers.hasOwnProperty("X-accessToken")){
         mainObj["status"] = "TOKEN EXIST";
+        return
     } else {
         console.log("1")
         const ak = await uuidv4();
@@ -642,6 +643,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
             secure: true, // Only sent over HTTPS
             sameSite: 'Strict' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
         });
+        return
     }
 }
 
@@ -851,7 +853,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         }
 
 
-        manageCookie(mainObj, req, res, dynamodb, uuidv4)
+        await manageCookie(mainObj, req, res, dynamodb, uuidv4)
         
 
         mainObj["file"] = actionFile + ""
