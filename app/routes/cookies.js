@@ -830,7 +830,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 maxAge: 3600000, // e.g., 1 hour
                 httpOnly: true, // Recommended for security, makes cookie inaccessible to client-side JS
                 secure: true, // Recommended, ensures cookie is only sent over HTTPS
-                sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
+                sameSite: 'Lax' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
             });
         }
         
