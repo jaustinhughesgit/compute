@@ -813,7 +813,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
         } else if (action === "getAccessToken"){
             const uniqueId = await uuidv4();
-            response = accessToken;
+            response = {"accessToken":accessToken};
         }
 
         mainObj["file"] = actionFile + ""
