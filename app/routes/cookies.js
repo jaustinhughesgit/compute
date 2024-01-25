@@ -685,7 +685,6 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
-        console.log("createCookie",cookie)
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
