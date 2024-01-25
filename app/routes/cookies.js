@@ -23,19 +23,19 @@ async function getSub(val, key, dynamodb){
 }
 
 async function getEntity(e, dynamodb){
-    //console.log("getEntity")
+    console.log("getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: {':e': e} };
     return await dynamodb.query(params).promise()
 }
 
 async function getGroup(g, dynamodb){
-    console.log("getEntity", g)
+    console.log("getGroup", g)
     params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: {':g': g} };
     return await dynamodb.query(params).promise()
 }
 
 async function getAccess(ai, dynamodb){
-    console.log("getEntity", ai)
+    console.log("getAccess", ai)
     params = { TableName: 'access', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: {':ai': ai} };
     return await dynamodb.query(params).promise()
 }
@@ -93,6 +93,7 @@ function setIsPublic(val){
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
+    console.log("subBySU:fileID", fileID, subBySu)
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     console.log("entity", entity)
