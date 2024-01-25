@@ -102,7 +102,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     const access = await getAccess(group.Items[0].ai, dynamodb)
     console.log("access", access)
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb)
-    console.log("verified", verified)
+    console.log("verified", verify)
     const verified = false
     for (veri in verify.Items){
         console.log("veri", veri, verify.Items[veri])
@@ -193,7 +193,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
 
         return { obj: obj, paths: paths, paths2: paths2, id2Path:id2Path, groups:groupList };
     } else {
-        return { "verified": false }
+        return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false }
+        //NEED TO PROVIDE BACK WHAT THE USER IS ALLOWED TO VIEW, like the Groups they have, AND ALSO MAKE SURE NO ERRORS HAPPEN FROM SENDING BACK {} FOR obj, paths, paths2 and id2Path
     }
 }
 
