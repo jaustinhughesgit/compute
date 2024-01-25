@@ -29,19 +29,19 @@ async function getEntity(e, dynamodb){
 }
 
 async function getGroup(g, dynamodb){
-    //console.log("getEntity")
+    console.log("getEntity", g)
     params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: {':g': g} };
     return await dynamodb.query(params).promise()
 }
 
 async function getAccess(ai, dynamodb){
-    //console.log("getEntity")
+    console.log("getEntity", ai)
     params = { TableName: 'access', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: {':ai': ai} };
     return await dynamodb.query(params).promise()
 }
 
 async function getVerified(key, val, dynamodb){
-    //console.log("getEntity")
+    console.log("getEntity", key, val)
     let params
     if (key == "vi"){
         params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: {':vi': val} };
@@ -705,6 +705,7 @@ async function createAccess (ai, g, e, ex, at, to, va) {
 }
 
 async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti){
+    console.log("createVerified",vi, gi, g, e, ai, va, ex, bo, at, ti)
     return await dynamodb.put({
         TableName: 'verified',
         Item: { vi: vi, gi: gi, g:g, e:e, ai:ai, va:va, ex:ex, bo:bo, at:at, ti:ti}
@@ -776,6 +777,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const ttlDurationInSeconds = 180; // For example, 1 hour
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+            console.log("vi", vi)
             const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
