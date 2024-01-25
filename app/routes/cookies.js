@@ -764,54 +764,56 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "newGroup"){
             //console.log("newGroup")
-            const newGroupName = reqPath.split("/")[3]
-            const headEntityName = reqPath.split("/")[4]
-            setIsPublic(false)
-            console.log("A")
-            const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-            console.log("B")
-            const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
-            console.log("C")
-            const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-            console.log("D")
-            const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
-            console.log("E")
-            const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
-            console.log("F")
-            const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            console.log("G")
-            const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
-            console.log("H")
-            const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
-            console.log("I")
-            const ttlDurationInSeconds = 180; // For example, 1 hour
-            console.log("J")
-            const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-            console.log("K")
-            const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-            console.log("L")
-            console.log("vi", vi)
-            const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
+            if (cookie != undefined) {
+                const newGroupName = reqPath.split("/")[3]
+                const headEntityName = reqPath.split("/")[4]
+                setIsPublic(false)
+                console.log("A")
+                const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                console.log("B")
+                const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
+                console.log("C")
+                const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                console.log("D")
+                const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
+                console.log("E")
+                const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
+                console.log("F")
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                console.log("G")
+                const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                console.log("H")
+                const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+                console.log("I")
+                const ttlDurationInSeconds = 180; // For example, 1 hour
+                console.log("J")
+                const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+                console.log("K")
+                const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+                console.log("L")
+                console.log("vi", vi)
+                const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-            const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
-            const uniqueId = await uuidv4();
-            //console.log(uniqueId, "0", "0", )
-            let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
-            const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
-            const uniqueId2 = await uuidv4();
-            const fileResult = await createFile(uniqueId2, {}, s3)
-            actionFile = uniqueId2
-            let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
-            console.log("ses",ses)
-            let from = "noreply@email.1var.com"
-            let to = "austin@1var.com"
-            let subject = "1 VAR - Email Address Verification Request"
-            let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
-            let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
-            //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
-            //console.log(emailer)
-            mainObj  = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
+                const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
+                const uniqueId = await uuidv4();
+                //console.log(uniqueId, "0", "0", )
+                let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
+                const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
+                const uniqueId2 = await uuidv4();
+                const fileResult = await createFile(uniqueId2, {}, s3)
+                actionFile = uniqueId2
+                let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
+                console.log("ses",ses)
+                let from = "noreply@email.1var.com"
+                let to = "austin@1var.com"
+                let subject = "1 VAR - Email Address Verification Request"
+                let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
+                let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
+                //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
+                //console.log(emailer)
+                mainObj  = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
+            }
         } else if (action === "useGroup"){
             console.log("useGroup")
             actionFile = reqPath.split("/")[3]
