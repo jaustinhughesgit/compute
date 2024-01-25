@@ -733,7 +733,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const ttlDurationInSeconds = 180; // For example, 1 hour
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-            const verified = await createVerified(vi, cookie.gi, gNew.toString(), null, null, null, ex, true, 0, null)
+            const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), null, null, null, ex, true, 0, null)
 
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), null, dynamodb);
             const uniqueId = await uuidv4();
