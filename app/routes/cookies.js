@@ -103,7 +103,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     console.log("access", access)
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb)
     console.log("verified", verify)
-    let verified = false
+    let verified = false;
     for (veri in verify.Items){
         console.log("veri", veri, verify.Items[veri])
         if (verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo){
@@ -131,7 +131,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         if (entity.Items[0].u){
             using = true
         }
-        pathID = await uuidv4();
+        pathID = await getUUID(uuidv4)
         let subH = await getSub(entity.Items[0].h, "e", dynamodb)
         obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, location:fileLocation(isPublic)};
         let paths = {}
@@ -685,7 +685,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         return cookie.Items[0]
     } else {
         console.log("1")
-        const ak = await uuidv4();
+        const ak = await getUUID(uuidv4)
         console.log("2")
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
         console.log("3")
@@ -723,6 +723,21 @@ async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti){
     }).promise();
 }
 
+async function getUUID(uuidv4){
+    let uniqueId = await uuidv4();
+    return "1v4r" + uniqueId
+}
+
+function allVerified(list){
+    let v = true
+    for (l in list){
+        if (list[l] != true){
+            v = false
+        }
+    }
+    return v
+}
+
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -734,273 +749,302 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     var mainObj = {}
     if (req.method === 'GET' || req.method === 'POST'){
 
-       let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
-
-        if (action === "get"){
-            //console.log("get")
-            const fileID = reqPath.split("/")[3]
-            actionFile = fileID
-            mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
-        } else if (action == "add") {
-            //console.log("add")
-            const fileID = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const headUUID = reqPath.split("/")[5]
-            const parent = await getSub(fileID, "su", dynamodb);
-            setIsPublic(parent.Items[0].z)
-            const eParent = await getEntity(parent.Items[0].e, dynamodb)
-            const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-            const a = await createWord(aNew.toString(), newEntityName, dynamodb);
-            const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
-            const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
-            const fileResult = await createFile(uniqueId, {}, s3)
-            actionFile = uniqueId
-            const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
-            const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
-            const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1", dynamodb);
-            const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c, dynamodb);
-            const group = eParent.Items[0].g
-            const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
-            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
-            mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
-        } else if (action === "link"){
-            //console.log("link")
-            const childID = reqPath.split("/")[3]
-            const parentID = reqPath.split("/")[4]
-            await linkEntities(childID, parentID)
-            mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
-        } else if (action === "newGroup"){
-            //console.log("newGroup")
-            if (cookie != undefined) {
-                const newGroupName = reqPath.split("/")[3]
-                const headEntityName = reqPath.split("/")[4]
-                setIsPublic(false)
-                console.log("A")
-                const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                console.log("B")
-                const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
-                console.log("C")
-                const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                console.log("D")
-                const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
-                console.log("E")
-                const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
-                console.log("F")
-                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-                console.log("G")
-                const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
-                console.log("H")
-                const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
-                console.log("I")
-                const ttlDurationInSeconds = 180; // For example, 1 hour
-                console.log("J")
-                const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-                console.log("K")
-                const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-                console.log("L")
-                console.log("vi", vi)
-                const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
-
-                const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
-                const uniqueId = await uuidv4();
-                //console.log(uniqueId, "0", "0", )
-                let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
-                const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-                const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
-                const uniqueId2 = await uuidv4();
-                const fileResult = await createFile(uniqueId2, {}, s3)
-                actionFile = uniqueId2
-                let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
-                console.log("ses",ses)
-                let from = "noreply@email.1var.com"
-                let to = "austin@1var.com"
-                let subject = "1 VAR - Email Address Verification Request"
-                let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
-                let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
-                //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
-                //console.log(emailer)
-                mainObj  = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
+        let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
+        const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
+        console.log("verifications", verifications)
+        let verify = reqPath
+        let verified = [];
+        let verCounter = 0;
+        for (ver in verify){
+            if (verify[ver].startsWith("1v4r")){
+                let verValue = false
+                verified.push(false)
+                for (veri in verifications.Items){
+                    const sub = await getSub(verify[ver], "su", dynamodb);
+                    if (sub.Items.length > 0){
+                        if (sub.Items[0].z == true){
+                            verValue = true
+                        } else if (sub.Items[0].e == verifications.Items[veri].e && verifications.Items[veri].bo){
+                            verValue = true
+                        } else if (sub.Items[0].g == verifications.Items[veri].g && verifications.Items[veri].bo){
+                            verValue = true
+                        }
+                    }
+                }
+                verified[verCounter] = verValue
+                verCounter++;
             }
-        } else if (action === "useGroup"){
-            console.log("useGroup")
-            actionFile = reqPath.split("/")[3]
-            const newUsingName = reqPath.split("/")[3]
-            console.log("newUsingName",newUsingName)
-            const headUsingName = reqPath.split("/")[4]
-            console.log("headUsingName",headUsingName)
-            const using = await getSub(newUsingName, "su", dynamodb);
-            console.log("using",using)
-            const ug = await getEntity(using.Items[0].e, dynamodb)
-            console.log("ug",ug)
-            const used = await getSub(headUsingName, "su", dynamodb);
-            console.log("used",used)
-            const ud = await getEntity(used.Items[0].e, dynamodb)
-            console.log("ud",ud)
-            const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
-            console.log("details2", details2)
-            const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
-            console.log("updateParent", updateParent)
-            const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
-            console.log("headSub", headSub)
-            mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
-            console.log("mainObj", mainObj)
-        } else if (action === "map"){
-            //console.log("map")
-            const referencedParent = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const mappedParent = reqPath.split("/")[5]
-            const headEntity = reqPath.split("/")[6]
-            const subRefParent = await getSub(referencedParent, "su", dynamodb);
-            setIsPublic(subRefParent.Items[0].z);
-            console.log("mappedParent",mappedParent)
-            const subMapParent = await getSub(mappedParent, "su", dynamodb);
-            console.log("subMapParent",subMapParent)
-            const mpE = await getEntity(subMapParent.Items[0].e, dynamodb)
-            const mrE = await getEntity(subRefParent.Items[0].e, dynamodb)
-            const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-            const a = await createWord(aNew.toString(), newEntityName, dynamodb);
-            const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, "0", dynamodb);
-            const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
-            const fileResult = await createFile(uniqueId, {}, s3)
-            actionFile = uniqueId
-            let newM = {}
-            newM[mrE.Items[0].e] = e.toString()
-            const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c, dynamodb);
-            let addM = {}
-            addM[mrE.Items[0].e] = [e.toString()]
-            const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
-            mainObj  = await convertToJSON(headEntity, [], null, null, cookie, dynamodb, uuidv4)
-        } else if (action === "extend"){
-
-            const fileID = reqPath.split("/")[3]
-            const newEntityName = reqPath.split("/")[4]
-            const headUUID = reqPath.split("/")[5]
-            const parent = await getSub(fileID, "su", dynamodb);
-            setIsPublic(parent.Items[0].z)
-            
-            const eParent = await getEntity(parent.Items[0].e, dynamodb)
-
-            const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-            const a = await createWord(aNew.toString(), newEntityName, dynamodb);
-
-            const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
-
-            const uniqueId = await uuidv4();
-            let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
-
-            const fileResult = await createFile(uniqueId, {}, s3)
-            actionFile = uniqueId
-            
-            //copy parent
-            const updateList = eParent.Items[0].t
-            for (u in updateList){
-                
-                const details24 = await addVersion(updateList[u], "-f", eParent.Items[0].e, "1", dynamodb);
-                const updateParent24 = await updateEntity(updateList[u], "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
-
-                const details25 = await addVersion(eParent.Items[0].e, "-t", updateList[u], "1", dynamodb); 
-                const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", updateList[u], details25.v, details25.c, dynamodb);
-                //
-                const details26 = await addVersion(updateList[u], "f", e.toString(), "1", dynamodb);
-                const updateParent26 = await updateEntity(updateList[u], "f", e.toString(), details26.v, details26.c, dynamodb);
-
-                const details27 = await addVersion(e.toString(), "t", updateList[u], "1", dynamodb); 
-                const updateParent27 = await updateEntity(e.toString(), "t", updateList[u], details27.v, details27.c, dynamodb);
-            }
-
-
-            const details28 = await addVersion(eParent.Items[0].e, "t", e.toString(), "1", dynamodb); 
-            const updateParent28 = await updateEntity(eParent.Items[0].e, "t", e.toString(), details28.v, details28.c, dynamodb);
-
-
-            const group = eParent.Items[0].g
-            const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
-            const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
-            mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
-
-        } else if (action === "reqPut"){
-            actionFile = reqPath.split("/")[3]
-            fileCategory = reqPath.split("/")[4]
-            fileType = reqPath.split("/")[5]
-            const subBySU = await getSub(actionFile, "su", dynamodb);
-            setIsPublic(subBySU.Items[0].z)
-            console.log("subBySU",subBySU)
-            console.log("actionFile",actionFile)
-            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
-        } else if (action === "file"){
-            //console.log("file")
-            actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
-
-        } else if (action === "saveFile"){
-            //console.log("saveFile")
-            actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
-            const fileResult = await createFile(actionFile, req.body.body, s3)
-        } else if (action === "makePublic"){
-            actionFile = reqPath.split("/")[3]
-            let permission = reqPath.split("/")[4]
-            const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
-            console.log("permStat", permStat)
-            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
         }
 
+        if (allVerified(verified)){
+            if (action === "get"){
+                //console.log("get")
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
+                mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action == "add") {
+                //console.log("add")
+                const fileID = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const headUUID = reqPath.split("/")[5]
+                const parent = await getSub(fileID, "su", dynamodb);
+                setIsPublic(parent.Items[0].z)
+                const eParent = await getEntity(parent.Items[0].e, dynamodb)
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
+                const uniqueId = await getUUID(uuidv4)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+                const fileResult = await createFile(uniqueId, {}, s3)
+                actionFile = uniqueId
+                const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
+                const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
+                const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1", dynamodb);
+                const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c, dynamodb);
+                const group = eParent.Items[0].g
+                const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
+                const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
+                mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action === "link"){
+                //console.log("link")
+                const childID = reqPath.split("/")[3]
+                const parentID = reqPath.split("/")[4]
+                await linkEntities(childID, parentID)
+                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action === "newGroup"){
+                //console.log("newGroup")
+                if (cookie != undefined) {
+                    const newGroupName = reqPath.split("/")[3]
+                    const headEntityName = reqPath.split("/")[4]
+                    setIsPublic(false)
+                    console.log("A")
+                    const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    console.log("B")
+                    const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
+                    console.log("C")
+                    const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    console.log("D")
+                    const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
+                    console.log("E")
+                    const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
+                    console.log("F")
+                    const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                    console.log("G")
+                    const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                    console.log("H")
+                    const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+                    console.log("I")
+                    const ttlDurationInSeconds = 180; // For example, 1 hour
+                    console.log("J")
+                    const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+                    console.log("K")
+                    const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+                    console.log("L")
+                    console.log("vi", vi)
+                    const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-        
-
-        mainObj["file"] = actionFile + ""
-        response = mainObj
-
-        if (action === "file"){
-            //console.log("file2")
-            const expires = 90000;
-            const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile;
-            const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
-            if (req.type === 'url'){
-                const signedUrl = signer.getSignedUrl({
-                    url: url,
-                    policy: policy
-                });
-                res.json({ signedUrl: signedUrl });
-            } else {
-                const cookies = signer.getSignedCookie({policy: policy});
-                for (const cookieName in cookies) {
-                    res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
+                    const uniqueId = await getUUID(uuidv4)
+                    //console.log(uniqueId, "0", "0", )
+                    let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
+                    const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
+                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
+                    const uniqueId2 = await getUUID(uuidv4)
+                    const fileResult = await createFile(uniqueId2, {}, s3)
+                    actionFile = uniqueId2
+                    let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
+                    console.log("ses",ses)
+                    let from = "noreply@email.1var.com"
+                    let to = "austin@1var.com"
+                    let subject = "1 VAR - Email Address Verification Request"
+                    let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/"+uniqueId
+                    let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
+                    //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
+                    //console.log(emailer)
+                    mainObj  = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
                 }
-                res.json({"ok":true,"response":response});
-            }   
-        } else if (action === "reqPut"){
-            const bucketName = fileLocation(isPublic)+'.1var.com';
-            const fileName = actionFile;
-            const expires = 90000;
+            } else if (action === "useGroup"){
+                console.log("useGroup")
+                actionFile = reqPath.split("/")[3]
+                const newUsingName = reqPath.split("/")[3]
+                console.log("newUsingName",newUsingName)
+                const headUsingName = reqPath.split("/")[4]
+                console.log("headUsingName",headUsingName)
+                const using = await getSub(newUsingName, "su", dynamodb);
+                console.log("using",using)
+                const ug = await getEntity(using.Items[0].e, dynamodb)
+                console.log("ug",ug)
+                const used = await getSub(headUsingName, "su", dynamodb);
+                console.log("used",used)
+                const ud = await getEntity(used.Items[0].e, dynamodb)
+                console.log("ud",ud)
+                const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
+                console.log("details2", details2)
+                const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
+                console.log("updateParent", updateParent)
+                const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
+                console.log("headSub", headSub)
+                mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
+                console.log("mainObj", mainObj)
+            } else if (action === "map"){
+                //console.log("map")
+                const referencedParent = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const mappedParent = reqPath.split("/")[5]
+                const headEntity = reqPath.split("/")[6]
+                const subRefParent = await getSub(referencedParent, "su", dynamodb);
+                setIsPublic(subRefParent.Items[0].z);
+                console.log("mappedParent",mappedParent)
+                const subMapParent = await getSub(mappedParent, "su", dynamodb);
+                console.log("subMapParent",subMapParent)
+                const mpE = await getEntity(subMapParent.Items[0].e, dynamodb)
+                const mrE = await getEntity(subRefParent.Items[0].e, dynamodb)
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, "0", dynamodb);
+                const uniqueId = await getUUID(uuidv4)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+                const fileResult = await createFile(uniqueId, {}, s3)
+                actionFile = uniqueId
+                let newM = {}
+                newM[mrE.Items[0].e] = e.toString()
+                const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c, dynamodb);
+                let addM = {}
+                addM[mrE.Items[0].e] = [e.toString()]
+                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
+                mainObj  = await convertToJSON(headEntity, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action === "extend"){
 
-            const params = {
-                Bucket: bucketName,
-                Key: fileName,
-                Expires: expires,
-                ContentType: fileCategory+'/'+fileType
-            };
-            console.log("params", params)
-            s3.getSignedUrl('putObject', params, (error, url) => {
-                if (error) {
-                    res.status(500).json({ error: 'Error generating presigned URL' });
+                const fileID = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const headUUID = reqPath.split("/")[5]
+                const parent = await getSub(fileID, "su", dynamodb);
+                setIsPublic(parent.Items[0].z)
+                
+                const eParent = await getEntity(parent.Items[0].e, dynamodb)
+
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
+
+                const uniqueId = await getUUID(uuidv4)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+
+                const fileResult = await createFile(uniqueId, {}, s3)
+                actionFile = uniqueId
+                
+                //copy parent
+                const updateList = eParent.Items[0].t
+                for (u in updateList){
+                    
+                    const details24 = await addVersion(updateList[u], "-f", eParent.Items[0].e, "1", dynamodb);
+                    const updateParent24 = await updateEntity(updateList[u], "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
+
+                    const details25 = await addVersion(eParent.Items[0].e, "-t", updateList[u], "1", dynamodb); 
+                    const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", updateList[u], details25.v, details25.c, dynamodb);
+                    //
+                    const details26 = await addVersion(updateList[u], "f", e.toString(), "1", dynamodb);
+                    const updateParent26 = await updateEntity(updateList[u], "f", e.toString(), details26.v, details26.c, dynamodb);
+
+                    const details27 = await addVersion(e.toString(), "t", updateList[u], "1", dynamodb); 
+                    const updateParent27 = await updateEntity(e.toString(), "t", updateList[u], details27.v, details27.c, dynamodb);
+                }
+
+
+                const details28 = await addVersion(eParent.Items[0].e, "t", e.toString(), "1", dynamodb); 
+                const updateParent28 = await updateEntity(eParent.Items[0].e, "t", e.toString(), details28.v, details28.c, dynamodb);
+
+
+                const group = eParent.Items[0].g
+                const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
+                const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
+                mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
+
+            } else if (action === "reqPut"){
+                actionFile = reqPath.split("/")[3]
+                fileCategory = reqPath.split("/")[4]
+                fileType = reqPath.split("/")[5]
+                const subBySU = await getSub(actionFile, "su", dynamodb);
+                setIsPublic(subBySU.Items[0].z)
+                console.log("subBySU",subBySU)
+                console.log("actionFile",actionFile)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action === "file"){
+                //console.log("file")
+                actionFile = reqPath.split("/")[3]
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+
+            } else if (action === "saveFile"){
+                //console.log("saveFile")
+                actionFile = reqPath.split("/")[3]
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+                const fileResult = await createFile(actionFile, req.body.body, s3)
+            } else if (action === "makePublic"){
+                actionFile = reqPath.split("/")[3]
+                let permission = reqPath.split("/")[4]
+                const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
+                console.log("permStat", permStat)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+            }
+
+
+            
+
+            mainObj["file"] = actionFile + ""
+            response = mainObj
+
+            if (action === "file"){
+                //console.log("file2")
+                const expires = 90000;
+                const url = "https://"+fileLocation(isPublic)+".1var.com/"+actionFile;
+                const policy = JSON.stringify({Statement: [{Resource: url,Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }}}]});
+                if (req.type === 'url'){
+                    const signedUrl = signer.getSignedUrl({
+                        url: url,
+                        policy: policy
+                    });
+                    res.json({ signedUrl: signedUrl });
                 } else {
-                    console.log("preSigned URL:", url)
-                    response.putURL = url
+                    const cookies = signer.getSignedCookie({policy: policy});
+                    for (const cookieName in cookies) {
+                        res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+                    }
                     res.json({"ok":true,"response":response});
-                }
-            });
+                }   
+            } else if (action === "reqPut"){
+                const bucketName = fileLocation(isPublic)+'.1var.com';
+                const fileName = actionFile;
+                const expires = 90000;
+
+                const params = {
+                    Bucket: bucketName,
+                    Key: fileName,
+                    Expires: expires,
+                    ContentType: fileCategory+'/'+fileType
+                };
+                console.log("params", params)
+                s3.getSignedUrl('putObject', params, (error, url) => {
+                    if (error) {
+                        res.status(500).json({ error: 'Error generating presigned URL' });
+                    } else {
+                        console.log("preSigned URL:", url)
+                        response.putURL = url
+                        res.json({"ok":true,"response":response});
+                    }
+                });
+            } else {
+                console.log("returning", {"ok":true,"response":response})
+                res.json({"ok":true,"response":response});
+            }
         } else {
-            console.log("returning", {"ok":true,"response":response})
-            res.json({"ok":true,"response":response});
+            res.json({})
         }
     } else {
         res.json({})
