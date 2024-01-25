@@ -304,7 +304,7 @@ const createWord = async (id, word, dynamodb) => {
     return id;
 };
 
-const createGroup = async (gid, groupNameID, entityID, dynamodb) => {
+const createGroup = async (gid, groupNameID, entityID, ai, dynamodb) => {
     //console.log("createGroup")
 
     await dynamodb.put({
@@ -312,7 +312,8 @@ const createGroup = async (gid, groupNameID, entityID, dynamodb) => {
         Item: {
             g: gid,
             a: groupNameID,
-            e: entityID
+            e: entityID,
+            ai: ai
         }
     }).promise();
     return gid;
@@ -441,11 +442,11 @@ const createFile = async (su, fileData, s3) => {
 
 }
 
-const createEntity = async (e, a, v, g, h, dynamodb) => {
+const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
     //console.log("createEntity")
     const params = {
         TableName: 'entities',
-        Item: { e: e, a: a, v: v, g: g, h: h }
+        Item: { e: e, a: a, v: v, g: g, h: h, ai: ai }
     };
 
     try {
@@ -574,7 +575,6 @@ async function linkEntities(childID, parentID){
     return "success"
 }
 
-
 async function email(from, to, subject, emailText, emailHTML, ses){
     const params = {
         Source: from, //noreply@email.1var.com
@@ -632,8 +632,8 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         mainObj["status"] = "authenticated";
         let val = req.body.headers["X-accessToken"];
         let cookie = await getCookie(val, "ak")
-        console.log("cookie",cookie)
-        return
+        console.log("cookie",cookie.Items[0])
+        return cookie.Items[0]
     } else {
         console.log("1")
         const ak = await uuidv4();
@@ -645,7 +645,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         const ttlDurationInSeconds = 180; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
-        let cookie = await createCookie(ci.toString(), gi.toString(), ex, ak)
+        await createCookie(ci.toString(), gi.toString(), ex, ak)
         console.log("createCookie",cookie)
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
@@ -657,6 +657,15 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         });
         return {"ak":ak, "gi":gi, "ex":ex, "ci":ci}
     }
+}
+
+//async function createAccess (ai, g, e, ex, at, to, va) {}
+
+async function verification(vi, gi, g, e, ai, va, ex, bo, at, to){
+    return await dynamodb.put({
+        TableName: 'verified',
+        Item: { vi: vi, gi: gi, g:g, e:e, ai:ai, va:va, ex:ex, bo:bo, at:at, to:to}
+    }).promise();
 }
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
@@ -719,12 +728,19 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
             const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), dynamodb);
+            //const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+            //const access = await creatAccess(ai.toString(), gNew.toString(), null, {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+            const ttlDurationInSeconds = 180; // For example, 1 hour
+            const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+            const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+            const verified = await creatAccess(vi, cookie.gi, gNew.toString(), null, null, null, ex, true, 0, null)
+
+            const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), null, dynamodb);
             const uniqueId = await uuidv4();
             //console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
             const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), dynamodb); //DO I NEED details.c
+            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), null, dynamodb); //DO I NEED details.c
             const uniqueId2 = await uuidv4();
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
