@@ -755,7 +755,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
         console.log("verifications", verifications)
-        let verify = reqPath
+        let verify = reqPath.split("/")
         let verified = [];
         let verCounter = 0;
         console.log("--1")
