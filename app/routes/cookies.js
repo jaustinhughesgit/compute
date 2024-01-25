@@ -698,8 +698,9 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
 }
 
 async function createAccess (ai, g, e, ex, at, to, va) {
+    console.log("access", ai, g, e, ex, at, to, va)
     return await dynamodb.put({
-        TableName: 'verified',
+        TableName: 'access',
         Item: { ai: ai, g: g, e: e, ex: ex, at: at, to: to, va: va}
     }).promise();
 }
