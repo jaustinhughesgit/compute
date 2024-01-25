@@ -697,7 +697,12 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     }
 }
 
-async function createAccess (ai, g, e, ex, at, to, va) {}
+async function createAccess (ai, g, e, ex, at, to, va) {
+    return await dynamodb.put({
+        TableName: 'verified',
+        Item: { ai: ai, g: g, e: e, ex: ex, at: at, to: to, va: va}
+    }).promise();
+}
 
 async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti){
     return await dynamodb.put({
@@ -767,7 +772,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
             const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
-            const access = await creatAccess(ai.toString(), gNew.toString(), null, {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+            const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
             const ttlDurationInSeconds = 180; // For example, 1 hour
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
