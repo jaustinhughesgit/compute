@@ -41,7 +41,7 @@ async function getAccess(ai, dynamodb){
 }
 
 async function getVerified(key, val, dynamodb){
-    console.log("getEntity", key, val)
+    console.log("getVerified", key, val)
     let params
     if (key == "vi"){
         params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: {':vi': val} };
@@ -91,7 +91,7 @@ function setIsPublic(val){
 }
 
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
-    //console.log("convertToJSON")
+    console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
@@ -766,17 +766,29 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const newGroupName = reqPath.split("/")[3]
             const headEntityName = reqPath.split("/")[4]
             setIsPublic(false)
+            console.log("A")
             const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+            console.log("B")
             const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
+            console.log("C")
             const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+            console.log("D")
             const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
+            console.log("E")
             const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
+            console.log("F")
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+            console.log("G")
             const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+            console.log("H")
             const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+            console.log("I")
             const ttlDurationInSeconds = 180; // For example, 1 hour
+            console.log("J")
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+            console.log("K")
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+            console.log("L")
             console.log("vi", vi)
             const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
