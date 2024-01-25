@@ -97,7 +97,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     console.log("entity", entity)
-    const group = await getGroup(subBySU.Items[0].g, dynamodb)
+    const group = await getGroup(entity.Items[0].g, dynamodb)
     console.log("group", group)
     const access = await getAccess(group.Items[0].ai, dynamodb)
     console.log("access", access)
