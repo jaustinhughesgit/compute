@@ -104,8 +104,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     const verified = await getVerified("gi", cookie.gi.toString(), dynamodb)
     console.log("verified", verified)
     for (veri in verified.Items){
-        console.log("veri", veri, verified[veri])
-        if (verified[veri].ai == group.ai && verified[veri].bo){
+        console.log("veri", veri, verified.Items[veri])
+        if (verified.Items[veri].ai == group.ai && verified.Items[veri].bo){
             console.log("VERIFIED")
         }
     }
