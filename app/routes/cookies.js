@@ -661,7 +661,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
 
 //async function createAccess (ai, g, e, ex, at, to, va) {}
 
-async function verification(vi, gi, g, e, ai, va, ex, bo, at, to){
+async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, to){
     return await dynamodb.put({
         TableName: 'verified',
         Item: { vi: vi, gi: gi, g:g, e:e, ai:ai, va:va, ex:ex, bo:bo, at:at, to:to}
@@ -733,7 +733,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const ttlDurationInSeconds = 180; // For example, 1 hour
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-            const verified = await verification(vi, cookie.gi, gNew.toString(), null, null, null, ex, true, 0, null)
+            const verified = await createVerified(vi, cookie.gi, gNew.toString(), null, null, null, ex, true, 0, null)
 
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), null, dynamodb);
             const uniqueId = await uuidv4();
