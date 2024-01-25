@@ -731,10 +731,13 @@ async function getUUID(uuidv4){
 function allVerified(list){
     let v = true
     for (l in list){
+        console.log("list:1", list[l])
         if (list[l] != true){
+            console.log("false")
             v = false
         }
     }
+    console.log("v", v)
     return v
 }
 
@@ -755,23 +758,35 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         let verify = reqPath
         let verified = [];
         let verCounter = 0;
+        console.log("--1")
         for (ver in verify){
+            console.log("verify[ver]", verify[ver])
+            console.log("--2")
             if (verify[ver].startsWith("1v4r")){
+                console.log("--3")
                 let verValue = false
                 verified.push(false)
                 for (veri in verifications.Items){
+                    console.log("--4")
                     const sub = await getSub(verify[ver], "su", dynamodb);
                     if (sub.Items.length > 0){
+                        console.log("--5")
+                        
                         if (sub.Items[0].z == true){
+                            console.log("--6")
                             verValue = true
                         } else if (sub.Items[0].e == verifications.Items[veri].e && verifications.Items[veri].bo){
+                            console.log("--7")
                             const ex = Math.floor(Date.now() / 1000);
                             if (ex < verifications.Items[veri].ex){
+                                console.log("--8")
                                 verValue = true
                             }
                         } else if (sub.Items[0].g == verifications.Items[veri].g && verifications.Items[veri].bo){
                             const ex = Math.floor(Date.now() / 1000);
+                            console.log("--9")
                             if (ex < verifications.Items[veri].ex){
+                                console.log("--10")
                                 verValue = true
                             }
                         }
