@@ -28,6 +28,31 @@ async function getEntity(e, dynamodb){
     return await dynamodb.query(params).promise()
 }
 
+async function getGroup(g, dynamodb){
+    //console.log("getEntity")
+    params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: {':g': g} };
+    return await dynamodb.query(params).promise()
+}
+
+async function getAccess(ai, dynamodb){
+    //console.log("getEntity")
+    params = { TableName: 'access', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: {':ai': ai} };
+    return await dynamodb.query(params).promise()
+}
+
+async function getVerified(key, val, dynamodb){
+    //console.log("getEntity")
+    let params
+    if (key == "vi"){
+        params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: {':vi': val} };
+    } else if (key == "ai"){
+        params = { TableName: 'verified',IndexName: 'aiIndex',KeyConditionExpression: 'ai = :ai',ExpressionAttributeValues: {':ai': val} }
+    } else if (key == "gi"){
+        params = { TableName: 'verified',IndexName: 'giIndex',KeyConditionExpression: 'gi = :gi',ExpressionAttributeValues: {':gi': val} }
+    }
+    return await dynamodb.query(params).promise()
+}
+
 async function getWord(a, dynamodb){
     //console.log("getWord")
     params = { TableName: 'words', KeyConditionExpression: 'a = :a', ExpressionAttributeValues: {':a': a} };
@@ -65,11 +90,25 @@ function setIsPublic(val){
     }
 }
 
-async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
+async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
+    console.log("entity", entity)
+    const group = await getGroup(subBySU.Items[0].e, dynamodb)
+    console.log("group", group)
+    const access = await getAccess(group.Items[0].ai, dynamodb)
+    console.log("access", access)
+    const verified = await getVerified("gi", gi, dynamodb)
+    console.log("verified", verified)
+    for (veri in verified){
+        console.log("veri", veri, verified[veri])
+        if (verified[veri].ai == group.ai && verified[veri].bo){
+            console.log("VERIFIED")
+        }
+    }
+
     let children 
     if (mapping){
         if (mapping.hasOwnProperty(subBySU.Items[0].e)){
@@ -112,7 +151,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
                 let childResponse = {}
                 if (convertCounter < 200) {
 
-                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
+                childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                 convertCounter++;
                 }
                 Object.assign(obj[fileID].children, childResponse.obj);
@@ -124,7 +163,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
     if (using){
         usingID = fileID
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
-        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID)
+        const headUsingObj  = await convertToJSON(subOfHead.Items[0].su, paths[fileID], true, entity.Items[0].m, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID)
         Object.assign(obj[fileID].children, headUsingObj.obj[Object.keys(headUsingObj.obj)[0]].children);
         Object.assign(paths, headUsingObj.paths);
         Object.assign(paths2, headUsingObj.paths2);
@@ -140,7 +179,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, dynamodb
         for (let link of linked) {
             const subByE = await getSub(link, "e", dynamodb);
             let uuid = subByE.Items[0].su
-            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
+            let linkResponse = await convertToJSON(uuid, paths[fileID], false, null, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
             Object.assign(obj[fileID].linked, linkResponse.obj);
             Object.assign(paths, linkResponse.paths);
             Object.assign(paths2, linkResponse.paths2);
@@ -659,7 +698,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     }
 }
 
-//async function createAccess (ai, g, e, ex, at, to, va) {}
+async function createAccess (ai, g, e, ex, at, to, va) {}
 
 async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti){
     return await dynamodb.put({
@@ -685,7 +724,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             //console.log("get")
             const fileID = reqPath.split("/")[3]
             actionFile = fileID
-            mainObj = await convertToJSON(fileID, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action == "add") {
             //console.log("add")
             const fileID = reqPath.split("/")[3]
@@ -710,13 +749,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const group = eParent.Items[0].g
             const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
-            mainObj = await convertToJSON(headUUID, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "link"){
             //console.log("link")
             const childID = reqPath.split("/")[3]
             const parentID = reqPath.split("/")[4]
             await linkEntities(childID, parentID)
-            mainObj = await convertToJSON(childID, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "newGroup"){
             //console.log("newGroup")
             const newGroupName = reqPath.split("/")[3]
@@ -728,19 +767,19 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
             const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
             const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-            //const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
-            //const access = await creatAccess(ai.toString(), gNew.toString(), null, {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
+            const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+            const access = await creatAccess(ai.toString(), gNew.toString(), null, {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
             const ttlDurationInSeconds = 180; // For example, 1 hour
             const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-            const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), "", "0", "", ex, true, 0, 0)
+            const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-            const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), null, dynamodb);
+            const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
             const uniqueId = await uuidv4();
             //console.log(uniqueId, "0", "0", )
             let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
             const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), null, dynamodb); //DO I NEED details.c
+            const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
             const uniqueId2 = await uuidv4();
             const fileResult = await createFile(uniqueId2, {}, s3)
             actionFile = uniqueId2
@@ -753,7 +792,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/"+uniqueId
             //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
             //console.log(emailer)
-            mainObj  = await convertToJSON(uniqueId2, [], null, null, dynamodb, uuidv4)
+            mainObj  = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "useGroup"){
             console.log("useGroup")
             actionFile = reqPath.split("/")[3]
@@ -775,7 +814,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             console.log("updateParent", updateParent)
             const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
             console.log("headSub", headSub)
-            mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, dynamodb, uuidv4)
+            mainObj  = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
             console.log("mainObj", mainObj)
         } else if (action === "map"){
             //console.log("map")
@@ -805,7 +844,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             let addM = {}
             addM[mrE.Items[0].e] = [e.toString()]
             const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
-            mainObj  = await convertToJSON(headEntity, [], null, null, dynamodb, uuidv4)
+            mainObj  = await convertToJSON(headEntity, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "extend"){
 
             const fileID = reqPath.split("/")[3]
@@ -854,7 +893,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const group = eParent.Items[0].g
             const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
             const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
-            mainObj = await convertToJSON(headUUID, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
 
         } else if (action === "reqPut"){
             actionFile = reqPath.split("/")[3]
@@ -864,23 +903,23 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             setIsPublic(subBySU.Items[0].z)
             console.log("subBySU",subBySU)
             console.log("actionFile",actionFile)
-            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
         } else if (action === "file"){
             //console.log("file")
             actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
 
         } else if (action === "saveFile"){
             //console.log("saveFile")
             actionFile = reqPath.split("/")[3]
-            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
             const fileResult = await createFile(actionFile, req.body.body, s3)
         } else if (action === "makePublic"){
             actionFile = reqPath.split("/")[3]
             let permission = reqPath.split("/")[4]
             const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
             console.log("permStat", permStat)
-            mainObj = await convertToJSON(actionFile, [], null, null, dynamodb, uuidv4)
+            mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
         }
 
 
@@ -950,5 +989,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses) {
 module.exports = {
     setupRouter,
     getHead,
-    convertToJSON
+    convertToJSON,
+    manageCookie
 }
