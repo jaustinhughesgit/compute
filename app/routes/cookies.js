@@ -609,18 +609,30 @@ async function email(from, to, subject, emailText, emailHTML, ses){
 }
 
 async function createCookie(ci, gi, ex, ak){
-    await dynamodb.put({
+    return await dynamodb.put({
         TableName: 'cookies',
         Item: { "ci": ci, "gi": gi, "ex": ex, "ak": ak}
     }).promise();
+}
 
-    return ci;
+async function getCookie(val, key){
+    if (key == "ci"){
+        params = { TableName: 'cookies', KeyConditionExpression: 'ci = :ci', ExpressionAttributeValues: {':ci': val} };
+    } else if (key == "ak"){
+        params = { TableName: 'cookies',IndexName: 'akIndex',KeyConditionExpression: 'ak = :ak',ExpressionAttributeValues: {':ak': val} }
+    } else if (key == "gi"){
+        params = { TableName: 'cookies',IndexName: 'giIndex',KeyConditionExpression: 'gi = :gi',ExpressionAttributeValues: {':gi': val} }
+    }
+    return await dynamodb.query(params).promise()
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     console.log("req",req)
     if (req.body.headers.hasOwnProperty("X-accessToken")){
-        mainObj["status"] = "TOKEN EXIST";
+        mainObj["status"] = "authenticated";
+        let val = req.body.headers["X-accessToken"];
+        let cookie = getCookie(val, "ak")
+        console.log("cookie",cookie)
         return
     } else {
         console.log("1")
@@ -633,8 +645,8 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         const ttlDurationInSeconds = 180; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
-        await createCookie(ci.toString(), gi.toString(), ex, ak)
-
+        let cookie = await createCookie(ci.toString(), gi.toString(), ex, ak)
+        console.log("createCookie",cookie)
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
@@ -643,7 +655,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
             secure: true, // Only sent over HTTPS
             sameSite: 'Strict' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
         });
-        return
+        return {"ak":ak, "gi":gi, "ex":ex, "ci":ci}
     }
 }
 
@@ -657,6 +669,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     var actionFile = ""
     var mainObj = {}
     if (req.method === 'GET' || req.method === 'POST'){
+
+       let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
+
         if (action === "get"){
             //console.log("get")
             const fileID = reqPath.split("/")[3]
@@ -853,7 +868,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         }
 
 
-        await manageCookie(mainObj, req, res, dynamodb, uuidv4)
         
 
         mainObj["file"] = actionFile + ""
