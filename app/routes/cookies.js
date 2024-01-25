@@ -791,7 +791,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
             console.log("L")
             console.log("vi", vi)
-            const verified = await createVerified(vi.toString(), cookie.gi, gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
+            const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
             const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
             const uniqueId = await uuidv4();
