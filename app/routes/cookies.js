@@ -93,7 +93,7 @@ function setIsPublic(val){
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
-    console.log("subBySU:fileID", fileID, subBySu)
+    console.log("subBySU:fileID", fileID, subBySU)
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
     console.log("entity", entity)
