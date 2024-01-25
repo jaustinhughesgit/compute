@@ -490,6 +490,9 @@ const createFile = async (su, fileData, s3) => {
 
 const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
     //console.log("createEntity")
+    if (!ai){
+        ai = "0"
+    }
     const params = {
         TableName: 'entities',
         Item: { e: e, a: a, v: v, g: g, h: h, ai: ai }
@@ -750,7 +753,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
             const a = await createWord(aNew.toString(), newEntityName, dynamodb);
             const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, dynamodb);
+            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
             const fileResult = await createFile(uniqueId, {}, s3)
@@ -861,7 +864,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
             const a = await createWord(aNew.toString(), newEntityName, dynamodb);
             const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, dynamodb);
+            const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, "0", dynamodb);
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
             const fileResult = await createFile(uniqueId, {}, s3)
@@ -888,7 +891,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
             const a = await createWord(aNew.toString(), newEntityName, dynamodb);
 
             const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, dynamodb);
+            const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
 
             const uniqueId = await uuidv4();
             let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
