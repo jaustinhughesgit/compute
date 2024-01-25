@@ -765,9 +765,15 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                         if (sub.Items[0].z == true){
                             verValue = true
                         } else if (sub.Items[0].e == verifications.Items[veri].e && verifications.Items[veri].bo){
-                            verValue = true
+                            const ex = Math.floor(Date.now() / 1000);
+                            if (ex < verifications.Items[veri].ex){
+                                verValue = true
+                            }
                         } else if (sub.Items[0].g == verifications.Items[veri].g && verifications.Items[veri].bo){
-                            verValue = true
+                            const ex = Math.floor(Date.now() / 1000);
+                            if (ex < verifications.Items[veri].ex){
+                                verValue = true
+                            }
                         }
                     }
                 }
