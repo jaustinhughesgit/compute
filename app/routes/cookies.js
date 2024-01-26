@@ -772,6 +772,19 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     if (sub.Items.length > 0){
                         console.log("--5")
                         
+                        //
+                        //
+                        //
+                        //WHY DID IT NOT FIND THESE TWO GROUP VALUES TO BE THE SAME AND .bo TO BE TRUE. IN THE DB IT IS
+                        //sub.Items[0].g == verifications.Items[veri].g 
+                        //
+                        //
+                        //
+                        console.log("--5a", sub.Items[0].z)
+                        console.log("--5b", sub.Items[0].e, verifications.Items[veri].e)
+                        console.log("--5c", sub.Items[0].g, verifications.Items[veri].g)
+                        console.log("--5d", verifications.Items[veri].bo)
+
                         if (sub.Items[0].z == true){
                             console.log("--6")
                             verValue = true
