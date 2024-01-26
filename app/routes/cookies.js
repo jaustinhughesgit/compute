@@ -743,6 +743,44 @@ function allVerified(list){
     return v
 }
 
+async function verifyPath(splitPath, verifications, dynamodb){
+    let verified = [];
+    let verCounter = 0;
+    for (ver in splitPath){
+        if (splitPath[ver].startsWith("1v4r")){
+            let verValue = false
+            verified.push(false)
+            for (veri in verifications.Items){
+                const sub = await getSub(splitPath[ver], "su", dynamodb);
+                let groupID = sub.Items[0].g
+                let entityID = sub.Items[0].e
+                if (entityID != "0"){
+                    let eSub = await getEntity(sub.Items[0].e, dynamodb)
+                    groupID = eSub.Items[0].g
+                }
+                if (sub.Items.length > 0){
+                    if (sub.Items[0].z == true){
+                        verValue = true
+                    } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo){
+                        const ex = Math.floor(Date.now() / 1000);
+                        if (ex < verifications.Items[veri].ex){
+                            verValue = true
+                        }
+                    } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo){
+                        const ex = Math.floor(Date.now() / 1000);
+                        if (ex < verifications.Items[veri].ex){
+                            verValue = true
+                        }
+                    }
+                }
+            }
+            verified[verCounter] = verValue
+            verCounter++;
+        }
+    }
+    return verified
+}
+
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -756,67 +794,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
 
         let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
-        console.log("verifications", verifications)
-        let verify = reqPath.split("/")
-        let verified = [];
-        let verCounter = 0;
-        console.log("--1")
-        for (ver in verify){
-            console.log("verify[ver]", verify[ver])
-            console.log("--2")
-            if (verify[ver].startsWith("1v4r")){
-                console.log("--3")
-                let verValue = false
-                verified.push(false)
-                for (veri in verifications.Items){
-                    console.log("--4")
-                    const sub = await getSub(verify[ver], "su", dynamodb);
-                    let groupID = sub.Items[0].g
-                    let entityID = sub.Items[0].e
-                    if (entityID != "0"){
-                        let eSub = await getEntity(sub.Items[0].e, dynamodb)
-                        groupID = eSub.Items[0].g
-                    }
-                    if (sub.Items.length > 0){
-                        console.log("--5")
-                        
-                        //
-                        //
-                        //
-                        //WHY DID IT NOT FIND THESE TWO GROUP VALUES TO BE THE SAME AND .bo TO BE TRUE. IN THE DB IT IS
-                        //sub.Items[0].g == verifications.Items[veri].g 
-                        //
-                        //
-                        //
-                        console.log("--5a", sub.Items[0].z)
-                        console.log("--5b", sub.Items[0].e, verifications.Items[veri].e)
-                        console.log("--5c", sub.Items[0].g, verifications.Items[veri].g)
-                        console.log("--5d", verifications.Items[veri].bo)
-
-                        if (sub.Items[0].z == true){
-                            console.log("--6")
-                            verValue = true
-                        } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo){
-                            console.log("--7")
-                            const ex = Math.floor(Date.now() / 1000);
-                            if (ex < verifications.Items[veri].ex){
-                                console.log("--8")
-                                verValue = true
-                            }
-                        } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo){
-                            const ex = Math.floor(Date.now() / 1000);
-                            console.log("--9")
-                            if (ex < verifications.Items[veri].ex){
-                                console.log("--10")
-                                verValue = true
-                            }
-                        }
-                    }
-                }
-                verified[verCounter] = verValue
-                verCounter++;
-            }
-        }
+        let splitPath = reqPath.split("/")
+        let verified = verifyPath(splitPath, verifications, dynamodb);
+        
 
         if (allVerified(verified)){
             if (action === "get"){
