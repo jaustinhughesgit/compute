@@ -769,6 +769,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 for (veri in verifications.Items){
                     console.log("--4")
                     const sub = await getSub(verify[ver], "su", dynamodb);
+                    let groupID = sub.Items[0].g
+                    let entityID = sub.Items[0].e
+                    if (entityID != "0"){
+                        let eParent = await getEntity(parent.Items[0].e, dynamodb)
+                        groupID = eParent.Items[0].g
+                    }
                     if (sub.Items.length > 0){
                         console.log("--5")
                         
@@ -788,14 +794,14 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                         if (sub.Items[0].z == true){
                             console.log("--6")
                             verValue = true
-                        } else if (sub.Items[0].e == verifications.Items[veri].e && verifications.Items[veri].bo){
+                        } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo){
                             console.log("--7")
                             const ex = Math.floor(Date.now() / 1000);
                             if (ex < verifications.Items[veri].ex){
                                 console.log("--8")
                                 verValue = true
                             }
-                        } else if (sub.Items[0].g == verifications.Items[veri].g && verifications.Items[veri].bo){
+                        } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo){
                             const ex = Math.floor(Date.now() / 1000);
                             console.log("--9")
                             if (ex < verifications.Items[veri].ex){
