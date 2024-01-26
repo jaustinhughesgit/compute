@@ -132,7 +132,9 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
             using = true
         }
         pathID = await getUUID(uuidv4)
+        console.log("entity.Items[0].h",entity.Items[0].h)
         let subH = await getSub(entity.Items[0].h, "e", dynamodb)
+        console.log("subH", subH)
         obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, location:fileLocation(isPublic)};
         let paths = {}
         let paths2 = {}
@@ -883,7 +885,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
                     console.log("L")
                     console.log("vi", vi)
-                    const verified = await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
+                     await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
                     const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
                     const uniqueId = await getUUID(uuidv4)
