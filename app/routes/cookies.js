@@ -774,8 +774,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     let groupID = sub.Items[0].g
                     let entityID = sub.Items[0].e
                     if (entityID != "0"){
-                        let eParent = await getEntity(parent.Items[0].e, dynamodb)
-                        groupID = eParent.Items[0].g
+                        let eSub = await getEntity(sub.Items[0].e, dynamodb)
+                        groupID = eSub.Items[0].g
                     }
                     if (sub.Items.length > 0){
                         console.log("--5")
