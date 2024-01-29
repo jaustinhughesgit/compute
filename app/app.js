@@ -52,7 +52,7 @@ app.use(async (req, res, next) => {
     }
 });
 
-app.all('*', 
+app.all(/^\/[ecu]\//, 
 
     async (req, res, next) => {
         console.log("req.path",req.path)
