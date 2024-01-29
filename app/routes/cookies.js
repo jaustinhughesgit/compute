@@ -679,6 +679,7 @@ async function getCookie(val, key){
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     console.log("req",req)
+
     if (req.body.headers.hasOwnProperty("X-accessToken")){
         mainObj["status"] = "authenticated";
         let val = req.body.headers["X-accessToken"];
@@ -703,7 +704,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
             maxAge: ex,
             httpOnly: true, // Inaccessible to client-side JS
             secure: true, // Only sent over HTTPS
-            sameSite: 'Strict' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
+            sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
         });
         return {"ak":ak, "gi":gi, "ex":ex, "ci":ci}
     }
