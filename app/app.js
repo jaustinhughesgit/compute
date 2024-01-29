@@ -52,20 +52,25 @@ app.use(async (req, res, next) => {
     }
 });
 
-app.all('/auth/*', 
+app.all('*', 
+
     async (req, res, next) => {
-        req.lib = {}
-        req.lib.modules = {};
-        req.lib.middlewareCache = []
-        req.lib.isMiddlewareInitialized = false;
-        req.lib.whileLimit = 100;
-        req.lib.root = {}
-        req.lib.root.context = {}
-        req.lib.root.context.session = session
-        next();
+        if (req.path.startsWith("/u/") || req.path.startsWith("/e/") || req.path.startsWith("/c/")){
+            req.lib = {}
+            req.lib.modules = {};
+            req.lib.middlewareCache = []
+            req.lib.isMiddlewareInitialized = false;
+            req.lib.whileLimit = 100;
+            req.lib.root = {}
+            req.lib.root.context = {}
+            req.lib.root.context.session = session
+            next();
+        } else {
+            res.send({})
+        }
     },
     async (req, res, next) => {
-        if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
+        if (!req.lib.isMiddlewareInitialized) {
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
@@ -132,7 +137,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 async function initializeMiddleware(req, res, next) {
-    if (req.path.startsWith('/auth')) {
+    //if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON, manageCookie} = await require('./routes/cookies')
         const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
         let isPublic = head.Items[0].z
@@ -154,7 +159,7 @@ async function initializeMiddleware(req, res, next) {
             };
         });
         return await Promise.all(resultArrayOfJSON)
-    }
+    //}
 }
 
 async function initializeModules(libs, config, req, res, next) {
@@ -815,7 +820,7 @@ module.exports.lambdaHandler = async (event, context) => {
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     } else if (event.automate){
         console.log("automate is true")
-        await automate("https://compute.1var.com/auth/");
+        await automate("https://compute.1var.com/"+"uuid/sub/domain/u/");
         //await getEventsAndTrigger();
         return {"automate":"done"}
     } else {
