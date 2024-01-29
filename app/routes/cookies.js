@@ -784,6 +784,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
+   console.log("PATH!!!!:", req.apiGateway.event.path)
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     const reqPath = req.apiGateway.event.path.split("?")[0]
     const action = reqPath.split("/")[2]
