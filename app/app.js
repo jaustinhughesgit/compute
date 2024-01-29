@@ -55,6 +55,7 @@ app.use(async (req, res, next) => {
 app.all('*', 
 
     async (req, res, next) => {
+        console.log("req.path",req.path)
         if (req.path.startsWith("/u/") || req.path.startsWith("/e/") || req.path.startsWith("/c/")){
             req.lib = {}
             req.lib.modules = {};
