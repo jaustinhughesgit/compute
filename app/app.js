@@ -755,9 +755,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 const serverlessHandler = serverless(app);
 
 module.exports.lambdaHandler = async (event, context) => {
-    // Check if the event is from SES
-
-    console.log("Received SES event:", JSON.stringify(event, null, 2));
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
@@ -768,6 +765,9 @@ module.exports.lambdaHandler = async (event, context) => {
         // ...
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
+    } else if (event.automate){
+        console.log("automate is true")
+        return {"automate":"done"}
     } else {
         // Otherwise, it's an HTTP request, handle with Express
         return serverlessHandler(event, context);
