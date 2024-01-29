@@ -752,6 +752,54 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 //module.exports.lambdaHandler = serverless(app);
 
 
+const automate = async (url) => {
+    try {
+      const response = await axios.get(url);
+      console.log('URL called successfully:', response.data);
+    } catch (error) {
+      console.error('Error calling URL:', error);
+    }
+  };
+/*
+const getEventsAndTrigger = async () => {
+    const now = new Date();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
+    const currentDate = now.toISOString().split('T')[0];
+    const dayOfWeek = now.toLocaleDateString('en-us', { weekday: 'long' }).toLowerCase().substring(0, 2);
+  
+    const params = {
+      TableName: 'tasks',
+      IndexName: `${dayOfWeek}Index`,
+      KeyConditionExpression: '#date <= :today',
+      ExpressionAttributeNames: {
+        '#date': 'startDate',
+      },
+      ExpressionAttributeValues: {
+        ':today': currentDate,
+      }
+    };
+  
+    try {
+      const data = await dynamoDB.query(params).promise();
+      for (const item of data.Items) {
+        if (item[dayOfWeek] && currentTime >= item.startTime && currentTime <= item.endTime) {
+          const intervalCount = (currentTime - item.startTime) / item.interval;
+          if (Number.isInteger(intervalCount)) {
+            await automate(item.url);
+            await sleep(1000)
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error querying DynamoDB:', error);
+    }
+  };
+  */
+
+
+
+
+
 const serverlessHandler = serverless(app);
 
 module.exports.lambdaHandler = async (event, context) => {
@@ -767,6 +815,8 @@ module.exports.lambdaHandler = async (event, context) => {
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     } else if (event.automate){
         console.log("automate is true")
+        await automate("https://compute.1var.com/auth/");
+        //await getEventsAndTrigger();
         return {"automate":"done"}
     } else {
         // Otherwise, it's an HTTP request, handle with Express

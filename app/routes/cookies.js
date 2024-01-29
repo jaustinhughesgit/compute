@@ -858,7 +858,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     console.log("H")
                     const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
                     console.log("I")
-                    const ttlDurationInSeconds = 180; // For example, 1 hour
+                    const ttlDurationInSeconds = 18000; // For example, 1 hour
                     console.log("J")
                     const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
                     console.log("K")
