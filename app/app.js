@@ -25,6 +25,9 @@ var cookiesRouter;
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var indexRouter = require('./routes/index');
 
+
+console.log("")
+
 app.use('/controller', controllerRouter);
 
 app.use('/', indexRouter);
@@ -753,6 +756,9 @@ const serverlessHandler = serverless(app);
 
 module.exports.lambdaHandler = async (event, context) => {
     // Check if the event is from SES
+
+    console.log("Received SES event:", JSON.stringify(event, null, 2));
+
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
         console.log("Received SES event:", JSON.stringify(event, null, 2));
