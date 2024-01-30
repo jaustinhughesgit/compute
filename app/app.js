@@ -54,6 +54,9 @@ app.use(async (req, res, next) => {
 
 app.all('/auth/*', 
     async (req, res, next) => {
+        console.log("auth", req)
+        console.log("req.body", req.body)
+        console.log("req.headers", req.headers)
         req.lib = {}
         req.lib.modules = {};
         req.lib.middlewareCache = []

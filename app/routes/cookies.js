@@ -825,9 +825,22 @@ async function verifyPath(splitPath, verifications, dynamodb){
     console.log("verified", verified)
     return verified
 }
+//
+//
+//
+//
+//WE NEED TO MODIFY ALL INSTANCES OF req...path TO ONLY GET PATH FROM X-Original-Host
+//
+//
+//
+//
+
+
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
-   // console.log("route")
+    console.log("route", req)
+    console.log("req.body", req.body)
+    console.log("req.headers", req.headers)
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     const reqPath = req.apiGateway.event.path.split("?")[0]
     const action = reqPath.split("/")[2]
