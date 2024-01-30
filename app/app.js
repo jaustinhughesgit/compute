@@ -143,21 +143,25 @@ async function initializeMiddleware(req, res, next) {
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
         let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
-        const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
-        const results = await Promise.all(promises);
-        const arrayOfJSON = [];
-        results.forEach(result => arrayOfJSON.push(result));
-        let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
-            return async (req, res, next) => {
-                req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-                req.lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
-                req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
-                req.lib.root.context.req = {"value":req, "context":{}}
-                req.lib.root.context.res = {"value":res, "context":{}}
-                await initializeModules(req.lib, userJSON, req, res, next);
-            };
-        });
-        return await Promise.all(resultArrayOfJSON)
+        if (!fileArray){           
+            const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
+            const results = await Promise.all(promises);
+            const arrayOfJSON = [];
+            results.forEach(result => arrayOfJSON.push(result));
+            let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
+                return async (req, res, next) => {
+                    req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                    req.lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
+                    req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
+                    req.lib.root.context.req = {"value":req, "context":{}}
+                    req.lib.root.context.res = {"value":res, "context":{}}
+                    await initializeModules(req.lib, userJSON, req, res, next);
+                };
+            });
+            return await Promise.all(resultArrayOfJSON)
+        } else {
+            return []
+        }
     }
 }
 
