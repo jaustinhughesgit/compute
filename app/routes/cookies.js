@@ -110,7 +110,20 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
             console.log("VERIFIED")
             verified = true;
         }
+        
     }
+    if (entity.Items[0].ai.toString() != "0" && verified == true){
+        verified = false
+        for (veri in verify.Items){
+            console.log("veri22", veri, verify.Items[veri])
+            if (verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo){
+                console.log("DOUBLE VERIFIED")
+                verified = true;
+            }
+            
+        }
+    }
+
     if (verified){
         let children 
         if (mapping){
