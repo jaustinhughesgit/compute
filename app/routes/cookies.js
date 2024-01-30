@@ -841,8 +841,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
+    let splitOriginalHost = originalHost.split("1var.com")[1]
+    const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
-    const reqPath = req.apiGateway.event.path.split("?")[0]
+    const reqPath = splitOriginalHost.split("?")[0]
     const action = reqPath.split("/")[2]
     const requestBody = req.body;  
     var response = {}

@@ -144,14 +144,19 @@ async function initializeMiddleware(req, res, next) {
     console.log("req", req)
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON, manageCookie} = await require('./routes/cookies')
-        console.log('req.path.split("/")[2].split("?")[0]', req.path.split("/")[2].split("?")[0])
-        const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
+        console.log("route", req)
+        console.log("req.body", req.body)
+        console.log("req.headers", req.headers)
+        let splitOriginalHost = originalHost.split("1var.com")[1]
+        const reqPath = splitOriginalHost.split("?")[0]
+        req.path = reqPath
+        const head = await getHead("su", reqPath.split("/")[2], dynamodb)
         let isPublic = head.Items[0].z
         let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
         console.log("#1cookie", cookie)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
-        let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
+        let fileArray = parent.paths[reqPath.split("/")[2]];
         console.log("fileArray", fileArray)
         if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
@@ -161,7 +166,7 @@ async function initializeMiddleware(req, res, next) {
             let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                 return async (req, res, next) => {
                     req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-                    req.lib.root.context["urlpath"] = {"value":req.path.split("?")[0], "context":{}}
+                    req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
                     req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                     req.lib.root.context.req = {"value":req, "context":{}}
                     req.lib.root.context.res = {"value":res, "context":{}}
