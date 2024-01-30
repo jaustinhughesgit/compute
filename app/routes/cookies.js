@@ -770,7 +770,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     console.log("eSub",eSub)
                     groupID = eSub.Items[0].g
                     if (eSub.Items[0].ai == "0"){
-                        verVal == true
+                        verValue == true
                     }
                     console.log("groupID2",groupID)
                 }
