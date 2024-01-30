@@ -143,7 +143,8 @@ async function initializeMiddleware(req, res, next) {
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
         let fileArray = parent.paths[req.path.split("/")[2].split("?")[0]];
-        if (!fileArray){           
+        console.log("fileArray", fileArray)
+        if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
             const results = await Promise.all(promises);
             const arrayOfJSON = [];
