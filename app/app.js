@@ -161,7 +161,7 @@ async function initializeMiddleware(req, res, next) {
             });
             return await Promise.all(resultArrayOfJSON)
         } else {
-            return []
+            res.send("no access")
         }
     }
 }
