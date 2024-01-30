@@ -69,7 +69,11 @@ app.all('/auth/*',
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
-        next();
+        if (req.lib.middlewareCache == []){
+            res.send("no access")
+        } else {
+            next();
+        }
     },
     async (req, res, next) => {
         if (req.lib.middlewareCache.length > 0) {
@@ -161,7 +165,7 @@ async function initializeMiddleware(req, res, next) {
             });
             return await Promise.all(resultArrayOfJSON)
         } else {
-            res.send("no access")
+            return []
         }
     }
 }
