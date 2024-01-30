@@ -769,6 +769,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
                     console.log("eSub",eSub)
                     groupID = eSub.Items[0].g
+                    console.log("eSub.Items[0].ai",eSub.Items[0].ai)
                     if (eSub.Items[0].ai == "0"){
                         verValue == true
                     }
@@ -796,10 +797,13 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     }
                 }
             }
+            console.log("verValue", verValue)
             verified[verCounter] = verValue
             verCounter++;
+            console.log("verCounter", verCounter)
         }
     }
+    console.log("verified", verified)
     return verified
 }
 
