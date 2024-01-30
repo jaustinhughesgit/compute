@@ -112,7 +112,10 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         }
         
     }
+    console.log("entity.Items[0].ai",entity.Items[0].ai)
+    console.log("verified == ", verified)
     if (entity.Items[0].ai.toString() != "0" && verified == true){
+        console.log("???????")
         verified = false
         for (veri in verify.Items){
             console.log("veri22", veri, verify.Items[veri])
@@ -125,6 +128,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     }
 
     if (verified){
+        console.log("ALL GOOD!")
         let children 
         if (mapping){
             if (mapping.hasOwnProperty(subBySU.Items[0].e)){
