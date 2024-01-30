@@ -679,7 +679,12 @@ async function getCookie(val, key){
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
-    console.log("req",req)
+    console.log("req1",req)
+    console.log("req2",req.apiGateway)
+    console.log("req3",req.apiGateway.event)
+    console.log("req4",req.apiGateway.event.body)
+    console.log("req5",req.apiGateway.event.body.headers)
+    console.log("req6",req.apiGateway.event.body.headers["X-accessToken"])
 
     if (req.apiGateway.event.body.headers.hasOwnProperty("X-accessToken")){
         mainObj["status"] = "authenticated";
