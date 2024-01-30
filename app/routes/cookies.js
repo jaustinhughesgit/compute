@@ -326,10 +326,11 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
 };
 
 const getHead = async (by, value, dynamodb) => {
+    console.log("by, value", by, value)
     const subBySU = await getSub(value, by, dynamodb);
-    //console.log("subBySU", subBySU)
+    console.log("subBySU", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    //console.log("entity", entity)
+    console.log("entity", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     //console.log("headSub", headSub)
     return headSub

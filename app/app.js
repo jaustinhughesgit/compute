@@ -134,6 +134,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 async function initializeMiddleware(req, res, next) {
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON, manageCookie} = await require('./routes/cookies')
+        console.log('req.path.split("/")[2].split("?")[0]', req.path.split("/")[2].split("?")[0])
         const head = await getHead("su", req.path.split("/")[2].split("?")[0], dynamodb)
         let isPublic = head.Items[0].z
         let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
