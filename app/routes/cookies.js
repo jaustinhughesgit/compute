@@ -769,6 +769,9 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
                     console.log("eSub",eSub)
                     groupID = eSub.Items[0].g
+                    if (eSub.Items[0].ai == "0"){
+                        verVal == true
+                    }
                     console.log("groupID2",groupID)
                 }
                 if (sub.Items.length > 0){
@@ -787,6 +790,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
                             verValue = true
                         }
                     } else if (entityID == "0" && groupID == "0"){
+                        //MAYBE THIS IS NOT NEEDED. ADDED IT BUT NEVER TESTED IT
                         console.log("e and g are 0 so verValue is true")
                         verValue = true;
                     }
