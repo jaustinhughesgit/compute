@@ -771,7 +771,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     groupID = eSub.Items[0].g
                     console.log("eSub.Items[0].ai",eSub.Items[0].ai)
                     if (eSub.Items[0].ai.toString() == "0"){
-                        verValue == true
+                        verValue = true
                         console.log("verValue1", verValue)
                     }
                     console.log("groupID2",groupID)
