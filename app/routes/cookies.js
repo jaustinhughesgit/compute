@@ -772,9 +772,11 @@ async function verifyPath(splitPath, verifications, dynamodb){
                     console.log("eSub.Items[0].ai",eSub.Items[0].ai)
                     if (eSub.Items[0].ai.toString() == "0"){
                         verValue == true
+                        console.log("verValue1", verValue)
                     }
                     console.log("groupID2",groupID)
                 }
+                
                 if (sub.Items.length > 0){
                     console.log("entityID3", entityID)
                     console.log("groupID3", groupID)
@@ -821,7 +823,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         let cookie =  await manageCookie(mainObj, req, res, dynamodb, uuidv4)
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
         let splitPath = reqPath.split("/")
-        let verified = verifyPath(splitPath, verifications, dynamodb);
+        let verified = await verifyPath(splitPath, verifications, dynamodb);
         
 
         if (allVerified(verified)){
