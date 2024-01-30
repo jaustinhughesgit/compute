@@ -106,7 +106,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     let verified = false;
     for (veri in verify.Items){
         console.log("veri", veri, verify.Items[veri])
-        if (verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo){
+        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0"){
             console.log("VERIFIED")
             verified = true;
         }
