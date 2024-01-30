@@ -69,7 +69,9 @@ app.all('/auth/*',
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
-        if (req.lib.middlewareCache == []){
+        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
+        if (req.lib.middlewareCache.length == 0){
             res.send("no access")
         } else {
             next();
