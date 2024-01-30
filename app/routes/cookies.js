@@ -748,7 +748,7 @@ async function verifyPath(splitPath, verifications, dynamodb){
     let verified = [];
     let verCounter = 0;
     for (ver in splitPath){
-        if (splitPath[ver].startsWith("/e/1v4r")){
+        if (splitPath[ver].startsWith("1v4r")){
             let verValue = false
             verified.push(false)
             for (veri in verifications.Items){
@@ -784,7 +784,6 @@ async function verifyPath(splitPath, verifications, dynamodb){
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
    // console.log("route")
-   console.log("PATH!!!!:", req.apiGateway.event.path)
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
     const reqPath = req.apiGateway.event.path.split("?")[0]
     const action = reqPath.split("/")[2]
@@ -820,7 +819,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
                 const uniqueId = await getUUID(uuidv4)
-                let subRes = await createSubdomain("/e/"+uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
                 const fileResult = await createFile(uniqueId, {}, s3)
                 actionFile = uniqueId
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
@@ -872,13 +871,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
                     const uniqueId = await getUUID(uuidv4)
                     //console.log(uniqueId, "0", "0", )
-                    let subRes = await createSubdomain("/e/"+uniqueId,"0","0",gNew.toString(), false, dynamodb)
+                    let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
                     const fileResult = await createFile(uniqueId2, {}, s3)
                     actionFile = uniqueId2
-                    let subRes2 = await createSubdomain("/e/"+uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
+                    let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", false, dynamodb)
                     console.log("ses",ses)
                     let from = "noreply@email.1var.com"
                     let to = "austin@1var.com"
@@ -931,7 +930,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
                 const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, "0", dynamodb);
                 const uniqueId = await getUUID(uuidv4)
-                let subRes = await createSubdomain("/e/"+uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
                 const fileResult = await createFile(uniqueId, {}, s3)
                 actionFile = uniqueId
                 let newM = {}
@@ -959,7 +958,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
 
                 const uniqueId = await getUUID(uuidv4)
-                let subRes = await createSubdomain("/e/"+uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
 
                 const fileResult = await createFile(uniqueId, {}, s3)
                 actionFile = uniqueId
