@@ -758,13 +758,22 @@ async function verifyPath(splitPath, verifications, dynamodb){
             verified.push(false)
             for (veri in verifications.Items){
                 const sub = await getSub(splitPath[ver], "su", dynamodb);
+                console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
+                console.log("sub", sub)
                 let groupID = sub.Items[0].g
                 let entityID = sub.Items[0].e
+                console.log("groupID",groupID)
+                console.log("entityID",entityID)
                 if (entityID != "0"){
+                    console.log("entityID!=0")
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
+                    console.log("eSub",eSub)
                     groupID = eSub.Items[0].g
+                    console.log("groupID2",groupID)
                 }
                 if (sub.Items.length > 0){
+                    console.log("entityID3", entityID)
+                    console.log("groupID3", groupID)
                     if (sub.Items[0].z == true){
                         verValue = true
                     } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo){
@@ -777,6 +786,9 @@ async function verifyPath(splitPath, verifications, dynamodb){
                         if (ex < verifications.Items[veri].ex){
                             verValue = true
                         }
+                    } else if (entityID == "0" && groupID == "0"){
+                        console.log("e and g are 0 so verValue is true")
+                        verValue = true;
                     }
                 }
             }
