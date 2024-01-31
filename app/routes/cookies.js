@@ -1118,6 +1118,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                         console.log("updateParent", updateParent)
                     }
                 }
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
 
             }
 
