@@ -1,7 +1,6 @@
 var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
-const bodyParser = require('body-parser');
 var router = express.Router();
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 let convertCounter = 0
@@ -1139,7 +1138,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
 }
 
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses) {
-    router.use(bodyParser.json());
     
     router.all('/*', async function(req, res, next) {
         route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses)

@@ -10,6 +10,8 @@ const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const exec = promisify(require('child_process').exec);
 
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
