@@ -107,7 +107,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     console.log("subBySU.Items[0].z", subBySU.Items[0].z)
     for (veri in verify.Items){
         console.log("veri", veri, verify.Items[veri])
-        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0" || subBySU.Items[0].z){
+        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0"){
             console.log("VERIFIED")
             verified = true;
         }
@@ -120,12 +120,17 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         verified = false
         for (veri in verify.Items){
             console.log("veri22", veri, verify.Items[veri])
-            if ((verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo) || subBySU.Items[0].z){
+            if ((verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo)){
                 console.log("DOUBLE VERIFIED")
                 verified = true;
             }
             
         }
+    }
+
+    if (subBySU.Items[0].z){
+        console.log("NO VERIFICATION NEEDED : IS PUBLIC")
+        verified = true;
     }
 
     if (verified){
