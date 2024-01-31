@@ -54,6 +54,11 @@ app.use(async (req, res, next) => {
     }
 });
 
+function isValid(data) {
+    console.log("validating data", data)
+    return data
+}
+
 app.all('/auth/*', 
     async (req, res, next) => {
         console.log("auth", req)
@@ -67,6 +72,15 @@ app.all('/auth/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
+        const originalJson = res.json;
+
+        res.json = function(data) {
+            if (isValid(data)) {
+                originalJson.call(this, data);
+            } else {
+                originalJson.call(this, {});
+            }
+        };
         next();
     },
     async (req, res, next) => {
