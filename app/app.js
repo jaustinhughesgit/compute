@@ -86,8 +86,15 @@ function isSubset(jsonA, jsonB) {
     return true;
 }
 
-function isValid(req, data) {
+async function isValid(req, data) {
+    let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
     console.log("req.path::",req.path)
+    let sub = await getSub(req.path.replace("/auth/",""), "su", dynamodb)
+    console.log("sub",sub)
+    let params = { TableName: 'subdomains',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
+    console.log("params", params)
+    let accessItem = await dynamodb.query(params).promise()
+    console.log("accessItem", accessItem)
     console.log("validating data", data)
     return data
 }
@@ -107,8 +114,8 @@ app.all('/auth/*',
         req.lib.root.context.session = session
         res.originalJson = res.json;
 
-        res.json = function(data) {
-            if (isValid(req, data)) {
+        res.json = async function(data) {
+            if (await isValid(req, data)) {
                 res.originalJson.call(this, data);
             } else {
                 res.originalJson.call(this, {});
