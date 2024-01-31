@@ -91,7 +91,7 @@ async function isValid(req, data) {
     console.log("req.path::",req.path)
     let sub = await getSub(req.path.replace("/auth/",""), "su", dynamodb)
     console.log("sub",sub)
-    let params = { TableName: 'subdomains',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
+    let params = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
     console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
     console.log("accessItem", accessItem)
