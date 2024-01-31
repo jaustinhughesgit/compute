@@ -149,16 +149,19 @@ async function initializeMiddleware(req, res, next) {
         console.log("req.headers", req.headers)
         let headersJSON = JSON.parse(req.apiGateway.event.body);
         let originalHost = headersJSON.headers["X-Original-Host"];
+        console.log("originalHost",originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
+        console.log("splitOriginalHost",splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
+        console.log("reqPath",reqPath)
         req.path = reqPath
-        const head = await getHead("su", reqPath.split("/")[2], dynamodb)
+        const head = await getHead("su", reqPath.split("/")[1], dynamodb)
         let isPublic = head.Items[0].z
         let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
         console.log("#1cookie", cookie)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
-        let fileArray = parent.paths[reqPath.split("/")[2]];
+        let fileArray = parent.paths[reqPath.split("/")[1]];
         console.log("fileArray", fileArray)
         if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
