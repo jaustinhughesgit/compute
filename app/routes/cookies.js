@@ -716,7 +716,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
         console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
         console.log("4")
-        const ttlDurationInSeconds = 18000; // For example, 1 hour
+        const ttlDurationInSeconds = 90000; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
@@ -919,7 +919,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     console.log("H")
                     const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, )
                     console.log("I")
-                    const ttlDurationInSeconds = 18000; // For example, 1 hour
+                    const ttlDurationInSeconds = 90000; // For example, 1 hour
                     console.log("J")
                     const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
                     console.log("K")
