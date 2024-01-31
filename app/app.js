@@ -72,13 +72,13 @@ app.all('/auth/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
-        const originalJson = res.json;
+        res.originalJson = res.json;
 
         res.json = function(data) {
             if (isValid(data)) {
-                originalJson.call(this, data);
+                res.originalJson.call(this, data);
             } else {
-                originalJson.call(this, {});
+                res.originalJson.call(this, {});
             }
         };
         next();
