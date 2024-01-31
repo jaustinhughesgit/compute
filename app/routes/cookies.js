@@ -937,7 +937,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
                     const uniqueId = await getUUID(uuidv4)
                     //console.log(uniqueId, "0", "0", )
-                    let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), false, dynamodb)
+                    let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), true, dynamodb)
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
