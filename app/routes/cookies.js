@@ -1193,5 +1193,6 @@ module.exports = {
     setupRouter,
     getHead,
     convertToJSON,
-    manageCookie
+    manageCookie,
+    getSub
 }

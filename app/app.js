@@ -54,7 +54,40 @@ app.use(async (req, res, next) => {
     }
 });
 
-function isValid(data) {
+function isSubset(jsonA, jsonB) {
+    // Check if both inputs are objects
+    if (typeof jsonA !== 'object' || typeof jsonB !== 'object') {
+        return false;
+    }
+
+    // Iterate over all keys in jsonA
+    for (let key in jsonA) {
+        if (jsonA.hasOwnProperty(key)) {
+            // Check if the key exists in jsonB
+            if (!jsonB.hasOwnProperty(key)) {
+                return false;
+            }
+
+            // If the value is an object, recurse
+            if (typeof jsonA[key] === 'object' && typeof jsonB[key] === 'object') {
+                if (!isSubset(jsonA[key], jsonB[key])) {
+                    return false;
+                }
+            } else {
+                // Check if the values are equal
+                if (jsonA[key] !== jsonB[key]) {
+                    return false;
+                }
+            }
+        }
+    }
+
+    // All checks passed, return true
+    return true;
+}
+
+function isValid(req, data) {
+    console.log("req.path::",req.path)
     console.log("validating data", data)
     return data
 }
@@ -75,7 +108,7 @@ app.all('/auth/*',
         res.originalJson = res.json;
 
         res.json = function(data) {
-            if (isValid(data)) {
+            if (isValid(req, data)) {
                 res.originalJson.call(this, data);
             } else {
                 res.originalJson.call(this, {});
@@ -159,7 +192,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 async function initializeMiddleware(req, res, next) {
     console.log("req", req)
     if (req.path.startsWith('/auth')) {
-        let {setupRouter, getHead, convertToJSON, manageCookie} = await require('./routes/cookies')
+        let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
         console.log("req", req)
         console.log("req.body", req.body)
         let originalHost = req.body.headers["X-Original-Host"];
