@@ -1068,6 +1068,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 //console.log("saveFile")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+                console.log("req", req)
+                console.log("req.body", req.body)
                 const fileResult = await createFile(actionFile, req.body.body, s3)
             } else if (action === "makePublic"){
                 actionFile = reqPath.split("/")[3]
