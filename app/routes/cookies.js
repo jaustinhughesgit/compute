@@ -1194,5 +1194,7 @@ module.exports = {
     getHead,
     convertToJSON,
     manageCookie,
-    getSub
+    getSub,
+    createVerified,
+    incrementCounterAndGetNewValue
 }

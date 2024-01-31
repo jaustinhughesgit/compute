@@ -86,8 +86,8 @@ function isSubset(jsonA, jsonB) {
     return true;
 }
 
-async function isValid(req, data) {
-    let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
+async function isValid(req, res, data) {
+    let {setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue} = await require('./routes/cookies')
     console.log("req.path::",req.path)
     let sub = await getSub(req.path.replace("/auth/",""), "su", dynamodb)
     console.log("sub",sub)
@@ -98,6 +98,13 @@ async function isValid(req, data) {
     console.log("accessItem.Items[0].va",accessItem.Items[0].va)
     let isDataPresent = isSubset(accessItem.Items[0].va, data)
     console.log("isDataPresent", isDataPresent)
+    if (isDataPresent){
+        let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
+        const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+        const ttlDurationInSeconds = 90000; // take the data from access.ex and calculate duration in seconds
+        const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+        await createVerified(vi.toString(), cookie.gi.toString(), "0", sub.Items[0].e.toString(), accessItem.Items[0].ai, "0", ex, true, 0, 0)
+    }
     console.log("validating data", data)
     return data
 }
@@ -118,7 +125,7 @@ app.all('/auth/*',
         res.originalJson = res.json;
 
         res.json = async function(data) {
-            if (await isValid(req, data)) {
+            if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
             } else {
                 res.originalJson.call(this, {});
