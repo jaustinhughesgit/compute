@@ -910,9 +910,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     console.log("F")
                     const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
                     console.log("G")
-                    const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                    //const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     console.log("H")
-                    const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
+                    //const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
                     console.log("I")
                     const ttlDurationInSeconds = 90000; // For example, 1 hour
                     console.log("J")
@@ -923,12 +923,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     console.log("vi", vi)
                     //await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
+                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), "0", dynamodb);
                     const uniqueId = await getUUID(uuidv4)
                     //console.log(uniqueId, "0", "0", )
                     let subRes = await createSubdomain(uniqueId,"0","0",gNew.toString(), true, dynamodb)
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ai.toString(), dynamodb); //DO I NEED details.c
+                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), "0", dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
                     const fileResult = await createFile(uniqueId2, {}, s3)
                     actionFile = uniqueId2
@@ -1110,6 +1110,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
                     console.log(access)
+
+                    if (sub.Items[0].e.toString() != "0"){
+                        const details2 = await addVersion(sub.Items[0].e.toString(), "ai", ai.toString(), sub.Items[0].c.toString(), dynamodb);
+                        console.log("details2", details2)
+                        const updateParent = await updateEntity(sub.Items[0].e.toString(), "ai", ai.toString(), details2.v, details2.c, dynamodb);
+                        console.log("updateParent", updateParent)
+                    }
                 }
 
             }
