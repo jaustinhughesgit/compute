@@ -146,11 +146,9 @@ async function initializeMiddleware(req, res, next) {
     console.log("req", req)
     if (req.path.startsWith('/auth')) {
         let {setupRouter, getHead, convertToJSON, manageCookie} = await require('./routes/cookies')
-        console.log("route", req)
+        console.log("req", req)
         console.log("req.body", req.body)
-        console.log("req.headers", req.headers)
-        let headersJSON = JSON.parse(req.apiGateway.event.body);
-        let originalHost = headersJSON.headers["X-Original-Host"];
+        let originalHost = req.body.headers["X-Original-Host"];
         console.log("originalHost",originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
         console.log("splitOriginalHost",splitOriginalHost)
