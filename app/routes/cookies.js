@@ -1076,13 +1076,16 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
 
 
                 const subUuid = reqPath.split("/")[3]
+                console.log("subUuid",subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
+                console.log("sub", sub)
                 let buffer = false
                 if (requestBody.body.hasOwnProperty("type")){
                     if (requestBody.body.type == "Buffer"){
                         buffer = true
                     }
                 }
+                console.log("buffer", buffer)
                 let ex = fales
                 let at = fales
                 let va = fales
@@ -1090,12 +1093,18 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let ac = fales
 
                 if (!buffer){
+                    console.log("requestBody.body",requestBody.body)
                     ex = requestBody.body.expires
                     at = requestBody.body.attempts
                     va = requestBody.body.value
                     to = requestBody.body.timeout
                     ac = requestBody.body.access
                 }
+                console.log("ex",ex)
+                console.log("at",at)
+                console.log("va",va)
+                console.log("to",to)
+                console.log("ac",ac)
                 if (ex && at && va && to && ac && !buffer) {
                     console.log("values are truthy")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
