@@ -779,17 +779,18 @@ async function verifyPath(splitPath, verifications, dynamodb){
         if (splitPath[ver].startsWith("1v4r")){
             let verValue = false
             verified.push(false)
+            const sub = await getSub(splitPath[ver], "su", dynamodb);
+            console.log("sub", sub)
+            console.log("sub.Items[0].z",sub.Items[0].z)
+            let groupID = sub.Items[0].g
+            let entityID = sub.Items[0].e
+            if (sub.Items[0].z){
+                verValue = true
+            }
             for (veri in verifications.Items){
-                const sub = await getSub(splitPath[ver], "su", dynamodb);
                 console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
-                console.log("sub", sub)
-                let groupID = sub.Items[0].g
-                let entityID = sub.Items[0].e
                 console.log("groupID",groupID)
                 console.log("entityID",entityID)
-                if (sub.Items[0].z){
-                    verValue = true
-                }
 
                 if (entityID != "0"){
                     console.log("entityID!=0")
@@ -835,17 +836,6 @@ async function verifyPath(splitPath, verifications, dynamodb){
     console.log("verified", verified)
     return verified
 }
-//
-//
-//
-//
-//WE NEED TO MODIFY ALL INSTANCES OF req...path TO ONLY GET PATH FROM X-Original-Host
-//
-//
-//
-//
-
-
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
