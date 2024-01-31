@@ -1065,7 +1065,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
                 console.log("req", req)
                 console.log("req.body", req.body)
-                const fileResult = await createFile(actionFile, req.body.body, s3)
+                let body = JSON.stringify(req.body.body)
+                const fileResult = await createFile(actionFile, body, s3)
             } else if (action === "makePublic"){
                 actionFile = reqPath.split("/")[3]
                 let permission = reqPath.split("/")[4]
