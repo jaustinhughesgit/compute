@@ -5,7 +5,7 @@ const bodyParser = require('body-parser');
 var router = express.Router();
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 let convertCounter = 0
-let isPublic = false
+let isPublic = true
 
 async function getSub(val, key, dynamodb){
     //console.log("getSub")
@@ -901,7 +901,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 if (cookie != undefined) {
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
-                    setIsPublic(false)
+                    setIsPublic(true)
                     console.log("A")
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     console.log("B")
@@ -926,7 +926,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
                     console.log("L")
                     console.log("vi", vi)
-                     await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
+                    //await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
                     const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ai.toString(), dynamodb);
                     const uniqueId = await getUUID(uuidv4)
