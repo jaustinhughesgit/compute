@@ -104,9 +104,10 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb)
     console.log("verified", verify)
     let verified = false;
+    console.log("subBySU.Items[0].z", subBySU.Items[0].z)
     for (veri in verify.Items){
         console.log("veri", veri, verify.Items[veri])
-        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0"){
+        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0" || subBySU.Items[0].z){
             console.log("VERIFIED")
             verified = true;
         }
@@ -119,7 +120,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         verified = false
         for (veri in verify.Items){
             console.log("veri22", veri, verify.Items[veri])
-            if (verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo){
+            if ((verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo) || subBySU.Items[0].z){
                 console.log("DOUBLE VERIFIED")
                 verified = true;
             }
