@@ -732,11 +732,11 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4){
     }
 }
 
-async function createAccess (ai, g, e, ex, at, to, va) {
-    console.log("access", ai, g, e, ex, at, to, va)
+async function createAccess (ai, g, e, ex, at, to, va, ac) {
+    console.log("access", ai, g, e, ex, at, to, va, ac)
     return await dynamodb.put({
         TableName: 'access',
-        Item: { ai: ai, g: g, e: e, ex: ex, at: at, to: to, va: va}
+        Item: { ai: ai, g: g, e: e, ex: ex, at: at, to: to, va: va, ac: ac}
     }).promise();
 }
 
@@ -1072,6 +1072,37 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
                 console.log("permStat", permStat)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+            } else if (action === "makeAuthenticator"){
+
+
+                const subUuid = reqPath.split("/")[3]
+                const sub = await getSub(subUuid, "su", dynamodb);
+                let buffer = false
+                if (requestBody.body.hasOwnProperty("type")){
+                    if (requestBody.body.type == "Buffer"){
+                        buffer = true
+                    }
+                }
+                let ex = fales
+                let at = fales
+                let va = fales
+                let to = fales
+                let ac = fales
+
+                if (!buffer){
+                    ex = requestBody.body.expires
+                    at = requestBody.body.attempts
+                    va = requestBody.body.value
+                    to = requestBody.body.timeout
+                    ac = requestBody.body.access
+                }
+                if (ex && at && va && to && ac && !buffer) {
+                    console.log("values are truthy")
+                    const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                    const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
+                    console.log(access)
+                }
+
             }
 
 
