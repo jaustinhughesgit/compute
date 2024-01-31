@@ -361,6 +361,9 @@ async function processString(str, libs, nestedPath) {
             value = await value();
             }
         }
+        if (value == null || value == undefined){
+            value = ""
+        }
         return value
     }
     if (!isObj){
