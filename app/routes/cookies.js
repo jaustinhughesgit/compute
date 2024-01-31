@@ -787,6 +787,10 @@ async function verifyPath(splitPath, verifications, dynamodb){
                 let entityID = sub.Items[0].e
                 console.log("groupID",groupID)
                 console.log("entityID",entityID)
+                if (sub.Items[0].z){
+                    verValue = true
+                }
+
                 if (entityID != "0"){
                     console.log("entityID!=0")
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
@@ -864,6 +868,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
         let splitPath = reqPath.split("/")
         let verified = await verifyPath(splitPath, verifications, dynamodb);
         
+
 
         if (allVerified(verified)){
             if (action === "get"){
