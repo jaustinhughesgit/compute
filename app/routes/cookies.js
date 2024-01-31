@@ -1112,9 +1112,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     console.log(access)
 
                     if (sub.Items[0].e.toString() != "0"){
-                        const details2 = await addVersion(sub.Items[0].e.toString(), "ai", ai.toString(), sub.Items[0].c.toString(), dynamodb);
+                        const details2 = await addVersion(sub.Items[0].e.toString(), "pb", ai.toString(), sub.Items[0].c.toString(), dynamodb);
                         console.log("details2", details2)
-                        const updateParent = await updateEntity(sub.Items[0].e.toString(), "ai", ai.toString(), details2.v, details2.c, dynamodb);
+                        const updateParent = await updateEntity(sub.Items[0].e.toString(), "pb", ai.toString(), details2.v, details2.c, dynamodb);
                         console.log("updateParent", updateParent)
                     }
                 }
