@@ -147,6 +147,8 @@ async function initializeMiddleware(req, res, next) {
         console.log("route", req)
         console.log("req.body", req.body)
         console.log("req.headers", req.headers)
+        let headersJSON = JSON.parse(req.apiGateway.event.body);
+        let originalHost = headersJSON.headers["X-Original-Host"];
         let splitOriginalHost = originalHost.split("1var.com")[1]
         const reqPath = splitOriginalHost.split("?")[0]
         req.path = reqPath
