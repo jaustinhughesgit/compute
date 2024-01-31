@@ -1086,11 +1086,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     }
                 }
                 console.log("buffer", buffer)
-                let ex = fales
-                let at = fales
-                let va = fales
-                let to = fales
-                let ac = fales
+                let ex = false
+                let at = false
+                let va = false
+                let to = false
+                let ac = false
 
                 if (!buffer){
                     console.log("requestBody.body",requestBody.body)
