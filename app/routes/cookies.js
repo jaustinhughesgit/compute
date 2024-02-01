@@ -63,6 +63,7 @@ async function getGroups(dynamodb){
     params = { TableName: 'groups' };
     let groups = await dynamodb.scan(params).promise();
     let groupObjs = []
+    console.log("groups",groups)
     for (group in groups.Items){
         const subByG = await getSub(groups.Items[group].g.toString(), "g", dynamodb);
         console.log("subByG",subByG)
