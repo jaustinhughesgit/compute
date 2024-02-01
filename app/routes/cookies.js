@@ -601,8 +601,27 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             // Prepare new metadata with additional custom data
             let newMetadata = {
                 ...originalMetadata.Metadata, // Copy original user-defined metadata
-                'originalVersionId': version.VersionId // Add your custom metadata
+                'originalversionid': version.VersionId // Add your custom metadata
             };
+
+            
+            //
+            ///
+            //
+            ///
+            //
+            ///
+            ///
+            ///
+            //
+            //
+            //
+            //
+            //
+            //
+            //
+
+
             console.log("newMetadata",newMetadata)
             // Copy the object with the original 'Content-Type'
             let param2 = {
