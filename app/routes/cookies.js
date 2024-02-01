@@ -588,37 +588,43 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
 
         for (let x = versions.Versions.length - 1; x >= 0; x--) {
             const version = versions.Versions[x];
-        
+            console.log("version",version)
             // Retrieve current metadata
-            let originalMetadata = await s3.headObject({
+            let param1 = {
                 Bucket: sourceBucket,
                 Key: file,
                 VersionId: version.VersionId
-            }).promise();
-        
+            }
+            console.log("param1", param1)
+            let originalMetadata = await s3.headObject(param1).promise();
+            console.log("originalMetadata", originalMetadata)
             // Prepare new metadata with additional custom data
             let newMetadata = {
                 ...originalMetadata.Metadata, // Copy original user-defined metadata
                 'originalVersionId': version.VersionId // Add your custom metadata
             };
-        
+            console.log("newMetadata",newMetadata)
             // Copy the object with the original 'Content-Type'
-            await s3.copyObject({
+            let param2 = {
                 Bucket: destinationBucket,
                 CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
                 Key: file,
                 Metadata: newMetadata,
                 ContentType: originalMetadata.ContentType, // Set the original 'Content-Type'
                 MetadataDirective: "REPLACE"
-            }).promise();
-        
+            }
+            console.log("param2", param2)
+            let copyResponse = await s3.copyObject(param2).promise();
+            console.log("copyResponse",copyResponse)
             // Optionally, delete the original version
-            await s3.deleteObject({
+            let param3 = {
                 Bucket: sourceBucket,
                 Key: file,
                 VersionId: version.VersionId
-            }).promise();
-        
+            }
+            console.log("param3", param3)
+            let deleteResponse = await s3.deleteObject(param3).promise();
+            console.log("deleteResponse",deleteResponse)
             // Wait for 1 second before processing the next version
             await delay(1000);
         }
