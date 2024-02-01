@@ -565,7 +565,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         let sourceBucket
         let destinationBucket
 
-
+        console.log("file", file)
 
         if (val == "true" || val == true){
             console.log("val == true")
