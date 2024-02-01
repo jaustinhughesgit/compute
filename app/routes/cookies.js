@@ -65,8 +65,11 @@ async function getGroups(dynamodb){
     let groupObjs = []
     for (group in groups.Items){
         const subByG = await getSub(groups.Items[group].g.toString(), "g", dynamodb);
+        console.log("subByG",subByG)
         const groupName = await getWord(groups.Items[group].a.toString(), dynamodb)
+        console.log("groupName",groupName)
         const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
+        console.log("subByE",subByE)
         groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
     }
 
