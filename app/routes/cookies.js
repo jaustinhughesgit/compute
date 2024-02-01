@@ -1159,8 +1159,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("subAuthenticator", subAuthenticator)
                 let params = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': subAuthenticator.Items[0].e.toString()} }
                 let access = await dynamodb.query(params).promise()
-
+                console.log("access", access)
                 const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), "1", dynamodb);
+                console.log("updateEntity",subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
                 console.log("updateAuth",updateAuth)
                 mainObj = {"alert":"success"}
