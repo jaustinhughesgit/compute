@@ -1128,7 +1128,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let params = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
                 let access = await dynamodb.query(params).promise()
                 console.log("access>>", access)
-                return access.Items[0].va
+                mainObj = access.Items[0].va
             } else if (action === "saveAuthenticator"){
                 const subUuid = reqPath.split("/")[3]
                 console.log("subUuid",subUuid)
