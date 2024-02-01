@@ -127,7 +127,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         }
     }
 
-    if (subBySU.Items[0].z){
+    if (isPublic){
         console.log("NO VERIFICATION NEEDED : IS PUBLIC")
         verified = true;
     }
