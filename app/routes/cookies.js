@@ -297,7 +297,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
         params = {
             "TableName": 'entities',
             "Key": { "e": e }, 
-            "UpdateExpression": `set ${col} = if_not_exists(${col}, :val), v = :v, c = :c`,
+            "UpdateExpression": `set ${col} = :val, v = :v, c = :c`,
             "ExpressionAttributeValues": {
                 ':val': val,
                 ':v': v,
@@ -307,6 +307,7 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
     }
 
     try {
+        console.log("params", params)
         return await dynamodb.update(params).promise();
     } catch (error) {
         console.error("Error updating entity:", error);
