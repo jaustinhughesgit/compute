@@ -1134,17 +1134,19 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("subUuid",subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
                 console.log("sub", sub)
-                let params = {
+                let params1 = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
+                let access = await dynamodb.query(params1).promise()
+                let params2 = {
                     "TableName": 'access',
                     "Key": {
-                        "e": sub.Items[0].e.toString()
+                        "ai": access.Items[0].ai.toString()
                     },
                     "UpdateExpression": `set va = :va`,
                     "ExpressionAttributeValues": {
                         ':va': requestBody.body
                     }
                 };
-                await dynamodb.update(params).promise();
+                await dynamodb.update(params2).promise();
                 mainObj = {"saveAuthenticator":"success"}
             }
 
