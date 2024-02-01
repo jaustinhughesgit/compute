@@ -1162,14 +1162,23 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("sub", sub)
                 let params1 = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
                 let access = await dynamodb.query(params1).promise()
+                let permissions = ""
+                if (requestBody.body.execute) {permissions += "e"}
+                if (requestBody.body.read) {permissions += "r"}
+                if (requestBody.body.write) {permissions += "w"}
+                if (requestBody.body.add) {permissions += "a"}
+                if (requestBody.body.delete) {permissions += "d"}
+                if (requestBody.body.permit) {permissions += "p"}
+                if (requestBody.body.own) {permissions += "o"}
                 let params2 = {
                     "TableName": 'access',
                     "Key": {
                         "ai": access.Items[0].ai.toString()
                     },
-                    "UpdateExpression": `set va = :va`,
+                    "UpdateExpression": `set va = :va, ac = :ac`,
                     "ExpressionAttributeValues": {
-                        ':va': requestBody.body
+                        ':va': requestBody.body.value,
+                        ':ac': permissions
                     }
                 };
                 await dynamodb.update(params2).promise();
