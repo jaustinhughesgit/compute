@@ -1102,6 +1102,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
 
 
                 const subUuid = reqPath.split("/")[3]
+                actionFile = reqPath.split("/")[3]
                 console.log("subUuid",subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
                 console.log("sub", sub)
