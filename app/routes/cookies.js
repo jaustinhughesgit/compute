@@ -1147,7 +1147,22 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     }
                 };
                 await dynamodb.update(params2).promise();
-                mainObj = {"saveAuthenticator":"success"}
+                mainObj = {"alert":"success"}
+            } else if (action == "setAuthenticatorText"){
+                const Entity = reqPath.split("/")[3]
+                const Authenticator = reqPath.split("/")[4]
+                console.log("Entity",Entity)
+                console.log("Authenticator",Authenticator)
+                const subEntity = await getSub(Entity, "su", dynamodb);
+                const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
+                console.log("subEntity", subEntity)
+                console.log("subAuthenticator", subAuthenticator)
+                let params = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': subAuthenticator.Items[0].e.toString()} }
+                let access = await dynamodb.query(params).promise()
+
+                const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), "1", dynamodb);
+                const updateParent3 = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
+                mainObj = {"alert":"success"}
             }
 
 
