@@ -567,7 +567,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
 
 
 
-        if (val == "true"){
+        if (val == "true" || val == true){
             console.log("val == true")
             sourceBucket = 'private.1var.com'
             destinationBucket = 'public.1var.com'
