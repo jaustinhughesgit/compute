@@ -63,14 +63,10 @@ async function getGroups(dynamodb){
     params = { TableName: 'groups' };
     let groups = await dynamodb.scan(params).promise();
     let groupObjs = []
-    console.log("groups",groups)
     for (group in groups.Items){
         const subByG = await getSub(groups.Items[group].g.toString(), "g", dynamodb);
-        console.log("subByG",subByG)
         const groupName = await getWord(groups.Items[group].a.toString(), dynamodb)
-        console.log("groupName",groupName)
         const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
-        console.log("subByE",subByE)
         groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
     }
 
@@ -1121,14 +1117,21 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let va = false
                 let to = false
                 let ac = false
-
                 if (!buffer){
                     console.log("requestBody.body",requestBody.body)
                     ex = requestBody.body.expires
                     at = requestBody.body.attempts
                     va = requestBody.body.value
                     to = requestBody.body.timeout
-                    ac = requestBody.body.access
+                    let permissions = ""
+                    if (requestBody.body.execute) {permissions += "e"}
+                    if (requestBody.body.read) {permissions += "r"}
+                    if (requestBody.body.write) {permissions += "w"}
+                    if (requestBody.body.add) {permissions += "a"}
+                    if (requestBody.body.delete) {permissions += "d"}
+                    if (requestBody.body.permit) {permissions += "p"}
+                    if (requestBody.body.own) {permissions += "o"}
+                    ac = permissions
                 }
                 console.log("ex",ex)
                 console.log("at",at)
