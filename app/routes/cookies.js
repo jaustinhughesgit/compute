@@ -628,9 +628,9 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
                 Bucket: destinationBucket,
                 CopySource: `${sourceBucket}/${file}?versionId=${version.VersionId}`,
                 Key: file,
-                //Metadata: newMetadata,
-                //ContentType: originalMetadata.ContentType, // Set the original 'Content-Type'
-                //MetadataDirective: "REPLACE"
+                Metadata: newMetadata,
+                ContentType: originalMetadata.ContentType, // Set the original 'Content-Type'
+                MetadataDirective: "REPLACE"
             }
             console.log("param2", param2)
             let copyResponse = await s3.copyObject(param2).promise();
