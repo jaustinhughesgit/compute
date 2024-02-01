@@ -1120,6 +1120,15 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 }
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
 
+            } else if (action === "validation"){
+                const subUuid = reqPath.split("/")[3]
+                console.log("subUuid",subUuid)
+                const sub = await getSub(subUuid, "su", dynamodb);
+                console.log("sub", sub)
+                let params = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
+                let access = await dynamodb.query(params).promise()
+                console.log("access>>", access)
+                return access.Items[0].va
             }
 
 
