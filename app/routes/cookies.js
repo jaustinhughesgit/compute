@@ -1124,13 +1124,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     va = requestBody.body.value
                     to = requestBody.body.timeout
                     let permissions = ""
-                    if (requestBody.body.execute) {permissions += "e"}
-                    if (requestBody.body.read) {permissions += "r"}
-                    if (requestBody.body.write) {permissions += "w"}
-                    if (requestBody.body.add) {permissions += "a"}
-                    if (requestBody.body.delete) {permissions += "d"}
-                    if (requestBody.body.permit) {permissions += "p"}
-                    if (requestBody.body.own) {permissions += "o"}
+                    if (requestBody.body.execute == "true") {permissions += "e"}
+                    if (requestBody.body.read == "true") {permissions += "r"}
+                    if (requestBody.body.write == "true") {permissions += "w"}
+                    if (requestBody.body.add == "true") {permissions += "a"}
+                    if (requestBody.body.delete == "true") {permissions += "d"}
+                    if (requestBody.body.permit == "true") {permissions += "p"}
+                    if (requestBody.body.own == "true") {permissions += "o"}
                     ac = permissions
                 }
                 console.log("ex",ex)
@@ -1170,13 +1170,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let params1 = { TableName: 'access',IndexName: 'eIndex',KeyConditionExpression: 'e = :e',ExpressionAttributeValues: {':e': sub.Items[0].e.toString()} }
                 let access = await dynamodb.query(params1).promise()
                 let permissions = ""
-                if (requestBody.body.execute) {permissions += "e"}
-                if (requestBody.body.read) {permissions += "r"}
-                if (requestBody.body.write) {permissions += "w"}
-                if (requestBody.body.add) {permissions += "a"}
-                if (requestBody.body.delete) {permissions += "d"}
-                if (requestBody.body.permit) {permissions += "p"}
-                if (requestBody.body.own) {permissions += "o"}
+                if (requestBody.body.execute == "true") {permissions += "e"}
+                if (requestBody.body.read == "true") {permissions += "r"}
+                if (requestBody.body.write == "true") {permissions += "w"}
+                if (requestBody.body.add == "true") {permissions += "a"}
+                if (requestBody.body.delete == "true") {permissions += "d"}
+                if (requestBody.body.permit == "true") {permissions += "p"}
+                if (requestBody.body.own == "true") {permissions += "o"}
                 let params2 = {
                     "TableName": 'access',
                     "Key": {
