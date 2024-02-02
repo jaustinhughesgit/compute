@@ -55,27 +55,39 @@ app.use(async (req, res, next) => {
 });
 
 function isSubset(jsonA, jsonB) {
+    console.log("isSubset", jsonA, jsonB)
+    console.log("isTypof A:", typeof jsonA)
+    console.log("isTypof B:", typeof jsonB)
     // Check if both inputs are objects
     if (typeof jsonA !== 'object' || typeof jsonB !== 'object') {
+        console.log("not object")
         return false;
     }
 
     // Iterate over all keys in jsonA
     for (let key in jsonA) {
+        console.log("key",key)
         if (jsonA.hasOwnProperty(key)) {
+            console.log("jsonA hasOwnProperty key", key)
             // Check if the key exists in jsonB
             if (!jsonB.hasOwnProperty(key)) {
+                console.log("jsonB !hasOwnProperty key", key)
                 return false;
             }
 
+            console.log("bbbbb")
             // If the value is an object, recurse
             if (typeof jsonA[key] === 'object' && typeof jsonB[key] === 'object') {
+                console.log("jsonA and jsonB are objects")
                 if (!isSubset(jsonA[key], jsonB[key])) {
+                    console.log("cccccc")
                     return false;
                 }
             } else {
+                console.log("dddddd")
                 // Check if the values are equal
                 if (jsonA[key] !== jsonB[key]) {
+                    console.log("eeeeee")
                     return false;
                 }
             }
