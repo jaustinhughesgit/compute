@@ -860,7 +860,7 @@ const automate = async (url) => {
   };
 /*
 const getEventsAndTrigger = async () => {
-    const now = new Date();
+    const now = new Date().toUTCString()
     const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
     const currentDate = now.toISOString().split('T')[0];
     const dayOfWeek = now.toLocaleDateString('en-us', { weekday: 'long' }).toLowerCase().substring(0, 2);
