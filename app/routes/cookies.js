@@ -1253,24 +1253,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
 
 
 
-            messageText = {
-                "url":url, //THIS CAN BE DELETED. LEFT IN INCASE USERS NEED LONGER URL CALL
-                "startDate":startDate,
-                "endDate":endDate,
-                "startTime":startTime,
-                "endTime":endTime,
-                "interval":interval,
-                "monday":monday,
-                "tuesday":tuesday,
-                "wednesday":wednesday,
-                "thursday":thursday,
-                "friday":friday,
-                "saturday":saturday,
-                "sunday":sunday
-            }
-
-
-
 
 
 
