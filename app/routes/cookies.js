@@ -1259,6 +1259,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const ed = task.endDate;
                 const st = task.startTime;
                 const et = task.endTime;
+                const tz = task.timeZone;
                 const it = task.interval
                 const mo = task.monday
                 const tu = task.tuesday
@@ -1267,7 +1268,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fr = task.friday
                 const sa = task.saturday
                 const su = task.sunday
-                await createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dynamodb)
+                await createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su, dynamodb)
             }
 
 
