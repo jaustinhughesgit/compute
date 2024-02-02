@@ -862,7 +862,7 @@ async function createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dy
     const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'tasks',
-        Item: { ti:ti, url:en, sd:sd, ed:ed, st:st, et:et, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
     }).promise();
 }
 
