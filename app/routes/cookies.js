@@ -1165,7 +1165,12 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let access = await dynamodb.query(params).promise()
                 console.log("access>>", access)
                 let permission = access.Items[0].ac;
-                let r,w,a,d,p,o = false
+                let r = false
+                let w = false
+                let a = false
+                let d = false
+                let p = false
+                let o = false
                 if (permission.includes("r")){r = true}
                 if (permission.includes("w")){w = true}
                 if (permission.includes("a")){a = true}
