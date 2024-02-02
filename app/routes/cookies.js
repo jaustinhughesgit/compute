@@ -857,12 +857,12 @@ async function verifyPath(splitPath, verifications, dynamodb){
     return verified
 }
 
-async function createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su, dynamodb){
-    console.log("createTask", en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su)
+async function createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb){
+    console.log("createTask", en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su)
     const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'tasks',
-        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, tz:tz, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
     }).promise();
 
     //
@@ -1259,7 +1259,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const ed = task.endDate;
                 const st = task.startTime;
                 const et = task.endTime;
-                const tz = task.zone;
+                const zo = task.zone;
                 const it = task.interval
                 const mo = task.monday
                 const tu = task.tuesday
@@ -1268,7 +1268,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fr = task.friday
                 const sa = task.saturday
                 const su = task.sunday
-                await createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su, dynamodb)
+                await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
             }
 
 
