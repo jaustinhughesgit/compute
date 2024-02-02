@@ -857,8 +857,8 @@ async function verifyPath(splitPath, verifications, dynamodb){
     return verified
 }
 
-async function createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su, dynamodb){
-    console.log("createTask", en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su)
+async function createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dynamodb){
+    console.log("createTask", en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su)
     const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'tasks',
@@ -871,8 +871,8 @@ async function createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su
     //
     //
     //
-    // THIS WAS WORKING BEFORE I ADDED tz
-    //
+    // NEED TO MAKE GSIs mo, tu, we, th, fr, sa, su = int
+    // MAYBE sd = int as well for sorting
     //
     //
     //
@@ -1259,7 +1259,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const ed = task.endDate;
                 const st = task.startTime;
                 const et = task.endTime;
-                const tz = task.timeZone;
                 const it = task.interval
                 const mo = task.monday
                 const tu = task.tuesday
@@ -1268,7 +1267,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fr = task.friday
                 const sa = task.saturday
                 const su = task.sunday
-                await createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su, dynamodb)
+                await createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dynamodb)
             }
 
 
