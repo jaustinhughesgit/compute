@@ -857,6 +857,15 @@ async function verifyPath(splitPath, verifications, dynamodb){
     return verified
 }
 
+async function createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dynamodb){
+    console.log("createTask", en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su)
+    const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+    return await dynamodb.put({
+        TableName: 'tasks',
+        Item: { ti:ti, url:url, sd:sd, ed:ed, st:st, et:et, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+    }).promise();
+}
+
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
     console.log("req.body", req.body)
@@ -1223,7 +1232,46 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
                 console.log("updateAuth",updateAuth)
                 mainObj = {"alert":"success"}
+            } else if (action == "createTask"){
+                const task = requestBody.body;
+                const en = reqPath.split("/")[3];
+                const sd = task.startDate;
+                const ed = task.endDate;
+                const st = task.startTime;
+                const et = task.endTime;
+                const it = task.interval
+                const mo = task.monday
+                const tu = task.tuesday
+                const we = task.wednesday
+                const th = task.thursday
+                const fr = task.friday
+                const sa = task.saturday
+                const su = task.sunday
+                await createTask(en, sd, ed, st, et, it, mo, tu, we, th, fr, sa, su, dynamodb)
             }
+
+
+
+
+            messageText = {
+                "url":url, //THIS CAN BE DELETED. LEFT IN INCASE USERS NEED LONGER URL CALL
+                "startDate":startDate,
+                "endDate":endDate,
+                "startTime":startTime,
+                "endTime":endTime,
+                "interval":interval,
+                "monday":monday,
+                "tuesday":tuesday,
+                "wednesday":wednesday,
+                "thursday":thursday,
+                "friday":friday,
+                "saturday":saturday,
+                "sunday":sunday
+            }
+
+
+
+
 
 
             
