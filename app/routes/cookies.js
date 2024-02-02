@@ -862,7 +862,7 @@ async function createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su
     const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'tasks',
-        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, tz:tz, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
     }).promise();
 
     //
@@ -871,8 +871,8 @@ async function createTask(en, sd, ed, st, et, tz, it, mo, tu, we, th, fr, sa, su
     //
     //
     //
-    // NEED TO MAKE GSIs mo, tu, we, th, fr, sa, su = int
-    // MAYBE sd = int as well for sorting
+    // THIS WAS WORKING BEFORE I ADDED tz
+    //
     //
     //
     //
