@@ -923,8 +923,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     }
   
     let firstTimespan = await {
-      startDate: startDate.format("YYYY-MM-DD"),
-      endDate: endDate.format("YYYY-MM-DD"),
+      startDate: startUTC.format("YYYY-MM-DD"),
+      endDate: endUTC.format("YYYY-MM-DD"),
       startTime: await startUTC.format("HH:mm"),
       endTime: await startUTC.clone().endOf('day').format("HH:mm"),
       timeZone: "UTC",
