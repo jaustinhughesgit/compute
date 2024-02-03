@@ -858,12 +858,32 @@ const automate = async (url) => {
       console.error('Error calling URL:', error);
     }
   };
+
+
+
 /*
 const getEventsAndTrigger = async () => {
+
+    const nowUtc = moment.utc();
+
+    const unixTimestampSeconds = nowUtc.unix();
+
+
+
+
+    
     const now = new Date().toUTCString()
     const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
     const currentDate = now.toISOString().split('T')[0];
+
+
     const dayOfWeek = now.toLocaleDateString('en-us', { weekday: 'long' }).toLowerCase().substring(0, 2);
+
+
+    const givenTimeUtc = moment.tz(`${moment().format("YYYY-MM-DD")} ${time}`, "YYYY-MM-DD HH:mm", timezone).utc();
+    const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
+    const unixTimestampSeconds = givenTimeUtc.unix();
+    const currentDate = Math.floor(Date.now() / 1000);
   
     const params = {
       TableName: 'tasks',

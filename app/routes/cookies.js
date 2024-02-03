@@ -864,27 +864,76 @@ async function createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su
         TableName: 'tasks',
         Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
     }).promise();
-
-    //
-    //
-    //
-    //
-    //
-    //
-    // NEED TO MAKE GSIs mo, tu, we, th, fr, sa, su = int
-    // MAYBE sd = int as well for sorting
-    //
-    //
-    //
-    //
-    //
-
-
-
-
-
-
 }
+
+async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS){
+    console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS)
+    const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
+    return await dynamodb.put({
+        TableName: 'schedules',
+        Item: { si:si.toString(), ti:ti, url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:moS, tu:tuS, we:weS, th:thS, fr:frS, sa:saS, su:suS}
+    }).promise();
+}
+
+async function shiftDaysOfWeekForward(daysOfWeek) {
+    // Shift days of the week one day forward
+    return {
+      sunday: daysOfWeek.saturday,
+      monday: daysOfWeek.sunday,
+      tuesday: daysOfWeek.monday,
+      wednesday: daysOfWeek.tuesday,
+      thursday: daysOfWeek.wednesday,
+      friday: daysOfWeek.thursday,
+      saturday: daysOfWeek.friday,
+    };
+  }
+  
+  async function convertTimespanToUTC(options) {
+    const {
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+      timeZone,
+      ...daysOfWeek
+    } = options;
+  
+    // Convert start and end times to UTC and adjust for next day if end is before start
+    let startUTC = await moment.tz(`${startDate} ${startTime}`, "MM/DD/YYYY HH:mm", timeZone).utc();
+    let endUTC = await moment.tz(`${startDate} ${endTime}`, "MM/DD/YYYY HH:mm", timeZone).utc();
+    if (endUTC.isBefore(startUTC)) {
+      endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
+    }
+  
+    let firstTimespan = {
+      startDate,
+      endDate,
+      startTime: startUTC.format("HH:mm"),
+      endTime: startUTC.clone().endOf('day').format("HH:mm"),
+      timeZone: "UTC",
+      ...daysOfWeek
+    };
+  
+    let timespans = [firstTimespan];
+  
+    if (!endUTC.isSame(startUTC, 'day')) {
+      // If the timespan crosses into the next day
+      let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
+  
+      let secondTimespan = {
+        startDate: startUTC.clone().add(1, 'day').format("MM/DD/YYYY"),
+        endDate: endUTC.format("MM/DD/YYYY"),
+        startTime: "00:00",
+        endTime: endUTC.format("HH:mm"),
+        timeZone: "UTC",
+        ...nextDayShiftedDaysOfWeek
+      };
+  
+      timespans.push(secondTimespan);
+    }
+  
+    return timespans;
+  }
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
@@ -1268,7 +1317,36 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fr = task.friday
                 const sa = task.saturday
                 const su = task.sunday
-                await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
+                const schedules = await convertTimespanToUTC({
+                    startDate:sd,
+                    endDate:ed,
+                    startTime:st,
+                    endTime:et,
+                    timeZone:zo,
+                    monday:mo,
+                    tuesday:tu,
+                    wednesday:we,
+                    thursday:th,
+                    friday:fr,
+                    saturday:sa,
+                    sunday:su
+                  })
+                let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
+                for (const schedule of schedules) {
+                    const sdS = schedule.startDate;
+                    const edS = schedule.endDate;
+                    const stS = schedule.startTime;
+                    const etS = schedule.endTime;
+                    const itS = schedule.interval
+                    const moS = schedule.monday
+                    const tuS = schedule.tuesday
+                    const weS = schedule.wednesday
+                    const thS = schedule.thursday
+                    const frS = schedule.friday
+                    const saS = schedule.saturday
+                    const suS = schedule.sunday
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS)
+                }
             }
 
 
