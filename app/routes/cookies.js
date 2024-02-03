@@ -904,10 +904,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let origUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone);
     let startUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
     let endUTC = await moment.tz(`${endDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
-    if (moment(endDate).isBefore(endUTC)) {
-      
-      endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
-    }
+
 
     console.log("startUTC", startUTC);
     console.log("origUTC", origUTC);
@@ -923,7 +920,12 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       timeZone: "UTC",
       ...daysOfWeek
     };
-  
+
+    if (moment(endDate).isBefore(endUTC)) {
+      
+        endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
+    }
+    
     let timespans = [firstTimespan];
   
     if (!endUTC.isSame(startUTC, 'day')) {
