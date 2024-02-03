@@ -10,6 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const exec = promisify(require('child_process').exec);
 const axios = require('axios');
+const moment = require('moment-timezone')
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -40,7 +41,7 @@ app.use(async (req, res, next) => {
         try {
             const privateKey = await getPrivateKey();
             let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses);
+            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, moment);
             app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');

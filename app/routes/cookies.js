@@ -866,7 +866,7 @@ async function createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su
     }).promise();
 }
 
-async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS){
+async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, dynamodb){
     console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS)
     const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
     return await dynamodb.put({
@@ -888,7 +888,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     };
   }
   
-  async function convertTimespanToUTC(options) {
+  async function convertTimespanToUTC(options, dynamodb, moment) {
     const {
       startDate,
       endDate,
@@ -935,7 +935,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     return timespans;
   }
 
-async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
+async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, moment){
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
@@ -1329,7 +1329,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     thursday:th,
                     friday:fr,
                     saturday:sa,
-                    sunday:su
+                    sunday:su, 
+                    dynamodb, 
+                    moment
                   })
                 let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
                 for (const schedule of schedules) {
@@ -1345,7 +1347,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const frS = schedule.friday
                     const saS = schedule.saturday
                     const suS = schedule.sunday
-                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS)
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, dynamodb)
                 }
             }
 
