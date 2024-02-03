@@ -1335,10 +1335,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const sa = task.saturday
                 const su = task.sunday
                 const schedules = await convertTimespanToUTC({
-                    startDate:sd,
-                    endDate:ed,
-                    startTime:st,
-                    endTime:et,
+                    startDate:sDate,
+                    endDate:eDate,
+                    startTime:task.startTime,
+                    endTime:task.endTime,
                     timeZone:zo,
                     monday:mo,
                     tuesday:tu,
