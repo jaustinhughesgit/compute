@@ -1346,12 +1346,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     thursday:th,
                     friday:fr,
                     saturday:sa,
-                    sunday:su, 
-                    dynamodb, 
-                    moment
+                    sunday:su
                   }
                   console.log("taskJSON",taskJSON)
-                const schedules = await convertTimespanToUTC(taskJSON)
+                const schedules = await convertTimespanToUTC(taskJSON, dynamodb)
                 console.log("schedules",schedules)
                 let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
                 for (const schedule of schedules) {
