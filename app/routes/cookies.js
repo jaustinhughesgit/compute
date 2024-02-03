@@ -909,6 +909,9 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
 
+    console.log("startUTC", startUTC);
+    console.log("origUTC", origUTC);
+
     if (!startUTC.isSame(origUTC, 'day')) {
         startUTC.add(1, 'day'); 
         endUTC.add(1, 'day'); 
