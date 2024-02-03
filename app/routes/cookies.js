@@ -890,7 +890,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     };
   }
   
-  async function convertTimespanToUTC(options, dynamodb) {
+  async function convertTimespanToUTC(options) {
     const {
       startDate,
       endDate,
@@ -907,11 +907,11 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
   
-    let firstTimespan = {
+    let firstTimespan = await {
       startDate,
       endDate,
-      startTime: startUTC.format("HH:mm"),
-      endTime: startUTC.clone().endOf('day').format("HH:mm"),
+      startTime: await startUTC.format("HH:mm"),
+      endTime: await startUTC.clone().endOf('day').format("HH:mm"),
       timeZone: "UTC",
       ...daysOfWeek
     };
@@ -919,14 +919,15 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let timespans = [firstTimespan];
   
     if (!endUTC.isSame(startUTC, 'day')) {
+        console.log("NOT SAME DAY")
       // If the timespan crosses into the next day
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
   
-      let secondTimespan = {
-        startDate: startUTC.clone().add(1, 'day').format("YYYY-MM-DD"),
-        endDate: endUTC.format("YYYY-MM-DD"),
+      let secondTimespan = await {
+        startDate: await startUTC.clone().add(1, 'day').format("YYYY-MM-DD"),
+        endDate: await endUTC.format("YYYY-MM-DD"),
         startTime: "00:00",
-        endTime: endUTC.format("HH:mm"),
+        endTime: await endUTC.format("HH:mm"),
         timeZone: "UTC",
         ...nextDayShiftedDaysOfWeek
       };
@@ -1349,7 +1350,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     sunday:su
                   }
                   console.log("taskJSON",taskJSON)
-                const schedules = await convertTimespanToUTC(taskJSON, dynamodb)
+                const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
                 let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
                 for (const schedule of schedules) {
