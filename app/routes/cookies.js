@@ -921,7 +921,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
         if (sOrigUTC.format("YYYY-MM-DD") != startUTC.format("YYYY-MM-DD")) {
             firstTimespan = await {
-            startDate: startUTC.add(1, 'day').format("YYYY-MM-DD"),
+            startDate: startUTC.format("YYYY-MM-DD"),
             endDate: endUTC.format("YYYY-MM-DD"),
             startTime: await startUTC.format("HH:mm"),
             endTime: await startUTC.clone().endOf('day').format("HH:mm"),
@@ -952,7 +952,6 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
-        startUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
         endUTC.clone().add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
 
