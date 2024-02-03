@@ -1305,16 +1305,19 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 mainObj = {"alert":"success"}
             } else if (action == "createTask"){
                 const task = requestBody.body;
+                console.log(task);
             let sDate = new Date(task.startDate + 'T00:00:00Z')
             let sDateSeconds = sDate.getTime() / 1000;
 
             let eDate = new Date(task.endDate + 'T00:00:00Z')
             let eDateSeconds = Math.floor(eDate.getTime() / 1000);
 
-            const [sHours, sMinutes] = task.startTime.split(':').map(Number);
+            let ST = task.startTime
+            const [sHours, sMinutes] = ST.split(':').map(Number);
             const sSeconds = (sHours * 3600) + (sMinutes * 60); 
 
-            const [eHours, eMinutes] = task.endTime.split(':').map(Number);
+            let ET = task.endTime
+            const [eHours, eMinutes] = ET.split(':').map(Number);
             const eSeconds = (eHours * 3600) + (eMinutes * 60); 
 
                 const en = reqPath.split("/")[3];
