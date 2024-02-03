@@ -924,7 +924,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
             startDate: startUTC.format("YYYY-MM-DD"),
             endDate: endUTC.format("YYYY-MM-DD"),
             startTime: await startUTC.format("HH:mm"),
-            endTime: await startUTC.clone().endOf('day').format("HH:mm"),
+            endTime: await endUTC.format("HH:mm"),
             timeZone: "UTC",
             ...daysOfWeek
             };
@@ -933,7 +933,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
                 startDate: startUTC.format("YYYY-MM-DD"),
                 endDate: eOrigUTC.format("YYYY-MM-DD"),
                 startTime: await startUTC.format("HH:mm"),
-                endTime: await startUTC.clone().endOf('day').format("HH:mm"),
+                endTime: await endUTC.clone().endOf('day').format("HH:mm"),
                 timeZone: "UTC",
                 ...daysOfWeek
                 };
@@ -958,6 +958,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let timespans = [firstTimespan];
   
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
+        if (sOrigUTC.format("YYYY-MM-DD") == startUTC.format("YYYY-MM-DD")) {
         console.log("NOT SAME DAY")
       // If the timespan crosses into the next day
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
@@ -972,6 +973,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       };
   
       timespans.push(secondTimespan);
+    }
     }
   
     return timespans;
