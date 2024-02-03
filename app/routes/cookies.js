@@ -2,6 +2,7 @@ var express = require('express');
 var router = express.Router();
 const AWS = require('aws-sdk');
 var router = express.Router();
+const moment = require('moment-timezone')
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 let convertCounter = 0
 let isPublic = true
@@ -888,7 +889,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     };
   }
   
-  async function convertTimespanToUTC(options, dynamodb, moment) {
+  async function convertTimespanToUTC(options, dynamodb) {
     const {
       startDate,
       endDate,
@@ -935,7 +936,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     return timespans;
   }
 
-async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, moment){
+async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
