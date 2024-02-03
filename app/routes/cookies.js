@@ -965,24 +965,6 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
 
 
-    //
-    //
-    //
-    //
-    //
-    //
-    //shiftDaysOfWeekForward needs some work. there are like three scenarios. If start and end are next day, if end is next day, if start and end are not next day.
-    //
-    //
-    //
-    //
-    //
-    //
-    //
-
-
-
-
 
   
       let secondTimespan = await {
