@@ -904,6 +904,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let startUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
     let endUTC = await moment.tz(`${startDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
     if (endUTC.isBefore(startUTC)) {
+      startUTC.add(1, 'day'); 
       endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
   
@@ -1349,6 +1350,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     saturday:sa,
                     sunday:su
                   }
+                  
                   console.log("taskJSON",taskJSON)
                 const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
