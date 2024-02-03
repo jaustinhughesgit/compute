@@ -919,15 +919,25 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     
     let firstTimespan
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
-
-        firstTimespan = await {
-        startDate: startUTC.format("YYYY-MM-DD"),
-        endDate: endUTC.format("YYYY-MM-DD"),
-        startTime: await startUTC.format("HH:mm"),
-        endTime: await startUTC.clone().endOf('day').format("HH:mm"),
-        timeZone: "UTC",
-        ...daysOfWeek
-        };
+        if (sOrigUTC.format("YYYY-MM-DD") != startUTC.format("YYYY-MM-DD")) {
+            firstTimespan = await {
+            startDate: startUTC.add(1, 'day').format("YYYY-MM-DD"),
+            endDate: endUTC.format("YYYY-MM-DD"),
+            startTime: await startUTC.format("HH:mm"),
+            endTime: await startUTC.clone().endOf('day').format("HH:mm"),
+            timeZone: "UTC",
+            ...daysOfWeek
+            };
+        } else {
+            firstTimespan = await {
+                startDate: startUTC.format("YYYY-MM-DD"),
+                endDate: endUTC.format("YYYY-MM-DD"),
+                startTime: await startUTC.format("HH:mm"),
+                endTime: await startUTC.clone().endOf('day').format("HH:mm"),
+                timeZone: "UTC",
+                ...daysOfWeek
+                };
+        }
     } else {
         firstTimespan = await {
         startDate: startUTC.format("YYYY-MM-DD"),
