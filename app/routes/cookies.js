@@ -920,15 +920,15 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let firstTimespan
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
         if (sOrigUTC.format("YYYY-MM-DD") != startUTC.format("YYYY-MM-DD")) {
+            let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
             firstTimespan = await {
             startDate: startUTC.format("YYYY-MM-DD"),
             endDate: endUTC.format("YYYY-MM-DD"),
             startTime: await startUTC.format("HH:mm"),
             endTime: await endUTC.format("HH:mm"),
             timeZone: "UTC",
-            ...daysOfWeek
+            ...nextDayShiftedDaysOfWeek
             };
-            let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
         } else {
             firstTimespan = await {
                 startDate: startUTC.format("YYYY-MM-DD"),
