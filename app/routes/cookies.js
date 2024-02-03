@@ -911,8 +911,13 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
     console.log("startUTC", startUTC);
     console.log("origUTC", origUTC);
+    console.log(startUTC.isSame(origUTC, 'day'))
+    console.log("startUTC.format(YYYY-MM-DD)", startUTC.format("YYYY-MM-DD"));
+    console.log("origUTC.format(YYYY-MM-DD)", origUTC.format("YYYY-MM-DD"));
 
-    if (!startUTC.isSame(origUTC, 'day')) {
+
+
+    if (startUTC.format("YYYY-MM-DD") != origUTC.format("YYYY-MM-DD")) {
         startUTC.add(1, 'day'); 
         endUTC.add(1, 'day'); 
     }
