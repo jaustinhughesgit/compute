@@ -916,12 +916,12 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("origUTC.format(YYYY-MM-DD)", origUTC.format("YYYY-MM-DD"));
 
 
-
+/*
     if (startUTC.format("YYYY-MM-DD") != origUTC.format("YYYY-MM-DD")) {
         startUTC.add(1, 'day'); 
         endUTC.add(1, 'day'); 
     }
-  
+*/  
     let firstTimespan = await {
       startDate: startUTC.format("YYYY-MM-DD"),
       endDate: endUTC.format("YYYY-MM-DD"),
