@@ -901,16 +901,17 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     } = options;
   
     // Convert start and end times to UTC and adjust for next day if end is before start
-    let origUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone);
+    let sOrigUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone);
     let startUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
+    let eOrigUTC = await moment.tz(`${endDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone);
     let endUTC = await moment.tz(`${endDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
 
 
     console.log("startUTC", startUTC);
-    console.log("origUTC", origUTC);
-    console.log(startUTC.isSame(origUTC, 'day'))
+    console.log("origUTC", sOrigUTC);
+    console.log(startUTC.isSame(sOrigUTC, 'day'))
     console.log("startUTC.format(YYYY-MM-DD)", startUTC.format("YYYY-MM-DD"));
-    console.log("origUTC.format(YYYY-MM-DD)", origUTC.format("YYYY-MM-DD"));
+    console.log("origUTC.format(YYYY-MM-DD)", sOrigUTC.format("YYYY-MM-DD"));
 
     let firstTimespan = await {
       startDate: startUTC.format("YYYY-MM-DD"),
@@ -921,11 +922,14 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       ...daysOfWeek
     };
 
-    if (moment(endDate).isBefore(endUTC)) {
-      
+    if (sOrigUTC.isBefore(startUTC)) {
+        startUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
+    }
+
+    if (eOrigUTC.isBefore(endUTC)) {
         endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
-    
+
     let timespans = [firstTimespan];
   
     if (!endUTC.isSame(startUTC, 'day')) {
@@ -934,7 +938,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
   
       let secondTimespan = await {
-        startDate: await startUTC.clone().add(1, 'day').format("YYYY-MM-DD"),
+        startDate: await startUTC.format("YYYY-MM-DD"),
         endDate: await endUTC.format("YYYY-MM-DD"),
         startTime: "00:00",
         endTime: await endUTC.format("HH:mm"),
