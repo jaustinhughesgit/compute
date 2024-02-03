@@ -1305,11 +1305,23 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 mainObj = {"alert":"success"}
             } else if (action == "createTask"){
                 const task = requestBody.body;
+            let sDate = new Date(task.startDate + 'T00:00:00Z')
+            let sDateSeconds = sDate.getTime() / 1000;
+
+            let eDate = new Date(task.endDate + 'T00:00:00Z')
+            let eDateSeconds = Math.floor(eDate.getTime() / 1000);
+
+            const [sHours, sMinutes] = task.startTime.split(':').map(Number);
+            const sSeconds = (sHours * 3600) + (sMinutes * 60); 
+
+            const [eHours, eMinutes] = task.endTime.split(':').map(Number);
+            const eSeconds = (eHours * 3600) + (eMinutes * 60); 
+
                 const en = reqPath.split("/")[3];
-                const sd = task.startDate;
-                const ed = task.endDate;
-                const st = task.startTime;
-                const et = task.endTime;
+                const sd = sDateSeconds;
+                const ed = eDateSeconds;
+                const st = sSeconds;
+                const et = eSeconds;
                 const zo = task.zone;
                 const it = task.interval
                 const mo = task.monday
@@ -1337,11 +1349,20 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                   })
                 let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
                 for (const schedule of schedules) {
-                    const sdS = schedule.startDate;
-                    const edS = schedule.endDate;
-                    const stS = schedule.startTime;
-                    const etS = schedule.endTime;
-                    const itS = schedule.interval
+                    let sDateS = new Date(schedule.startDate + 'T00:00:00Z')
+                    let sDateSecondsS = sDateS.getTime() / 1000;
+                    let eDateS = new Date(schedule.endDate + 'T00:00:00Z')
+                    let eDateSecondsS = Math.floor(eDateS.getTime() / 1000);
+                    const [sHoursS, sMinutesS] = schedule.startTime.split(':').map(Number);
+                    const sSecondsS = (sHoursS * 3600) + (sMinutesS * 60); 
+                    const [eHoursS, eMinutesS] = schedule.endTime.split(':').map(Number);
+                    const eSecondsS = (eHoursS * 3600) + (eMinutesS * 60); 
+
+                    const sdS = sDateSecondsS;
+                    const edS = eDateSecondsS;
+                    const stS = sSecondsS;
+                    const etS = eSecondsS;
+                    const itS = task.interval
                     const moS = schedule.monday
                     const tuS = schedule.tuesday
                     const weS = schedule.wednesday
