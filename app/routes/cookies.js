@@ -927,7 +927,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     }
 
     if (eOrigUTC.isBefore(endUTC)) {
-        endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
+        endUTC.clone().add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
 
     let timespans = [firstTimespan];
