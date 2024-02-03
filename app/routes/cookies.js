@@ -928,6 +928,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
             timeZone: "UTC",
             ...daysOfWeek
             };
+            let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
         } else {
             firstTimespan = await {
                 startDate: startUTC.format("YYYY-MM-DD"),
@@ -962,6 +963,27 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
         console.log("NOT SAME DAY")
       // If the timespan crosses into the next day
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
+
+
+    //
+    //
+    //
+    //
+    //
+    //
+    //shiftDaysOfWeekForward needs some work. there are like three scenarios. If start and end are next day, if end is next day, if start and end are not next day.
+    //
+    //
+    //
+    //
+    //
+    //
+    //
+
+
+
+
+
   
       let secondTimespan = await {
         startDate: await startUTC.format("YYYY-MM-DD"),
