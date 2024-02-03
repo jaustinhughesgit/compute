@@ -863,7 +863,7 @@ async function createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su
     const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
     await dynamodb.put({
         TableName: 'tasks',
-        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:+mo, tu:+tu, we:+we, th:+th, fr:+fr, sa:+sa, su:+su}
     }).promise();
     return ti
 }
@@ -873,7 +873,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
     const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'schedules',
-        Item: { si:si.toString(), ti:ti.toString(), url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:moS, tu:tuS, we:weS, th:thS, fr:frS, sa:saS, su:suS}
+        Item: { si:si.toString(), ti:ti.toString(), url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:+moS, tu:+tuS, we:+weS, th:+thS, fr:+frS, sa:+saS, su:+suS}
     }).promise();
 }
 
@@ -1350,20 +1350,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     sunday:su
                   }
                   console.log("taskJSON",taskJSON)
-                const schedules = await convertTimespanToUTC({
-                    startDate: "2024-2-2",
-                    endDate: "2024-3-2",
-                    startTime: "17:00",
-                    endTime: "22:00",
-                    timeZone: "America/New_York",
-                    monday: true,
-                    tuesday: false,
-                    wednesday: true,
-                    thursday: false,
-                    friday: true,
-                    saturday: false,
-                    sunday: false,
-                  })
+                const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
                 let ti = await createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb)
                 for (const schedule of schedules) {
