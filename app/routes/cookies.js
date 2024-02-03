@@ -901,8 +901,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     } = options;
   
     // Convert start and end times to UTC and adjust for next day if end is before start
-    let startUTC = await moment.tz(`${startDate} ${startTime}`, "MM/DD/YYYY HH:mm", timeZone).utc();
-    let endUTC = await moment.tz(`${startDate} ${endTime}`, "MM/DD/YYYY HH:mm", timeZone).utc();
+    let startUTC = await moment.tz(`${startDate} ${startTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
+    let endUTC = await moment.tz(`${startDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
     if (endUTC.isBefore(startUTC)) {
       endUTC.add(1, 'day'); // Adjusts end time to next day if it ends before it starts (due to time conversion)
     }
@@ -923,8 +923,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
   
       let secondTimespan = {
-        startDate: startUTC.clone().add(1, 'day').format("MM/DD/YYYY"),
-        endDate: endUTC.format("MM/DD/YYYY"),
+        startDate: startUTC.clone().add(1, 'day').format("YYYY-MM-DD"),
+        endDate: endUTC.format("YYYY-MM-DD"),
         startTime: "00:00",
         endTime: endUTC.format("HH:mm"),
         timeZone: "UTC",
@@ -1335,8 +1335,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const sa = task.saturday
                 const su = task.sunday
                 const schedules = await convertTimespanToUTC({
-                    startDate:sDate,
-                    endDate:eDate,
+                    startDate:task.startDate,
+                    endDate:task.endDate,
                     startTime:task.startTime,
                     endTime:task.endTime,
                     timeZone:zo,
