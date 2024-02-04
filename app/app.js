@@ -109,6 +109,7 @@ async function isValid(req, res, data) {
     console.log("validating data", data)
     return data
 }
+
 app.all("/eb0", async (req, res, next) => {
 
     // Create an EventBridge client
@@ -187,8 +188,8 @@ app.all("/eb0", async (req, res, next) => {
     }
 
     // Execute the main function
-    main().catch(err => console.error(err));
-
+    await main().catch(err => console.error(err));
+    res.send("Success")
 })
 
 app.all('/auth/*', 
