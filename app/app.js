@@ -115,7 +115,7 @@ app.all("/eb0", async (req, res, next) => {
     // Instantiate the EventBridge service object
     var eventBridge = new AWS.EventBridge();
 
-    function createScheduledEvent() {
+    async function createScheduledEvent() {
         // Parameters for the EventBridge rule
         var params = {
             Name: 'testSchedule',
@@ -126,7 +126,7 @@ app.all("/eb0", async (req, res, next) => {
         };
 
         // Create or update the rule
-        eventBridge.putRule(params, function(err, data) {
+        await eventBridge.putRule(params, async function(err, data) {
             if (err) {
                 console.log("Error", err);
             } else {
@@ -143,7 +143,7 @@ app.all("/eb0", async (req, res, next) => {
                     ]
                 };
                 // Add target to the rule
-                eventBridge.putTargets(targetParams, function(err, data) {
+                await eventBridge.putTargets(targetParams, function(err, data) {
                     if (err) {
                         console.log("Error", err);
                     } else {
