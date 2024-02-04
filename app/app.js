@@ -132,7 +132,8 @@ const schedulerClient = new SchedulerClient({ region: "us-east-1" }); // Adjust 
             Timezone: "UTC",
             FixedStartTime: "2024-02-05T08:10Z", // Schedule start time in ISO 8601
             FixedEndTime: "2025-02-05T08:10Z", // Schedule end time in ISO 8601
-            State: "ENABLED", // Enable the schedule
+            State: "ENABLED",
+            FlexibleTimeWindow: "OFF"
         });
 
         try {
