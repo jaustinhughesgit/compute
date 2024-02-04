@@ -10,7 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const exec = promisify(require('child_process').exec);
 const axios = require('axios');
-const { SchedulerClient, CreateScheduleCommand } = require("@aws-sdk/client-scheduler");
+import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler"; // ES Modules import
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -113,37 +113,48 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
-
-
-
-// Create a new instance of the Scheduler client
-const schedulerClient = new SchedulerClient({ region: "us-east-1" }); // Adjust the region as necessary
-
-    async function createSchedule() {
-        const command = new CreateScheduleCommand({
-            Name: "testSchedule",
-            ScheduleExpression: "cron(11 08 * * ? *)", // Your cron expression for the schedule
-            Targets: [{
-                Arn: `arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp`, // Lambda function ARN
-                Id: "1", // A unique identifier for the target
-                Input: JSON.stringify({ "value": "Hello World" }), // The payload to send to the Lambda function
-                RoleArn: `arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d` // IAM role ARN with permissions to invoke the Lambda
-            }],
-            Timezone: "UTC",
-            FixedStartTime: "2024-02-05T08:10Z", // Schedule start time in ISO 8601
-            FixedEndTime: "2025-02-05T08:10Z", // Schedule end time in ISO 8601
-            State: "ENABLED",
-            FlexibleTimeWindow: "0"
-        });
-
+    // const { SchedulerClient, CreateScheduleCommand } = require("@aws-sdk/client-scheduler"); // CommonJS import
+    
+    // Configuration for the AWS SchedulerClient (Add your configuration here)
+    const config = {
+        region: "us-east-1", // Replace with your AWS region
+        // credentials, etc.
+    };
+    
+    // Instantiate the SchedulerClient with the config
+    const client = new SchedulerClient(config);
+    
+    // Define the input for the CreateScheduleCommand
+    const input = {
+        Name: "testSchedule",
+        GroupName: "testScheduleGroup",
+        ScheduleExpression: "cron(10 08 * * ? *)", // Cron expression
+        ScheduleExpressionTimezone: "UTC",
+        StartDate: new Date("2024-02-05T08:10:00Z"),
+        EndDate: new Date("2025-02-05T08:10:00Z"),
+        State: "ENABLED",
+        Target: {
+            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", // Replace with your actual Lambda ARN
+            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d", // Replace with your actual role ARN
+            Input: JSON.stringify({value: "Hello World"}),
+        },
+        // Since FlexibleTimeWindow is off, we do not include it in this input
+    };
+    
+    // Create the command with the provided input
+    const command = new CreateScheduleCommand(input);
+    
+    // Function to send the command to create the schedule
+    const createSchedule = async () => {
         try {
-            const data = await schedulerClient.send(command);
-            console.log("Schedule created successfully:", data.ScheduleArn);
+            const response = await client.send(command);
+            console.log("Schedule created successfully:", response.ScheduleArn);
         } catch (error) {
             console.error("Error creating schedule:", error);
         }
-    }
-
+    };
+    
+    // Call the function to create the schedule
     await createSchedule();
 
 
