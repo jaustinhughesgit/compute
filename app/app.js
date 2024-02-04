@@ -109,6 +109,87 @@ async function isValid(req, res, data) {
     console.log("validating data", data)
     return data
 }
+app.all("/eb0", async (req, res, next) => {
+
+    // Create an EventBridge client
+    const eventbridge = new AWS.EventBridge();
+
+    // Asynchronous function to create an event bus
+    async function createEventBus(hour) {
+        const eventBusName = hour.toString().padStart(2, '0');
+        const params = {
+            Name: eventBusName,
+        };
+
+        try {
+            const data = await eventbridge.createEventBus(params).promise();
+            console.log(`Event bus ${eventBusName} created successfully:`, data.EventBusArn);
+            // Create rules within this event bus after it's been created
+            for (let minute = 0; minute < 1; minute++) {
+                await createRule(eventBusName, hour, minute);
+            }
+        } catch (err) {
+            console.log(`Error creating event bus ${eventBusName}:`, err);
+        }
+    }
+
+    // Asynchronous function to create a rule within a specific event bus
+    async function createRule(eventBusName, hour, minute) {
+        const ruleName = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
+        const cronExpression = `cron(${minute} ${hour} * * ? *)`; // Cron expression for daily execution at HH:MM UTC
+
+        const ruleParams = {
+            Name: ruleName,
+            ScheduleExpression: cronExpression,
+            State: 'DISABLED', // Initial state of the rule
+            Description: `Rule that executes every day at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} UTC and triggers a Lambda function`,
+            EventBusName: eventBusName, // Specify the event bus for the rule
+        };
+
+        try {
+            const data = await eventbridge.putRule(ruleParams).promise();
+            console.log(`Rule ${ruleName} created successfully in event bus ${eventBusName}:`, data.RuleArn);
+            // After creating the rule, define and add the target
+            await addTargetToRule(eventBusName, ruleName, hour, minute);
+        } catch (err) {
+            console.log(`Error creating rule ${ruleName} in event bus ${eventBusName}:`, err);
+        }
+    }
+
+    // Asynchronous function to add a target to a rule
+    async function addTargetToRule(eventBusName, ruleName, hour, minute) {
+        const targetParams = {
+            Rule: ruleName,
+            EventBusName: eventBusName,
+            Targets: [
+                {
+                    Id: `TargetLambdaFunction${hour}${minute}`,
+                    Arn: 'arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp',
+                    RoleArn: 'arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d',
+                    Input: JSON.stringify({"automate":true}),
+                }
+            ]
+        };
+
+        try {
+            const data = await eventbridge.putTargets(targetParams).promise();
+            console.log(`Target added successfully to ${ruleName} in event bus ${eventBusName}:`, data);
+        } catch (err) {
+            console.log(`Error adding target to rule ${ruleName} in event bus ${eventBusName}:`, err);
+        }
+    }
+
+    // Main function to orchestrate the creation of event buses and rules
+    async function main() {
+        for (let hour = 0; hour < 1; hour++) {
+            await createEventBus(hour);
+        }
+    }
+
+    // Execute the main function
+    main().catch(err => console.error(err));
+
+})
 
 app.all('/auth/*', 
     async (req, res, next) => {
@@ -861,12 +942,12 @@ const automate = async (url) => {
 
 
 
-/*
+
 const getEventsAndTrigger = async () => {
 
     const nowUtc = moment.utc();
 
-    const unixTimestampSeconds = nowUtc.unix();
+    const nowUnix = nowUtc.unix();
 
 
 
@@ -912,7 +993,7 @@ const getEventsAndTrigger = async () => {
       console.error('Error querying DynamoDB:', error);
     }
   };
-  */
+  
 
 
 
@@ -933,8 +1014,8 @@ module.exports.lambdaHandler = async (event, context) => {
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     } else if (event.automate){
         console.log("automate is true")
-        await automate("https://compute.1var.com/auth/");
-        //await getEventsAndTrigger();
+        //await automate("https://compute.1var.com/auth/");
+        await getEventsAndTrigger();
         return {"automate":"done"}
     } else {
         // Otherwise, it's an HTTP request, handle with Express
