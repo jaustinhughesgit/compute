@@ -118,7 +118,7 @@ app.all("/eb0", async (req, res, next) => {
     async function createRule(hour, minute) {
         const ruleName = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
         const cronExpression = `cron(${minute} ${hour} * * ? *)`; // Cron expression for daily execution at HH:MM UTC
-
+    
         const ruleParams = {
             Name: ruleName,
             ScheduleExpression: cronExpression,
@@ -126,7 +126,7 @@ app.all("/eb0", async (req, res, next) => {
             Description: `Rule that executes every day at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} UTC and triggers a Lambda function`,
             // EventBusName is omitted to use the default event bus
         };
-
+    
         try {
             const data = await eventbridge.putRule(ruleParams).promise();
             console.log(`Rule ${ruleName} created successfully:`, data.RuleArn);
@@ -136,7 +136,7 @@ app.all("/eb0", async (req, res, next) => {
             console.log(`Error creating rule ${ruleName}:`, err);
         }
     }
-
+    
     // Asynchronous function to add a target to a rule
     async function addTargetToRule(ruleName, hour, minute) {
         const targetParams = {
@@ -151,7 +151,7 @@ app.all("/eb0", async (req, res, next) => {
                 }
             ]
         };
-
+    
         try {
             const data = await eventbridge.putTargets(targetParams).promise();
             console.log(`Target added successfully to ${ruleName}:`, data);
@@ -159,11 +159,11 @@ app.all("/eb0", async (req, res, next) => {
             console.log(`Error adding target to rule ${ruleName}:`, err);
         }
     }
-
+    
     // Main function to orchestrate the creation of rules
     async function main() {
         for (let hour = 0; hour < 1; hour++) {
-            for (let minute = 0; minute < 1; minute++) {
+            for (let minute = 0; minute < 5; minute += 5) { // Increment minute by 5
                 await createRule(hour, minute);
             }
         }
