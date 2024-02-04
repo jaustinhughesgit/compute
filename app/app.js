@@ -942,7 +942,7 @@ const automate = async (url) => {
 
 
 
-
+/*
 const getEventsAndTrigger = async () => {
 
     const nowUtc = moment.utc();
@@ -993,7 +993,7 @@ const getEventsAndTrigger = async () => {
       console.error('Error querying DynamoDB:', error);
     }
   };
-  
+  */
 
 
 
@@ -1015,7 +1015,7 @@ module.exports.lambdaHandler = async (event, context) => {
     } else if (event.automate){
         console.log("automate is true")
         //await automate("https://compute.1var.com/auth/");
-        await getEventsAndTrigger();
+        //await getEventsAndTrigger();
         return {"automate":"done"}
     } else {
         // Otherwise, it's an HTTP request, handle with Express
