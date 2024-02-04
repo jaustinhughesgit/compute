@@ -111,72 +111,7 @@ async function isValid(req, res, data) {
 }
 
 app.all("/eb0", async (req, res, next) => {
-
-    const eventbridge = new AWS.EventBridge();
-
-    // Asynchronous function to create a rule within the default event bus
-    async function createRule(hour, minute) {
-        const ruleName = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
-        const cronExpression = `cron(${minute} ${hour} * * ? *)`; // Cron expression for daily execution at HH:MM UTC
-    
-        const ruleParams = {
-            Name: ruleName,
-            ScheduleExpression: cronExpression,
-            State: 'DISABLED', // Initial state of the rule
-            Description: `Rule that executes every day at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} UTC and triggers a Lambda function`,
-            // EventBusName is omitted to use the default event bus
-        };
-    
-        try {
-            const data = await eventbridge.putRule(ruleParams).promise();
-            console.log(`Rule ${ruleName} created successfully:`, data.RuleArn);
-            // After creating the rule, define and add the target
-            await addTargetToRule(ruleName, hour, minute);
-        } catch (err) {
-            console.log(`Error creating rule ${ruleName}:`, err);
-        }
-    }
-    
-    // Asynchronous function to add a target to a rule
-    async function addTargetToRule(ruleName, hour, minute) {
-        const targetParams = {
-            Rule: ruleName,
-            // EventBusName parameter is not needed for the default event bus
-            Targets: [
-                {
-                    Id: `TargetLambdaFunction${hour}${minute}`,
-                    Arn: 'arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp',
-                    Input: JSON.stringify({"automate":true}),
-                }
-            ]
-        };
-    
-        try {
-            const data = await eventbridge.putTargets(targetParams).promise();
-            console.log(`Target added successfully to ${ruleName}:`, data);
-        } catch (err) {
-            console.log(`Error adding target to rule ${ruleName}:`, err);
-        }
-    }
-
-    function delay(ms) {
-        return new Promise(resolve => setTimeout(resolve, ms));
-    }
-    
-    // Main function to orchestrate the creation of rules
-    async function main() {
-        for (let hour = 0; hour < 24; hour++) {
-            for (let minute = 0; minute < 60; minute += 5) { // Increment minute by 5
-                await createRule(hour, minute);
-                await delay(100);
-            }
-        }
-    }
-
-
-    // Execute the main function
-    await main().catch(err => console.error(err));
-    res.send("Success")
+     //enable and disable schedules based on database
 })
 
 app.all('/auth/*', 
