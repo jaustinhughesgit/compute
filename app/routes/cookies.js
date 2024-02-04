@@ -858,22 +858,21 @@ async function verifyPath(splitPath, verifications, dynamodb){
     return verified
 }
 
-async function createTask(en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, dynamodb){
-    console.log("createTask", en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su)
-    const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+async function createTask(ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, ex, dynamodb){
+    console.log("createTask", ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, ex)
     await dynamodb.put({
         TableName: 'tasks',
-        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su}
+        Item: { ti:ti.toString(), url:en, sd:sd, ed:ed, st:st, et:et, zo:zo, it:it, mo:mo, tu:tu, we:we, th:th, fr:fr, sa:sa, su:su, ex:ex}
     }).promise();
     return ti
 }
 
-async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, dynamodb){
-    console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS)
+async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex, dynamodb){
+    console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex )
     const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
     return await dynamodb.put({
         TableName: 'schedules',
-        Item: { si:si.toString(), ti:ti.toString(), url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:moS, tu:tuS, we:weS, th:thS, fr:frS, sa:saS, su:suS}
+        Item: { si:si.toString(), ti:ti.toString(), url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:moS, tu:tuS, we:weS, th:thS, fr:frS, sa:saS, su:suS, ex:ex}
     }).promise();
 }
 
@@ -914,6 +913,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("sOrigUTC.format(YYYY-MM-DD)", sOrigUTC.format("YYYY-MM-DD"));
     console.log("endUTC.format(YYYY-MM-DD)", endUTC.format("YYYY-MM-DD"));
     console.log("eOrigUTC.format(YYYY-MM-DD)", eOrigUTC.format("YYYY-MM-DD"));
+
+    console.log("startDate:",startDate,"startTime:",startTime,"")
 
 
     
@@ -1398,7 +1399,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                   console.log("taskJSON",taskJSON)
                 const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
-                let ti = await createTask(en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, dynamodb)
+                //This needs to expire on unix timestamp UTC not ETC
+                const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+                let ex = 0
                 for (const schedule of schedules) {
                     let sDateS = new Date(schedule.startDate + 'T00:00:00Z')
                     let sDateSecondsS = sDateS.getTime() / 1000;
@@ -1421,7 +1424,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const frS = schedule.friday
                     const saS = schedule.saturday
                     const suS = schedule.sunday
-                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, dynamodb)
+                    ex = eDateSecondsS + eSecondsS
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, dynamodb)
+                }
+                if (ex > 0){
+                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
                 }
             }
 
