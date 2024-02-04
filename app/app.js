@@ -112,49 +112,38 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
-    // Instantiate the EventBridge service object
-    var eventBridge = new AWS.EventBridge();
 
-    async function createScheduledEvent() {
-        // Parameters for the EventBridge rule
-        var params = {
-            Name: 'testSchedule',
-            ScheduleExpression: 'cron(11 08 * * ? *)', // Cron expression
-            State: 'ENABLED',
-            Description: 'Cron-based schedule for invoking a Lambda function',
-            RoleArn: 'arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d' // Replace account-id with your AWS account ID
-        };
 
-        // Create or update the rule
-        await eventBridge.putRule(params, async function(err, data) {
-            if (err) {
-                console.log("Error", err);
-            } else {
-                console.log("Success", data.RuleArn);
-                // Parameters for the target
-                var targetParams = {
-                    Rule: 'testSchedule',
-                    Targets: [
-                        {
-                            Id: 'target-id-1', // Unique target ID
-                            Arn: 'arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp', // Replace account-id with your AWS account ID
-                            Input: JSON.stringify({ value: "Hello World" }),
-                        }
-                    ]
-                };
-                // Add target to the rule
-                await eventBridge.putTargets(targetParams, function(err, data) {
-                    if (err) {
-                        console.log("Error", err);
-                    } else {
-                        console.log("Target added", data);
-                    }
-                });
-            }
+
+// Create a new instance of the Scheduler client
+const schedulerClient = new SchedulerClient({ region: "us-east-1" }); // Adjust the region as necessary
+
+    async function createSchedule() {
+        const command = new CreateScheduleCommand({
+            Name: "testSchedule",
+            ScheduleExpression: "cron(11 08 * * ? *)", // Your cron expression for the schedule
+            Targets: [{
+                Arn: `arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp`, // Lambda function ARN
+                Id: "1", // A unique identifier for the target
+                Input: JSON.stringify({ "value": "Hello World" }), // The payload to send to the Lambda function
+                RoleArn: `arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d` // IAM role ARN with permissions to invoke the Lambda
+            }],
+            Timezone: "UTC",
+            FixedStartTime: "2024-02-05T08:10Z", // Schedule start time in ISO 8601
+            FixedEndTime: "2025-02-05T08:10Z", // Schedule end time in ISO 8601
+            State: "ENABLED", // Enable the schedule
         });
+
+        try {
+            const data = await schedulerClient.send(command);
+            console.log("Schedule created successfully:", data.ScheduleArn);
+        } catch (error) {
+            console.error("Error creating schedule:", error);
+        }
     }
 
-    await createScheduledEvent();
+    await createSchedule();
+
 
 
     res.send("Success")
