@@ -146,7 +146,6 @@ app.all("/eb0", async (req, res, next) => {
                 {
                     Id: `TargetLambdaFunction${hour}${minute}`,
                     Arn: 'arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp',
-                    RoleArn: 'arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d',
                     Input: JSON.stringify({"automate":true}),
                 }
             ]
@@ -168,6 +167,8 @@ app.all("/eb0", async (req, res, next) => {
             }
         }
     }
+
+    Error adding target to rule 0000: ValidationException: RoleArn is not supported for target arn:aws:lambda:us-east-1:1234567890:function:compute-ComputeFunction-aBCDEFGHI.
 
     // Execute the main function
     await main().catch(err => console.error(err));
