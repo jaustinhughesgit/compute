@@ -165,10 +165,10 @@ app.all("/eb0", async (req, res, next) => {
     
     // Main function to orchestrate the creation of rules
     async function main() {
-        for (let hour = 1; hour < 24; hour++) {
-            for (let minute = 5; minute < 60; minute += 5) { // Increment minute by 5
+        for (let hour = 0; hour < 24; hour++) {
+            for (let minute = 0; minute < 60; minute += 5) { // Increment minute by 5
                 await createRule(hour, minute);
-                await delay(500);
+                await delay(100);
             }
         }
     }
