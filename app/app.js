@@ -10,7 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const exec = promisify(require('child_process').exec);
 const axios = require('axios');
-import { SchedulerClient, CreateScheduleCommand } from "@aws-sdk/client-scheduler"; // ES Modules import
+const { SchedulerClient, CreateScheduleCommand } = require("@aws-sdk/client-scheduler");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -156,6 +156,8 @@ app.all("/eb0", async (req, res, next) => {
     
     // Call the function to create the schedule
     await createSchedule();
+
+
 
 
 
