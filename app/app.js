@@ -990,6 +990,7 @@ const getEventsAndTrigger = async () => {
 const serverlessHandler = serverless(app);
 
 module.exports.lambdaHandler = async (event, context) => {
+    console.log("=====>EVENT CALLED")
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
