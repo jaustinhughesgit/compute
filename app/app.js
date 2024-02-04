@@ -111,7 +111,53 @@ async function isValid(req, res, data) {
 }
 
 app.all("/eb0", async (req, res, next) => {
-     //enable and disable schedules based on database
+
+    // Instantiate the EventBridge service object
+    var eventBridge = new AWS.EventBridge();
+
+    function createScheduledEvent() {
+        // Parameters for the EventBridge rule
+        var params = {
+            Name: 'testSchedule',
+            ScheduleExpression: 'cron(11 08 * * ? *)', // Cron expression
+            State: 'ENABLED',
+            Description: 'Cron-based schedule for invoking a Lambda function',
+            RoleArn: 'arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d' // Replace account-id with your AWS account ID
+        };
+
+        // Create or update the rule
+        eventBridge.putRule(params, function(err, data) {
+            if (err) {
+                console.log("Error", err);
+            } else {
+                console.log("Success", data.RuleArn);
+                // Parameters for the target
+                var targetParams = {
+                    Rule: 'testSchedule',
+                    Targets: [
+                        {
+                            Id: 'target-id-1', // Unique target ID
+                            Arn: 'arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp', // Replace account-id with your AWS account ID
+                            Input: JSON.stringify({ value: "Hello World" }),
+                        }
+                    ]
+                };
+                // Add target to the rule
+                eventBridge.putTargets(targetParams, function(err, data) {
+                    if (err) {
+                        console.log("Error", err);
+                    } else {
+                        console.log("Target added", data);
+                    }
+                });
+            }
+        });
+    }
+
+    await createScheduledEvent();
+
+
+    res.send("Success")
 })
 
 app.all('/auth/*', 
@@ -925,7 +971,6 @@ const getEventsAndTrigger = async () => {
 const serverlessHandler = serverless(app);
 
 module.exports.lambdaHandler = async (event, context) => {
-    console.log("=====>EVENT CALLED")
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
