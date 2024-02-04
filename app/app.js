@@ -112,30 +112,10 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
-    // Create an EventBridge client
     const eventbridge = new AWS.EventBridge();
 
-    // Asynchronous function to create an event bus
-    async function createEventBus(hour) {
-        const eventBusName = hour.toString().padStart(2, '0');
-        const params = {
-            Name: eventBusName,
-        };
-
-        try {
-            const data = await eventbridge.createEventBus(params).promise();
-            console.log(`Event bus ${eventBusName} created successfully:`, data.EventBusArn);
-            // Create rules within this event bus after it's been created
-            for (let minute = 0; minute < 1; minute++) {
-                await createRule(eventBusName, hour, minute);
-            }
-        } catch (err) {
-            console.log(`Error creating event bus ${eventBusName}:`, err);
-        }
-    }
-
-    // Asynchronous function to create a rule within a specific event bus
-    async function createRule(eventBusName, hour, minute) {
+    // Asynchronous function to create a rule within the default event bus
+    async function createRule(hour, minute) {
         const ruleName = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
         const cronExpression = `cron(${minute} ${hour} * * ? *)`; // Cron expression for daily execution at HH:MM UTC
 
@@ -144,24 +124,24 @@ app.all("/eb0", async (req, res, next) => {
             ScheduleExpression: cronExpression,
             State: 'DISABLED', // Initial state of the rule
             Description: `Rule that executes every day at ${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')} UTC and triggers a Lambda function`,
-            EventBusName: eventBusName, // Specify the event bus for the rule
+            // EventBusName is omitted to use the default event bus
         };
 
         try {
             const data = await eventbridge.putRule(ruleParams).promise();
-            console.log(`Rule ${ruleName} created successfully in event bus ${eventBusName}:`, data.RuleArn);
+            console.log(`Rule ${ruleName} created successfully:`, data.RuleArn);
             // After creating the rule, define and add the target
-            await addTargetToRule(eventBusName, ruleName, hour, minute);
+            await addTargetToRule(ruleName, hour, minute);
         } catch (err) {
-            console.log(`Error creating rule ${ruleName} in event bus ${eventBusName}:`, err);
+            console.log(`Error creating rule ${ruleName}:`, err);
         }
     }
 
     // Asynchronous function to add a target to a rule
-    async function addTargetToRule(eventBusName, ruleName, hour, minute) {
+    async function addTargetToRule(ruleName, hour, minute) {
         const targetParams = {
             Rule: ruleName,
-            EventBusName: eventBusName,
+            // EventBusName parameter is not needed for the default event bus
             Targets: [
                 {
                     Id: `TargetLambdaFunction${hour}${minute}`,
@@ -174,16 +154,18 @@ app.all("/eb0", async (req, res, next) => {
 
         try {
             const data = await eventbridge.putTargets(targetParams).promise();
-            console.log(`Target added successfully to ${ruleName} in event bus ${eventBusName}:`, data);
+            console.log(`Target added successfully to ${ruleName}:`, data);
         } catch (err) {
-            console.log(`Error adding target to rule ${ruleName} in event bus ${eventBusName}:`, err);
+            console.log(`Error adding target to rule ${ruleName}:`, err);
         }
     }
 
-    // Main function to orchestrate the creation of event buses and rules
+    // Main function to orchestrate the creation of rules
     async function main() {
         for (let hour = 0; hour < 1; hour++) {
-            await createEventBus(hour);
+            for (let minute = 0; minute < 1; minute++) {
+                await createRule(hour, minute);
+            }
         }
     }
 
