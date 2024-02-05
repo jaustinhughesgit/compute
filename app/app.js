@@ -118,7 +118,7 @@ app.all("/eb0", async (req, res, next) => {
     
     const client = new SchedulerClient(config);
     let hour = "23"
-    let minute = "50"
+    let minute = "56"
     const hourFormatted = hour.toString().padStart(2, '0');
     const minuteFormatted = minute.toString().padStart(2, '0');
     
@@ -129,22 +129,22 @@ app.all("/eb0", async (req, res, next) => {
     const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
 
     const input = {
-        Name: scheduleName,
+        Name: "enable",
         GroupName: "runLambda",
         ScheduleExpression: scheduleExpression,
         ScheduleExpressionTimezone: "UTC",
-        StartDate: new Date("2024-02-05T23:50:00Z"),
+        StartDate: new Date("2024-02-05T23:56:00Z"),
         EndDate: new Date("2025-02-05T00:00:00Z"),
-        State: "DISABLED",
+        State: "ENABLED",
         Target: {
             Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
             RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
-            Input: JSON.stringify({"automate":true}),
+            Input: JSON.stringify({"enable":true}),
         },
         FlexibleTimeWindow: { Mode: "OFF" },
     };
 
-    const command = new UpdateScheduleCommand(input);
+    const command = new CreateScheduleCommand(input);
     
     const createSchedule = async () => {
         try {
