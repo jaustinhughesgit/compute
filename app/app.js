@@ -138,8 +138,10 @@ app.all("/eb0", async (req, res, next) => {
             RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d", // Replace with your actual role ARN
             Input: JSON.stringify({value: "Hello World"}),
         },
-        flexibleTimeWindow:"OFF"
-        // Since FlexibleTimeWindow is off, we do not include it in this input
+        FlexibleTimeWindow: { 
+            MaximumWindowInMinutes: 0,
+            Mode: "string"
+         },
     };
     
     // Create the command with the provided input
