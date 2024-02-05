@@ -121,8 +121,6 @@ app.all("/eb0", async (req, res, next) => {
     const input = {
         Name: "2350",
         GroupName: "runLambda",
-        ScheduleExpression: "cron(23 50 * * ? *)", 
-        ScheduleExpressionTimezone: "UTC",
         State: "ENABLED",
         Target: {
             Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
