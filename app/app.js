@@ -117,11 +117,24 @@ app.all("/eb0", async (req, res, next) => {
     const config = { region: "us-east-1" };
     
     const client = new SchedulerClient(config);
+    let hour = "23"
+    let minute = "50"
+    const hourFormatted = hour.toString().padStart(2, '0');
+    const minuteFormatted = minute.toString().padStart(2, '0');
     
+    // Construct the schedule name based on the time
+    const scheduleName = `${hourFormatted}${minuteFormatted}`;
+    
+    // Update the cron expression for the specific time
+    const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
     const input = {
-        Name: "2350",
+        Name: scheduleName,
         GroupName: "runLambda",
-        ScheduleExpression: "cron(23 50 * * ? *)", 
+        ScheduleExpression: scheduleExpression,
+        ScheduleExpressionTimezone: "UTC",
+        StartDate: new Date("2024-02-05T00:00:00Z"),
+        EndDate: new Date("2025-02-05T00:00:00Z"),
         State: "ENABLED",
         Target: {
             Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
