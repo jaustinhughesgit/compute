@@ -223,7 +223,7 @@ app.all("/eb0", async (req, res, next) => {
 
         }
 
-        res.json(data.Items)
+        //res.json(data.Items)
         //return { statusCode: 200, body: JSON.stringify(data.Items) };
     } catch (err) {
         console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
