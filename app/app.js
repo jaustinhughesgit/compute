@@ -114,6 +114,36 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
+    const tableName = 'enabled';
+
+    // Loop through each hour (0-23)
+    for (let hour = 0; hour < 24; hour++) {
+    // Loop through each minute (0-59)
+    for (let minute = 0; minute < 60; minute++) {
+        // Format the time as a string HHMM
+        const time = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
+
+        // Define the item to be inserted
+        const item = {
+        TableName: tableName,
+        Item: {
+            "time": time,         // Partition key
+            "enabled": 0,         // Attribute 1
+            "en": 0               // Attribute 2
+        }
+        };
+
+        // Insert the item into DynamoDB
+        try {
+        await dynamodb.put(item).promise();
+        console.log(`Inserted item with time: ${time}`);
+        } catch (err) {
+        console.error(`Error inserting item with time: ${time}`, err);
+        }
+    }
+    }
+
+    /*
     // Today's date
     const today = moment();
     // Tomorrow's date
@@ -199,7 +229,7 @@ app.all("/eb0", async (req, res, next) => {
         console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
         //return { statusCode: 500, body: JSON.stringify(err) };
     }
-
+*/
 
 // This replaces a schedule with the new details provided
 /*
