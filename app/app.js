@@ -10,7 +10,7 @@ const { v4: uuidv4 } = require('uuid');
 const { promisify } = require('util');
 const exec = promisify(require('child_process').exec);
 const axios = require('axios');
-const { SchedulerClient, CreateScheduleCommand } = require("@aws-sdk/client-scheduler");
+const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -115,6 +115,31 @@ app.all("/eb0", async (req, res, next) => {
 
 
     const config = { region: "us-east-1" };
+    
+    const client = new SchedulerClient(config);
+    
+    const input = {
+        Name: "2355",
+        State: "ENABLED",
+    };
+
+    const command = new UpdateScheduleCommand(input);
+    
+    const createSchedule = async () => {
+        try {
+            const response = await client.send(command);
+            console.log("Schedule created successfully:", response.ScheduleArn);
+        } catch (error) {
+            console.error("Error creating schedule:", error);
+        }
+    };
+    
+    await createSchedule();
+
+
+// THIS SETS UP Schedule for every minue of the day
+/*
+    const config = { region: "us-east-1" };
     const client = new SchedulerClient(config);
 
     const createSchedule = async () => {
@@ -161,6 +186,7 @@ app.all("/eb0", async (req, res, next) => {
 
     await createSchedule().then(() => console.log("Schedules creation process completed."));
 
+    */
     res.send("Success")
 })
 
