@@ -125,21 +125,22 @@ app.all("/eb0", async (req, res, next) => {
     
     // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
     const endOfTomorrowUnix = tomorrow.endOf('day').unix();
-    
+
     const params = {
-        TableName: "schedules",
+        TableName: "tasks",
         IndexName: gsiName,
-        KeyConditionExpression: "#dow = :dowValue",
-        FilterExpression: "#sd < :endOfTomorrow",
+        KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
         ExpressionAttributeNames: {
-        "#dow": dow, // Assuming the partition key for the GSI is named as the DOW
-        "#sd": "sd"
+          "#dow": dow, // Adjust if your GSI partition key is differently named
+          "#sd": "sd"
         },
         ExpressionAttributeValues: {
-        ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
-        ":endOfTomorrow": endOfTomorrowUnix
+          ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
+          ":endOfTomorrow": endOfTomorrowUnix
         }
-    };
+      };
+      
+
     console.log("params", params)
     
     try {
