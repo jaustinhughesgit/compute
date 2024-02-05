@@ -126,9 +126,9 @@ app.all("/eb0", async (req, res, next) => {
     
     // Define the input for the CreateScheduleCommand
     const input = {
-        Name: "testSchedule",
-        GroupName: "testScheduleGroup",
-        ScheduleExpression: "cron(10 08 * * ? *)", // Cron expression
+        Name: "0815",
+        GroupName: "runLambda",
+        ScheduleExpression: "cron(15 08 * * ? *)", // Cron expression
         ScheduleExpressionTimezone: "UTC",
         StartDate: new Date("2024-02-05T08:10:00Z"),
         EndDate: new Date("2025-02-05T08:10:00Z"),
