@@ -164,6 +164,10 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         console.log("entity.Items[0].h",entity.Items[0].h)
         let subH = await getSub(entity.Items[0].h, "e", dynamodb)
         console.log("subH", subH)
+        if (subH.Count == 0){
+            await sleep(2000) //wait 2 seconds and try again. Sometimes the data isn't available in the GSI, which is how getSub queries using "e"
+            subH = await getSub(entity.Items[0].h, "e", dynamodb)
+        }
         obj[fileID] = {meta: {name: name, expanded:false, head:subH.Items[0].su},children: {}, using: using, linked:{}, pathid:pathID, usingID:usingID, location:fileLocation(isPublic)};
         let paths = {}
         let paths2 = {}
@@ -1092,7 +1096,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const fileResult = await createFile(uniqueId2, {}, s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2,aE.toString(),e.toString(),"0", true, dynamodb)
-                    console.log("ses",ses)
+                    //console.log("ses",ses)
                     let from = "noreply@email.1var.com"
                     let to = "austin@1var.com"
                     let subject = "1 VAR - Email Address Verification Request"
