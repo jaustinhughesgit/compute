@@ -137,11 +137,11 @@ app.all("/eb0", async (req, res, next) => {
         try {
         await dynamodb.put(item).promise();
         console.log(`Inserted item with time: ${time}`);
-        res.send(time)
         } catch (err) {
         console.error(`Error inserting item with time: ${time}`, err);
         }
     }
+    res.send("done"")
     }
 
     /*
