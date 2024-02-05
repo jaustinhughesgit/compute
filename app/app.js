@@ -139,8 +139,7 @@ app.all("/eb0", async (req, res, next) => {
             Input: JSON.stringify({value: "Hello World"}),
         },
         FlexibleTimeWindow: { 
-            MaximumWindowInMinutes: 0,
-            Mode: "string"
+            Mode: "OFF"
          },
     };
     
