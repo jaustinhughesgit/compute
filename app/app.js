@@ -114,44 +114,42 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
-    exports.handler = async (event) => {
-        // Today's date
-        const today = moment();
-        // Tomorrow's date
-        const tomorrow = moment().add(1, 'days');
-        // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
-        const dow = tomorrow.format('dd').toLowerCase();
-        // The GSI name for querying
-        const gsiName = `${dow}Index`;
-      
-        // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
-        const endOfTomorrowUnix = tomorrow.endOf('day').unix();
-      
-        const params = {
-          TableName: "schedules",
-          IndexName: gsiName,
-          KeyConditionExpression: "#dow = :dowValue",
-          FilterExpression: "#sd < :endOfTomorrow",
-          ExpressionAttributeNames: {
-            "#dow": dow, // Assuming the partition key for the GSI is named as the DOW
-            "#sd": "sd"
-          },
-          ExpressionAttributeValues: {
-            ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
-            ":endOfTomorrow": endOfTomorrowUnix
-          }
-        };
-        console.log("params", params)
-      
-        try {
-          const data = await dynamodb.query(params).promise();
-          console.log("Query succeeded:", data.Items);
-          return { statusCode: 200, body: JSON.stringify(data.Items) };
-        } catch (err) {
-          console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
-          return { statusCode: 500, body: JSON.stringify(err) };
+    // Today's date
+    const today = moment();
+    // Tomorrow's date
+    const tomorrow = moment().add(1, 'days');
+    // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
+    const dow = tomorrow.format('dd').toLowerCase();
+    // The GSI name for querying
+    const gsiName = `${dow}Index`;
+    
+    // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
+    const endOfTomorrowUnix = tomorrow.endOf('day').unix();
+    
+    const params = {
+        TableName: "schedules",
+        IndexName: gsiName,
+        KeyConditionExpression: "#dow = :dowValue",
+        FilterExpression: "#sd < :endOfTomorrow",
+        ExpressionAttributeNames: {
+        "#dow": dow, // Assuming the partition key for the GSI is named as the DOW
+        "#sd": "sd"
+        },
+        ExpressionAttributeValues: {
+        ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
+        ":endOfTomorrow": endOfTomorrowUnix
         }
-      };
+    };
+    console.log("params", params)
+    
+    try {
+        const data = await dynamodb.query(params).promise();
+        console.log("Query succeeded:", data.Items);
+        return { statusCode: 200, body: JSON.stringify(data.Items) };
+    } catch (err) {
+        console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
+        return { statusCode: 500, body: JSON.stringify(err) };
+    }
 
 
 // This replaces a schedule with the new details provided
