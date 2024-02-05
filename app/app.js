@@ -113,55 +113,53 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
-    // const { SchedulerClient, CreateScheduleCommand } = require("@aws-sdk/client-scheduler"); // CommonJS import
-    
-    // Configuration for the AWS SchedulerClient (Add your configuration here)
-    const config = {
-        region: "us-east-1", // Replace with your AWS region
-        // credentials, etc.
-    };
-    
-    // Instantiate the SchedulerClient with the config
+
+    const config = { region: "us-east-1" };
     const client = new SchedulerClient(config);
-    
-    // Define the input for the CreateScheduleCommand
-    const input = {
-        Name: "0815",
-        GroupName: "runLambda",
-        ScheduleExpression: "cron(15 08 * * ? *)", // Cron expression
-        ScheduleExpressionTimezone: "UTC",
-        StartDate: new Date("2024-02-05T08:10:00Z"),
-        EndDate: new Date("2025-02-05T08:10:00Z"),
-        State: "ENABLED",
-        Target: {
-            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", // Replace with your actual Lambda ARN
-            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d", // Replace with your actual role ARN
-            Input: JSON.stringify({value: "Hello World"}),
-        },
-        FlexibleTimeWindow: { 
-            Mode: "OFF"
-         },
-    };
-    
-    // Create the command with the provided input
-    const command = new CreateScheduleCommand(input);
-    
-    // Function to send the command to create the schedule
+
     const createSchedule = async () => {
-        try {
-            const response = await client.send(command);
-            console.log("Schedule created successfully:", response.ScheduleArn);
-        } catch (error) {
-            console.error("Error creating schedule:", error);
+        for (let hour = 0; hour < 1; hour++) {
+            for (let minute = 0; minute < 60; minute += 1) {
+                // Format the hour and minute to ensure two digits
+                const hourFormatted = hour.toString().padStart(2, '0');
+                const minuteFormatted = minute.toString().padStart(2, '0');
+                
+                // Construct the schedule name based on the time
+                const scheduleName = `${hourFormatted}${minuteFormatted}`;
+                
+                // Update the cron expression for the specific time
+                const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+                // Create the input object with the updated values
+                const input = {
+                    Name: scheduleName,
+                    GroupName: "runLambda",
+                    ScheduleExpression: scheduleExpression,
+                    ScheduleExpressionTimezone: "UTC",
+                    StartDate: new Date("2024-02-05T00:00:00Z"),
+                    EndDate: new Date("2025-02-05T00:00:00Z"),
+                    State: "DISABLED",
+                    Target: {
+                        Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                        RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                        Input: JSON.stringify({"automate":true}),
+                    },
+                    FlexibleTimeWindow: { Mode: "OFF" },
+                };
+
+                const command = new CreateScheduleCommand(input);
+                
+                try {
+                    const response = await client.send(command);
+                    console.log(`Schedule ${scheduleName} created successfully:`, response.ScheduleArn);
+                } catch (error) {
+                    console.error(`Error creating schedule ${scheduleName}:`, error);
+                }
+            }
         }
     };
-    
-    // Call the function to create the schedule
-    await createSchedule();
 
-
-
-
+    await createSchedule().then(() => console.log("Schedules creation process completed."));
 
     res.send("Success")
 })
