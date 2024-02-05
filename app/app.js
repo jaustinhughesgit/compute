@@ -119,8 +119,19 @@ app.all("/eb0", async (req, res, next) => {
     const client = new SchedulerClient(config);
     
     const input = {
-        Name: "2355",
+        Name: "2350",
+        GroupName: "runLambda",
+        ScheduleExpression: "cron(23 50 * * ? *)", 
+        ScheduleExpressionTimezone: "UTC",
+        StartDate: new Date("2024-02-05T00:00:00Z"),
+        EndDate: new Date("2025-02-05T00:00:00Z"),
         State: "ENABLED",
+        Target: {
+            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+            Input: JSON.stringify({"automate":true}),
+        },
+        FlexibleTimeWindow: { Mode: "OFF" },
     };
 
     const command = new UpdateScheduleCommand(input);
