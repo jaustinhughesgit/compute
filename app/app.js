@@ -163,7 +163,7 @@ app.all("/eb0", async (req, res, next) => {
             const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
 
             const input = {
-                Name: "disable",
+                Name: scheduleName,
                 GroupName: "runLambda",
                 ScheduleExpression: scheduleExpression,
                 ScheduleExpressionTimezone: "UTC",
@@ -178,7 +178,7 @@ app.all("/eb0", async (req, res, next) => {
                 FlexibleTimeWindow: { Mode: "OFF" },
             };
 
-            const command = new CreateScheduleCommand(input);
+            const command = new UpdateScheduleCommand(input);
             
             const createSchedule = async () => {
                 try {
