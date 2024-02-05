@@ -114,22 +114,154 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
+
+    let {setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue} = await require('./routes/cookies')
+
+    const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
+
+    // Today's date
+    const today = moment();
+    // Tomorrow's date
+    const tomorrow = moment().add(1, 'days');
+    // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
+    const dow = tomorrow.format('dd').toLowerCase();
+    // The GSI name for querying
+    const gsiName = `${dow}Index`;
+
+    // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
+    const endOfTomorrowUnix = tomorrow.endOf('day').unix();
+
+    const params = {
+        TableName: "schedules",
+        IndexName: gsiName,
+        KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
+        ExpressionAttributeNames: {
+        "#dow": dow, // Adjust if your GSI partition key is differently named
+        "#sd": "sd"
+        },
+        ExpressionAttributeValues: {
+        ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
+        ":endOfTomorrow": endOfTomorrowUnix
+        }
+    };
+    
+
+    console.log("params", params)
+
+    try {
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
+        const data = await dynamodb.query(params).promise();
+        console.log("Query succeeded:", data.Items);
+
+        for (item in data.Items){
+            let stUnix = data.Items[item].sd + data.Items[item].st
+            var momentObj = moment(stUnix * 1000);
+            var hour = momentObj.format('HH');
+            var minute = momentObj.format('mm');
+            console.log("hour", hour, "minute", minute)
+            const hourFormatted = hour.toString().padStart(2, '0');
+            const minuteFormatted = minute.toString().padStart(2, '0');
+            
+            const scheduleName = `${hourFormatted}${minuteFormatted}`;
+            
+            const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+            const input = {
+                Name: scheduleName,
+                GroupName: "runLambda",
+                ScheduleExpression: scheduleExpression,
+                ScheduleExpressionTimezone: "UTC",
+                StartDate: new Date("2024-02-06T00:01:00Z"),
+                EndDate: new Date("2025-02-06T00:01:00Z"),
+                State: "ENABLED",
+                Target: {
+                    Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                    RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                    Input: JSON.stringify({"disable":true}),
+                },
+                FlexibleTimeWindow: { Mode: "OFF" },
+            };
+
+            const command = new UpdateScheduleCommand(input);
+            
+            const createSchedule = async () => {
+                try {
+                    const response = await client.send(command);
+
+                    const params = {
+                        TableName: "enabled",
+                        Key: {
+                          "time": scheduleName, // Specify the key of the item you want to update
+                        },
+                        UpdateExpression: "set #enabled = :enabled, #en = :en",
+                        ExpressionAttributeNames: {
+                          "#enabled": "enabled", // Attribute name alias to avoid reserved words issues
+                          "#en": "en"
+                        },
+                        ExpressionAttributeValues: {
+                          ":enabled": 1, // New value for 'enabled'
+                          ":en": en // New value for 'en'
+                        },
+                        ReturnValues: "UPDATED_NEW" // Returns the attribute values as they appear after the UpdateItem operation
+                      };
+                    
+                      try {
+                        const result = await dynamodb.update(params).promise();
+                        console.log(`Updated item with time: ${time}`, result);
+                      } catch (err) {
+                        console.error(`Error updating item with time: ${time}`, err);
+                      }
+
+                    console.log("Schedule created successfully:", response.ScheduleArn);
+                } catch (error) {
+                    console.error("Error creating schedule:", error);
+                }
+            };
+            
+            await createSchedule();
+
+        }
+
+        res.json(data.Items)
+        //return { statusCode: 200, body: JSON.stringify(data.Items) };
+    } catch (err) {
+        console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
+        //return { statusCode: 500, body: JSON.stringify(err) };
+    }
+
+    //
+    //
+    //
+    //
+    // The enabled table is setup. Now we need to get next increment from enCounter
+    // Enabled all the schedules found in the dabase using the code below and adding
+    // updating the record in the enabled database, and then update the schedule to
+    // be enabled.
+    //
+    //
+    //
+    //
+    //
+
+
+
+
+
+
+    // This adds the records into the enabled table
+    /*
     const tableName = 'enabled';
 
-    // Loop through each hour (0-23)
     for (let hour = 0; hour < 24; hour++) {
-    // Loop through each minute (0-59)
     for (let minute = 0; minute < 60; minute++) {
-        // Format the time as a string HHMM
         const time = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
-
-        // Define the item to be inserted
         const item = {
         TableName: tableName,
         Item: {
-            "time": time,         // Partition key
-            "enabled": 0,         // Attribute 1
-            "en": 0               // Attribute 2
+            "time": time,
+            "enabled": 0,
+            "en": 0
         }
         };
 
@@ -143,7 +275,9 @@ app.all("/eb0", async (req, res, next) => {
         }
     }
     }
-    res.send(time)
+    */
+    res.send("success")
+
     /*
     // Today's date
     const today = moment();
