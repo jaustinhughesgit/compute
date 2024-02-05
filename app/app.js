@@ -127,7 +127,7 @@ app.all("/eb0", async (req, res, next) => {
     const endOfTomorrowUnix = tomorrow.endOf('day').unix();
 
     const params = {
-        TableName: "tasks",
+        TableName: "schedules",
         IndexName: gsiName,
         KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
         ExpressionAttributeNames: {
@@ -144,8 +144,54 @@ app.all("/eb0", async (req, res, next) => {
     console.log("params", params)
     
     try {
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
         const data = await dynamodb.query(params).promise();
         console.log("Query succeeded:", data.Items);
+
+        for (item in data.Items){
+            let stUnix = data.Items[item].sd + data.Items[item].st
+            var momentObj = moment(stUnix * 1000);
+            var hour = momentObj.format('HH');
+            var minute = momentObj.format('mm');
+            console.log("hour", hour, "minute", minute)
+            const hourFormatted = hour.toString().padStart(2, '0');
+            const minuteFormatted = minute.toString().padStart(2, '0');
+            
+            const scheduleName = `${hourFormatted}${minuteFormatted}`;
+            
+            const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+            const input = {
+                Name: "disable",
+                GroupName: "runLambda",
+                ScheduleExpression: scheduleExpression,
+                ScheduleExpressionTimezone: "UTC",
+                StartDate: new Date("2024-02-06T00:01:00Z"),
+                EndDate: new Date("2025-02-06T00:01:00Z"),
+                State: "ENABLED",
+                Target: {
+                    Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                    RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                    Input: JSON.stringify({"disable":true}),
+                },
+                FlexibleTimeWindow: { Mode: "OFF" },
+            };
+
+            const command = new CreateScheduleCommand(input);
+            
+            const createSchedule = async () => {
+                try {
+                    const response = await client.send(command);
+                    console.log("Schedule created successfully:", response.ScheduleArn);
+                } catch (error) {
+                    console.error("Error creating schedule:", error);
+                }
+            };
+            
+            await createSchedule();
+
+        }
 
         res.json(data.Items)
         //return { statusCode: 200, body: JSON.stringify(data.Items) };
