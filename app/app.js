@@ -118,7 +118,7 @@ app.all("/eb0", async (req, res, next) => {
     const client = new SchedulerClient(config);
 
     const createSchedule = async () => {
-        for (let hour = 0; hour < 1; hour++) {
+        for (let hour = 1; hour < 3; hour++) {
             for (let minute = 0; minute < 60; minute += 1) {
                 // Format the hour and minute to ensure two digits
                 const hourFormatted = hour.toString().padStart(2, '0');
