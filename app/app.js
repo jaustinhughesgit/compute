@@ -135,7 +135,7 @@ app.all("/eb0", async (req, res, next) => {
         ScheduleExpressionTimezone: "UTC",
         StartDate: new Date("2024-02-05T23:50:00Z"),
         EndDate: new Date("2025-02-05T00:00:00Z"),
-        State: "ENABLED",
+        State: "DISABLED",
         Target: {
             Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
             RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
