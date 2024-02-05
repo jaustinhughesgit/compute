@@ -146,10 +146,12 @@ app.all("/eb0", async (req, res, next) => {
     try {
         const data = await dynamodb.query(params).promise();
         console.log("Query succeeded:", data.Items);
-        return { statusCode: 200, body: JSON.stringify(data.Items) };
+
+        res.json(data.Items)
+        //return { statusCode: 200, body: JSON.stringify(data.Items) };
     } catch (err) {
         console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
-        return { statusCode: 500, body: JSON.stringify(err) };
+        //return { statusCode: 500, body: JSON.stringify(err) };
     }
 
 
@@ -249,7 +251,6 @@ app.all("/eb0", async (req, res, next) => {
     await createSchedule().then(() => console.log("Schedules creation process completed."));
 
     */
-    res.send("Success")
 })
 
 app.all('/auth/*', 
