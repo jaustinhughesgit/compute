@@ -208,9 +208,9 @@ app.all("/eb0", async (req, res, next) => {
                     
                       try {
                         const result = await dynamodb.update(params).promise();
-                        console.log(`Updated item with time: ${time}`, result);
+                        console.log(`Updated item with time: ${scheduleName}`, result);
                       } catch (err) {
-                        console.error(`Error updating item with time: ${time}`, err);
+                        console.error(`Error updating item with time: ${scheduleName}`, err);
                       }
 
                     console.log("Schedule created successfully:", response.ScheduleArn);
