@@ -133,7 +133,7 @@ app.all("/eb0", async (req, res, next) => {
         GroupName: "runLambda",
         ScheduleExpression: scheduleExpression,
         ScheduleExpressionTimezone: "UTC",
-        StartDate: new Date("2024-02-05T00:00:00Z"),
+        StartDate: new Date("2024-02-05T23:50:00Z"),
         EndDate: new Date("2025-02-05T00:00:00Z"),
         State: "ENABLED",
         Target: {
