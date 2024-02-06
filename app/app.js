@@ -133,7 +133,7 @@ app.all("/eb0", async (req, res, next) => {
             let updateParams = {
                 TableName: 'enabled',
                 Key: {
-                    // Your primary key attributes here, e.g., 'id': item.id
+                    "Key": { "time": item.time }, 
                 },
                 UpdateExpression: 'SET enabled = :newEnabled',
                 ExpressionAttributeValues: {
