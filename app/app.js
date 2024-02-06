@@ -164,8 +164,8 @@ app.all("/eb0", async (req, res, next) => {
                 GroupName: "runLambda",
                 ScheduleExpression: scheduleExpression,
                 ScheduleExpressionTimezone: "UTC",
-                StartDate: new Date("2024-02-07T05:01:00Z"),
-                EndDate: new Date("2025-02-06T08:01:00Z"),
+                StartDate: new Date(moment.utc().format()),
+                EndDate: new Date("2030-01-01T00:00:00Z"),
                 State: "DISABLED",
                 Target: {
                     Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
