@@ -94,6 +94,7 @@ async function getTasksIOS(tasks){
         converted[task].sunday = tasks[task].su === 1;
         converted[task].zone = tasks[task].zo;
         converted[task].interval = tasks[task].it;
+        converted[task].taskID = tasks[task].ti;
     }
     return converted
 }
