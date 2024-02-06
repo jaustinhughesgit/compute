@@ -130,6 +130,9 @@ app.all("/eb0", async (req, res, next) => {
     await dynamodb.query(params).promise()
     .then(async data => {
         let updatePromises = await data.Items.map(async item => {
+            console.log("item", item)
+            const time = item.time
+            console.log("time",time)
             let updateParams = {
                 TableName: 'enabled',
                 Key: {
@@ -142,9 +145,6 @@ app.all("/eb0", async (req, res, next) => {
             };
 
             await dynamodb.update(updateParams).promise();
-            console.log("item", item)
-            const time = item.time
-            console.log("time",time)
             var hour = time.substring(0, 2);
             var minute = time.substring(2, 4);
             console.log("hour", hour, "minute", minute)
