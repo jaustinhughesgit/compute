@@ -993,7 +993,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
             };
             
             await createSchedule();
-            startTime.add(it, 'minutes');
+            startTime.add(itS, 'minutes');
         }
     }
     
