@@ -120,21 +120,7 @@ app.all("/2356", async (req, res, next) => {
    
 });
 
-app.all("/eb0", async (req, res, next) => {
-
-    // The code below now enables the time for tomorrow. We now
-    // need to create the disable yesterday's enables by getting
-    // the increment not by incrementCounterAndGetNewValue, we
-    // just need to get the value and subtract 1. 
-    // Finally we need to put all this into two conditions at the
-    // bottom that are called automatically on enable and disable
-    // schedules.
-    
-
-/*
- 
-*/
-
+app.all("/eb0", async (req, res, next) => {    
 
     // This adds the records into the enabled table
     /*
@@ -1088,9 +1074,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
     };
 }
 
-//module.exports.lambdaHandler = serverless(app);
-
-
 const automate = async (url) => {
     try {
       const response = await axios.get(url);
@@ -1099,65 +1082,6 @@ const automate = async (url) => {
       console.error('Error calling URL:', error);
     }
   };
-
-
-
-/*
-const getEventsAndTrigger = async () => {
-
-    const nowUtc = moment.utc();
-
-    const nowUnix = nowUtc.unix();
-
-
-
-
-    
-    const now = new Date().toUTCString()
-    const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
-    const currentDate = now.toISOString().split('T')[0];
-
-
-    const dayOfWeek = now.toLocaleDateString('en-us', { weekday: 'long' }).toLowerCase().substring(0, 2);
-
-
-    const givenTimeUtc = moment.tz(`${moment().format("YYYY-MM-DD")} ${time}`, "YYYY-MM-DD HH:mm", timezone).utc();
-    const currentTime = now.getHours() * 60 + now.getMinutes(); // in minutes
-    const unixTimestampSeconds = givenTimeUtc.unix();
-    const currentDate = Math.floor(Date.now() / 1000);
-  
-    const params = {
-      TableName: 'tasks',
-      IndexName: `${dayOfWeek}Index`,
-      KeyConditionExpression: '#date <= :today',
-      ExpressionAttributeNames: {
-        '#date': 'startDate',
-      },
-      ExpressionAttributeValues: {
-        ':today': currentDate,
-      }
-    };
-  
-    try {
-      const data = await dynamoDB.query(params).promise();
-      for (const item of data.Items) {
-        if (item[dayOfWeek] && currentTime >= item.startTime && currentTime <= item.endTime) {
-          const intervalCount = (currentTime - item.startTime) / item.interval;
-          if (Number.isInteger(intervalCount)) {
-            await automate(item.url);
-            await sleep(1000)
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error querying DynamoDB:', error);
-    }
-  };
-  */
-
-
-
-
 
 const serverlessHandler = serverless(app);
 
@@ -1179,21 +1103,15 @@ module.exports.lambdaHandler = async (event, context) => {
         return {"automate":"done"}
     } else if (event.enable){
 
-                // This code enabls both the db and eventbridge at the specific minute of the day
         let {setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue} = await require('./routes/cookies')
 
         const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
 
-        // Today's date
         const today = moment();
-        // Tomorrow's date
         const tomorrow = moment().add(1, 'days');
-        // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
         const dow = tomorrow.format('dd').toLowerCase();
-        // The GSI name for querying
         const gsiName = `${dow}Index`;
 
-        // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
         const endOfTomorrowUnix = tomorrow.endOf('day').unix();
 
         const params = {
@@ -1307,7 +1225,6 @@ module.exports.lambdaHandler = async (event, context) => {
         let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
         let en = await dynamodb.query(enParams).promise()
         let params = { TableName: 'enabled',IndexName: 'enabledindex',KeyConditionExpression: 'enabled = :enabled AND en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1, ':enabled':1} }
-        //let result = await dynamodb.query(params).promise()
         console.log("params", params)
         const config = { region: "us-east-1" };
         const client = new SchedulerClient(config);

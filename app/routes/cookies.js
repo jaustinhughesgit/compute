@@ -29,6 +29,68 @@ async function getEntity(e, dynamodb){
     return await dynamodb.query(params).promise()
 }
 
+//
+//
+//
+// We are building a way to view all your tasks and click on them to edit them.
+//
+//
+//
+
+async function getTasks(val, col, dynamodb){
+    //
+    //
+    //
+    //
+    // This function gets the tasks by by taking the e, getting the sub and then finding the url by sub
+    //
+    //
+    //
+    //
+    console.log("getTasks", col, val)
+    if (col == "e"){
+        const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
+        let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: 'url = :url',ExpressionAttributeValues: {':url': subByE.Items[0].su} }
+        return await dynamodb.query(params).promise()
+    } else if (col == "su"){
+        let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: 'url = :url',ExpressionAttributeValues: {':url': val} }
+        return await dynamodb.query(params).promise()
+    }
+}
+
+async function getTasksIOS(tasks){
+    //
+    //
+    //
+    // This function needs to send back the details with the mainObj, "clicked entity", so they can edit it's tasks
+    //
+    //
+    //
+    let converted = []
+    for (let task in tasks){
+        converted.push({})
+        converted[task].url = tasks[task].url
+        let momentSD = moment.unix(tasks[task].sd).utc()
+        converted[task].startDate = momentSD.format("yyyy-mm-dd")
+        let momentED = moment.unix(tasks[task].ed).utc()
+        converted[task].endDate = momentED.format("yyyy-mm-dd")
+        let momentST = moment.unix(tasks[task].sd + tasks[task].st).utc()
+        converted[task].startTime = momentST.format("HH:mm")
+        let momentET = moment.unix(tasks[task].sd + tasks[task].et).utc()
+        converted[task].endTime = momentET.format("HH:mm")
+        converted[task].monday = tasks[task].mo === 1;
+        converted[task].tuesday = tasks[task].tu === 1;
+        converted[task].wednesday = tasks[task].we === 1;
+        converted[task].thursday = tasks[task].th === 1;
+        converted[task].friday = tasks[task].fr === 1;
+        converted[task].saturday = tasks[task].sa === 1;
+        converted[task].sunday = tasks[task].su === 1;
+        converted[task].zone = tasks[task].zo;
+        converted[task].interval = tasks[task].it;
+    }
+    return converted
+}
+
 async function getGroup(g, dynamodb){
     console.log("getGroup", g)
     params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: {':g': g} };
@@ -1554,6 +1616,11 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 if (ex > 0){
                     await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
                 }
+            } else if (action == "tasks"){
+                const sub = reqPath.split("/")[3]
+                let tasksUnix = getTasks(sub, "su", dynamodb)
+                let tasksISO = getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
             }
 
             mainObj["file"] = actionFile + ""
