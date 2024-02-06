@@ -173,7 +173,8 @@ app.all("/eb0", async (req, res, next) => {
                 FlexibleTimeWindow: { Mode: "OFF" },
             };
             console.log("update input", input)
-            await UpdateScheduleCommand(input);
+
+            await new UpdateScheduleCommand(input);
 
             return "done"
         });
