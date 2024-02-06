@@ -54,7 +54,7 @@ async function getTasks(val, col, dynamodb){
         console.log("params", params)
         return await dynamodb.query(params).promise()
     } else if (col == "su"){
-        let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: 'url = :url',ExpressionAttributeValues: {':url': val} }
+        let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: '#url = :urlValue',ExpressionAttributeNames: {'#url': 'url',},ExpressionAttributeValues: {':#url': val} }
         console.log("params", params)
         return await dynamodb.query(params).promise()
     }
