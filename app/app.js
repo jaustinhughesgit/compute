@@ -126,7 +126,6 @@ app.all("/eb0", async (req, res, next) => {
     let params = { TableName: 'enabled',IndexName: 'enabledindex',KeyConditionExpression: 'enabled = :enabled AND en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1, ':enabled':1} }
     //let result = await dynamodb.query(params).promise()
     console.log("params", params)
-    console.log("params", result)
 
     dynamodb.query(params).promise()
     .then(data => {
