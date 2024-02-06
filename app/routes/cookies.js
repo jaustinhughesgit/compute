@@ -1199,6 +1199,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
+                let tasksUnix = getTasks(fileID, "su", dynamodb)
+                let tasksISO = getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
             } else if (action == "add") {
                 //console.log("add")
                 const fileID = reqPath.split("/")[3]
