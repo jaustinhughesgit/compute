@@ -123,7 +123,7 @@ app.all("/eb0", async (req, res, next) => {
     // schedules.
     let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
     let en = await dynamodb.query(enParams).promise()
-    let params = { TableName: 'enabled',IndexName: 'enIndex',KeyConditionExpression: 'en = :en',ExpressionAttributeValues: {':en': en.Items[0].x} }
+    let params = { TableName: 'enabled',IndexName: 'enIndex',KeyConditionExpression: 'en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1} }
     console.log("params", params)
 
 
