@@ -1400,6 +1400,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 //console.log("file")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+                let tasksUnix = getTasks(actionFile, "su", dynamodb)
+                let tasksISO = getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
 
             } else if (action === "saveFile"){
                 //console.log("saveFile")
