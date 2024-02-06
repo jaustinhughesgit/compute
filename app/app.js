@@ -174,8 +174,8 @@ app.all("/eb0", async (req, res, next) => {
             };
             console.log("update input", input)
 
-            new UpdateScheduleCommand(input);
-
+            const updateSchedule = new UpdateScheduleCommand(input);
+            console.log("updateSchedule", updateSchedule)
             return "done"
         });
 
