@@ -69,6 +69,7 @@ async function getTasksIOS(tasks){
     //
     //
     console.log("tasks", tasks)
+    tasks = tasks.Items
     let converted = []
     for (let task in tasks){
         console.log("task", task)
