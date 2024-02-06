@@ -1205,8 +1205,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
-                let tasksUnix = getTasks(fileID, "su", dynamodb)
-                let tasksISO = getTasksIOS(tasksUnix)
+                let tasksUnix = await getTasks(fileID, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "add") {
                 //console.log("add")
@@ -1406,9 +1406,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 //console.log("file")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
-                let tasksUnix = getTasks(actionFile, "su", dynamodb)
+                let tasksUnix = await getTasks(actionFile, "su", dynamodb)
                 console.log("tasksUnix", tasksUnix)
-                let tasksISO = getTasksIOS(tasksUnix)
+                let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
 
             } else if (action === "saveFile"){
@@ -1631,8 +1631,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 }
             } else if (action == "tasks"){
                 const sub = reqPath.split("/")[3]
-                let tasksUnix = getTasks(sub, "su", dynamodb)
-                let tasksISO = getTasksIOS(tasksUnix)
+                let tasksUnix = await getTasks(sub, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             }
 
