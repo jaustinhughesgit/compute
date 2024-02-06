@@ -122,7 +122,7 @@ app.all("/eb0", async (req, res, next) => {
     // bottom that are called automatically on enable and disable
     // schedules.
     let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
-    let en = await dynamodb.query(params).promise()
+    let en = await dynamodb.query(enParams).promise()
     let params = { TableName: 'enabled',IndexName: 'enIndex',KeyConditionExpression: 'en = :en',ExpressionAttributeValues: {':en': en.x} }
     console.log("params", params)
 
@@ -274,7 +274,6 @@ app.all("/eb0", async (req, res, next) => {
     }
     }
     */
-    res.send("success")
 
     /*
     // Today's date
@@ -460,6 +459,7 @@ app.all("/eb0", async (req, res, next) => {
     await createSchedule().then(() => console.log("Schedules creation process completed."));
 
     */
+    res.send("success")
 })
 
 app.all('/auth/*', 
