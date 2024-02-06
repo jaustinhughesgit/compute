@@ -127,7 +127,7 @@ app.all("/eb0", async (req, res, next) => {
     //let result = await dynamodb.query(params).promise()
     console.log("params", params)
 
-    dynamodb.query(params).promise()
+    await dynamodb.query(params).promise()
     .then(async data => {
         let updatePromises = await data.Items.map(async item => {
             let updateParams = {
