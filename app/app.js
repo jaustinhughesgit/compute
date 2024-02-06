@@ -1366,7 +1366,6 @@ module.exports.lambdaHandler = async (event, context) => {
             console.error('Error updating items', error);
         });
     } else {
-        // Otherwise, it's an HTTP request, handle with Express
         return serverlessHandler(event, context);
     }
 };

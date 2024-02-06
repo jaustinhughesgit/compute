@@ -3,6 +3,7 @@ var router = express.Router();
 const AWS = require('aws-sdk');
 var router = express.Router();
 const moment = require('moment-timezone')
+const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 let convertCounter = 0
 let isPublic = true
@@ -880,10 +881,96 @@ async function createTask(ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa
 async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex, dynamodb){
     console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex )
     const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
-    return await dynamodb.put({
+    await dynamodb.put({
         TableName: 'schedules',
         Item: { si:si.toString(), ti:ti.toString(), url:en, sd:sdS, ed:edS, st:stS, et:etS, it:itS, mo:moS, tu:tuS, we:weS, th:thS, fr:frS, sa:saS, su:suS, ex:ex}
     }).promise();
+
+    let stUnix = sdS + stS
+    var objDate = moment.utc(stUnix * 1000); // Assuming stUnix is your Unix timestamp
+    console.log(objDate)
+    const today = moment.utc(); // Get current time in UTC
+    console.log(today)
+
+    // Check if momentObj is today by comparing year, month, and day
+    var isToday = objDate.isSame(today, 'day');
+    console.log(isToday)
+
+    if (isToday){
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
+
+        let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
+        let enData = await dynamodb.query(enParams).promise()
+
+        var momentObj = moment(stUnix * 1000);
+        var hour = momentObj.format('HH');
+        var minute = momentObj.format('mm');
+        console.log("hour", hour, "minute", minute)
+        const hourFormatted = hour.toString().padStart(2, '0');
+        const minuteFormatted = minute.toString().padStart(2, '0');
+        
+        const scheduleName = `${hourFormatted}${minuteFormatted}`;
+        
+        const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+        const input = {
+            Name: scheduleName,
+            GroupName: "runLambda",
+            ScheduleExpression: scheduleExpression,
+            ScheduleExpressionTimezone: "UTC",
+            StartDate: new Date(moment.utc().format()),
+            EndDate: new Date("2030-01-01T00:00:00Z"),
+            State: "ENABLED",
+            Target: {
+                Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                Input: JSON.stringify({"disable":true}),
+            },
+            FlexibleTimeWindow: { Mode: "OFF" },
+        };
+
+        console.log("input2", input)
+        const command = new UpdateScheduleCommand(input);
+        
+        const createSchedule = async () => {
+            try {
+                const response = await client.send(command);
+
+                const params = {
+                    TableName: "enabled",
+                    Key: {
+                        "time": scheduleName, // Specify the key of the item you want to update
+                    },
+                    UpdateExpression: "set #enabled = :enabled, #en = :en",
+                    ExpressionAttributeNames: {
+                        "#enabled": "enabled", // Attribute name alias to avoid reserved words issues
+                        "#en": "en"
+                    },
+                    ExpressionAttributeValues: {
+                        ":enabled": 1, // New value for 'enabled'
+                        ":en": enData.Items[0].x // New value for 'en'
+                    },
+                    ReturnValues: "UPDATED_NEW" // Returns the attribute values as they appear after the UpdateItem operation
+                    };
+                
+                    try {
+                    const result = await dynamodb.update(params).promise();
+                    console.log(`Updated item with time: ${scheduleName}`, result);
+                    } catch (err) {
+                    console.error(`Error updating item with time: ${scheduleName}`, err);
+                    }
+
+                console.log("Schedule created successfully:", response.ScheduleArn);
+            } catch (error) {
+                console.error("Error creating schedule:", error);
+            }
+        };
+        
+        await createSchedule();
+    }
+    
+    return "done"
 }
 
 async function shiftDaysOfWeekForward(daysOfWeek) {
