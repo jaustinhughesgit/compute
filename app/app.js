@@ -124,11 +124,68 @@ app.all("/eb0", async (req, res, next) => {
     let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
     let en = await dynamodb.query(enParams).promise()
     let params = { TableName: 'enabled',IndexName: 'enabledindex',KeyConditionExpression: 'enabled = :enabled AND en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1, ':enabled':1} }
-    let result = await dynamodb.query(params).promise()
+    //let result = await dynamodb.query(params).promise()
     console.log("params", params)
     console.log("params", result)
 
+    dynamodb.query(params).promise()
+    .then(data => {
+        let updatePromises = data.Items.map(async item => {
+            let updateParams = {
+                TableName: 'enabled',
+                Key: {
+                    // Your primary key attributes here, e.g., 'id': item.id
+                },
+                UpdateExpression: 'SET enabled = :newEnabled',
+                ExpressionAttributeValues: {
+                    ':newEnabled': 0
+                }
+            };
 
+            await dynamodb.update(updateParams).promise();
+
+            const time = item.time
+
+            var hour = time.substring(0, 2);
+            var minute = time.substring(2, 4);
+            console.log("hour", hour, "minute", minute)
+            const hourFormatted = hour.toString().padStart(2, '0');
+            const minuteFormatted = minute.toString().padStart(2, '0');
+            
+            console.log("Date", Date())
+            const scheduleName = `${hourFormatted}${minuteFormatted}`;
+            
+            const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+            const input = {
+                Name: scheduleName,
+                GroupName: "runLambda",
+                ScheduleExpression: scheduleExpression,
+                ScheduleExpressionTimezone: "UTC",
+                StartDate: new Date("2024-02-06T02:01:00Z"),
+                EndDate: new Date("2025-02-06T00:01:00Z"),
+                State: "DISABLED",
+                Target: {
+                    Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                    RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                    Input: JSON.stringify({"disable":true}),
+                },
+                FlexibleTimeWindow: { Mode: "OFF" },
+            };
+
+            const command = new UpdateScheduleCommand(input);
+
+            return "done"
+        });
+
+        return Promise.all(updatePromises);
+    })
+    .then(updateResults => {
+        console.log('Update completed', updateResults);
+    })
+    .catch(error => {
+        console.error('Error updating items', error);
+    });
 
 /*
     // This code enabls both the db and eventbridge at the specific minute of the day
