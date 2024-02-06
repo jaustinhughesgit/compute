@@ -114,7 +114,22 @@ async function isValid(req, res, data) {
 
 app.all("/eb0", async (req, res, next) => {
 
+    // The code below now enables the time for tomorrow. We now
+    // need to create the disable yesterday's enables by getting
+    // the increment not by incrementCounterAndGetNewValue, we
+    // just need to get the value and subtract 1. 
+    // Finally we need to put all this into two conditions at the
+    // bottom that are called automatically on enable and disable
+    // schedules.
+    let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
+    let en = await dynamodb.query(params).promise()
+    let params = { TableName: 'enabled',IndexName: 'enIndex',KeyConditionExpression: 'en = :en',ExpressionAttributeValues: {':en': en.x} }
+    console.log("params", params)
 
+
+
+/*
+    // This code enabls both the db and eventbridge at the specific minute of the day
     let {setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue} = await require('./routes/cookies')
 
     const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
@@ -229,24 +244,7 @@ app.all("/eb0", async (req, res, next) => {
         console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
         //return { statusCode: 500, body: JSON.stringify(err) };
     }
-
-    //
-    //
-    //
-    //
-    // The enabled table is setup. Now we need to get next increment from enCounter
-    // Enabled all the schedules found in the dabase using the code below and adding
-    // updating the record in the enabled database, and then update the schedule to
-    // be enabled.
-    //
-    //
-    //
-    //
-    //
-
-
-
-
+*/
 
 
     // This adds the records into the enabled table
