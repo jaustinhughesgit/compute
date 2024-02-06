@@ -887,6 +887,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
     }).promise();
 
     let stUnix = sdS + stS
+    let etUnix = sdS + etS
     var objDate = moment.utc(stUnix * 1000); // Assuming stUnix is your Unix timestamp
     console.log(objDate)
     const today = moment.utc(); // Get current time in UTC
@@ -924,71 +925,76 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
         let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
         let enData = await dynamodb.query(enParams).promise()
 
-        var momentObj = moment(stUnix * 1000);
-        var hour = momentObj.format('HH');
-        var minute = momentObj.format('mm');
-        console.log("hour", hour, "minute", minute)
-        const hourFormatted = hour.toString().padStart(2, '0');
-        const minuteFormatted = minute.toString().padStart(2, '0');
+        var startTime = moment(stUnix * 1000);
+        var endTime = moment(etUnix * 1000);
         
-        const scheduleName = `${hourFormatted}${minuteFormatted}`;
-        
-        const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+        while (startTime <= endTime) {
+            var hour = startTime.format('HH');
+            var minute = startTime.format('mm');
+            console.log("hour", hour, "minute", minute)
+            const hourFormatted = hour.toString().padStart(2, '0');
+            const minuteFormatted = minute.toString().padStart(2, '0');
+            
+            const scheduleName = `${hourFormatted}${minuteFormatted}`;
+            
+            const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
 
-        const input = {
-            Name: scheduleName,
-            GroupName: "runLambda",
-            ScheduleExpression: scheduleExpression,
-            ScheduleExpressionTimezone: "UTC",
-            StartDate: new Date(moment.utc().format()),
-            EndDate: new Date("2030-01-01T00:00:00Z"),
-            State: "ENABLED",
-            Target: {
-                Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
-                RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
-                Input: JSON.stringify({"disable":true}),
-            },
-            FlexibleTimeWindow: { Mode: "OFF" },
-        };
+            const input = {
+                Name: scheduleName,
+                GroupName: "runLambda",
+                ScheduleExpression: scheduleExpression,
+                ScheduleExpressionTimezone: "UTC",
+                StartDate: new Date(moment.utc().format()),
+                EndDate: new Date("2030-01-01T00:00:00Z"),
+                State: "ENABLED",
+                Target: {
+                    Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                    RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                    Input: JSON.stringify({"disable":true}),
+                },
+                FlexibleTimeWindow: { Mode: "OFF" },
+            };
 
-        console.log("input2", input)
-        const command = new UpdateScheduleCommand(input);
-        
-        const createSchedule = async () => {
-            try {
-                const response = await client.send(command);
+            console.log("input2", input)
+            const command = new UpdateScheduleCommand(input);
+            
+            const createSchedule = async () => {
+                try {
+                    const response = await client.send(command);
 
-                const params = {
-                    TableName: "enabled",
-                    Key: {
-                        "time": scheduleName, // Specify the key of the item you want to update
-                    },
-                    UpdateExpression: "set #enabled = :enabled, #en = :en",
-                    ExpressionAttributeNames: {
-                        "#enabled": "enabled", // Attribute name alias to avoid reserved words issues
-                        "#en": "en"
-                    },
-                    ExpressionAttributeValues: {
-                        ":enabled": 1, // New value for 'enabled'
-                        ":en": enData.Items[0].x // New value for 'en'
-                    },
-                    ReturnValues: "UPDATED_NEW" // Returns the attribute values as they appear after the UpdateItem operation
-                    };
-                
-                    try {
-                    const result = await dynamodb.update(params).promise();
-                    console.log(`Updated item with time: ${scheduleName}`, result);
-                    } catch (err) {
-                    console.error(`Error updating item with time: ${scheduleName}`, err);
-                    }
+                    const params = {
+                        TableName: "enabled",
+                        Key: {
+                            "time": scheduleName, // Specify the key of the item you want to update
+                        },
+                        UpdateExpression: "set #enabled = :enabled, #en = :en",
+                        ExpressionAttributeNames: {
+                            "#enabled": "enabled", // Attribute name alias to avoid reserved words issues
+                            "#en": "en"
+                        },
+                        ExpressionAttributeValues: {
+                            ":enabled": 1, // New value for 'enabled'
+                            ":en": enData.Items[0].x // New value for 'en'
+                        },
+                        ReturnValues: "UPDATED_NEW" // Returns the attribute values as they appear after the UpdateItem operation
+                        };
+                    
+                        try {
+                        const result = await dynamodb.update(params).promise();
+                        console.log(`Updated item with time: ${scheduleName}`, result);
+                        } catch (err) {
+                        console.error(`Error updating item with time: ${scheduleName}`, err);
+                        }
 
-                console.log("Schedule created successfully:", response.ScheduleArn);
-            } catch (error) {
-                console.error("Error creating schedule:", error);
-            }
-        };
-        
-        await createSchedule();
+                    console.log("Schedule created successfully:", response.ScheduleArn);
+                } catch (error) {
+                    console.error("Error creating schedule:", error);
+                }
+            };
+            
+            await createSchedule();
+            startTime.add(it, 'minutes');
+        }
     }
     
     return "done"
