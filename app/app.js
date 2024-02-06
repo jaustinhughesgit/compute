@@ -1232,17 +1232,13 @@ module.exports.lambdaHandler = async (event, context) => {
                 
                 const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
 
-                var sDateUnix = moment.unix(data.Items[item].sd+data.Items[item].sd).utc();
-                var eDateUnix = moment.unix(data.Items[item].ed+data.Items[item].ed).utc();
-                var sDate = sDateUnix.format()
-                var eDate = eDateUnix.format()
                 const input = {
                     Name: scheduleName,
                     GroupName: "runLambda",
                     ScheduleExpression: scheduleExpression,
                     ScheduleExpressionTimezone: "UTC",
-                    StartDate: new Date(sDate),
-                    EndDate: new Date(eDate),
+                    StartDate: new Date(moment.utc().format()),
+                    EndDate: new Date("2030-01-01T00:00:00Z"),
                     State: "ENABLED",
                     Target: {
                         Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
