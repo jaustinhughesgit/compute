@@ -136,7 +136,7 @@ app.all("/eb0", async (req, res, next) => {
             let updateParams = {
                 TableName: 'enabled',
                 Key: {
-                    "Key": { "time": item.time }, 
+                     "time": item.time
                 },
                 UpdateExpression: 'SET enabled = :newEnabled, en = :en',
                 ExpressionAttributeValues: {
