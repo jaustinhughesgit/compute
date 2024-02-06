@@ -128,8 +128,8 @@ app.all("/eb0", async (req, res, next) => {
     console.log("params", params)
 
     dynamodb.query(params).promise()
-    .then(data => {
-        let updatePromises = data.Items.map(async item => {
+    .then(async data => {
+        let updatePromises = await data.Items.map(async item => {
             let updateParams = {
                 TableName: 'enabled',
                 Key: {
