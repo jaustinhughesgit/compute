@@ -896,7 +896,28 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
     var isToday = objDate.isSame(today, 'day');
     console.log(isToday)
 
-    if (isToday){
+    let dow = {
+        mo: moS,
+        tu: tuS,
+        we: weS,
+        th: thS,
+        fr: frS,
+        sa: saS,
+        su: suS
+    };
+    
+    const todayIndex = moment().utc().day();
+    
+    const dayCodes = ['su', 'mo', 'tu', 'we', 'th', 'fr', 'sa'];
+    
+    const todayCode = dayCodes[todayIndex];
+    
+    const isTodayOn = dow[todayCode] === 1;
+
+    console.log("isToday", isToday);
+    console.log("isTodayOn", isTodayOn);
+
+    if (isToday && isTodayOn){
         const config = { region: "us-east-1" };
         const client = new SchedulerClient(config);
 
@@ -1528,14 +1549,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
                 }
             }
-
-
-
-
-
-
-
-            
 
             mainObj["file"] = actionFile + ""
             response = mainObj
