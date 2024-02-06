@@ -51,9 +51,11 @@ async function getTasks(val, col, dynamodb){
     if (col == "e"){
         const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
         let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: 'url = :url',ExpressionAttributeValues: {':url': subByE.Items[0].su} }
+        console.log("params", params)
         return await dynamodb.query(params).promise()
     } else if (col == "su"){
         let params = { TableName: 'tasks',IndexName: 'urlIndex',KeyConditionExpression: 'url = :url',ExpressionAttributeValues: {':url': val} }
+        console.log("params", params)
         return await dynamodb.query(params).promise()
     }
 }
@@ -66,9 +68,13 @@ async function getTasksIOS(tasks){
     //
     //
     //
+    console.log("tasks", tasks)
     let converted = []
     for (let task in tasks){
+        console.log("task", task)
+        console.log("tasks[task]", tasks[task])
         converted.push({})
+        console.log("converted", converted)
         converted[task].url = tasks[task].url
         let momentSD = moment.unix(tasks[task].sd).utc()
         converted[task].startDate = momentSD.format("yyyy-mm-dd")
@@ -1401,6 +1407,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
                 let tasksUnix = getTasks(actionFile, "su", dynamodb)
+                console.log("tasksUnix", tasksUnix)
                 let tasksISO = getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
 
