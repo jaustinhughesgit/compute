@@ -126,6 +126,8 @@ app.all("/eb0", async (req, res, next) => {
     let params = { TableName: 'enabled',IndexName: 'enabledindex',KeyConditionExpression: 'enabled = :enabled AND en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1, ':enabled':1} }
     //let result = await dynamodb.query(params).promise()
     console.log("params", params)
+    const config = { region: "us-east-1" };
+    const client = new SchedulerClient(config);
 
     await dynamodb.query(params).promise()
     .then(async data => {
