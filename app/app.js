@@ -138,9 +138,10 @@ app.all("/eb0", async (req, res, next) => {
                 Key: {
                     "Key": { "time": item.time }, 
                 },
-                UpdateExpression: 'SET enabled = :newEnabled',
+                UpdateExpression: 'SET enabled = :newEnabled, en = :en',
                 ExpressionAttributeValues: {
-                    ':newEnabled': 0
+                    ':newEnabled': 0,
+                    ':en': item.en
                 }
             };
 
