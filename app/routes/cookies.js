@@ -78,9 +78,9 @@ async function getTasksIOS(tasks){
         console.log("converted", converted)
         converted[task].url = tasks[task].url
         let momentSD = moment.unix(tasks[task].sd).utc()
-        converted[task].startDate = momentSD.format("yyyy-mm-dd")
+        converted[task].startDate = momentSD.format("YYYY-MM-DD")
         let momentED = moment.unix(tasks[task].ed).utc()
-        converted[task].endDate = momentED.format("yyyy-mm-dd")
+        converted[task].endDate = momentED.format("YYYY-MM-DD")
         let momentST = moment.unix(tasks[task].sd + tasks[task].st).utc()
         converted[task].startTime = momentST.format("HH:mm")
         let momentET = moment.unix(tasks[task].sd + tasks[task].et).utc()
