@@ -154,7 +154,7 @@ app.all("/eb0", async (req, res, next) => {
             const hourFormatted = hour.toString().padStart(2, '0');
             const minuteFormatted = minute.toString().padStart(2, '0');
             
-            console.log("Date", Date())
+            console.log("moment", moment.utc().format())
             const scheduleName = `${hourFormatted}${minuteFormatted}`;
             
             const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
