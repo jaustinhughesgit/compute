@@ -174,8 +174,9 @@ app.all("/eb0", async (req, res, next) => {
             };
             console.log("update input", input)
 
-            const updateSchedule = new UpdateScheduleCommand(input);
-            console.log("updateSchedule", updateSchedule)
+            const command = new UpdateScheduleCommand(input);
+            const response = await client.send(command);
+            console.log("updateSchedule response", response)
             return "done"
         });
 
