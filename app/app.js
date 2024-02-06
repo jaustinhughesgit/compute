@@ -162,8 +162,8 @@ app.all("/eb0", async (req, res, next) => {
                 GroupName: "runLambda",
                 ScheduleExpression: scheduleExpression,
                 ScheduleExpressionTimezone: "UTC",
-                StartDate: new Date("2024-02-06T04:01:00Z"),
-                EndDate: new Date("2025-02-06T00:01:00Z"),
+                StartDate: new Date("2024-02-07T05:01:00Z"),
+                EndDate: new Date("2025-02-06T08:01:00Z"),
                 State: "DISABLED",
                 Target: {
                     Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
@@ -174,7 +174,7 @@ app.all("/eb0", async (req, res, next) => {
             };
             console.log("update input", input)
 
-            await new UpdateScheduleCommand(input);
+            new UpdateScheduleCommand(input);
 
             return "done"
         });
