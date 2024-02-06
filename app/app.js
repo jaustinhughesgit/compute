@@ -193,7 +193,7 @@ app.all("/2356", async (req, res, next) => {
    // Today's date
    const today = moment();
    // Tomorrow's date
-   const tomorrow = moment().add(1, 'days');
+   const tomorrow = moment().add(2, 'days');
    // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
    const dow = tomorrow.format('dd').toLowerCase();
    // The GSI name for querying
