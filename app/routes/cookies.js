@@ -29,14 +29,6 @@ async function getEntity(e, dynamodb){
     return await dynamodb.query(params).promise()
 }
 
-//
-//
-//
-// We are building a way to view all your tasks and click on them to edit them.
-//
-//
-//
-
 async function getTasks(val, col, dynamodb){
     //
     //
@@ -61,13 +53,6 @@ async function getTasks(val, col, dynamodb){
 }
 
 async function getTasksIOS(tasks){
-    //
-    //
-    //
-    // This function needs to send back the details with the mainObj, "clicked entity", so they can edit it's tasks
-    //
-    //
-    //
     console.log("tasks", tasks)
     tasks = tasks.Items
     let converted = []
@@ -1070,6 +1055,37 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
     return "done"
 }
 
+async function removeSchedule(ti){
+    var queryParams = {
+        TableName: 'schedules',
+        IndexName: 'tiIndex',
+        KeyConditionExpression: 'ti = :tiVal',
+        ExpressionAttributeValues: {
+          ':tiVal': ti
+        }
+      };
+    
+    await dynamodb.query(queryParams, async function(queryErr, queryResult) {
+        await queryResult.Items.forEach(async function(item) {
+            await dynamodb.delete({
+                TableName: 'schedules',
+                Key: {
+                  'si': item.si
+                }
+              }).promise();
+        });
+    }).promise();
+    
+    await dynamodb.delete({
+        TableName: 'tasks',
+        Key: {
+            'ti': ti 
+        }
+    }).promise();
+
+    return "success"
+}
+
 async function shiftDaysOfWeekForward(daysOfWeek) {
     // Shift days of the week one day forward
     return {
@@ -1552,8 +1568,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("updateAuth",updateAuth)
                 mainObj = {"alert":"success"}
             } else if (action == "createTask"){
-                const task = requestBody.body;
-                console.log(task);
+
+            const task = requestBody.body;
+            console.log(task);
             let sDate = new Date(task.startDate + 'T00:00:00Z')
             let sDateSeconds = sDate.getTime() / 1000;
 
@@ -1601,7 +1618,17 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
                 //This needs to expire on unix timestamp UTC not ETC
-                const ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+                let update
+                let ti
+                if (task.taskID != ""){
+                    update = true;
+                    ti = task.taskID;
+                    await removeSchedule(ti);
+                } else {
+                    update = false;
+                    ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+                }
+
                 let ex = 0
                 for (const schedule of schedules) {
                     let sDateS = new Date(schedule.startDate + 'T00:00:00Z')
@@ -1626,10 +1653,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const saS = schedule.saturday
                     const suS = schedule.sunday
                     ex = eDateSecondsS + eSecondsS
-                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, dynamodb)
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, update, dynamodb)
                 }
                 if (ex > 0){
-                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
+                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, update, dynamodb)
                 }
             } else if (action == "tasks"){
                 const sub = reqPath.split("/")[3]
