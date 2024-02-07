@@ -1570,6 +1570,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("updateAuth",updateAuth)
                 mainObj = {"alert":"success"}
             } else if (action == "createTask"){
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
 
             const task = requestBody.body;
             console.log(task);
@@ -1672,6 +1674,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "deleteTask"){
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
                 console.log("deleteTask", action)
                 const task = requestBody.body;
                 console.log("task.taskID", task.taskID)
