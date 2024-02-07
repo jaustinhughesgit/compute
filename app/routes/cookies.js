@@ -1668,6 +1668,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksUnix = await getTasks(sub, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
+            } else if (action == "deleteTask"){
+                const task = requestBody.body;
+                await removeSchedule(task.taskID);
             }
 
             mainObj["file"] = actionFile + ""
