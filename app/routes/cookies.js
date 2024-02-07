@@ -1663,14 +1663,22 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 if (ex > 0){
                     await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
                 }
+                let tasksUnix = await getTasks(fileID, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
             } else if (action == "tasks"){
                 const sub = reqPath.split("/")[3]
                 let tasksUnix = await getTasks(sub, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "deleteTask"){
+                console.log("deleteTask", action)
                 const task = requestBody.body;
+                console.log("task.taskID", task.taskID)
                 await removeSchedule(task.taskID);
+                let tasksUnix = await getTasks(fileID, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
             }
 
             mainObj["file"] = actionFile + ""
