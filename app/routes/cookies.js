@@ -1064,9 +1064,11 @@ async function removeSchedule(ti){
           ':tiVal': ti
         }
       };
-    
+    console.log("removeSchedule", queryParams)
     await dynamodb.query(queryParams, async function(queryErr, queryResult) {
+        console.log("queryResult", queryResult)
         await queryResult.Items.forEach(async function(item) {
+            console.log("deleting", item.si)
             await dynamodb.delete({
                 TableName: 'schedules',
                 Key: {
@@ -1075,7 +1077,7 @@ async function removeSchedule(ti){
               }).promise();
         });
     }).promise();
-    
+    console.log("deleting ti from tasks:", ti)
     await dynamodb.delete({
         TableName: 'tasks',
         Key: {
@@ -1618,15 +1620,18 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const schedules = await convertTimespanToUTC(taskJSON)
                 console.log("schedules",schedules)
                 //This needs to expire on unix timestamp UTC not ETC
-                let update
+
+
+
+                console.log(`task.taskID -${task.taskID}`)
                 let ti
-                if (task.taskID != ""){
-                    update = true;
+                if (task.taskID === ""){
+                    console.log("taskID === ''")
+                    ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+                } else {
+                    console.log("taskID != ''")
                     ti = task.taskID;
                     await removeSchedule(ti);
-                } else {
-                    update = false;
-                    ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
                 }
 
                 let ex = 0
@@ -1653,10 +1658,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                     const saS = schedule.saturday
                     const suS = schedule.sunday
                     ex = eDateSecondsS + eSecondsS
-                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, update, dynamodb)
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, dynamodb)
                 }
                 if (ex > 0){
-                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, update, dynamodb)
+                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
                 }
             } else if (action == "tasks"){
                 const sub = reqPath.split("/")[3]
