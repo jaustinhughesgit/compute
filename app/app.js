@@ -120,10 +120,10 @@ app.all("/2356", async (req, res, next) => {
    
 });
 
-app.all("/eb0", async (req, res, next) => {    
+app.all("/eb1", async (req, res, next) => {    
 
     // This adds the records into the enabled table
-    /*
+    
     const tableName = 'enabled';
 
     for (let hour = 0; hour < 24; hour++) {
@@ -148,7 +148,7 @@ app.all("/eb0", async (req, res, next) => {
         }
     }
     }
-    */
+    
 
     /*
     // Today's date
