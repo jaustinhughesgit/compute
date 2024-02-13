@@ -1197,6 +1197,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
   }
 
   async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
+    const region = "us-east-1" 
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
     const queryParams = `language-code=${languageCode}&media-encoding=${mediaEncoding}&sample-rate=${sampleRate}`;
