@@ -1232,13 +1232,15 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
         const accessKeyId = credentialPart.split('/')[0]; // Extracts the Access Key ID part
         
 
-
+        console.log("credentialPart", credentialPart)
+        console.log("accessKeyId",accessKeyId)
         const date = headers['X-Amz-Date'].substring(0, 8); // Extract date from X-Amz-Date
         const service = "transcribe";
         const credentialScope = `${accessKeyId}/${date}/${region}/${service}/aws4_request`;
     
+        console.log(credentialScope)
         const presignedUrl = `${endpoint.href}&X-Amz-Security-Token=${encodeURIComponent(headers['x-amz-security-token'])}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(credentialScope)}&X-Amz-Date=${headers['X-Amz-Date']}&X-Amz-SignedHeaders=host&X-Amz-Signature=${headers.Authorization.split('Signature=')[1]}`;
-    
+        
         return presignedUrl;
     }
       
