@@ -1243,8 +1243,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     url += `&X-Amz-Expires=${X_Amz_Expire}`;
     url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
     url += `&X-Amz-Signature=${Signature}`;
-    url += `&X-Amz-SignedHeaders=${X_Amz_SignedHeaders}`;
-
+    url += `&X-Amz-SignedHeaders=content-type%3Bhost%3Bx-amz-date`;
 
     console.log("url", url)
 
