@@ -1213,8 +1213,47 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("signer",signer)
     console.log("endpoint",endpoint)
     console.log("queryParams",queryParams)
-    return `wss://${endpoint}/stream-transcription-websocket?${queryParams}&X-Amz-Security-Token=${encodeURIComponent(AWS.config.credentials.sessionToken)}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(signer.credentials.accessKeyId)}/${signer.credentialScope}&X-Amz-Date=${signer.datetime}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signer.signature()}`;
-  }
+
+
+
+
+    function buildPresignedUrlFromSigner(signerResponse) {
+        const { request } = signerResponse;
+        const { headers, endpoint } = request;
+        const presignedUrl = `${endpoint.href}&X-Amz-Security-Token=${encodeURIComponent(headers['x-amz-security-token'])}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(headers.Authorization.split(' ')[2].split(',')[0].split('=')[1])}&X-Amz-Date=${headers['X-Amz-Date']}&X-Amz-SignedHeaders=host&X-Amz-Signature=${headers.Authorization.split('Signature=')[1]}`;
+      
+        return presignedUrl;
+      }
+      
+
+      // Usage
+      const presignedUrl = buildPresignedUrlFromSigner(signer); // Assuming signerResponse is the object you've logged
+
+
+    return presignedUrl//`wss://${endpoint}/stream-transcription-websocket?${queryParams}&X-Amz-Security-Token=${encodeURIComponent(AWS.config.credentials.sessionToken)}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(signer.credentials.accessKeyId)}/${signer.credentialScope}&X-Amz-Date=${signer.datetime}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signer.signature()}`;
+  
+
+
+
+
+
+
+      //console.log(presignedUrl);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+}
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
