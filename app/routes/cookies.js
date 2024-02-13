@@ -1196,6 +1196,10 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     return timespans;
   }
 
+
+
+
+  
   async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
     const region = "us-east-1" 
     const transcribe = new AWS.TranscribeService();
@@ -1220,10 +1224,23 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     function buildPresignedUrlFromSigner(signerResponse) {
         const { request } = signerResponse;
         const { headers, endpoint } = request;
-        const presignedUrl = `${endpoint.href}&X-Amz-Security-Token=${encodeURIComponent(headers['x-amz-security-token'])}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(headers.Authorization.split(' ')[2].split(',')[0].split('=')[1])}&X-Amz-Date=${headers['X-Amz-Date']}&X-Amz-SignedHeaders=host&X-Amz-Signature=${headers.Authorization.split('Signature=')[1]}`;
-      
+        
+
+        const authorizationHeader = signerResponse.request.headers.Authorization;
+        // Assuming the format of the Authorization header is known and consistent:
+        const credentialPart = authorizationHeader.split('Credential=')[1].split(',')[0];
+        const accessKeyId = credentialPart.split('/')[0]; // Extracts the Access Key ID part
+        
+
+
+        const date = headers['X-Amz-Date'].substring(0, 8); // Extract date from X-Amz-Date
+        const service = "transcribe";
+        const credentialScope = `${accessKeyId}/${date}/${region}/${service}/aws4_request`;
+    
+        const presignedUrl = `${endpoint.href}&X-Amz-Security-Token=${encodeURIComponent(headers['x-amz-security-token'])}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(credentialScope)}&X-Amz-Date=${headers['X-Amz-Date']}&X-Amz-SignedHeaders=host&X-Amz-Signature=${headers.Authorization.split('Signature=')[1]}`;
+    
         return presignedUrl;
-      }
+    }
       
 
       // Usage
