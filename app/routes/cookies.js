@@ -1210,6 +1210,9 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const signer = new AWS.Signers.V4(request, 'transcribe');
     signer.addAuthorization(AWS.config.credentials, new Date());
   
+    console.log("signer",signer)
+    console.log("endpoint",endpoint)
+    console.log("queryParams",queryParams)
     return `wss://${endpoint}/stream-transcription-websocket?${queryParams}&X-Amz-Security-Token=${encodeURIComponent(AWS.config.credentials.sessionToken)}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(signer.credentials.accessKeyId)}/${signer.credentialScope}&X-Amz-Date=${signer.datetime}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signer.signature()}`;
   }
 
