@@ -1236,7 +1236,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const X_Amz_SignedHeaders = splitSignedHeader.map(encodeURIComponent).join('%3B');
 
     // Construct the URL
-    let url = `wss://${awsHost}${awsPath}&${queryParams}`;
+    let url = `wss://${awsHost}${awsPath}`;
     url += `&X-Amz-Algorithm=${X_Amz_Algorithm}`;
     url += `&X-Amz-Credential=${X_Amz_Credential}`;
     url += `&X-Amz-Date=${X_Amz_Date}`;
