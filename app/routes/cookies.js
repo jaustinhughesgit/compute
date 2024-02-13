@@ -1218,60 +1218,31 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("endpoint",endpoint)
     console.log("queryParams",queryParams)
 
+    const authorizationHeader = signer.request.headers.Authorization;
+    const awsHost = signer.request.headers.host
+    const awsPath = signer.request.path
+    const Credential = authorizationHeader.split('Credential=')[1].split(',')[0];
+    const SignedHeader = authorizationHeader.split('SignedHeaders=')[1].split(',')[0];
+    const splitSignedHeader = SignedHeader.split(";")
+    const Signature = authorizationHeader.split('Signature=')[1].split(',')[0];
+    const X_Amz_Algorithm = authorizationHeader.split('Credential=')[0].trimEnd();
+    const X_Amz_Date = signerResponse.request.headers['X-Amz-Date'];
+    const x_amz_security_token = signerResponse.request.headers['x-amz-security-token'];
+    const X_Amz_Expire = 300
+    let url = "https://"
+    url += awsHost
+    url += awsPath
+    url += "&X-Amz-Algorithm=" + X_Amz_Algorithm
+    url += "&X-Amz-Credential=" + Credential
+    url += "&X-Amz-Date=" + X_Amz_Date
+    url += "&X-Amz-Expires=" + X_Amz_Expire
+    url += "&X-Amz-Security-Token=" + x_amz_security_token
+    url += "&X-Amz-Signature=" + Signature
+    url += "&X-Amz-SignedHeaders=" + splitSignedHeader[1] + "%3B" + splitSignedHeader[0] + "%3B" + splitSignedHeader[2]
 
+    console.log(url)
 
-
-    function buildPresignedUrlFromSigner(signerResponse) {
-        const { request } = signerResponse;
-        const { headers, endpoint } = request;
-        
-
-        const authorizationHeader = signerResponse.request.headers.Authorization;
-        // Assuming the format of the Authorization header is known and consistent:
-        const credentialPart = authorizationHeader.split('Credential=')[1].split(',')[0];
-        const accessKeyId = credentialPart.split('/')[0]; // Extracts the Access Key ID part
-        
-
-        console.log("credentialPart", credentialPart)
-        console.log("accessKeyId",accessKeyId)
-        const date = headers['X-Amz-Date'].substring(0, 8); // Extract date from X-Amz-Date
-        const service = "transcribe";
-        const credentialScope = `${accessKeyId}/${date}/${region}/${service}/aws4_request`;
-    
-        console.log(credentialScope)
-        const presignedUrl = `${endpoint.href}&X-Amz-Security-Token=${encodeURIComponent(headers['x-amz-security-token'])}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(credentialScope)}&X-Amz-Date=${headers['X-Amz-Date']}&X-Amz-SignedHeaders=host&X-Amz-Signature=${headers.Authorization.split('Signature=')[1]}`;
-        
-        return presignedUrl;
-    }
-      
-
-      // Usage
-      const presignedUrl = buildPresignedUrlFromSigner(signer); // Assuming signerResponse is the object you've logged
-
-
-    return presignedUrl//`wss://${endpoint}/stream-transcription-websocket?${queryParams}&X-Amz-Security-Token=${encodeURIComponent(AWS.config.credentials.sessionToken)}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(signer.credentials.accessKeyId)}/${signer.credentialScope}&X-Amz-Date=${signer.datetime}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signer.signature()}`;
-  
-
-
-
-
-
-
-      //console.log(presignedUrl);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    return url
 }
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
