@@ -1196,6 +1196,22 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     return timespans;
   }
 
+  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
+    const transcribe = new AWS.TranscribeService();
+    const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
+    const queryParams = `language-code=${languageCode}&media-encoding=${mediaEncoding}&sample-rate=${sampleRate}`;
+    
+    const request = new AWS.HttpRequest(`https://${endpoint}/stream-transcription-websocket?${queryParams}`, region);
+    request.method = 'GET';
+    request.headers.host = endpoint;
+    request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
+  
+    const signer = new AWS.Signers.V4(request, 'transcribe');
+    signer.addAuthorization(AWS.config.credentials, new Date());
+  
+    return `wss://${endpoint}/stream-transcription-websocket?${queryParams}&X-Amz-Security-Token=${encodeURIComponent(AWS.config.credentials.sessionToken)}&X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=${encodeURIComponent(signer.credentials.accessKeyId)}/${signer.credentialScope}&X-Amz-Date=${signer.datetime}&X-Amz-SignedHeaders=host&X-Amz-Signature=${signer.signature()}`;
+  }
+
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
     console.log("req.body", req.body)
@@ -1683,6 +1699,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
+            } else if (action == "transcribe"){
+                mainObj["presign"] = await getPresignedUrl();
             }
 
             mainObj["file"] = actionFile + ""
