@@ -1221,8 +1221,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const SignedHeader = authorizationHeader.split('SignedHeaders=')[1].split(',')[0];
     const splitSignedHeader = SignedHeader.split(";")
     const Signature = authorizationHeader.split('Signature=')[1].split(',')[0];
-    const X_Amz_Date = signerResponse.request.headers['X-Amz-Date'];
-    const x_amz_security_token = signerResponse.request.headers['x-amz-security-token'];
+    const X_Amz_Date = signer.request.headers['X-Amz-Date'];
+    const x_amz_security_token = signer.request.headers['x-amz-security-token'];
     const X_Amz_Expire = 300
 
     const awsHost = request.endpoint.host;
