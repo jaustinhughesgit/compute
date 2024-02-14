@@ -1200,54 +1200,28 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
   
-  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
+  async function getPresignedUrl() {
     
     const region = "us-east-1" 
-    const transcribe = new AWS.TranscribeService();
-    const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
-    const queryParams = `language-code=${languageCode}&media-encoding=${mediaEncoding}&sample-rate=${sampleRate}`;
-    
-    const request = new AWS.HttpRequest(`https://${endpoint}/stream-transcription-websocket?${queryParams}`, region);
-    request.method = 'GET';
-    request.headers.host = endpoint;
-    request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
-  
-    const signer = new AWS.Signers.V4(request, 'transcribe');
-    console.log("aws.config", AWS.config)
-    signer.addAuthorization(AWS.config.credentials, new Date());
+    const transcribeService = new AWS.TranscribeService();
 
-    console.log("signer", signer)
-    
-    const authorizationHeader = signer.request.headers.Authorization;
-    const Credential = authorizationHeader.split('Credential=')[1].split(',')[0];
-    const SignedHeader = authorizationHeader.split('SignedHeaders=')[1].split(',')[0];
-    const splitSignedHeader = SignedHeader.split(";")
-    const Signature = authorizationHeader.split('Signature=')[1].split(',')[0];
-    const X_Amz_Date = signer.request.headers['X-Amz-Date'];
-    const x_amz_security_token = signer.request.headers['x-amz-security-token'];
-    const X_Amz_Expire = 300
+    const params = {
+        LanguageCode: 'en-US', // Required: The language code
+        MediaEncoding: 'pcm', // Required: The encoding of the media (pcm, ogg-opus, etc.)
+        MediaSampleRateHertz: 16000, // Required: The sample rate of the media in Hertz
+        // Optional parameters
+        // VocabularyName: 'YourVocabularyName',
+        // VocabularyFilterName: 'YourVocabularyFilterName',
+        // ShowSpeakerLabels: true,
+        // MaxSpeakerLabels: 2,
+        // EnableChannelIdentification: true,
+        // NumberOfChannels: 2,
+        Method: 'GET', // Required for WebSocket connection
+    };
 
-    const awsHost = request.endpoint.host;
-    const awsPath = request.path;
+        const url = await transcribeService.getPresignedUrl('startStreamTranscriptionWebSocket', params);
 
-    // Directly use known constants where applicable
-    const X_Amz_Algorithm = 'AWS4-HMAC-SHA256';
-
-    // Ensure the Credential is properly URL-encoded, as well as other values
-    const X_Amz_Credential = encodeURIComponent(Credential);
-    const X_Amz_SignedHeaders = splitSignedHeader.map(encodeURIComponent).join('%3B');
-
-    // Construct the URL
-    let url = `wss://${awsHost}${awsPath}`;
-    url += `&X-Amz-Algorithm=${X_Amz_Algorithm}`;
-    url += `&X-Amz-Credential=${X_Amz_Credential}`;
-    url += `&X-Amz-Date=${X_Amz_Date}`;
-    url += `&X-Amz-Expires=${X_Amz_Expire}`;
-    url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
-    url += `&X-Amz-Signature=${Signature}`;
-    url += `&X-Amz-SignedHeaders=content-type%3Bhost%3Bx-amz-date`;
-
-    console.log("url", url)
+console.log("url", url)
 
     return url
 }
