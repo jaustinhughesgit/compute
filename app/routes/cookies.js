@@ -1212,6 +1212,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers.host = endpoint;
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
+    AWS.config.update({ accessKeyId: 'AKIAXZ7FJUVFZ57HXI5U', secretAccessKey: '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' })
+
     const signer = new AWS.Signers.V4(request, 'transcribe');
     signer.addAuthorization(AWS.config.credentials, new Date());
   
@@ -1233,7 +1235,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     url += `&X-Amz-Date=${X_Amz_Date}`;
     url += `&X-Amz-Expires=${X_Amz_Expires}`;
     url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
-    //url += `&X-Amz-Signature=${Signature}`;
+    url += `&X-Amz-Signature=${Signature}`;
     url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
     url += `&language-code=en-US`
     url += `&media-encoding=pcm`
