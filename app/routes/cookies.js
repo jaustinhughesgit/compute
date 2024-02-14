@@ -1228,8 +1228,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const awsPath = request.endpoint.pathname;
   
     // Construct the signed URL following AWS guidelines
-    let url = `https://${awsHost}${awsPath}?`;
-    url += `&X-Amz-Algorithm=AWS4-HMAC-SHA256`;
+    let url = `wss://${awsHost}${awsPath}?`;
+    url += `X-Amz-Algorithm=AWS4-HMAC-SHA256`;
     url += `&X-Amz-Credential=${encodeURIComponent(Credential)}`;
     url += `&X-Amz-Date=${X_Amz_Date}`;
     url += `&X-Amz-Expires=${X_Amz_Expires}`;
