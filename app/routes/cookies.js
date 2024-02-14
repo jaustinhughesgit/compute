@@ -1201,6 +1201,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
   
   async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
+    
     const region = "us-east-1" 
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
@@ -1212,6 +1213,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
     const signer = new AWS.Signers.V4(request, 'transcribe');
+    console.log("aws.config", aws.config)
     signer.addAuthorization(AWS.config.credentials, new Date());
 
     console.log("signer", signer)
