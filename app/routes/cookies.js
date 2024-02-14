@@ -1224,7 +1224,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const X_Amz_Expires = 300; // Set the expiration time as needed
   
     const awsHost = request.endpoint.host;
-    const awsPath = request.endpoint.pathName;
+    const awsPath = request.endpoint.pathname;
   
     // Construct the signed URL following AWS guidelines
     let url = `wss://${awsHost}${awsPath}?`;
