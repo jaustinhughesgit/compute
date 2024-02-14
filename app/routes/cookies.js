@@ -1216,7 +1216,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
     const signer = new AWS.Signers.V4(request, 'transcribe');
     signer.addAuthorization(AWS.config.credentials, new Date());
-  
+  console.log("signer",signer)
     const authorizationHeader = signer.request.headers.Authorization;
     const Credential = authorizationHeader.split('Credential=')[1].split(',')[0];
     const SignedHeader = authorizationHeader.split('SignedHeaders=')[1].split(',')[0];
