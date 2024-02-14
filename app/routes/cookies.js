@@ -1221,22 +1221,23 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const Signature = authorizationHeader.split('Signature=')[1].split(',')[0];
     const X_Amz_Date = signer.request.headers['X-Amz-Date'];
     const x_amz_security_token = signer.request.headers['x-amz-security-token'];
-    const X_Amz_Expire = 300; // Set the expiration time as needed
+    const X_Amz_Expires = 300; // Set the expiration time as needed
   
     const awsHost = request.endpoint.host;
-    const awsPath = request.path;
+    const awsPath = request.endpoint.pathName;
   
     // Construct the signed URL following AWS guidelines
-    let url = `wss://${awsHost}${awsPath}`;
+    let url = `wss://${awsHost}${awsPath}?`;
     url += `&X-Amz-Algorithm=AWS4-HMAC-SHA256`;
     url += `&X-Amz-Credential=${encodeURIComponent(Credential)}`;
     url += `&X-Amz-Date=${X_Amz_Date}`;
-    url += `&X-Amz-Expires=${X_Amz_Expire}`;
-    url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
+    url += `&X-Amz-Expires=${X_Amz_Expires}`;
+    url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
     url += `&X-Amz-Signature=${Signature}`;
-    if (x_amz_security_token) {
-      url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
-    }
+    url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
+    url += `&language-code=en-US`
+    url += `&media-encoding=pcm`
+    url += `&sample-rate=16000`
   
     console.log("Generated URL:", url);
     return url;
