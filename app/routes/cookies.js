@@ -1200,7 +1200,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
   
-  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
+  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
     const region = "us-east-1";
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
@@ -1237,7 +1237,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     url += `&X-Amz-Signature=${Signature}`;
     url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
     url += `&language-code=en-US`
-    url += `&media-encoding=pcm`
+    url += `&media-encoding=flac`
     url += `&sample-rate=16000`
   
     console.log("Generated URL:", url);
