@@ -1201,10 +1201,10 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
   
   async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "pcm", sampleRate = 16000) {
-    
-    const region = "us-east-1" 
+    const region = "us-east-1";
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
+    // Ensure you're using the correct query parameters as specified in the AWS documentation
     const queryParams = `language-code=${languageCode}&media-encoding=${mediaEncoding}&sample-rate=${sampleRate}`;
     
     const request = new AWS.HttpRequest(`https://${endpoint}/stream-transcription-websocket?${queryParams}`, region);
@@ -1212,47 +1212,35 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers.host = endpoint;
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
-    console.log("request", request)
-
     const signer = new AWS.Signers.V4(request, 'transcribe');
-    console.log("aws.config", AWS.config)
     signer.addAuthorization(AWS.config.credentials, new Date());
-
-    console.log("signer", signer)
-    
+  
     const authorizationHeader = signer.request.headers.Authorization;
     const Credential = authorizationHeader.split('Credential=')[1].split(',')[0];
     const SignedHeader = authorizationHeader.split('SignedHeaders=')[1].split(',')[0];
-    const splitSignedHeader = SignedHeader.split(";")
     const Signature = authorizationHeader.split('Signature=')[1].split(',')[0];
     const X_Amz_Date = signer.request.headers['X-Amz-Date'];
     const x_amz_security_token = signer.request.headers['x-amz-security-token'];
-    const X_Amz_Expire = 300
-
+    const X_Amz_Expire = 300; // Set the expiration time as needed
+  
     const awsHost = request.endpoint.host;
     const awsPath = request.path;
-
-    // Directly use known constants where applicable
-    const X_Amz_Algorithm = 'AWS4-HMAC-SHA256';
-
-    // Ensure the Credential is properly URL-encoded, as well as other values
-    const X_Amz_Credential = encodeURIComponent(Credential);
-    const X_Amz_SignedHeaders = splitSignedHeader.map(encodeURIComponent).join('%3B');
-
-    // Construct the URL
+  
+    // Construct the signed URL following AWS guidelines
     let url = `wss://${awsHost}${awsPath}`;
-    url += `&X-Amz-Algorithm=${X_Amz_Algorithm}`;
-    url += `&X-Amz-Credential=${X_Amz_Credential}`;
+    url += `&X-Amz-Algorithm=AWS4-HMAC-SHA256`;
+    url += `&X-Amz-Credential=${encodeURIComponent(Credential)}`;
     url += `&X-Amz-Date=${X_Amz_Date}`;
     url += `&X-Amz-Expires=${X_Amz_Expire}`;
-    url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
+    url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
     url += `&X-Amz-Signature=${Signature}`;
-    url += `&X-Amz-SignedHeaders=content-type%3Bhost%3Bx-amz-date`;
-
-    console.log("url", url)
-
-    return url
-}
+    if (x_amz_security_token) {
+      url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
+    }
+  
+    console.log("Generated URL:", url);
+    return url;
+  }
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
