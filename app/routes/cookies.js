@@ -1212,7 +1212,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers.host = endpoint;
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
-    AWS.config.update({ accessKeyId: 'AKIAXZ7FJUVFZ57HXI5U', secretAccessKey: '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' })
+    AWS.config.update({ accessKeyId: process.env.accessKeyId, secretAccessKey: process.env.secretAccessKey })
 
     const signer = new AWS.Signers.V4(request, 'transcribe');
     signer.addAuthorization(AWS.config.credentials, new Date());
