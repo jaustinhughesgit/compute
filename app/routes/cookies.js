@@ -1213,7 +1213,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
     const signer = new AWS.Signers.V4(request, 'transcribe');
-    console.log("aws.config", aws.config)
+    console.log("aws.config", AWS.config)
     signer.addAuthorization(AWS.config.credentials, new Date());
 
     console.log("signer", signer)
