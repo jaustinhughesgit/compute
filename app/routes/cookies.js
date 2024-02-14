@@ -1212,7 +1212,6 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     request.headers.host = endpoint;
     request.headers['x-amz-content-sha256'] = 'UNSIGNED-PAYLOAD';
   
-    AWS.config.update({ accessKeyId: process.env.accessKeyId, secretAccessKey: process.env.secretAccessKey })
 
     const signer = new AWS.Signers.V4(request, 'transcribe');
     signer.addAuthorization(AWS.config.credentials, new Date());
@@ -1229,7 +1228,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const awsPath = request.endpoint.pathname;
   
     // Construct the signed URL following AWS guidelines
-    let url = `wss://${awsHost}${awsPath}?`;
+    let url = `https://${awsHost}${awsPath}?`;
     url += `&X-Amz-Algorithm=AWS4-HMAC-SHA256`;
     url += `&X-Amz-Credential=${encodeURIComponent(Credential)}`;
     url += `&X-Amz-Date=${X_Amz_Date}`;
