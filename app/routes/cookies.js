@@ -1233,7 +1233,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     url += `&X-Amz-Date=${X_Amz_Date}`;
     url += `&X-Amz-Expires=${X_Amz_Expires}`;
     url += `&X-Amz-Security-Token=${encodeURIComponent(x_amz_security_token)}`;
-    url += `&X-Amz-Signature=${Signature}`;
+    //url += `&X-Amz-Signature=${Signature}`;
     url += `&X-Amz-SignedHeaders=${encodeURIComponent(SignedHeader)}`;
     url += `&language-code=en-US`
     url += `&media-encoding=pcm`
