@@ -602,7 +602,11 @@ async function replacePlaceholders(item, libs, nestedPath) {
         let stringResponse = await processString(processedItem, libs, nestedPath);
         console.log("stringResponse",stringResponse)
         console.log("processedItem2",processedItem2)
-        return processedItem2;
+        if (processedItem2 == "res"){
+            return stringResponse;
+        } else {
+            return processedItem2;
+        }
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
             console.log("element", element)
