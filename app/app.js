@@ -971,13 +971,17 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
+                                
                                 console.log("..h..")
+                                try{ console.log("result", result) } catch (err){}
+                                try{ console.log("accessClean", accessClean)} catch (err){}
+                                try{ console.log("chainParams", chainParams)} catch (err){}
                                 try{
                                     console.log("..i..")
                                 result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     console.log("..j..")
-                                    console.log("result", result)
+                                    console.log("result", result.req.lib.root)
                                     result = result
                                 }
                             }
