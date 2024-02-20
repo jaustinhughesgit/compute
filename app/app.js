@@ -646,7 +646,7 @@ function isArray(string) {
       try {
         const parsed = JSON.parse(string);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return true
+          return parsed[0]
         } else {
           return false
         }
@@ -691,7 +691,13 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            value = ""
+            if (!isArray(target.key)){
+                console.log("THIS ITEM IS AN ARRAY", target.key)
+                console.log("Array value", isArray(target.key))
+                value = value[isArray(target.key)]
+            } else {
+                value = ""
+            }
         }
         console.log("value", value)
         return value
