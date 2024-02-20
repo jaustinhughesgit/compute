@@ -929,13 +929,12 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-
                 console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
             }
-
+            console.log("chainParams",chainParams)
             let accessClean = chainAction.access
             if (accessClean){
                 const isObj = await isOnePlaceholder(accessClean)
