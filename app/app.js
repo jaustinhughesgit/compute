@@ -98,9 +98,9 @@ async function isValid(req, res, data) {
     console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
     console.log("accessItem", accessItem)
-    console.log("accessItem.Items[0].va",accessItem.Items[0].va)
     let isDataPresent = false
     if (accessItem.Items.length > 0){
+        console.log("accessItem.Items[0].va",accessItem.Items[0].va)
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
     console.log("isDataPresent", isDataPresent)
