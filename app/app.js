@@ -701,8 +701,8 @@ async function processString(str, libs, nestedPath) {
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
                 console.log(value)
-                console.log("nestedContext[target.key]",nestedContext[target.key]);
-                value = nestedContext[target.key][isArray(arrowJson[1])]
+                console.log("nestedContext[target.key].value",nestedContext[target.key].value);
+                value = nestedContext[target.key].value[isArray(arrowJson[1])]
             } else {
                 value = ""
             }
