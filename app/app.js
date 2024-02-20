@@ -723,33 +723,13 @@ async function processString(strRaw, libs, nestedPath) {
                 console.log("nestedContext[target.key].value",nestedContext[target.key].value);
                 value = nestedContext[target.key].value[isArray(arrowJson[1])]
             } else {
-                try{
-                    let arrayVal = isArray(arrowJson[1])
-                    if (arrayVal != false){
-                        if (arrayVal.startsWith("{{")){
-                            console.log("nestedContext",nestedContext)
-                            console.log("strClean",strClean)
-                            console.log("nestedContext[strClean]",nestedContext[strClean])
-                            let placeholderValue = nestedContext[strClean].value
-                            console.log(placeholderValue)
-                            value = placeholderValue
-                        } else {
-                            value = ""
-                        }
-                    } else {
-                        value = ""
-                    }
-                } catch (err){
-                    console.log("not a placeholder", err)
-                    value = ""
-                }
+                value = ""
             }
         }
         console.log("value", value)
         return value
     } else if (isArray(target.key)){
-        console.log("THIS ITEM IS AN ARRAY", target.key)
-        
+        console.log("THIS ITEM IS AN ARRAY", target.key)   
     }
     if (!isObj){
 
