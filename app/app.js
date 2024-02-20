@@ -581,9 +581,27 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
+    let processedItem2 = item+"";
     if (typeof processedItem === 'string') {
 
+        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+        let match;
+      
+        while ((match = pattern.exec(processedItem2)) !== null) {
+            
+          const word = match[1];
+          console.log("word",word)
+          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
+          console.log("replacement", replacement)
+          
+          processedItem2 = processedItem2.substring(0, match.index) + replacement + processedItem2.substring(match.index + match[0].length);
+
+          pattern.lastIndex = 0;
+        }
+
         let stringResponse = await processString(processedItem, libs, nestedPath);
+        console.log("stringResponse",stringResponse)
+        console.log("processedItem2",processedItem2)
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
@@ -602,20 +620,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
 
 /*
 
-        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
-        let match;
-      
-        while ((match = pattern.exec(processedItem)) !== null) {
-            
-          const word = match[1];
-          console.log("word",word)
-          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
-          console.log("replacement", replacement)
-          
-          processedItem = processedItem.substring(0, match.index) + replacement + processedItem.substring(match.index + match[0].length);
-          console.log("processedItem",processedItem)
-          pattern.lastIndex = 0;
-        }
+
 
 */
 
