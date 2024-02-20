@@ -697,12 +697,21 @@ async function processString(str, libs, nestedPath) {
             console.log("DDD")
             console.log(isArray(arrowJson[1]))
             console.log(isNumber(isArray(arrowJson[1])))
-            if (isNumber(isArray(arrowJson[1]))){
+            const isPlaceholder = await isOnePlaceholder(isArray(arrowJson[1]))
+            const isArrayNumber = isNumber(isArray(arrowJson[1]))
+            console.log("isPlaceholder",isPlaceholder)
+            console.log("isArrayNumber",isArrayNumber)
+            if (isArrayNumber){
+                if (isObj2){
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
                 console.log(value)
                 console.log("nestedContext[target.key].value",nestedContext[target.key].value);
                 value = nestedContext[target.key].value[isArray(arrowJson[1])]
+            } else if (isPlaceholder){
+                let placeholderValue = replacePlaceholders(isArray(arrowJson[1]), libs, nestedPath)
+                console.log(placeholderValue)
+                value = placeholderValue
             } else {
                 value = ""
             }
