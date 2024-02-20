@@ -673,7 +673,7 @@ function isArray(string) {
       if (isObj){
         target = await getKeyAndPath(word, nestedPath)
     } else {
-        target = {"key":strClean, "path":nestedPath}
+        target = {"key":word, "path":nestedPath}
     }
     let nestedContext = await getNestedContext(libs, target.path)
     console.log(">>nestedContext", nestedContext)
