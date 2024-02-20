@@ -663,28 +663,20 @@ function isArray(string) {
   }
 
   async function replaceNestedPlaceholders(str, libs, nestedPath) {
-    let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+    let pattern = /{{(.*?)}}/; 
     let match;
   
     while ((match = pattern.exec(str)) !== null) {
-      // Extract the word within the nested curly brackets
-      const word = match[1];
-      // Call the processing function with the extracted word
-      if (isObj){
-        target = await getKeyAndPath(word, nestedPath)
-    } else {
+        const word = match[1];
         target = {"key":word, "path":nestedPath}
-    }
-    let nestedContext = await getNestedContext(libs, target.path)
-    console.log(">>nestedContext", nestedContext)
-    const replacement = ""
-    if (nestedContext.hasOwnProperty(target.key)){
-      replacement = nestedContext[target.key].value
-    }
-      // Replace the matched text with the replacement
-      str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
-      // Reset the pattern's lastIndex property to ensure subsequent searches in the updated string
-      pattern.lastIndex = 0;
+        let nestedContext = await getNestedContext(libs, target.path)
+        console.log(">>nestedContext", nestedContext)
+        const replacement = ""
+        if (nestedContext.hasOwnProperty(target.key)){
+        replacement = nestedContext[target.key].value
+        }
+        str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
+        pattern.lastIndex = 0;
     }
   
     return str;
