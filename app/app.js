@@ -705,11 +705,19 @@ async function processString(str, libs, nestedPath) {
                 value = nestedContext[target.key].value[isArray(arrowJson[1])]
             } else {
                 try{
-                    const isPlaceholder = await isOnePlaceholder(isArray(arrowJson[1]))
-                    if (isPlaceholder){
-                        let placeholderValue = replacePlaceholders(isArray(arrowJson[1]), libs, nestedPath)
-                        console.log(placeholderValue)
-                        value = placeholderValue
+                    let arrayVal = isArray(arrowJson[1])
+                    if (arrayVal != false){
+                        if (arrayVal.startsWith("{{")){
+                            let strClean = await removeBrackets(str, isObj, isExecuted);
+                            console.log("nestedContext",nestedContext)
+                            console.log("strClean",strClean)
+                            console.log("nestedContext[strClean]",nestedContext[strClean])
+                            let placeholderValue = nestedContext[strClean].value
+                            console.log(placeholderValue)
+                            value = placeholderValue
+                        } else {
+                            value = ""
+                        }
                     } else {
                         value = ""
                     }
