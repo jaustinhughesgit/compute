@@ -99,7 +99,10 @@ async function isValid(req, res, data) {
     let accessItem = await dynamodb.query(params).promise()
     console.log("accessItem", accessItem)
     console.log("accessItem.Items[0].va",accessItem.Items[0].va)
-    let isDataPresent = isSubset(accessItem.Items[0].va, data)
+    let isDataPresent = false
+    if (accessItem.Items.length > 0){
+        isDataPresent = isSubset(accessItem.Items[0].va, data)
+    }
     console.log("isDataPresent", isDataPresent)
     if (isDataPresent){
         let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
