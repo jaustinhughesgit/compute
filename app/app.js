@@ -702,7 +702,6 @@ async function processString(str, libs, nestedPath) {
             console.log("isPlaceholder",isPlaceholder)
             console.log("isArrayNumber",isArrayNumber)
             if (isArrayNumber){
-                if (isObj2){
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
                 console.log(value)
