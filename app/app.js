@@ -670,7 +670,7 @@ function isArray(string) {
       // Extract the word within the nested curly brackets
       const word = match[1];
       // Call the processing function with the extracted word
-      const replacement = await processString("{{"+word+"}}", libs, nestedPath);
+      const replacement = lib.root.context[word].value
       // Replace the matched text with the replacement
       str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
       // Reset the pattern's lastIndex property to ensure subsequent searches in the updated string
