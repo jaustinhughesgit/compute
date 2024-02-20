@@ -668,6 +668,8 @@ function isArray(string) {
   
     while ((match = pattern.exec(str)) !== null) {
         const word = match[1];
+        console.log(">>word",word)
+        console.log(">>nestedPath",nestedPath)
         target = {"key":word, "path":nestedPath}
         let nestedContext = await getNestedContext(libs, target.path)
         console.log(">>nestedContext", nestedContext)
