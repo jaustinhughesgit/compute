@@ -673,7 +673,7 @@ function isArray(string) {
         target = {"key":word, "path":nestedPath}
         let nestedContext = await getNestedContext(libs, target.path)
         console.log(">>nestedContext", nestedContext)
-        const replacement = ""
+        let replacement = ""
         if (nestedContext.hasOwnProperty(target.key)){
         replacement = nestedContext[target.key].value
         }
