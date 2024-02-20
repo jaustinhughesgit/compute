@@ -697,7 +697,6 @@ async function processString(str, libs, nestedPath) {
             console.log("DDD")
             console.log(isArray(arrowJson[1]))
             console.log(isNumber(isArray(arrowJson[1])))
-            const isPlaceholder = await isOnePlaceholder(isArray(arrowJson[1]))
             if (isNumber(isArray(arrowJson[1]))){
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
