@@ -98,8 +98,11 @@ async function isValid(req, res, data) {
     console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
     console.log("accessItem", accessItem)
-    console.log("accessItem.Items[0].va",accessItem.Items[0].va)
-    let isDataPresent = isSubset(accessItem.Items[0].va, data)
+    let isDataPresent = false
+    if (accessItem.Items.length > 0){
+        console.log("accessItem.Items[0].va",accessItem.Items[0].va)
+        isDataPresent = isSubset(accessItem.Items[0].va, data)
+    }
     console.log("isDataPresent", isDataPresent)
     if (isDataPresent){
         let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
@@ -490,11 +493,14 @@ async function initializeModules(libs, config, req, res, next) {
 }
 
 async function getNestedContext(libs, nestedPath) {
+    console.log("getNestedContext")
+    console.log("libs", libs)
+    console.log("nestedPath", nestedPath)
     const parts = nestedPath.split('.');
+    console.log("parts", parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
         let partCounter = 0
-        console.log("parts",parts)
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
@@ -506,14 +512,22 @@ async function getNestedContext(libs, nestedPath) {
 }
 
 async function getNestedValue(libs, nestedPath) {
+    console.log("getNestedValue")
+    console.log("libs", libs)
+    console.log("nestedPath", nestedPath)
     const parts = nestedPath.split('.');
+    console.log("parts",parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
         let partCounter = 0
+        console.log("parts",parts)
         for (let part of parts) {
+
             if (partCounter < parts.length-1 || partCounter == 0){
+                console.log("part context",part)
                 tempContext = tempContext[part].context;
             } else {
+                console.log("part value",part)
                 tempContext = tempContext[part].value;
             }
         }
@@ -568,6 +582,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
+
         let stringResponse = await processString(processedItem, libs, nestedPath);
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
@@ -583,6 +598,26 @@ async function replacePlaceholders(item, libs, nestedPath) {
     }
     
 }
+
+
+/*
+
+        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+        let match;
+      
+        while ((match = pattern.exec(processedItem)) !== null) {
+            
+          const word = match[1];
+          console.log("word",word)
+          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
+          console.log("replacement", replacement)
+          
+          processedItem = processedItem.substring(0, match.index) + replacement + processedItem.substring(match.index + match[0].length);
+          console.log("processedItem",processedItem)
+          pattern.lastIndex = 0;
+        }
+
+*/
 
 async function isOnePlaceholder(str) {
     if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
@@ -627,7 +662,30 @@ function getValueFromPath(obj, path) {
     }, obj);
 }
 
-async function processString(str, libs, nestedPath) {
+function isNumber(value) {
+    return typeof value === 'number' && !isNaN(value);
+  }
+
+function isArray(string) {
+    if (string.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(string);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed[0]
+        } else {
+          return false
+        }
+      } catch (error) {
+        return false
+      }
+    } else {
+      return false
+    }
+  }
+
+
+
+async function processString(strRaw, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
@@ -643,20 +701,39 @@ async function processString(str, libs, nestedPath) {
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
+    console.log("nC", nestedContext)
+    console.log("t.k", target.key)
     if (nestedContext.hasOwnProperty(target.key)){
+        console.log("AAA")
         let value = nestedContext[target.key].value
         if (arrowJson.length > 1){
+            console.log("BBB")
             value = getValueFromPath(value, arrowJson[1]);
         }
         if (typeof value === 'function') {
+            console.log("CCC")
             if (isExecuted){
             value = await value();
             }
         }
         if (value == null || value == undefined){
-            value = ""
+            console.log("DDD")
+            console.log(isArray(arrowJson[1]))
+            console.log(isNumber(isArray(arrowJson[1])))
+            if (isNumber(isArray(arrowJson[1]))){
+                console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
+                console.log("Array value", isArray(arrowJson[1]))
+                console.log(value)
+                console.log("nestedContext[target.key].value",nestedContext[target.key].value);
+                value = nestedContext[target.key].value[isArray(arrowJson[1])]
+            } else {
+                value = ""
+            }
         }
+        console.log("value", value)
         return value
+    } else if (isArray(target.key)){
+        console.log("THIS ITEM IS AN ARRAY", target.key)   
     }
     if (!isObj){
 
@@ -772,7 +849,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
-
+        console.log(">>A<<")
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
@@ -796,6 +873,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     let nestedContext = await getNestedContext(libs, from.path);
                     console.log("arguments: nestedContext", nestedContext)
 
+                    console.log(">>B<<")
                     let value = await replacePlaceholders(item, libs, nestedPath);
                     console.log("arguments: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
@@ -928,11 +1006,12 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
+                console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
             }
-
+            console.log("chainParams",chainParams)
             let accessClean = chainAction.access
             if (accessClean){
                 const isObj = await isOnePlaceholder(accessClean)
@@ -940,27 +1019,48 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (accessClean && !chainAction.params) {
+                console.log("--1--")
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
+                console.log("--2--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
+                console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
+
+                    console.log("..a..")
                     if (chainAction.new) {
+                        console.log("..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
+                        console.log("..c..")
                         if (chainAction.access && accessClean.length != 0){
+                            console.log("..d..")
                             if (chainAction.express){
+                                console.log("..e..")
                                 if (chainAction.next || chainAction.next == undefined){
+                                    console.log("..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
+                                    console.log("..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
+                                
+                                console.log("..h..")
+                                try{ console.log("result", result) } catch (err){}
+                                try{ console.log("accessClean", accessClean)} catch (err){}
+                                try{ console.log("chainParams", chainParams)} catch (err){}
                                 try{
-                                result = await result[accessClean](...chainParams);
+                                    console.log("..i..")
+                                    
+                                    result = await result[accessClean](...chainParams);
                                 } catch(err){
+                                    console.log("err", err)
+                                    console.log("..j..")
+                                    console.log("result", result.req.lib.root)
                                     result = result
                                 }
                             }
@@ -968,13 +1068,16 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (!accessClean && chainAction.params){
+                console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
+                console.log("--5--")
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
             }
         }
     }
+    console.log("--6--")
     return result;
 }
 
