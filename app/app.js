@@ -512,14 +512,22 @@ async function getNestedContext(libs, nestedPath) {
 }
 
 async function getNestedValue(libs, nestedPath) {
+    console.log("getNestedValue")
+    console.log("libs", libs)
+    console.log("nestedPath", nestedPath)
     const parts = nestedPath.split('.');
+    console.log("parts",parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
         let partCounter = 0
+        console.log("parts",parts)
         for (let part of parts) {
+
             if (partCounter < parts.length-1 || partCounter == 0){
+                console.log("part context",part)
                 tempContext = tempContext[part].context;
             } else {
+                console.log("part value",part)
                 tempContext = tempContext[part].value;
             }
         }
