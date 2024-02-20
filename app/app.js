@@ -493,11 +493,14 @@ async function initializeModules(libs, config, req, res, next) {
 }
 
 async function getNestedContext(libs, nestedPath) {
+    console.log("getNestedContext")
+    console.log("libs", libs)
+    console.log("nestedPath", nestedPath)
     const parts = nestedPath.split('.');
+    console.log("parts", parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
         let partCounter = 0
-        console.log("parts",parts)
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
