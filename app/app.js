@@ -772,7 +772,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (!nestedContext.hasOwnProperty(target.key)){
             nestedContext[target.key] = {"value":{}, "context":{}}
         }
-
+        console.log(">>A<<")
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
@@ -796,6 +796,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     let nestedContext = await getNestedContext(libs, from.path);
                     console.log("arguments: nestedContext", nestedContext)
 
+                    console.log(">>B<<")
                     let value = await replacePlaceholders(item, libs, nestedPath);
                     console.log("arguments: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
@@ -928,6 +929,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
+
+                console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
