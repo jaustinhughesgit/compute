@@ -581,9 +581,29 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
+    let processedItem2 = item+"";
     if (typeof processedItem === 'string') {
 
         let stringResponse = await processString(processedItem, libs, nestedPath);
+
+        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+        let match;
+      
+
+        while ((match = pattern.exec(processedItem2)) !== null) {
+            
+          const word = match[1];
+          console.log("[[[[[word",word)
+          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
+          console.log("[[[[[replacement", replacement)
+          
+          processedItem2 = processedItem2.substring(0, match.index) + replacement + processedItem2.substring(match.index + match[0].length);
+          console.log("[[[[[processedItem",processedItem2)
+          pattern.lastIndex = 0;
+        }
+        console.log("[[[[[return", processedItem2)
+
+
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
