@@ -670,7 +670,17 @@ function isArray(string) {
       // Extract the word within the nested curly brackets
       const word = match[1];
       // Call the processing function with the extracted word
-      const replacement = libs.root.context[word].value
+      if (isObj){
+        target = await getKeyAndPath(strClean, nestedPath)
+    } else {
+        target = {"key":strClean, "path":nestedPath}
+    }
+    let nestedContext = await getNestedContext(libs, target.path)
+    console.log(">>nestedContext", nestedContext)
+    const replacement = ""
+    if (nestedContext.hasOwnProperty(target.key)){
+      replacement = nestedContext[target.key].value
+    }
       // Replace the matched text with the replacement
       str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
       // Reset the pattern's lastIndex property to ensure subsequent searches in the updated string
