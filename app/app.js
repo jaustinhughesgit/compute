@@ -715,7 +715,22 @@ async function processString(str, libs, nestedPath) {
                 value = nestedContext[target.key].value[isArray(arrowJson[1])]
             } else {
                 if (isArray(arrowJson[1])){
-                    value = nestedContext[isArray(arrowJson[1])].value
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log("IS ARRAY")
+                    console.log(isArray(arrowJson[1]))
+                    console.log(nestedContext)
+                    value = nestedContext[parseInt(isArray(arrowJson[1]))].value
                 } else {
                     value = ""
                 }
