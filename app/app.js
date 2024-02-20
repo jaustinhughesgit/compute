@@ -641,6 +641,10 @@ function getValueFromPath(obj, path) {
     }, obj);
 }
 
+function isNumber(value) {
+    return typeof value === 'number' && !isNaN(value);
+  }
+
 function isArray(string) {
     if (string.startsWith("[")) {
       try {
@@ -691,7 +695,9 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            if (isArray(arrowJson[1]) != false){
+            console.log(isArray(arrowJson[1]))
+            console.log(isNumber(isArray(arrowJson[1])))
+            if (isNumber(isArray(arrowJson[1]))){
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
                 console.log(value)
