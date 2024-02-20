@@ -641,6 +641,23 @@ function getValueFromPath(obj, path) {
     }, obj);
 }
 
+function isArray(string) {
+    if (string.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(string);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return true
+        } else {
+          return false
+        }
+      } catch (error) {
+        return false
+      }
+    } else {
+      return false
+    }
+  }
+
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
@@ -657,20 +674,30 @@ async function processString(str, libs, nestedPath) {
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
+    console.log("nC", nestedContext)
+    console.log("t.k", target.key)
     if (nestedContext.hasOwnProperty(target.key)){
+        console.log("AAA")
         let value = nestedContext[target.key].value
         if (arrowJson.length > 1){
+            console.log("BBB")
             value = getValueFromPath(value, arrowJson[1]);
         }
         if (typeof value === 'function') {
+            console.log("CCC")
             if (isExecuted){
             value = await value();
             }
         }
         if (value == null || value == undefined){
+            console.log("DDD")
             value = ""
         }
+        console.log("value", value)
         return value
+    } else if (isArray(target.key)){
+        console.log("THIS ITEM IS AN ARRAY", target.key)
+        
     }
     if (!isObj){
 
