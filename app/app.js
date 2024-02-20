@@ -582,6 +582,26 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
+
+        let stringResponse = await processString(processedItem, libs, nestedPath);
+        return stringResponse;
+    } else if (Array.isArray(processedItem)) {
+        let newProcessedItem2 = processedItem.map(async element => {
+            console.log("element", element)
+            let repHolder = await replacePlaceholders(element, libs, nestedPath)
+            console.log("repHolder", repHolder)
+            return repHolder
+        });
+        return await Promise.all(newProcessedItem2);
+    } else {
+        return item
+    }
+    
+}
+
+
+/*
+
         let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
         let match;
       
@@ -597,20 +617,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
           pattern.lastIndex = 0;
         }
 
-        return processedItem;
-    } else if (Array.isArray(processedItem)) {
-        let newProcessedItem2 = processedItem.map(async element => {
-            console.log("element", element)
-            let repHolder = await replacePlaceholders(element, libs, nestedPath)
-            console.log("repHolder", repHolder)
-            return repHolder
-        });
-        return await Promise.all(newProcessedItem2);
-    } else {
-        return item
-    }
-    
-}
+*/
 
 async function isOnePlaceholder(str) {
     if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
@@ -678,7 +685,7 @@ function isArray(string) {
 
 
 
-async function processString(str, libs, nestedPath) {
+async function processString(strRaw, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
@@ -1010,7 +1017,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
-            console.log("--0--", result)
+
+            console.log(result);
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
                 result = result[accessClean];
