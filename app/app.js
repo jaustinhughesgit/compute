@@ -691,10 +691,10 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            if (!isArray(target.key)){
-                console.log("THIS ITEM IS AN ARRAY", target.key)
-                console.log("Array value", isArray(target.key))
-                value = value[isArray(target.key)]
+            if (!isArray(strClean)){
+                console.log("THIS ITEM IS AN ARRAY", strClean)
+                console.log("Array value", isArray(strClean))
+                value = value[isArray(strClean)]
             } else {
                 value = ""
             }
