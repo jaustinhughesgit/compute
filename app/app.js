@@ -671,7 +671,7 @@ function isArray(string) {
       const word = match[1];
       // Call the processing function with the extracted word
       if (isObj){
-        target = await getKeyAndPath(strClean, nestedPath)
+        target = await getKeyAndPath(word, nestedPath)
     } else {
         target = {"key":strClean, "path":nestedPath}
     }
