@@ -599,10 +599,9 @@ async function replacePlaceholders(item, libs, nestedPath) {
           pattern.lastIndex = 0;
         }
 
-        let stringResponse = await processString(processedItem, libs, nestedPath);
-        console.log("stringResponse",stringResponse)
-        console.log("processedItem2",processedItem2)
         if (processedItem2 == "res"){
+
+            let stringResponse = await processString(processedItem, libs, nestedPath);
             return stringResponse;
         } else {
             return processedItem2;
