@@ -678,7 +678,7 @@ function isArray(string) {
 
 
 
-async function processString(strRaw, libs, nestedPath) {
+async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
