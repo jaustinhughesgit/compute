@@ -1010,7 +1010,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
-
+            console.log("--0--", result)
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
                 result = result[accessClean];
