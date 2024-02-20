@@ -662,7 +662,26 @@ function isArray(string) {
     }
   }
 
-async function processString(str, libs, nestedPath) {
+  function replaceNestedPlaceholders(str) {
+    let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+    let match;
+  
+    while ((match = pattern.exec(str)) !== null) {
+      // Extract the word within the nested curly brackets
+      const word = match[1];
+      // Call the processing function with the extracted word
+      const replacement = processString("{{"+word+"}}");
+      // Replace the matched text with the replacement
+      str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
+      // Reset the pattern's lastIndex property to ensure subsequent searches in the updated string
+      pattern.lastIndex = 0;
+    }
+  
+    return str;
+  }
+
+async function processString(strRaw, libs, nestedPath) {
+    let str = replaceNestedPlaceholders(strRaw)
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
@@ -708,7 +727,6 @@ async function processString(str, libs, nestedPath) {
                     let arrayVal = isArray(arrowJson[1])
                     if (arrayVal != false){
                         if (arrayVal.startsWith("{{")){
-                            let strClean = await removeBrackets(str, isObj, isExecuted);
                             console.log("nestedContext",nestedContext)
                             console.log("strClean",strClean)
                             console.log("nestedContext[strClean]",nestedContext[strClean])
