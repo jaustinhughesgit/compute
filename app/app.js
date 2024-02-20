@@ -581,29 +581,8 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
-    let processedItem2 = item+"";
     if (typeof processedItem === 'string') {
-
         let stringResponse = await processString(processedItem, libs, nestedPath);
-
-        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
-        let match;
-      
-
-        while ((match = pattern.exec(processedItem2)) !== null) {
-            
-          const word = match[1];
-          console.log("[[[[[word",word)
-          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
-          console.log("[[[[[replacement", replacement)
-          
-          processedItem2 = processedItem2.substring(0, match.index) + replacement + processedItem2.substring(match.index + match[0].length);
-          console.log("[[[[[processedItem",processedItem2)
-          pattern.lastIndex = 0;
-        }
-        console.log("[[[[[return", processedItem2)
-
-
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
@@ -618,26 +597,6 @@ async function replacePlaceholders(item, libs, nestedPath) {
     }
     
 }
-
-
-/*
-
-        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
-        let match;
-      
-        while ((match = pattern.exec(processedItem)) !== null) {
-            
-          const word = match[1];
-          console.log("word",word)
-          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
-          console.log("replacement", replacement)
-          
-          processedItem = processedItem.substring(0, match.index) + replacement + processedItem.substring(match.index + match[0].length);
-          console.log("processedItem",processedItem)
-          pattern.lastIndex = 0;
-        }
-
-*/
 
 async function isOnePlaceholder(str) {
     if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
@@ -702,8 +661,7 @@ function isArray(string) {
       return false
     }
   }
-
-
+  
 
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
@@ -747,13 +705,33 @@ async function processString(str, libs, nestedPath) {
                 console.log("nestedContext[target.key].value",nestedContext[target.key].value);
                 value = nestedContext[target.key].value[isArray(arrowJson[1])]
             } else {
-                value = ""
+                try{
+                    let arrayVal = isArray(arrowJson[1])
+                    if (arrayVal != false){
+                        if (arrayVal.startsWith("{{")){
+                            console.log("nestedContext",nestedContext)
+                            console.log("strClean",strClean)
+                            console.log("nestedContext[strClean]",nestedContext[strClean])
+                            let placeholderValue = nestedContext[strClean].value
+                            console.log(placeholderValue)
+                            value = placeholderValue
+                        } else {
+                            value = ""
+                        }
+                    } else {
+                        value = ""
+                    }
+                } catch (err){
+                    console.log("not a placeholder", err)
+                    value = ""
+                }
             }
         }
         console.log("value", value)
         return value
     } else if (isArray(target.key)){
-        console.log("THIS ITEM IS AN ARRAY", target.key)   
+        console.log("THIS ITEM IS AN ARRAY", target.key)
+        
     }
     if (!isObj){
 
@@ -1038,7 +1016,6 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            console.log(result);
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
                 result = result[accessClean];
