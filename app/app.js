@@ -942,27 +942,41 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (accessClean && !chainAction.params) {
+                console.log("--1--")
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
+                console.log("--2--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
+                console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
+
+                    console.log("..a..")
                     if (chainAction.new) {
+                        console.log("..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
+                        console.log("..c..")
                         if (chainAction.access && accessClean.length != 0){
+                            console.log("..d..")
                             if (chainAction.express){
+                                console.log("..e..")
                                 if (chainAction.next || chainAction.next == undefined){
+                                    console.log("..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
+                                    console.log("..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
+                                console.log("..h..")
                                 try{
+                                    console.log("..i..")
                                 result = await result[accessClean](...chainParams);
                                 } catch(err){
+                                    console.log("..j..")
                                     result = result
                                 }
                             }
@@ -970,13 +984,16 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (!accessClean && chainAction.params){
+                console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
+                console.log("--5--")
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
             }
         }
     }
+    console.log("--6--")
     return result;
 }
 
