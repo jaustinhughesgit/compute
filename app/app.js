@@ -691,10 +691,12 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            if (!isArray(arrowJson[1])){
+            if (isArray(arrowJson[1]) != false){
                 console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
                 console.log("Array value", isArray(arrowJson[1]))
-                value = value[isArray(arrowJson[1])]
+                console.log(value)
+                console.log("nestedContext[target.key]",nestedContext[target.key]);
+                value = nestedContext[target.key][isArray(arrowJson[1])]
             } else {
                 value = ""
             }
