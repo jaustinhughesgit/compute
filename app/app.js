@@ -662,7 +662,7 @@ function isArray(string) {
     }
   }
 
-  function replaceNestedPlaceholders(str) {
+  function replaceNestedPlaceholders(str, libs, nestedPath) {
     let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
     let match;
   
@@ -670,7 +670,7 @@ function isArray(string) {
       // Extract the word within the nested curly brackets
       const word = match[1];
       // Call the processing function with the extracted word
-      const replacement = processString("{{"+word+"}}");
+      const replacement = processString("{{"+word+"}}", libs, nestedPath);
       // Replace the matched text with the replacement
       str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
       // Reset the pattern's lastIndex property to ensure subsequent searches in the updated string
@@ -681,7 +681,7 @@ function isArray(string) {
   }
 
 async function processString(strRaw, libs, nestedPath) {
-    let str = replaceNestedPlaceholders(strRaw)
+    let str = replaceNestedPlaceholders(strRaw, libs, nestedPath)
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
