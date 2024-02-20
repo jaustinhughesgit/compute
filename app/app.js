@@ -582,8 +582,22 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
-        let stringResponse = await processString(processedItem, libs, nestedPath);
-        return stringResponse;
+        let pattern = /{{(.*?)}}/; // Regular expression to match the innermost nested curly brackets
+        let match;
+      
+        while ((match = pattern.exec(processedItem)) !== null) {
+            
+          const word = match[1];
+          console.log("word",word)
+          const replacement = await processString("{{"+word+"}}", libs, nestedPath);
+          console.log("replacement", replacement)
+          
+          processedItem = processedItem.substring(0, match.index) + replacement + processedItem.substring(match.index + match[0].length);
+          console.log("processedItem",processedItem)
+          pattern.lastIndex = 0;
+        }
+
+        return processedItem;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
             console.log("element", element)
@@ -662,30 +676,9 @@ function isArray(string) {
     }
   }
 
-  async function replaceNestedPlaceholders(str, libs, nestedPath) {
-    let pattern = /{{(.*?)}}/; 
-    let match;
-  
-    while ((match = pattern.exec(str)) !== null) {
-        const word = match[1];
-        console.log(">>word",word)
-        console.log(">>nestedPath",nestedPath)
-        target = {"key":word, "path":nestedPath}
-        let nestedContext = await getNestedContext(libs, target.path)
-        console.log(">>nestedContext", nestedContext)
-        let replacement = ""
-        if (nestedContext.hasOwnProperty(target.key)){
-        replacement = nestedContext[target.key].value
-        }
-        str = str.substring(0, match.index) + replacement + str.substring(match.index + match[0].length);
-        pattern.lastIndex = 0;
-    }
-  
-    return str;
-  }
+
 
 async function processString(strRaw, libs, nestedPath) {
-    let str = await replaceNestedPlaceholders(strRaw, libs, nestedPath)
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
