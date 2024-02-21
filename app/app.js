@@ -837,7 +837,7 @@ async function processString(str, libs, nestedPath) {
     let mmm = replacePlaceholders2(str, libs.root)
     console.log(replacePlaceholders2(str, libs.root));
     console.log("MMM", mmm)
-    return mmm
+    return mmm.toString();
     /*const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
