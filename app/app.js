@@ -856,7 +856,7 @@ async function processString(strRaw, libs, nestedPath) {
 
 
     let mmm = replacePlaceholders2(str, libs, nestedPath)
-    console.log("MMM1", newNestedPath)
+    console.log("MMM1", nestedPath)
     console.log("MMM2", mmm)
     
     /*if (str == "res"){
