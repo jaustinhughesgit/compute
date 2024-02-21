@@ -834,7 +834,9 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
-    const isExecuted = str.endsWith('}}!');
+    console.log(replacePlaceholders2(str, libs.root));
+    return replacePlaceholders2(str, libs.root)
+    /*const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let arrowJson = strClean.split("=>")
@@ -920,6 +922,7 @@ async function processString(str, libs, nestedPath) {
 
     }
     return str
+    */
 }
 
 async function runAction(action, libs, nestedPath, req, res, next){
