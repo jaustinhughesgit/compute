@@ -758,7 +758,7 @@ async function processString(str, libs, nestedPath) {
             if (isNumberChecked){
                 value = nestedContext[target.key].value[isArrayChecked[0]]
             } else if (equation.length > 1){
-                value =   evaluateMathExpression(fixArrayVars)
+                value =   evaluateMathExpression(equation[1])
             } else {
                 if (isArrayChecked){
                     let arrayVal
