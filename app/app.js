@@ -729,6 +729,9 @@ async function processString(str, libs, nestedPath) {
             } else {
                 if (isArrayChecked){
                     let arrayVal
+                    console.log("fixArrayVars",fixArrayVars)
+                    console.log("isArrayChecked",isArrayChecked)
+                    console.log("isNumberChecked",isNumberChecked)
                     if (isNestedArrayPlaceholder(isArrayChecked[0])){
                         let val = isArrayChecked[0].replace("||","").replace("||","")
                         arrayVal = nestedContext[val].value
