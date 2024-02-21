@@ -1106,7 +1106,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         console.log("55: strClean", strClean)
         let assign
-        if (isObj){
+        if (assignObj){
             assign = await getKeyAndPath(strClean, nestedPath)
         } else {
             assign = {"key":strClean, "path":nestedPath}
