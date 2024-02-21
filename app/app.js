@@ -854,9 +854,15 @@ async function processString(str, libs, nestedPath) {
         return acc;
       }, {});
 
+    let newNestedPath = nestedPath
+    if (nestedPath.startsWith("root.")){
+        newNestedPath = newNestedPath.replace("root.", "")
+    } else if (nestedPath.startsWith("root")){
+        newNestedPath = newNestedPath.replace("root", "")
+    }
 
-    let mmm = replacePlaceholders2(str, obj, nestedPath) + " -- "
-    console.log("MMM1", nestedPath)
+    let mmm = replacePlaceholders2(str, obj, newNestedPath) + " -- "
+    console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
     if (str == "res"){
