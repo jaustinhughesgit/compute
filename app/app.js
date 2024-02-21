@@ -845,7 +845,13 @@ const json88 = {
 
 
 
-async function processString(str, libs, nestedPath) {
+async function processString(strRaw, libs, nestedPath) {
+    let str
+    if (str == "res"){
+        str = "{{res}}"
+    } else {
+        str = strRaw
+    }
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
           acc[key] = libs.root[key];
