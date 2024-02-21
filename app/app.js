@@ -729,6 +729,8 @@ async function processString(str, libs, nestedPath) {
 
     console.log("nC", nestedContext)
     console.log("t.k", target.key)
+    console.log("isMathEquation", isMathEquation(strClean))
+    console.log("evaluateMathExpression", evaluateMathExpression(strClean))
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("AAA")
         let value = nestedContext[target.key].value
@@ -769,8 +771,8 @@ async function processString(str, libs, nestedPath) {
         }
         console.log("value", value)
         return value
-    } else if (isMathEquation(target.key)){
-        value = evaluateMathExpression(target.key)
+    } else if (isMathEquation(strClean)){
+        value = evaluateMathExpression(strClean)
         return value;
     } else if (isArray(target.key)){
         console.log("THIS ITEM IS AN ARRAY", target.key)   
