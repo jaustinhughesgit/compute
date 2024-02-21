@@ -746,10 +746,10 @@ function evaluateMathExpression2(expression) {
 }
 
 function replacePlaceholders2(str, json, nestedPath = "") {
-    function getValueFromJson2(path, json, nestedPath = "") {
+    function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
-        // Navigate to the nested path within the JSON if specified
-        if (nestedPath) {
+        // If forcing path to root, ignore nestedPath
+        if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
             for (let key of nestedKeys) {
                 if (current.hasOwnProperty(key)) {
@@ -760,7 +760,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
         }
-        
+
         const keys = path.split('.');
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
@@ -776,22 +776,23 @@ function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     function replace2(str, nestedPath) {
-        let regex = /{{([^{}]+)}}/g;
+        let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            let innerStr = match[1];
+            let forceRoot = match[1] === "~/";
+            let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
                 innerStr = replace2(innerStr, nestedPath);
             }
-            
+
             let value;
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = evaluateMathExpression2(expression);
             } else {
-                value = getValueFromJson2(innerStr, json.context || {}, nestedPath);
+                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
             modifiedStr = modifiedStr.replace(match[0], value);
