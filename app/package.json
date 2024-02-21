@@ -19,6 +19,7 @@
     "express": "^4.18.2",
     "express-session": "^1.17.3",
     "fs": "^0.0.1-security",
+    "math.js": "^1.1.46",
     "moment-timezone": "^0.5.44",
     "path": "^0.12.7",
     "serverless-http": "^3.2.0",

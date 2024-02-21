@@ -12,6 +12,7 @@ const exec = promisify(require('child_process').exec);
 const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const moment = require('moment-timezone')
+const math = require('math.js');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -670,6 +671,27 @@ function isArray(string) {
     }
   }
 
+  function isMathEquation(expression) {
+    try {
+        math.parse(expression);
+        return true; // No error means it's likely a valid math equation
+    } catch {
+        return false; // An error indicates it's not a valid math equation
+    }
+}
+
+function evaluateMathExpression(expression) {
+    try {
+        // Evaluate the math expression safely
+        const result = math.evaluate(expression);
+        return result;
+    } catch (error) {
+        // Handle errors (e.g., syntax errors in the expression)
+        console.error("Error evaluating expression:", error);
+        return null;
+    }
+}
+
   function replaceWords(input) {
     return input.replace(/\[(\w+)]/g, (match, word) => {
         if (!isNaN(word)) {
@@ -725,14 +747,22 @@ async function processString(str, libs, nestedPath) {
             let fixArrayVars = replaceWords(arrowJson[1])
             let isArrayChecked = isArray(fixArrayVars)
             let isNumberChecked = isNumber(isArrayChecked[0])
+            let isMath = false
+            console.log("fixArrayVars",fixArrayVars)
+            console.log("isArrayChecked",isArrayChecked)
+            console.log("isNumberChecked",isNumberChecked)
+            if (!isArrayChecked && !isNumberChecked){
+                isMath = isMathEquation(expression) 
+            }
             if (isNumberChecked){
                 value = nestedContext[target.key].value[isArrayChecked[0]]
+            } else if (isMath){
+                value =   evaluateMathExpression(fixArrayVars)
             } else {
                 if (isArrayChecked){
                     let arrayVal
-                    console.log("fixArrayVars",fixArrayVars)
-                    console.log("isArrayChecked",isArrayChecked)
-                    console.log("isNumberChecked",isNumberChecked)
+
+
                     if (isNestedArrayPlaceholder(isArrayChecked[0])){
                         let val = isArrayChecked[0].replace("||","").replace("||","")
                         arrayVal = nestedContext[val].value
