@@ -846,7 +846,7 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
-
+    console.log("MMMM1", str)
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")){
@@ -855,7 +855,7 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = newNestedPath.replace("root", "")
     }
 
-    let mmm = replacePlaceholders2(str, str, newNestedPath)
+    let mmm = replacePlaceholders2(str, libs, newNestedPath)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
