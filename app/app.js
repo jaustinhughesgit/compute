@@ -847,9 +847,9 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
 
-    let obj = Object.keys(libs.root).reduce((acc, key) => {
+    let obj = Object.keys(libs).reduce((acc, key) => {
         if (!["req", "res"].includes(key)) {
-          acc[key] = libs.root[key];
+          acc[key] = libs[key];
         }
         return acc;
       }, {});
