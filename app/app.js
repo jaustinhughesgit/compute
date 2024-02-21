@@ -846,12 +846,14 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
 
+    if (nestedPath == ""){
+        newNestedPath == "root"
+    } else {
+        newNestedPath = nestedPath
+    }
 
-    let mmm = replacePlaceholders2(str, libs, nestedPath) + " -- "
+    let mmm = replacePlaceholders2(str, libs, newNestedPath)
 
-
-    console.log("MMM7", mmm)
-    console.log("MMM8", typeof mmm)
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
