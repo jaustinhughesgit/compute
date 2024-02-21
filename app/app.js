@@ -692,20 +692,40 @@ function evaluateMathExpression(expression) {
     }
 }
 
-  function replaceWords(input) {
+  function replaceWords(input, obj) {
+    
     return input.replace(/\[(\w+)]/g, (match, word) => {
         if (!isNaN(word)) {
             return match;
         }
 
         if (!/^\".*\"$/.test(word)) {
-            return `["||${word}||"]`;
+            if (isContextKey(word, obj)){
+                return `["||${word}||"]`;
+            }
         }
         return match;
     });
 }
 
-
+function isContextKey(searchKey, obj) {
+    if (obj.hasOwnProperty(searchKey)) {
+        return true;
+    }
+    
+    for (let key in obj) {
+        if (key != "req" && key != "res" && key != "session" && key != "body" && key != "urlpath" && key != "sessionID"){
+            if (typeof obj[key] === 'object') {
+                const result = isContextKey(searchKey, obj[key]);
+                if (result) {
+                    return true;
+                }
+            }
+        }
+    }
+    
+    return false;
+}
 
 function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
@@ -746,7 +766,7 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            let fixArrayVars = replaceWords(arrowJson[1])
+            let fixArrayVars = replaceWords(arrowJson[1], nestedContext)
             let isArrayChecked = isArray(fixArrayVars)
             let isNumberChecked = isNumber(isArrayChecked[0])
             console.log("fixArrayVars",fixArrayVars)
@@ -772,7 +792,8 @@ async function processString(str, libs, nestedPath) {
         console.log("value", value)
         return value
     } else if (isMathEquation(strClean)){
-        value = evaluateMathExpression(strClean)
+        let fixArrayVars = replaceWords(strClean, nestedContext)
+        value = evaluateMathExpression(fixArrayVars)
         return value;
     } else if (isArray(target.key)){
         console.log("THIS ITEM IS AN ARRAY", target.key)   
