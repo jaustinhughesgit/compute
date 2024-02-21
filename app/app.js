@@ -733,72 +733,84 @@ function isNestedArrayPlaceholder(str) {
 
 
 
+
+
 function evaluateMathExpression2(expression) {
     try {
-        // Evaluate the math expression safely
         const result = mathJS.evaluate(expression);
         return result;
     } catch (error) {
-        // Handle errors (e.g., syntax errors in the expression)
         console.error("Error evaluating expression:", error);
         return null;
     }
 }
 
-function replacePlaceholders2(str, json) {
-  // Function to recursively get the value from json based on path
-  function getValueFromJson2(path, json) {
-    const keys = path.split('.');
-    let current = json;
-    for (let key of keys) {
-      if (current.hasOwnProperty(key)) {
-        current = current[key];
-        if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
-          current = current.value;
+function replacePlaceholders2(str, json, nestedPath = "") {
+    function getValueFromJson2(path, json, nestedPath = "") {
+        let current = json;
+        // Navigate to the nested path within the JSON if specified
+        if (nestedPath) {
+            const nestedKeys = nestedPath.split('.');
+            for (let key of nestedKeys) {
+                if (current.hasOwnProperty(key)) {
+                    current = current[key];
+                } else {
+                    console.error(`Nested path ${nestedPath} not found in JSON.`);
+                    return '';
+                }
+            }
         }
-      } else {
-        return ''; // Return empty string if path is not found
-      }
-    }
-    return current;
-  }
-
-  // Function to replace placeholders in the given string
-  function replace2(str) {
-    let regex = /{{([^{}]+)}}/g;
-    let match;
-    let modifiedStr = str;
-
-    while ((match = regex.exec(str)) !== null) {
-      // Handle nested placeholders
-      let innerStr = match[1];
-      if (/{{.*}}/.test(innerStr)) {
-        innerStr = replace2(innerStr); // Recursively replace inner placeholders
-      }
-      
-      let value;
-      // Check if the placeholder indicates a math expression
-      if (innerStr.startsWith("=")) {
-        // Remove the "=" and evaluate the expression
-        let expression = innerStr.slice(1);
-        value = evaluateMathExpression2(expression);
-      } else {
-        value = getValueFromJson2(innerStr, json.context || {});
-      }
-
-      modifiedStr = modifiedStr.replace(match[0], value);
+        
+        const keys = path.split('.');
+        for (let key of keys) {
+            if (current.hasOwnProperty(key)) {
+                current = current[key];
+                if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    current = current.value;
+                }
+            } else {
+                return '';
+            }
+        }
+        return current;
     }
 
-    // Check if further replacements are needed
-    if (modifiedStr.match(regex)) {
-      return replace2(modifiedStr);
+    function replace2(str, nestedPath) {
+        let regex = /{{([^{}]+)}}/g;
+        let match;
+        let modifiedStr = str;
+
+        while ((match = regex.exec(str)) !== null) {
+            let innerStr = match[1];
+            if (/{{.*}}/.test(innerStr)) {
+                innerStr = replace2(innerStr, nestedPath);
+            }
+            
+            let value;
+            if (innerStr.startsWith("=")) {
+                let expression = innerStr.slice(1);
+                value = evaluateMathExpression2(expression);
+            } else {
+                value = getValueFromJson2(innerStr, json.context || {}, nestedPath);
+            }
+
+            modifiedStr = modifiedStr.replace(match[0], value);
+        }
+
+        if (modifiedStr.match(regex)) {
+            return replace2(modifiedStr, nestedPath);
+        }
+
+        return modifiedStr;
     }
 
-    return modifiedStr;
-  }
-
-  return replace2(str);
+    return replace2(str, nestedPath);
 }
+
+
+
+
+
 
 // Example usage
 const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";
