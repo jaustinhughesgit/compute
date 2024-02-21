@@ -855,8 +855,9 @@ async function processString(str, libs, nestedPath) {
       }, {});
 
 
-    let mmm = replacePlaceholders2(str, obj) + " -- "
-    console.log("MMM", mmm)
+    let mmm = replacePlaceholders2(str, obj, nestedPath) + " -- "
+    console.log("MMM1", nestedPath)
+    console.log("MMM2", mmm)
     
     if (str == "res"){
         mmm = libs.root.context[str].value
