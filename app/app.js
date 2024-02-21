@@ -764,6 +764,9 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
+                console.log("VVV1",current)
+                console.log("VVV2",key)
+                console.log("VVV3",typeof current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
                 }
@@ -875,6 +878,9 @@ async function processString(strRaw, libs, nestedPath) {
         console.log("MMM5", typeof libs.root.context.res)
         console.log("MMM6", typeof libs.root.context.res.value)
     }
+
+    console.log("MMM7", mmm)
+    console.log("MMM8", typeof mmm)
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
