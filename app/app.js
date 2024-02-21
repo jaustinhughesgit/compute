@@ -748,7 +748,6 @@ function evaluateMathExpression2(expression) {
 function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
-        // If forcing path to root, ignore nestedPath
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
             for (let key of nestedKeys) {
@@ -805,7 +804,23 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         return modifiedStr;
     }
 
-    return replace2(str, nestedPath);
+    const finalStr = replace2(str, nestedPath); // Assuming replace2 is your final recursive call
+
+    // Check if the entire string is one placeholder
+    const fullMatchRegex = /^{{(~\/)?([^{}]+)}}$/;
+    const fullMatch = finalStr.match(fullMatchRegex);
+    if (fullMatch) {
+        let forceRoot = fullMatch[1] === "~/";
+        let path = fullMatch[2];
+        // Use getValueFromJson2 to get the value; might be JSON, array, bool, string, int
+        let finalValue = getValueFromJson2(path, json.context || {}, nestedPath, forceRoot);
+        
+        // Directly return the value if it's complex or a simple type
+        return finalValue;
+    }
+
+    return finalStr; // Return the modified string if not a single placeholder
+
 }
 
 
