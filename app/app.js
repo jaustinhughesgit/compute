@@ -733,6 +733,8 @@ function isNestedArrayPlaceholder(str) {
 
 
 
+
+
 function evaluateMathExpression2(expression) {
     try {
         const result = mathJS.evaluate(expression);
@@ -766,7 +768,6 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                     current = current.value;
                 }
             } else {
-                console.error(`Key ${key} not found.`);
                 return '';
             }
         }
@@ -790,7 +791,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 let expression = innerStr.slice(1);
                 value = evaluateMathExpression2(expression);
             } else {
-                value = getValueFromJson2(innerStr, json, nestedPath, forceRoot);
+                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
             modifiedStr = modifiedStr.replace(match[0], value);
@@ -846,20 +847,26 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
 
-    if (nestedPath == ""){
-        newNestedPath == "root"
-    } else {
-        newNestedPath = nestedPath
+    let obj = Object.keys(libs.root).reduce((acc, key) => {
+        if (!["req", "res"].includes(key)) {
+          acc[key] = libs.root[key];
+        }
+        return acc;
+      }, {});
+
+    let newNestedPath = nestedPath
+    if (nestedPath.startsWith("root.")){
+        newNestedPath = newNestedPath.replace("root.", "")
+    } else if (nestedPath.startsWith("root")){
+        newNestedPath = newNestedPath.replace("root", "")
     }
-    //test
-    console.log("MMM1", str)
-    console.log("MMM2", libs)
-    console.log("MMM3", newNestedPath)
-    let mmm = replacePlaceholders2(str, libs, newNestedPath)
-    console.log("MMM4", mmm)
-    console.log("!isNaN(mmm)", !isNaN(mmm))
-    if (!isNaN(mmm)){
-        mmm = mmm.toString()
+
+    let mmm = replacePlaceholders2(str, obj, newNestedPath)
+    console.log("MMM1", newNestedPath)
+    console.log("MMM2", mmm)
+    
+    if (str == "res"){
+        mmm = libs.root.context[str].value
     }
 
     return mmm;
