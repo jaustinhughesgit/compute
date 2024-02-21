@@ -765,10 +765,6 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
-                    // If the value is an object and it is the 'res' object, return it directly
-                    if (key === 'res' && typeof current.context === 'object') {
-                        return current.context;
-                    }
                     current = current.value;
                 }
             } else {
@@ -786,6 +782,9 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
+            if (/{{.*}}/.test(innerStr)) {
+                innerStr = replace2(innerStr, nestedPath);
+            }
 
             let value;
             if (innerStr.startsWith("=")) {
@@ -793,11 +792,9 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 value = evaluateMathExpression2(expression);
             } else {
                 value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-                // Check if the value is the 'res' object and return it immediately without replacement
-                console.log("MMM typeof !!!", str, typeof value, value)
             }
 
-            modifiedStr = modifiedStr.replace(match[0], typeof value === 'string' ? value : '');
+            modifiedStr = modifiedStr.replace(match[0], value);
         }
 
         if (modifiedStr.match(regex)) {
@@ -809,7 +806,6 @@ function replacePlaceholders2(str, json, nestedPath = "") {
 
     return replace2(str, nestedPath);
 }
-
 
 
 
@@ -851,14 +847,10 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
 
-    if (str == "res"){
-        str = "{{"+str+"}}"
-    }
-
     let obj = Object.keys(libs.root).reduce((acc, key) => {
-        //if (!["req", "res"].includes(key)) {
+        if (!["{{req}}", "{{res}}", "{{session}}"].includes(key)) {
           acc[key] = libs.root[key];
-        //}
+        }
         return acc;
       }, {});
 
@@ -873,6 +865,9 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
+    if (!["req", "res", "session"].includes(key)) {
+        mmm = libs.root.context[str].value
+    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
