@@ -834,14 +834,9 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
-    let obj = JSON.parse(JSON.stringify(libs.root))
-    delete obj.session
-    delete obj.body
-    delete obj.urlpath
-    delete obj.sessionID
-    delete obj.req
-    delete obj.res
-    let mmm = replacePlaceholders2(str, libs.root)
+    let obj = {k: v for k, v in libs.root.items() if k not in ["req", "res", "session", "body"]}
+
+    let mmm = replacePlaceholders2(str, obj)
     console.log(mmm);
     console.log("MMM", mmm)
     return mmm.toString();
