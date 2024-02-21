@@ -869,6 +869,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let args = [];
 
         if (value){
+            //.arguments is the old .from
             if (action.arguments) {
                 let promises = action.arguments.map(async item => {
                     console.log("arguments: item", item)
@@ -1178,6 +1179,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }
         console.log("222222")
         console.log("lib.root.context", libs.root.context)
+        //.actions is the old .run
         if (action.actions) {
             for (const act of action.actions) {
                 console.log("00: act", act)
