@@ -693,7 +693,7 @@ async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
-    let arrowJson = strClean.split("=>")
+    let arrowJson = strClean.split("=")
     strClean = arrowJson[0]
     console.log("strClean", strClean, str)
     let target
