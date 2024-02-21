@@ -769,6 +769,8 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("VVV3",typeof current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
+                } else if (current && typeof current === 'object') {
+                    current = current
                 }
             } else {
                 return '';
@@ -881,6 +883,10 @@ async function processString(strRaw, libs, nestedPath) {
 
     console.log("MMM7", mmm)
     console.log("MMM8", typeof mmm)
+
+    if (typeof mmm === "object"){
+        mmm = mmm()
+    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
