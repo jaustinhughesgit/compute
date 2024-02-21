@@ -765,6 +765,10 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    // If the value is an object and it is the 'res' object, return it directly
+                    if (key === 'res' && typeof current.context === 'object') {
+                        return current.context;
+                    }
                     current = current.value;
                 }
             } else {
@@ -782,9 +786,6 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
-            if (/{{.*}}/.test(innerStr)) {
-                innerStr = replace2(innerStr, nestedPath);
-            }
 
             let value;
             if (innerStr.startsWith("=")) {
@@ -792,9 +793,13 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 value = evaluateMathExpression2(expression);
             } else {
                 value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                // Check if the value is the 'res' object and return it immediately without replacement
+                if (typeof value === 'object' && value.send) {
+                    return value;
+                }
             }
 
-            modifiedStr = modifiedStr.replace(match[0], value);
+            modifiedStr = modifiedStr.replace(match[0], typeof value === 'string' ? value : '');
         }
 
         if (modifiedStr.match(regex)) {
@@ -806,6 +811,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
 
     return replace2(str, nestedPath);
 }
+
 
 
 
@@ -850,7 +856,7 @@ async function processString(str, libs, nestedPath) {
     if (str == "res"){
         str = "{{"+str+"}}"
     }
-    
+
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         //if (!["req", "res"].includes(key)) {
           acc[key] = libs.root[key];
