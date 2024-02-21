@@ -671,15 +671,18 @@ function isArray(string) {
   }
 
   function replaceWords(input) {
-    // This regular expression matches words inside brackets that are not already in double quotes.
-    // It looks for an opening bracket followed by a word character sequence not preceded or followed by double quotes,
-    // then replaces it with the word surrounded by "\"||" and "||\"".
-    return input.replace(/\[(\w+)]/g, (match, word) => {
-        // Check if the matched word is not already in quotes. This might be redundant given the regex, but provides a safety check.
+    return input.replace(/\[([^\]\[\"]+)]/g, (match, word) => {
+        // Check if the word is a number
+        if (!isNaN(word)) {
+            // If it's a number, return it unchanged
+            return match;
+        }
+        // Check if the word is not already in quotes
         if (!/^\".*\"$/.test(word)) {
+            // If not, wrap it with "\"||" and "||\""
             return `["||${word}||"]`;
         }
-        // If the word is already in quotes, return it unchanged.
+        // If none of the conditions match, return the match unchanged
         return match;
     });
 }
