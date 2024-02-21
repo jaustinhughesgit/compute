@@ -745,9 +745,9 @@ function evaluateMathExpression2(expression) {
     }
 }
 
-function replacePlaceholders(str, json) {
+function replacePlaceholders2(str, json) {
   // Function to recursively get the value from json based on path
-  function getValueFromJson(path, json) {
+  function getValueFromJson2(path, json) {
     const keys = path.split('.');
     let current = json;
     for (let key of keys) {
@@ -764,7 +764,7 @@ function replacePlaceholders(str, json) {
   }
 
   // Function to replace placeholders in the given string
-  function replace(str) {
+  function replac2(str) {
     let regex = /{{([^{}]+)}}/g;
     let match;
     let modifiedStr = str;
@@ -773,7 +773,7 @@ function replacePlaceholders(str, json) {
       // Handle nested placeholders
       let innerStr = match[1];
       if (/{{.*}}/.test(innerStr)) {
-        innerStr = replace(innerStr); // Recursively replace inner placeholders
+        innerStr = replace2(innerStr); // Recursively replace inner placeholders
       }
       
       let value;
@@ -783,7 +783,7 @@ function replacePlaceholders(str, json) {
         let expression = innerStr.slice(1);
         value = evaluateMathExpression2(expression);
       } else {
-        value = getValueFromJson(innerStr, json.context || {});
+        value = getValueFromJson2(innerStr, json.context || {});
       }
 
       modifiedStr = modifiedStr.replace(match[0], value);
@@ -791,13 +791,13 @@ function replacePlaceholders(str, json) {
 
     // Check if further replacements are needed
     if (modifiedStr.match(regex)) {
-      return replace(modifiedStr);
+      return replace2(modifiedStr);
     }
 
     return modifiedStr;
   }
 
-  return replace(str);
+  return replace2(str);
 }
 
 // Example usage
@@ -856,7 +856,8 @@ async function processString(str, libs, nestedPath) {
 
     console.log("@@1",str)
     console.log("@@2", nestedContext)
-    console.log(replacePlaceholders(str, nestedContext));
+    
+    console.log(replacePlaceholders2(str, nestedContext));
 
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("AAA")
