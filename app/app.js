@@ -847,7 +847,7 @@ const json88 = {
 
 async function processString(strRaw, libs, nestedPath) {
     let str
-    if (str == "res"){
+    if (strRaw == "res"){
         str = "{{res}}"
     } else {
         str = strRaw
