@@ -716,7 +716,6 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let arrowJson = strClean.split("=>")
-    let equation = strClean.split(/(?<!>)=/)
     strClean = arrowJson[0]
     console.log("strClean", strClean, str)
     let target
@@ -755,15 +754,14 @@ async function processString(str, libs, nestedPath) {
             if (!isArrayChecked && !isNumberChecked){
                 isMath = isMathEquation(expression) 
             }
+            console.log("isMath",isMath);
             if (isNumberChecked){
                 value = nestedContext[target.key].value[isArrayChecked[0]]
-            } else if (equation.length > 1){
-                value =   evaluateMathExpression(equation[1])
+            } else if (isMath){
+                value = evaluateMathExpression(fixArrayVars)
             } else {
                 if (isArrayChecked){
                     let arrayVal
-
-
                     if (isNestedArrayPlaceholder(isArrayChecked[0])){
                         let val = isArrayChecked[0].replace("||","").replace("||","")
                         arrayVal = nestedContext[val].value
