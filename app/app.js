@@ -847,8 +847,7 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM", mmm)
     
     if (str == "res"){
-        let value = nestedContext[str].value
-        mmm = await value();
+        mmm = nestedContext[str].value
     }
 
     return mmm;
