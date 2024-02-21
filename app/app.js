@@ -847,7 +847,7 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM", mmm)
     
     if (str == "res"){
-        mmm = nestedContext[str].value
+        mmm = libs.root.context[str].value
     }
 
     return mmm;
