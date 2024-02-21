@@ -764,7 +764,7 @@ function replacePlaceholders2(str, json) {
   }
 
   // Function to replace placeholders in the given string
-  function replac2(str) {
+  function replace2(str) {
     let regex = /{{([^{}]+)}}/g;
     let match;
     let modifiedStr = str;
