@@ -671,21 +671,19 @@ function isArray(string) {
   }
 
   function replaceWords(input) {
-    return input.replace(/\[([^\]\[\"]+)]/g, (match, word) => {
-        // Check if the word is a number
+    return input.replace(/\[(\w+)]/g, (match, word) => {
         if (!isNaN(word)) {
-            // If it's a number, return it unchanged
             return match;
         }
-        // Check if the word is not already in quotes
+
         if (!/^\".*\"$/.test(word)) {
-            // If not, wrap it with "\"||" and "||\""
             return `["||${word}||"]`;
         }
-        // If none of the conditions match, return the match unchanged
         return match;
     });
 }
+
+
 
 function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
