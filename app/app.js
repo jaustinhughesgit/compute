@@ -834,10 +834,16 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
-    let obj = {k: v for k, v in libs.root.items() if k not in ["req", "res", "session", "body"]}
+
+    let obj = Object.keys(libs.root).reduce((acc, key) => {
+        if (!["req", "res"].includes(key)) {
+          acc[key] = libs.root[key];
+        }
+        return acc;
+      }, {});
+
 
     let mmm = replacePlaceholders2(str, obj)
-    console.log(mmm);
     console.log("MMM", mmm)
     return mmm.toString();
     /*const isExecuted = str.endsWith('}}!');
