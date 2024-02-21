@@ -731,6 +731,108 @@ function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
 }
 
+
+
+function evaluateMathExpression2(expression) {
+    try {
+        // Evaluate the math expression safely
+        const result = mathJS.evaluate(expression);
+        return result;
+    } catch (error) {
+        // Handle errors (e.g., syntax errors in the expression)
+        console.error("Error evaluating expression:", error);
+        return null;
+    }
+}
+
+function replacePlaceholders(str, json) {
+  // Function to recursively get the value from json based on path
+  function getValueFromJson(path, json) {
+    const keys = path.split('.');
+    let current = json;
+    for (let key of keys) {
+      if (current.hasOwnProperty(key)) {
+        current = current[key];
+        if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+          current = current.value;
+        }
+      } else {
+        return ''; // Return empty string if path is not found
+      }
+    }
+    return current;
+  }
+
+  // Function to replace placeholders in the given string
+  function replace(str) {
+    let regex = /{{([^{}]+)}}/g;
+    let match;
+    let modifiedStr = str;
+
+    while ((match = regex.exec(str)) !== null) {
+      // Handle nested placeholders
+      let innerStr = match[1];
+      if (/{{.*}}/.test(innerStr)) {
+        innerStr = replace(innerStr); // Recursively replace inner placeholders
+      }
+      
+      let value;
+      // Check if the placeholder indicates a math expression
+      if (innerStr.startsWith("=")) {
+        // Remove the "=" and evaluate the expression
+        let expression = innerStr.slice(1);
+        value = evaluateMathExpression2(expression);
+      } else {
+        value = getValueFromJson(innerStr, json.context || {});
+      }
+
+      modifiedStr = modifiedStr.replace(match[0], value);
+    }
+
+    // Check if further replacements are needed
+    if (modifiedStr.match(regex)) {
+      return replace(modifiedStr);
+    }
+
+    return modifiedStr;
+  }
+
+  return replace(str);
+}
+
+// Example usage
+const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";
+const json88 = {
+    "context": {
+        "first": {
+            "value": "adam",
+            "context": {}
+        },
+        "last": {
+            "value": "smith",
+            "context": {}
+        },
+        "people": {
+            "adamsmith": {
+                "age": {
+                    "value": "31",
+                    "context": {}
+                }
+            }
+        }
+    },
+    "value": ""
+};
+
+//console.log(replacePlaceholders(str, json));
+
+
+
+
+
+
+
+
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
@@ -751,6 +853,11 @@ async function processString(str, libs, nestedPath) {
     console.log("t.k", target.key)
     console.log("isMathEquation", isMathEquation(strClean))
     console.log("evaluateMathExpression", evaluateMathExpression(strClean))
+
+    console.log("@@1",str)
+    console.log("@@2", nestedContext)
+    console.log(replacePlaceholders(str, nestedContext));
+
     if (nestedContext.hasOwnProperty(target.key)){
         console.log("AAA")
         let value = nestedContext[target.key].value
