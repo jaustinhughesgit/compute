@@ -845,8 +845,7 @@ const json88 = {
 
 
 
-async function processString(strRaw, libs, nestedPath) {
-    console.log("MMMM1", strRaw)
+async function processString(str, libs, nestedPath) {
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")){
