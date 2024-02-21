@@ -865,8 +865,8 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
-    if (!["req", "res", "session"].includes(key)) {
-        mmm = libs.root.context[str].value
+    if (!["{{req}}", "{{res}}", "{{session}}"].includes(key)) {
+        mmm = libs.root.context[str.replace("{{","").replace("}}","")].value
     }
 
     return mmm;
