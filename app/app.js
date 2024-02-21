@@ -794,9 +794,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             } else {
                 value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 // Check if the value is the 'res' object and return it immediately without replacement
-                if (typeof value === 'object' && value.send) {
-                    return value;
-                }
+                console.log("MMM typeof !!!", str, typeof value, value)
             }
 
             modifiedStr = modifiedStr.replace(match[0], typeof value === 'string' ? value : '');
