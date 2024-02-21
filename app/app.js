@@ -852,9 +852,12 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = nestedPath
     }
 
+    console.log("MMM1", str)
+    console.log("MMM2", libs)
+    console.log("MMM3", newNestedPath)
     let mmm = replacePlaceholders2(str, libs, newNestedPath)
-
-    console.log("isNaN(mmm)", isNaN(mmm))
+    console.log("MMM4", mmm)
+    console.log("!isNaN(mmm)", !isNaN(mmm))
     if (!isNaN(mmm)){
         mmm = mmm.toString()
     }
