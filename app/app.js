@@ -804,22 +804,27 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         return modifiedStr;
     }
 
-    const finalStr = replace2(str, nestedPath); // Assuming replace2 is your final recursive call
+    const finalStr = replace2(str, nestedPath); // Assuming replace2 handles all nested replacements.
 
-    // Check if the entire string is one placeholder
-    const fullMatchRegex = /^{{(~\/)?([^{}]+)}}$/;
-    const fullMatch = finalStr.match(fullMatchRegex);
-    if (fullMatch) {
-        let forceRoot = fullMatch[1] === "~/";
-        let path = fullMatch[2];
-        // Use getValueFromJson2 to get the value; might be JSON, array, bool, string, int
-        let finalValue = getValueFromJson2(path, json.context || {}, nestedPath, forceRoot);
+    // Define regex to match if the string is entirely one placeholder.
+    const fullPlaceholderRegex = /^{{(~\/)?([^{}]+)}}$/;
+    let match = finalStr.match(fullPlaceholderRegex);
+
+    if (match) {
+        // If it's a single placeholder, extract the path and determine if we need to force root lookup.
+        let forceRoot = match[1] === "~/";
+        let path = match[2];
         
-        // Directly return the value if it's complex or a simple type
-        return finalValue;
+        // Fetch the value directly using the path, considering the forceRoot flag.
+        // No need for additional replacement, fetch the raw value.
+        let rawValue = getValueFromJson2(path, json, nestedPath, forceRoot);
+        
+        // Directly return the raw value, which could be any type.
+        return rawValue;
     }
 
-    return finalStr; // Return the modified string if not a single placeholder
+    // If not a single placeholder, return the final replaced string.
+    return finalStr;
 
 }
 
