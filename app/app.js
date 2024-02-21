@@ -848,9 +848,7 @@ const json88 = {
 async function processString(str, libs, nestedPath) {
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
-        if (!["{{req}}", "{{res}}", "{{session}}"].includes(key)) {
           acc[key] = libs.root[key];
-        }
         return acc;
       }, {});
 
@@ -865,8 +863,11 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
-    if (!["{{req}}", "{{res}}", "{{session}}"].includes(key)) {
-        mmm = libs.root.context[str.replace("{{","").replace("}}","")].value
+    if (str == "{{res}}"){
+        console.log("MMM3", libs.root.context.res)
+        console.log("MMM4", libs.root.context.res.value)
+        console.log("MMM5", typeof libs.root.context.res)
+        console.log("MMM6", typeof libs.root.context.res.value)
     }
 
     return mmm;
