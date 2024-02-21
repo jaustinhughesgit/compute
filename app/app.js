@@ -944,7 +944,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign
-        if (isObj){
+        if (assignObj){
             assign = await getKeyAndPath(strClean, nestedPath)
         } else {
             assign = {"key":strClean, "path":nestedPath}
