@@ -658,7 +658,7 @@ function isArray(string) {
       try {
         const parsed = JSON.parse(string);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed[0]
+          return parsed
         } else {
           return false
         }
@@ -670,7 +670,23 @@ function isArray(string) {
     }
   }
 
+  function replaceWords(input) {
+    // This regular expression matches words inside brackets that are not already in double quotes.
+    // It looks for an opening bracket followed by a word character sequence not preceded or followed by double quotes,
+    // then replaces it with the word surrounded by "\"||" and "||\"".
+    return input.replace(/\[(\w+)]/g, (match, word) => {
+        // Check if the matched word is not already in quotes. This might be redundant given the regex, but provides a safety check.
+        if (!/^\".*\"$/.test(word)) {
+            return `["||${word}||"]`;
+        }
+        // If the word is already in quotes, return it unchanged.
+        return match;
+    });
+}
 
+function isNestedArrayPlaceholder(str) {
+    return str.startsWith("||") && str.endsWith("||");
+}
 
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('}}!');
@@ -705,34 +721,21 @@ async function processString(str, libs, nestedPath) {
         }
         if (value == null || value == undefined){
             console.log("DDD")
-            console.log(isArray(arrowJson[1]))
-            console.log(isNumber(isArray(arrowJson[1])))
-            if (isNumber(isArray(arrowJson[1]))){
-                console.log("THIS ITEM IS AN ARRAY", arrowJson[1])
-                console.log("Array value", isArray(arrowJson[1]))
-                console.log(value)
-                console.log("nestedContext[target.key].value",nestedContext[target.key].value);
-                value = nestedContext[target.key].value[isArray(arrowJson[1])]
+            let fixArrayVars = replaceWords(arrowJson[1])
+            let isArrayChecked = isArray(fixArrayVars)
+            let isNumberChecked = isNumber(isArrayChecked[0])
+            if (isNumberChecked){
+                value = nestedContext[target.key].value[isArrayChecked[0]]
             } else {
-                if (isArray(arrowJson[1])){
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log("IS ARRAY")
-                    console.log(isArray(arrowJson[1]))
-                    console.log(nestedContext)
-                    console.log(nestedContext[isArray(arrowJson[1])].value)
-                    console.log(nestedContext[target.key])
-                    value = nestedContext[target.key].value[nestedContext[isArray(arrowJson[1])].value]
+                if (isArrayChecked){
+                    let arrayVal
+                    if (isNestedArrayPlaceholder(isArrayChecked[0])){
+                        let val = isArrayChecked[0].replace("||","").replace("||","")
+                        arrayVal = nestedContext[val].value
+                    } else {
+                        arrayVal = nestedContext[isArrayChecked[0]].value
+                    }
+                    value = nestedContext[target.key].value[arrayVal]
                 } else {
                     value = ""
                 }
