@@ -747,18 +747,11 @@ async function processString(str, libs, nestedPath) {
             let fixArrayVars = replaceWords(arrowJson[1])
             let isArrayChecked = isArray(fixArrayVars)
             let isNumberChecked = isNumber(isArrayChecked[0])
-            let isMath = false
             console.log("fixArrayVars",fixArrayVars)
             console.log("isArrayChecked",isArrayChecked)
             console.log("isNumberChecked",isNumberChecked)
-            if (!isArrayChecked && !isNumberChecked){
-                isMath = isMathEquation(expression) 
-            }
-            console.log("isMath",isMath);
             if (isNumberChecked){
                 value = nestedContext[target.key].value[isArrayChecked[0]]
-            } else if (isMath){
-                value = evaluateMathExpression(fixArrayVars)
             } else {
                 if (isArrayChecked){
                     let arrayVal
@@ -776,6 +769,9 @@ async function processString(str, libs, nestedPath) {
         }
         console.log("value", value)
         return value
+    } else if (isMathEquation(target.key)){
+        value = evaluateMathExpression(target.key)
+        return value;
     } else if (isArray(target.key)){
         console.log("THIS ITEM IS AN ARRAY", target.key)   
     }
