@@ -834,8 +834,15 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
+    let obj = JSON.parse(JSON.stringify(libs.root))
+    delete obj.session
+    delete obj.body
+    delete obj.urlpath
+    delete obj.sessionID
+    delete obj.req
+    delete obj.res
     let mmm = replacePlaceholders2(str, libs.root)
-    console.log(replacePlaceholders2(str, libs.root));
+    console.log(mmm);
     console.log("MMM", mmm)
     return mmm.toString();
     /*const isExecuted = str.endsWith('}}!');
