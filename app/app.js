@@ -733,8 +733,6 @@ function isNestedArrayPlaceholder(str) {
 
 
 
-
-
 function evaluateMathExpression2(expression) {
     try {
         const result = mathJS.evaluate(expression);
@@ -764,15 +762,11 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
-                console.log("VVV1",current)
-                console.log("VVV2",key)
-                console.log("VVV3",typeof current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
-                } else if (current && typeof current === 'object') {
-                    current = current
                 }
             } else {
+                console.error(`Key ${key} not found.`);
                 return '';
             }
         }
@@ -796,7 +790,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 let expression = innerStr.slice(1);
                 value = evaluateMathExpression2(expression);
             } else {
-                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                value = getValueFromJson2(innerStr, json, nestedPath, forceRoot);
             }
 
             modifiedStr = modifiedStr.replace(match[0], value);
@@ -850,43 +844,14 @@ const json88 = {
 
 
 
-async function processString(strRaw, libs, nestedPath) {
-    let str
-    if (strRaw == "res"){
-        str = "{{res}}"
-    } else {
-        str = strRaw
-    }
+async function processString(str, libs, nestedPath) {
 
-    let obj = Object.keys(libs.root).reduce((acc, key) => {
-          acc[key] = libs.root[key];
-        return acc;
-      }, {});
 
-    let newNestedPath = nestedPath
-    if (nestedPath.startsWith("root.")){
-        newNestedPath = newNestedPath.replace("root.", "")
-    } else if (nestedPath.startsWith("root")){
-        newNestedPath = newNestedPath.replace("root", "")
-    }
+    let mmm = replacePlaceholders2(str, libs, nestedPath) + " -- "
 
-    let mmm = replacePlaceholders2(str, obj, newNestedPath) + " -- "
-    console.log("MMM1", newNestedPath)
-    console.log("MMM2", mmm)
-    console.log("MMM2.1", str)
-    if (str == "{{res}}"){
-        console.log("MMM3", libs.root.context.res)
-        console.log("MMM4", libs.root.context.res.value)
-        console.log("MMM5", typeof libs.root.context.res)
-        console.log("MMM6", typeof libs.root.context.res.value)
-    }
 
     console.log("MMM7", mmm)
     console.log("MMM8", typeof mmm)
-
-    if (typeof mmm === "object"){
-        mmm = mmm()
-    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
