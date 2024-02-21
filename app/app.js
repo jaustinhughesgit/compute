@@ -685,7 +685,7 @@ function isArray(string) {
 }
 
 function isNestedArrayPlaceholder(str) {
-    return str.startsWith("||") && str.endsWith("||");
+    return str.toString().startsWith("||") && str.toString().endsWith("||");
 }
 
 async function processString(str, libs, nestedPath) {
