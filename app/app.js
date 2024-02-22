@@ -865,6 +865,7 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
+
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
@@ -872,6 +873,10 @@ async function processString(str, libs, nestedPath) {
         target = await getKeyAndPath(strClean, nestedPath)
         let nestedValue= await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue)
+        mmm = libs.root.context[str].value
+    }
+    
+    if (str == "res"){
         mmm = libs.root.context[str].value
     }
 
