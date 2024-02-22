@@ -845,13 +845,9 @@ const json88 = {
 
 
 
-async function processString(strRaw, libs, nestedPath) {
+async function processString(str, libs, nestedPath) {
 
-    if (strRaw == "res"){
-        str = "{{res}}"
-    } else {
-        str = strRaw
-    }
+
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         if (!["req", "res"].includes(key)) {
@@ -875,12 +871,16 @@ async function processString(strRaw, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
-    if (isObj){
-        target = await getKeyAndPath(str.replace("{{","").replace("}}",""), nestedPath)
+    if (isObj || str == "res"){
+        target = await getKeyAndPath(str, nestedPath)
+        console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        mmm = nestedValue
+        console.log("nestedValue", nestedValue)
     }
     
+    if (str == "res"){
+        mmm = libs.root.context[str].value
+    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
