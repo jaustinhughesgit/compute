@@ -760,7 +760,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-        const keys = path.split('.');
+        // Check for array access syntax and split if present
+        let arrayAccess = path.split('=>');
+        let keys = arrayAccess[0].split('.');
+        let index = null;
+        if (arrayAccess.length > 1) {
+            // Extract index from the right side of "=>"
+            index = arrayAccess[1].replace(/\[|\]/g, ''); // Removes brackets
+            index = parseInt(index); // Convert index to integer
+        }
+
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
@@ -771,6 +780,17 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 return '';
             }
         }
+
+        // If an index is specified, access the array element
+        if (index !== null && Array.isArray(current)) {
+            if (index >= 0 && index < current.length) {
+                current = current[index];
+            } else {
+                console.error(`Index ${index} out of bounds for array.`);
+                return '';
+            }
+        }
+
         return current;
     }
 
@@ -783,13 +803,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
-                innerStr = replace2(innerStr, nestedPath);
+                innerStr = await replace2(innerStr, nestedPath); // Ensure this call is awaited
             }
 
             let value;
             if (innerStr.startsWith("=")) {
                 console.log("expression")
                 let expression = innerStr.slice(1);
+                // Assuming evaluateMathExpression2 is a function you have defined elsewhere
                 value = await evaluateMathExpression2(expression);
             } else {
                 console.log("json")
@@ -799,15 +820,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             console.log("STR", str)
             console.log("VALUE", value)
             console.log("TYPEOF", typeof value)
-            if (typeof value === "string"){
-                modifiedStr = modifiedStr.replace(match[0], value);
+            if (typeof value === "string" || typeof value === "number") {
+                modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                const isObj = await isOnePlaceholder(str)
+                // Handle complex objects and arrays gracefully
+                const isObj = await isOnePlaceholder(str) // Assuming isOnePlaceholder is a function you have defined
                 console.log("ISOBJ", isObj)
-                if (isObj){
-                    return value
+                if (isObj) {
+                    return value;
                 } else {
-                    modifiedStr = modifiedStr.replace(match[0], value);
+                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
         }
