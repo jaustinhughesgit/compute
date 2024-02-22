@@ -766,7 +766,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     async function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
-            current = await getNestedValue2(json, nestedPath);
+            const nestedKeys = nestedPath.split('.');
+            for (let key of nestedKeys) {
+                if (current.hasOwnProperty(key)) {
+                    current = current[key];
+                } else {
+                    console.error(`Nested path ${nestedPath} not found in JSON.`);
+                    return '';
+                }
+            }
         }
 
         const keys = path.split('.');
