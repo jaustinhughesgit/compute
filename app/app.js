@@ -833,7 +833,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
-            value = processString(str) 
+            if (str.includes("{{[") && str.includes("]}}")){
+                value = processString(str) 
+            }
 
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
