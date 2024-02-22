@@ -826,7 +826,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return strArray[index] ?? ""; // Use ?? operator to handle undefined gracefully
                 });
 
-                value = updatedStr
+                return updatedStr
             }
 
             if (typeof value === "string" || typeof value === "number") {
