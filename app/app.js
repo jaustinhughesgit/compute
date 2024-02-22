@@ -797,39 +797,38 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
-        const json = { context: nestedPath }; // Assuming `nestedPath` is your object, e.g., `newJson`
-    
-        // Function to traverse an object by a given path
-        function getValueFromPath(obj, path) {
-            return path.split('.').reduce((current, key) => {
-                return current && current[key] ? current[key] : null;
-            }, obj);
-        }
-    
+
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
                 innerStr = await replace2(innerStr, nestedPath);
             }
-    
+
             let value;
-            if (innerStr.includes("=>")) {
-                // Extract object name and path from the pattern {{{{word}}=>key.key}}
-                const [objectName, path] = innerStr.split("=>");
-                const obj = nestedPath[objectName]; // Assuming the object is stored in `nestedPath` with `objectName` as the key
-                value = getValueFromPath(obj, path);
-            } else if (innerStr.startsWith("=")) {
+            if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
-                value = await evaluateMathExpression2(expression); // Assuming this is a provided function
+                value = await evaluateMathExpression2(expression);
             } else {
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot); // Assuming this is a provided function
+                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
             
+            if (str.includes("{{[") && str.includes("]}}")) {
+                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g;
+
+                let updatedStr = str.replace(regex, (match, p1, p2) => {
+                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                    let index = parseInt(p2);
+                    return strArray[index] ?? "";
+                });
+                return updatedStr
+            }
+
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                const isObj = await isOnePlaceholder(str) // Assuming this is a provided function
+                
+                const isObj = await isOnePlaceholder(str) 
                 if (isObj) {
                     return value;
                 } else {
@@ -837,15 +836,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
         }
-    
+
         if (modifiedStr.match(regex)) {
             return replace2(modifiedStr, nestedPath);
         }
-    
+
         return modifiedStr;
     }
-    
-    
 
     return replace2(str, nestedPath);
 }
