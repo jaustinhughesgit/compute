@@ -881,7 +881,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return updatedStr;
                 } 
 
-                /*console.log("JSON PATH A", modifiedStr)
+                /*
+                console.log("JSON PATH A", modifiedStr)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     console.log("JSON PATH B1", match)
                     console.log("JSON PATH B2", jsonString)
