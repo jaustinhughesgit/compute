@@ -787,12 +787,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
-                console.log("expression")
-                let expression = innerStr.slice(1);
-                value = await evaluateMathExpression2(expression);
-            } else if (innerStr.startsWith("=")) {
                 console.log("expression")
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
@@ -801,16 +796,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
+            console.log("STR", str)
             console.log("VALUE", value)
             console.log("TYPEOF", typeof value)
-            modifiedStr = modifiedStr.replace(match[0], value);
             if (typeof value === "string"){
+                modifiedStr = modifiedStr.replace(match[0], value);
             } else {
-                //if (modifiedStr.match(regex)) {
-                    return replace2(value, nestedPath) //value
-                //} else {
-                //    return value
-                //}
+                return value
             }
         }
 
@@ -879,7 +871,7 @@ async function processString(str, libs, nestedPath) {
     } else if (nestedPath.startsWith("root")){
         newNestedPath = newNestedPath.replace("root", "")
     }
-    console.log("str", str)
+
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
