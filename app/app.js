@@ -845,7 +845,13 @@ const json88 = {
 
 
 
-async function processString(str, libs, nestedPath) {
+async function processString(strRaw, libs, nestedPath) {
+
+    if (strRaw == "res"){
+        res = "{{res}}"
+    } else {
+        res = resRaw
+    }
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         if (!["req", "res"].includes(key)) {
