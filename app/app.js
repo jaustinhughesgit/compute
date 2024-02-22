@@ -816,17 +816,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
             
             if (str.includes("{{[") && str.includes("]}}")) {
-                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/; // Regex to match the pattern
-                let matches = regex.exec(str);
-                console.log("matches", matches)
-                if (matches) {
-                    let strArray = matches[1].split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    console.log("strArray", strArray)
-                    let index = parseInt(matches[2]);
-                    console.log("index", index)
-                    value = strArray[index];
-                    console.log("value", value)
-                }
+                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g; // Notice the 'g' flag for global matching
+
+                let inputStr = str;
+                
+                let updatedStr = inputStr.replace(regex, (match, p1, p2) => {
+                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                    let index = parseInt(p2);
+                    return strArray[index] ?? ""; // Use ?? operator to handle undefined gracefully
+                });
+                value = updatedStr
             }
 
             if (typeof value === "string" || typeof value === "number") {
