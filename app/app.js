@@ -581,24 +581,23 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 }
 
 async function replacePlaceholders(item, libs, nestedPath) {
-    return new Promise(async resolve => {
-        let processedItem = item;
-        let processedItem2 = item+"";
-        if (typeof processedItem === 'string') {
-            let stringResponse = await processString(processedItem, libs, nestedPath);
-            stringResponse;
-        } else if (Array.isArray(processedItem)) {
-            let newProcessedItem2 = processedItem.map(async element => {
-                console.log("element", element)
-                let repHolder = await replacePlaceholders(element, libs, nestedPath)
-                console.log("repHolder", repHolder)
-                repHolder
-            });
-            await Promise.all(newProcessedItem2);
-        } else {
-            item
-        }
-    });
+    let processedItem = item;
+    let processedItem2 = item+"";
+    if (typeof processedItem === 'string') {
+        let stringResponse = await processString(processedItem, libs, nestedPath);
+        return stringResponse;
+    } else if (Array.isArray(processedItem)) {
+        let newProcessedItem2 = processedItem.map(async element => {
+            console.log("element", element)
+            let repHolder = await replacePlaceholders(element, libs, nestedPath)
+            console.log("repHolder", repHolder)
+            return repHolder
+        });
+        return await Promise.all(newProcessedItem2);
+    } else {
+        return item
+    }
+    
 }
 
 
@@ -746,7 +745,7 @@ function evaluateMathExpression2(expression) {
     }
 }
 
-function replacePlaceholders2(str, json, nestedPath = "") {
+async function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -775,7 +774,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         return current;
     }
 
-    function replace2(str, nestedPath) {
+    async function replace2(str, nestedPath) {
         let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
@@ -790,9 +789,9 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             let value;
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
-                value = evaluateMathExpression2(expression);
+                value = await evaluateMathExpression2(expression);
             } else {
-                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
             console.log("VALUE", value)
@@ -870,7 +869,7 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = newNestedPath.replace("root", "")
     }
 
-    let mmm = replacePlaceholders2(str, obj, newNestedPath)
+    let mmm = await replacePlaceholders2(str, obj, newNestedPath)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
