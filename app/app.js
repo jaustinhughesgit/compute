@@ -826,38 +826,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 return updatedStr
             } else if (jsonPathRegex.test(str)){
-                // please add json path logic here
-                // please make it as similar to array index logic as possible
-                let keepGoing = true;
-                console.log("JSON PATHA", str)
+
+                console.log("JSON PATH A", str)
                 let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("JSON PATHB", match)
-                    try {
-                        let jsonObj = JSON.parse(jsonString);
-                        let pathParts = jsonPath.split('.');
-                        let current = jsonObj;
-                        for (let part of pathParts) {
-                            if (current.hasOwnProperty(part)) {
-                                current = current[part];
-                            } else {
-                                // Path not found
-                                //console.error(`Path ${jsonPath} not found in JSON.`);
-                                //return '';
-                                keepGoing = false
-                            }
-                        }
-                        if (keepGoing){
-                            return typeof current === 'string' || typeof current === 'number' ? current.toString() : JSON.stringify(current);
-                        }
-                    } catch (e) {
-                        //console.error(`Error parsing JSON: ${e}`);
-                        //return '';
-                    }
+                    console.log("JSON PATH B1", match)
+                    console.log("JSON PATH B2", jsonString)
+                    console.log("JSON PATH B3", jsonPath)
+                    
                 });
-                console.log("JSON PATHC", updatedStr)
-                if (keepGoing){
-                    return updatedStr;
-                }
+                console.log("JSON PATH C", updatedStr)
+                //return updatedStr;
             }
 
             if (typeof value === "string" || typeof value === "number") {
