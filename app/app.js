@@ -831,8 +831,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
 
                 // Append any remaining part of the string after the last match
-                value = str.substring(lastIndex);
-
+                finalStr += str.substring(lastIndex);
+                value = finalStr
             }
 
             if (typeof value === "string" || typeof value === "number") {
