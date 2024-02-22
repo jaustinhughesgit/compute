@@ -787,6 +787,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
+            console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 console.log("expression")
                 let expression = innerStr.slice(1);
