@@ -608,8 +608,8 @@ async function replacePlaceholders(item, libs, nestedPath) {
 */
 
 async function isOnePlaceholder(str) {
-    if (str.startsWith("{{") && (str.endsWith("}}") || str.endsWith("}}!"))) {
-        return str.indexOf("{{", 2) === -1;
+    if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!"))) {
+        return str.indexOf("{|", 2) === -1;
     }
     return false;
 }
@@ -794,14 +794,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        let regex = /{{(~\/)?([^{}]+)}}/g;
+        let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
-            if (/{{.*}}/.test(innerStr)) {
+            if (/{\|.*\|}/.test(innerStr)) {
                 innerStr = await replace2(innerStr, nestedPath);
             }
 
@@ -814,8 +814,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
             
 
-            const arrayIndexRegex = /{{\[(.*?)\]=>\[(\d+)\]}}/g;
-            const jsonPathRegex = /{{((?:[^=>]+))=>((?:(?!\[\d+\]).)+)}}/;
+            const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
+            const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
 
             if (arrayIndexRegex.test(str)) {
 
@@ -948,11 +948,11 @@ async function processString(str, libs, nestedPath) {
     console.log("str", str)
     console.log("isObj", isObj)
     if (isObj || str == "res"){
-        target = await getKeyAndPath(str.replace("{{","").replace("}}",""), nestedPath)
+        target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue[str.replace("{{","").replace("}}","")])
-        mmm = nestedValue[str.replace("{{","").replace("}}","")].value
+        console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
+        mmm = nestedValue[str.replace("{|","").replace("|}","")].value
     }
     
     /*if (str == "res"){
@@ -960,7 +960,7 @@ async function processString(str, libs, nestedPath) {
     }*/
     console.log("TYPEOF", typeof mmm)
     return mmm;
-    /*const isExecuted = str.endsWith('}}!');
+    /*const isExecuted = str.endsWith('|}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let arrowJson = strClean.split("=>")
@@ -1121,7 +1121,7 @@ async function addValueToNestedKey(key, nestedContext, value){
 async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.set) {
         for (const key in action.set) {
-            const keyExecuted = key.endsWith('}}!');
+            const keyExecuted = key.endsWith('|}!');
             const keyObj = await isOnePlaceholder(key);
             let keyClean = await removeBrackets(key, keyObj, keyExecuted);
             console.log("keyClean",keyClean)
@@ -1170,7 +1170,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (action.arguments) {
                 let promises = action.arguments.map(async item => {
                     console.log("arguments: item", item)
-                    const fromExecuted = item.endsWith('}}!');
+                    const fromExecuted = item.endsWith('|}!');
                     console.log("arguments: fromExecuted", fromExecuted)
                     const fromObj = await isOnePlaceholder(item);
                     console.log("arguments: fromObj", fromObj)
@@ -1206,7 +1206,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, res, req, next);
         if (action.assign) {
-            const assignExecuted = action.assign.endsWith('}}!');
+            const assignExecuted = action.assign.endsWith('|}!');
             console.log("assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
             console.log("assignObj",assignObj)
@@ -1238,7 +1238,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign && action.params) {
-        const assignExecuted = action.assign.endsWith('}}!');
+        const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
         let assign
@@ -1408,7 +1408,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
     console.log("11111111")
     return  async function (...args) {
-        const assignExecuted = action.assign.endsWith('}}!');
+        const assignExecuted = action.assign.endsWith('|}!');
         console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
         console.log("55: assignObj", assignObj)
@@ -1431,7 +1431,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             /*let promises = args.map(async arg => {
                 console.log("11: arg", arg)
                 if (action.params && arg) {
-                    const paramExecuted1 = arg.endsWith('}}!');
+                    const paramExecuted1 = arg.endsWith('|}!');
                     console.log("11: paramExecuted1", paramExecuted1)
                     const paramObj1 = await isOnePlaceholder(arg);
                     console.log("11: paramObj1", paramObj1)
@@ -1462,7 +1462,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 let param2 = action.params[par]
                 console.log("11: param2",param2)
                 if (param2 != null && param2 != ""){
-                    const paramExecuted2 = param2.endsWith('}}!');
+                    const paramExecuted2 = param2.endsWith('|}!');
                     console.log("22: paramExecuted2",paramExecuted2)
                     const paramObj2 = await isOnePlaceholder(param2);
                     console.log("22: paramObj2",paramObj2)
