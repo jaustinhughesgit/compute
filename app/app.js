@@ -802,7 +802,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             if (typeof value === "string"){
                 modifiedStr = modifiedStr.replace(match[0], value);
             } else {
-                return value
+                const isObj = await isOnePlaceholder(str)
+                if (isObj){
+                    return value
+                } else {
+                    modifiedStr = modifiedStr.replace(match[0], value);
+                }
             }
         }
 
