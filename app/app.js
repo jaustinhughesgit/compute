@@ -876,11 +876,12 @@ async function processString(str, libs, nestedPath) {
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[str])
+        mmm = nestedValue[str]
     }
     
-    if (str == "res"){
+    /*if (str == "res"){
         mmm = libs.root.context[str].value
-    }
+    }*/
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
