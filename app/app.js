@@ -820,10 +820,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             console.log("STR", str)
             console.log("VALUE", value)
             console.log("TYPEOF", typeof value)
+            console.log(str.startsWith("{{["), str.endsWith("]}}"))
             if (str.startsWith("{{[") && str.endsWith("]}}")){
                 let splitStr = str.replace("{{[","").replace("]}}","").split("]=>[")
+                console.log("splitStr", splitStr)
                 let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, ""));
-                str = strArray[parseInt(splitStr[1])]
+                console.log("strArray", strArray)
+                value = strArray[parseInt(splitStr[1])]
+                console.log("value", value)
             }
 
             if (typeof value === "string" || typeof value === "number") {
