@@ -744,113 +744,78 @@ function evaluateMathExpression2(expression) {
         return null;
     }
 }
+// Helper function to traverse an object by a given path.
+function getValueFromPath2(obj, path) {
+    return path.split('.').reduce((current, key) => {
+        return current && current[key] ? current[key] : null;
+    }, obj);
+}
 
-async function replacePlaceholders2(str, json, nestedPath = "") {
-    function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
-        let current = json;
-        if (!forceRoot && nestedPath) {
-            const nestedKeys = nestedPath.split('.');
-            for (let key of nestedKeys) {
-                if (current.hasOwnProperty(key)) {
-                    current = current[key];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
-            }
-        }
+async function replace2(str, nestedPath) {
+    let regex = /{{(~\/)?([^{}]+)}}/g;
+    let match;
+    let modifiedStr = str;
 
-        // Check for array access syntax and split if present
-        let arrayAccess = path.split('=>');
-        let keys = arrayAccess[0].split('.');
-        let index = null;
-        if (arrayAccess.length > 1) {
-            // Extract index from the right side of "=>"
-            index = arrayAccess[1].replace(/\[|\]/g, ''); // Removes brackets
-            index = parseInt(index); // Convert index to integer
-        }
+    while ((match = regex.exec(str)) !== null) {
+        let forceRoot = match[1] === "~/";
+        let innerStr = match[2];
 
-        for (let key of keys) {
-            if (current.hasOwnProperty(key)) {
-                current = current[key];
-                if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
-                    current = current.value;
-                }
-            } else {
-                return '';
-            }
-        }
+        // Check for the new string format and extract the path if present
+        const newPathRegex = /{{(.*)}}=>(.*)/;
+        const newPathMatch = innerStr.match(newPathRegex);
 
-        // If an index is specified, access the array element
-        if (index !== null && Array.isArray(current)) {
-            if (index >= 0 && index < current.length) {
-                current = current[index];
-            } else {
-                console.error(`Index ${index} out of bounds for array.`);
-                return '';
-            }
-        }
+        if (newPathMatch) {
+            // Extract the object name and the path from the match
+            const objectName = newPathMatch[1];
+            const path = newPathMatch[2];
 
-        return current;
-    }
-
-    async function replace2(str, nestedPath) {
-        let regex = /{{(~\/)?([^{}]+)}}/g;
-        let match;
-        let modifiedStr = str;
-
-        while ((match = regex.exec(str)) !== null) {
-            let forceRoot = match[1] === "~/";
-            let innerStr = match[2];
-            if (/{{.*}}/.test(innerStr)) {
-                innerStr = await replace2(innerStr, nestedPath); // Ensure this call is awaited
-            }
-
-            let value;
-            if (innerStr.startsWith("=")) {
-                let expression = innerStr.slice(1);
-                // Assuming evaluateMathExpression2 is a function you have defined elsewhere
-                value = await evaluateMathExpression2(expression);
-            } else {
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-            }
-            
-            if (str.includes("{{[") && str.includes("]}}")) {
-                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g;
-
-                let inputStr = str//'{{["A","B","C","D","E","F"]=>[0]}}B{{["A","B","C","D","E","F"]=>[2]}}D';
-
-                let updatedStr = inputStr.replace(regex, (match, p1, p2) => {
-                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(p2);
-                    return strArray[index] ?? ""; // Use ?? operator to handle undefined gracefully
-                });
-
-                return updatedStr
-            }
+            // Assume `json` is your data object from which you're trying to get the value
+            const objectToTraverse = await getValueFromJson2(objectName, json.context || {}, nestedPath, forceRoot);
+            const value = getValueFromPath2(objectToTraverse, path);
 
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                // Handle complex objects and arrays gracefully
-                const isObj = await isOnePlaceholder(str) // Assuming isOnePlaceholder is a function you have defined
-                if (isObj) {
-                    return value;
-                } else {
-                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                }
+                modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
+            }
+
+            continue; // Skip the rest of the loop since we've handled this case
+        }
+
+        if (/{{.*}}/.test(innerStr)) {
+            innerStr = await replace2(innerStr, nestedPath);
+        }
+
+        let value;
+        if (innerStr.startsWith("=")) {
+            let expression = innerStr.slice(1);
+            value = await evaluateMathExpression2(expression);
+        } else {
+            value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+        }
+
+        if (typeof value === "string" || typeof value === "number") {
+            modifiedStr = modifiedStr.replace(match[0], value.toString());
+        } else {
+            const isObj = await isOnePlaceholder(str);
+            if (isObj) {
+                return value;
+            } else {
+                modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
             }
         }
-
-        if (modifiedStr.match(regex)) {
-            return replace2(modifiedStr, nestedPath);
-        }
-
-        return modifiedStr;
     }
 
-    return replace2(str, nestedPath);
+    if (modifiedStr.match(regex)) {
+        return replace2(modifiedStr, nestedPath);
+    }
+
+    return modifiedStr;
 }
+
+// Call the function with your string and nestedPath
+// replace2('{{{{word}}=>key.key}}', nestedPath);
+
 
 
 
