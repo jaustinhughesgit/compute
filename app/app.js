@@ -794,7 +794,13 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
-            modifiedStr = modifiedStr.replace(match[0], value);
+            console.log("VALUE", value)
+            console.log("TYPEOF", typeof value)
+            if (typeof value == "string"){
+                modifiedStr = modifiedStr.replace(match[0], value);
+            } else {
+                return value
+            }
         }
 
         if (modifiedStr.match(regex)) {
