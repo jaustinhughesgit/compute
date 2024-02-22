@@ -762,7 +762,7 @@ async function getNestedValue2(libs, nestedPath) {
     return libs;
 }
 
-function replacePlaceholders2(str, json, nestedPath = "") {
+async function replacePlaceholders2(str, json, nestedPath = "") {
     async function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -826,7 +826,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         }
     }
 
-    return replace2(str, nestedPath); // Note: This now potentially returns a Promise due to async operations
+    return await replace2(str, nestedPath); // Note: This now potentially returns a Promise due to async operations
 }
 
 
