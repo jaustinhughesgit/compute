@@ -993,7 +993,7 @@ async function runAction(action, libs, nestedPath, req, res, next){
                 for (const whileCondition of action.while) {
                     while (condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)) {
                         await processAction(action, libs, nestedPath, req, res, next);
-                        whileChecker++;
+                        whileCounter++;
                         if (whileCounter >= whileLimit){
                             break;
                         }
