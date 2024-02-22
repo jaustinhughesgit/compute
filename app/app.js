@@ -817,25 +817,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
             const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
 
-            if (arrayIndexRegex.test(str)) {
-
-                let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
-                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(p2);
-                    return strArray[index] ?? "";
-                });
-                return updatedStr
-            } else if (jsonPathRegex.test(str)){
-
-                let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-
-
-            //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
-            // or take this and move it below the replace code below.                    
-                });
-                console.log("JSON PATH C", updatedStr)
-                //return updatedStr;
-            }
 
 
             if (typeof value === "string" || typeof value === "number") {
@@ -849,7 +830,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
-            if (jsonPathRegex.test(modifiedStr)){
+            if (arrayIndexRegex.test(modifiedStr)) {
+
+                let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
+                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                    let index = parseInt(p2);
+                    return strArray[index] ?? "";
+                });
+                
+                return updatedStr
+            } else if (jsonPathRegex.test(modifiedStr)){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     try {
