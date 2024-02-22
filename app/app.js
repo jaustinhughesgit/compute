@@ -827,19 +827,34 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 return updatedStr
             } else if (jsonPathRegex.test(str)){
 
-                console.log("JSON PATH A", str)
                 let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("JSON PATH B1", match)
-                    console.log("JSON PATH B2", jsonString)
-                    console.log("JSON PATH B3", jsonPath)
-                    
+                  
+
+            //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
+            // or take this and move it below the replace code below.                    
                 });
                 console.log("JSON PATH C", updatedStr)
                 //return updatedStr;
             }
 
+
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
+                if (jsonPathRegex.test(str)){
+
+                    console.log("JSON PATH A", str)
+                    let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
+                        console.log("JSON PATH B1", match)
+                        console.log("JSON PATH B2", jsonString)
+                        console.log("JSON PATH B3", jsonPath)
+    
+                //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
+                // or take this and move it below the replace code below.                    
+                    });
+                    console.log("JSON PATH C", updatedStr)
+                    //return updatedStr;
+                }
+
             } else {
                 
                 const isObj = await isOnePlaceholder(str) 
