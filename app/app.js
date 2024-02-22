@@ -538,46 +538,50 @@ async function getNestedValue(libs, nestedPath) {
 }
 
 async function condition(left, conditions, right, operator = "&&", libs, nestedPath) {
-    //need an updated condition for if left is the only argument then return it's value (bool or truthy)
+    return new Promise(async (resolve, reject) => {
+        //need an updated condition for if left is the only argument then return it's value (bool or truthy)
 
-    if (!Array.isArray(conditions)) {
-        conditions = [{ condition: conditions, right: right }];
-    }
-
-    return await conditions.reduce(async (result, cond) => {
-        const currentResult = await checkCondition(left, cond.condition, cond.right, libs, nestedPath);
-        if (operator === "&&") {
-            return result && currentResult;
-        } else if (operator === "||") {
-            return result || currentResult;
-        } else {
-            //console.log("Invalid operator");
+        if (!Array.isArray(conditions)) {
+            conditions = [{ condition: conditions, right: right }];
         }
-    }, operator === "&&");
+
+        return await conditions.reduce(async (result, cond) => {
+            const currentResult = await checkCondition(left, cond.condition, cond.right, libs, nestedPath);
+            if (operator === "&&") {
+                result && currentResult;
+            } else if (operator === "||") {
+                result || currentResult;
+            } else {
+                //console.log("Invalid operator");
+            }
+        }, operator === "&&");
+    });
 }
 
 async function checkCondition(left, condition, right, libs, nestedPath) {
-    left = await replacePlaceholders(left, libs, nestedPath)
-    right = await replacePlaceholders(right, libs, nestedPath)
-    switch (condition) {
-        case '==': return left == right;
-        case '===': return left === right;
-        case '!=': return left != right;
-        case '!==': return left !== right;
-        case '>': return left > right;
-        case '>=': return left >= right;
-        case '<': return left < right;
-        case '<=': return left <= right;
-        case 'startsWith': return typeof left === 'string' && left.startsWith(right);
-        case 'endsWith': return typeof left === 'string' && left.endsWith(right);
-        case 'includes': return typeof left === 'string' && left.includes(right);
-        case 'isDivisibleBy': return typeof left === 'number' && typeof right === 'number' && right !== 0 && left % right === 0;
-        default:
-            if (!condition && !right) {
-                return !!left;
-            }
-            throw new Error("Invalid condition type");
-    }
+    return new Promise(async (resolve, reject) => {
+        left = await replacePlaceholders(left, libs, nestedPath)
+        right = await replacePlaceholders(right, libs, nestedPath)
+        switch (condition) {
+            case '==': return left == right;
+            case '===': return left === right;
+            case '!=': return left != right;
+            case '!==': return left !== right;
+            case '>': return left > right;
+            case '>=': return left >= right;
+            case '<': return left < right;
+            case '<=': return left <= right;
+            case 'startsWith': return typeof left === 'string' && left.startsWith(right);
+            case 'endsWith': return typeof left === 'string' && left.endsWith(right);
+            case 'includes': return typeof left === 'string' && left.includes(right);
+            case 'isDivisibleBy': return typeof left === 'number' && typeof right === 'number' && right !== 0 && left % right === 0;
+            default:
+                if (!condition && !right) {
+                    !!left;
+                }
+                throw new Error("Invalid condition type");
+        }
+    });
 }
 
 async function replacePlaceholders(item, libs, nestedPath) {
