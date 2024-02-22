@@ -744,7 +744,6 @@ function evaluateMathExpression2(expression) {
         return null;
     }
 }
-
 async function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
@@ -760,28 +759,22 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-        // Check for array access syntax and split if present
         let arrayAccess = path.split('=>');
         let keys = arrayAccess[0].split('.');
         let index = null;
         if (arrayAccess.length > 1) {
-            // Extract index from the right side of "=>"
-            index = arrayAccess[1].replace(/\[|\]/g, ''); // Removes brackets
-            index = parseInt(index); // Convert index to integer
+            index = arrayAccess[1].replace(/\[|\]/g, '');
+            index = parseInt(index);
         }
 
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
-                if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
-                    current = current.value;
-                }
             } else {
                 return '';
             }
         }
 
-        // If an index is specified, access the array element
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
@@ -795,47 +788,29 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        let regex = /{{(~\/)?([^{}]+)}}/g;
+        let regex = /{{(~\/)?([^{}]+)=>\[(\d+)\]}}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
-            if (/{{.*}}/.test(innerStr)) {
-                innerStr = await replace2(innerStr, nestedPath); // Ensure this call is awaited
-            }
+            let index = parseInt(match[3]);
 
-            let value;
-            if (innerStr.startsWith("=")) {
-                let expression = innerStr.slice(1);
-                // Assuming evaluateMathExpression2 is a function you have defined elsewhere
-                value = await evaluateMathExpression2(expression);
+            let value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+
+            if (Array.isArray(value) && index >= 0 && index < value.length) {
+                value = value[index];
             } else {
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-            }
-
-            if (str.startsWith("{{[") && str.endsWith("]}}")){
-                let splitStr = str.replace("{{[","").replace("]}}","").split("]=>[")
-                let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, ""));
-                value = strArray[parseInt(splitStr[1])]
+                value = ''; // Fallback or error handling
             }
 
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                // Handle complex objects and arrays gracefully
-                const isObj = await isOnePlaceholder(str) // Assuming isOnePlaceholder is a function you have defined
-                if (isObj) {
-                    return value;
-                } else {
-                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                }
+                // Fallback for non-string/number values
+                modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
             }
-        }
-
-        if (modifiedStr.match(regex)) {
-            return replace2(modifiedStr, nestedPath);
         }
 
         return modifiedStr;
@@ -843,6 +818,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     return replace2(str, nestedPath);
 }
+
 
 
 
