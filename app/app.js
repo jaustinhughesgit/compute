@@ -884,10 +884,10 @@ async function processString(str, libs, nestedPath) {
     
 
 
-    /*if (str == "res"){
+    if (str == "res"){
         console.log()
         mmm = libs.root.context[str].value
-    }*/
+    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
