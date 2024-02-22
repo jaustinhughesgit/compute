@@ -1283,7 +1283,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                 try{ console.log("chainParams", chainParams)} catch (err){}
                                 try{
                                     console.log("..i..")
-                                    
+                                    console.log(chainParams[0])
+                                    console.log(typeof chainParams[0])
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     console.log("err", err)
