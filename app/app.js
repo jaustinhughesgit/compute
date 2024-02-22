@@ -734,7 +734,6 @@ function isNestedArrayPlaceholder(str) {
 
 
 
-
 function evaluateMathExpression2(expression) {
     try {
         const result = mathJS.evaluate(expression);
@@ -778,6 +777,8 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
+        let isComplexType = false;
+        let complexValue;
 
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
@@ -792,20 +793,32 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 value = evaluateMathExpression2(expression);
             } else {
                 value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                if (typeof value !== 'string') {
+                    // Detected a complex type (e.g., function, object, array)
+                    isComplexType = true;
+                    complexValue = value;
+                    break; // Exit loop as we cannot replace inside a string
+                }
             }
 
-            modifiedStr = modifiedStr.replace(match[0], value);
+            if (!isComplexType) {
+                modifiedStr = modifiedStr.replace(match[0], value);
+            }
         }
 
-        if (modifiedStr.match(regex)) {
+        if (isComplexType) {
+            // Return the complex type directly instead of as a part of the string
+            return complexValue;
+        } else if (modifiedStr.match(regex)) {
             return replace2(modifiedStr, nestedPath);
+        } else {
+            return modifiedStr;
         }
-
-        return modifiedStr;
     }
 
     return replace2(str, nestedPath);
 }
+
 
 
 
@@ -855,12 +868,16 @@ async function processString(str, libs, nestedPath) {
     }
 
     let mmm = replacePlaceholders2(str, libs, newNestedPath)
+    console.log("MMM0", str)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
-    if (str == "res"){
+
+
+    /*if (str == "res"){
+        console.log()
         mmm = libs.root.context[str].value
-    }
+    }*/
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
