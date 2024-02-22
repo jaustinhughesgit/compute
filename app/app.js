@@ -888,9 +888,9 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
-    if (str == "res"){
+    /*if (str == "res"){
         mmm = libs.root.context[str].value
-    }
+    }*/
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
