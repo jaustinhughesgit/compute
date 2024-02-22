@@ -755,49 +755,39 @@ async function replace2(str, nestedPath) {
     let regex = /{{(~\/)?([^{}]+)}}/g;
     let match;
     let modifiedStr = str;
+    const json = { context: nestedPath }; // Assuming `nestedPath` is your object, e.g., `newJson`
+
+    // Function to traverse an object by a given path
+    function getValueFromPath(obj, path) {
+        return path.split('.').reduce((current, key) => {
+            return current && current[key] ? current[key] : null;
+        }, obj);
+    }
 
     while ((match = regex.exec(str)) !== null) {
         let forceRoot = match[1] === "~/";
         let innerStr = match[2];
-
-        // Check for the new string format and extract the path if present
-        const newPathRegex = /{{(.*)}}=>(.*)/;
-        const newPathMatch = innerStr.match(newPathRegex);
-
-        if (newPathMatch) {
-            // Extract the object name and the path from the match
-            const objectName = newPathMatch[1];
-            const path = newPathMatch[2];
-
-            // Assume `json` is your data object from which you're trying to get the value
-            const objectToTraverse = await getValueFromJson2(objectName, json.context || {}, nestedPath, forceRoot);
-            const value = getValueFromPath2(objectToTraverse, path);
-
-            if (typeof value === "string" || typeof value === "number") {
-                modifiedStr = modifiedStr.replace(match[0], value.toString());
-            } else {
-                modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-            }
-
-            continue; // Skip the rest of the loop since we've handled this case
-        }
-
         if (/{{.*}}/.test(innerStr)) {
             innerStr = await replace2(innerStr, nestedPath);
         }
 
         let value;
-        if (innerStr.startsWith("=")) {
+        if (innerStr.includes("=>")) {
+            // Extract object name and path from the pattern {{{{word}}=>key.key}}
+            const [objectName, path] = innerStr.split("=>");
+            const obj = nestedPath[objectName]; // Assuming the object is stored in `nestedPath` with `objectName` as the key
+            value = getValueFromPath(obj, path);
+        } else if (innerStr.startsWith("=")) {
             let expression = innerStr.slice(1);
-            value = await evaluateMathExpression2(expression);
+            value = await evaluateMathExpression2(expression); // Assuming this is a provided function
         } else {
-            value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+            value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot); // Assuming this is a provided function
         }
-
+        
         if (typeof value === "string" || typeof value === "number") {
             modifiedStr = modifiedStr.replace(match[0], value.toString());
         } else {
-            const isObj = await isOnePlaceholder(str);
+            const isObj = await isOnePlaceholder(str) // Assuming this is a provided function
             if (isObj) {
                 return value;
             } else {
