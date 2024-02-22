@@ -815,7 +815,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
-            if (str.startsWith("{{[") && str.endsWith("]}}")){
+            if (str.includes("{{[") && str.includes("]}}")){
                 let splitBeginning = str.split("{{[")
                 let splitEnding = splitBeginning[1].split("]}}")
                 let splitStr = splitEnding[0].split("]=>[")
