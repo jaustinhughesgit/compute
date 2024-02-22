@@ -350,7 +350,7 @@ app.all('/auth/*',
         req.lib.modules = {};
         req.lib.middlewareCache = []
         req.lib.isMiddlewareInitialized = false;
-        req.lib.whileLimit = 100;
+        req.lib.whileLimit = 10;
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
@@ -991,11 +991,13 @@ async function runAction(action, libs, nestedPath, req, res, next){
             if (action.while) {
                 let whileCounter = 0
                 for (const whileCondition of action.while) {
+                    while (condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)) {
+                        
                     let leftSide1 = await replacePlaceholders(whileCondition[0], libs, nestedPath)
                     let conditionMiddle = whileCondition[1]
                     let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath)
                     console.log("$$$", leftSide1, conditionMiddle, rightSide2)
-                    while (condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)) {
+                        
                         await processAction(action, libs, nestedPath, req, res, next);
                         whileCounter++;
                         console.log("/////", libs.root.context.firstNum)
