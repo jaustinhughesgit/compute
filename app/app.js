@@ -828,7 +828,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (jsonPathRegex.test(str)){
                 // please add json path logic here
                 // please make it as similar to array index logic as possible
+                console.log("JSON PATHA", str)
                 let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
+                    console.log("JSON PATHB", match)
                     try {
                         let jsonObj = JSON.parse(jsonString);
                         let pathParts = jsonPath.split('.');
@@ -848,6 +850,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         return '';
                     }
                 });
+                console.log("JSON PATHC", updatedStr)
                 return updatedStr;
             }
 
