@@ -1002,13 +1002,15 @@ async function runAction(action, libs, nestedPath, req, res, next){
                     let leftSide1 = await replacePlaceholders(whileCondition[0], libs, nestedPath)
                     let conditionMiddle = whileCondition[1]
                     let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath)
-                    console.log("$$$", typeof leftSide1, conditionMiddle, typeof rightSide2)
-                    console.log("$$$", leftSide1, conditionMiddle, rightSide2)
                         
                         await processAction(action, libs, nestedPath, req, res, next);
                         whileCounter++;
+                        console.log("$$$", typeof leftSide1, conditionMiddle, typeof rightSide2)
+                        console.log("$$$", leftSide1, conditionMiddle, rightSide2)
                         console.log("/////", libs.root.context.firstNum)
+                        console.log("whileCounter", whileCounter)
                         if (whileCounter >= req.lib.whileLimit){
+                            console.log("break")
                             break;
                         }
                     }
