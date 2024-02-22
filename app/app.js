@@ -877,13 +877,10 @@ async function processString(strRaw, libs, nestedPath) {
     console.log("isObj", isObj)
     if (isObj){
         target = await getKeyAndPath(str.replace("{{","").replace("}}",""), nestedPath)
-        let nestedValue= await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue)
+        let nestedValue = await getNestedValue(libs, target.path)
+        mmm = nestedValue
     }
     
-    if (str == "{{res}}"){
-        mmm = libs.root.context[str.replace("{{","").replace("}}","")].value
-    }
 
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
