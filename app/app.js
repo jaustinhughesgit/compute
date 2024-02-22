@@ -743,20 +743,29 @@ function evaluateMathExpression2(expression) {
         return null;
     }
 }
+async function getNestedValue2(libs, nestedPath) {
+    const parts = nestedPath.split('.');
+    if (nestedPath && nestedPath != ""){
+        let tempContext = libs;
+        let partCounter = 0
+        for (let part of parts) {
+            if (partCounter < parts.length-1 || partCounter == 0){
+                tempContext = tempContext[part].context;
+            } else {
+                tempContext = tempContext[part].value;
+            }
+            partCounter++;
+        }
+        return tempContext;
+    }
+    return libs;
+}
 
 function replacePlaceholders2(str, json, nestedPath = "") {
-    function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
+    async function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
-            const nestedKeys = nestedPath.split('.');
-            for (let key of nestedKeys) {
-                if (current.hasOwnProperty(key)) {
-                    current = current[key];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
-            }
+            current = await getNestedValue2(json, nestedPath);
         }
 
         const keys = path.split('.');
@@ -773,7 +782,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
         return current;
     }
 
-    function replace2(str, nestedPath) {
+    async function replace2(str, nestedPath) {
         let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
@@ -784,7 +793,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
-                innerStr = replace2(innerStr, nestedPath);
+                innerStr = await replace2(innerStr, nestedPath);
             }
 
             let value;
@@ -792,7 +801,7 @@ function replacePlaceholders2(str, json, nestedPath = "") {
                 let expression = innerStr.slice(1);
                 value = evaluateMathExpression2(expression);
             } else {
-                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 if (typeof value !== 'string') {
                     // Detected a complex type (e.g., function, object, array)
                     isComplexType = true;
@@ -810,14 +819,15 @@ function replacePlaceholders2(str, json, nestedPath = "") {
             // Return the complex type directly instead of as a part of the string
             return complexValue;
         } else if (modifiedStr.match(regex)) {
-            return replace2(modifiedStr, nestedPath);
+            return await replace2(modifiedStr, nestedPath);
         } else {
             return modifiedStr;
         }
     }
 
-    return replace2(str, nestedPath);
+    return replace2(str, nestedPath); // Note: This now potentially returns a Promise due to async operations
 }
+
 
 
 
