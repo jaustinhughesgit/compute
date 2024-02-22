@@ -788,9 +788,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
             let value;
             if (innerStr.startsWith("=")) {
+                console.log("expression")
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else {
+                console.log("json")
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
