@@ -872,11 +872,11 @@ async function processString(str, libs, nestedPath) {
     console.log("str", str)
     console.log("isObj", isObj)
     if (isObj || str == "res"){
-        target = await getKeyAndPath(str, nestedPath)
+        target = await getKeyAndPath(str.replace("{{","").replace("}}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue[str])
-        mmm = nestedValue[str].value
+        console.log("nestedValue", nestedValue[str.replace("{{","").replace("}}","")])
+        mmm = nestedValue[str.replace("{{","").replace("}}","")].value
     }
     
     /*if (str == "res"){
