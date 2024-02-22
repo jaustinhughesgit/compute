@@ -796,32 +796,27 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     async function replace2(str, nestedPath) {
         let regex = /{{(~\/)?([^{}]+)}}/g;
-        let match;
         let modifiedStr = str;
+        let match;
 
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
-            if (/{{.*}}/.test(innerStr)) {
-                innerStr = await replace2(innerStr, nestedPath); // Ensure this call is awaited
-            }
-
             let value;
-            if (innerStr.startsWith("=")) {
-                let expression = innerStr.slice(1);
-                // Assuming evaluateMathExpression2 is a function you have defined elsewhere
-                value = await evaluateMathExpression2(expression);
-            } else {
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-            }
 
-            if (str.includes("{{[") && str.includes("]}}")) {
-                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/; // Regex to match the pattern
-                let matches = regex.exec(str);
-                if (matches) {
-                    let strArray = matches[1].split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(matches[2]);
-                    value = strArray[index];
+            // Check for custom array access syntax within the matched placeholder
+            const arrayAccessRegex = /{{\[(.*?)\]=>\[(\d+)\]}}/;
+            const arrayMatch = arrayAccessRegex.exec(match[0]);
+            if (arrayMatch) {
+                let strArray = arrayMatch[1].split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                let index = parseInt(arrayMatch[2], 10);
+                value = index >= 0 && index < strArray.length ? strArray[index] : '';
+            } else {
+                if (innerStr.startsWith("=")) {
+                    // Assuming evaluateMathExpression2 is a function you have defined elsewhere
+                    value = await evaluateMathExpression2(innerStr.slice(1));
+                } else {
+                    value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 }
             }
 
@@ -829,17 +824,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
                 // Handle complex objects and arrays gracefully
-                const isObj = await isOnePlaceholder(str) // Assuming isOnePlaceholder is a function you have defined
+                // Assuming isOnePlaceholder is a function you have defined elsewhere
+                const isObj = await isOnePlaceholder(str); 
                 if (isObj) {
                     return value;
                 } else {
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
-        }
-
-        if (modifiedStr.match(regex)) {
-            return replace2(modifiedStr, nestedPath);
         }
 
         return modifiedStr;
