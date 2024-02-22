@@ -826,7 +826,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 return updatedStr
             } else if (jsonPathRegex.test(str)){
-                const [, jsonString, jsonPath] = innerStr.match(jsonPathRegex);
+                const [, jsonString, jsonPath] = str.match(jsonPathRegex);
                 try {
                     const jsonObj = JSON.parse(jsonString);
                     value = jsonObj; // Initial value is the whole JSON object
