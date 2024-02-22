@@ -828,6 +828,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (jsonPathRegex.test(str)){
                 // please add json path logic here
                 // please make it as similar to array index logic as possible
+                let keepGoing = true;
                 console.log("JSON PATHA", str)
                 let updatedStr = str.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     console.log("JSON PATHB", match)
@@ -840,18 +841,23 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 current = current[part];
                             } else {
                                 // Path not found
-                                console.error(`Path ${jsonPath} not found in JSON.`);
-                                return '';
+                                //console.error(`Path ${jsonPath} not found in JSON.`);
+                                //return '';
+                                keepGoing = false
                             }
                         }
-                        return typeof current === 'string' || typeof current === 'number' ? current.toString() : JSON.stringify(current);
+                        if (keepGoing){
+                            return typeof current === 'string' || typeof current === 'number' ? current.toString() : JSON.stringify(current);
+                        }
                     } catch (e) {
-                        console.error(`Error parsing JSON: ${e}`);
-                        return '';
+                        //console.error(`Error parsing JSON: ${e}`);
+                        //return '';
                     }
                 });
                 console.log("JSON PATHC", updatedStr)
-                return updatedStr;
+                if (keepGoing){
+                    return updatedStr;
+                }
             }
 
             if (typeof value === "string" || typeof value === "number") {
