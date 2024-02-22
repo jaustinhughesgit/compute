@@ -806,11 +806,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             modifiedStr = modifiedStr.replace(match[0], value);
             if (typeof value === "string"){
             } else {
-                if (modifiedStr.match(regex)) {
+                //if (modifiedStr.match(regex)) {
                     return replace2(value, nestedPath) //value
-                } else {
-                    return value
-                }
+                //} else {
+                //    return value
+                //}
             }
         }
 
