@@ -877,7 +877,7 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = newNestedPath.replace("root", "")
     }
 
-    let mmm = replacePlaceholders2(str, libs, newNestedPath)
+    let mmm = await replacePlaceholders2(str, libs, newNestedPath)
     console.log("MMM0", str)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
