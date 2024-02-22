@@ -733,6 +733,17 @@ function isNestedArrayPlaceholder(str) {
 
 
 
+
+function evaluateMathExpression2(expression) {
+    try {
+        const result = mathJS.evaluate(expression);
+        return result;
+    } catch (error) {
+        console.error("Error evaluating expression:", error);
+        return null;
+    }
+}
+
 async function getNestedValue2(libs, nestedPath) {
     const parts = nestedPath.split('.');
     if (nestedPath && nestedPath != ""){
@@ -751,17 +762,7 @@ async function getNestedValue2(libs, nestedPath) {
     return libs;
 }
 
-function evaluateMathExpression2(expression) {
-    try {
-        const result = mathJS.evaluate(expression);
-        return result;
-    } catch (error) {
-        console.error("Error evaluating expression:", error);
-        return null;
-    }
-}
-
-async function replacePlaceholders2(str, json, nestedPath = "") {
+function replacePlaceholders2(str, json, nestedPath = "") {
     async function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -793,7 +794,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
-                innerStr = replace2(innerStr, nestedPath);
+                innerStr = await replace2(innerStr, nestedPath);
             }
 
             let value;
@@ -810,22 +811,22 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
 
-
             if (!isComplexType) {
                 modifiedStr = modifiedStr.replace(match[0], value);
             }
-
-
         }
 
-        if (modifiedStr.match(regex)) {
+        if (isComplexType) {
+            // Return the complex type directly instead of as a part of the string
+            return complexValue;
+        } else if (modifiedStr.match(regex)) {
             return await replace2(modifiedStr, nestedPath);
+        } else {
+            return modifiedStr;
         }
-
-        return modifiedStr;
     }
 
-    return await replace2(str, nestedPath);
+    return replace2(str, nestedPath); // Note: This now potentially returns a Promise due to async operations
 }
 
 
