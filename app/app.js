@@ -875,7 +875,7 @@ async function processString(str, libs, nestedPath) {
         target = await getKeyAndPath(str, nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue)
+        console.log("nestedValue", nestedValue[str])
     }
     
     if (str == "res"){
