@@ -896,7 +896,7 @@ async function processString(str, libs, nestedPath) {
     /*if (str == "res"){
         mmm = libs.root.context[str].value
     }*/
-
+    console.log("TYPEOF", typeof mmm)
     return mmm;
     /*const isExecuted = str.endsWith('}}!');
     const isObj = await isOnePlaceholder(str)
