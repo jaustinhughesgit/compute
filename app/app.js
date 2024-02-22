@@ -581,23 +581,24 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 }
 
 async function replacePlaceholders(item, libs, nestedPath) {
-    let processedItem = item;
-    let processedItem2 = item+"";
-    if (typeof processedItem === 'string') {
-        let stringResponse = await processString(processedItem, libs, nestedPath);
-        return stringResponse;
-    } else if (Array.isArray(processedItem)) {
-        let newProcessedItem2 = processedItem.map(async element => {
-            console.log("element", element)
-            let repHolder = await replacePlaceholders(element, libs, nestedPath)
-            console.log("repHolder", repHolder)
-            return repHolder
-        });
-        return await Promise.all(newProcessedItem2);
-    } else {
-        return item
-    }
-    
+    return new Promise(async resolve => {
+        let processedItem = item;
+        let processedItem2 = item+"";
+        if (typeof processedItem === 'string') {
+            let stringResponse = await processString(processedItem, libs, nestedPath);
+            return stringResponse;
+        } else if (Array.isArray(processedItem)) {
+            let newProcessedItem2 = processedItem.map(async element => {
+                console.log("element", element)
+                let repHolder = await replacePlaceholders(element, libs, nestedPath)
+                console.log("repHolder", repHolder)
+                return repHolder
+            });
+            return await Promise.all(newProcessedItem2);
+        } else {
+            return item
+        }
+    });
 }
 
 
