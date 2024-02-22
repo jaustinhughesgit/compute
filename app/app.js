@@ -815,7 +815,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             
 
             const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
-            const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/g;
+            const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
 
             if (arrayIndexRegex.test(str)) {
 
@@ -871,13 +871,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         console.log("JSON PATH B4",currentValue)
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
-                        //console.error(`Error parsing JSON: ${e}`);
-                        //return ''; // JSON parsing error
+                        console.error(`Error parsing JSON: ${e}`);
+                        return ''; // JSON parsing error
                     }
                 });
                 console.log("JSON PATH B5",updatedStr)
                 console.log("JSON PATH B6",JSON.stringify(updatedStr))
-                modifiedStr = updatedStr;
+                return updatedStr;
 
                 /*console.log("JSON PATH A", modifiedStr)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
