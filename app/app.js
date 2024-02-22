@@ -806,29 +806,47 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            if (innerStr.startsWith("=")) {
+            // Check for array index pattern
+            const arrayIndexRegex = /{{\[(.*?)\]=>\[(\d+)\]}}/;
+            // Check for JSON path syntax
+            const jsonPathRegex = /{{(.+)=>(.+)}}/;
+            
+            if (arrayIndexRegex.test(innerStr)) {
+                const [, arrayString, index] = innerStr.match(arrayIndexRegex);
+                let strArray = arrayString.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                let arrayIndex = parseInt(index);
+                value = strArray[arrayIndex] ?? "";
+            } else if (jsonPathRegex.test(innerStr)) {
+                const [, jsonString, jsonPath] = innerStr.match(jsonPathRegex);
+                try {
+                    const jsonObj = JSON.parse(jsonString);
+                    value = jsonObj; // Initial value is the whole JSON object
+                    const pathParts = jsonPath.split('.');
+                    for (const part of pathParts) {
+                        if (value.hasOwnProperty(part)) {
+                            value = value[part];
+                        } else {
+                            console.error(`Path ${jsonPath} not found in JSON.`);
+                            value = ''; // Path not found
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error parsing JSON: ${e}`);
+                    value = ''; // JSON parsing error
+                }
+            } else if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else {
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
-            
-            if (str.includes("{{[") && str.includes("]}}")) {
-                const regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g;
 
-                let updatedStr = str.replace(regex, (match, p1, p2) => {
-                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(p2);
-                    return strArray[index] ?? "";
-                });
-                return updatedStr
-            }
-
+            // Continue with your existing logic for replacing the placeholder
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                
-                const isObj = await isOnePlaceholder(str) 
+                const isObj = await isOnePlaceholder(str); 
                 if (isObj) {
                     return value;
                 } else {
