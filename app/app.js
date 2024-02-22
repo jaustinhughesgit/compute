@@ -734,6 +734,7 @@ function isNestedArrayPlaceholder(str) {
 
 
 
+
 function evaluateMathExpression2(expression) {
     try {
         const result = mathJS.evaluate(expression);
@@ -744,26 +745,8 @@ function evaluateMathExpression2(expression) {
     }
 }
 
-async function getNestedValue2(libs, nestedPath) {
-    const parts = nestedPath.split('.');
-    if (nestedPath && nestedPath != ""){
-        let tempContext = libs;
-        let partCounter = 0
-        for (let part of parts) {
-            if (partCounter < parts.length-1 || partCounter == 0){
-                tempContext = tempContext[part].context;
-            } else {
-                tempContext = tempContext[part].value;
-            }
-            partCounter++;
-        }
-        return tempContext;
-    }
-    return libs;
-}
-
-async function replacePlaceholders2(str, json, nestedPath = "") {
-    async function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
+function replacePlaceholders2(str, json, nestedPath = "") {
+    function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -791,18 +774,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         return current;
     }
 
-    async function replace2(str, nestedPath) {
+    function replace2(str, nestedPath) {
         let regex = /{{(~\/)?([^{}]+)}}/g;
         let match;
         let modifiedStr = str;
-        let isComplexType = false;
-        let complexValue;
 
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{{.*}}/.test(innerStr)) {
-                innerStr = await replace2(innerStr, nestedPath);
+                innerStr = replace2(innerStr, nestedPath);
             }
 
             let value;
@@ -810,31 +791,20 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 let expression = innerStr.slice(1);
                 value = evaluateMathExpression2(expression);
             } else {
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-                if (typeof value !== 'string') {
-                    // Detected a complex type (e.g., function, object, array)
-                    isComplexType = true;
-                    complexValue = value;
-                    break; // Exit loop as we cannot replace inside a string
-                }
+                value = getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
             }
 
-            if (!isComplexType) {
-                modifiedStr = modifiedStr.replace(match[0], value);
-            }
+            modifiedStr = modifiedStr.replace(match[0], value);
         }
 
-        if (isComplexType) {
-            // Return the complex type directly instead of as a part of the string
-            return complexValue;
-        } else if (modifiedStr.match(regex)) {
-            return await replace2(modifiedStr, nestedPath);
-        } else {
-            return modifiedStr;
+        if (modifiedStr.match(regex)) {
+            return replace2(modifiedStr, nestedPath);
         }
+
+        return modifiedStr;
     }
 
-    return await replace2(str, nestedPath); // Note: This now potentially returns a Promise due to async operations
+    return replace2(str, nestedPath);
 }
 
 
@@ -877,7 +847,6 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
 
-    
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         if (!["req", "res"].includes(key)) {
           acc[key] = libs.root[key];
@@ -892,7 +861,7 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = newNestedPath.replace("root", "")
     }
 
-    let mmm = await replacePlaceholders2(str, obj, newNestedPath)
+    let mmm = replacePlaceholders2(str, obj, newNestedPath)
     console.log("MMM1", newNestedPath)
     console.log("MMM2", mmm)
     
