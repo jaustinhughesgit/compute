@@ -1298,6 +1298,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     console.log("..i..")
                                     console.log(chainParams[0])
                                     console.log(typeof chainParams[0])
+                                    if (chainParams.length > 0){
+                                        if (typeof chainParams[0] == "number"){
+                                            chainParams[0] = chainParams[0].toString();
+                                        }
+                                    }
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     console.log("err", err)
