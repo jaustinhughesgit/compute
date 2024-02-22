@@ -816,18 +816,23 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             if (str.includes("{{[") && str.includes("]}}")) {
-                let regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g; // Use global flag 'g' to match all instances
-                let value = ""; // Initialize value to store the final result
-                let finalStr = str; // Copy of str to perform replacements on
+                let regex = /{{\[(.*?)\]=>\[(\d+)\]}}/g; // Global flag to match all occurrences
+                let finalStr = ""; // Initialize an empty string to accumulate the results
 
-                let match;
-                while ((match = regex.exec(str)) !== null) {
-                    let strArray = match[1].split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(match[2]);
+                let lastIndex = 0; // Track the end of the last match
+
+                str.replace(regex, (match, p1, p2, offset) => {
+                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                    let index = parseInt(p2);
                     let replacementValue = strArray[index];
-                    finalStr = finalStr.replace(match[0], replacementValue); // Replace each matched pattern with its corresponding value
-                }
-                value = finalStr
+
+                    finalStr += str.substring(lastIndex, offset) + replacementValue; // Append previous text and replacement value
+                    lastIndex = offset + match.length; // Update lastIndex to the end of the current match
+                });
+
+                // Append any remaining part of the string after the last match
+                value = str.substring(lastIndex);
+
             }
 
             if (typeof value === "string" || typeof value === "number") {
