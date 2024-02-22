@@ -826,11 +826,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     // For each match, process the array and index
                     let strArray = matches[1].split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(matches[2]);
-                    let value2 = strArray[index];
+                    let value = strArray[index];
 
                     // Replace the matched pattern with the value extracted from the array
-                    value = newValue.replace(matches[0], value2);
+                    newValue = newValue.replace(matches[0], value);
                 }
+                value = newValue
             }
 
             if (typeof value === "string" || typeof value === "number") {
