@@ -856,6 +856,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
+                        console.log("JSON PATH B1",jsonObj)
+                        console.log("JSON PATH B2",pathParts)
+                        console.log("JSON PATH B3",currentValue)
                         for (const part of pathParts) {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
@@ -865,12 +868,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 break;
                             }
                         }
+                        console.log("JSON PATH B4",currentValue)
                         return currentValue ?? "";
                     } catch (e) {
                         console.error(`Error parsing JSON: ${e}`);
                         return ''; // JSON parsing error
                     }
                 });
+                console.log("JSON PATH B5",updatedStr)
+                console.log("JSON PATH B6",JSON.stringify(updatedStr))
                 return updatedStr;
 
                 /*console.log("JSON PATH A", modifiedStr)
