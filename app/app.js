@@ -732,7 +732,25 @@ function isNestedArrayPlaceholder(str) {
 }
 
 
+async function replacePlaceholders(str) {
+    const regex = /{{\['(.*?)'\]=>\[(\d+)\]}}/g;
+    let match;
 
+    // Function to replace each match found by the regex
+    const replaceMatch = (match, p1, p2) => {
+        const items = p1.split("','"); // Split the items within the array
+        const index = parseInt(p2, 10); // Parse the index
+        return items[index]; // Return the item at the specified index
+    };
+
+    // Continuously replace each match until no more matches are found
+    while ((match = regex.exec(str)) !== null) {
+        str = str.replace(match[0], replaceMatch(match, match[1], match[2]));
+        regex.lastIndex = 0; // Reset regex index to ensure all matches are found
+    }
+
+    return str;
+}
 
 
 function evaluateMathExpression2(expression) {
@@ -816,11 +834,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             if (str.includes("{{[") && str.includes("]}}")){
-                let splitBeginning = str.split("{{[")
-                let splitEnding = splitBeginning[1].split("]}}")
-                let splitStr = splitEnding[0].split("]=>[")
-                let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, "").replace(/"/g, ""));
-                value = strArray[parseInt(splitStr[1])]
+                console.log("str55", str)
+                value = replacePlaceholders(str)
+                console.log("value55",value)
             }
 
             if (typeof value === "string" || typeof value === "number") {
