@@ -848,9 +848,9 @@ const json88 = {
 async function processString(strRaw, libs, nestedPath) {
 
     if (strRaw == "res"){
-        res = "{{res}}"
+        str = "{{res}}"
     } else {
-        res = resRaw
+        str = strRaw
     }
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
@@ -881,8 +881,8 @@ async function processString(strRaw, libs, nestedPath) {
         console.log("nestedValue", nestedValue)
     }
     
-    if (str == "res"){
-        mmm = libs.root.context[str].value
+    if (str == "{{res}}"){
+        mmm = libs.root.context[str.replace("{{","").replace("}}","")].value
     }
 
     return mmm;
