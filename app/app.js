@@ -819,7 +819,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 let splitBeginning = str.split("{{[")
                 let splitEnding = splitBeginning[1].split("]}}")
                 let splitStr = splitEnding[0].split("]=>[")
-                let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, ""));
+                let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, "").replace(/"/g, ""));
                 value = strArray[parseInt(splitStr[1])]
             }
 
