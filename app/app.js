@@ -815,6 +815,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             
 
             const arrayIndexRegex = /{{\[(.*?)\]=>\[(\d+)\]}}/g;
+            const jsonPathRegex = /{{(.+)=>(.+)}}/;
 
             if (arrayIndexRegex.test(str)) {
 
@@ -824,6 +825,26 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return strArray[index] ?? "";
                 });
                 return updatedStr
+            } else if (jsonPathRegex.test(str)){
+                const [, jsonString, jsonPath] = innerStr.match(jsonPathRegex);
+                try {
+                    const jsonObj = JSON.parse(jsonString);
+                    value = jsonObj; // Initial value is the whole JSON object
+                    const pathParts = jsonPath.split('.');
+                    for (const part of pathParts) {
+                        if (value.hasOwnProperty(part)) {
+                            value = value[part];
+                        } else {
+                            console.error(`Path ${jsonPath} not found in JSON.`);
+                            value = ''; // Path not found
+                            break;
+                        }
+                    }
+                } catch (e) {
+                    console.error(`Error parsing JSON: ${e}`);
+                    value = ''; // JSON parsing error
+                }
+                return value
             }
 
             if (typeof value === "string" || typeof value === "number") {
