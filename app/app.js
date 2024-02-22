@@ -821,8 +821,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 let inputStr = str;
                 
                 let updatedStr = inputStr.replace(regex, (match2, p1, p2) => {
+                    console.log("match2", match2)
+                    console.log("p1", p1)
+                    console.log("p2", p2)
                     let strArray2 = p1.split(',').map(element2 => element2.trim().replace(/^['"]|['"]$/g, ""));
+                    console.log("strArray2", strArray2)
                     let index2 = parseInt(p2);
+                    console.log(index2)
                     return strArray2[index2] ?? ""; // Use ?? operator to handle undefined gracefully
                 });
                 value = updatedStr
