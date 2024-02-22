@@ -760,16 +760,20 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-        // Check for array access syntax and split if present
-        let arrayAccess = path.split('=>');
-        let keys = arrayAccess[0].split('.');
+        // Splitting the path for array access syntax if present
+        let arrayAccessSplit = path.split('=>');
+        let keys = arrayAccessSplit[0].split('.');
         let index = null;
-        if (arrayAccess.length > 1) {
-            // Extract index from the right side of "=>"
-            index = arrayAccess[1].replace(/\[|\]/g, ''); // Removes brackets
-            index = parseInt(index); // Convert index to integer
+        if (arrayAccessSplit.length > 1) {
+            // Extracting the index from the right side of "=>"
+            let indexPart = arrayAccessSplit[1];
+            let match = indexPart.match(/\[([0-9]+)\]/);
+            if (match) {
+                index = parseInt(match[1]);
+            }
         }
 
+        // Navigating through the JSON object to get to the desired value
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
@@ -781,7 +785,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-        // If an index is specified, access the array element
+        // Accessing the array element if an index is specified
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
@@ -802,40 +806,29 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
+
+            // Handling nested placeholders
             if (/{{.*}}/.test(innerStr)) {
                 innerStr = await replace2(innerStr, nestedPath); // Ensure this call is awaited
             }
 
             let value;
-            if (innerStr.startsWith("=")) {
-                console.log("expression")
+            if (innerStr.includes("=>")) {
+                // Direct handling of array index syntax within nested placeholders
+                value = getValueFromJson2(innerStr, json, nestedPath, forceRoot);
+            } else if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 // Assuming evaluateMathExpression2 is a function you have defined elsewhere
                 value = await evaluateMathExpression2(expression);
             } else {
-                console.log("json")
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-            }
-
-            console.log("STR", str)
-            console.log("VALUE", value)
-            console.log("TYPEOF", typeof value)
-            console.log(str.startsWith("{{["), str.endsWith("]}}"))
-            if (str.startsWith("{{[") && str.endsWith("]}}")){
-                let splitStr = str.replace("{{[","").replace("]}}","").split("]=>[")
-                console.log("splitStr", splitStr)
-                let strArray = splitStr[0].split(',').map(element => element.trim().replace(/'/g, ""));
-                console.log("strArray", strArray)
-                value = strArray[parseInt(splitStr[1])]
-                console.log("value", value)
+                value = getValueFromJson2(innerStr, json, nestedPath, forceRoot);
             }
 
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                // Handle complex objects and arrays gracefully
-                const isObj = await isOnePlaceholder(str) // Assuming isOnePlaceholder is a function you have defined
-                console.log("ISOBJ", isObj)
+                // Assuming isOnePlaceholder is a function you have defined to determine if the string is a single placeholder
+                const isObj = await isOnePlaceholder(str)
                 if (isObj) {
                     return value;
                 } else {
@@ -853,6 +846,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     return replace2(str, nestedPath);
 }
+
 
 
 
