@@ -1351,6 +1351,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
+            console.log(accessClean);
+            console.log(chainAction.params);
+            console.log(chainAction.new);
+            console.log(typeof result[accessClean]);
+
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
                 result = result[accessClean];
