@@ -1411,6 +1411,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
                 console.log("--5--")
+                try{
+                console.log(libs.root.context[action.target])
+                console.log(libs.root.context[action.target].length)
+                } catch (err){}
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
             }
