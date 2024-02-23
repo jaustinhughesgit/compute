@@ -1354,6 +1354,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             console.log(accessClean);
             console.log(chainAction.params);
             console.log(chainAction.new);
+            console.log(result);
             console.log(typeof result[accessClean]);
 
             if (accessClean && !chainAction.params) {
