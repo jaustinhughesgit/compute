@@ -1412,8 +1412,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else {
                 console.log("--5--")
                 try{
-                console.log(libs.root.context[action.target])
-                console.log(libs.root.context[action.target].length)
+                console.log(libs.root.context[action.target].value)
+                console.log(libs.root.context[action.target].value.length)
                 } catch (err){}
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
