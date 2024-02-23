@@ -830,14 +830,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
-            if (arrayIndexRegex.test(modifiedStr)) {
+            if (arrayIndexRegex.test(str)) {
 
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
                     return strArray[index] ?? "";
                 });
-                
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr)){
 
