@@ -830,6 +830,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
+
+
             if (arrayIndexRegex.test(str)) {
 
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
@@ -838,7 +840,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return strArray[index] ?? "";
                 });
                 return updatedStr
-            } else if (jsonPathRegex.test(modifiedStr)){
+            } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     try {
