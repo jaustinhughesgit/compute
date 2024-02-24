@@ -898,6 +898,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             return replace2(modifiedStr, nestedPath);
         }
 
+        console.log("str/modifiedStr", str, modifiedSr)
+        if (str == modifiedStr){
+            value = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
+                console.log("value from json 2", value)
+                console.log("typeof from json 2", typeof value)
+        }
+
         return modifiedStr;
     }
 
