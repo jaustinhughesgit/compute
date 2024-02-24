@@ -1351,13 +1351,18 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            console.log(accessClean);
-            console.log(chainAction.params);
-            console.log(chainAction.new);
-            console.log(result);
-            console.log(result[accessClean]);
-            console.log(result.length);
-            console.log(typeof result[accessClean]);
+            console.log("a", accessClean);
+            console.log("b", chainAction.params);
+            console.log("c", chainAction.new);
+            console.log("d", result);
+            console.log("e", result[accessClean]);
+            console.log("f", result.length);
+            console.log("g", typeof result[accessClean]);
+            console.log("h", nestedPath)
+
+            //target is not getting letters andd it's value.
+            // we need to ensure it navvvigates to the path and gets the target value
+            // and applies the chain so length can run on letters which is an array.
 
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
