@@ -760,7 +760,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
         }
-
+        console.log("current", current)
         // Check for array access syntax and split if present
         let arrayAccess = path.split('=>');
         let keys = arrayAccess[0].split('.');
@@ -774,10 +774,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
+                console.log("current["+key+"]", current)
+                console.log("typeof current", typeof current)
+                console.log("hasOwnProperty", current.hasOwnProperty('value'))
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    console.log("typeof", typeof current)
                     current = current.value;
                 }
             } else {
+                console.log("return ''")
                 return '';
             }
         }
