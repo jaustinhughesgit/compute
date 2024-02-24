@@ -134,7 +134,7 @@ async function getGroups(dynamodb){
             console.log("groupObjs", groupObjs)
         }
     }
-
+    console.log("groups")
     return groupObjs
 }
 
