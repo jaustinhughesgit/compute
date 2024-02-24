@@ -861,13 +861,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (arrayIndexRegex.test(str)) {
-
+                
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
-                    return strArray[index] ?? "";
+                    resu = strArray[index] ?? "";
+                    console.log("resu",resu)
+                    return resu
                 });
-                //return updatedStr
+                console.log("updatedStr",updatedStr)
+                return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
