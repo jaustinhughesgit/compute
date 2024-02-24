@@ -851,6 +851,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     try {
+                        console.log("jsonString", jsonString)
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
@@ -875,9 +876,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 console.log("JSON PATH B5",updatedStr)
                 console.log("JSON PATH B6",JSON.stringify(updatedStr))
-                if (updatedStr != ""){
+                //if (updatedStr != ""){
                     return updatedStr;
-                } 
+                //} 
                 //test
                 /*
                 console.log("JSON PATH A", modifiedStr)
