@@ -747,7 +747,6 @@ function evaluateMathExpression2(expression) {
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
-        console.log("nestedPath",nestedPath)
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -785,18 +784,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else {
                 console.log("return ''")
                 return '';
-            }
-        }
-
-        if (typeof current === "object" && arrayAccess.length > 1){
-            const nestedKeys = nestedPath.split('.');
-            for (let key of nestedKeys) {
-                if (current.hasOwnProperty(key)) {
-                    current = current[key];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
             }
         }
 
@@ -849,7 +836,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 const isObj = await isOnePlaceholder(str) 
                 if (isObj) {
                     console.log("object", value)
-                    return value;
+                    //return value;
                     
                 } else {
                     console.log("stringify", value)
