@@ -1002,12 +1002,8 @@ async function processString(str, libs, nestedPath) {
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
-        if (nestedValue[str.replace("{|","").replace("|}","")]){
-            if (nestedValue[str.replace("{|","").replace("|}","")].hasOwnProperty("value")){
-                mmm = nestedValue[str.replace("{|","").replace("|}","")].value
-            } else {
-                mmm = nestedValue[str.replace("{|","").replace("|}","")]
-            }
+        if (nestedValue[str.replace("{|","").replace("|}","")].hasOwnProperty("value")){
+            mmm = nestedValue[str.replace("{|","").replace("|}","")].value
         } else {
             mmm = nestedValue[str.replace("{|","").replace("|}","")]
         }
@@ -1444,12 +1440,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                 try{ console.log("result", result) } catch (err){}
                                 try{ console.log("accessClean", accessClean)} catch (err){}
                                 try{ console.log("chainParams", chainParams)} catch (err){}
-                                try{ console.log("chainAction.params", chainAction.params)} catch (err){}
                                 try{
                                     console.log("..i..")
                                     console.log(chainParams[0])
                                     console.log(typeof chainParams[0])
-                                    
                                     if (chainParams.length > 0){
                                         if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
