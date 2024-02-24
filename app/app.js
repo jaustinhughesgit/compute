@@ -867,7 +867,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     let index = parseInt(p2);
                     return strArray[index] ?? "";
                 });
-                return updatedStr
+                //return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
@@ -920,6 +920,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             return replace2(modifiedStr, nestedPath);
         }
 
+        console.log("str/modifiedStr", str, modifiedStr)
+        if (str == modifiedStr){
+            modifiedStr = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
+                console.log("value from json 2.1", modifiedStr)
+                console.log("typeof from json 2.1", typeof modifiedStr)
+        }
 
         return modifiedStr;
     }
