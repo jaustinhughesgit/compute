@@ -831,7 +831,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 const isObj = await isOnePlaceholder(str) 
                 if (isObj) {
                     console.log("object", value)
-                    return value;
+                    //return value;
                 } else {
                     console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
