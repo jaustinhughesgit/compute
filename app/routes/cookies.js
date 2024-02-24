@@ -107,6 +107,9 @@ async function getVerified(key, val, dynamodb){
         params = { TableName: 'verified',IndexName: 'giIndex',KeyConditionExpression: 'gi = :gi',ExpressionAttributeValues: {':gi': val} }
     }
     let result = await dynamodb.query(params).promise();
+    if (result.Items.length == 0){
+        result = false
+    }
     console.log("result", result)
     return result
 }
