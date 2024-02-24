@@ -898,7 +898,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             return replace2(modifiedStr, nestedPath);
         }
 
-        console.log("str/modifiedStr", str, modifiedSr)
+        console.log("str/modifiedStr", str, modifiedStr)
         if (str == modifiedStr){
             modifiedStr = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
                 console.log("value from json 2.1", modifiedStr)
