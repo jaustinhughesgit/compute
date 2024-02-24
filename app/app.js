@@ -747,6 +747,7 @@ function evaluateMathExpression2(expression) {
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
+        console.log("nestedPath",nestedPath)
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -760,7 +761,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
         }
-
+        console.log("current", current)
         // Check for array access syntax and split if present
         let arrayAccess = path.split('=>');
         let keys = arrayAccess[0].split('.');
@@ -774,14 +775,33 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
+                console.log("current["+key+"]", current)
+                console.log("typeof current", typeof current)
+                console.log("hasOwnProperty", current.hasOwnProperty('value'))
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    console.log("typeof", typeof current)
                     current = current.value;
                 }
             } else {
+                console.log("return ''")
                 return '';
             }
         }
 
+/*        if (typeof current === "object" && arrayAccess.length > 1){
+            if (!arrayAccess[1].includes("[")){
+                const nestedKeys = arrayAccess[1].split('.');
+                for (let key of nestedKeys) {
+                    if (current.hasOwnProperty(key)) {
+                        current = current[key];
+                    } else {
+                        console.error(`Nested path ${nestedPath} not found in JSON.`);
+                        return '';
+                    }
+                }
+            }
+        }
+*/
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
@@ -832,6 +852,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (isObj) {
                     console.log("object", value)
                     return value;
+                    
                 } else {
                     console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
@@ -840,17 +861,21 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (arrayIndexRegex.test(str)) {
-
+                
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
-                    return strArray[index] ?? "";
+                    resu = strArray[index] ?? "";
+                    console.log("resu",resu)
+                    return resu
                 });
+                console.log("updatedStr",updatedStr)
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     try {
+                        console.log("jsonString", jsonString)
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
@@ -897,7 +922,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         if (modifiedStr.match(regex)) {
             return replace2(modifiedStr, nestedPath);
         }
-        
+
+//        console.log("str/modifiedStr", str, modifiedStr)
+//        if (str == modifiedStr){
+//            modifiedStr = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
+//                console.log("value from json 2.1", modifiedStr)
+//                console.log("typeof from json 2.1", typeof modifiedStr)
+//        }
 
         return modifiedStr;
     }
@@ -969,12 +1000,21 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
+    //if ((isObj || str == "res") && mmm == "" ){
     if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
-        mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+    //    if (nestedValue[str.replace("{|","").replace("|}","")]){
+    //        if (nestedValue[str.replace("{|","").replace("|}","")].hasOwnProperty("value")){
+                mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+    //        } else {
+    //            mmm = nestedValue[str.replace("{|","").replace("|}","")]
+    //        }
+    //    } else {
+    //        mmm = nestedValue[str.replace("{|","").replace("|}","")]
+    //    }
     }
     
     /*if (str == "res"){
@@ -1162,9 +1202,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
-            let value = await replacePlaceholders(action.set[key], libs, nestedPath)
-            console.log("66: value", value)
-            await addValueToNestedKey(set.key, nestedContext, value);
+            //if (nestedContext){
+                let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+                console.log("66: value", value)
+                await addValueToNestedKey(set.key, nestedContext, value);
+            //}
         }
     }
 
@@ -1408,15 +1450,20 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                 try{ console.log("result", result) } catch (err){}
                                 try{ console.log("accessClean", accessClean)} catch (err){}
                                 try{ console.log("chainParams", chainParams)} catch (err){}
+                                try{ console.log("chainAction.params", chainAction.params)} catch (err){}
                                 try{
                                     console.log("..i..")
                                     console.log(chainParams[0])
                                     console.log(typeof chainParams[0])
-                                    if (chainParams.length > 0){
+                                    
+                                    //if (chainParams.length > 0){
+                                    //    if (chainParams == "" && chainAction.params.length > 0){
+                                    //        chainParam = chainAction.params;
+                                    //    } else 
                                         if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
                                         }
-                                    }
+                                    //}
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     console.log("err", err)
