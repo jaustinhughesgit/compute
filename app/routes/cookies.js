@@ -108,7 +108,7 @@ async function getVerified(key, val, dynamodb){
     }
     let result = await dynamodb.query(params).promise();
     if (result.Items.length == 0){
-        result = false
+        result = true
     }
     console.log("result", result)
     return result
