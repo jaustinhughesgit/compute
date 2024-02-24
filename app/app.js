@@ -788,7 +788,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-/*        if (typeof current === "object" && arrayAccess.length > 1){
+        if (typeof current === "object" && arrayAccess.length > 1){
             if (!arrayAccess[1].includes("[")){
                 const nestedKeys = arrayAccess[1].split('.');
                 for (let key of nestedKeys) {
@@ -801,7 +801,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
             }
         }
-*/
+
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
