@@ -106,7 +106,9 @@ async function getVerified(key, val, dynamodb){
     } else if (key == "gi"){
         params = { TableName: 'verified',IndexName: 'giIndex',KeyConditionExpression: 'gi = :gi',ExpressionAttributeValues: {':gi': val} }
     }
-    return await dynamodb.query(params).promise()
+    let result = await dynamodb.query(params).promise();
+    console.log("result", result)
+    return result
 }
 
 async function getWord(a, dynamodb){
