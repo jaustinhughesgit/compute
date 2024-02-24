@@ -1452,7 +1452,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     
                                     if (chainParams.length > 0){
                                         if (chainParams == "" && chainAction.params.length > 0){
-                                            chainParams[0] = chainAction.params[0].toString();
+                                            chainParams = chainAction.params;
                                         } else if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
                                         }
