@@ -127,10 +127,12 @@ async function getGroups(dynamodb){
         console.log("subByG", subByG)
         const groupName = await getWord(groups.Items[group].a.toString(), dynamodb)
         console.log("groupName", groupName)
-        const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
-        console.log("subByE", subByE)
-        groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
-        console.log("groupObjs", groupObjs)
+        if (groupName.Items.length > 0){
+            const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
+            console.log("subByE", subByE)
+            groupObjs.push({"groupId":subByG.Items[0].su, "name":groupName.Items[0].r, "head":subByE.Items[0].su})
+            console.log("groupObjs", groupObjs)
+        }
     }
 
     return groupObjs
