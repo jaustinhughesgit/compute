@@ -1198,9 +1198,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
-            let value = await replacePlaceholders(action.set[key], libs, nestedPath)
-            console.log("66: value", value)
-            await addValueToNestedKey(set.key, nestedContext, value);
+            if (action.set[key].hasOwnProperty("value")){
+                let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+                console.log("66: value", value)
+            
+                await addValueToNestedKey(set.key, nestedContext, value);
+            }
         }
     }
 
@@ -1451,11 +1454,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     console.log(typeof chainParams[0])
                                     
                                     if (chainParams.length > 0){
-                                        //if (chainParams == "" && chainAction.params.length > 0){
-                                        //    chainParam = chainAction.params;
-                                        //} else if (typeof chainParams[0] == "number"){
+                                        if (chainParams == "" && chainAction.params.length > 0){
+                                            chainParam = chainAction.params;
+                                        } else if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
-                                        //}
+                                        }
                                     }
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
