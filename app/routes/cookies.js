@@ -213,6 +213,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
             console.log("not mapping")
             children = entity.Items[0].t
         }
+        console.log("children", children)
         const linked = entity.Items[0].l
         const head = await getWord(entity.Items[0].a, dynamodb)
         const name = head.Items[0].r
@@ -244,15 +245,24 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         id2Path[fileID] = pathID
 
         if (children){
+            console.log("inside")
             for (let child of children) {
+                console.log(child)
                 const subByE = await getSub(child, "e", dynamodb);
                     let uuid = subByE.Items[0].su
                     let childResponse = {}
+                    console.log("convertCounter", convertCounter)
                     if (convertCounter < 200) {
 
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                     convertCounter++;
                     }
+                    console.log("FILEID", fileID)
+                    console.log("OBJ",obj)
+                    console.log("OBJ[FILEID]",obj[fileID])
+                    console.log("childResponse.obj",childResponse.obj)
+                    console.log("childResponse.paths",childResponse.paths)
+                    console.log("childResponse.paths2",childResponse.paths2)
                     Object.assign(obj[fileID].children, childResponse.obj);
                     Object.assign(paths, childResponse.paths);
                     Object.assign(paths2, childResponse.paths2);
