@@ -796,7 +796,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         current = current[key];
                     } else {
                         console.error(`Nested path ${nestedPath} not found in JSON.`);
-                        //return '';
+                        return '';
                     }
                 }
             }
@@ -861,15 +861,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (arrayIndexRegex.test(str)) {
-                
+
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
-                    resu = strArray[index] ?? "";
-                    console.log("resu",resu)
-                    return resu
+                    return strArray[index] ?? "";
                 });
-                console.log("updatedStr",updatedStr)
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
@@ -923,12 +920,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             return replace2(modifiedStr, nestedPath);
         }
 
-//        console.log("str/modifiedStr", str, modifiedStr)
-//        if (str == modifiedStr){
-//            modifiedStr = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
-//                console.log("value from json 2.1", modifiedStr)
-//                console.log("typeof from json 2.1", typeof modifiedStr)
-//        }
+        console.log("str/modifiedStr", str, modifiedStr)
+        if (str == modifiedStr){
+            modifiedStr = await getValueFromJson2(modifiedStr, json.context || {}, nestedPath);
+                console.log("value from json 2.1", modifiedStr)
+                console.log("typeof from json 2.1", typeof modifiedStr)
+        }
 
         return modifiedStr;
     }
@@ -1001,7 +998,6 @@ async function processString(str, libs, nestedPath) {
     console.log("str", str)
     console.log("isObj", isObj)
     if ((isObj || str == "res") && mmm == "" ){
-    //if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
@@ -1202,11 +1198,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
-            //if (nestedContext){
-                let value = await replacePlaceholders(action.set[key], libs, nestedPath)
-                console.log("66: value", value)
-                await addValueToNestedKey(set.key, nestedContext, value);
-            //}
+            let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+            console.log("66: value", value)
+            await addValueToNestedKey(set.key, nestedContext, value);
         }
     }
 
@@ -1456,14 +1450,13 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     console.log(chainParams[0])
                                     console.log(typeof chainParams[0])
                                     
-                                    //if (chainParams.length > 0){
-                                    //    if (chainParams == "" && chainAction.params.length > 0){
-                                    //        chainParam = chainAction.params;
-                                    //    } else 
-                                        if (typeof chainParams[0] == "number"){
+                                    if (chainParams.length > 0){
+                                        if (chainParams == "" && chainAction.params.length > 0){
+                                            chainParam = chainAction.params;
+                                        } else if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
                                         }
-                                    //}
+                                    }
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     console.log("err", err)
