@@ -1451,11 +1451,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     console.log(typeof chainParams[0])
                                     
                                     if (chainParams.length > 0){
-                                        if (chainParams == "" && chainAction.params.length > 0){
-                                            chainParam = chainAction.params;
-                                        } else if (typeof chainParams[0] == "number"){
+                                        //if (chainParams == "" && chainAction.params.length > 0){
+                                        //    chainParam = chainAction.params;
+                                        //} else if (typeof chainParams[0] == "number"){
                                             chainParams[0] = chainParams[0].toString();
-                                        }
+                                        //}
                                     }
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
