@@ -832,6 +832,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (isObj) {
                     console.log("object", value)
                     //return value;
+                    
                 } else {
                     console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
@@ -876,9 +877,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 console.log("JSON PATH B5",updatedStr)
                 console.log("JSON PATH B6",JSON.stringify(updatedStr))
-                //if (updatedStr != ""){
+                if (updatedStr != ""){
                     return updatedStr;
-                //} 
+                } 
                 //test
                 /*
                 console.log("JSON PATH A", modifiedStr)
@@ -976,7 +977,6 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
-    try{
     if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
@@ -984,7 +984,6 @@ async function processString(str, libs, nestedPath) {
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
         mmm = nestedValue[str.replace("{|","").replace("|}","")].value
     }
-} catch (e){}
     
     /*if (str == "res"){
         mmm = libs.root.context[str].value
