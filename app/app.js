@@ -1002,8 +1002,12 @@ async function processString(str, libs, nestedPath) {
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
-        if (nestedValue[str.replace("{|","").replace("|}","")].hasOwnProperty("value")){
-            mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+        if (nestedValue[str.replace("{|","").replace("|}","")]){
+            if (nestedValue[str.replace("{|","").replace("|}","")].hasOwnProperty("value")){
+                mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+            } else {
+                mmm = nestedValue[str.replace("{|","").replace("|}","")]
+            }
         } else {
             mmm = nestedValue[str.replace("{|","").replace("|}","")]
         }
