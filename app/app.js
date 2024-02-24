@@ -796,7 +796,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         current = current[key];
                     } else {
                         console.error(`Nested path ${nestedPath} not found in JSON.`);
-                        return '';
+                        //return '';
                     }
                 }
             }
