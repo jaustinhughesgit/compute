@@ -201,13 +201,16 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         console.log("ALL GOOD!")
         let children 
         if (mapping){
+            console.log("mapping")
             if (mapping.hasOwnProperty(subBySU.Items[0].e)){
                 console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
                 children = mapping[subBySU.Items[0].e]
             } else {
+                console.log("inside mapping else")
                 children = entity.Items[0].t
             }
         } else {
+            console.log("not mapping")
             children = entity.Items[0].t
         }
         const linked = entity.Items[0].l
