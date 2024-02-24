@@ -976,6 +976,7 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
+    try{
     if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
@@ -983,6 +984,7 @@ async function processString(str, libs, nestedPath) {
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
         mmm = nestedValue[str.replace("{|","").replace("|}","")].value
     }
+} catch (e){}
     
     /*if (str == "res"){
         mmm = libs.root.context[str].value
