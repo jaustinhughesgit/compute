@@ -789,15 +789,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
 
         if (typeof current === "object" && arrayAccess.length > 1){
-            if (!arrayAccess[1].includes("[")){
-                const nestedKeys = arrayAccess[1].split('.');
-                for (let key of nestedKeys) {
-                    if (current.hasOwnProperty(key)) {
-                        current = current[key];
-                    } else {
-                        console.error(`Nested path ${nestedPath} not found in JSON.`);
-                        return '';
-                    }
+            const nestedKeys = nestedPath.split('.');
+            for (let key of nestedKeys) {
+                if (current.hasOwnProperty(key)) {
+                    current = current[key];
+                } else {
+                    console.error(`Nested path ${nestedPath} not found in JSON.`);
+                    return '';
                 }
             }
         }
