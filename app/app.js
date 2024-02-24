@@ -1001,7 +1001,7 @@ async function processString(str, libs, nestedPath) {
     console.log("str", str)
     console.log("isObj", isObj)
     if ((isObj || str == "res") && mmm == "" ){
-    if (isObj || str == "res"){
+    //if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
