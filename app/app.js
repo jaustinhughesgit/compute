@@ -747,6 +747,7 @@ function evaluateMathExpression2(expression) {
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
     function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
+        console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -812,6 +813,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = await evaluateMathExpression2(expression);
             } else {
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                console.log("value from json 2", value)
+                console.log("typeof from json 2", typeof value)
             }
             
 
@@ -821,13 +824,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (typeof value === "string" || typeof value === "number") {
+                console.log("value is string or number")
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
-                
+                console.log("str2", str);
                 const isObj = await isOnePlaceholder(str) 
                 if (isObj) {
+                    console.log("object", value)
                     return value;
                 } else {
+                    console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
@@ -880,8 +886,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     console.log("JSON PATH B2", jsonString)
                     console.log("JSON PATH B3", jsonPath)
 
-            //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
-            // or take this and move it below the replace code below.                    
+                //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
+                // or take this and move it below the replace code below.                    
                 });
                 console.log("JSON PATH C", updatedStr)
                 //return updatedStr;*/
@@ -1363,9 +1369,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
             // and applies the chain so length can run on letters which is an array.
+            
 
             if (accessClean && !chainAction.params) {
                 console.log("--1--")
+                
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
                 console.log("--2--")
