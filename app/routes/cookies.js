@@ -107,9 +107,6 @@ async function getVerified(key, val, dynamodb){
         params = { TableName: 'verified',IndexName: 'giIndex',KeyConditionExpression: 'gi = :gi',ExpressionAttributeValues: {':gi': val} }
     }
     let result = await dynamodb.query(params).promise();
-    if (result.Items.length == 0){
-        result = true
-    }
     console.log("result", result)
     return result
 }
@@ -1297,27 +1294,27 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "add") {
-                //console.log("add")
-                const fileID = reqPath.split("/")[3]
-                const newEntityName = reqPath.split("/")[4]
-                const headUUID = reqPath.split("/")[5]
+                console.log("add");
+                const fileID = reqPath.split("/")[3];
+                const newEntityName = reqPath.split("/")[4];
+                const headUUID = reqPath.split("/")[5];
                 const parent = await getSub(fileID, "su", dynamodb);
-                setIsPublic(parent.Items[0].z)
-                const eParent = await getEntity(parent.Items[0].e, dynamodb)
+                setIsPublic(parent.Items[0].z);
+                const eParent = await getEntity(parent.Items[0].e, dynamodb);
                 const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
                 const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                 const a = await createWord(aNew.toString(), newEntityName, dynamodb);
                 const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
-                const uniqueId = await getUUID(uuidv4)
-                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", false, dynamodb)
-                const fileResult = await createFile(uniqueId, {}, s3)
-                actionFile = uniqueId
+                const uniqueId = await getUUID(uuidv4);
+                let subRes = await createSubdomain(uniqueId,a.toString(),e.toString(), "0", isPublic, dynamodb)
+                const fileResult = await createFile(uniqueId, {}, s3);
+                actionFile = uniqueId;
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
                 const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
                 const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1", dynamodb);
                 const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c, dynamodb);
-                const group = eParent.Items[0].g
+                const group = eParent.Items[0].g;
                 const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
                 const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
                 mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4)
