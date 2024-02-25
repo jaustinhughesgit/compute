@@ -746,7 +746,7 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    function getValueFromJson2(path, json, nestedPath = "", forceRoot = false) {
+    function getValueFromJson2(path, json, nestedPath, forceRoot) {
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
@@ -812,6 +812,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else {
+                console.log("forceRoot",forceRoot)
+                console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 console.log("value from json 2", value)
                 console.log("typeof from json 2", typeof value)
@@ -983,6 +985,7 @@ async function processString(str, libs, nestedPath) {
     /*if (str == "res"){
         mmm = libs.root.context[str].value
     }*/
+    
     console.log("TYPEOF", typeof mmm)
     if (isExecuted){
         mmm = await mmm();
