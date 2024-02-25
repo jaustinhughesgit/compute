@@ -498,7 +498,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
     console.log("libs", libs)
     console.log("nestedPath", nestedPath)
     if (key.startsWith("~/")){
-        nestedPath = key.replace("~/").split(".").upshift("root").slice(0, -1).join('.')
+        nestedPath = key.replace("~/").split(".").unshift("root").slice(0, -1).join('.')
     }
     console.log("444: nestedPath", nestedPath)
     const parts = nestedPath.split('.');
