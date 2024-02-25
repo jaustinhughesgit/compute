@@ -1187,6 +1187,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (arrowJson.length > 1){
             const pathParts = arrowJson[1].split('.');
             console.log("66: pathParts", pathParts)
+            let firstParts = arrowJson[0].replace("~/","").split('.')
+            pathParts.unshift(...firstParts)
+            console.log("pathParts#", pathParts)
             for (const part of pathParts) {
                 if (nestedContext.hasOwnProperty(part)) {
                     nestedContext = nestedContext[part];
