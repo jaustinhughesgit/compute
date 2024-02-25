@@ -690,7 +690,7 @@ function isArray(string) {
 
   function isMathEquation(expression) {
     try {
-        mathJS.parse(expression);
+        math.parse(expression);
         return true; // No error means it's likely a valid math equation
     } catch {
         return false; // An error indicates it's not a valid math equation
@@ -700,7 +700,7 @@ function isArray(string) {
 function evaluateMathExpression(expression) {
     try {
         // Evaluate the math expression safely
-        const result = mathJS.evaluate(expression);
+        const result = math.evaluate(expression);
         return result;
     } catch (error) {
         // Handle errors (e.g., syntax errors in the expression)
@@ -750,7 +750,7 @@ function isNestedArrayPlaceholder(str) {
 
 function evaluateMathExpression2(expression) {
     try {
-        const result = mathJS.evaluate(expression);
+        const result = math.evaluate(expression);
         return result;
     } catch (error) {
         console.error("Error evaluating expression:", error);
@@ -1089,11 +1089,15 @@ async function processString(str, libs, nestedPath) {
 }
 
 async function runAction(action, libs, nestedPath, req, res, next){
+    console.log("runAction", action)
     if (action != undefined){
+        console.log("A111111")
         let runAction = true;
         //DON'T FORGET TO UPDATE JSON TO NOT INCLUDE THE S IN IF !!!!!!!!!!!!!!!!!!
         if (action.if) {
+            console.log("B111111")
             for (const ifObject of action.if) {
+                console.log("D111111")
                 runAction = await condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], libs, nestedPath);
                 if (!runAction) {
                     break;
@@ -1102,10 +1106,13 @@ async function runAction(action, libs, nestedPath, req, res, next){
         }
 
         if (runAction) {
+            console.log("E111111")
             //DON"T FORGET TO UPDATE JSON TO NOT INCLUDE S IN WHILE !!!!!!!!!!!!!!!!!!!!
             if (action.while) {
+                console.log("F111111")
                 let whileCounter = 0
                 for (const whileCondition of action.while) {
+                    console.log("G111111")
                     //console.log("---1", await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)
                     console.log("---2", await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath))
                     while (await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)) {
