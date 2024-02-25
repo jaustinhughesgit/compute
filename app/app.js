@@ -12,7 +12,7 @@ const exec = promisify(require('child_process').exec);
 const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const moment = require('moment-timezone')
-const mathJS = require('mathjs');
+const math = require('mathjs');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
