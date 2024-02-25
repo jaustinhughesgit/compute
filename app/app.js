@@ -493,7 +493,7 @@ async function initializeModules(libs, config, req, res, next) {
     }
 }
 
-async function getNestedContext(libs, nestedPath, key) {
+async function getNestedContext(libs, nestedPath, key = "") {
     console.log("getNestedContext")
     console.log("libs", libs)
     console.log("nestedPath", nestedPath)
@@ -1176,7 +1176,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 set = {"key":keyClean, "path":nestedPath}
             }
             console.log("66: set", set);
-            let nestedContext = await getNestedContext(libs, set.path);
+            let nestedContext = await getNestedContext(libs, set.path, set.key);
             console.log("66: nestedContext",nestedContext)
             try{
                 console.log("66:2 nestedContext", nestedContext.originalFunction)
