@@ -1212,7 +1212,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("66: action.set[key]",action.set[key])
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
             console.log("66: value", value)
-            await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
+            await addValueToNestedKey(set.key.replace("~/","").split("=>")[0], nestedContext, value);
         }
     }
 
