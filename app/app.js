@@ -356,6 +356,7 @@ app.all('/auth/*',
         req.lib.root.context.session = session
         res.originalJson = res.json;
 
+
         res.json = async function(data) {
             if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
@@ -472,6 +473,7 @@ async function initializeMiddleware(req, res, next) {
                     req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                     req.lib.root.context.req = {"value":req, "context":{}}
                     req.lib.root.context.res = {"value":res, "context":{}}
+                    req.lib.root.context.math = {"value":math, "context":{}}
                     await initializeModules(req.lib, userJSON, req, res, next);
                     console.log("req.lib.root.context",req.lib.root.context)
                 };
