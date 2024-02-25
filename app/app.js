@@ -505,7 +505,6 @@ async function getNestedContext(libs, nestedPath, key = "") {
     }
 
     let arrowJson  = nestedPath.split("=>")
-    console.log("arrowJson", arrowJson)
     if (nestedPath.includes("=>")){
         nestedPath = arrowJson[0]
     }
@@ -521,25 +520,18 @@ async function getNestedContext(libs, nestedPath, key = "") {
             console.log("parts[part]", parts[part])
                 tempContext = tempContext[part].context;
         }
-        console.log("tempContext", tempContext)
-        if (arrowJson.length > 1){
-            console.log(arrowJson[1])
+        /*if (arrowJson.length > 1){
             const pathParts = arrowJson[1].split('.');
-            console.log("pathParts",pathParts)
             for (const part of pathParts) {
-                console.log("part",part)
-                console.log(tempContext.hasOwnProperty(part))
-                if (tempContext.hasOwnProperty(part)) {
-
+                if (currentValue.hasOwnProperty(part)) {
                     tempContext = tempContext[part];
-                    console.log("//", tempContext)
                 } else {
                     console.error(`Path ${arrowJson[1]} not found in JSON.`);
                     tempContext = ''; // Path not found
                     break;
                 }
             }
-        }
+        }*/
         return tempContext;
     }
     return libs
@@ -1211,10 +1203,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
-            console.log("66: nestedPath", nestedPath)
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
             console.log("66: value", value)
-            await addValueToNestedKey(set.key.replace("~/","").split("=>")[0], nestedContext, value);
+            await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
         }
     }
 
