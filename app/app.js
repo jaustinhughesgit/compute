@@ -797,6 +797,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     async function replace2(str, nestedPath) {
         console.log("BBBBBBBB")
+        console.log("str",str)
+        console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
