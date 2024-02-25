@@ -624,14 +624,6 @@ async function replacePlaceholders(item, libs, nestedPath) {
     }
     
 }
-
-
-/*
-
-
-
-*/
-
 async function isOnePlaceholder(str) {
     if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!"))) {
         return str.indexOf("{|", 2) === -1;
@@ -755,10 +747,6 @@ function isContextKey(searchKey, obj) {
 function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
 }
-
-
-
-
 
 function evaluateMathExpression2(expression) {
     try {
@@ -937,11 +925,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     return replace2(str, nestedPath);
 }
 
-
-
-
-
-
 // Example usage
 const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";
 const json88 = {
@@ -967,13 +950,6 @@ const json88 = {
 };
 
 //console.log(replacePlaceholders(str, json));
-
-
-
-
-
-
-
 
 async function processString(str, libs, nestedPath) {
     const isExecuted = str.endsWith('|}!');
@@ -1205,6 +1181,24 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("66: action.set[key]",action.set[key])
             let value = await replacePlaceholders(action.set[key], libs, nestedPath)
             console.log("66: value", value)
+
+            let arrowJson = keyClean.split("=>") 
+            console.log("66: arrowJson", arrowJson)
+        if (arrowJson.length > 1){
+            const pathParts = arrowJson[1].split('.');
+            console.log("66: pathParts", pathParts)
+            for (const part of pathParts) {
+                if (nestedContext.hasOwnProperty(part)) {
+                    nestedContext = nestedContext[part];
+                } else {
+                    console.error(`Path ${arrowJson[1]} not found in JSON.`);
+                    //tempContext = ''; // Path not found
+                    break;
+                }
+            }
+        }
+
+console.log("66:nestedContext2", nestedContext)
             await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
         }
     }
