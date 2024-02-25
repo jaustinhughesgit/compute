@@ -1188,6 +1188,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const pathParts = arrowJson[1].split('.');
             console.log("66: pathParts", pathParts)
             let firstParts = arrowJson[0].replace("~/","").split('.')
+            firstParts.push("value")
             pathParts.unshift(...firstParts)
             console.log("pathParts#", pathParts)
             let path2 = libs.root.context
@@ -1196,18 +1197,18 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 if (path2.hasOwnProperty(part)) {
                     path2 = path2[part];
                 } else {
-                    if (path2.value.hasOwnProperty(part)) {
-                        path2 = path2.value[part];
-                    } else {
-                        console.error(`Path ${arrowJson[1]} not found in JSON.`);
-                        //tempContext = ''; // Path not found
+                    
+                        //path2 = path2.value[part];
+                        console.log(path2, arrowJson[1].split('.'), value)
+                        updateValueByPath(path2, arrowJson[1].split('.'), value)
                         break;
-                    }
+                    
                 }
             }
             console.log("77: path2",path2)
             console.log("77: value",value)
             path2 = value
+            
             console.log(libs.root.context)
         } else {
 
@@ -1217,6 +1218,23 @@ console.log("66:nestedContext2", nestedContext)
     }
         }
     }
+
+    function updateValueByPath(obj, path, value) {
+        let current = obj;
+        for (let i = 0; i < path.length - 1; i++) {
+          const key = path[i];
+      
+          // If the key doesn't exist or it's not an object, initialize it
+          if (!(key in current) || typeof current[key] !== 'object') {
+            current[key] = {};
+          }
+          current = current[key];
+        }
+      
+        // Set the new value
+        current[path[path.length - 1]] = value;
+      }
+
 
     if (action.target) {
 
