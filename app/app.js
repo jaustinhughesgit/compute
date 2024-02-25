@@ -1190,13 +1190,14 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let firstParts = arrowJson[0].replace("~/","").split('.')
             pathParts.unshift(...firstParts)
             console.log("pathParts#", pathParts)
+            let path2 = libs.root.context
             for (const part of pathParts) {
 
-                if (nestedContext.hasOwnProperty(part)) {
-                    nestedContext = nestedContext[part];
+                if (path2.hasOwnProperty(part)) {
+                    path2 = nestedContext[part];
                 } else {
-                    if (nestedContext.value.hasOwnProperty(part)) {
-                        nestedContext = nestedContext.value[part];
+                    if (path2.value.hasOwnProperty(part)) {
+                        path2 = path2.value[part];
                     } else {
                         console.error(`Path ${arrowJson[1]} not found in JSON.`);
                         //tempContext = ''; // Path not found
@@ -1204,9 +1205,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                 }
             }
-            console.log("77: nestedContext",nestedContext)
+            console.log("77: path2",path2)
             console.log("77: value",value)
-            nestedContext = value
+            path2 = value
         } else {
 
 console.log("66:nestedContext2", nestedContext)
