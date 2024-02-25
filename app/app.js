@@ -504,11 +504,11 @@ async function getNestedContext(libs, nestedPath, key = "") {
         nestedPath = nestedPath.slice(0, -1).join('.')
     }
 
-    let arrowJson  = key.split("=>")
-    if (key.includes("=>")){
+    let arrowJson  = nestedPath.split("=>")
+    console.log("arrowJson", arrowJson)
+    if (nestedPath.includes("=>")){
         nestedPath = arrowJson[0]
     }
-    nestedPath = nestedPath.replace("~/","root.")
     console.log("444: nestedPath", nestedPath)
     const parts = nestedPath.split('.');
     
