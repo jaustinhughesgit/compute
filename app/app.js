@@ -943,7 +943,7 @@ const json88 = {
 
 
 async function processString(str, libs, nestedPath) {
-
+    const isExecuted = str.endsWith('|}!');
 
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
@@ -984,7 +984,11 @@ async function processString(str, libs, nestedPath) {
         mmm = libs.root.context[str].value
     }*/
     console.log("TYPEOF", typeof mmm)
-    return mmm;
+    if (isExecuted){
+        mmm = await mmm();
+    } else {
+        return mmm;
+    }
     /*const isExecuted = str.endsWith('|}!');
     const isObj = await isOnePlaceholder(str)
     let strClean = await removeBrackets(str, isObj, isExecuted);
