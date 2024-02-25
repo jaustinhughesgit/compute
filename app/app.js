@@ -1194,7 +1194,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             for (const part of pathParts) {
 
                 if (path2.hasOwnProperty(part)) {
-                    path2 = nestedContext[part];
+                    path2 = path2[part];
                 } else {
                     if (path2.value.hasOwnProperty(part)) {
                         path2 = path2.value[part];
