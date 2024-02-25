@@ -1204,10 +1204,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                 }
             }
-        }
+            nestedContext = value
+        } else {
 
 console.log("66:nestedContext2", nestedContext)
+
             await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
+    }
         }
     }
 
