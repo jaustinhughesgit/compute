@@ -1204,6 +1204,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                 }
             }
+            console.log("77: nestedContext",nestedContext)
+            console.log("77: value",value)
             nestedContext = value
         } else {
 
