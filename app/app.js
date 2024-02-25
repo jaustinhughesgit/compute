@@ -1207,7 +1207,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             console.log("77: path2",path2)
             console.log("77: value",value)
-            path2 = value
+            //path2 = value
             
             console.log(libs.root.context)
         } else {
