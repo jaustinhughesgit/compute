@@ -975,7 +975,9 @@ async function processString(str, libs, nestedPath) {
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
         try{
             mmm = nestedValue[str.replace("{|","").replace("|}","")].value
-        } catch (e){}
+        } catch (e){
+            mmm = nestedValue[str.replace("{|","").replace("|}","")]
+        }
     }
     
     /*if (str == "res"){
