@@ -1195,7 +1195,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 if (nestedContext.hasOwnProperty(part)) {
                     nestedContext = nestedContext[part];
                 } else {
-                    if (nestedContext.hasOwnProperty(part)) {
+                    if (nestedContext.value.hasOwnProperty(part)) {
                         nestedContext = nestedContext.value[part];
                     } else {
                         console.error(`Path ${arrowJson[1]} not found in JSON.`);
