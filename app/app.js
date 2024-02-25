@@ -1191,12 +1191,17 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             pathParts.unshift(...firstParts)
             console.log("pathParts#", pathParts)
             for (const part of pathParts) {
+
                 if (nestedContext.hasOwnProperty(part)) {
                     nestedContext = nestedContext[part];
                 } else {
-                    console.error(`Path ${arrowJson[1]} not found in JSON.`);
-                    //tempContext = ''; // Path not found
-                    break;
+                    if (nestedContext.hasOwnProperty(part)) {
+                        nestedContext = nestedContext.value[part];
+                    } else {
+                        console.error(`Path ${arrowJson[1]} not found in JSON.`);
+                        //tempContext = ''; // Path not found
+                        break;
+                    }
                 }
             }
         }
