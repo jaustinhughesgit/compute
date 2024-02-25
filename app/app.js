@@ -973,7 +973,9 @@ async function processString(str, libs, nestedPath) {
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
-        mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+        try{
+            mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+        } catch (e){}
     }
     
     /*if (str == "res"){
