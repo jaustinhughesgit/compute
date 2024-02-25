@@ -493,11 +493,16 @@ async function initializeModules(libs, config, req, res, next) {
     }
 }
 
-async function getNestedContext(libs, nestedPath) {
+async function getNestedContext(libs, nestedPath, key) {
     console.log("getNestedContext")
     console.log("libs", libs)
     console.log("nestedPath", nestedPath)
+    if (key.startsWith("~/")){
+        nestedPath = key.replace("~/").split(".").upshift("root").slice(0, -1).join('.')
+    }
+    console.log("444: nestedPath", nestedPath)
     const parts = nestedPath.split('.');
+    
     console.log("parts", parts)
     if (nestedPath && nestedPath != ""){
         let tempContext = libs;
