@@ -1157,6 +1157,33 @@ async function addValueToNestedKey(key, nestedContext, value){
     }
 }
 
+async function putValueIntoContext(contextPath, objectPath, value, libs){
+    let pathHolder = libs
+    console.log("###contextPath2.00", contextPath.slice(0,-1))
+    for (const part of contextPath.slice(0,-1)) {
+        if (pathHolder.context.hasOwnProperty(part)) {
+            pathHolder = pathHolder.context[part];
+        }
+    }
+    console.log("###pathHolder2.01", pathHolder)
+    console.log("###contextPath2.02", contextPath.length-1)
+    console.log("###contextPath2.03", contextPath[contextPath.length-1])
+    if (pathHolder.value.hasOwnProperty(contextPath[contextPath.length-1])) {
+        pathHolder = pathHolder.value[contextPath[contextPath.length-1]];
+    }
+    console.log("###pathHolder2.1", pathHolder)
+    console.log("###objectPath2.12", objectPath.slice(0,-1))
+    for (const part of objectPath.slice(0,-1)) {
+        if (pathHolder.hasOwnProperty(part)) {
+            pathHolder = pathHolder[part];
+        }
+    }
+    console.log("###pathHolder2.22", pathHolder)
+    console.log("###objectPath2.22",objectPath[objectPath.length - 1])
+    pathHolder[objectPath[objectPath.length - 1]] = value
+    console.log("###pathHolder2.3", pathHolder)
+}
+
 async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.set) {
         for (const key in action.set) {
@@ -1184,37 +1211,19 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             let arrowJson = keyClean.split("=>") 
             console.log("66: arrowJson", arrowJson)
-        if (arrowJson.length > 1){
-            const pathParts = arrowJson[1].split('.');
-            console.log("66: pathParts", pathParts)
-            let firstParts = arrowJson[0].replace("~/","").split('.')
-            pathParts.unshift(...firstParts)
-            console.log("pathParts#", pathParts)
-            let path2 = libs.root.context
-            for (const part of pathParts) {
-
-                if (path2.hasOwnProperty(part)) {
-                    path2 = path2[part];
-                } else {
-                    if (path2.value.hasOwnProperty(part)) {
-                        path2 = path2.value[part];
-                    } else {
-                        console.error(`Path ${arrowJson[1]} not found in JSON.`);
-                        //tempContext = ''; // Path not found
-                        break;
-                    }
-                }
+            if (arrowJson.length > 1){
+                const pathParts = arrowJson[1].split('.');
+                console.log("66: pathParts", pathParts)
+                let firstParts = arrowJson[0].replace("~/","root.").split('.')
+                console.log("###firstParts", firstParts)
+                console.log("###pathParts", pathParts)
+                console.log("###value", value)
+                console.log("###libs", libs)
+                await putValueIntoContext(firstParts, pathParts, value, libs);
+                console.log("###libs3", libs)
+            } else {
+                await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
             }
-            console.log("77: path2",path2)
-            console.log("77: value",value)
-            path2 = value
-            console.log(libs.root.context)
-        } else {
-
-console.log("66:nestedContext2", nestedContext)
-
-            await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
-    }
         }
     }
 
