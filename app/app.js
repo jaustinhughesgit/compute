@@ -820,7 +820,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     current = current.value;
                 }
             } else {
-                return '';
+                //return '';
             }
             curCounter++;
         }
