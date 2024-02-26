@@ -1182,7 +1182,11 @@ async function putValueIntoContext(contextPath, objectPath, value, libs){
     console.log("###contextPath2.02", contextPath.length-1)
     console.log("###contextPath2.03", contextPath[contextPath.length-1])
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length-1])) {
-        pathHolder = pathHolder[contextPath[contextPath.length-1]].value;
+        if (pathHolder[contextPath[contextPath.length-1]].hasOwnProperty("value")){
+            pathHolder = pathHolder[contextPath[contextPath.length-1]].value;
+        } else {
+            pathHolder = pathHolder[contextPath[contextPath.length-1]];
+        }
     }
     console.log("###pathHolder2.1", pathHolder)
     console.log("###objectPath2.12", objectPath.slice(0,-1))
