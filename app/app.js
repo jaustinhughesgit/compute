@@ -1166,7 +1166,7 @@ async function addValueToNestedKey(key, nestedContext, value){
     }
 }
 
-async function putValueIntoContext(contextPath, objectPath, value, libs){
+async function putValueIntoContext(contextPath, objectPath, value, libs, index = false){
     let pathHolder = libs
     console.log("###contextPath2.00", contextPath.slice(0,-1))
     for (const part of contextPath.slice(0,-1)) {
@@ -1197,7 +1197,12 @@ async function putValueIntoContext(contextPath, objectPath, value, libs){
     }
     console.log("###pathHolder2.22", pathHolder)
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
-    pathHolder[objectPath[objectPath.length - 1]] = value
+    if (index != false){
+        pathHolder = pathHolder[objectPath[objectPath.length - 1]]
+        pathHolder[index] = value
+    } else {
+        pathHolder[objectPath[objectPath.length - 1]] = value
+    }
     console.log("###pathHolder2.3", pathHolder)
 }
 
@@ -1228,11 +1233,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             let arrowJson = keyClean.split("=>") 
             console.log("66: arrowJson", arrowJson)
-            //if (arrowJson.length > 1){
-                const pathParts = []
-                if (arrowJson[1]){
-                    pathParts = arrowJson[1].split('.');
-                }
+            if (arrowJson.length > 1){
+                const pathParts = arrowJson[1].split('.');
                 console.log("66: pathParts", pathParts)
                 let firstParts = arrowJson[0].replace("~/","root.").split('.')
                 console.log("###firstParts", firstParts)
@@ -1241,9 +1243,19 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs", libs)
                 await putValueIntoContext(firstParts, pathParts, value, libs);
                 console.log("###libs3", libs)
-            //} else {
-            //    await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
-            //}
+            } else if (keyClean.includes("[")){
+                let keyClean2 = keyClean.slice(0,-1).split("[")[1]
+                let index = keyClean2.slice(0,-1).split("[")[1]
+                if (!keyClean2[0].includes("=>")){
+                    keyClean2[0] = keyClean2[0] + "=>"
+                }
+                let arrowJson2 = keyClean2[0].split("=>") 
+                const pathParts = arrowJson2[1].split('.');
+                let firstParts = arrowJson2[0].replace("~/","root.").split('.')
+                await putValueIntoContext(firstParts, pathParts, value, libs, index);/////////////////////////
+            } else {
+                await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
+            }
         }
     }
 
