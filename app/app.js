@@ -1198,12 +1198,19 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
     console.log("###pathHolder2.22", pathHolder)
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
     if (index != false){
+        console.log("###index2.23",index)
         pathHolder = pathHolder[objectPath[objectPath.length - 1]]
+        console.log("###pathHolder2.24",pathHolder)
         pathHolder[index] = value
     } else {
-        pathHolder[objectPath[objectPath.length - 1]] = value
+        console.log("###value2.24",value)
+        if (objectPath[objectPath.length - 1] == "" || objectPath[objectPath.length - 1] == undefined || objectPath.length == 0){
+            pathHolder = value
+        } else {
+            pathHolder[objectPath[objectPath.length - 1]] = value
+        }
     }
-    console.log("###pathHolder2.3", pathHolder)
+    console.log("###pathHolder2.5", pathHolder)
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
