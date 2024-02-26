@@ -787,6 +787,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             if (arrayAccess[1].includes("[")){
                 index = arrayAccess[1].slice(0,-1).split("[")[1]
                 index = parseInt(index);
+                keys2 = arrayAccess[1].split("[")[0].split('.');
             }
         }
 
