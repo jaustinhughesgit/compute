@@ -1244,12 +1244,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 await putValueIntoContext(firstParts, pathParts, value, libs);
                 console.log("###libs3", libs)
             } else if (keyClean.includes("[")){
-                let keyClean2 = keyClean.slice(0,-1).split("[")[1]
+                let keyClean2 = keyClean.slice(0,-1).split("[")[0]
                 let index = keyClean2.slice(0,-1).split("[")[1]
-                if (!keyClean2[0].includes("=>")){
-                    keyClean2[0] = keyClean2[0] + "=>"
+                if (!keyClean2.includes("=>")){
+                    keyClean2 = keyClean2 + "=>"
                 }
-                let arrowJson2 = keyClean2[0].split("=>") 
+                let arrowJson2 = keyClean2.split("=>") 
                 const pathParts = arrowJson2[1].split('.');
                 let firstParts = arrowJson2[0].replace("~/","root.").split('.')
                 await putValueIntoContext(firstParts, pathParts, value, libs, index);/////////////////////////
