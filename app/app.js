@@ -1360,6 +1360,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign && action.params) {
+        console.log("!!!~~~~~~~~~")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
