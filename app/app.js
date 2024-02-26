@@ -1613,6 +1613,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     let newNestedPath2 = nestedPath+"."+assign.key
                     console.log("22: newNestedPath2",newNestedPath2)
                     let p
+                    const isObj = await isOnePlaceholder(paramClean2)
                     if (isObj){
                         p = await getKeyAndPath(paramClean2, newNestedPath2)
                     } else {
