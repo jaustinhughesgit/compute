@@ -789,12 +789,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
         let curCounter = 0
         for (let key of keys) {
-            if (current.hasOwnProperty(key)) {
-                current = current[key];
-                if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
-                    current = current.value;
-                }
-            } else {
+            //if (current.hasOwnProperty(key)) {
+            //    current = current[key];
+            //    if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+            //        current = current.value;
+            //    }
+            //} else {
                 console.log("LL", key)
                 console.log("LL",current);
                 console.log("LL",current[key]);
@@ -806,7 +806,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
                 }
                 //return '';
-            }
+            //}
             curCounter++;
         }
 
