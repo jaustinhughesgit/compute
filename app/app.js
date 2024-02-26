@@ -1167,6 +1167,7 @@ async function addValueToNestedKey(key, nestedContext, value){
 }
 
 async function putValueIntoContext(contextPath, objectPath, value, libs, index){
+    let libsValue = JSON.parse(JSON.stringify(libs))
     let pathHolder = libs
     console.log("###contextPath2.00", contextPath.slice(0,-1))
     for (const part of contextPath.slice(0,-1)) {
@@ -1199,7 +1200,7 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index){
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
     if (index != undefined){
         if (index.includes("{|")){
-            index = await replacePlaceholders2(index, libs, "root")
+            index = await replacePlaceholders2(index, libsValue, "root")
             console.log("postIndex", index)
         }
         pathHolder[objectPath[objectPath.length - 1]][index] = value
