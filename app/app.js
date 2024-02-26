@@ -780,9 +780,10 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         // Check for array access syntax and split if present
         let arrayAccess = path.split('=>');
         let keys = arrayAccess[0].split('.');
-        let keys2 = arrayAccess[1].split('.');
+        let keys2 = []
         let index = null;
         if (arrayAccess.length > 1) {
+            keys2 = arrayAccess[1].split('.');
             // Extract index from the right side of "=>"
             if (arrayAccess[1].includes("[")){
                 index = arrayAccess[1].slice(0,-1).split("[")[1]
