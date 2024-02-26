@@ -1181,10 +1181,13 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
     console.log("###pathHolder2.01", pathHolder)
     console.log("###contextPath2.02", contextPath.length-1)
     console.log("###contextPath2.03", contextPath[contextPath.length-1])
+    let revertedPath
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length-1])) {
         if (pathHolder[contextPath[contextPath.length-1]].hasOwnProperty("value")){
+            revertedPath = pathHolder
             pathHolder = pathHolder[contextPath[contextPath.length-1]].value;
         } else {
+            revertedPath = pathHolder
             pathHolder = pathHolder[contextPath[contextPath.length-1]];
         }
     }
@@ -1205,12 +1208,20 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
     } else {
         console.log("###value2.24",value)
         if (objectPath[objectPath.length - 1] == "" || objectPath[objectPath.length - 1] == undefined || objectPath.length == 0){
-            pathHolder = value
+            console.log("###2.25")
+            if (revertedPath[contextPath[contextPath.length-1]].hasOwnProperty("value")){
+                console.log("###2.26")
+                revertedPath = revertedPath[contextPath[contextPath.length-1]].value;
+            } else {
+                console.log("###2.27")
+                revertedPath = revertedPath[contextPath[contextPath.length-1]];
+            }
         } else {
+            console.log("###2.28")
             pathHolder[objectPath[objectPath.length - 1]] = value
         }
     }
-    console.log("###pathHolder2.5", pathHolder)
+    console.log("###pathHolder2.3", pathHolder)
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
