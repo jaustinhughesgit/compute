@@ -793,6 +793,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
 
         let curCounter = 0
+        if (Object.keys(current.value).length == 0){
+            current = current.context
+        }
         for (let key of keys) {
             //if (current.hasOwnProperty(key)) {
             //    current = current[key];
@@ -804,9 +807,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("LL",current);
                 console.log("LL",current[key]);
                 console.log("LL",keys.length - 1, curCounter);
-                if (Object.keys(current.value).length == 0){
-                    current = current.context
-                }
                 if (keys.length - 1 > curCounter){
                     try{current = current[key].context}catch{}
                 } else {
