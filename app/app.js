@@ -1228,8 +1228,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             let arrowJson = keyClean.split("=>") 
             console.log("66: arrowJson", arrowJson)
-            if (arrowJson.length > 1){
-                const pathParts = arrowJson[1].split('.');
+            //if (arrowJson.length > 1){
+                const pathParts = []
+                if (arrowJson[1]){
+                    pathParts = arrowJson[1].split('.');
+                }
                 console.log("66: pathParts", pathParts)
                 let firstParts = arrowJson[0].replace("~/","root.").split('.')
                 console.log("###firstParts", firstParts)
@@ -1238,9 +1241,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs", libs)
                 await putValueIntoContext(firstParts, pathParts, value, libs);
                 console.log("###libs3", libs)
-            } else {
-                await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
-            }
+            //} else {
+            //    await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
+            //}
         }
     }
 
