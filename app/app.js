@@ -825,6 +825,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             curCounter++;
         }
 
+        console.log("index",index)
+        console.log("current",current)
+        console.log("Array.isArray(current)",Array.isArray(current))
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
