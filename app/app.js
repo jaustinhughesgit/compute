@@ -848,6 +848,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
             if (typeof value === "string" || typeof value === "number") {
                 console.log("value is string or number")
+                console.log("match[0]", match[0])
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
             } else {
                 console.log("str2", str);
