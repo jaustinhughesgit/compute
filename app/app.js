@@ -795,9 +795,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     current = current.value;
                 }
             } else {
+                console.log("LL", key)
+                console.log("LL",current[key]);
+                console.log("LL",keys.length - 1, curCounter);
                 if (keys.length - 1 > curCounter){
-
-                try{current = current[key].context}catch{}
+                    try{current = current[key].context}catch{}
                 }  else {
                     try{current = current[key].value}catch{}
 
