@@ -1252,6 +1252,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs", libs)
                 if (index != undefined){
                     if (index.includes("{|")){
+                        console.log("index", index)
                         index = libs.root.context[index.replace("{|","").replace("|}")]
                         console.log("postIndex", index)
                     }
