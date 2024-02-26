@@ -1182,12 +1182,15 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
     console.log("###contextPath2.02", contextPath.length-1)
     console.log("###contextPath2.03", contextPath[contextPath.length-1])
     let revertedPath
+    let lastKey
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length-1])) {
         if (pathHolder[contextPath[contextPath.length-1]].hasOwnProperty("value")){
-            revertedPath = pathHolder
+            revertedPath = pathHolder[contextPath[contextPath.length-1]]
+            lastKey = contextPath[contextPath.length-1]
             pathHolder = pathHolder[contextPath[contextPath.length-1]].value;
         } else {
             revertedPath = pathHolder
+            lastKey = contextPath[contextPath.length-1]
             pathHolder = pathHolder[contextPath[contextPath.length-1]];
         }
     }
@@ -1195,6 +1198,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
     console.log("###objectPath2.12", objectPath.slice(0,-1))
     for (const part of objectPath.slice(0,-1)) {
         if (pathHolder.hasOwnProperty(part)) {
+            revertedPath = pathHolder
+            lastKey = part
             pathHolder = pathHolder[part];
         }
     }
@@ -1207,14 +1212,15 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index =
         pathHolder[index] = value
     } else {
         console.log("###value2.24",value)
-        if (objectPath[objectPath.length - 1] == "" || objectPath[objectPath.length - 1] == undefined || objectPath.length == 0){
-            console.log("###2.25")
-            if (revertedPath[contextPath[contextPath.length-1]].hasOwnProperty("value")){
+        if (lastKey == "" || lastKey == undefined){
+            console.log("###revertedPath2.25",revertedPath)
+            console.log("###lastKey2.25",lastKey)
+            if (revertedPath[lastKey].hasOwnProperty("value")){
                 console.log("###2.26")
-                revertedPath = revertedPath[contextPath[contextPath.length-1]].value;
+                revertedPath[lastKey].value = value
             } else {
                 console.log("###2.27")
-                revertedPath = revertedPath[contextPath[contextPath.length-1]];
+                revertedPath[lastKey] = value;
             }
         } else {
             console.log("###2.28")
