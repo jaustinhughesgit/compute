@@ -780,6 +780,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         // Check for array access syntax and split if present
         let arrayAccess = path.split('=>');
         let keys = arrayAccess[0].split('.');
+        let keys2 = arrayAccess[1].split('.');
         let index = null;
         if (arrayAccess.length > 1) {
             // Extract index from the right side of "=>"
@@ -807,6 +808,18 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
                 //return '';
             //}
+            curCounter++;
+        }
+
+        for (let key of keys2) {
+            if (current.hasOwnProperty(key)) {
+                current = current[key];
+                if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    current = current.value;
+                }
+            } else {
+                return '';
+            }
             curCounter++;
         }
 
