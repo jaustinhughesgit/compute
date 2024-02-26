@@ -1198,6 +1198,10 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index){
     console.log("###pathHolder2.22", pathHolder)
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
     if (index != undefined){
+        if (index.includes("{|")){
+            index = await replacePlaceholders2(index, libs, "root")
+            console.log("postIndex", index)
+        }
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
         pathHolder[objectPath[objectPath.length - 1]] = value
