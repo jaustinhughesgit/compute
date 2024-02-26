@@ -1166,7 +1166,7 @@ async function addValueToNestedKey(key, nestedContext, value){
     }
 }
 
-async function putValueIntoContext(contextPath, objectPath, value, libs){
+async function putValueIntoContext(contextPath, objectPath, value, libs, index){
     let pathHolder = libs
     console.log("###contextPath2.00", contextPath.slice(0,-1))
     for (const part of contextPath.slice(0,-1)) {
@@ -1197,7 +1197,11 @@ async function putValueIntoContext(contextPath, objectPath, value, libs){
     }
     console.log("###pathHolder2.22", pathHolder)
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
-    pathHolder[objectPath[objectPath.length - 1]] = value
+    if (index != undefined){
+        pathHolder[objectPath[objectPath.length - 1]][index] = value
+    } else {
+        pathHolder[objectPath[objectPath.length - 1]] = value
+    }
     console.log("###pathHolder2.3", pathHolder)
 }
 
@@ -1229,6 +1233,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let arrowJson = keyClean.split("=>") 
             console.log("66: arrowJson", arrowJson)
             if (arrowJson.length > 1){
+                let index
+                if (arrowJson[1].includes("[")){
+                    index = arrowJson[1].slice(0,-1).split("[")[1]
+                    arrowJson[1] = arrowJson[1].slice(0,-1).split("[")[0]
+                }
                 const pathParts = arrowJson[1].split('.');
                 console.log("66: pathParts", pathParts)
                 let firstParts = arrowJson[0].replace("~/","root.").split('.')
@@ -1236,7 +1245,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###pathParts", pathParts)
                 console.log("###value", value)
                 console.log("###libs", libs)
-                await putValueIntoContext(firstParts, pathParts, value, libs);
+                await putValueIntoContext(firstParts, pathParts, value, libs, index);
                 console.log("###libs3", libs)
             } else {
                 await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
