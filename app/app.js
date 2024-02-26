@@ -1277,7 +1277,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs3", libs)
             } else if (keyClean.includes("[")){
                 let keyClean2 = keyClean.slice(0,-1).split("[")[0]
-                let index = keyClean2.slice(0,-1).split("[")[1]
+                let index = keyClean.slice(0,-1).split("[")[1]
                 if (!keyClean2.includes("=>")){
                     keyClean2 = keyClean2 + "=>"
                 }
