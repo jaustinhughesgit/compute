@@ -627,7 +627,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
     
 }
 async function isOnePlaceholder(str) {
-    if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!"))) {
+    if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!")) && !str.includes("=>") && !str.includes("[") && !str.includes("{|=")) {
         return str.indexOf("{|", 2) === -1;
     }
     return false;
@@ -1019,7 +1019,7 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
-    if ((isObj && !str.includes("=>") && !str.includes("[")) || str == "res"){
+    if (isObj || str == "res"){
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
