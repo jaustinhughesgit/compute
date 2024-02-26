@@ -787,6 +787,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             index = parseInt(index);
         }
 
+        let curCounter = 0
         for (let key of keys) {
             if (current.hasOwnProperty(key)) {
                 current = current[key];
@@ -794,8 +795,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     current = current.value;
                 }
             } else {
-                return '';
+                if (keys.length - 1 < curCounter){
+                current = current[key].context
+                }  else {
+                    current = current[key].value
+
+                }
+                //return '';
             }
+            curCounter++;
         }
 
         if (index !== null && Array.isArray(current)) {
