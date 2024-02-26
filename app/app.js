@@ -1165,21 +1165,15 @@ async function addValueToNestedKey(key, nestedContext, value){
         nestedContext[key].value = value;
     }
 }
-let revertedPath
-let lastKey
 
-async function putValueIntoContext(contextPath, objectPath, value, libs, index){
+async function putValueIntoContext(contextPath, objectPath, value, libs){
     let pathHolder = libs
     console.log("###contextPath2.00", contextPath.slice(0,-1))
     for (const part of contextPath.slice(0,-1)) {
             if (pathHolder.hasOwnProperty(part)) {
                 if (pathHolder[part].hasOwnProperty("context")){
-                    revertedPath = pathHolder
-                    lastKey = part
                     pathHolder = pathHolder[part].context;
                 } else {
-                    revertedPath = pathHolder
-                    lastKey = part
                     pathHolder = pathHolder[part];
                 }
             }
@@ -1189,12 +1183,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index){
     console.log("###contextPath2.03", contextPath[contextPath.length-1])
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length-1])) {
         if (pathHolder[contextPath[contextPath.length-1]].hasOwnProperty("value")){
-            revertedPath = pathHolder[contextPath[contextPath.length-1]]
-            lastKey = contextPath[contextPath.length-1]
             pathHolder = pathHolder[contextPath[contextPath.length-1]].value;
         } else {
-            revertedPath = pathHolder
-            lastKey = contextPath[contextPath.length-1]
             pathHolder = pathHolder[contextPath[contextPath.length-1]];
         }
     }
@@ -1202,39 +1192,12 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index){
     console.log("###objectPath2.12", objectPath.slice(0,-1))
     for (const part of objectPath.slice(0,-1)) {
         if (pathHolder.hasOwnProperty(part)) {
-            revertedPath = pathHolder
-            lastKey = part
             pathHolder = pathHolder[part];
         }
     }
     console.log("###pathHolder2.22", pathHolder)
-    console.log("###index2.22", index)
     console.log("###objectPath2.22",objectPath[objectPath.length - 1])
-    if (index != undefined){
-        console.log("###index2.23",index)
-        pathHolder = pathHolder[objectPath[objectPath.length - 1]]
-        console.log("###pathHolder2.24",pathHolder)
-        pathHolder[index] = value
-    } else {
-        console.log("###value2.24",value)
-        if (lastKey != "" || lastKey != undefined){
-            console.log("###revertedPath2.25",revertedPath)
-            console.log("###lastKey2.25",lastKey)
-            if (revertedPath[lastKey].hasOwnProperty("value")){
-                console.log("###2.26")
-                revertedPath[lastKey].value = value
-            } else if (revertedPath[lastKey].hasOwnProperty("context")){
-                console.log("###2.26")
-                revertedPath[lastKey].context = value
-            } else {
-                console.log("###2.27")
-                revertedPath[lastKey] = value;
-            }
-        } else {
-            console.log("###2.28")
-            pathHolder[objectPath[objectPath.length - 1]] = value
-        }
-    }
+    pathHolder[objectPath[objectPath.length - 1]] = value
     console.log("###pathHolder2.3", pathHolder)
 }
 
@@ -1275,16 +1238,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs", libs)
                 await putValueIntoContext(firstParts, pathParts, value, libs);
                 console.log("###libs3", libs)
-            } else if (keyClean.includes("[")){
-                let keyClean2 = keyClean.slice(0,-1).split("[")[0]
-                let index = keyClean.slice(0,-1).split("[")[1]
-                if (!keyClean2.includes("=>")){
-                    keyClean2 = keyClean2 + "=>"
-                }
-                let arrowJson2 = keyClean2.split("=>") 
-                const pathParts = arrowJson2[1].split('.');
-                let firstParts = arrowJson2[0].replace("~/","root.").split('.')
-                await putValueIntoContext(firstParts, pathParts, value, libs, index);/////////////////////////
             } else {
                 await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
             }
