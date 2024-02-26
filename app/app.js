@@ -850,6 +850,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("value is string or number")
                 console.log("match[0]", match[0])
                 console.log("modifiedStr1", modifiedStr)
+                console.log("value", value)
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 console.log("modifiedStr2",modifiedStr)
             } else {
