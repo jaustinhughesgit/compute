@@ -1296,7 +1296,24 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) {}
             console.log("66: action", action)
             console.log("66: action.set[key]",action.set[key])
-            let value = await replacePlaceholders(action.set[key], libs, nestedPath)
+            function isValidJSON(string) {
+                try {
+                  JSON.parse(string); // Try parsing the string
+                  return true; // If parsing succeeds, return true
+                } catch (error) {
+                  return false; // If parsing fails, return false
+                }
+              }
+              let isJ = false
+              let sending = action.set[key]
+            if (typeof action.set[key] === "object"){
+                isJ = true
+                sending = JSON.stringify(sending)
+            }
+            let value = await replacePlaceholders(sending, libs, nestedPath)
+            if (isJ){
+                value = JSON.parse(value)
+            }
             console.log("66: value", value)
 
             let arrowJson = keyClean.split("=>") 
