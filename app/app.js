@@ -932,7 +932,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return strArray[index] ?? "";
                 });
                 return updatedStr
-            } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
+            } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     console.log("modifiedStr",modifiedStr)
