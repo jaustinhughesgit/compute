@@ -825,7 +825,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
                 }
-            } else {
+            } else if (current.hasOwnProperty("value")) {
+                current = current[key];
                 //return '';
             }
             curCounter++;
