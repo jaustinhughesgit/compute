@@ -947,7 +947,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 currentValue = currentValue[part];
                             } else {
                                 console.error(`Path ${jsonPath} not found in JSON.`);
-                                currentValue = ''; // Path not found
+                                //currentValue = ''; // Path not found
                                 break;
                             }
                         }
@@ -955,7 +955,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
                         console.log(`Error parsing JSON: ${e}`);
-                        return ''; // JSON parsing error
+                        return jsonString; // JSON parsing error
                     }
                 });
                 console.log("JSON PATH B5",updatedStr)
