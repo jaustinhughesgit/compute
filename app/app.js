@@ -939,7 +939,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     console.log("match",match),
                     console.log("jsonString",jsonString)
                     console.log("jsonPath",jsonPath)
-                    jsonPath.replace("|}","")
+                    jsonPath = jsonPath.replace("|}","")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
