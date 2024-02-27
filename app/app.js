@@ -961,7 +961,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     } catch (e) {
                         console.log(`Error parsing JSON: ${e}`);
                         console.log("@modifiedStr",modifiedStr)
-                        return modifiedStr; // JSON parsing error
+                        //return modifiedStr; // JSON parsing error
                     }
                 });
                 console.log("JSON PATH B5",updatedStr)
