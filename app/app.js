@@ -823,6 +823,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         console.log("keys2", keys2)
         for (let key of keys2) {
             console.log("key",key)
+            console.log("typeof", typeof current)
+            console.log("curent", current)
             console.log("k2.1:",current.hasOwnProperty(key))
             console.log("k2.3:",current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
