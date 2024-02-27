@@ -819,14 +819,21 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             curCounter++;
         }
 
+        console.log("keys2", keys2)
+        console.log("keys2", keys2)
         for (let key of keys2) {
+            console.log("key",key)
+            console.log("k2.1:",current.hasOwnProperty(key))
+            console.log("k2.3:",current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
                 current = current[key];
+                console.log("k2.4", current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
                 }
             } else if (current.hasOwnProperty("value")) {
                 current = current[key];
+                console.log("k2.5", current)
                 //return '';
             }
             curCounter++;
