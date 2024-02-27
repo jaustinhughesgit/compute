@@ -1319,7 +1319,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         console.log("index", index)
                         index = index.replace("{|","").replace("|}","")
                         console.log("preIndex", index)
-                        index = libs.root.context[index.replace("{|","").replace("|}","")]
+                        index = libs.root.context[index.replace("{|","").replace("|}","").replace("~/","")]
                         index = index.value
                         console.log("postIndex", index)
                     }
