@@ -935,6 +935,10 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[")){
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
+                    console.log("modifiedStr",modifiedStr)
+                    console.log("match",match),
+                    console.log("jsonString",jsonString)
+                    console.log("jsonPath",jsonPath)
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
