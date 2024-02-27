@@ -1320,11 +1320,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         index = index.replace("{|","").replace("|}","")
                         console.log("preIndex", index)
                         index = libs.root.context[index.replace("{|","").replace("|}","").replace("~/","")]
-                        index = index.value
+                        index = parseInt(index.value.toString())
                         console.log("postIndex", index)
                     }
                 }
-                await putValueIntoContext(firstParts, pathParts, value, libs, index.toString());
+                await putValueIntoContext(firstParts, pathParts, value, libs, index);
                 console.log("###libs3", libs)
             } else {
                 await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
