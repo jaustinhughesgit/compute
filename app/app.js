@@ -819,9 +819,20 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             curCounter++;
         }
 
+        function isValidJSON(string) {
+            try {
+              JSON.parse(string); // Try parsing the string
+              return true; // If parsing succeeds, return true
+            } catch (error) {
+              return false; // If parsing fails, return false
+            }
+          }
+
         console.log("keys2", keys2)
         console.log("keys2", keys2)
-        try{console.log(JSON.parse(current))}catch{}
+        if (isValidJSON(current)){
+            current = JSON.parse(current)
+        }
         for (let key of keys2) {
             console.log("key",key)
             console.log("typeof", typeof current)
