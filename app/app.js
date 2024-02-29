@@ -369,7 +369,7 @@ app.all('/blocks/*',
     },
     async (req, res, next) => {
          let blocksData = await initializeMiddleware(req, res, next);
-          res.json(blocksData);
+          res.json({"blocks":blocksData});
     }
 );
 
@@ -499,7 +499,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("RESULTS87",results)
             console.log("res.blocks",res.blocks)
             if (res.blocks){
-                return results
+                return results.blocks
             } else {
                 const arrayOfJSON = [];
                 results.forEach(result => arrayOfJSON.push(result));
