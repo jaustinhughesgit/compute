@@ -1568,7 +1568,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 return chainAction.return;
             }
 
-            if (chainAction.params) {
+            if (chainAction.params && chainAction.params.length > 0) {
                 console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
@@ -1595,11 +1595,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             // and applies the chain so length can run on letters which is an array.
             
 
-            if (accessClean && !chainAction.params) {
+            if (accessClean && !chainAction.params && chainAction.params.length === 0) {
                 console.log("--1--")
                 
                 result = result[accessClean];
-            } else if (accessClean && chainAction.new && chainAction.params) {
+            } else if (accessClean && chainAction.new && chainAction.params && chainAction.params.length > 0) {
                 console.log("--2--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
@@ -1651,7 +1651,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         }
                     }
                 }
-            } else if (!accessClean && chainAction.params){
+            } else if (!accessClean && chainAction.params && chainAction.params.length > 0){
                 console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
