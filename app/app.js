@@ -474,7 +474,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
 async function initializeMiddleware(req, res, next) {
     console.log("req", req)
-    if (req.path.startsWith('/auth')) {
+    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks')) {
         let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
         console.log("req", req)
         console.log("req.body", req.body)
