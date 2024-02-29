@@ -370,7 +370,7 @@ app.all('/blocks/*',
         req.blocks = true;
          let blocksData = await initializeMiddleware(req, res, next);
          console.log("blocksData", blocksData)
-          res.send({"data":blocksData});
+          res.json({"data":blocksData});
     }
 );
 
