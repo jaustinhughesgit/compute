@@ -369,7 +369,8 @@ app.all('/blocks/*',
     async (req, res, next) => {
         req.blocks = true;
          let blocksData = await initializeMiddleware(req, res, next);
-          res.json({"data":blocksData});
+         console.log("blocksData", blocksData)
+          res.send({"data":blocksData});
     }
 );
 
@@ -497,7 +498,7 @@ async function initializeMiddleware(req, res, next) {
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
             const results = await Promise.all(promises);
             console.log("RESULTS87",results)
-            console.log("res.blocks",req.blocks)
+            console.log("req.blocks",req.blocks)
             if (req.blocks){
                 return results.blocks
             } else {
@@ -519,6 +520,7 @@ async function initializeMiddleware(req, res, next) {
                 return await Promise.all(resultArrayOfJSON)
             }
         } else {
+            console.log("ELSE87")
             return []
         }
     }
