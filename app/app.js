@@ -496,6 +496,8 @@ async function initializeMiddleware(req, res, next) {
         if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
             const results = await Promise.all(promises);
+            console.log("RESULTS87",results)
+            console.log("res.blocks",res.blocks)
             if (res.blocks){
                 return results
             } else {
