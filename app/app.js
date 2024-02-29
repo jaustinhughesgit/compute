@@ -369,8 +369,7 @@ app.all('/blocks/*',
     async (req, res, next) => {
         req.blocks = true;
          let blocksData = await initializeMiddleware(req, res, next);
-         console.log("blocksData", blocksData)
-          res.send(JSON.stringify(blocksData));
+          res.json({"data":blocksData});
     }
 );
 
