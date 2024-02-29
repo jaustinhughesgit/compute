@@ -355,7 +355,6 @@ app.all('/blocks/*',
         req.lib.root.context = {}
         req.lib.root.context.session = session
         res.originalJson = res.json;
-        req.blocks = true;
 
 
         res.json = async function(data) {
@@ -368,8 +367,10 @@ app.all('/blocks/*',
         next();
     },
     async (req, res, next) => {
+        req.blocks = true;
          let blocksData = await initializeMiddleware(req, res, next);
-          res.json({"blocks":blocksData});
+         console.log("blocksData", blocksData)
+          res.send(JSON.stringify(blocksData));
     }
 );
 
@@ -387,7 +388,6 @@ app.all('/auth/*',
         req.lib.root.context = {}
         req.lib.root.context.session = session
         res.originalJson = res.json;
-        req.blocks = false;
 
 
         res.json = async function(data) {
@@ -401,6 +401,7 @@ app.all('/auth/*',
     },
     async (req, res, next) => {
         if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
+            req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
@@ -497,7 +498,7 @@ async function initializeMiddleware(req, res, next) {
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
             const results = await Promise.all(promises);
             console.log("RESULTS87",results)
-            console.log("res.blocks",res.blocks)
+            console.log("res.blocks",req.blocks)
             if (req.blocks){
                 return results.blocks
             } else {
