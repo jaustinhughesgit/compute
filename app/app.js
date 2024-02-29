@@ -341,6 +341,61 @@ app.all("/eb1", async (req, res, next) => {
     res.send("success")
 })
 
+app.all('/blocks/*', 
+    async (req, res, next) => {
+        console.log("auth", req)
+        console.log("req.body", req.body)
+        console.log("req.headers", req.headers)
+        req.lib = {}
+        req.lib.modules = {};
+        req.lib.middlewareCache = []
+        req.lib.isMiddlewareInitialized = false;
+        req.lib.whileLimit = 10;
+        req.lib.root = {}
+        req.lib.root.context = {}
+        req.lib.root.context.session = session
+        res.originalJson = res.json;
+        req.blocks = true;
+
+
+        res.json = async function(data) {
+            if (await isValid(req, res, data)) {
+                res.originalJson.call(this, data);
+            } else {
+                res.originalJson.call(this, {});
+            }
+        };
+        next();
+    },
+    async (req, res, next) => {
+        if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
+            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
+            req.lib.isMiddlewareInitialized = true;
+        }
+        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
+        if (req.lib.middlewareCache.length == 0){
+            res.send("no access")
+        } else {
+            next();
+        }
+    },
+    async (req, res, next) => {
+        if (req.lib.middlewareCache.length > 0) {
+            const runMiddleware = async (index) => {
+                if (index < req.lib.middlewareCache.length) {
+                    await req.lib.middlewareCache[index] (req, res, async () => await runMiddleware(index + 1));
+                } else {
+                    //next();
+                }
+            };
+            await runMiddleware(0);
+        } else {
+            //next();
+        }
+    }
+);
+
 app.all('/auth/*', 
     async (req, res, next) => {
         console.log("auth", req)
@@ -355,6 +410,7 @@ app.all('/auth/*',
         req.lib.root.context = {}
         req.lib.root.context.session = session
         res.originalJson = res.json;
+        req.blocks = false;
 
 
         res.json = async function(data) {
@@ -463,22 +519,26 @@ async function initializeMiddleware(req, res, next) {
         if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
             const results = await Promise.all(promises);
-            const arrayOfJSON = [];
-            results.forEach(result => arrayOfJSON.push(result));
-            let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
-                return async (req, res, next) => {
-                    req.lib.root.context.body = {"value":req.body.body, "context":{}}
-                    req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-                    req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
-                    req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
-                    req.lib.root.context.req = {"value":req, "context":{}}
-                    req.lib.root.context.res = {"value":res, "context":{}}
-                    req.lib.root.context.math = {"value":math, "context":{}}
-                    await initializeModules(req.lib, userJSON, req, res, next);
-                    console.log("req.lib.root.context",req.lib.root.context)
-                };
-            });
-            return await Promise.all(resultArrayOfJSON)
+            if (res.blocks){
+                return results
+            } else {
+                const arrayOfJSON = [];
+                results.forEach(result => arrayOfJSON.push(result));
+                let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
+                    return async (req, res, next) => {
+                        req.lib.root.context.body = {"value":req.body.body, "context":{}}
+                        req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                        req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
+                        req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
+                        req.lib.root.context.req = {"value":req, "context":{}}
+                        req.lib.root.context.res = {"value":res, "context":{}}
+                        req.lib.root.context.math = {"value":math, "context":{}}
+                        await initializeModules(req.lib, userJSON, req, res, next);
+                        console.log("req.lib.root.context",req.lib.root.context)
+                    };
+                });
+                return await Promise.all(resultArrayOfJSON)
+            }
         } else {
             return []
         }
