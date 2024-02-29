@@ -368,31 +368,8 @@ app.all('/blocks/*',
         next();
     },
     async (req, res, next) => {
-        if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
-            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
-            req.lib.isMiddlewareInitialized = true;
-        }
-        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
-        console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
-        if (req.lib.middlewareCache.length == 0){
-            res.send("no access")
-        } else {
-            next();
-        }
-    },
-    async (req, res, next) => {
-        if (req.lib.middlewareCache.length > 0) {
-            const runMiddleware = async (index) => {
-                if (index < req.lib.middlewareCache.length) {
-                    await req.lib.middlewareCache[index] (req, res, async () => await runMiddleware(index + 1));
-                } else {
-                    //next();
-                }
-            };
-            await runMiddleware(0);
-        } else {
-            //next();
-        }
+         let blocksData = await initializeMiddleware(req, res, next);
+          res.json(blocksData);
     }
 );
 
