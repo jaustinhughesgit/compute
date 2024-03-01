@@ -43,6 +43,7 @@ app.use('/controller', controllerRouter);
 app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
+    
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
