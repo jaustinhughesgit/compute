@@ -6,9 +6,12 @@ const moment = require('moment-timezone')
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 
-const OpenAI = require('openai');
-const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-const openai = new OpenAI(OPENAI_API_KEY);
+const { Configuration, OpenAIApi } = require("openai");
+
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
 
 let convertCounter = 0
 let isPublic = true
@@ -1296,7 +1299,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     let combinedPrompt = `${gptScript} /n/n ${question.prompt} /n/n ${results}`
 
     console.log(combinedPrompt);
-
+    console.log("openai", openai)
 	const response = await openai.createCompletion({
 		model: "gpt-4-0125-preview",
 		prompt: combinedPrompt,
