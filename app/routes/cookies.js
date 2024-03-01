@@ -1311,6 +1311,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
       let jsonParsed = JSON.parse(jsonString)
 
+      jsonParsed.modules = {}
       jsonParsed.blocks = blocks
 
 	//console.log(parsableJSONresponse)
