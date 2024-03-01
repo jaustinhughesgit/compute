@@ -1309,8 +1309,13 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
       const jsonString = response.choices[0].message.content.replace("```json", "").replace("```","")
 
+      let jsonParsed = JSON.parse(jsonString)
+
+      results.actions = jsonParsed.actions
+      results.modules = jsonParsed.modules
+
 	//console.log(parsableJSONresponse)
-  return {"response":jsonString, "isPublic":isPublic}
+  return {"response":JSON.stringify(results), "isPublic":isPublic}
 };
 
 
