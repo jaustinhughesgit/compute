@@ -1815,7 +1815,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
                     Body: oai.response,
                     ContentType: "application/json"
                 };
+                console.log(JSON.stringify(params))
+                console.log(JSON.stringify(params.body))
                 const data = await s3.putObject(params).promise();
+                console.log(data);
                 mainObj["oai"] = oai
             }
             
