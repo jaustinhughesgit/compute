@@ -1889,9 +1889,9 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai) {
     
     router.all('/*', async function(req, res, next) {
-        res.header('Access-Control-Allow-Origin', 'https://1var.com');
-        res.header('Access-Control-Allow-Credentials', 'true');
-        res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
+        //res.header('Access-Control-Allow-Origin', 'https://1var.com');
+        //res.header('Access-Control-Allow-Credentials', 'true');
+        //res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
     
         route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai)
     });
