@@ -1282,10 +1282,10 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const head = await getHead("su", entity, dynamodb)
     let isPublic = head.Items[0].z
 
-    let results = await retrieveAndParseJSON(entity, isPublic);
+    let JSONresults = await retrieveAndParseJSON(entity, isPublic);
     
     results.blocks = {}
-    results = JSON.stringify(results)
+    results = JSON.stringify(JSONresults)
 
     console.log("GPTSCRIPT:33",gptScript);
     console.log("PROMPT:33",question);
@@ -1311,11 +1311,11 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
       let jsonParsed = JSON.parse(jsonString)
 
-      results.actions = jsonParsed.actions
-      results.modules = jsonParsed.modules
+      JSONresults.actions = jsonParsed.actions
+      JSONresults.modules = jsonParsed.modules
 
 	//console.log(parsableJSONresponse)
-  return {"response":JSON.stringify(results), "isPublic":isPublic}
+  return {"response":JSON.stringify(JSONresults), "isPublic":isPublic}
 };
 
 
