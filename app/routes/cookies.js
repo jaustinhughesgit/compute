@@ -1309,9 +1309,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
       const jsonString = response.choices[0].message.content.replace("```json", "").replace("```","")
 
-	const JSONresponse = JSON.parse(jsonString);
 	//console.log(parsableJSONresponse)
-  return {"response":JSONresponse, "isPublic":isPublic}
+  return {"response":jsonString, "isPublic":isPublic}
 };
 
 
@@ -1819,7 +1818,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
                 console.log(JSON.stringify(params.body))
                 const data = await s3.putObject(params).promise();
                 console.log(data);
-                mainObj["oai"] = oai
+                mainObj["oai"] = JSON.parse(oai.response);
             }
             
             /* else if (action == "transcribe"){
