@@ -44,7 +44,10 @@ app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
     console.log("req22", req)
-    
+    let reqBodyStrng = req.body.toString()
+    console.log(reqBodyStrng);
+    let reqBodyJSON = JSON.parse(reqBodyStrng)
+    console.log(reqBodyStrng);
     //res.header('Access-Control-Allow-Origin', 'https://1var.com');
     //res.header('Access-Control-Allow-Credentials', 'true');
     //res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
