@@ -1802,6 +1802,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 mainObj["tasks"] = tasksISO
             } else if (action == "updateEntityByAI"){
                 const fileID = reqPath.split("/")[3]
+                actionFile = fileID
                 const prompt = requestBody.body;
                 let oai = await runPrompt(prompt, fileID, dynamodb);
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
