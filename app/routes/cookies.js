@@ -1313,6 +1313,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
       jsonParsed.modules = {}
       jsonParsed.blocks = blocks
+      jsonParsed.ai = true;
 
 	//console.log(parsableJSONresponse)
   return {"response":JSON.stringify(jsonParsed), "isPublic":isPublic, "entity": entity}
