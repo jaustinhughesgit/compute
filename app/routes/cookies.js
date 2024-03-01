@@ -1284,7 +1284,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     const head = await getHead("su", entity, dynamodb)
     let isPublic = head.Items[0].z
 
-    const results = await retrieveAndParseJSON(fileName, isPublic);
+    const results = await retrieveAndParseJSON(entity, isPublic);
     
     console.log("GPTSCRIPT:33",gptScript);
     console.log("PROMPT:33",prompt);
