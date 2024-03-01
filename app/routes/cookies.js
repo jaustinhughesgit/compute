@@ -1304,7 +1304,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     
 
       console.log("stringify", JSON.stringify(response))
-    console.log("text.trim", response.choices[0].message.content.trim())
+      console.log("text.trim", response.choices[0].message.content)
+      console.log(`--${response.choices[0].message.content}--`)
 
 	//const parsableJSONresponse = response.data.choices[0].text;
 	//console.log(parsableJSONresponse)
