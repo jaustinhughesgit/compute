@@ -6,7 +6,7 @@ const moment = require('moment-timezone')
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 
-const { Configuration, OpenAIApi } = require("openai");
+const { Configuration, OpenAIApi } = require("../openai");
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
