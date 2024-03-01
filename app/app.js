@@ -19,7 +19,7 @@ const OpenAI = require("openai");
 const openai = new OpenAI();
 
 app.use(express.json());
-//app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }));
 app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
@@ -44,13 +44,10 @@ app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
     console.log("req22", req)
-    let reqBodyStrng = req.body.toString()
-    console.log(reqBodyStrng);
-    let reqBodyJSON = JSON.parse(reqBodyStrng)
-    console.log(reqBodyStrng);
-    //res.header('Access-Control-Allow-Origin', 'https://1var.com');
-    //res.header('Access-Control-Allow-Credentials', 'true');
-    //res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
+    
+    res.header('Access-Control-Allow-Origin', 'https://1var.com');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
 
     
     if (!cookiesRouter) {
