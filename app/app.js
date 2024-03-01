@@ -43,12 +43,6 @@ app.use('/controller', controllerRouter);
 app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
-    console.log("req22", req)
-    
-    res.header('Access-Control-Allow-Origin', 'https://1var.com');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
-
     
     if (!cookiesRouter) {
         try {

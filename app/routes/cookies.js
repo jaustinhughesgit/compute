@@ -1299,7 +1299,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
     const response = await openai.chat.completions.create({
         messages: [{ role: "system", content: combinedPrompt }],
-        model: "gpt-4-32k-0613",
+        model: "gpt-4-0125-preview",
       });
     
 
@@ -1324,8 +1324,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
-    const accessToken = req.body.headers['X-accessToken'];
-    const originalHost = req.body.headers['X-Original-Host'];
+    let originalHost = req.body.headers["X-Original-Host"]
     let splitOriginalHost = originalHost.split("1var.com")[1]
     const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -1889,10 +1888,6 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai) {
     
     router.all('/*', async function(req, res, next) {
-        //res.header('Access-Control-Allow-Origin', 'https://1var.com');
-        //res.header('Access-Control-Allow-Credentials', 'true');
-        //res.header('Access-Control-Allow-Headers', 'Content-Type, X-Original-Host, X-accessToken');
-    
         route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai)
     });
 
