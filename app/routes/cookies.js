@@ -5,10 +5,13 @@ var router = express.Router();
 const moment = require('moment-timezone')
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
+
 const { Configuration, OpenAIApi } = require("openai");
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const configuration = new Configuration({
-    apiKey: process.env.OPENAI_API_KEY});
-    const openai = new OpenAIApi(configuration);
+    apiKey: OPENAI_API_KEY,
+  });
+const openai = new OpenAIApi(configuration);
 
 let convertCounter = 0
 let isPublic = true
