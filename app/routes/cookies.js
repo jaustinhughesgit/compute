@@ -1276,7 +1276,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
   async function runPrompt(question, entity, dynamodb, openai){
-    const gptScript = "" 
+    const gptScript = `Here is a new programming language (JsonActions). Each actions[n] object is one node.js express middleware. "set" list variables available to subsequent actions. If there is a "while" or "assign", then "set" variables are nested. "while" loops an action and nest it's "set" variables. Accessing objects is done by surrounding the variable with "{|" and "|}". "{|=" denotes a math equations using mathjs npm module, and you can access things like "pi" and "cos" directly like "{|=pi|}". Each middleware action can have an "actions" to create infinitely nested actions.  Express params 'res' and 'req' are already available in the root is done like; "{|res|}". "~/" jumps to root. Accessing a variables object or array is done like; "{|var=obj.nested|}" and "{|var=>[0]|".` 
 
     const head = await getHead("su", entity, dynamodb)
     let isPublic = head.Items[0].z
