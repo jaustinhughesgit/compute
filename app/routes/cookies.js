@@ -1804,6 +1804,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fileID = reqPath.split("/")[3]
                 const prompt = requestBody.body;
                 let oai = await runPrompt(prompt, fileID, dynamodb);
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
             }
             
             /* else if (action == "transcribe"){
