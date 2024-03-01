@@ -1278,20 +1278,22 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
   async function runPrompt(question, entity, dynamodb){
-	const prompt = question;
     const gptScript = "" 
 
     const head = await getHead("su", entity, dynamodb)
     let isPublic = head.Items[0].z
 
-    const results = await retrieveAndParseJSON(entity, isPublic);
+    let results = await retrieveAndParseJSON(entity, isPublic);
     
+    results.blocks = {}
+    results = JSON.stringify(results)
+
     console.log("GPTSCRIPT:33",gptScript);
-    console.log("PROMPT:33",prompt);
+    console.log("PROMPT:33",question);
     console.log("ENTITY:33",entity);
     console.log("RESULTS:33",results);
 
-    let combinedPrompt = `${gptScript} /n/n ${prompt} /n/n ${results}`
+    let combinedPrompt = `${gptScript} /n/n ${question.prompt} /n/n ${results}`
 
     console.log(combinedPrompt);
 
