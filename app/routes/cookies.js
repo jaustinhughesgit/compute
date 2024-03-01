@@ -1299,7 +1299,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
     const response = await openai.chat.completions.create({
         messages: [{ role: "system", content: combinedPrompt }],
-        model: "gpt-4-0125-preview",
+        model: "gpt-3.5-turbo-0125",
       });
     
 
