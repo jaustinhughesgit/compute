@@ -1292,14 +1292,14 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("ENTITY:33",entity);
     console.log("RESULTS:33",results);
 
-    let combinedPrompt = `//ROLE: ${gptScript} /n/n //REQUIREMENTS: ${question.prompt} /n/n //CODE TO EDIT: ${results} /n/n //EXAMPLE CODE: ${exampleCode}`
+    let combinedPrompt = `${gptScript} /n/n Here is example code; ${exampleCode} /n/n Remember, no comments. Just JSON! Here are your requirements: ${question.prompt} /n/n Here is the code to edit; ${results} `
 
     console.log(combinedPrompt);
     console.log("openai", openai)
 
     const response = await openai.chat.completions.create({
         messages: [{ role: "system", content: combinedPrompt }],
-        model: "gpt-4-0125-preview",
+        model: "gpt-3.5-turbo-16k",
       });
     
 
