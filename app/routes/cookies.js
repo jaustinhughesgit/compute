@@ -1311,7 +1311,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 	const JSONresponse = JSON.parse(jsonString);
 	//console.log(parsableJSONresponse)
-  return JSONresponse
+  return {"response":JSONresponse, "isPublic":isPublic}
 };
 
 
@@ -1809,6 +1809,13 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
                 actionFile = fileID
                 const prompt = requestBody.body;
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai);
+                const params = {
+                    Bucket: fileLocation(oai.isPublic)+".1var.com", // Replace with your bucket name
+                    Key: fileID,
+                    Body: oai.response,
+                    ContentType: "application/json"
+                };
+                const data = await s3.putObject(params).promise();
                 mainObj["oai"] = oai
             }
             
