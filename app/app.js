@@ -14,12 +14,9 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
-const { Configuration, OpenAIApi } = require("openai");
+import OpenAI from "openai";
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
+const openai = new OpenAI();
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
