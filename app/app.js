@@ -14,7 +14,7 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
-import OpenAI from "openai";
+const OpenAI = require("openai");
 
 const openai = new OpenAI();
 
