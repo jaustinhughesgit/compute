@@ -1324,7 +1324,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
-    let originalHost = req.body.headers["X-Original-Host"]
+    const accessToken = req.body.headers['X-accessToken'];
+    const originalHost = req.body.headers['X-Original-Host'];
     let splitOriginalHost = originalHost.split("1var.com")[1]
     const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
