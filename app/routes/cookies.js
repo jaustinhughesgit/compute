@@ -1295,12 +1295,12 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
     console.log(combinedPrompt);
     console.log("openai", openai)
-	const response = await openai.createCompletion({
-		model: "gpt-4-0125-preview",
-		prompt: combinedPrompt,
-		max_tokens: 128000,
-		temperature: 1
-	});
+
+    const response = await openai.chat.completions.create({
+        messages: [{ role: "system", content: combinedPrompt }],
+        model: "gpt-4-0125-preview",
+      });
+    
 
     console.log(response)
 
