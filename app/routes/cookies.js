@@ -1303,7 +1303,8 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
       });
     
 
-    console.log(response)
+      console.log("stringify", JSON.stringify(response))
+    console.log("text.trim", response.data.choices[0].text.trim())
 
 	//const parsableJSONresponse = response.data.choices[0].text;
 	//console.log(parsableJSONresponse)
@@ -1805,7 +1806,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, ope
                 actionFile = fileID
                 const prompt = requestBody.body;
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai);
-                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
+                mainObj = {"data":{"oai":oai}}
             }
             
             /* else if (action == "transcribe"){
