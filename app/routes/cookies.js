@@ -5,6 +5,11 @@ var router = express.Router();
 const moment = require('moment-timezone')
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
+const { Configuration, OpenAIApi } = require("openai");
+const configuration = new Configuration({
+    apiKey: process.env.OPENAI_API_KEY});
+    const openai = new OpenAIApi(configuration);
+
 let convertCounter = 0
 let isPublic = true
 
@@ -1217,7 +1222,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
   
-  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
+/*  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
     const region = "us-east-1";
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
@@ -1259,7 +1264,54 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
   
     console.log("Generated URL:", url);
     return url;
-  }
+  }*/
+
+  async function retrieveAndParseJSON(fileName, isPublic) {
+    let fileLocation = "private"
+    if (isPublic == "true" || isPublic == true){
+        fileLocation = "public"
+    }
+    const params = { Bucket: fileLocation +'.1var.com', Key: fileName};
+    const data = await s3.getObject(params).promise();
+    return await JSON.parse(data.Body.toString());
+}
+
+
+  async function runPrompt(question, entity, dynamodb){
+	const prompt = question;
+    const gptScript = "" 
+
+    const head = await getHead("su", entity, dynamodb)
+    let isPublic = head.Items[0].z
+
+    const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
+    const results = await Promise.all(promises);
+    
+    console.log("GPTSCRIPT:33",gptScript);
+    console.log("PROMPT:33",prompt);
+    console.log("ENTITY:33",entity);
+    console.log("RESULTS:33",results);
+
+    let combinedPrompt = `${gptScript} /n/n ${prompt} /n/n ${results}`
+
+    console.log(combinedPrompt);
+
+	const response = await openai.createCompletion({
+		model: "gpt-4-0125-preview",
+		prompt: combinedPrompt,
+		max_tokens: 128000,
+		temperature: 1
+	});
+
+    console.log(response)
+
+	//const parsableJSONresponse = response.data.choices[0].text;
+	//console.log(parsableJSONresponse)
+  return "parsableJSONresponse"
+};
+
+
+
 
 async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     console.log("route", req)
@@ -1293,7 +1345,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
-            } else if (action == "add") {
+            } else if (action == "add"){
                 console.log("add");
                 const fileID = reqPath.split("/")[3];
                 const newEntityName = reqPath.split("/")[4];
@@ -1748,9 +1800,15 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
-            } else if (action == "transcribe"){
-                mainObj["presign"] = await getPresignedUrl();
+            } else if (action == "updateEntityByAI"){
+                const fileID = reqPath.split("/")[3]
+                
+                let oai = await runPrompt(message, fileID, dynamodb);
             }
+            
+            /* else if (action == "transcribe"){
+                mainObj["presign"] = await getPresignedUrl();
+            } */
 
             mainObj["file"] = actionFile + ""
             response = mainObj
@@ -1799,6 +1857,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 console.log("res",res)
                 res.json({"ok":true,"response":response});
             }
+
         } else {
             res.json({})
         }
