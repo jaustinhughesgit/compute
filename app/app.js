@@ -14,6 +14,13 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
+const { Configuration, OpenAIApi } = require("openai");
+
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY,
+});
+const openai = new OpenAIApi(configuration);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true }}));
@@ -43,7 +50,7 @@ app.use(async (req, res, next) => {
         try {
             const privateKey = await getPrivateKey();
             let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses);
+            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai);
             app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');

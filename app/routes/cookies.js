@@ -6,12 +6,7 @@ const moment = require('moment-timezone')
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y'; 
 
-const { Configuration, OpenAIApi } = require("../openai");
 
-const configuration = new Configuration({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-const openai = new OpenAIApi(configuration);
 
 let convertCounter = 0
 let isPublic = true
@@ -1280,7 +1275,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 }
 
 
-  async function runPrompt(question, entity, dynamodb){
+  async function runPrompt(question, entity, dynamodb, openai){
     const gptScript = "" 
 
     const head = await getHead("su", entity, dynamodb)
@@ -1317,7 +1312,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
 
 
 
-async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
+async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai){
     console.log("route", req)
     console.log("req.body", req.body)
     console.log("req.headers", req.headers)
@@ -1808,7 +1803,7 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 const prompt = requestBody.body;
-                let oai = await runPrompt(prompt, fileID, dynamodb);
+                let oai = await runPrompt(prompt, fileID, dynamodb, openai);
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
             }
             
@@ -1872,10 +1867,10 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
     }
 }
 
-function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses) {
+function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai) {
     
     router.all('/*', async function(req, res, next) {
-        route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses)
+        route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai)
     });
 
     return router;
