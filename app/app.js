@@ -43,7 +43,6 @@ app.use('/controller', controllerRouter);
 app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
-    req.setTimeout(600000);
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
