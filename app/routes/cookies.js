@@ -1802,8 +1802,8 @@ async function route (req, res, next, privateKey, dynamodb, uuidv4, s3, ses){
                 mainObj["tasks"] = tasksISO
             } else if (action == "updateEntityByAI"){
                 const fileID = reqPath.split("/")[3]
-                
-                let oai = await runPrompt(message, fileID, dynamodb);
+                const prompt = requestBody.body;
+                let oai = await runPrompt(prompt, fileID, dynamodb);
             }
             
             /* else if (action == "transcribe"){
