@@ -458,7 +458,17 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     if (data.ContentType == "application/json"){
         return await JSON.parse(data.Body.toString());
     } else {
-        return {"blocks":[],"modules":{},"actions":[]}
+        return {"blocks":[],"modules":{},"actions":[{
+            "target": "{|res|}",
+            "chain": [
+                {
+                    "access": "send",
+                    "params": [
+                        "image"
+                    ]
+                }
+            ]
+        }]}
     }
 }
 
