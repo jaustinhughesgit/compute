@@ -1672,7 +1672,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 console.log("--5--")
                 try{
                 console.log(libs.root.context[target].value)
-                result = libs.root.context[target].value[accessClean](...accessClean)
+                result = libs.root.context[target].value[accessClean](...accessClean).format('YYYY-MM-DD HH:mm:ss')
                 console.log(result)
                 } catch (err){}
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
