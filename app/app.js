@@ -512,7 +512,11 @@ async function initializeMiddleware(req, res, next) {
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         req.lib.root.context.body = {"value":req.body.body, "context":{}}
+                        console.log("processConfig1",userJSON)
+                        console.log("processConfig2",req.lib.root.context)
+                        console.log("processConfig3",req.lib)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                        console.log("processConfig4",req.lib.root.context)
                         req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
                         req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                         req.lib.root.context.req = {"value":req, "context":{}}
