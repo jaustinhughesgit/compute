@@ -1601,6 +1601,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             console.log("f", result.length);
             console.log("g", typeof result[accessClean]);
             console.log("h", nestedPath)
+            console.log("I", target)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1666,6 +1667,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else if (!accessClean && chainAction.params){
                 console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
+           // } else if (){
             } else {
                 console.log("--5--")
                 try{
