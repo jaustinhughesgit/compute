@@ -1292,7 +1292,7 @@ async function shiftDaysOfWeekForward(daysOfWeek) {
     console.log("ENTITY:33",entity);
     console.log("RESULTS:33",results);
 
-    let combinedPrompt = `${gptScript} /n/n Here is example code; ${exampleCode} /n/n Remember, no comments. Just JSON! Here are your requirements: ${question.prompt} /n/n Here is the code to edit; ${results} `
+    let combinedPrompt = `${gptScript} /n/n Here is my code; ${exampleCode} /n/n Remember, no comments. Just JSON! Here are your requirements: ${question.prompt} /n/n Here is the code to edit; ${results} `
 
     console.log(combinedPrompt);
     console.log("openai", openai)
