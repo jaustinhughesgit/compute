@@ -455,7 +455,11 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     const params = { Bucket: fileLocation +'.1var.com', Key: fileName};
     const data = await s3.getObject(params).promise();
     console.log("data63", data)
-    return await JSON.parse(data.Body.toString());
+    if (data.ContentType == "application/json"){
+        return await JSON.parse(data.Body.toString());
+    } else {
+        return {"blocks":[],"modules":{},"actions":[]}
+    }
 }
 
 async function processConfig(config, initialContext, lib) {
