@@ -1093,6 +1093,14 @@ async function processString(str, libs, nestedPath) {
     const isObj = await isOnePlaceholder(str)
     console.log("str", str)
     console.log("isObj", isObj)
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("libs.root.context", libs.root.context)
+    console.log("libs.root.context[str]", libs.root.context[str])
+    console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if (isObj || str == "res" || str == "moment-timezone"){
         try{
         target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
