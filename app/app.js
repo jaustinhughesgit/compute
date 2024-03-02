@@ -1414,6 +1414,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
+        console.log("value", value)
+        console.log("typeof", typeof value)
+
         if (value){
             //.arguments is the old .from
             if (action.arguments) {
