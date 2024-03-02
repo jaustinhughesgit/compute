@@ -512,11 +512,7 @@ async function initializeMiddleware(req, res, next) {
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         req.lib.root.context.body = {"value":req.body.body, "context":{}}
-                        console.log("processConfig1",userJSON)
-                        console.log("processConfig2",req.lib.root.context)
-                        console.log("processConfig3",req.lib)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-                        console.log("processConfig4",req.lib.root.context)
                         req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
                         req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                         req.lib.root.context.req = {"value":req, "context":{}}
@@ -1418,9 +1414,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
-        console.log("value", value)
-        console.log("typeof", typeof value)
-
         if (value){
             //.arguments is the old .from
             if (action.arguments) {
@@ -1601,7 +1594,6 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             console.log("f", result.length);
             console.log("g", typeof result[accessClean]);
             console.log("h", nestedPath)
-            console.log("I", target)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1667,13 +1659,11 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else if (!accessClean && chainAction.params){
                 console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
-           // } else if (){
             } else {
                 console.log("--5--")
                 try{
-                console.log(libs.root.context[target].value)
-                result = libs.root.context[target].value[accessClean](...accessClean).format('YYYY-MM-DD HH:mm:ss')
-                console.log(result)
+                console.log(libs.root.context[action.target].value)
+                console.log(libs.root.context[action.target].value.length)
                 } catch (err){}
                 console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
