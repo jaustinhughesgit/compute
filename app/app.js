@@ -464,7 +464,7 @@ async function retrieveAndParseJSON(fileName, isPublic) {
                 {
                     "access": "send",
                     "params": [
-                        "image"
+                        "<img src='https://pubic.1var.com/"+fileName+"'>"
                     ]
                 }
             ]
