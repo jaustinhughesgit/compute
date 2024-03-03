@@ -475,7 +475,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub) {
         })
         let results22 = await Promise.all(promises);
 
-        return results22;
+        return results22[0];
     } else {
         return {"blocks":[],"modules":{},"actions":[{
             "target": "{|res|}",
