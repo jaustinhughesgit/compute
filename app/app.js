@@ -456,7 +456,24 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     const data = await s3.getObject(params).promise();
     console.log("data63", data)
     if (data.ContentType == "application/json"){
-        return await JSON.parse(data.Body.toString());
+        let s3JSON = await JSON.parse(data.Body.toString());
+
+        const promises = await s3JSON.blocks.map(async (obj, index) => {    
+            console.log("999obj", obj)
+            let subRes = await getSub(obj.entity, "su", dynamodb) 
+            console.log("999subRes", subRes)
+            let loc = subRes.Items[0].z
+            console.log("999loc", loc)
+            let fileLoc = "private"
+            if (isPublic == "true" || isPublic == true){
+                fileLoc = "public"
+            }
+            console.log("999fileLoc",fileLoc)
+            s3JSON.blocks[index].privacy = fileLoc
+        })
+        await Promise.all(promises);
+
+        return 
     } else {
         return {"blocks":[],"modules":{},"actions":[{
             "target": "{|res|}",
