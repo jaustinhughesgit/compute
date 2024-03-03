@@ -447,7 +447,7 @@ async function getPrivateKey() {
     }
 }
 
-async function retrieveAndParseJSON(fileName, isPublic) {
+async function retrieveAndParseJSON(fileName, isPublic, getSub) {
     let fileLocation = "private"
     if (isPublic == "true" || isPublic == true){
         fileLocation = "public"
@@ -532,7 +532,7 @@ async function initializeMiddleware(req, res, next) {
         let fileArray = parent.paths[reqPath.split("/")[1]];
         console.log("fileArray", fileArray)
         if (fileArray != undefined){           
-            const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic));
+            const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub));
             const results = await Promise.all(promises);
             console.log("RESULTS87",results)
             console.log("req.blocks",req.blocks)
