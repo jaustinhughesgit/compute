@@ -456,8 +456,10 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub) {
     const data = await s3.getObject(params).promise();
     console.log("data63", data)
     if (data.ContentType == "application/json"){
+        
+console.log("data.body.toString",data.Body.toString())
         let s3JSON = await JSON.parse(data.Body.toString());
-
+        console.log("s3JSON",s3JSON)
         const promises = await s3JSON.blocks.map(async (obj, index) => {    
             console.log("999obj", obj)
             let subRes = await getSub(obj.entity, "su", dynamodb) 
