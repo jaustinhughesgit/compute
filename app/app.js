@@ -471,9 +471,9 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub) {
             console.log("999fileLoc",fileLoc)
             s3JSON.blocks[index].privacy = fileLoc
         })
-        await Promise.all(promises);
+        let results22 = await Promise.all(promises);
 
-        return 
+        return results22;
     } else {
         return {"blocks":[],"modules":{},"actions":[{
             "target": "{|res|}",
