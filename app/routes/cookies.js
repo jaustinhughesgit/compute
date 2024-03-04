@@ -1906,5 +1906,8 @@ module.exports = {
     createVerified,
     incrementCounterAndGetNewValue,
     getWord,
-    createWord
+    createWord,
+    addVersion,
+    updateEntity,
+    getEntity
 }

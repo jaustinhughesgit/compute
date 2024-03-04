@@ -1420,7 +1420,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log)("key startsWith {|>",key )
                 console.log)("key startsWith {|>",key )
                 if (key.startsWith("{|>")){
-                    let {incrementCounterAndGetNewValue, createWord, getSub} = await require('./routes/cookies');
+                    let {incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity} = await require('./routes/cookies');
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     console.log("aNew", aNew)
                     let nonObj = ""
@@ -1459,6 +1459,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         }
                     };
                     await dynamodb.update(params2).promise();
+                    const eParent = await getEntity(subRes.Items[0].e.toString(), dynamodb)
+                    const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
+                    const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
                 }
 
                 let arrowJson = keyClean.split("=>") 
