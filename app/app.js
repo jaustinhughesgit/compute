@@ -1419,51 +1419,59 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
                 console.log("key startsWith {|>",key )
                 if (key.startsWith("{|>")){
-                    let {incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity} = await require('./routes/cookies');
-                    const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    console.log("aNew", aNew)
-                    let nonObj = ""
-                    console.log("isJ", isJ)
-                    if (isJ){
-                        nonObj = JSON.stringify(value)
-                    } else {
-                        nonObj = value
-                    }
-                    console.log("nonObj")
-                    const a = await createWord(aNew.toString(), nonObj, dynamodb);
-                    console.log("a", a)
-                    params1 = {
-                        "TableName": 'subdomains',
-                        "Key": { "su": keyClean.replace(">","") }, 
-                        "UpdateExpression": `set a = :val`,
-                        "ExpressionAttributeValues": {
-                            ':val': a
-                        }
-                    };
-                    await dynamodb.update(params1).promise();
+                    let {incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity, verifyThis, manageCookie} = await require('./routes/cookies');
 
                     keyClean = keyClean.replace(">","")
                     set.key = keyClean
-                let subRes = await getSub(keyClean, "su", dynamodb) 
-                console.log("subRes", subRes)
-                console.log("subRes.Items[0].g",subRes.Items[0].g)
+                    let subRes = await getSub(keyClean, "su", dynamodb) 
+                    console.log("subRes", subRes)
+                    console.log("subRes.Items[0].g",subRes.Items[0].g)
+                    let cookie =  await manageCookie({}, req, res, dynamodb, uuidv4)
 
+                    let verified = verifyThis(keyClean, cookie, dynamodb)
 
+                    if (verified){
 
-                    const eParent = await getEntity(subRes.Items[0].e.toString(), dynamodb)
-
-                    params2 = {
-                        "TableName": 'groups',
-                        "Key": { "g": eParent.Items[0].g.toString() }, 
-                        "UpdateExpression": `set a = :val`,
-                        "ExpressionAttributeValues": {
-                            ':val': a
+                        const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                        console.log("aNew", aNew)
+                        let nonObj = ""
+                        console.log("isJ", isJ)
+                        if (isJ){
+                            nonObj = JSON.stringify(value)
+                        } else {
+                            nonObj = value
                         }
-                    };
-                    await dynamodb.update(params2).promise();
+                        console.log("nonObj")
+                        const a = await createWord(aNew.toString(), nonObj, dynamodb);
+                        console.log("a", a)
+                        params1 = {
+                            "TableName": 'subdomains',
+                            "Key": { "su": keyClean }, 
+                            "UpdateExpression": `set a = :val`,
+                            "ExpressionAttributeValues": {
+                                ':val': a
+                            }
+                        };
+                        await dynamodb.update(params1).promise();
 
-                    const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
-                    const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
+
+
+
+                        const eParent = await getEntity(subRes.Items[0].e.toString(), dynamodb)
+
+                        params2 = {
+                            "TableName": 'groups',
+                            "Key": { "g": eParent.Items[0].g.toString() }, 
+                            "UpdateExpression": `set a = :val`,
+                            "ExpressionAttributeValues": {
+                                ':val': a
+                            }
+                        };
+                        await dynamodb.update(params2).promise();
+
+                        const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
+                        const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
+                    }
                 }
 
                 let arrowJson = keyClean.split("=>") 

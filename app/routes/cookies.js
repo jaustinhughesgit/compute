@@ -159,7 +159,8 @@ function setIsPublic(val){
     }
 }
 
-async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
+
+async function verifyThis(fileID, cookie, dynamodb){
     console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
     console.log("subBySU:fileID", fileID, subBySU)
@@ -201,6 +202,12 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         console.log("NO VERIFICATION NEEDED : IS PUBLIC")
         verified = true;
     }
+    return verified
+}
+
+async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
+
+    const verified = verifyThis(fileID, cookie, dynamodb);
 
     if (verified){
         console.log("ALL GOOD!")
@@ -1909,5 +1916,7 @@ module.exports = {
     createWord,
     addVersion,
     updateEntity,
-    getEntity
+    getEntity,
+    verifyThis,
+    manageCookie
 }
