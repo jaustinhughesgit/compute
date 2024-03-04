@@ -1148,17 +1148,17 @@ async function processString(str, libs, nestedPath) {
     console.log("libs.root.context[str]", libs.root.context[str])
     console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if (isObj || typeof libs.root.context[str] === "object"){
-      
-        target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
-        console.log("target", target)
-        let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
-        try{
-            mmm = nestedValue[str.replace("{|","").replace("|}","")].value
-        } catch (e){
-            mmm = nestedValue[str.replace("{|","").replace("|}","")]
+        if (!typeof mmm === "string" && !mmm.includes("{|")){
+            target = await getKeyAndPath(str.replace("{|","").replace("|}",""), nestedPath)
+            console.log("target", target)
+            let nestedValue = await getNestedValue(libs, target.path)
+            console.log("nestedValue", nestedValue[str.replace("{|","").replace("|}","")])
+            try{
+                mmm = nestedValue[str.replace("{|","").replace("|}","")].value
+            } catch (e){
+                mmm = nestedValue[str.replace("{|","").replace("|}","")]
+            }
         }
-
     }
     
     /*if (str == "res"){
