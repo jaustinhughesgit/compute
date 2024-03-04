@@ -1417,8 +1417,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
                 ////////console.log("66: value", value)
 
-                console.log)("key startsWith {|>",key )
-                console.log)("key startsWith {|>",key )
+                console.log("key startsWith {|>",key )
                 if (key.startsWith("{|>")){
                     let {incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity} = await require('./routes/cookies');
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
