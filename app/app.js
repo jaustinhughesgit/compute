@@ -1436,7 +1436,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         }
                     };
                     await dynamodb.update(params).promise();
-    
+                    keyClean = keyClean.replace(">","")
+                    set.key = keyClean
                 }
 
                 let arrowJson = keyClean.split("=>") 
