@@ -1905,5 +1905,6 @@ module.exports = {
     getSub,
     createVerified,
     incrementCounterAndGetNewValue,
-    getWord
+    getWord,
+    createWord
 }
