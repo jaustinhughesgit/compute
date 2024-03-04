@@ -479,7 +479,7 @@ console.log("data.body.toString",data.Body.toString())
         if (results22.length > 0){
             return results22[0];
         } else {
-            return {}
+            return s3JSON
         }
     } else {
         return {"blocks":[],"modules":{},"actions":[{
