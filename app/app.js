@@ -1420,7 +1420,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log)("key startsWith {|>",key )
                 console.log)("key startsWith {|>",key )
                 if (key.startsWith("{|>")){
-                    let {incrementCounterAndGetNewValue, createWord} = await require('./routes/cookies');
+                    let {incrementCounterAndGetNewValue, createWord, getSub} = await require('./routes/cookies');
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     console.log("aNew", aNew)
                     let nonObj = ""
@@ -1433,7 +1433,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     console.log("nonObj")
                     const a = await createWord(aNew.toString(), nonObj, dynamodb);
                     console.log("a", a)
-                    params = {
+                    params1 = {
                         "TableName": 'subdomains',
                         "Key": { "su": keyClean.replace(">","") }, 
                         "UpdateExpression": `set a = :val`,
@@ -1441,9 +1441,24 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                             ':val': a
                         }
                     };
-                    await dynamodb.update(params).promise();
+                    await dynamodb.update(params1).promise();
+
                     keyClean = keyClean.replace(">","")
                     set.key = keyClean
+                let subRes = await getSub(keyClean, "su", dynamodb) 
+                console.log("subRes", subRes)
+                console.log("subRes.Items[0].g",subRes.Items[0].g)
+
+
+                    params2 = {
+                        "TableName": 'groups',
+                        "Key": { "g": subRes.Items[0].g }, 
+                        "UpdateExpression": `set a = :val`,
+                        "ExpressionAttributeValues": {
+                            ':val': a
+                        }
+                    };
+                    await dynamodb.update(params2).promise();
                 }
 
                 let arrowJson = keyClean.split("=>") 
