@@ -202,12 +202,12 @@ async function verifyThis(fileID, cookie, dynamodb){
         console.log("NO VERIFICATION NEEDED : IS PUBLIC")
         verified = true;
     }
-    return verified
+    return {verified, subBySU, entity}
 }
 
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
 
-    const verified = verifyThis(fileID, cookie, dynamodb);
+    const { verified, subBySU, entity }  = verifyThis(fileID, cookie, dynamodb);
 
     if (verified){
         console.log("ALL GOOD!")
