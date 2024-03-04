@@ -1449,16 +1449,19 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("subRes.Items[0].g",subRes.Items[0].g)
 
 
+
+                    const eParent = await getEntity(subRes.Items[0].e.toString(), dynamodb)
+
                     params2 = {
                         "TableName": 'groups',
-                        "Key": { "g": subRes.Items[0].g }, 
+                        "Key": { "g": eParent.Items[0].g.toString() }, 
                         "UpdateExpression": `set a = :val`,
                         "ExpressionAttributeValues": {
                             ':val': a
                         }
                     };
                     await dynamodb.update(params2).promise();
-                    const eParent = await getEntity(subRes.Items[0].e.toString(), dynamodb)
+
                     const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
                     const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
                 }
