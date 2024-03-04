@@ -1417,16 +1417,22 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
                 ////////console.log("66: value", value)
 
+                console.log)("key startsWith {|>",key )
+                console.log)("key startsWith {|>",key )
                 if (key.startsWith("{|>")){
                     let {incrementCounterAndGetNewValue, createWord} = await require('./routes/cookies');
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    console.log("aNew", aNew)
                     let nonObj = ""
+                    console.log("isJ", isJ)
                     if (isJ){
                         nonObj = JSON.stringify(value)
                     } else {
                         nonObj = value
                     }
+                    console.log("nonObj")
                     const a = await createWord(aNew.toString(), nonObj, dynamodb);
+                    console.log("a", a)
                     params = {
                         "TableName": 'subdomains',
                         "Key": { "su": keyClean.replace(">","") }, 
