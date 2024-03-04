@@ -1377,75 +1377,98 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index){
 async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.set) {
         for (const key in action.set) {
-            const keyExecuted = key.endsWith('|}!');
-            const keyObj = await isOnePlaceholder(key);
-            let keyClean = await removeBrackets(key, keyObj, keyExecuted);
-            ////////console.log("keyClean",keyClean)
-            ////////console.log(key, nestedPath);
-            let set
-            if (keyObj){
-                set = await getKeyAndPath(keyClean, nestedPath)
-            } else {
-                set = {"key":keyClean, "path":nestedPath}
-            }
-            ////////console.log("66: set", set);
-            let nestedContext = await getNestedContext(libs, set.path, set.key);
-            ////////console.log("66: nestedContext",nestedContext)
-            try{
-                ////////console.log("66:2 nestedContext", nestedContext.originalFunction)
-            } catch (err) {}
-            ////////console.log("66: action", action)
-            ////////console.log("66: action.set[key]",action.set[key])
-            function isValidJSON(string) {
-                try {
-                  JSON.parse(string); // Try parsing the string
-                  return true; // If parsing succeeds, return true
-                } catch (error) {
-                  return false; // If parsing fails, return false
-                }
-              }
-              let isJ = false
-              let sending = action.set[key]
-            if (typeof action.set[key] === "object"){
-                isJ = true
-                sending = JSON.stringify(sending)
-            }
-            let value = await replacePlaceholders(sending, libs, nestedPath)
-            if (isJ){
-                value = JSON.parse(value)
-            }
-            ////////console.log("66: value", value)
 
-            let arrowJson = keyClean.split("=>") 
-            ////////console.log("66: arrowJson", arrowJson)
-            if (arrowJson.length > 1){
-                let index
-                if (arrowJson[1].includes("[")){
-                    index = arrowJson[1].slice(0,-1).split("[")[1]
-                    arrowJson[1] = arrowJson[1].slice(0,-1).split("[")[0]
+                const keyExecuted = key.endsWith('|}!');
+                const keyObj = await isOnePlaceholder(key);
+                let keyClean = await removeBrackets(key, keyObj, keyExecuted);
+                ////////console.log("keyClean",keyClean)
+                ////////console.log(key, nestedPath);
+                let set
+                if (keyObj){
+                    set = await getKeyAndPath(keyClean, nestedPath)
+                } else {
+                    set = {"key":keyClean, "path":nestedPath}
                 }
-                const pathParts = arrowJson[1].split('.');
-                ////////console.log("66: pathParts", pathParts)
-                let firstParts = arrowJson[0].replace("~/","root.").split('.')
-                ////////console.log("###firstParts", firstParts)
-                ////////console.log("###pathParts", pathParts)
-                ////////console.log("###value", value)
-                ////////console.log("###libs", libs)
-                if (index != undefined){
-                    if (index.includes("{|")){
-                        ////////console.log("index", index)
-                        index = index.replace("{|","").replace("|}","")
-                        ////////console.log("preIndex", index)
-                        index = libs.root.context[index.replace("{|","").replace("|}","").replace("~/","")]
-                        index = parseInt(index.value.toString())
-                        ////////console.log("postIndex", index)
+                ////////console.log("66: set", set);
+                let nestedContext = await getNestedContext(libs, set.path, set.key);
+                ////////console.log("66: nestedContext",nestedContext)
+                try{
+                    ////////console.log("66:2 nestedContext", nestedContext.originalFunction)
+                } catch (err) {}
+                ////////console.log("66: action", action)
+                ////////console.log("66: action.set[key]",action.set[key])
+                function isValidJSON(string) {
+                    try {
+                    JSON.parse(string); // Try parsing the string
+                    return true; // If parsing succeeds, return true
+                    } catch (error) {
+                    return false; // If parsing fails, return false
                     }
                 }
-                await putValueIntoContext(firstParts, pathParts, value, libs, index);
-                ////////console.log("###libs3", libs)
-            } else {
-                await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
-            }
+                let isJ = false
+                let sending = action.set[key]
+                if (typeof action.set[key] === "object"){
+                    isJ = true
+                    sending = JSON.stringify(sending)
+                }
+                let value = await replacePlaceholders(sending, libs, nestedPath)
+                if (isJ){
+                    value = JSON.parse(value)
+                }
+                ////////console.log("66: value", value)
+
+                if (key.startsWith("{|>")){
+                    let {incrementCounterAndGetNewValue, createWord} = await require('./routes/cookies');
+                    const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    let nonObj = ""
+                    if (isJ){
+                        nonObj = JSON.stringify(value)
+                    } else {
+                        nonObj = value
+                    }
+                    const a = await createWord(aNew.toString(), nonObj, dynamodb);
+                    params = {
+                        "TableName": 'subdomains',
+                        "Key": { "su": keyClean.replace(">","") }, 
+                        "UpdateExpression": `set a = :val`,
+                        "ExpressionAttributeValues": {
+                            ':val': a
+                        }
+                    };
+                    await dynamodb.update(params).promise();
+    
+                }
+
+                let arrowJson = keyClean.split("=>") 
+                ////////console.log("66: arrowJson", arrowJson)
+                if (arrowJson.length > 1){
+                    let index
+                    if (arrowJson[1].includes("[")){
+                        index = arrowJson[1].slice(0,-1).split("[")[1]
+                        arrowJson[1] = arrowJson[1].slice(0,-1).split("[")[0]
+                    }
+                    const pathParts = arrowJson[1].split('.');
+                    ////////console.log("66: pathParts", pathParts)
+                    let firstParts = arrowJson[0].replace("~/","root.").split('.')
+                    ////////console.log("###firstParts", firstParts)
+                    ////////console.log("###pathParts", pathParts)
+                    ////////console.log("###value", value)
+                    ////////console.log("###libs", libs)
+                    if (index != undefined){
+                        if (index.includes("{|")){
+                            ////////console.log("index", index)
+                            index = index.replace("{|","").replace("|}","")
+                            ////////console.log("preIndex", index)
+                            index = libs.root.context[index.replace("{|","").replace("|}","").replace("~/","")]
+                            index = parseInt(index.value.toString())
+                            ////////console.log("postIndex", index)
+                        }
+                    }
+                    await putValueIntoContext(firstParts, pathParts, value, libs, index);
+                    ////////console.log("###libs3", libs)
+                } else {
+                    await addValueToNestedKey(set.key.replace("~/",""), nestedContext, value);
+                }
         }
     }
 
