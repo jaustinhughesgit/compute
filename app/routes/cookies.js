@@ -1904,5 +1904,6 @@ module.exports = {
     manageCookie,
     getSub,
     createVerified,
-    incrementCounterAndGetNewValue
+    incrementCounterAndGetNewValue,
+    getWord
 }
