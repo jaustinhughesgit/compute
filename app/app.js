@@ -476,8 +476,11 @@ console.log("data.body.toString",data.Body.toString())
             return s3JSON
         })
         let results22 = await Promise.all(promises);
-
-        return results22[0];
+        if (results22.length > 0){
+            return results22[0];
+        } else {
+            return {}
+        }
     } else {
         return {"blocks":[],"modules":{},"actions":[{
             "target": "{|res|}",
@@ -544,7 +547,9 @@ async function initializeMiddleware(req, res, next) {
                 return results[0].blocks
             } else {
                 const arrayOfJSON = [];
+                console.log("results",results)
                 results.forEach(result => arrayOfJSON.push(result));
+                console.log("arrayOfJSON", arrayOfJSON)
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         req.lib.root.context.body = {"value":req.body.body, "context":{}}
