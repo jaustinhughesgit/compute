@@ -968,14 +968,19 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
+            console.log("innerStr",innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } if (innerStr.startsWith(">")){
+                console.log("INSIDE > ")
                 let {getWord, getSub} = require('./routes/cookies')
                 let subRes = await getSub(innerStr.replace(">",""), "su", dynamodb) 
+                console.log("subRes", subRes)
+                console.log("subRes.Items[0].a",subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb) 
-                value = subWord
+                console.log("subWord", subWord)
+                value = subWord.Items[0].s
             } else {
                 ////////console.log("DDDDDDDDDDD")
                 ////////console.log("forceRoot",forceRoot)
