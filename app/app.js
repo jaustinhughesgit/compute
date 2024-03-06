@@ -561,7 +561,6 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.res = {"value":res, "context":{}}
                         req.lib.root.context.math = {"value":math, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("req.isAuthenticated()",req.isAuthenticated());
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
                 });
