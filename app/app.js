@@ -1010,13 +1010,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
             } else {
-                ////////console.log("str2", str);
+                console.log("str2", str);
+                console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str) 
+                console.log("isObj", isObj);
                 if (isObj) {
                     ////////console.log("object", value)
                     return value;
                 } else {
-                    ////////console.log("stringify", value)
+                    console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
