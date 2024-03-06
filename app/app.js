@@ -543,7 +543,7 @@ async function initializeMiddleware(req, res, next) {
             const results = await Promise.all(promises);
             console.log("RESULTS87",results)
             console.log("req.blocks",req.blocks)
-            if (req.blocks){
+            if (req.blocks.length > 0){
                 return results[0].blocks
             } else {
                 const arrayOfJSON = [];
