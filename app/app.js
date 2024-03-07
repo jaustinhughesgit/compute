@@ -560,6 +560,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.req = {"value":req, "context":{}}
                         req.lib.root.context.res = {"value":res, "context":{}}
                         req.lib.root.context.math = {"value":math, "context":{}}
+                        req.lib.root.context.axios = {"value":axios, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
