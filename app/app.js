@@ -1694,26 +1694,26 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-                ////////console.log(">>C<<")
+                console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
             }
-            ////////console.log("chainParams",chainParams)
+            console.log("chainParams",chainParams)
             let accessClean = chainAction.access
             if (accessClean){
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            ////////console.log("a", accessClean);
-            ////////console.log("b", chainAction.params);
-            ////////console.log("c", chainAction.new);
-            ////////console.log("d", result);
-            ////////console.log("e", result[accessClean]);
-            ////////console.log("f", result.length);
-            ////////console.log("g", typeof result[accessClean]);
-            ////////console.log("h", nestedPath)
+            console.log("a", accessClean);
+            console.log("b", chainAction.params);
+            console.log("c", chainAction.new);
+            console.log("d", result);
+            console.log("e", result[accessClean]);
+            console.log("f", result.length);
+            console.log("g", typeof result[accessClean]);
+            console.log("h", nestedPath)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1721,43 +1721,43 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             
 
             if (accessClean && !chainAction.params) {
-                ////////console.log("--1--")
+                console.log("--1--")
                 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
-                ////////console.log("--2--")
+                console.log("--2--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if (typeof result[accessClean] === 'function') {
-                ////////console.log("--3--")
+                console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
 
-                    ////////console.log("..a..")
+                    console.log("..a..")
                     if (chainAction.new) {
-                        ////////console.log("..b..")
+                        console.log("..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        ////////console.log("..c..")
+                        console.log("..c..")
                         if (chainAction.access && accessClean.length != 0){
-                            ////////console.log("..d..")
+                            console.log("..d..")
                             if (chainAction.express){
-                                ////////console.log("..e..")
+                                console.log("..e..")
                                 if (chainAction.next || chainAction.next == undefined){
-                                    ////////console.log("..f..")
+                                    console.log("..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    ////////console.log("..g..")
+                                    console.log("..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
                                 
-                                ////////console.log("..h..")
+                                console.log("..h..")
                                 try{ console.log("result", result) } catch (err){}
                                 try{ console.log("accessClean", accessClean)} catch (err){}
                                 try{ console.log("chainParams", chainParams)} catch (err){}
                                 try{
-                                    ////////console.log("..i..")
+                                    console.log("..i..")
                                     ////////console.log(chainParams[0])
                                     ////////console.log(typeof chainParams[0])
                                     if (chainParams.length > 0){
@@ -1768,7 +1768,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     result = await result[accessClean](...chainParams);
                                 } catch(err){
                                     ////////console.log("err", err)
-                                    ////////console.log("..j..")
+                                    console.log("..j..")
                                     ////////console.log("result", result.req.lib.root)
                                     result = result
                                 }
@@ -1777,10 +1777,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (!accessClean && chainAction.params){
-                ////////console.log("--4--")
+                console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
-                ////////console.log("--5--")
+                console.log("--5--")
                 try{
                 ////////console.log(libs.root.context[action.target].value)
                 ////////console.log(libs.root.context[action.target].value.length)
@@ -1790,12 +1790,12 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
         }
     }
-    ////////console.log("--6--")
+    console.log("--6--")
     return result;
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    ////////console.log("11111111")
+    console.log("11111111")
     return  async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
         ////////console.log("55: assignExecuted", assignExecuted)
@@ -1847,18 +1847,18 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
             let indexP = 0;
             for (par in action.params){
-                ////////console.log("par",par)
+                console.log("par",par)
                 let param2 = action.params[par]
-                ////////console.log("11: param2",param2)
+                console.log("11: param2",param2)
                 if (param2 != null && param2 != ""){
                     const paramExecuted2 = param2.endsWith('|}!');
-                    ////////console.log("22: paramExecuted2",paramExecuted2)
+                    console.log("22: paramExecuted2",paramExecuted2)
                     const paramObj2 = await isOnePlaceholder(param2);
-                    ////////console.log("22: paramObj2",paramObj2)
+                    console.log("22: paramObj2",paramObj2)
                     let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                    ////////console.log("22: paramClean2",paramClean2)
+                    console.log("22: paramClean2",paramClean2)
                     let newNestedPath2 = nestedPath+"."+assign.key
-                    ////////console.log("22: newNestedPath2",newNestedPath2)
+                    console.log("22: newNestedPath2",newNestedPath2)
                     let p
                     const isObj = await isOnePlaceholder(paramClean2)
                     if (isObj){
@@ -1866,9 +1866,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     } else {
                         p = {"key":paramClean2, "path":newNestedPath2}
                     }
-                    ////////console.log("22: p",p)
+                    console.log("22: p",p)
                     let nestedParamContext2 = await getNestedContext(libs, p.path);
-                    ////////console.log("22: addValue:",paramClean2, nestedParamContext2, args[indexP])
+                    console.log("22: addValue:",paramClean2, nestedParamContext2, args[indexP])
                     await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
                     ////////console.log("22: lib.root.context", libs.root.context);
                 }
