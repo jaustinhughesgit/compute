@@ -560,8 +560,10 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.req = {"value":req, "context":{}}
                         req.lib.root.context.res = {"value":res, "context":{}}
                         req.lib.root.context.math = {"value":math, "context":{}}
+                        req.lib.root.context.axios = {"value":axios, "context":{}}
                         req.lib.root.context.fs = {"value":fs, "context":{}}
                         req.lib.root.context.JSON = {"value":JSON, "context":{}}
+                        req.lib.root.context.Buffer = {"value":Buffer, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
@@ -1784,7 +1786,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else {
                 console.log("--5--")
                 try{
-
+                    
                 ////////console.log(libs.root.context[action.target].value)
                 ////////console.log(libs.root.context[action.target].value.length)
                 } catch (err){}
