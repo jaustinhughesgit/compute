@@ -802,7 +802,7 @@ function evaluateMathExpression(expression) {
         return null;
     }
 }
-/*
+
   function replaceWords(input, obj) {
     
     return input.replace(/\[(\w+)]/g, (match, word) => {
@@ -812,13 +812,13 @@ function evaluateMathExpression(expression) {
 
         if (!/^\".*\"$/.test(word)) {
             if (isContextKey(word, obj)){
-                return `["{|${word}|}"]`;
+                return `["||${word}||"]`;
             }
         }
         return match;
     });
 }
-*/
+
 function isContextKey(searchKey, obj) {
     if (obj.hasOwnProperty(searchKey)) {
         return true;
@@ -1786,7 +1786,6 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else {
                 console.log("--5--")
                 try{
-                    
                 ////////console.log(libs.root.context[action.target].value)
                 ////////console.log(libs.root.context[action.target].value.length)
                 } catch (err){}
