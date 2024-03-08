@@ -1729,11 +1729,14 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params) {
-                console.log("--2--")
+                console.log("--2a--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
-            } else if (accessClean == "" && chainAction.new && chainAction.params.length == 0) {
+            } else if (!accessClean && chainAction.new && !chainAction.params) {
                 console.log("--2b--")
-                result = await instantiateWithNew(result, chainParams);
+                result = await instantiateWithNew(result, []);
+            } else if (!accessClean && chainAction.new && chainAction.params) {
+                console.log("--2c--")
+                result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("--3--")
                 if (accessClean === 'promise') {
