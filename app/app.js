@@ -1724,7 +1724,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             // and applies the chain so length can run on letters which is an array.
             
 
-            if (accessClean && !chainAction.params) {
+            if (accessClean && !chainAction.params && !chainAction.new) {
                 console.log("--1--")
                 
                 result = result[accessClean];
