@@ -1338,7 +1338,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
         });
 
         console.log("stringifyANTHROPIC", JSON.stringify(response))
-        jsonParsed = JSON.parse(response.content.text)
+        jsonParsed = JSON.parse(response.content[0].text)
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
         jsonParsed.ai = true;
