@@ -1323,7 +1323,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
         response = await anthropic.messages.create({
             model: "claude-3-opus-20240229",
             max_tokens: 1024,
-            system: gptScript,
+            system: gptScript.join(" "),
             messages: [
                 {
                     "role": "user",
