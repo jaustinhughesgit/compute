@@ -15,8 +15,9 @@ const moment = require('moment-timezone')
 const math = require('mathjs');
 
 const OpenAI = require("openai");
-
 const openai = new OpenAI();
+
+const Anthropic = require('@anthropic-ai/sdk');
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -48,7 +49,7 @@ app.use(async (req, res, next) => {
         try {
             const privateKey = await getPrivateKey();
             let {setupRouter, getSub} = require('./routes/cookies')
-            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai);
+            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
             app.use('/:type(cookies|url)*', function(req, res, next) {
                 req.type = req.params.type;
                 next('route');
@@ -1540,8 +1541,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
         if (value){
             //.arguments is the old .from
-            if (action.arguments) {
-                let promises = action.arguments.map(async item => {
+            if (action.params) {
+                let promises = action.params.map(async item => {
                     ////////console.log("arguments: item", item)
                     const fromExecuted = item.endsWith('|}!');
                     ////////console.log("arguments: fromExecuted", fromExecuted)
