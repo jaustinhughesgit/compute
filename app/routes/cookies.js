@@ -1308,7 +1308,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     console.log("ENTITY:33", entity);
     console.log("RESULTS:33", results);
 
-    let combinedPrompt = `${gptScript} /n/n Using the proprietary json structure, and only responding with json:  ${question.prompt} /n/n Here is the code to edit; ${results} `
+    let combinedPrompt = `${gptScript} /n/n Using the proprietary json structure. RESPOND BACK WITH JUST AND ONLY A SINGLE JSON FILE!! NO COMMENTS!! NO EXPLINATIONS!! NO INTRO!! JUST JSON!!:  ${question.prompt} /n/n Here is the code to edit; ${results} `
 
     console.log(combinedPrompt);
     //console.log("openai", openai)
@@ -1338,7 +1338,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
         });
 
         console.log("stringifyANTHROPIC", JSON.stringify(response))
-        jsonParsed = JSON.parse(response)
+        jsonParsed = JSON.parse(response.content.text)
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
         jsonParsed.ai = true;
