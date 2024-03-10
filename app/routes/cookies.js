@@ -1322,7 +1322,8 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 
         response = await anthropic.messages.create({
             model: "claude-3-sonnet-20240229",//"claude-3-opus-20240229",
-            max_tokens: 1024,
+            max_tokens:4000,
+            temperature:0.7,
             system: gptScript.join(" "),
             messages: [
                 {
