@@ -1612,7 +1612,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //}
             }
         }
-    } else if (action.assign && action.params) {
+    } else if (action.assign) {
         ////////console.log("!!!~~~~~~~~~")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
