@@ -959,23 +959,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
-        console.log("typeof current",typeof current)
-        console.log("json",json)
-        if (current == "{}"){
-            console.log("string")
-        } else if (Object.keys(current).length == 0){
-            console.log("JSON")
-            try{
-                console.log("found it in root")
-                let tempCurrent = json[path].value
-                if (tempCurrent != undefined){
-                    current = tempCurrent
-                }
-            } catch (err) {
-                console.log("could not find it in root:", err)
-            }
-        }
-
         return current;
     }
 
@@ -1324,7 +1307,7 @@ async function runAction(action, libs, nestedPath, req, res, next){
                     let conditionMiddle = whileCondition[1]
                     let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath)
                         
-                        await processAction(action.nestedActions, libs, nestedPath, req, res, next);
+                        await processAction(action, libs, nestedPath, req, res, next);
                         whileCounter++;
                         ////////console.log("$$$", typeof leftSide1, conditionMiddle, typeof rightSide2)
                         ////////console.log("$$$", leftSide1, conditionMiddle, rightSide2)
