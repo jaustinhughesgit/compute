@@ -509,7 +509,7 @@ async function processConfig(config, initialContext, lib) {
 
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({cache: '/tmp/.npm-cache',prefix: '/tmp',}).map(([key, value]) => `--${key}=${value}`).join(' ');
-    await exec(`npm install ${moduleName} ${npmConfigArgs}`); 
+    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`); 
     lib.modules[moduleName] = moduleName
     if (!context.hasOwnProperty(contextKey)){
         context[contextKey] = {"value":{}, "context":{}}
