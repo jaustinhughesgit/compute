@@ -13,6 +13,7 @@ const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const moment = require('moment-timezone')
 const math = require('mathjs');
+const gm = require('gm');
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
@@ -568,6 +569,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.path = {"value":reqPath, "context":{}}
                         req.lib.root.context.console = {"value":console, "context":{}}
                         req.lib.root.context.promisify = {"value":promisify, "context":{}}
+                        req.lib.root.context.gm = {"value":promisify, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
