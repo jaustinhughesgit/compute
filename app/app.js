@@ -967,12 +967,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             console.log("JSON")
             try{
                 console.log("found it in root")
-                let tempCurrent = libs.root.context[path]
+                let tempCurrent = libs.root.context[path].value
                 if (tempCurrent != undefined){
                     current = tempCurrent
                 }
-            } catch {
-                console.log("could not find it in root")
+            } catch (err) {
+                console.log("could not find it in root:", err)
             }
         }
 
