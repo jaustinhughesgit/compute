@@ -863,6 +863,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         let current = json;
 
         let tempCurrent = json[path].value
+        console.log("tempCurrent", tempCurrent)
         if (tempCurrent != undefined) {
             current = tempCurrent
         } else {
