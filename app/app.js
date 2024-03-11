@@ -1307,7 +1307,7 @@ async function runAction(action, libs, nestedPath, req, res, next){
                     let conditionMiddle = whileCondition[1]
                     let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath)
                         
-                        await processAction(action.nestedActions, libs, nestedPath, req, res, next);
+                        await processAction(action, libs, nestedPath, req, res, next);
                         whileCounter++;
                         ////////console.log("$$$", typeof leftSide1, conditionMiddle, typeof rightSide2)
                         ////////console.log("$$$", leftSide1, conditionMiddle, rightSide2)
@@ -1890,9 +1890,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         ////////console.log("222222")
         ////////console.log("lib.root.context", libs.root.context)
         //.actions is the old .run
-        if (action.nestedActions) {
+        if (action.actions) {
             console.log("ACTIONS5 ACTIONS5")
-            for (const act of action.nestedActions) {
+            for (const act of action.actions) {
                 console.log("00: act", act)
                 let newNestedPath = nestedPath+"."+assign.key;
                 console.log("00: newNestedPath", newNestedPath, "libs", libs);
