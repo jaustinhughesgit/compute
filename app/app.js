@@ -1307,7 +1307,7 @@ async function runAction(action, libs, nestedPath, req, res, next){
                     let conditionMiddle = whileCondition[1]
                     let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath)
                         
-                        await processAction(action, libs, nestedPath, req, res, next);
+                        await processAction(action.nestedActions, libs, nestedPath, req, res, next);
                         whileCounter++;
                         ////////console.log("$$$", typeof leftSide1, conditionMiddle, typeof rightSide2)
                         ////////console.log("$$$", leftSide1, conditionMiddle, rightSide2)
