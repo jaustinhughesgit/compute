@@ -857,7 +857,7 @@ function evaluateMathExpression2(expression) {
 async function replacePlaceholders2(str, json, nestedPath = "") {
     ////////console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        ////////console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
+        console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -959,6 +959,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
         }
 
+        console.log("typeof current",typeof current)
+        console.log("json",json)
+        if (current == "{}"){
+            console.log("string")
+        } else if (Object.keys(current).length == 0){
+            console.log("JSON")
+        }
+
         return current;
     }
 
@@ -994,7 +1002,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                ////////console.log("DDDDDDDDDDD")
+                console.log("DDDDDDDDDDD")
                 ////////console.log("forceRoot",forceRoot)
                 ////////console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
@@ -1613,7 +1621,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign) {
-        ////////console.log("!!!~~~~~~~~~")
+       console.log("!!!~~~~~~~~~")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
