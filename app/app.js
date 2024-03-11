@@ -1147,6 +1147,8 @@ async function processString(str, libs, nestedPath) {
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
     console.log("MMM1", newNestedPath)
+    console.log("typeof", typeof mmm)
+    console.log(JSON.stringify(mmm))
     console.log("MMM2", mmm)
     
 
