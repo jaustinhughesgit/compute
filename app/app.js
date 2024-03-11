@@ -1892,7 +1892,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         //.actions is the old .run
         if (action.nestedActions) {
             console.log("ACTIONS5 ACTIONS5")
-            for (const act of action.actions) {
+            for (const act of action.nestedActions) {
                 console.log("00: act", act)
                 let newNestedPath = nestedPath+"."+assign.key;
                 console.log("00: newNestedPath", newNestedPath, "libs", libs);
