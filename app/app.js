@@ -1891,14 +1891,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         ////////console.log("lib.root.context", libs.root.context)
         //.actions is the old .run
         if (action.actions) {
+            console.log("ACTIONS5 ACTIONS5")
             for (const act of action.actions) {
-                ////////console.log("00: act", act)
+                console.log("00: act", act)
                 let newNestedPath = nestedPath+"."+assign.key;
-                ////////console.log("00: newNestedPath", newNestedPath, "libs", libs);
+                console.log("00: newNestedPath", newNestedPath, "libs", libs);
                 result = await runAction(act, libs, newNestedPath, req, res, next)
-                ////////console.log("00: result", result)
+                console.log("00: result", result)
             }
-            ////////console.log("00: lib.root.context", libs.root.context)
+            console.log("00: lib.root.context", libs.root.context)
         }
         return result;
     };
