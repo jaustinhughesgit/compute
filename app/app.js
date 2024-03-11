@@ -1741,21 +1741,68 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("--2c--")
                 result = await instantiateWithNew(result, chainAction.params);
-            } else if (typeof result[accessClean] === 'function' || typeof result === 'function') {
+            } else if (typeof result[accessClean] === 'function') {
                 console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
-                    if (typeof result[accessClean] === 'function'){
-                        result = result[accessClean]
+
+                    console.log("..a..")
+                    if (chainAction.new) {
+                        console.log("..b..")
+                        result = new result[accessClean](...chainParams);
+                    } else {
+                        console.log("..c..")
+                        if (chainAction.access && accessClean.length != 0){
+                            console.log("..d..")
+                            if (chainAction.express){
+                                console.log("..e..")
+                                if (chainAction.next || chainAction.next == undefined){
+                                    console.log("..f..")
+                                    result = await result[accessClean](...chainParams)(req, res, next);
+                                } else {
+                                    console.log("..g..")
+                                    result = await result[accessClean](...chainParams)(req, res);
+                                }
+                            } else {
+                                
+                                console.log("..h..")
+                                try{ console.log("result", result) } catch (err){}
+                                try{ console.log("accessClean", accessClean)} catch (err){}
+                                try{ console.log("chainParams", chainParams)} catch (err){}
+                                try{
+                                    console.log("..i..")
+                                    ////////console.log(chainParams[0])
+                                    ////////console.log(typeof chainParams[0])
+                                    if (chainParams.length > 0){
+                                        if (typeof chainParams[0] == "number"){
+                                            chainParams[0] = chainParams[0].toString();
+                                        }
+                                    }
+                                    result = await result[accessClean](...chainParams);
+                                } catch(err){
+                                    console.log("err", err)
+                                    console.log("..j..")
+                                    //console.log("result", result.req.lib.root)
+                                    result = result
+                                }
+                            }
+                        }
                     }
+                }
+            } else if (typeof result === 'function') {
+                console.log("--3--")
+                //if (accessClean === 'promise') {
+                //    result = await result.promise();
+                //} else {
+
                     console.log("..a..")
                     if (chainAction.new) {
                         console.log("..b..")
                         result = new result(...chainParams);
                     } else {
                         console.log("..c..")
-                        if (chainAction.access && accessClean.length != 0){
+            //            if (chainAction.access && accessClean.length != 0){
                             console.log("..d..")
                             if (chainAction.express){
                                 console.log("..e..")
@@ -1770,7 +1817,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                 
                                 console.log("..h..")
                                 try{ console.log("result", result) } catch (err){}
-                                try{ console.log("accessClean", accessClean)} catch (err){}
+                                //try{ console.log("accessClean", accessClean)} catch (err){}
                                 try{ console.log("chainParams", chainParams)} catch (err){}
                                 try{
                                     console.log("..i..")
@@ -1789,8 +1836,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     result = result
                                 }
                             }
-                        }
-                    }
+            //            }
+            //        }
                 }
             } else if (!accessClean && chainAction.params){
                 console.log("--4--")
