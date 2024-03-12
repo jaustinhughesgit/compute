@@ -13,7 +13,7 @@ const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const moment = require('moment-timezone')
 const math = require('mathjs');
-const gm = require('gm');
+const gm = require('scripts/gm-lambda');
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
