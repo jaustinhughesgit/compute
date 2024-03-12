@@ -9,13 +9,13 @@ const path = require('path');
 const session = require('express-session');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
-const { promisify } = require('util');
-const exec = promisify(require('child_process').exec);
+const util = require('util');
+const child_process = require('child_process')
+const exec = util.promisify(child_process.exec);
 const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require("@aws-sdk/client-scheduler");
 const moment = require('moment-timezone')
 const math = require('mathjs');
-const im = require('./scripts/im-lambda');
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
@@ -574,9 +574,10 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.Buffer = {"value":Buffer, "context":{}}
                         req.lib.root.context.path = {"value":reqPath, "context":{}}
                         req.lib.root.context.console = {"value":console, "context":{}}
-                        req.lib.root.context.promisify = {"value":promisify, "context":{}}
-                        req.lib.root.context.im = {"value":im, "context":{}}
-                        req.lib.root.context.exec = {"value":exec, "context":{}}
+                        req.lib.root.context.util = {"value":util, "context":{}}
+                        req.lib.root.context.child_process = {"value":child_process, "context":{}}
+                        req.lib.root.context.moment = {"value":moment, "context":{}}
+                        req.lib.root.context.s3 = {"value":s3, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
