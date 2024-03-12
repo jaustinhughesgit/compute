@@ -521,6 +521,30 @@ async function installModule(moduleName, contextKey, context, lib) {
 
 async function initializeMiddleware(req, res, next) {
     console.log("req", req)
+
+    try {
+        // Log the files and folders in /opt
+        const optDir = '/opt';
+        fs.readdir(optDir, (err, files) => {
+          if (err) {
+            console.error('Error reading /opt directory:', err);
+          } else {
+            console.log('Files and folders in /opt:');
+            files.forEach(file => {
+              const filePath = path.join(optDir, file);
+              const stats = fs.statSync(filePath);
+              console.log(`- ${file} (${stats.isDirectory() ? 'directory' : 'file'})`);
+            });
+          }
+        });
+    
+        // ... your existing code ...
+    
+      } catch (err) {
+        console.log(err);
+        res.status(500).send('An error occurred');
+      }
+
     if (req.path.startsWith('/auth') || req.path.startsWith('/blocks')) {
         let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
         console.log("req", req)
@@ -549,6 +573,7 @@ async function initializeMiddleware(req, res, next) {
                 return results[results.length - 1].blocks
             } else {
                 const arrayOfJSON = [];
+
                 console.log("results",results)
                 results.forEach(result => arrayOfJSON.push(result));
                 console.log("arrayOfJSON", arrayOfJSON)
