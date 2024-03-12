@@ -6,7 +6,7 @@ const execFileAsync = util.promisify(execFile);
 function gmLambda(inputFile) {
   return {
     write: async (outputFile) => {
-      await execFileAsync('/opt/var/task/graphicsmagick/bin/gm', [
+      await execFileAsync('/opt/gm/bin/gm', [
         'convert',
         inputFile,
         outputFile,
