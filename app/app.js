@@ -14,7 +14,6 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand} = require
 const moment = require('moment-timezone')
 const math = require('mathjs');
 const gm = require('./scripts/gm-lambda');
-process.env.PATH = process.env.PATH + ":/opt/gs/bin";
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
