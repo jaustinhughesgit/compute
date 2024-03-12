@@ -597,6 +597,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.console = {"value":console, "context":{}}
                         req.lib.root.context.promisify = {"value":promisify, "context":{}}
                         req.lib.root.context.im = {"value":im, "context":{}}
+                        req.lib.root.context.exec = {"value":exec, "context":{}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context",req.lib.root.context)
                     };
