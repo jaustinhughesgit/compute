@@ -1,4 +1,5 @@
-process.env.PATH = process.env.PATH + ":/opt/gm/bin";
+process.env.PATH = process.env.PATH + ":/opt/gm/bin:/opt/gm/lib:/opt/gs/bin:/opt/gs/lib";
+
 var express = require('express');
 const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
