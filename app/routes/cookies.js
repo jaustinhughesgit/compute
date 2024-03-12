@@ -1421,7 +1421,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
                 const uniqueId = await getUUID(uuidv4);
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", parent.Items[0].z, dynamodb)
-                const fileResult = await createFile(uniqueId, {}, s3);
+                const fileResult = await createFile(uniqueId, {"blocks":[{"entity": uniqueId,"width": "100", "align": "center"}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "..."]}]}]}, s3);
                 actionFile = uniqueId;
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
                 const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
@@ -1476,7 +1476,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), "0", dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
-                    const fileResult = await createFile(uniqueId2, {}, s3)
+                    const fileResult = await createFile(uniqueId2, {"blocks":[{"entity": uniqueId2,"width": "100", "align": "center"}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "..."]}]}]}, s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
                     //console.log("ses",ses)
@@ -1532,7 +1532,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, "0", dynamodb);
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", false, dynamodb)
-                const fileResult = await createFile(uniqueId, {}, s3)
+                const fileResult = await createFile(uniqueId, {"blocks":[{"entity": uniqueId,"width": "100", "align": "center"}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "..."]}]}]}, s3)
                 actionFile = uniqueId
                 let newM = {}
                 newM[mrE.Items[0].e] = e.toString()
@@ -1561,7 +1561,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", false, dynamodb)
 
-                const fileResult = await createFile(uniqueId, {}, s3)
+                const fileResult = await createFile(uniqueId, {"blocks":[{"entity": uniqueId2,"width": "100", "align": "center"}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "..."]}]}]}, s3)
                 actionFile = uniqueId
 
                 //copy parent
