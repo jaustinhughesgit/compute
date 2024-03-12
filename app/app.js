@@ -1,3 +1,4 @@
+process.env.PATH = process.env.PATH + ":/opt/gm/bin";
 var express = require('express');
 const serverless = require('serverless-http');
 const AWS = require('aws-sdk');
