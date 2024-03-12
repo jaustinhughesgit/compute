@@ -3,10 +3,10 @@ const util = require('util');
 
 const execFileAsync = util.promisify(execFile);
 
-function gmLambda(inputFile) {
+function imLambda(inputFile) {
   return {
     write: async (outputFile) => {
-      await execFileAsync('/opt/gm/bin/gm', [
+      await execFileAsync('/opt/imagemagick/bin/magick', [
         'convert',
         inputFile,
         outputFile,
@@ -15,4 +15,4 @@ function gmLambda(inputFile) {
   };
 }
 
-module.exports = gmLambda;
+module.exports = imLambda;
