@@ -524,7 +524,7 @@ async function initializeMiddleware(req, res, next) {
 
     try {
         // Log the files and folders in /opt
-        const optDir = '/opt/gm/bin';
+        const optDir = '/opt/graphicsmagick/bin';
         fs.readdir(optDir, (err, files) => {
           if (err) {
             console.error('Error reading /opt directory:', err);
