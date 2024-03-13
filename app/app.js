@@ -564,7 +564,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("userJSON",userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
-                        req.lib.root.context["entity"] = fileArray;
+                        req.lib.root.context["entity"] = fileArray[fileArray.length - 1];
                         req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                         req.lib.root.context.req = {"value":req, "context":{}}
                         req.lib.root.context.res = {"value":res, "context":{}}
