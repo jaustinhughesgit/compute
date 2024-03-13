@@ -265,7 +265,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
                 let uuid = subByE.Items[0].su
                 let childResponse = {}
                 console.log("convertCounter", convertCounter)
-                if (convertCounter < 200) {
+                if (convertCounter < 1000) {
                     console.log("----------runing convertToJSON", convertCounter)
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                     convertCounter++;
