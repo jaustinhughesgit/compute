@@ -206,12 +206,13 @@ async function verifyThis(fileID, cookie, dynamodb) {
 }
 
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
-
+    console.log("convertToJSON", fileID, parentPath, isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2, id2Path, usingID)
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
     if (verified) {
         console.log("ALL GOOD!")
         let children
+        console.log("mapping=",mapping)
         if (mapping) {
             console.log("mapping")
             if (mapping.hasOwnProperty(subBySU.Items[0].e)) {
@@ -265,7 +266,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
                 let childResponse = {}
                 console.log("convertCounter", convertCounter)
                 if (convertCounter < 200) {
-
+                    console.log("----------runing convertToJSON", convertCounter)
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                     convertCounter++;
                 }
