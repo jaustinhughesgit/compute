@@ -521,6 +521,22 @@ async function installModule(moduleName, contextKey, context, lib) {
     return "/tmp/node_modules/"+moduleName
 }
 
+function getPageType(urlPath){
+    if (urlPath.toLowerCase().includes("v1.0.0s")){
+        return "v1.0.0s"
+    } else if (urlPath.toLowerCase().includes("v1.0.0m")){
+        return "v1.0.0m"
+    } else if (urlPath.toLowerCase().includes("v1.0.0sa")){
+        return "v1.0.0sa"
+    } else if (urlPath.toLowerCase().includes("v1.0.0ma")){
+        return "v1.0.0ma"
+    } else if (urlPath.toLowerCase().includes("blank")){
+        return "blank"
+    } else {
+        return "1var"
+    }
+}
+
 async function initializeMiddleware(req, res, next) {
     console.log("req", req)
 
@@ -544,7 +560,8 @@ async function initializeMiddleware(req, res, next) {
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
         let fileArray = parent.paths[reqPath.split("/")[1]];
-        console.log("fileArray", fileArray)
+        console.log("fileArray", fileArray);
+
         if (fileArray != undefined){           
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub));
             const results = await Promise.all(promises);
@@ -565,6 +582,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = {"value":reqPath, "context":{}}
                         req.lib.root.context["entity"] = {"value":fileArray[fileArray.length - 1], "context":{}};
+                        req.lib.root.context["pageType"] = {"value":getPageType(reqPath), "context":{}};
                         req.lib.root.context["sessionID"] = {"value":req.sessionID, "context":{}}
                         req.lib.root.context.req = {"value":req, "context":{}}
                         req.lib.root.context.res = {"value":res, "context":{}}
