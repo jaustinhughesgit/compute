@@ -522,14 +522,14 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 function getPageType(urlPath){
-    if (urlPath.toLowerCase().includes("cs")){
-        return "cs"
-    } else if (urlPath.toLowerCase().includes("cm")){
-        return "cm"
-    } else if (urlPath.toLowerCase().includes("as")){
-        return "as"
-    } else if (urlPath.toLowerCase().includes("am")){
-        return "am"
+    if (urlPath.toLowerCase().includes("sc")){
+        return "sc"
+    } else if (urlPath.toLowerCase().includes("mc")){
+        return "mc"
+    } else if (urlPath.toLowerCase().includes("sa")){
+        return "sa"
+    } else if (urlPath.toLowerCase().includes("ma")){
+        return "ma"
     } else if (urlPath.toLowerCase().includes("blank")){
         return "blank"
     } else {
