@@ -470,6 +470,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
             console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
             s3JSON.name = name.Items[0].s
+            s3JSON.entity = fileName
         console.log("s3JSON",s3JSON)
 
         const promises = await s3JSON.blocks.map(async (obj, index) => {    
@@ -478,6 +479,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
             console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
             s3JSON.name = name.Items[0].s
+            s3JSON.entity = obj.entity
             let loc = subRes.Items[0].z
             console.log("999loc", loc)
             let fileLoc = "private"
