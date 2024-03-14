@@ -451,7 +451,10 @@ async function getPrivateKey() {
     }
 }
 
-async function retrieveAndParseJSON(fileName, isPublic, getSub) {
+async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
+
+
+
     let fileLocation = "private"
     if (isPublic == "true" || isPublic == true){
         fileLocation = "public"
@@ -461,13 +464,15 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub) {
     console.log("data63", data)
     if (data.ContentType == "application/json"){
         
-console.log("data.body.toString",data.Body.toString())
+    console.log("data.body.toString",data.Body.toString())
         let s3JSON = await JSON.parse(data.Body.toString());
         console.log("s3JSON",s3JSON)
         const promises = await s3JSON.blocks.map(async (obj, index) => {    
             console.log("999obj", obj)
             let subRes = await getSub(obj.entity, "su", dynamodb) 
             console.log("999subRes", subRes)
+            let name = getWord(subRes.Items[0].a, dynamodb)
+            s3JSON.name = name.Items[0].s
             let loc = subRes.Items[0].z
             console.log("999loc", loc)
             let fileLoc = "private"
@@ -486,6 +491,9 @@ console.log("data.body.toString",data.Body.toString())
             return s3JSON
         }
     } else {
+        let subRes = await getSub(fileName, "su", dynamodb) 
+        console.log("999subRes", subRes)
+        let name = getWord(subRes.Items[0].a, dynamodb)
         return {"blocks":[],"modules":{},"actions":[{
             "target": "{|res|}",
             "chain": [
@@ -496,7 +504,9 @@ console.log("data.body.toString",data.Body.toString())
                     ]
                 }
             ]
-        }]}
+        }],
+        "name":name.Items[0].s
+        }
     }
 }
 
@@ -543,7 +553,7 @@ async function initializeMiddleware(req, res, next) {
     
 
     if (req.path.startsWith('/auth') || req.path.startsWith('/blocks')) {
-        let {setupRouter, getHead, convertToJSON, manageCookie, getSub} = await require('./routes/cookies')
+        let {setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord} = await require('./routes/cookies')
         console.log("req", req)
         console.log("req.body", req.body)
         let originalHost = req.body.headers["X-Original-Host"];
@@ -562,8 +572,9 @@ async function initializeMiddleware(req, res, next) {
         let fileArray = parent.paths[reqPath.split("/")[1]];
         console.log("fileArray", fileArray);
 
+
         if (fileArray != undefined){           
-            const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub));
+            const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
             const results = await Promise.all(promises);
             console.log("RESULTS87",results)
             console.log("req.blocks",req.blocks)
