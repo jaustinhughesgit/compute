@@ -584,7 +584,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("RESULTS87",results)
             console.log("req.blocks",req.blocks)
             if (req.blocks){
-                return results[results.length - 1].blocks
+                return results
             } else {
                 const arrayOfJSON = [];
 
