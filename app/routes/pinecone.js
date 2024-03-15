@@ -12,9 +12,10 @@ router.get('/', async function(req, res, next) {
         input: "/sports/football", model: "text-embedding-ada-002",
     });
     const pinecone = new Pinecone({
-        apiKey: process.env.PINECONE_API_KEY,
-        environment: process.env.PINECONE_ENVIRONMENT,
+        apiKey: process.env.PINECONE_API_KEY
     });
+
+        //,environment: process.env.PINECONE_ENVIRONMENT,
 
     console.log(embedding.data[0].embedding)
     try {
