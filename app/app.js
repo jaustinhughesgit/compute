@@ -38,10 +38,13 @@ ses = new AWS.SES();
 var cookiesRouter;
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var indexRouter = require('./routes/index');
+const embeddingsRouter = require('./routes/embeddings');
+const pineconeRouter = require('./routes/pinecone');
 
 
 console.log("")
-
+app.use('/embeddings', embeddingsRouter);
+app.use('/pinecone', pineconeRouter);
 app.use('/controller', controllerRouter);
 
 app.use('/', indexRouter);
