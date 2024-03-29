@@ -467,15 +467,6 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     console.log("data63", data)
     if (data.ContentType == "application/json"){
         
-    console.log("data.body.toString",data.Body.toString())
-        let s3JSON = await JSON.parse(data.Body.toString());
-        let subRes = await getSub(fileName, "su", dynamodb) 
-            console.log("999subRes", subRes)
-            let name = await getWord(subRes.Items[0].a, dynamodb)
-            console.log("999name", name)
-            s3JSON.name = name.Items[0].r
-            s3JSON.entity = fileName
-        console.log("s3JSON",s3JSON)
 
         const promises = await s3JSON.blocks.map(async (obj, index) => {    
             console.log("999obj", obj)
@@ -499,6 +490,15 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
         if (results22.length > 0){
             return results22[0];
         } else {
+            console.log("data.body.toString",data.Body.toString())
+            let s3JSON = await JSON.parse(data.Body.toString());
+            let subRes = await getSub(fileName, "su", dynamodb) 
+                console.log("999subRes", subRes)
+                let name = await getWord(subRes.Items[0].a, dynamodb)
+                console.log("999name", name)
+                s3JSON.name = name.Items[0].r
+                s3JSON.entity = fileName
+            console.log("s3JSON",s3JSON)
             return s3JSON
         }
     } else {
