@@ -215,6 +215,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         console.log("mapping=",mapping)
         if (mapping) {
             console.log("mapping")
+            console.log("subBySU.Items[0].e",subBySU.Items[0].e)
+            
             if (mapping.hasOwnProperty(subBySU.Items[0].e)) {
                 console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
                 children = mapping[subBySU.Items[0].e]
