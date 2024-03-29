@@ -473,6 +473,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
             let subRes = await getSub(obj.entity, "su", dynamodb) 
             console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
+                console.log("999name", name)
             s3JSON.name = name.Items[0].r
             s3JSON.entity = obj.entity
             let loc = subRes.Items[0].z
