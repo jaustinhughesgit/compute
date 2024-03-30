@@ -2035,15 +2035,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
 const automate = async (url) => {
     try {
-      const response = await axios.get(url, { 
-        withCredentials: true,
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Original-Host': url
-        },
-        body: {"headers":{'X-Original-Host': url}}
-    });
+      const response = await axios.get(url);
       ////////console.log('URL called successfully:', response.data);
     } catch (error) {
       console.error('Error calling URL:', error);
@@ -2066,7 +2058,7 @@ module.exports.lambdaHandler = async (event, context) => {
     }
     if (event.automate){
         console.log("automate is true")
-        await automate("https://compute.1var.com/auth/1v4radcba059-0e47-4042-a887-d110ff4cfa99");
+        await automate("https://1var.com/1v4radcba059-0e47-4042-a887-d110ff4cfa99");
         //await getEventsAndTrigger();
         return {"automate":"done"}
     }
