@@ -2055,12 +2055,14 @@ module.exports.lambdaHandler = async (event, context) => {
         // ...
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
-    } else if (event.automate){
+    }
+    if (event.automate){
         console.log("automate is true")
         //await automate("https://compute.1var.com/auth/");
         //await getEventsAndTrigger();
         return {"automate":"done"}
-    } else if (event.enable){
+    }
+    if (event.enable){
 
         let {setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue} = await require('./routes/cookies')
 
@@ -2127,7 +2129,7 @@ module.exports.lambdaHandler = async (event, context) => {
                         Target: {
                             Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
                             RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
-                            Input: JSON.stringify({"disable":true}),
+                            Input: JSON.stringify({"disable":true, "automate":true}),
                         },
                         FlexibleTimeWindow: { Mode: "OFF" },
                     };
@@ -2180,7 +2182,8 @@ module.exports.lambdaHandler = async (event, context) => {
             //return { statusCode: 500, body: JSON.stringify(err) };
         }
             
-    } else if (event.disable){
+    }
+    if (event.disable){
         let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: {':pk': "enCounter"} };
         let en = await dynamodb.query(enParams).promise()
         let params = { TableName: 'enabled',IndexName: 'enabledindex',KeyConditionExpression: 'enabled = :enabled AND en = :en',ExpressionAttributeValues: {':en': en.Items[0].x-1, ':enabled':1} }
