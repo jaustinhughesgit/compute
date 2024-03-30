@@ -2058,7 +2058,7 @@ module.exports.lambdaHandler = async (event, context) => {
     }
     if (event.automate){
         console.log("automate is true")
-        //await automate("https://compute.1var.com/auth/");
+        await automate("https://compute.1var.com/auth/1v4radcba059-0e47-4042-a887-d110ff4cfa99");
         //await getEventsAndTrigger();
         return {"automate":"done"}
     }
