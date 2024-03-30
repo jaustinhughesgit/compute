@@ -2042,7 +2042,7 @@ const automate = async (url) => {
             'Content-Type': 'application/json',
             'X-Original-Host': url
         },
-        body: {}
+        body: {"headers":{'X-Original-Host': url}}
     });
       ////////console.log('URL called successfully:', response.data);
     } catch (error) {
