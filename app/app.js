@@ -2035,7 +2035,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
 const automate = async (url) => {
     try {
-      const response = await axios.get(url);
+      const response = await axios.get(url, { 
+        withCredentials: true,
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Original-Host': url
+        },
+        body: {}
+    });
       ////////console.log('URL called successfully:', response.data);
     } catch (error) {
       console.error('Error calling URL:', error);
