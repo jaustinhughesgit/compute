@@ -183,7 +183,7 @@ app.all("/eb1", async (req, res, next) => {
       const data = await dynamodb.query(queryParams).promise();
 
     for (const rec of data.Items){
-        let check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it)
+        let check = isTimeInInterval("13830", rec.st, rec.it)//timeInDay.toString()
         urls = []
         if (check){
             urls.push(rec.url)
