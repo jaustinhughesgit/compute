@@ -143,10 +143,14 @@ app.all("/eb1", async (req, res, next) => {
     console.log("hour", hour, "minute", minute)
     const hourFormatted = hour.toString().padStart(2, '0');
     const minuteFormatted = minute.toString().padStart(2, '0');
-    var dow = moment.utc().format('dd').toLowerCase();
-    var today = moment.utc().unix()
-    console.log("hour", hourFormatted, "minute", minuteFormatted, "dow",dow, "today", today)
-    res.json({"hour":hourFormatted, "minute": minuteFormatted, "dow":dow, "today": today})
+    var todayDow = moment.utc().format('dd').toLowerCase();
+    var currentDateInSeconds = moment.utc().unix()
+    var timeInDay = hourFormatted + minuteFormatted
+    console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
+    const gsiName = `${todayDow}Index`;
+
+
+    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds})
 
 
     // This adds the records into the enabled table
