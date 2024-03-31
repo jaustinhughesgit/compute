@@ -136,6 +136,22 @@ app.all("/2356", async (req, res, next) => {
    
 });
 
+function isTimeInInterval(timeInDay, st, it) {
+    // Convert st (start time in seconds) to minutes
+    const stMinutes = st / 60;
+    
+    // Convert timeInDay (HHmm) to total minutes since the start of the day
+    const hours = parseInt(timeInDay.substr(0, 2), 10);
+    const minutes = parseInt(timeInDay.substr(2, 4), 10);
+    const timeInDayMinutes = hours * 60 + minutes;
+    
+    // Calculate the difference in minutes between timeInDay and the start time
+    const diff = timeInDayMinutes - stMinutes;
+    
+    // Check if diff is a multiple of the interval (it)
+    return diff >= 0 && diff % it === 0;
+  }
+
 app.all("/eb1", async (req, res, next) => {    
 
     var hour = moment.utc().format('HH');
@@ -161,10 +177,11 @@ app.all("/eb1", async (req, res, next) => {
         },
       };
 
-
       const data = await dynamodb.query(queryParams).promise();
 
-    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+      let check = isTimeInInterval(timeInDay, data.Items[0].st, data.Items[0].it)
+
+    res.json({"check":check, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
 
     // This adds the records into the enabled table
