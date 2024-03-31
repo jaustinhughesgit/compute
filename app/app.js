@@ -195,7 +195,7 @@ app.all("/eb1", async (req, res, next) => {
         await delay(1000);
     }
 
-    res.json({"check":check, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+    res.json({ "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
 
     // This adds the records into the enabled table
