@@ -181,10 +181,10 @@ app.all("/eb1", async (req, res, next) => {
       };
 
       const data = await dynamodb.query(queryParams).promise();
-
+    let urls = []
     for (const rec of data.Items){
         let check = isTimeInInterval("13830", rec.st, rec.it)//timeInDay.toString()
-        urls = []
+        
         if (check){
             urls.push(rec.url)
         }
@@ -195,7 +195,7 @@ app.all("/eb1", async (req, res, next) => {
         await delay(1000);
     }
 
-    res.json({ "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+    res.json({"urls":urls, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
 
     // This adds the records into the enabled table
