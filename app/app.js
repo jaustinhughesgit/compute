@@ -147,34 +147,59 @@ function isTimeInInterval(timeInDay, st, it) {
 app.all("/eb1", async (req, res, next) => {    
 
     var now = moment.utc();
-    var timeInDay = 13830;//now.hour() * 3600 + now.minute() * 60 + now.second();
-    
-    var todayDow = now.format('dd').toLowerCase();
-    var currentDateInSeconds = now.unix();
-    const gsiName = `${todayDow}Index`;
-    
-    console.log("gsiName", gsiName, "timeInDay", timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds);
-    
-    // ... query DynamoDB and process records as before
-    
-    let urls = [];
-    let check
-    let interval
-    // Assuming `data` is obtained from a DynamoDB query as before
-    for (const rec of data.Items) {
-      check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it * 60); // Ensure `it` is in seconds
-      interval = rec.it * 60
-      if (check) {
-        urls.push(rec.url);
-      }
-    }
-    
-    for (const url of urls) {
-      await automate("https://1var.com/" + url);
-      await delay(500); // Assuming you want a 0.5 second delay
-    }
 
-    res.json({"check":check, "interval":interval, "urls":timeInDay.toString(), "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+
+var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
+
+var now = moment.utc();
+var timeInDay = 13830;//now.hour() * 3600 + now.minute() * 60 + now.second();
+
+var todayDow = now.format('dd').toLowerCase();
+var currentDateInSeconds = now.unix();
+const gsiName = `${todayDow}Index`;
+
+console.log("gsiName", gsiName, "timeInDay", timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds);
+
+const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+    const queryParams = {
+        TableName: 'tasks',
+        IndexName: gsiName,
+        KeyConditionExpression: `#${todayDow} = :dowVal and sd < :currentDate`,
+        ExpressionAttributeNames: {
+          [`#${todayDow}`]: todayDow, 
+        },
+        ExpressionAttributeValues: {
+          ':dowVal': 1,
+          ':currentDate': currentDateInSeconds,
+        },
+      };
+
+      const data = await dynamodb.query(queryParams).promise();
+
+let urls = [];
+let check
+let interval
+// Assuming `data` is obtained from a DynamoDB query as before
+for (const rec of data.Items) {
+  check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it * 60); // Ensure `it` is in seconds
+  interval = rec.it * 60
+  if (check) {
+    urls.push(rec.url);
+  }
+}
+
+for (const url of urls) {
+  await automate("https://1var.com/" + url);
+  await delay(500); // Assuming you want a 0.5 second delay
+}
+
+res.json({"check":check, "interval":interval, "urls":timeInDay.toString(), "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+
+
+
+
+
 
 
     // This adds the records into the enabled table
