@@ -361,7 +361,7 @@ app.all("/eb1", async (req, res, next) => {
     await createSchedule().then(() => console.log("Schedules creation process completed."));
 
     */
-    res.send("success")
+    //res.send("success")
 })
 
 app.all('/blocks/*', 
