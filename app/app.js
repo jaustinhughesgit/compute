@@ -2173,7 +2173,10 @@ module.exports.lambdaHandler = async (event, context) => {
                 urls.push(rec.url);
             }
         }
-
+        console.log("timeInDay",timeInDay)
+        console.log("data",data)
+        console.log("urls",urls)
+        console.log("check", check)
         for (const url of urls) {
             await automate("https://1var.com/" + url);
             await delay(500); // Assuming you want a 0.5 second delay
