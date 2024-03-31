@@ -152,7 +152,7 @@ app.all("/eb1", async (req, res, next) => {
 var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
 
 var now = moment.utc();
-var timeInDay = 13830;//now.hour() * 3600 + now.minute() * 60 + now.second();
+var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
 
 var todayDow = now.format('dd').toLowerCase();
 var currentDateInSeconds = now.unix();
