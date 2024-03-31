@@ -179,7 +179,7 @@ app.all("/eb1", async (req, res, next) => {
 
       const data = await dynamodb.query(queryParams).promise();
 
-      let check = isTimeInInterval("13811", data.Items[0].st, data.Items[0].it)
+      let check = isTimeInInterval("13910", data.Items[0].st, data.Items[0].it)
 
     res.json({"check":check, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
