@@ -151,9 +151,12 @@ app.all("/eb1", async (req, res, next) => {
     const queryParams = {
         TableName: 'tasks',
         IndexName: gsiName,
-        KeyConditionExpression: `sd > :currentDate`,
+        KeyConditionExpression: `#${todayDow} = :dowVal`,
+        ExpressionAttributeNames: {
+          [`#${todayDow}`]: todayDow, 
+        },
         ExpressionAttributeValues: {
-          ':currentDate': currentDateInSeconds,
+          ':dowVal': 1
         },
       };
 
