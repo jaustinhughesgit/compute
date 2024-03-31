@@ -144,7 +144,7 @@ app.all("/eb1", async (req, res, next) => {
     const hourFormatted = hour.toString().padStart(2, '0');
     const minuteFormatted = minute.toString().padStart(2, '0');
     var dow = moment.utc().format('dd').toLowerCase();
-    var today = moment.utc()
+    var today = moment.utc().unix()
     console.log("hour", hourFormatted, "minute", minuteFormatted, "dow",dow, "today", today)
     res.json({"hour":hourFormatted, "minute": minuteFormatted, "dow":dow, "today": today})
 
