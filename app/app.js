@@ -182,8 +182,8 @@ let check
 let interval
 // Assuming `data` is obtained from a DynamoDB query as before
 for (const rec of data.Items) {
-  check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it * 60); // Ensure `it` is in seconds
-  interval = rec.it * 60
+  check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it); // Ensure `it` is in seconds
+  interval = rec.it
   if (check) {
     urls.push(rec.url);
   }
@@ -194,7 +194,7 @@ for (const url of urls) {
   await delay(500); // Assuming you want a 0.5 second delay
 }
 
-res.json({"check":check, "interval":interval, "urls":timeInDay.toString(), "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+res.json({"check":check, "interval":interval, "urls":urls, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
 
 
