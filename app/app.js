@@ -149,7 +149,7 @@ app.all("/eb1", async (req, res, next) => {
     const gsiName = `${todayDow}Index`;
     console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
     const queryParams = {
-        TableName: 'YourTableName',
+        TableName: 'tasks',
         IndexName: gsiName,
         KeyConditionExpression: `#${todayDow} = :dowVal and sd > :currentDate`,
         ExpressionAttributeNames: {
@@ -161,7 +161,10 @@ app.all("/eb1", async (req, res, next) => {
         },
       };
 
-    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams})
+
+      const data = await dynamodb.query(queryParams).promise();
+
+    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
 
     // This adds the records into the enabled table
