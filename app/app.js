@@ -146,8 +146,8 @@ app.all("/eb1", async (req, res, next) => {
     var todayDow = moment.utc().format('dd').toLowerCase();
     var currentDateInSeconds = moment.utc().unix()
     var timeInDay = hourFormatted + minuteFormatted
-    console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
     const gsiName = `${todayDow}Index`;
+    console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
     const queryParams = {
         TableName: 'YourTableName',
         IndexName: gsiName,
