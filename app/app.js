@@ -138,8 +138,19 @@ app.all("/2356", async (req, res, next) => {
 
 app.all("/eb1", async (req, res, next) => {    
 
+    var hour = moment.utc().format('HH');
+    var minute = moment.utc().format('mm');
+    console.log("hour", hour, "minute", minute)
+    const hourFormatted = hour.toString().padStart(2, '0');
+    const minuteFormatted = minute.toString().padStart(2, '0');
+    var dow = moment.utc().format('dd').toLowerCase();
+    var today = moment.utc()
+    console.log("hour", hourFormatted, "minute", minuteFormatted, "dow",dow, "today", today)
+    res.json({"hour":hourFormatted, "minute": minuteFormatted, "dow":dow, "today": today})
+
+
     // This adds the records into the enabled table
-    
+    /*
     const tableName = 'enabled';
 
     for (let hour = 0; hour < 24; hour++) {
@@ -164,7 +175,7 @@ app.all("/eb1", async (req, res, next) => {
         }
     }
     }
-    
+    */
 
     /*
     // Today's date
@@ -2058,7 +2069,17 @@ module.exports.lambdaHandler = async (event, context) => {
     }
     if (event.automate){
         console.log("automate is true")
-        await automate("https://1var.com/1v4radcba059-0e47-4042-a887-d110ff4cfa99");
+
+        var hour = moment.utc().format('HH');
+        var minute = moment.utc().format('mm');
+        console.log("hour", hour, "minute", minute)
+        const hourFormatted = hour.toString().padStart(2, '0');
+        const minuteFormatted = minute.toString().padStart(2, '0');
+        var dow = moment.utc().format('dd').toLowerCase();
+        var today = moment.utc()
+        console.log("hour", hourFormatted, "minute", minuteFormatted, "dow",dow, "today", today)
+
+        //await automate("https://1var.com/1v4radcba059-0e47-4042-a887-d110ff4cfa99");
         //await getEventsAndTrigger();
         return {"automate":"done"}
     }
