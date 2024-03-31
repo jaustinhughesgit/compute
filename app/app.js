@@ -2126,11 +2126,14 @@ module.exports.lambdaHandler = async (event, context) => {
     if (event.automate) {
         console.log("automate is true")
 
-        function isTimeInInterval(timeInDay, st, it) {
-            const diff = timeInDay - st;
-
-            return diff >= 0 && diff % it === 0;
+        function isTimeInInterval(timeInDay, st, itInMinutes) {
+            const timeInDayMinutes = Math.floor(timeInDay / 60);
+            const stMinutes = Math.floor(st / 60);
+            const diffMinutes = timeInDayMinutes - stMinutes;
+            return diffMinutes >= 0 && diffMinutes % itInMinutes === 0;
         }
+
+
         var now = moment.utc();
 
 
