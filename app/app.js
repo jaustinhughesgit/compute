@@ -164,6 +164,9 @@ app.all("/eb1", async (req, res, next) => {
     var timeInDay = hourFormatted + minuteFormatted
     const gsiName = `${todayDow}Index`;
     console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
+
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
     const queryParams = {
         TableName: 'tasks',
         IndexName: gsiName,
@@ -179,7 +182,18 @@ app.all("/eb1", async (req, res, next) => {
 
       const data = await dynamodb.query(queryParams).promise();
 
-      let check = isTimeInInterval("13910", data.Items[0].st, data.Items[0].it)
+    for (const rec of data.Items){
+        let check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it)
+        urls = []
+        if (check){
+            urls.push(rec.url)
+        }
+    }
+
+    for (n in urls){
+        await automate(urls[n]);
+        await delay(1000);
+    }
 
     res.json({"check":check, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
 
