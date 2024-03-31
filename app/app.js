@@ -191,7 +191,7 @@ app.all("/eb1", async (req, res, next) => {
     }
 
     for (n in urls){
-        await automate(urls[n]);
+        await automate("https://1var.com/"+urls[n]);
         await delay(1000);
     }
 
