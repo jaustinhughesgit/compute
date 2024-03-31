@@ -148,9 +148,20 @@ app.all("/eb1", async (req, res, next) => {
     var timeInDay = hourFormatted + minuteFormatted
     console.log("gsiName", gsiName, "timeInDay",timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds)
     const gsiName = `${todayDow}Index`;
+    const queryParams = {
+        TableName: 'YourTableName',
+        IndexName: gsiName,
+        KeyConditionExpression: `#${todayDow} = :dowVal and sd > :currentDate`,
+        ExpressionAttributeNames: {
+          [`#${todayDow}`]: todayDow, 
+        },
+        ExpressionAttributeValues: {
+          ':dowVal': 1,
+          ':currentDate': currentDateInSeconds,
+        },
+      };
 
-
-    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds})
+    res.json({"gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams})
 
 
     // This adds the records into the enabled table
