@@ -2119,11 +2119,10 @@ module.exports.lambdaHandler = async (event, context) => {
         // Process the SES email
         console.log("Received SES event:", JSON.stringify(event, null, 2));
         
-        console.log("messageId", event.Records[0].ses.mail.messageId)
-        console.log("to", event.Records[0].ses.mail.commonHeaders.to)
-        console.log("subject", event.Records[0].ses.mail.commonHeaders.subject)
-        console.log("date", event.Records[0].ses.mail.commonHeaders.date)
-
+        let emailId = event.Records[0].ses.mail.messageId
+        let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
+        let emailDate = event.Records[0].ses.mail.commonHeaders.date
+        let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
         let emailTo = event.Records[0].ses.mail.commonHeaders.to
         let emailTarget = ""
         for (let to in emailTo){
@@ -2148,6 +2147,15 @@ module.exports.lambdaHandler = async (event, context) => {
         if (data.ContentType == "application/json") {
             let s3JSON = await JSON.parse(data.Body.toString());
             console.log("s3JSON",s3JSON)
+            s3JSON.push({"from":returnPath, "to":emailTarget, "subject":emailSubject, "date":emailDate, "emailID":messageId})
+
+            const params = {
+                Bucket: fileLocation + ".1var.com", 
+                Key: emailTarget,
+                Body: s3JSON,
+                ContentType: "application/json"
+            };
+            await s3.putObject(params).promise();
         }
 
 
