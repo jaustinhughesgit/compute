@@ -2148,7 +2148,7 @@ module.exports.lambdaHandler = async (event, context) => {
         if (data.ContentType == "application/json") {
             let s3JSON = await JSON.parse(data.Body.toString());
             console.log("s3JSON",s3JSON)
-            s3JSON.email.push({"from":returnPath, "to":emailTarget, "subject":emailSubject, "date":emailDate, "emailID":emailId})
+            s3JSON.email.unshift({"from":returnPath, "to":emailTarget, "subject":emailSubject, "date":emailDate, "emailID":emailId})
 
             const params = {
                 Bucket: fileLocation + ".1var.com", 
