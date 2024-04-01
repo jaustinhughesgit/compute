@@ -2114,6 +2114,8 @@ const serverlessHandler = serverless(app);
 module.exports.lambdaHandler = async (event, context) => {
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
+
+        let { getSub } = await require('./routes/cookies')
         // Process the SES email
         console.log("Received SES event:", JSON.stringify(event, null, 2));
         
