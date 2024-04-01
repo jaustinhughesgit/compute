@@ -2117,10 +2117,35 @@ module.exports.lambdaHandler = async (event, context) => {
         // Process the SES email
         console.log("Received SES event:", JSON.stringify(event, null, 2));
         
-        console.log("messageId", event.Records.ses.mail.messageId)
-        console.log("to", event.Records.ses.mail.commonHeaders.to)
-        console.log("subject", event.Records.ses.mail.commonHeaders.subject)
-        console.log("date", event.Records.ses.mail.commonHeaders.date)
+        console.log("messageId", event.Records[0].ses.mail.messageId)
+        console.log("to", event.Records[0].ses.mail.commonHeaders.to)
+        console.log("subject", event.Records[0].ses.mail.commonHeaders.subject)
+        console.log("date", event.Records[0].ses.mail.commonHeaders.date)
+
+        let emailTo = event.Records[0].ses.mail.commonHeaders.to
+        let emailTarget = ""
+        for (let to in emailTo){
+            if (to.endsWith("email.1var.com")){
+                emailTarget = to.split("@")[0]
+            }
+        }
+
+        let subEmail = await getSub(emailTarget, "su", dynamodb)
+
+        let isPublic = subEmail.Items[0].z.toString()
+
+        let fileLocation = "private"
+        if (isPublic == "true" || isPublic == true) {
+            fileLocation = "public"
+        }
+        const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
+        const data = await s3.getObject(params).promise();
+        console.log("data63", data)
+        if (data.ContentType == "application/json") {
+            let s3JSON = await JSON.parse(data.Body.toString());
+            console.log("s3JSON",s3JSON)
+        }
+
 
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
