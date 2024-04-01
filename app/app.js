@@ -2152,7 +2152,7 @@ module.exports.lambdaHandler = async (event, context) => {
             const params = {
                 Bucket: fileLocation + ".1var.com", 
                 Key: emailTarget,
-                Body: s3JSON,
+                Body: JSON.stringify(s3JSON),
                 ContentType: "application/json"
             };
             await s3.putObject(params).promise();
