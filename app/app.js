@@ -2128,7 +2128,7 @@ module.exports.lambdaHandler = async (event, context) => {
         let emailTarget = ""
         for (let to in emailTo){
             console.log(to)
-            if (to.endsWith("email.1var.com")){
+            if (to.split("@")[1] == "email.1var.com"){
                 console.log("ends with email.1var.com")
                 emailTarget = to.split("@")[0]
             }
