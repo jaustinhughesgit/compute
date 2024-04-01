@@ -2116,10 +2116,12 @@ module.exports.lambdaHandler = async (event, context) => {
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
         // Process the SES email
         console.log("Received SES event:", JSON.stringify(event, null, 2));
+        
+        console.log("messageId", event.Records.ses.mail.messageId)
+        console.log("to", event.Records.ses.mail.commonHeaders.to)
+        console.log("subject", event.Records.ses.mail.commonHeaders.subject)
+        console.log("date", event.Records.ses.mail.commonHeaders.date)
 
-        // Extract and process the SES email data
-        // Add your SES email processing logic here
-        // ...
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
