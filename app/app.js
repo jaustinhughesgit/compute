@@ -104,19 +104,19 @@ function isSubset(jsonA, jsonB) {
 
 async function isValid(req, res, data) {
     let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
-    console.log("req.path::", req.path)
+    //console.log("req.path::", req.path)
     let sub = await getSub(req.path.replace("/auth/", "").replace("/blocks/", ""), "su", dynamodb)
-    console.log("sub", sub)
+    //console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
-    console.log("params", params)
+    //console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
-    console.log("accessItem", accessItem)
+    //console.log("accessItem", accessItem)
     let isDataPresent = false
     if (accessItem.Items.length > 0) {
-        console.log("accessItem.Items[0].va", accessItem.Items[0].va)
+        //console.log("accessItem.Items[0].va", accessItem.Items[0].va)
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
-    console.log("isDataPresent", isDataPresent)
+    //console.log("isDataPresent", isDataPresent)
     if (isDataPresent) {
         let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
         const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
@@ -124,7 +124,7 @@ async function isValid(req, res, data) {
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createVerified(vi.toString(), cookie.gi.toString(), "0", sub.Items[0].e.toString(), accessItem.Items[0].ai, "0", ex, true, 0, 0)
     }
-    console.log("validating data", data)
+    //console.log("validating data", data)
     return data
 }
 
@@ -421,9 +421,9 @@ app.all("/eb1", async (req, res, next) => {
 
 app.all('/blocks/*',
     async (req, res, next) => {
-        console.log("auth", req)
-        console.log("req.body", req.body)
-        console.log("req.headers", req.headers)
+        //console.log("auth", req)
+        //console.log("req.body", req.body)
+        //console.log("req.headers", req.headers)
         req.lib = {}
         req.lib.modules = {};
         req.lib.middlewareCache = []
@@ -447,16 +447,16 @@ app.all('/blocks/*',
     async (req, res, next) => {
         req.blocks = true;
         let blocksData = await initializeMiddleware(req, res, next);
-        console.log("blocksData", blocksData)
+        //console.log("blocksData", blocksData)
         res.json({ "data": blocksData });
     }
 );
 
 app.all('/auth/*',
     async (req, res, next) => {
-        console.log("auth", req)
-        console.log("req.body", req.body)
-        console.log("req.headers", req.headers)
+        //console.log("auth", req)
+        //console.log("req.body", req.body)
+        //console.log("req.headers", req.headers)
         req.lib = {}
         req.lib.modules = {};
         req.lib.middlewareCache = []
@@ -483,8 +483,8 @@ app.all('/auth/*',
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
-        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
-        console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
+        //console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        //console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
         if (req.lib.middlewareCache.length == 0) {
             res.send("no access")
         } else {
@@ -515,7 +515,7 @@ async function getPrivateKey() {
         let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"', '').replace('"', '');
         return pKey
     } catch (error) {
-        console.error("Error fetching secret:", error);
+        //console.error("Error fetching secret:", error);
         throw error;
     }
 }
@@ -530,47 +530,47 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
     const data = await s3.getObject(params).promise();
-    console.log("data63", data)
+    //console.log("data63", data)
     if (data.ContentType == "application/json") {
         let s3JSON = await JSON.parse(data.Body.toString());
 
         const promises = await s3JSON.blocks.map(async (obj, index) => {
-            console.log("999obj", obj)
+            //console.log("999obj", obj)
             let subRes = await getSub(obj.entity, "su", dynamodb)
-            console.log("999subRes", subRes)
+            //console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
-            console.log("999name", name)
+            //console.log("999name", name)
             s3JSON.name = name.Items[0].r
             s3JSON.entity = obj.entity
             let loc = subRes.Items[0].z
-            console.log("999loc", loc)
+            //console.log("999loc", loc)
             let fileLoc = "private"
             if (isPublic == "true" || isPublic == true) {
                 fileLoc = "public"
             }
-            console.log("999fileLoc", fileLoc)
+            //console.log("999fileLoc", fileLoc)
             s3JSON.blocks[index].privacy = fileLoc
-            console.log("s3JSON", s3JSON)
+            //console.log("s3JSON", s3JSON)
             return s3JSON
         })
         let results22 = await Promise.all(promises);
         if (results22.length > 0) {
             return results22[0];
         } else {
-            console.log("data.body.toString", data.Body.toString())
+            //console.log("data.body.toString", data.Body.toString())
             let s3JSON2 = await JSON.parse(data.Body.toString());
             let subRes = await getSub(fileName, "su", dynamodb)
-            console.log("999subRes", subRes)
+            //console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
-            console.log("999name", name)
+            //console.log("999name", name)
             s3JSON2.name = name.Items[0].r
             s3JSON2.entity = fileName
-            console.log("s3JSON", s3JSON2)
+            //console.log("s3JSON", s3JSON2)
             return s3JSON2
         }
     } else {
         let subRes = await getSub(fileName, "su", dynamodb)
-        console.log("999subRes", subRes)
+        //console.log("999subRes", subRes)
         let name = getWord(subRes.Items[0].a, dynamodb)
         return {
             "blocks": [], "modules": {}, "actions": [{
@@ -627,48 +627,48 @@ function getPageType(urlPath) {
 }
 
 async function initializeMiddleware(req, res, next) {
-    console.log("req", req)
+    //console.log("req", req)
 
 
 
     if (req.path.startsWith('/auth') || req.path.startsWith('/blocks')) {
         let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
-        console.log("req", req)
-        console.log("req.body", req.body)
+        //console.log("req", req)
+        //console.log("req.body", req.body)
         let originalHost = req.body.headers["X-Original-Host"];
-        console.log("originalHost", originalHost)
+        //console.log("originalHost", originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
-        console.log("splitOriginalHost", splitOriginalHost)
+        //console.log("splitOriginalHost", splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
-        console.log("reqPath", reqPath)
+        //console.log("reqPath", reqPath)
         req.path = reqPath
         const head = await getHead("su", reqPath.split("/")[1], dynamodb)
         let isPublic = head.Items[0].z
         let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
-        console.log("#1cookie", cookie)
+        //console.log("#1cookie", cookie)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
-        console.log("#1parent", parent)
+        //console.log("#1parent", parent)
         let fileArray = parent.paths[reqPath.split("/")[1]];
-        console.log("fileArray", fileArray);
+        //console.log("fileArray", fileArray);
 
 
         if (fileArray != undefined) {
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
             const results = await Promise.all(promises);
-            console.log("RESULTS87", results)
-            console.log("req.blocks", req.blocks)
+            //console.log("RESULTS87", results)
+            //console.log("req.blocks", req.blocks)
             if (req.blocks) {
                 return results
             } else {
                 const arrayOfJSON = [];
 
-                console.log("results", results)
+                //console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
-                console.log("arrayOfJSON", arrayOfJSON)
+                //console.log("arrayOfJSON", arrayOfJSON)
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
-                        console.log("userJSON", userJSON)
+                        //console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
@@ -689,13 +689,13 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("req.lib.root.context", req.lib.root.context)
+                        //console.log("req.lib.root.context", req.lib.root.context)
                     };
                 });
                 return await Promise.all(resultArrayOfJSON)
             }
         } else {
-            console.log("ELSE87")
+            //console.log("ELSE87")
             return []
         }
     }
@@ -922,7 +922,7 @@ function evaluateMathExpression(expression) {
         return result;
     } catch (error) {
         // Handle errors (e.g., syntax errors in the expression)
-        console.error("Error evaluating expression:", error);
+        //console.error("Error evaluating expression:", error);
         return null;
     }
 }
@@ -971,7 +971,7 @@ function evaluateMathExpression2(expression) {
         const result = math.evaluate(expression);
         return result;
     } catch (error) {
-        console.error("Error evaluating expression:", error);
+        //console.error("Error evaluating expression:", error);
         return null;
     }
 }
@@ -979,7 +979,7 @@ function evaluateMathExpression2(expression) {
 async function replacePlaceholders2(str, json, nestedPath = "") {
     ////////console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
+        //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -987,7 +987,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (current.hasOwnProperty(key)) {
                     current = current[key];
                 } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
+                    //console.error(`Nested path ${nestedPath} not found in JSON.`);
                     return '';
                 }
             }
@@ -1076,7 +1076,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             if (index >= 0 && index < current.length) {
                 current = current[index];
             } else {
-                console.error(`Index ${index} out of bounds for array.`);
+                //console.error(`Index ${index} out of bounds for array.`);
                 return '';
             }
         }
@@ -1102,21 +1102,21 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            console.log("innerStr", innerStr)
+            //console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else if (innerStr.startsWith(">")) {
-                console.log("INSIDE > ")
+                //console.log("INSIDE > ")
                 let { getWord, getSub } = require('./routes/cookies')
                 let subRes = await getSub(innerStr.replace(">", ""), "su", dynamodb)
-                console.log("subRes", subRes)
-                console.log("subRes.Items[0].a", subRes.Items[0].a)
+                //console.log("subRes", subRes)
+                //console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                console.log("subWord", subWord)
+                //console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                console.log("DDDDDDDDDDD")
+                //console.log("DDDDDDDDDDD")
                 ////////console.log("forceRoot",forceRoot)
                 ////////console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
@@ -1138,15 +1138,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
             } else {
-                console.log("str2", str);
-                console.log("modifiedStr", modifiedStr);
+                //console.log("str2", str);
+                //console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
-                console.log("isObj", isObj);
+                //console.log("isObj", isObj);
                 if (isObj) {
                     ////////console.log("object", value)
                     return value;
                 } else {
-                    console.log("stringify", value)
+                    //console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
@@ -1179,7 +1179,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
                             } else {
-                                console.error(`Path ${jsonPath} not found in JSON.`);
+                                //console.error(`Path ${jsonPath} not found in JSON.`);
                                 //currentValue = ''; // Path not found
                                 break;
                             }
@@ -1199,16 +1199,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 }
                 //test
                 /*
-                console.log("JSON PATH A", modifiedStr)
+                //console.log("JSON PATH A", modifiedStr)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("JSON PATH B1", match)
-                    console.log("JSON PATH B2", jsonString)
-                    console.log("JSON PATH B3", jsonPath)
+                    //console.log("JSON PATH B1", match)
+                    //console.log("JSON PATH B2", jsonString)
+                    //console.log("JSON PATH B3", jsonPath)
 
                 //the jsonString is not recocognized yet and is just returning the placeholder. We need to take the lower section and move it up, 
                 // or take this and move it below the replace code below.                    
                 });
-                console.log("JSON PATH C", updatedStr)
+                //console.log("JSON PATH C", updatedStr)
                 //return updatedStr;*/
             }
         }
@@ -1268,27 +1268,27 @@ async function processString(str, libs, nestedPath) {
     }
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
-    console.log("MMM1", newNestedPath)
-    console.log("typeof", typeof mmm)
-    console.log("MMM2", mmm)
+    //console.log("MMM1", newNestedPath)
+    //console.log("typeof", typeof mmm)
+    //console.log("MMM2", mmm)
 
 
     const isObj = await isOnePlaceholder(str)
-    console.log("str", str)
-    console.log("isObj", isObj)
-    console.log("---------------------")
-    console.log("---------------------")
-    console.log("---------------------")
-    console.log("---------------------")
-    console.log("---------------------")
-    console.log("libs.root.context", libs.root.context)
-    console.log("libs.root.context[str]", libs.root.context[str])
-    console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
+    //console.log("str", str)
+    //console.log("isObj", isObj)
+    //console.log("---------------------")
+    //console.log("---------------------")
+    //console.log("---------------------")
+    //console.log("---------------------")
+    //console.log("---------------------")
+    //console.log("libs.root.context", libs.root.context)
+    //console.log("libs.root.context[str]", libs.root.context[str])
+    //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         target = await getKeyAndPath(str.replace("{|", "").replace("|}", ""), nestedPath)
-        console.log("target", target)
+        //console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue[str.replace("{|", "").replace("|}", "")])
+        //console.log("nestedValue", nestedValue[str.replace("{|", "").replace("|}", "")])
         try {
             mmm = nestedValue[str.replace("{|", "").replace("|}", "")].value
         } catch (e) {
@@ -1300,7 +1300,7 @@ async function processString(str, libs, nestedPath) {
         mmm = libs.root.context[str].value
     }*/
 
-    console.log("TYPEOF", typeof mmm)
+    //console.log("TYPEOF", typeof mmm)
     if (isExecuted) {
         mmm = await mmm();
     } else {
@@ -1311,7 +1311,7 @@ async function processString(str, libs, nestedPath) {
     let strClean = await removeBrackets(str, isObj, isExecuted);
     let arrowJson = strClean.split("=>")
     strClean = arrowJson[0]
-    console.log("strClean", strClean, str)
+    //console.log("strClean", strClean, str)
     let target
     if (isObj){
         target = await getKeyAndPath(strClean, nestedPath)
@@ -1321,7 +1321,7 @@ async function processString(str, libs, nestedPath) {
     let nestedContext = await getNestedContext(libs, target.path)
     let nestedValue= await getNestedValue(libs, target.path)
 
-    console.log("nC", nestedContext)
+    //console.log("nC", nestedContext)
     console.log("t.k", target.key)
     console.log("isMathEquation", isMathEquation(strClean))
     console.log("evaluateMathExpression", evaluateMathExpression(strClean))
@@ -1554,33 +1554,33 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             ////////console.log("66: value", value)
 
-            console.log("key startsWith {|>", key)
+            //console.log("key startsWith {|>", key)
             if (key.startsWith("{|>")) {
                 let { incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity, verifyThis, manageCookie } = await require('./routes/cookies');
 
                 keyClean = keyClean.replace(">", "")
                 set.key = keyClean
                 let subRes = await getSub(keyClean, "su", dynamodb)
-                console.log("subRes", subRes)
-                console.log("subRes.Items[0].g", subRes.Items[0].g)
+                //console.log("subRes", subRes)
+                //console.log("subRes.Items[0].g", subRes.Items[0].g)
                 let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
-                console.log("cookie33", cookie)
+                //console.log("cookie33", cookie)
                 let { verified } = await verifyThis(keyClean, cookie, dynamodb)
-                console.log("verified33", verified)
+                //console.log("verified33", verified)
                 if (verified) {
 
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    console.log("aNew", aNew)
+                    //console.log("aNew", aNew)
                     let nonObj = ""
-                    console.log("isJ", isJ)
+                    //console.log("isJ", isJ)
                     if (isJ) {
                         nonObj = JSON.stringify(value)
                     } else {
                         nonObj = value
                     }
-                    console.log("nonObj")
+                    //console.log("nonObj")
                     const a = await createWord(aNew.toString(), nonObj, dynamodb);
-                    console.log("a", a)
+                    //console.log("a", a)
                     params1 = {
                         "TableName": 'subdomains',
                         "Key": { "su": keyClean },
@@ -1736,7 +1736,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign) {
-        console.log("!!!~~~~~~~~~")
+        //console.log("!!!~~~~~~~~~")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -1788,7 +1788,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 await value.value;
             }
         } else {
-            console.error(`No function named ${strClean} found in context`);
+            //console.error(`No function named ${strClean} found in context`);
         }
     }
 
@@ -1823,26 +1823,26 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-                console.log(">>C<<")
+                //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
             }
-            console.log("chainParams", chainParams)
+            //console.log("chainParams", chainParams)
             let accessClean = chainAction.access
             if (accessClean) {
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            console.log("a", accessClean);
-            console.log("b", chainAction.params);
-            console.log("c", chainAction.new);
-            console.log("d", result);
-            console.log("e", result[accessClean]);
-            console.log("f", result.length);
-            console.log("g", typeof result[accessClean]);
-            console.log("h", nestedPath)
+            //console.log("a", accessClean);
+            //console.log("b", chainAction.params);
+            //console.log("c", chainAction.new);
+            //console.log("d", result);
+            //console.log("e", result[accessClean]);
+            //console.log("f", result.length);
+            //console.log("g", typeof result[accessClean]);
+            //console.log("h", nestedPath)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1850,49 +1850,49 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
 
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                console.log("--1--")
+                //console.log("--1--")
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2a--")
+                //console.log("--2a--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                console.log("--2b--")
+                //console.log("--2b--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2c--")
+                //console.log("--2c--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
-                console.log("--3--")
+                //console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
 
-                    console.log("..a..")
+                    //console.log("..a..")
                     if (chainAction.new) {
-                        console.log("..b..")
+                        //console.log("..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        console.log("..c..")
+                        //console.log("..c..")
                         if (chainAction.access && accessClean.length != 0) {
-                            console.log("..d..")
+                            //console.log("..d..")
                             if (chainAction.express) {
-                                console.log("..e..")
+                                //console.log("..e..")
                                 if (chainAction.next || chainAction.next == undefined) {
-                                    console.log("..f..")
+                                    //console.log("..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    console.log("..g..")
+                                    //console.log("..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
 
-                                console.log("..h..")
+                                //console.log("..h..")
                                 try { console.log("result", result) } catch (err) { }
                                 try { console.log("accessClean", accessClean) } catch (err) { }
                                 try { console.log("chainParams", chainParams) } catch (err) { }
                                 try {
-                                    console.log("..i..")
+                                    //console.log("..i..")
                                     ////////console.log(chainParams[0])
                                     ////////console.log(typeof chainParams[0])
                                     if (chainParams.length > 0) {
@@ -1903,7 +1903,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     result = await result[accessClean](...chainParams);
                                 } catch (err) {
                                     console.log("err", err)
-                                    console.log("..j..")
+                                    //console.log("..j..")
                                     //console.log("result", result.req.lib.root)
                                     result = result
                                 }
@@ -1912,49 +1912,49 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (typeof result === 'function') {
-                console.log("--3--")
+                //console.log("--3--")
                 //if (accessClean === 'promise') {
                 //    result = await result.promise();
                 //} else {
 
-                console.log("..a..")
+                //console.log("..a..")
                 if (chainAction.new) {
-                    console.log("..b..")
+                    //console.log("..b..")
                     result = new result(...chainParams);
                 } else {
-                    console.log("..c..")
+                    //console.log("..c..")
                     //            if (chainAction.access && accessClean.length != 0){
-                    console.log("..d..")
+                    //console.log("..d..")
                     if (chainAction.express) {
-                        console.log("..e..")
+                        //console.log("..e..")
                         if (chainAction.next || chainAction.next == undefined) {
-                            console.log("..f..")
+                            //console.log("..f..")
                             result = await result(...chainParams)(req, res, next);
                         } else {
-                            console.log("..g..")
+                            //console.log("..g..")
                             result = await result(...chainParams)(req, res);
                         }
                     } else {
 
-                        console.log("..h..")
+                        //console.log("..h..")
                         try { console.log("result", result) } catch (err) { }
                         //try{ console.log("accessClean", accessClean)} catch (err){}
                         try { console.log("chainParams", chainParams) } catch (err) { }
                         try {
-                            console.log("..i..")
+                            //console.log("..i..")
                             ////////console.log(chainParams[0])
                             ////////console.log(typeof chainParams[0])
                             if (chainParams.length > 0) {
                                 if (typeof chainParams[0] === "function" || typeof chainParams[0] === "object") {
-                                    console.log("DO NOTHING BECAUSE IT IS A FUNCTION OR OBJECT")
+                                    //console.log("DO NOTHING BECAUSE IT IS A FUNCTION OR OBJECT")
                                 } else if (typeof chainParams[0] === "number") {
                                     chainParams[0] = chainParams[0].toString();
                                 }
                             }
                             result = await result(...chainParams);
                         } catch (err) {
-                            console.log("err", err)
-                            console.log("..j..")
+                            //console.log("err", err)
+                            //console.log("..j..")
                             //console.log("result", result.req.lib.root)
                             result = result
                         }
@@ -1963,32 +1963,32 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     //        }
                 }
             } else if (!accessClean && chainAction.params) {
-                console.log("--4--")
+                //console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else {
-                console.log("--5--")
+                //console.log("--5--")
                 try {
                     ////////console.log(libs.root.context[action.target].value)
                     ////////console.log(libs.root.context[action.target].value.length)
                 } catch (err) { }
-                console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
+                //console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
                 return;
             }
         }
     }
-    console.log("--6--")
+    //console.log("--6--")
     try {
         // Log the files and folders in /opt
         const optDir = '/tmp';
         fs.readdir(optDir, (err, files) => {
             if (err) {
-                console.error('Error reading /opt directory:', err);
+                //console.error('Error reading /opt directory:', err);
             } else {
-                console.log('Files and folders in /opt:');
+                //console.log('Files and folders in /opt:');
                 files.forEach(file => {
                     const filePath = path.join(optDir, file);
                     const stats = fs.statSync(filePath);
-                    console.log(`- ${file} (${stats.isDirectory() ? 'directory' : 'file'})`);
+                    //console.log(`- ${file} (${stats.isDirectory() ? 'directory' : 'file'})`);
                 });
             }
         });
@@ -1996,14 +1996,14 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
         // ... your existing code ...
 
     } catch (err) {
-        console.log(err);
+        //console.log(err);
         res.status(500).send('An error occurred');
     }
     return result;
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    console.log("11111111")
+    //console.log("11111111")
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
         ////////console.log("55: assignExecuted", assignExecuted)
@@ -2055,18 +2055,18 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
             let indexP = 0;
             for (par in action.params) {
-                console.log("par", par)
+                //console.log("par", par)
                 let param2 = action.params[par]
-                console.log("11: param2", param2)
+                //console.log("11: param2", param2)
                 if (param2 != null && param2 != "") {
                     const paramExecuted2 = param2.endsWith('|}!');
-                    console.log("22: paramExecuted2", paramExecuted2)
+                    //console.log("22: paramExecuted2", paramExecuted2)
                     const paramObj2 = await isOnePlaceholder(param2);
-                    console.log("22: paramObj2", paramObj2)
+                    //console.log("22: paramObj2", paramObj2)
                     let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                    console.log("22: paramClean2", paramClean2)
+                    //console.log("22: paramClean2", paramClean2)
                     let newNestedPath2 = nestedPath + "." + assign.key
-                    console.log("22: newNestedPath2", newNestedPath2)
+                    //console.log("22: newNestedPath2", newNestedPath2)
                     let p
                     const isObj = await isOnePlaceholder(paramClean2)
                     if (isObj) {
@@ -2074,9 +2074,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     } else {
                         p = { "key": paramClean2, "path": newNestedPath2 }
                     }
-                    console.log("22: p", p)
+                    //console.log("22: p", p)
                     let nestedParamContext2 = await getNestedContext(libs, p.path);
-                    console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
+                    //console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
                     await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
                     ////////console.log("22: lib.root.context", libs.root.context);
                 }
@@ -2087,15 +2087,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         ////////console.log("lib.root.context", libs.root.context)
         //.actions is the old .run
         if (action.nestedActions) {
-            console.log("ACTIONS5 ACTIONS5")
+            //console.log("ACTIONS5 ACTIONS5")
             for (const act of action.nestedActions) {
-                console.log("00: act", act)
+                //console.log("00: act", act)
                 let newNestedPath = nestedPath + "." + assign.key;
-                console.log("00: newNestedPath", newNestedPath, "libs", libs);
+                //console.log("00: newNestedPath", newNestedPath, "libs", libs);
                 result = await runAction(act, libs, newNestedPath, req, res, next)
-                console.log("00: result", result)
+                //console.log("00: result", result)
             }
-            console.log("00: lib.root.context", libs.root.context)
+            //console.log("00: lib.root.context", libs.root.context)
         }
         return result;
     };
@@ -2106,7 +2106,7 @@ const automate = async (url) => {
         const response = await axios.get(url);
         ////////console.log('URL called successfully:', response.data);
     } catch (error) {
-        console.error('Error calling URL:', error);
+        //console.error('Error calling URL:', error);
     }
 };
 
@@ -2118,7 +2118,7 @@ module.exports.lambdaHandler = async (event, context) => {
 
         let { getSub } = await require('./routes/cookies')
         // Process the SES email
-        console.log("Received SES event:", JSON.stringify(event, null, 2));
+        //console.log("Received SES event:", JSON.stringify(event, null, 2));
         
         let emailId = event.Records[0].ses.mail.messageId
         let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
@@ -2127,13 +2127,13 @@ module.exports.lambdaHandler = async (event, context) => {
         let emailTo = event.Records[0].ses.mail.commonHeaders.to
         let emailTarget = ""
         for (let to in emailTo){
-            console.log(to)
+            //console.log(to)
             if (emailTo[to].endsWith("email.1var.com")){
-                console.log("ends with email.1var.com")
+                //console.log("ends with email.1var.com")
                 emailTarget = emailTo[to].split("@")[0]
             }
         }
-        console.log("emailTarget", emailTarget)
+        //console.log("emailTarget", emailTarget)
         let subEmail = await getSub(emailTarget, "su", dynamodb)
 
         let isPublic = subEmail.Items[0].z.toString()
@@ -2144,10 +2144,10 @@ module.exports.lambdaHandler = async (event, context) => {
         }
         const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
         const data = await s3.getObject(params).promise();
-        console.log("data63", data)
+        //console.log("data63", data)
         if (data.ContentType == "application/json") {
             let s3JSON = await JSON.parse(data.Body.toString());
-            console.log("s3JSON",s3JSON)
+            //console.log("s3JSON",s3JSON)
             s3JSON.email.unshift({"from":returnPath, "to":emailTarget, "subject":emailSubject, "date":emailDate, "emailID":emailId})
 
             const params = {
@@ -2164,7 +2164,7 @@ module.exports.lambdaHandler = async (event, context) => {
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
     if (event.automate) {
-        console.log("automate is true")
+        //console.log("automate is true")
 
         function isTimeInInterval(timeInDay, st, itInMinutes) {
             const timeInDayMinutes = Math.floor(timeInDay / 60);
@@ -2186,7 +2186,7 @@ module.exports.lambdaHandler = async (event, context) => {
         var currentDateInSeconds = now.unix();
         const gsiName = `${todayDow}Index`;
 
-        console.log("gsiName", gsiName, "timeInDay", timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds);
+        //console.log("gsiName", gsiName, "timeInDay", timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds);
 
         const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
@@ -2216,10 +2216,10 @@ module.exports.lambdaHandler = async (event, context) => {
                 urls.push(rec.url);
             }
         }
-        console.log("timeInDay",timeInDay)
-        console.log("data",data)
-        console.log("urls",urls)
-        console.log("check", check)
+        //console.log("timeInDay",timeInDay)
+        //console.log("data",data)
+        //console.log("urls",urls)
+        //console.log("check", check)
         for (const url of urls) {
             await automate("https://1var.com/" + url);
             await delay(500); // Assuming you want a 0.5 second delay
@@ -2256,13 +2256,13 @@ module.exports.lambdaHandler = async (event, context) => {
         };
 
 
-        console.log("params", params)
+        //console.log("params", params)
 
         try {
             const config = { region: "us-east-1" };
             const client = new SchedulerClient(config);
             const data = await dynamodb.query(params).promise();
-            console.log("Query succeeded:", data.Items);
+            //console.log("Query succeeded:", data.Items);
 
             for (item in data.Items) {
                 let stUnix = data.Items[item].sd + data.Items[item].st
@@ -2276,7 +2276,7 @@ module.exports.lambdaHandler = async (event, context) => {
 
                     var hour = startTime.format('HH');
                     var minute = startTime.format('mm');
-                    console.log("hour", hour, "minute", minute)
+                    //console.log("hour", hour, "minute", minute)
                     const hourFormatted = hour.toString().padStart(2, '0');
                     const minuteFormatted = minute.toString().padStart(2, '0');
 
@@ -2299,7 +2299,7 @@ module.exports.lambdaHandler = async (event, context) => {
                         },
                         FlexibleTimeWindow: { Mode: "OFF" },
                     };
-                    console.log("input2", input)
+                    //console.log("input2", input)
                     const command = new UpdateScheduleCommand(input);
 
                     const createSchedule = async () => {
@@ -2325,12 +2325,12 @@ module.exports.lambdaHandler = async (event, context) => {
 
                             try {
                                 const result = await dynamodb.update(params).promise();
-                                console.log(`Updated item with time: ${scheduleName}`, result);
+                                //console.log(`Updated item with time: ${scheduleName}`, result);
                             } catch (err) {
-                                console.error(`Error updating item with time: ${scheduleName}`, err);
+                                //console.error(`Error updating item with time: ${scheduleName}`, err);
                             }
 
-                            console.log("Schedule created successfully:", response.ScheduleArn);
+                            //console.log("Schedule created successfully:", response.ScheduleArn);
                         } catch (error) {
                             console.error("Error creating schedule:", error);
                         }
@@ -2353,16 +2353,16 @@ module.exports.lambdaHandler = async (event, context) => {
         let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: { ':pk': "enCounter" } };
         let en = await dynamodb.query(enParams).promise()
         let params = { TableName: 'enabled', IndexName: 'enabledindex', KeyConditionExpression: 'enabled = :enabled AND en = :en', ExpressionAttributeValues: { ':en': en.Items[0].x - 1, ':enabled': 1 } }
-        console.log("params", params)
+        //console.log("params", params)
         const config = { region: "us-east-1" };
         const client = new SchedulerClient(config);
 
         await dynamodb.query(params).promise()
             .then(async data => {
                 let updatePromises = await data.Items.map(async item => {
-                    console.log("item", item)
+                    //console.log("item", item)
                     const time = item.time
-                    console.log("time", time)
+                    //console.log("time", time)
                     let updateParams = {
                         TableName: 'enabled',
                         Key: {
@@ -2378,11 +2378,11 @@ module.exports.lambdaHandler = async (event, context) => {
                     await dynamodb.update(updateParams).promise();
                     var hour = time.substring(0, 2);
                     var minute = time.substring(2, 4);
-                    console.log("hour", hour, "minute", minute)
+                    //console.log("hour", hour, "minute", minute)
                     const hourFormatted = hour.toString().padStart(2, '0');
                     const minuteFormatted = minute.toString().padStart(2, '0');
 
-                    console.log("moment", moment.utc().format())
+                    //console.log("moment", moment.utc().format())
                     const scheduleName = `${hourFormatted}${minuteFormatted}`;
 
                     const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
@@ -2402,11 +2402,11 @@ module.exports.lambdaHandler = async (event, context) => {
                         },
                         FlexibleTimeWindow: { Mode: "OFF" },
                     };
-                    console.log("update input", input)
+                    //console.log("update input", input)
 
                     const command = new UpdateScheduleCommand(input);
                     const response = await client.send(command);
-                    console.log("updateSchedule response", response)
+                    //console.log("updateSchedule response", response)
                     return "done"
                 });
 

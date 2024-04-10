@@ -27,7 +27,7 @@ async function getSub(val, key, dynamodb) {
 }
 
 async function getEntity(e, dynamodb) {
-    console.log("getEntity", e)
+    //console.log("getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': e } };
     return await dynamodb.query(params).promise()
 }
@@ -42,28 +42,28 @@ async function getTasks(val, col, dynamodb) {
     //
     //
     //
-    console.log("getTasks", col, val)
+    //console.log("getTasks", col, val)
     if (col == "e") {
         const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
         let params = { TableName: 'tasks', IndexName: 'urlIndex', KeyConditionExpression: 'url = :url', ExpressionAttributeValues: { ':url': subByE.Items[0].su } }
-        console.log("params", params)
+        //console.log("params", params)
         return await dynamodb.query(params).promise()
     } else if (col == "su") {
         let params = { TableName: 'tasks', IndexName: 'urlIndex', KeyConditionExpression: '#url = :urlValue', ExpressionAttributeNames: { '#url': 'url', }, ExpressionAttributeValues: { ':urlValue': val } }
-        console.log("params", params)
+        //console.log("params", params)
         return await dynamodb.query(params).promise()
     }
 }
 
 async function getTasksIOS(tasks) {
-    console.log("tasks", tasks)
+    //console.log("tasks", tasks)
     tasks = tasks.Items
     let converted = []
     for (let task in tasks) {
-        console.log("task", task)
-        console.log("tasks[task]", tasks[task])
+        //console.log("task", task)
+        //console.log("tasks[task]", tasks[task])
         converted.push({})
-        console.log("converted", converted)
+        //console.log("converted", converted)
         converted[task].url = tasks[task].url
         let momentSD = moment.unix(tasks[task].sd).utc()
         converted[task].startDate = momentSD.format("YYYY-MM-DD")
@@ -88,19 +88,19 @@ async function getTasksIOS(tasks) {
 }
 
 async function getGroup(g, dynamodb) {
-    console.log("getGroup", g)
+    //console.log("getGroup", g)
     params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: { ':g': g } };
     return await dynamodb.query(params).promise()
 }
 
 async function getAccess(ai, dynamodb) {
-    console.log("getAccess", ai)
+    //console.log("getAccess", ai)
     params = { TableName: 'access', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: { ':ai': ai } };
     return await dynamodb.query(params).promise()
 }
 
 async function getVerified(key, val, dynamodb) {
-    console.log("getVerified", key, val)
+    //console.log("getVerified", key, val)
     let params
     if (key == "vi") {
         params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: { ':vi': val } };
@@ -110,7 +110,7 @@ async function getVerified(key, val, dynamodb) {
         params = { TableName: 'verified', IndexName: 'giIndex', KeyConditionExpression: 'gi = :gi', ExpressionAttributeValues: { ':gi': val } }
     }
     let result = await dynamodb.query(params).promise();
-    console.log("result", result)
+    //console.log("result", result)
     return result
 }
 
@@ -121,7 +121,7 @@ async function getWord(a, dynamodb) {
 }
 
 async function getGroups(dynamodb) {
-    console.log("getGroups")
+    //console.log("getGroups")
     params = { TableName: 'groups' };
     let groups = await dynamodb.scan(params).promise();
     let groupObjs = []
@@ -161,37 +161,37 @@ function setIsPublic(val) {
 
 
 async function verifyThis(fileID, cookie, dynamodb) {
-    console.log("convertToJSON")
+    //console.log("convertToJSON")
     const subBySU = await getSub(fileID, "su", dynamodb);
-    console.log("subBySU:fileID", fileID, subBySU)
+    //console.log("subBySU:fileID", fileID, subBySU)
     setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("entity", entity)
+    //console.log("entity", entity)
     const group = await getGroup(entity.Items[0].g, dynamodb)
-    console.log("group", group)
+    //console.log("group", group)
     const access = await getAccess(group.Items[0].ai, dynamodb)
-    console.log("access", access)
+    //console.log("access", access)
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb)
-    console.log("verified", verify)
+    //console.log("verified", verify)
     let verified = false;
-    console.log("subBySU.Items[0].z", subBySU.Items[0].z)
+    //console.log("subBySU.Items[0].z", subBySU.Items[0].z)
     for (veri in verify.Items) {
-        console.log("veri", veri, verify.Items[veri])
+        //console.log("veri", veri, verify.Items[veri])
         if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0") {
-            console.log("VERIFIED")
+            //console.log("VERIFIED")
             verified = true;
         }
 
     }
-    console.log("entity.Items[0].ai", entity.Items[0].ai)
-    console.log("verified == ", verified)
+    //console.log("entity.Items[0].ai", entity.Items[0].ai)
+    //console.log("verified == ", verified)
     if (entity.Items[0].ai.toString() != "0" && verified == true) {
-        console.log("???????")
+        //console.log("???????")
         verified = false
         for (veri in verify.Items) {
-            console.log("veri22", veri, verify.Items[veri])
+            //console.log("veri22", veri, verify.Items[veri])
             if ((verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo)) {
-                console.log("DOUBLE VERIFIED")
+                //console.log("DOUBLE VERIFIED")
                 verified = true;
             }
 
@@ -199,36 +199,36 @@ async function verifyThis(fileID, cookie, dynamodb) {
     }
 
     if (isPublic) {
-        console.log("NO VERIFICATION NEEDED : IS PUBLIC")
+        //console.log("NO VERIFICATION NEEDED : IS PUBLIC")
         verified = true;
     }
     return { verified, subBySU, entity }
 }
 
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
-    console.log("convertToJSON", fileID, parentPath, isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2, id2Path, usingID)
+    //console.log("convertToJSON", fileID, parentPath, isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2, id2Path, usingID)
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
     if (verified) {
-        console.log("ALL GOOD!")
+        //console.log("ALL GOOD!")
         let children
-        console.log("mapping=",mapping)
+        //console.log("mapping=",mapping)
         if (mapping) {
-            console.log("mapping")
-            console.log("subBySU.Items[0].e",subBySU.Items[0].e)
+            //console.log("mapping")
+            //console.log("subBySU.Items[0].e",subBySU.Items[0].e)
             
             if (mapping.hasOwnProperty(subBySU.Items[0].e)) {
-                console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
+                //console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
                 children = mapping[subBySU.Items[0].e]
             } else {
-                console.log("inside mapping else")
+                //console.log("inside mapping else")
                 children = entity.Items[0].t
             }
         } else {
-            console.log("not mapping")
+            //console.log("not mapping")
             children = entity.Items[0].t
         }
-        console.log("children", children)
+        //console.log("children", children)
         const linked = entity.Items[0].l
         const head = await getWord(entity.Items[0].a, dynamodb)
         const name = head.Items[0].r
@@ -238,9 +238,9 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
             using = true
         }
         pathID = await getUUID(uuidv4)
-        console.log("entity.Items[0].h", entity.Items[0].h)
+        //console.log("entity.Items[0].h", entity.Items[0].h)
         let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-        console.log("subH", subH)
+        //console.log("subH", subH)
         if (subH.Count == 0) {
             await sleep(2000) //wait 2 seconds and try again. Sometimes the data isn't available in the GSI, which is how getSub queries using "e"
             subH = await getSub(entity.Items[0].h, "e", dynamodb)
@@ -260,24 +260,24 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
         id2Path[fileID] = pathID
 
         if (children) {
-            console.log("inside")
+            //console.log("inside")
             for (let child of children) {
-                console.log(child)
+                //console.log(child)
                 const subByE = await getSub(child, "e", dynamodb);
                 let uuid = subByE.Items[0].su
                 let childResponse = {}
-                console.log("convertCounter", convertCounter)
+                //console.log("convertCounter", convertCounter)
                 if (convertCounter < 1000) {
-                    console.log("----------runing convertToJSON", convertCounter)
+                    //console.log("----------runing convertToJSON", convertCounter)
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                     convertCounter++;
                 }
-                console.log("FILEID", fileID)
-                console.log("OBJ", obj)
-                console.log("OBJ[FILEID]", obj[fileID])
-                console.log("childResponse.obj", childResponse.obj)
-                console.log("childResponse.paths", childResponse.paths)
-                console.log("childResponse.paths2", childResponse.paths2)
+                //console.log("FILEID", fileID)
+                //console.log("OBJ", obj)
+                //console.log("OBJ[FILEID]", obj[fileID])
+                //console.log("childResponse.obj", childResponse.obj)
+                //console.log("childResponse.paths", childResponse.paths)
+                //console.log("childResponse.paths2", childResponse.paths2)
                 Object.assign(obj[fileID].children, childResponse.obj);
                 Object.assign(paths, childResponse.paths);
                 Object.assign(paths2, childResponse.paths2);
@@ -404,10 +404,10 @@ const updateEntity = async (e, col, val, v, c, dynamodb) => {
     }
 
     try {
-        console.log("params", params)
+        //console.log("params", params)
         return await dynamodb.update(params).promise();
     } catch (error) {
-        console.error("Error updating entity:", error);
+        //console.error("Error updating entity:", error);
         throw error; // Rethrow the error for the caller to handle
     }
 };
@@ -446,11 +446,11 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
 };
 
 const getHead = async (by, value, dynamodb) => {
-    console.log("by, value", by, value)
+    //console.log("by, value", by, value)
     const subBySU = await getSub(value, by, dynamodb);
-    console.log("subBySU", subBySU)
+    //console.log("subBySU", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("entity", entity)
+    //console.log("entity", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     //console.log("headSub", headSub)
     return headSub
@@ -592,7 +592,7 @@ async function addVersion(newE, col, val, forceC, dynamodb) {
         }
         return { v: id.toString(), c: newCValue.toString(), m: newM };
     } catch (error) {
-        console.error("Error adding record:", error);
+        //console.error("Error adding record:", error);
         return null
     }
 };
@@ -625,7 +625,7 @@ const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
         await dynamodb.put(params).promise();
         return `Entity created with e: ${e}, a: ${a}, v: ${v}`;
     } catch (error) {
-        console.error("Error creating entity:", error);
+        //console.error("Error creating entity:", error);
         throw error; // Rethrow the error for the caller to handle
     }
 };
@@ -641,7 +641,7 @@ const createSubdomain = async (su, a, e, g, z, dynamodb) => {
         const response = await dynamodb.put(paramsAA).promise();
         return `Entity created with su: ${su}, a: ${a}, e: ${e}, z: ${z}`;
     } catch (error) {
-        console.error("Error creating entity:", error);
+        //console.error("Error creating entity:", error);
         throw error; // Rethrow the error for the caller to handle
     }
 };
@@ -662,14 +662,14 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
     let sourceBucket
     let destinationBucket
 
-    console.log("file", file)
+    //console.log("file", file)
 
     if (val == "true" || val == true) {
-        console.log("val == true")
+        //console.log("val == true")
         sourceBucket = 'private.1var.com'
         destinationBucket = 'public.1var.com'
     } else {
-        console.log("val == false")
+        //console.log("val == false")
         sourceBucket = 'public.1var.com'
         destinationBucket = 'private.1var.com'
     }
@@ -679,22 +679,22 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         Prefix: file
     }).promise();
 
-    console.log("versions", versions)
+    //console.log("versions", versions)
 
     const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     for (let x = versions.Versions.length - 1; x >= 0; x--) {
         const version = versions.Versions[x];
-        console.log("version", version)
+        //console.log("version", version)
         // Retrieve current metadata
         let param1 = {
             Bucket: sourceBucket,
             Key: file,
             VersionId: version.VersionId
         }
-        console.log("param1", param1)
+        //console.log("param1", param1)
         let originalMetadata = await s3.headObject(param1).promise();
-        console.log("originalMetadata", originalMetadata)
+        //console.log("originalMetadata", originalMetadata)
         // Prepare new metadata with additional custom data
         let newMetadata = {
             ...originalMetadata.Metadata, // Copy original user-defined metadata
@@ -719,7 +719,7 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
         //
 
 
-        console.log("newMetadata", newMetadata)
+        //console.log("newMetadata", newMetadata)
         // Copy the object with the original 'Content-Type'
         let param2 = {
             Bucket: destinationBucket,
@@ -729,18 +729,18 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
             ContentType: originalMetadata.ContentType, // Set the original 'Content-Type'
             MetadataDirective: "REPLACE"
         }
-        console.log("param2", param2)
+        //console.log("param2", param2)
         let copyResponse = await s3.copyObject(param2).promise();
-        console.log("copyResponse", copyResponse)
+        //console.log("copyResponse", copyResponse)
         // Optionally, delete the original version
         let param3 = {
             Bucket: sourceBucket,
             Key: file,
             VersionId: version.VersionId
         }
-        console.log("param3", param3)
+        //console.log("param3", param3)
         let deleteResponse = await s3.deleteObject(param3).promise();
-        console.log("deleteResponse", deleteResponse)
+        //console.log("deleteResponse", deleteResponse)
         // Wait for 1 second before processing the next version
         await delay(1000);
     }
@@ -797,10 +797,10 @@ async function email(from, to, subject, emailText, emailHTML, ses) {
 
     try {
         const data = await ses.sendEmail(params).promise();
-        console.log('Email sent:', data);
+        //console.log('Email sent:', data);
         return { statusCode: 200, body: JSON.stringify(data) };
     } catch (error) {
-        console.error('Error sending email:', error);
+        //console.error('Error sending email:', error);
         return { statusCode: 500, body: JSON.stringify(error) };
     }
 }
@@ -824,24 +824,24 @@ async function getCookie(val, key) {
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
-    console.log("req1", req)
+    //console.log("req1", req)
     if (req.body.headers.hasOwnProperty("X-accessToken")) {
         mainObj["status"] = "authenticated";
         let val = req.body.headers["X-accessToken"];
         let cookie = await getCookie(val, "ak")
-        console.log("cookie", cookie.Items[0])
+        //console.log("cookie", cookie.Items[0])
         return cookie.Items[0]
     } else {
-        console.log("1")
+        //console.log("1")
         const ak = await getUUID(uuidv4)
-        console.log("2")
+        //console.log("2")
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
-        console.log("3")
+        //console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
-        console.log("4")
+        //console.log("4")
         const ttlDurationInSeconds = 90000; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-        console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
+        //console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
@@ -856,7 +856,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
 }
 
 async function createAccess(ai, g, e, ex, at, to, va, ac) {
-    console.log("access", ai, g, e, ex, at, to, va, ac)
+    //console.log("access", ai, g, e, ex, at, to, va, ac)
     return await dynamodb.put({
         TableName: 'access',
         Item: { ai: ai, g: g, e: e, ex: ex, at: at, to: to, va: va, ac: ac }
@@ -864,7 +864,7 @@ async function createAccess(ai, g, e, ex, at, to, va, ac) {
 }
 
 async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti) {
-    console.log("createVerified", vi, gi, g, e, ai, va, ex, bo, at, ti)
+    //console.log("createVerified", vi, gi, g, e, ai, va, ex, bo, at, ti)
     return await dynamodb.put({
         TableName: 'verified',
         Item: { vi: vi, gi: gi, g: g, e: e, ai: ai, va: va, ex: ex, bo: bo, at: at, ti: ti }
@@ -879,13 +879,13 @@ async function getUUID(uuidv4) {
 function allVerified(list) {
     let v = true
     for (l in list) {
-        console.log("list:1", list[l])
+        //console.log("list:1", list[l])
         if (list[l] != true) {
-            console.log("false")
+            //console.log("false")
             v = false
         }
     }
-    console.log("v", v)
+    //console.log("v", v)
     return v
 }
 
@@ -897,34 +897,34 @@ async function verifyPath(splitPath, verifications, dynamodb) {
             let verValue = false
             verified.push(false)
             const sub = await getSub(splitPath[ver], "su", dynamodb);
-            console.log("sub", sub)
-            console.log("sub.Items[0].z", sub.Items[0].z)
+            //console.log("sub", sub)
+            //console.log("sub.Items[0].z", sub.Items[0].z)
             let groupID = sub.Items[0].g
             let entityID = sub.Items[0].e
             if (sub.Items[0].z) {
                 verValue = true
             }
             for (veri in verifications.Items) {
-                console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
-                console.log("groupID", groupID)
-                console.log("entityID", entityID)
+                //console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
+                //console.log("groupID", groupID)
+                //console.log("entityID", entityID)
 
                 if (entityID != "0") {
-                    console.log("entityID!=0")
+                    //console.log("entityID!=0")
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
-                    console.log("eSub", eSub)
+                    //console.log("eSub", eSub)
                     groupID = eSub.Items[0].g
-                    console.log("eSub.Items[0].ai", eSub.Items[0].ai)
+                    //console.log("eSub.Items[0].ai", eSub.Items[0].ai)
                     if (eSub.Items[0].ai.toString() == "0") {
                         verValue = true
-                        console.log("verValue1", verValue)
+                        //console.log("verValue1", verValue)
                     }
-                    console.log("groupID2", groupID)
+                    //console.log("groupID2", groupID)
                 }
 
                 if (sub.Items.length > 0) {
-                    console.log("entityID3", entityID)
-                    console.log("groupID3", groupID)
+                    //console.log("entityID3", entityID)
+                    //console.log("groupID3", groupID)
                     if (sub.Items[0].z == true) {
                         verValue = true
                     } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
@@ -939,23 +939,23 @@ async function verifyPath(splitPath, verifications, dynamodb) {
                         }
                     } else if (entityID == "0" && groupID == "0") {
                         //MAYBE THIS IS NOT NEEDED. ADDED IT BUT NEVER TESTED IT
-                        console.log("e and g are 0 so verValue is true")
+                        //console.log("e and g are 0 so verValue is true")
                         verValue = true;
                     }
                 }
             }
-            console.log("verValue", verValue)
+            //console.log("verValue", verValue)
             verified[verCounter] = verValue
             verCounter++;
-            console.log("verCounter", verCounter)
+            //console.log("verCounter", verCounter)
         }
     }
-    console.log("verified", verified)
+    //console.log("verified", verified)
     return verified
 }
 
 async function createTask(ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, ex, dynamodb) {
-    console.log("createTask", ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, ex)
+    //console.log("createTask", ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa, su, ex)
     await dynamodb.put({
         TableName: 'tasks',
         Item: { ti: ti.toString(), url: en, sd: sd, ed: ed, st: st, et: et, zo: zo, it: it, mo: mo, tu: tu, we: we, th: th, fr: fr, sa: sa, su: su, ex: ex }
@@ -964,7 +964,7 @@ async function createTask(ti, en, sd, ed, st, et, zo, it, mo, tu, we, th, fr, sa
 }
 
 async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex, dynamodb) {
-    console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex)
+    //console.log("createSchedule", ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, thS, frS, saS, suS, ex)
     const si = await incrementCounterAndGetNewValue('siCounter', dynamodb);
     await dynamodb.put({
         TableName: 'schedules',
@@ -974,13 +974,13 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
     let stUnix = sdS + stS
     let etUnix = sdS + etS
     var objDate = moment.utc(stUnix * 1000); // Assuming stUnix is your Unix timestamp
-    console.log(objDate)
+    //console.log(objDate)
     const today = moment.utc(); // Get current time in UTC
-    console.log(today)
+    //console.log(today)
 
     // Check if momentObj is today by comparing year, month, and day
     var isToday = objDate.isSame(today, 'day');
-    console.log(isToday)
+    //console.log(isToday)
 
     let dow = {
         mo: moS,
@@ -1000,8 +1000,8 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
 
     const isTodayOn = dow[todayCode] === 1;
 
-    console.log("isToday", isToday);
-    console.log("isTodayOn", isTodayOn);
+    //console.log("isToday", isToday);
+    //console.log("isTodayOn", isTodayOn);
 
     if (isToday && isTodayOn) {
         const config = { region: "us-east-1" };
@@ -1016,7 +1016,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
         while (startTime <= endTime) {
             var hour = startTime.format('HH');
             var minute = startTime.format('mm');
-            console.log("hour", hour, "minute", minute)
+            //console.log("hour", hour, "minute", minute)
             const hourFormatted = hour.toString().padStart(2, '0');
             const minuteFormatted = minute.toString().padStart(2, '0');
 
@@ -1040,7 +1040,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
                 FlexibleTimeWindow: { Mode: "OFF" },
             };
 
-            console.log("input2", input)
+            //console.log("input2", input)
             const command = new UpdateScheduleCommand(input);
 
             const createSchedule = async () => {
@@ -1066,14 +1066,14 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
 
                     try {
                         const result = await dynamodb.update(params).promise();
-                        console.log(`Updated item with time: ${scheduleName}`, result);
+                        //console.log(`Updated item with time: ${scheduleName}`, result);
                     } catch (err) {
-                        console.error(`Error updating item with time: ${scheduleName}`, err);
+                        //console.error(`Error updating item with time: ${scheduleName}`, err);
                     }
 
-                    console.log("Schedule created successfully:", response.ScheduleArn);
+                    //console.log("Schedule created successfully:", response.ScheduleArn);
                 } catch (error) {
-                    console.error("Error creating schedule:", error);
+                    //console.error("Error creating schedule:", error);
                 }
             };
 
@@ -1094,11 +1094,11 @@ async function removeSchedule(ti) {
             ':tiVal': ti
         }
     };
-    console.log("removeSchedule", queryParams)
+    //console.log("removeSchedule", queryParams)
     await dynamodb.query(queryParams, async function (queryErr, queryResult) {
-        console.log("queryResult", queryResult)
+        //console.log("queryResult", queryResult)
         await queryResult.Items.forEach(async function (item) {
-            console.log("deleting", item.si)
+            //console.log("deleting", item.si)
             await dynamodb.delete({
                 TableName: 'schedules',
                 Key: {
@@ -1107,7 +1107,7 @@ async function removeSchedule(ti) {
             }).promise();
         });
     }).promise();
-    console.log("deleting ti from tasks:", ti)
+    //console.log("deleting ti from tasks:", ti)
     await dynamodb.delete({
         TableName: 'tasks',
         Key: {
@@ -1148,15 +1148,15 @@ async function convertTimespanToUTC(options) {
     let endUTC = await moment.tz(`${endDate} ${endTime}`, "YYYY-MM-DD HH:mm", timeZone).utc();
 
 
-    console.log("startUTC", startUTC);
-    console.log("origUTC", sOrigUTC);
-    console.log(startUTC.isSame(sOrigUTC, 'day'))
-    console.log("startUTC.format(YYYY-MM-DD)", startUTC.format("YYYY-MM-DD"));
-    console.log("sOrigUTC.format(YYYY-MM-DD)", sOrigUTC.format("YYYY-MM-DD"));
-    console.log("endUTC.format(YYYY-MM-DD)", endUTC.format("YYYY-MM-DD"));
-    console.log("eOrigUTC.format(YYYY-MM-DD)", eOrigUTC.format("YYYY-MM-DD"));
+    //console.log("startUTC", startUTC);
+    //console.log("origUTC", sOrigUTC);
+    //console.log(startUTC.isSame(sOrigUTC, 'day'))
+    //console.log("startUTC.format(YYYY-MM-DD)", startUTC.format("YYYY-MM-DD"));
+    //console.log("sOrigUTC.format(YYYY-MM-DD)", sOrigUTC.format("YYYY-MM-DD"));
+    //console.log("endUTC.format(YYYY-MM-DD)", endUTC.format("YYYY-MM-DD"));
+    //console.log("eOrigUTC.format(YYYY-MM-DD)", eOrigUTC.format("YYYY-MM-DD"));
 
-    console.log("startDate:", startDate, "startTime:", startTime, "")
+    //console.log("startDate:", startDate, "startTime:", startTime, "")
 
 
 
@@ -1203,7 +1203,7 @@ async function convertTimespanToUTC(options) {
 
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
         if (sOrigUTC.format("YYYY-MM-DD") == startUTC.format("YYYY-MM-DD")) {
-            console.log("NOT SAME DAY")
+            //console.log("NOT SAME DAY")
             // If the timespan crosses into the next day
             let nextDayShiftedDaysOfWeek = await shiftDaysOfWeekForward(daysOfWeek);
 
@@ -1306,14 +1306,14 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     let modules = JSON.parse(JSON.stringify(results.modules))
     results = JSON.stringify(results)
 
-    console.log("GPTSCRIPT:33", gptScript);
-    console.log("PROMPT:33", question);
-    console.log("ENTITY:33", entity);
-    console.log("RESULTS:33", results);
+    //console.log("GPTSCRIPT:33", gptScript);
+    //console.log("PROMPT:33", question);
+    //console.log("ENTITY:33", entity);
+    //console.log("RESULTS:33", results);
 
     let combinedPrompt = `${gptScript} /n/n Using the proprietary json structure. RESPOND BACK WITH JUST AND ONLY A SINGLE JSON FILE!! NO COMMENTS!! NO EXPLINATIONS!! NO INTRO!! JUST JSON!!:  ${question.prompt} /n/n Here is the code to edit; ${results} `
 
-    console.log(combinedPrompt);
+    //console.log(combinedPrompt);
     //console.log("openai", openai)
 
     let response;
@@ -1341,7 +1341,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             ]
         });
 
-        console.log("stringifyANTHROPIC", JSON.stringify(response))
+        //console.log("stringifyANTHROPIC", JSON.stringify(response))
         jsonParsed = JSON.parse(response.content[0].text)
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
@@ -1352,9 +1352,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             messages: [{ role: "system", content: combinedPrompt }],
             model: "gpt-3.5-turbo-1106",
         });
-        console.log("stringifyOPENAI", JSON.stringify(response))
-        console.log("text.trim", response.choices[0].message.content)
-        console.log(`--${response.choices[0].message.content}--`)
+        //console.log("stringifyOPENAI", JSON.stringify(response))
+        //console.log("text.trim", response.choices[0].message.content)
+        //console.log(`--${response.choices[0].message.content}--`)
 
         if (response.choices[0].message.content.includes("```json")) {
             jsonString = response.choices[0].message.content.split("```json", "")[1]
@@ -1378,9 +1378,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic) {
-    console.log("route", req)
-    console.log("req.body", req.body)
-    console.log("req.headers", req.headers)
+    //console.log("route", req)
+    //console.log("req.body", req.body)
+    //console.log("req.headers", req.headers)
     let originalHost = req.body.headers["X-Original-Host"]
     let splitOriginalHost = originalHost.split("1var.com")[1]
     const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
@@ -1410,7 +1410,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "add") {
-                console.log("add");
+                //console.log("add");
                 const fileID = reqPath.split("/")[3];
                 const newEntityName = reqPath.split("/")[4];
                 const headUUID = reqPath.split("/")[5];
@@ -1446,30 +1446,30 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     setIsPublic(true)
-                    console.log("A")
+                    //console.log("A")
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    console.log("B")
+                    //console.log("B")
                     const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
-                    console.log("C")
+                    //console.log("C")
                     const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    console.log("D")
+                    //console.log("D")
                     const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
-                    console.log("E")
+                    //console.log("E")
                     const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
-                    console.log("F")
+                    //console.log("F")
                     const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-                    console.log("G")
+                    //console.log("G")
                     //const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
-                    console.log("H")
+                    //console.log("H")
                     //const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
-                    console.log("I")
+                    //console.log("I")
                     const ttlDurationInSeconds = 90000; // For example, 1 hour
-                    console.log("J")
+                    //console.log("J")
                     const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-                    console.log("K")
+                    //console.log("K")
                     const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-                    console.log("L")
-                    console.log("vi", vi)
+                    //console.log("L")
+                    //console.log("vi", vi)
                     //await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
                     const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), "0", dynamodb);
@@ -1493,28 +1493,28 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     mainObj = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4)
                 }
             } else if (action === "useGroup") {
-                console.log("useGroup")
+                //console.log("useGroup")
                 actionFile = reqPath.split("/")[3]
                 const newUsingName = reqPath.split("/")[3]
-                console.log("newUsingName", newUsingName)
+                //console.log("newUsingName", newUsingName)
                 const headUsingName = reqPath.split("/")[4]
-                console.log("headUsingName", headUsingName)
+                //console.log("headUsingName", headUsingName)
                 const using = await getSub(newUsingName, "su", dynamodb);
-                console.log("using", using)
+                //console.log("using", using)
                 const ug = await getEntity(using.Items[0].e, dynamodb)
-                console.log("ug", ug)
+                //console.log("ug", ug)
                 const used = await getSub(headUsingName, "su", dynamodb);
-                console.log("used", used)
+                //console.log("used", used)
                 const ud = await getEntity(used.Items[0].e, dynamodb)
-                console.log("ud", ud)
+                //console.log("ud", ud)
                 const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
-                console.log("details2", details2)
+                //console.log("details2", details2)
                 const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
-                console.log("updateParent", updateParent)
+                //console.log("updateParent", updateParent)
                 const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
-                console.log("headSub", headSub)
+                //console.log("headSub", headSub)
                 mainObj = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
-                console.log("mainObj", mainObj)
+                //console.log("mainObj", mainObj)
             } else if (action === "map") {
                 //console.log("map")
                 const referencedParent = reqPath.split("/")[3]
@@ -1523,9 +1523,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const headEntity = reqPath.split("/")[6]
                 const subRefParent = await getSub(referencedParent, "su", dynamodb);
                 setIsPublic(subRefParent.Items[0].z);
-                console.log("mappedParent", mappedParent)
+                //console.log("mappedParent", mappedParent)
                 const subMapParent = await getSub(mappedParent, "su", dynamodb);
-                console.log("subMapParent", subMapParent)
+                //console.log("subMapParent", subMapParent)
                 const mpE = await getEntity(subMapParent.Items[0].e, dynamodb)
                 const mrE = await getEntity(subRefParent.Items[0].e, dynamodb)
                 const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
@@ -1600,15 +1600,15 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 fileType = reqPath.split("/")[5]
                 const subBySU = await getSub(actionFile, "su", dynamodb);
                 setIsPublic(subBySU.Items[0].z)
-                console.log("subBySU", subBySU)
-                console.log("actionFile", actionFile)
+                //console.log("subBySU", subBySU)
+                //console.log("actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
             } else if (action === "file") {
                 //console.log("file")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
                 let tasksUnix = await getTasks(actionFile, "su", dynamodb)
-                console.log("tasksUnix", tasksUnix)
+                //console.log("tasksUnix", tasksUnix)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
 
@@ -1616,37 +1616,37 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("saveFile")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
-                console.log("req", req)
-                console.log("req.body", req.body)
+                //console.log("req", req)
+                //console.log("req.body", req.body)
                 const fileResult = await createFile(actionFile, req.body.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
                 let permission = reqPath.split("/")[4]
                 const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
-                console.log("permStat", permStat)
+                //console.log("permStat", permStat)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
             } else if (action === "makeAuthenticator") {
 
 
                 const subUuid = reqPath.split("/")[3]
                 actionFile = reqPath.split("/")[3]
-                console.log("subUuid", subUuid)
+                //console.log("subUuid", subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
-                console.log("sub", sub)
+                //console.log("sub", sub)
                 let buffer = false
                 if (requestBody.body.hasOwnProperty("type")) {
                     if (requestBody.body.type == "Buffer") {
                         buffer = true
                     }
                 }
-                console.log("buffer", buffer)
+                //console.log("buffer", buffer)
                 let ex = false
                 let at = false
                 let va = false
                 let to = false
                 let ac = false
                 if (!buffer) {
-                    console.log("requestBody.body", requestBody.body)
+                    //console.log("requestBody.body", requestBody.body)
                     ex = requestBody.body.expires
                     at = requestBody.body.attempts
                     va = requestBody.body.value
@@ -1661,36 +1661,36 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     if (requestBody.body.own == true) { permissions += "o" }
                     ac = permissions
                 }
-                console.log("ex", ex)
-                console.log("at", at)
-                console.log("va", va)
-                console.log("to", to)
-                console.log("ac", ac)
+                //console.log("ex", ex)
+                //console.log("at", at)
+                //console.log("va", va)
+                //console.log("to", to)
+                //console.log("ac", ac)
                 if (ex && at && va && to && ac && !buffer) {
-                    console.log("values are truthy")
+                    //console.log("values are truthy")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
-                    console.log(access)
+                    //console.log(access)
 
                     if (sub.Items[0].e.toString() != "0") {
                         const details2 = await addVersion(sub.Items[0].e.toString(), "au", ai.toString(), null, dynamodb);
-                        console.log("details2", details2)
+                        //console.log("details2", details2)
                         const updateParent = await updateEntity(sub.Items[0].e.toString(), "au", ai.toString(), details2.v, details2.c, dynamodb);
-                        console.log("updateParent", updateParent)
+                        //console.log("updateParent", updateParent)
                     }
                 }
-                console.log("actionFile", actionFile)
-                console.log("subUuid", subUuid)
+                //console.log("actionFile", actionFile)
+                //console.log("subUuid", subUuid)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4)
 
             } else if (action === "validation") {
                 const subUuid = reqPath.split("/")[3]
-                console.log("subUuid", subUuid)
+                //console.log("subUuid", subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
-                console.log("sub", sub)
+                //console.log("sub", sub)
                 let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
                 let access = await dynamodb.query(params).promise()
-                console.log("access>>", access)
+                //console.log("access>>", access)
                 let permission = access.Items[0].ac;
                 let r = false
                 let w = false
@@ -1707,9 +1707,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = { "validation": access.Items[0].va, "read": r, "write": w, "add": a, "delete": d, "permit": p, "own": o }
             } else if (action === "saveAuthenticator") {
                 const subUuid = reqPath.split("/")[3]
-                console.log("subUuid", subUuid)
+                //console.log("subUuid", subUuid)
                 const sub = await getSub(subUuid, "su", dynamodb);
-                console.log("sub", sub)
+                //console.log("sub", sub)
                 let params1 = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
                 let access = await dynamodb.query(params1).promise()
                 let permissions = ""
@@ -1736,26 +1736,26 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "useAuthenticator") {
                 const Entity = reqPath.split("/")[3]
                 const Authenticator = reqPath.split("/")[4]
-                console.log("Entity", Entity)
-                console.log("Authenticator", Authenticator)
+                //console.log("Entity", Entity)
+                //console.log("Authenticator", Authenticator)
                 const subEntity = await getSub(Entity, "su", dynamodb);
                 const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
-                console.log("subEntity", subEntity)
-                console.log("subAuthenticator", subAuthenticator)
+                //console.log("subEntity", subEntity)
+                //console.log("subAuthenticator", subAuthenticator)
                 let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': subAuthenticator.Items[0].e.toString() } }
                 let access = await dynamodb.query(params).promise()
-                console.log("access", access)
+                //console.log("access", access)
                 const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), "1", dynamodb);
-                console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
+                //console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
-                console.log("updateAuth", updateAuth)
+                //console.log("updateAuth", updateAuth)
                 mainObj = { "alert": "success" }
             } else if (action == "createTask") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
 
                 const task = requestBody.body;
-                console.log(task);
+                //console.log(task);
                 let sDate = new Date(task.startDate + 'T00:00:00Z')
                 let sDateSeconds = sDate.getTime() / 1000;
 
@@ -1799,20 +1799,20 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     sunday: su
                 }
 
-                console.log("taskJSON", taskJSON)
+                //console.log("taskJSON", taskJSON)
                 const schedules = await convertTimespanToUTC(taskJSON)
-                console.log("schedules", schedules)
+                //console.log("schedules", schedules)
                 //This needs to expire on unix timestamp UTC not ETC
 
 
 
-                console.log(`task.taskID -${task.taskID}`)
+                //console.log(`task.taskID -${task.taskID}`)
                 let ti
                 if (task.taskID === "") {
-                    console.log("taskID === ''")
+                    //console.log("taskID === ''")
                     ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
                 } else {
-                    console.log("taskID != ''")
+                    //console.log("taskID != ''")
                     ti = task.taskID;
                     await removeSchedule(ti);
                 }
@@ -1857,9 +1857,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "deleteTask") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                console.log("deleteTask", action)
+                //console.log("deleteTask", action)
                 const task = requestBody.body;
-                console.log("task.taskID", task.taskID)
+                //console.log("task.taskID", task.taskID)
                 await removeSchedule(task.taskID);
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
@@ -1875,8 +1875,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     Body: oai.response,
                     ContentType: "application/json"
                 };
-                console.log(JSON.stringify(params))
-                console.log(JSON.stringify(params.body))
+                //console.log(JSON.stringify(params))
+                //console.log(JSON.stringify(params.body))
                 await s3.putObject(params).promise();
 
                 mainObj["oai"] = JSON.parse(oai.response);
@@ -1918,19 +1918,19 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     Expires: expires,
                     ContentType: fileCategory + '/' + fileType
                 };
-                console.log("params", params)
+                //console.log("params", params)
                 s3.getSignedUrl('putObject', params, (error, url) => {
                     if (error) {
                         res.status(500).json({ error: 'Error generating presigned URL' });
                     } else {
-                        console.log("preSigned URL:", url)
+                        //console.log("preSigned URL:", url)
                         response.putURL = url
                         res.json({ "ok": true, "response": response });
                     }
                 });
             } else {
-                console.log("returning", { "ok": true, "response": response })
-                console.log("res", res)
+                //console.log("returning", { "ok": true, "response": response })
+                //console.log("res", res)
                 res.json({ "ok": true, "response": response });
             }
 
