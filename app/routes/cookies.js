@@ -1319,12 +1319,12 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     let response;
     let jsonParsed;
     let jsonString
-    if (false) {
+    if (true) {
         //{apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]}
         const anthropic = new Anthropic();
 
         response = await anthropic.messages.create({
-            model: "claude-3-opus-20240229", //"claude-3-sonnet-20240229",//
+            model: "claude-3-haiku-20240307", // "claude-3-opus-20240229", //"claude-3-sonnet-20240229",//
             max_tokens:4000,
             temperature:0.7,
             system: gptScript.join(" "),
