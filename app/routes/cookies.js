@@ -1319,7 +1319,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     let response;
     let jsonParsed;
     let jsonString
-    if (true) {
+    if (false) {
         //{apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]}
         const anthropic = new Anthropic();
 
@@ -1350,7 +1350,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     } else {
         response = await openai.chat.completions.create({
             messages: [{ role: "system", content: combinedPrompt }],
-            model: "gpt-3.5-turbo-1106",
+            model: "gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
         });
         //console.log("stringifyOPENAI", JSON.stringify(response))
         //console.log("text.trim", response.choices[0].message.content)
