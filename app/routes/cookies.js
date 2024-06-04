@@ -1351,7 +1351,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
         response = await openai.chat.completions.create({
             messages: [{ role: "system", content: combinedPrompt }],
             model: "gpt-4o-2024-05-13", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
-            response_format={ "type": "json_object" }
+            response_format: { "type": "json_object" }
         });
         
         console.log(response)
