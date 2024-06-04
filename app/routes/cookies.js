@@ -1354,9 +1354,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             response_format: { "type": "json_object" }
         });
         
-        console.log(response)
-        /*console.log("stringifyOPENAI", JSON.stringify(response))
-        console.log("text.trim", response.choices[0].message.content)
+        console.log(">>>",response)
+        console.log("stringifyOPENAI", JSON.stringify(response))
+        /*console.log("text.trim", response.choices[0].message.content)
         console.log(`--${response.choices[0].message.content}--`)
 
         if (response.choices[0].message.content.includes("```json")) {
@@ -1365,9 +1365,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             if (response.choices[0].message.content.includes("{")) {
                 jsonString = response.choices[0].message.content
             }
-        }
-        jsonParsed = JSON.parse(jsonString)*/
-        jsonParsed = response.content
+        }*/
+        jsonParsed = response.choices[0].message.content
+        jsonParsed = response.choices
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
         jsonParsed.ai = true;
