@@ -1366,8 +1366,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
                 jsonString = response.choices[0].message.content
             }
         }*/
-        jsonParsed = response.choices[0].message.content
-        jsonParsed = response.choices
+        jsonParsed = JSON.parse(response.choices[0].message.content)
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
         jsonParsed.ai = true;
