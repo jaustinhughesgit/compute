@@ -1352,9 +1352,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             messages: [{ role: "system", content: combinedPrompt }],
             model: "gpt-4o-2024-05-13", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
         });
-        //console.log("stringifyOPENAI", JSON.stringify(response))
-        //console.log("text.trim", response.choices[0].message.content)
-        //console.log(`--${response.choices[0].message.content}--`)
+        console.log("stringifyOPENAI", JSON.stringify(response))
+        console.log("text.trim", response.choices[0].message.content)
+        console.log(`--${response.choices[0].message.content}--`)
 
         if (response.choices[0].message.content.includes("```json")) {
             jsonString = response.choices[0].message.content.split("```json", "")[1]
