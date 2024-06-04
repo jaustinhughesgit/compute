@@ -1340,7 +1340,6 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
                 }
             ]
         });
-        response = response.replace("```","").replace("```","");
 
         //console.log("stringifyANTHROPIC", JSON.stringify(response))
         jsonParsed = JSON.parse(response.content[0].text)
@@ -1354,7 +1353,9 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             model: "gpt-4o-2024-05-13", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
             response_format={ "type": "json_object" }
         });
-        console.log("stringifyOPENAI", JSON.stringify(response))
+        
+        console.log(response)
+        /*console.log("stringifyOPENAI", JSON.stringify(response))
         console.log("text.trim", response.choices[0].message.content)
         console.log(`--${response.choices[0].message.content}--`)
 
@@ -1365,8 +1366,8 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
                 jsonString = response.choices[0].message.content
             }
         }
-        jsonParsed = JSON.parse(jsonString)
-
+        jsonParsed = JSON.parse(jsonString)*/
+        jsonParsed = response.content
         jsonParsed.modules = modules
         jsonParsed.blocks = blocks
         jsonParsed.ai = true;
