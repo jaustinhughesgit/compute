@@ -1340,6 +1340,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
                 }
             ]
         });
+        response = response.replace("```","").replace("```","");
 
         //console.log("stringifyANTHROPIC", JSON.stringify(response))
         jsonParsed = JSON.parse(response.content[0].text)
