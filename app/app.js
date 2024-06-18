@@ -650,11 +650,11 @@ async function initializeMiddleware(req, res, next) {
         }
         let isPublic = head.Items[0].z
         let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
-        //console.log("#1cookie", cookie)
+        console.log("#1cookie", cookie)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
-        //console.log("#1parent", parent)
-        let fileArray = parent.paths[reqPath.split("/")[1]];
-        //console.log("fileArray", fileArray);
+        console.log("#1parent", parent)
+        let fileArray = parent.paths[head];
+        console.log("fileArray", fileArray);
 
 
         if (fileArray != undefined) {
