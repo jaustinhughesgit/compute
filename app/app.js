@@ -667,13 +667,13 @@ async function initializeMiddleware(req, res, next) {
             } else {
                 const arrayOfJSON = [];
 
-                //console.log("results", results)
+                console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
-                //console.log("arrayOfJSON", arrayOfJSON)
+                console.log("arrayOfJSON", arrayOfJSON)
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
-                        //console.log("userJSON", userJSON)
+                        console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
@@ -694,7 +694,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         await initializeModules(req.lib, userJSON, req, res, next);
-                        //console.log("req.lib.root.context", req.lib.root.context)
+                        console.log("req.lib.root.context", req.lib.root.context)
                     };
                 });
                 return await Promise.all(resultArrayOfJSON)
