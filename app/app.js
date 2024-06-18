@@ -640,7 +640,7 @@ async function initializeMiddleware(req, res, next) {
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
-        //console.log("reqPath", reqPath)
+        console.log("reqPath", reqPath)
         req.path = reqPath
         const head = await getHead("su", reqPath.split("/")[1], dynamodb)
         let isPublic = head.Items[0].z
