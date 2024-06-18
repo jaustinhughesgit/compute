@@ -653,6 +653,7 @@ async function initializeMiddleware(req, res, next) {
         console.log("#1cookie", cookie)
         const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
+        console.log("head", head);
         let fileArray = parent.paths[head];
         console.log("fileArray", fileArray);
 
