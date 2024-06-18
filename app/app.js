@@ -642,7 +642,12 @@ async function initializeMiddleware(req, res, next) {
         const reqPath = splitOriginalHost.split("?")[0]
         console.log("reqPath", reqPath)
         req.path = reqPath
-        const head = await getHead("su", reqPath.split("/")[1], dynamodb)
+        let head
+        if (reqPath.split("/")[1] == "api"){
+           head  = await getHead("su", reqPath.split("/")[2], dynamodb)
+        } else {
+           head  = await getHead("su", reqPath.split("/")[1], dynamodb)
+        }
         let isPublic = head.Items[0].z
         let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
         //console.log("#1cookie", cookie)
