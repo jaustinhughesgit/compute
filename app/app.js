@@ -643,18 +643,27 @@ async function initializeMiddleware(req, res, next) {
         console.log("reqPath", reqPath)
         req.path = reqPath
         let head
+        let cookie
+        let parent
+        let fileArray
         if (reqPath.split("/")[1] == "api"){
            head  = await getHead("su", reqPath.split("/")[2], dynamodb)
+            cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
+            fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
            head  = await getHead("su", reqPath.split("/")[1], dynamodb)
+            cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
+            fileArray = parent.paths[reqPath.split("/")[1]];
         }
         let isPublic = head.Items[0].z
-        let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+        //let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
         console.log("#1cookie", cookie)
-        const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
+        //const parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
         console.log("#1parent", parent)
         console.log("head", head);
-        let fileArray = parent.paths[head];
+        //let fileArray = parent.paths[head];
         console.log("fileArray", fileArray);
 
 
