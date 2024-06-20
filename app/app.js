@@ -2101,6 +2101,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         ////////console.log("222222")
         console.log("lib.root.context", libs.root.context)
         //.actions is the old .run
+        console.log("action",action)
+        console.log("nestedActions",action.nestedActions)
         if (action.nestedActions) {
             console.log("ACTIONS5 ACTIONS5")
             for (const act of action.nestedActions) {
