@@ -1764,6 +1764,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(libs, assign.path);
         if (assignObj) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
+            console.log("result1",result);
             if (assignExecuted && typeof result === 'function') {
                 result = await result()
             } else if (typeof result === 'function') {
@@ -1771,7 +1772,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
-            await addValueToNestedKey(action.assign, nestedContext, await createFunctionFromAction(action, libs, assign.path, req, res, next));
+            let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
+            console.log("result2", result);
+            await addValueToNestedKey(action.assign, nestedContext, result);
         }
     }
 
