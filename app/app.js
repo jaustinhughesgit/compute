@@ -1660,7 +1660,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-
+        console.log("action.target");
         const isObj = await isOnePlaceholder(action.target)
         let strClean = await removeBrackets(action.target, isObj, false);
         let target
@@ -1751,7 +1751,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign) {
-        //console.log("!!!~~~~~~~~~")
+        console.log("action.assign")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -2018,10 +2018,10 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    //console.log("11111111")
+    console.log("11111111")
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
-        ////////console.log("55: assignExecuted", assignExecuted)
+        console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
         ////////console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
