@@ -1776,7 +1776,15 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("result2", result);
             await addValueToNestedKey(action.assign, nestedContext, result);
         }
+    } else if (action.while && action.actions){
+        console.log("action.while and action.actions");
+        let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
+            console.log("result1",result);
+            if (typeof result === 'function') {
+                result = await result()
+            }
     }
+    
 
     if (action.execute) {
         const isObj = await isOnePlaceholder(action.execute)
