@@ -1777,7 +1777,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             await addValueToNestedKey(action.assign, nestedContext, result);
         }
     }
-    
 
     if (action.execute) {
         const isObj = await isOnePlaceholder(action.execute)
