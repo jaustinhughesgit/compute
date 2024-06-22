@@ -1719,9 +1719,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
         let newNestedPath = nestedPath
+        const assignExecuted = false; 
+        if (action.assign) {
+            assignExecuted = action.assign.endsWith('|}!');
+         }
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
-            const assignExecuted = action.assign.endsWith('|}!');
+            //const assignExecuted = action.assign.endsWith('|}!');
             console.log("assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
             console.log("assignObj",assignObj)
