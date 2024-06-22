@@ -2094,6 +2094,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         })
     );
     // You can process nestedResults here if needed
+            console.log("nestedResults", nestedResults)
     result = nestedResults;
 }
 return result;
