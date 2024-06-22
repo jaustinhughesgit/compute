@@ -1480,6 +1480,7 @@ async function addValueToNestedKey(key, nestedContext, value) {
     if (value == undefined || key == undefined) {
         //console.log("key/value undefined")
     } else {
+        key = key.replace("~/","");
         if (!nestedContext.hasOwnProperty(key)) {
             nestedContext[key] = { "value": {}, "context": {} }
         }
