@@ -1976,8 +1976,8 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                             console.log("------await result(...chainParams)--------------------------");
                             result = await result(...chainParams);
                         } catch (err) {
-                            //console.log("err", err)
-                            //console.log("..j..")
+                            console.log("err", err)
+                            console.log("..j..")
                             //console.log("result", result.req.lib.root)
                             result = result
                         }
