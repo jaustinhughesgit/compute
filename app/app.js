@@ -2106,7 +2106,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         //.actions is the old .run
         console.log("action",action)
         console.log("nestedActions",action.nestedActions)
-        if (action.nestedActions) {
+        /*if (action.nestedActions) {
             console.log("ACTIONS5 ACTIONS5")
             for (const act of action.nestedActions) {
                 console.log("00: act", act)
@@ -2117,7 +2117,27 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             }
             console.log("00: lib.root.context", libs.root.context)
         }
-        return result;
+        return result;*/
+
+
+
+if (action.nestedActions) {
+    const nestedResults = await Promise.all(
+        action.nestedActions.map(async (act) => {
+            let newNestedPath = nestedPath + "." + assign.key;
+            return await runAction(act, libs, newNestedPath, req, res, next);
+        })
+    );
+    // Process nestedResults if needed
+    console.log(nestedResults);
+    result = nestedResults[0]; // Assign the results of all nested actions
+}
+return result;
+
+
+
+
+        
     };
 }
 
