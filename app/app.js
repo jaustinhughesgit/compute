@@ -1719,7 +1719,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
         let newNestedPath = nestedPath
-        const assignExecuted = false; 
+        let assignExecuted = false; 
         if (action.assign) {
             assignExecuted = action.assign.endsWith('|}!');
          }
