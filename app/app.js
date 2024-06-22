@@ -705,7 +705,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context", req.lib.root.context)
-                        console.log("req.lib.root.context.testing.context.response.value", req.lib.root.context.testing.context.response.value)
+                        console.log("req.lib.root.context.testing", req.lib.root.context.testing)
                     };
                 });
                 return await Promise.all(resultArrayOfJSON)
