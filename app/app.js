@@ -1719,7 +1719,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
         let newNestedPath = nestedPath
-        result = await applyMethodChain(value, action, libs, newNestedPath, res, req, next);
+        result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('|}!');
             console.log("assignExecuted",assignExecuted, action.assign)
@@ -1819,7 +1819,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 }
 
-async function applyMethodChain(target, action, libs, nestedPath, res, req, next) {
+async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -1922,7 +1922,13 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                             chainParams[0] = chainParams[0].toString();
                                         }
                                     }
+                                    console.log("------await result(...chainParams)--------------------------");
+                                    if (assignExecuted){
                                     result = await result[accessClean](...chainParams);
+                                    } else {
+                                    //just make it a function  reference
+                                        result = result[accessClean];
+                                    }
                                 } catch (err) {
                                     console.log("err", err)
                                     console.log("..j..")
@@ -1934,7 +1940,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (typeof result === 'function') {
-                console.log("--3--")
+                console.log("--3b--")
                 //if (accessClean === 'promise') {
                 //    result = await result.promise();
                 //} else {
