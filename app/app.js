@@ -1746,6 +1746,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else {
                 console.log("other", assign)
                 await addValueToNestedKey(strClean, nestedContext, result)
+                console.log("libs.root.context", libs.root.context);
                 console.log("if", typeof nestedContext[assign.target], assignExecuted)
                 //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
                 //    nestedContext[assign.target](...args)
