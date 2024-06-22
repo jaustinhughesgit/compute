@@ -1845,7 +1845,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
             }
 
             if (chainAction.params) {
-                //console.log(">>C<<")
+                console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
                 chainParams = [];
@@ -1857,14 +1857,14 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            //console.log("a", accessClean);
-            //console.log("b", chainAction.params);
-            //console.log("c", chainAction.new);
-            //console.log("d", result);
-            //console.log("e", result[accessClean]);
-            //console.log("f", result.length);
-            //console.log("g", typeof result[accessClean]);
-            //console.log("h", nestedPath)
+            console.log("a", accessClean);
+            console.log("b", chainAction.params);
+            console.log("c", chainAction.new);
+            console.log("d", result);
+            console.log("e", result[accessClean]);
+            console.log("f", result.length);
+            console.log("g", typeof result[accessClean]);
+            console.log("h", nestedPath)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1872,49 +1872,49 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
 
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                //console.log("--1--")
+                console.log("--1--")
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                //console.log("--2a--")
+                console.log("--2a--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                //console.log("--2b--")
+                console.log("--2b--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                //console.log("--2c--")
+                console.log("--2c--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
-                //console.log("--3--")
+                console.log("--3--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
 
-                    //console.log("..a..")
+                    console.log("..a..")
                     if (chainAction.new) {
-                        //console.log("..b..")
+                        console.log("..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        //console.log("..c..")
+                        console.log("..c..")
                         if (chainAction.access && accessClean.length != 0) {
-                            //console.log("..d..")
+                            console.log("..d..")
                             if (chainAction.express) {
-                                //console.log("..e..")
+                                console.log("..e..")
                                 if (chainAction.next || chainAction.next == undefined) {
-                                    //console.log("..f..")
+                                    console.log("..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    //console.log("..g..")
+                                    console.log("..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
 
-                                //console.log("..h..")
+                                console.log("..h..")
                                 try { console.log("result", result) } catch (err) { }
                                 try { console.log("accessClean", accessClean) } catch (err) { }
                                 try { console.log("chainParams", chainParams) } catch (err) { }
                                 try {
-                                    //console.log("..i..")
+                                    console.log("..i..")
                                     ////////console.log(chainParams[0])
                                     ////////console.log(typeof chainParams[0])
                                     if (chainParams.length > 0) {
@@ -1925,7 +1925,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     result = await result[accessClean](...chainParams);
                                 } catch (err) {
                                     console.log("err", err)
-                                    //console.log("..j..")
+                                    console.log("..j..")
                                     //console.log("result", result.req.lib.root)
                                     result = result
                                 }
@@ -1934,19 +1934,19 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                     }
                 }
             } else if (typeof result === 'function') {
-                //console.log("--3--")
+                console.log("--3--")
                 //if (accessClean === 'promise') {
                 //    result = await result.promise();
                 //} else {
 
-                //console.log("..a..")
+                console.log("..a..")
                 if (chainAction.new) {
-                    //console.log("..b..")
+                    console.log("..b..")
                     result = new result(...chainParams);
                 } else {
-                    //console.log("..c..")
+                    console.log("..c..")
                     //            if (chainAction.access && accessClean.length != 0){
-                    //console.log("..d..")
+                    console.log("..d..")
                     if (chainAction.express) {
                         //console.log("..e..")
                         if (chainAction.next || chainAction.next == undefined) {
@@ -1958,12 +1958,12 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                         }
                     } else {
 
-                        //console.log("..h..")
+                        console.log("..h..")
                         try { console.log("result", result) } catch (err) { }
                         //try{ console.log("accessClean", accessClean)} catch (err){}
                         try { console.log("chainParams", chainParams) } catch (err) { }
                         try {
-                            //console.log("..i..")
+                            console.log("..i..")
                             ////////console.log(chainParams[0])
                             ////////console.log(typeof chainParams[0])
                             if (chainParams.length > 0) {
@@ -1973,6 +1973,7 @@ async function applyMethodChain(target, action, libs, nestedPath, res, req, next
                                     chainParams[0] = chainParams[0].toString();
                                 }
                             }
+                            console.log("------await result(...chainParams)--------------------------");
                             result = await result(...chainParams);
                         } catch (err) {
                             //console.log("err", err)
