@@ -1827,17 +1827,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     console.error('Failed to execute value function:', error.message);
                     throw error;
                 }
-                    console.log("executeValue");
-                    await executeValue()
-    .then(data => {
-        console.log('Fetched data:', data);
-    })
-    .catch(error => {
-        console.error('Error:', error.message);
-    });
-
                     
             }
+                    console.log("executeValue");
+                    await executeValue()
+                    .then(data => {
+                        console.log('Fetched data:', data);
+                    })
+                    .catch(error => {
+                        console.error('Error:', error.message);
+                    });
                 
             }
         } else {
