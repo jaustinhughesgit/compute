@@ -1712,6 +1712,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 args = await Promise.all(promises)
                 console.log("arguments: args", args)
             }
+            console.log("ZZ value", value)
+            console.log("ZZ target.key", target.key)
+            console.log("ZZ typeof", typeof nestedContext[target.key].value);
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
