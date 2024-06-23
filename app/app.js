@@ -1800,11 +1800,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         let nestedContext = await getNestedContext(libs, execute.path);
         let value = nestedContext[execute.value]
-        ////////console.log("777: isObj", isObj)
-        ////////console.log("777: nestedPath", nestedPath)
-        ////////console.log("777: execute", execute)
-        ////////console.log("777: nestedContext", nestedContext)
-        ////////console.log("777: value", value)
+        console.log("777: isObj", isObj)
+        console.log("777: nestedPath", nestedPath)
+        console.log("777: execute", execute)
+        console.log("777: nestedContext", nestedContext)
+        console.log("777: value", value)
         // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
         if (typeof value === 'function') {
             if (action.express) {
