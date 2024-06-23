@@ -1799,7 +1799,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             execute = { "key": strClean, "path": nestedPath }
         }
         let nestedContext = await getNestedContext(libs, execute.path);
-        let value = nestedContext[execute.value]
+        let value = nestedContext[strClean]
+        //let value = nestedContext[execute.value]
         console.log("777: isObj", isObj)
         console.log("777: nestedPath", nestedPath)
         console.log("777: execute", execute)
