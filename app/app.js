@@ -1816,7 +1816,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     await value.value(req, res, next);
                 }
             } else {
-                await value.value;
+                await value.value();
             }
         } else {
             //console.error(`No function named ${strClean} found in context`);
