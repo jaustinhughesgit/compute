@@ -1930,10 +1930,13 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         }
                                     }
                                     console.log("1------await result(...chainParams)--------------------------");
+                                        console.log("chainParams", chainParams);
+                                    console.log("result",result);
                                     if (assignExecuted){
                                     result = await result[accessClean](...chainParams);
                                     } else {
                                     //just make it a function  reference
+                                        console.log("accessClean", accessClean);
                                         result = result[accessClean];
                                     }
                                 } catch (err) {
