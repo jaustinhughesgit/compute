@@ -1536,7 +1536,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
-    await delay(timeoutLength);
+    if (timeoutLength > 0){
+        await delay(timeoutLength);
+    }
     if (action.set) {
         for (const key in action.set) {
 
