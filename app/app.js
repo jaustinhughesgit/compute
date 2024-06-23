@@ -1897,21 +1897,21 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     result = await result.promise();
                 } else {
 
-                    console.log("..a..")
+                    console.log("1..a..")
                     if (chainAction.new) {
-                        console.log("..b..")
+                        console.log("1..b..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        console.log("..c..")
+                        console.log("1..c..")
                         if (chainAction.access && accessClean.length != 0) {
-                            console.log("..d..")
+                            console.log("1..d..")
                             if (chainAction.express) {
-                                console.log("..e..")
+                                console.log("1..e..")
                                 if (chainAction.next || chainAction.next == undefined) {
-                                    console.log("..f..")
+                                    console.log("1..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    console.log("..g..")
+                                    console.log("1..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
@@ -1929,7 +1929,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             chainParams[0] = chainParams[0].toString();
                                         }
                                     }
-                                    console.log("------await result(...chainParams)--------------------------");
+                                    console.log("1------await result(...chainParams)--------------------------");
                                     if (assignExecuted){
                                     result = await result[accessClean](...chainParams);
                                     } else {
@@ -1952,14 +1952,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 //    result = await result.promise();
                 //} else {
 
-                console.log("..a..")
+                console.log("2..a..")
                 if (chainAction.new) {
-                    console.log("..b..")
+                    console.log("2..b..")
                     result = new result(...chainParams);
                 } else {
-                    console.log("..c..")
+                    console.log("2..c..")
                     //            if (chainAction.access && accessClean.length != 0){
-                    console.log("..d..")
+                    console.log("2..d..")
                     if (chainAction.express) {
                         //console.log("..e..")
                         if (chainAction.next || chainAction.next == undefined) {
@@ -1986,7 +1986,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     chainParams[0] = chainParams[0].toString();
                                 }
                             }
-                            console.log("------await result(...chainParams)--------------------------");
+                            console.log("2------await result(...chainParams)--------------------------");
                             result = await result(...chainParams);
                         } catch (err) {
                             console.log("err", err)
