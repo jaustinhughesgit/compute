@@ -1816,8 +1816,27 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     await value.value(req, res, next);
                 }
             } else {
-                let funcCall = value.value
-                await funcCall();
+                //await value.value
+
+                async function executeValue() {
+                try {
+                    const data = await value.value();
+                    return data;
+                } catch (error) {
+                    console.error('Failed to execute value function:', error.message);
+                    throw error;
+                }
+                    executeValue()
+    .then(data => {
+        console.log('Fetched data:', data);
+    })
+    .catch(error => {
+        console.error('Error:', error.message);
+    });
+
+                    
+            }
+                
             }
         } else {
             //console.error(`No function named ${strClean} found in context`);
