@@ -1806,8 +1806,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         console.log("777: execute", execute)
         console.log("777: nestedContext", nestedContext)
         console.log("777: value", value)
+        console.log("777: typeof value.value", typeof value.value)
         // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
-        if (typeof value === 'function') {
+        if (typeof value.value === 'function') {
             if (action.express) {
                 if (!action.next) {
                     await value.value(req, res);
