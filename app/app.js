@@ -1889,7 +1889,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
-                chainParams = [];
+                console.log("result = result");
+                 result = result
+                return
+                //chainParams = [];
             }
             //console.log("chainParams", chainParams)
             let accessClean = chainAction.access
@@ -1913,34 +1916,34 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                console.log("--1--")
+                console.log("--1aa--")
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2a--")
+                console.log("--2aa--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                console.log("--2b--")
+                console.log("--2bb--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2c--")
+                console.log("--2cc--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
-                console.log("--3--")
+                console.log("--3dd--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
 
-                    console.log("1..a..")
+                    console.log("1..aa..")
                     if (chainAction.new) {
-                        console.log("1..b..")
+                        console.log("1..bb..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        console.log("1..c..")
+                        console.log("1..cc..")
                         if (chainAction.access && accessClean.length != 0) {
-                            console.log("1..d..")
+                            console.log("1..dd..")
                             if (chainAction.express) {
-                                console.log("1..e..")
+                                console.log("1..ee..")
                                 if (chainAction.next || chainAction.next == undefined) {
                                     console.log("1..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
