@@ -1529,6 +1529,11 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
+    let timeoutLength = 0
+    if (action.timeout){
+        timeoutLength = action.timeout
+    }
+    setTimeout(function() {
     if (action.set) {
         for (const key in action.set) {
 
@@ -1847,6 +1852,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.next) {
         next();
     }
+    }, timeoutLength);
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
