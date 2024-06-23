@@ -1821,12 +1821,14 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 async function executeValue() {
                 try {
                     const data = await value.value();
+                    console.log("data",data);
                     return data;
                 } catch (error) {
                     console.error('Failed to execute value function:', error.message);
                     throw error;
                 }
-                    executeValue()
+                    console.log("executeValue");
+                    await executeValue()
     .then(data => {
         console.log('Fetched data:', data);
     })
