@@ -1533,7 +1533,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.timeout){
         timeoutLength = action.timeout
     }
-    setTimeout(function() {
+    function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+    await delay(timeoutLength);
     if (action.set) {
         for (const key in action.set) {
 
@@ -1852,7 +1855,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.next) {
         next();
     }
-    }, timeoutLength);
+    
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
