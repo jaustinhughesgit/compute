@@ -995,8 +995,8 @@ function evaluateMathExpression2(expression) {
 async function replacePlaceholders2(str, json, nestedPath = "") {
     console.log("str-1", str)
     console.log("json-1",json);
-    const isExecuted = str.endsWith('|}!');
-    console.log("isExecuted", isExecuted);
+    //const isExecuted = str.endsWith('|}!');
+    //console.log("isExecuted", isExecuted);
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1105,8 +1105,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     async function replace2(str, nestedPath) {
         ////////console.log("BBBBBBBB")
-        console.log("str",str)
-        console.log("nestedPath", nestedPath)
+        //console.log("str",str)
+        //console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
