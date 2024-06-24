@@ -461,7 +461,7 @@ app.all('/auth/*',
         req.lib.modules = {};
         req.lib.middlewareCache = []
         req.lib.isMiddlewareInitialized = false;
-        req.lib.whileLimit = 10;
+        req.lib.whileLimit = 100;
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
