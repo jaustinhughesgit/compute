@@ -993,12 +993,9 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    console.log("str-1", str)
-    console.log("json-1",json);
-    //const isExecuted = str.endsWith('|}!');
-    //console.log("isExecuted", isExecuted);
+    ////////console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
+        //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -1105,15 +1102,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     async function replace2(str, nestedPath) {
         ////////console.log("BBBBBBBB")
-        //console.log("str",str)
-        //console.log("nestedPath", nestedPath)
+        ////////console.log("str",str)
+        ////////console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            console.log("CCCCCCCCCC")
+            ////////console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
@@ -1135,7 +1132,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 //console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                console.log("DDDDDDDDDDD")
+                //console.log("DDDDDDDDDDD")
                 ////////console.log("forceRoot",forceRoot)
                 ////////console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
@@ -1238,12 +1235,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
         return modifiedStr;
     }
-    //if (isExecuted){
-        
-        //return processString(str, libs, nestedPath) 
-    //} else {
-        return replace2(str, nestedPath);
-    //}
+
+    return replace2(str, nestedPath);
 }
 
 // Example usage
