@@ -703,6 +703,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.moment = { "value": moment, "context": {} }
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
+                        req.lib.root.context.method = { "value": req.method, "context": {}}
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("req.lib.root.context", req.lib.root.context)
                         
