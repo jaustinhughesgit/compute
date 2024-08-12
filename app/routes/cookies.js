@@ -1334,7 +1334,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     let response;
     let jsonParsed;
     let jsonString
-    if (false) {
+    if (true) {
         //{apiKey: 'my_api_key', // defaults to process.env["ANTHROPIC_API_KEY"]}
         const anthropic = new Anthropic();
 
