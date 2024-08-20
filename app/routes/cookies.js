@@ -1462,6 +1462,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 if (cookie != undefined) {
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
+                    const parentEntity = reqPath.split("/")[5]
+                    console.log("parentEntity",parentEntity)
                     setIsPublic(true)
                     //console.log("A")
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
