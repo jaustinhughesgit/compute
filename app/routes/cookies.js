@@ -1463,6 +1463,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
+                    const row = reqPath.split("/")[6]
+                    const col = reqPath.split("/")[7]
                     console.log("parentEntity",parentEntity)
                     setIsPublic(true)
                     //console.log("A")
@@ -1498,7 +1500,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), "0", dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
-                    const fileResult = await createFile(uniqueId2, {"blocks":[{"entity": uniqueId2,"width": "100", "align": "center"}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "{|entity|}"]}]}]}, s3)
+                    const fileResult = await createFile(uniqueId2, {"blocks":[{"entity": uniqueId2,"width": "100", "align": "center","row": 0,"col": 0,"color": 0}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "{|entity|}"]}],"assign": "{|send|}!"}]}, s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
                     //console.log("ses",ses)
