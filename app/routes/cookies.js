@@ -1458,7 +1458,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await linkEntities(childID, parentID)
                 mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
             } else if (action === "newGroup") {
-                //console.log("newGroup")
+                console.log("newGroup")
                 if (cookie != undefined) {
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
