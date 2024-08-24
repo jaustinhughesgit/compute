@@ -108,9 +108,9 @@ async function isValid(req, res, data) {
     
 
     if (req.path == "/"){
-        req.dynPpath = req.path
-    } else {
         req.dynPath = "/cookies/runEntity"
+    } else {
+        req.dynPath = req.path
     }
 
 
@@ -494,9 +494,9 @@ async function runApp (req, res, next) {
 
 
         if (req.path == "/"){
-            req.dynPpath = req.path
-        } else {
             req.dynPath = "/cookies/runEntity"
+        } else {
+            req.dynPath = req.path
         }
         
 
