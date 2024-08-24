@@ -2213,7 +2213,7 @@ const automate = async (url) => {
 
 const serverlessHandler = serverless(app);
 
-module.exports.lambdaHandler = async (event, context) => {
+const lambdaHandler = async (event, context) => {
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
 
@@ -2524,3 +2524,8 @@ module.exports.lambdaHandler = async (event, context) => {
         return serverlessHandler(event, context);
     }
 };
+
+module.exports = {
+    lambdaHandler,
+    runApp
+  };
