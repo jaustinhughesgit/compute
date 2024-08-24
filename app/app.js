@@ -103,7 +103,7 @@ function isSubset(jsonA, jsonB) {
 }
 
 async function isValid(req, res, data) {
-    let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
+    let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies/runEntity')
     //console.log("req.path::", req.path)
     let sub = await getSub(req.path.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/"), "su", dynamodb)
     //console.log("sub", sub)
@@ -460,6 +460,7 @@ app.all('/auth/*',
 )
 
 async function runApp (req, res, next) {
+    console.log("runApp-runApp")
     try {
         // Middleware 1: Initialization
         req.lib = {};
@@ -481,7 +482,7 @@ async function runApp (req, res, next) {
         };
 
         // Middleware 2: Check if middleware needs initialization
-        if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies'))) {
+        if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies/'))) {
             req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
