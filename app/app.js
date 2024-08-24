@@ -481,7 +481,7 @@ async function runApp (req, res, next) {
         };
 
         // Middleware 2: Check if middleware needs initialization
-        if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
+        if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies'))) {
             req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
@@ -634,7 +634,7 @@ async function initializeMiddleware(req, res, next) {
 
 
 
-    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks')) {
+    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks') || req.path.startsWith('/cookies')) {
         let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
         //console.log("req", req)
         //console.log("req.body", req.body)
