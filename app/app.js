@@ -659,10 +659,15 @@ function getPageType(urlPath) {
 
 async function initializeMiddleware(req, res, next) {
     console.log("runApp3")
+
+    if (req.path == "/"){
+        req.dynPath = "/cookies/runEntity"
+    } else {
+        req.dynPath = req.path
+    }
+
     console.log("req.dynPath",req.dynPath)
     //console.log("req", req)
-
-
 
     if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
         console.log("runApp4")
