@@ -657,6 +657,10 @@ async function initializeMiddleware(req, res, next) {
         //console.log("splitOriginalHost", splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
         console.log("reqPath", reqPath)
+        if (reqPath == "/"){
+            reqPath = "/cookies/runEntity"
+        }
+
         req.path = reqPath
         let head
         let cookie
