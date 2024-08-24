@@ -1905,7 +1905,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("--->", fileID)
                 mainObj["oai"] = {"name":"austin", "entity":fileID};
                 console.log(req, res)
-                
+                runApp(req, res, next)
             }
 
             /* else if (action == "transcribe"){
