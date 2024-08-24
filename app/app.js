@@ -454,19 +454,23 @@ app.all('/blocks/*',
 
 app.all('/auth/*',
     async (req, res, next) => {
-        //console.log("auth", req)
-        //console.log("req.body", req.body)
-        //console.log("req.headers", req.headers)
-        req.lib = {}
+        console.log("running middleware")
+        await runApp(req, res, next)
+    }
+)
+
+async function runApp (req, res, next) {
+    try {
+        // Middleware 1: Initialization
+        req.lib = {};
         req.lib.modules = {};
-        req.lib.middlewareCache = []
+        req.lib.middlewareCache = [];
         req.lib.isMiddlewareInitialized = false;
         req.lib.whileLimit = 100;
-        req.lib.root = {}
-        req.lib.root.context = {}
-        req.lib.root.context.session = session
+        req.lib.root = {};
+        req.lib.root.context = {};
+        req.lib.root.context.session = session;
         res.originalJson = res.json;
-
 
         res.json = async function (data) {
             if (await isValid(req, res, data)) {
@@ -475,37 +479,36 @@ app.all('/auth/*',
                 res.originalJson.call(this, {});
             }
         };
-        next();
-    },
-    async (req, res, next) => {
+
+        // Middleware 2: Check if middleware needs initialization
         if (!req.lib.isMiddlewareInitialized && req.path.startsWith('/auth')) {
             req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
-        //console.log("req.lib.middlewareCache", req.lib.middlewareCache)
-        //console.log("req.lib.middlewareCache.length", req.lib.middlewareCache.length)
-        if (req.lib.middlewareCache.length == 0) {
-            res.send("no access")
-        } else {
-            next();
+
+        // If middleware cache is empty, deny access
+        if (req.lib.middlewareCache.length === 0) {
+            return res.send("no access");
         }
-    },
-    async (req, res, next) => {
+
+        // Middleware 3: Run through the middleware cache
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
-                } else {
-                    //next();
                 }
             };
             await runMiddleware(0);
-        } else {
-            //next();
         }
+
+        // All middlewares done, move to next
+        next();
+
+    } catch (error) {
+        next(error);  // Error handling
     }
-);
+}
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
