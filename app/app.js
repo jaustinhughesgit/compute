@@ -475,12 +475,16 @@ async function runApp (req, res, next) {
 
         res.json = async function (data) {
             if (await isValid(req, res, data)) {
+                console.log("isValid = true")
                 res.originalJson.call(this, data);
             } else {
+                console.log("isValid = false")
                 res.originalJson.call(this, {});
             }
         };
 
+        console.log("req.path000",req.path)
+        console.log("req.lib.isMiddlewareInitialized",req.lib.isMiddlewareInitialized)
         // Middleware 2: Check if middleware needs initialization
         if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies/'))) {
             console.log("runApp1")
