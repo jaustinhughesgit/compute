@@ -47,6 +47,10 @@ app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
 app.use('/controller', controllerRouter);
 
+app.use('/run', async (req, res, next) => {
+res.send("asfd");
+});
+
 app.use('/', indexRouter);
 
 app.use(async (req, res, next) => {
@@ -2261,6 +2265,7 @@ module.exports.lambdaHandler = async (event, context) => {
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
+    
     if (event.automate) {
         //console.log("automate is true")
 
