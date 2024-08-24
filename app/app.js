@@ -634,7 +634,7 @@ async function initializeMiddleware(req, res, next) {
 
 
 
-    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks') || req.path.startsWith('/cookies')) {
+    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks') || req.path.startsWith('/cookies/runEntity')) {
         let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
         //console.log("req", req)
         //console.log("req.body", req.body)
