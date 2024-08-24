@@ -1899,7 +1899,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
 
                 mainObj["oai"] = JSON.parse(oai.response);
-            } else if (action == "updateEntityByAI") {
+            } else if (action == "runEntity") {
                 const fileID = reqPath.split("/")[3]
                 console.log("--->", fileID)
             }
