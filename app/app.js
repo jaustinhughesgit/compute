@@ -483,6 +483,7 @@ async function runApp (req, res, next) {
 
         // Middleware 2: Check if middleware needs initialization
         if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies/'))) {
+            console.log("runApp1")
             req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
@@ -495,6 +496,7 @@ async function runApp (req, res, next) {
 
         // Middleware 3: Run through the middleware cache
         if (req.lib.middlewareCache.length > 0) {
+            console.log("runApp2")
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
@@ -631,11 +633,14 @@ function getPageType(urlPath) {
 }
 
 async function initializeMiddleware(req, res, next) {
+    console.log("runApp3")
+    console.log("req.path",req.path)
     //console.log("req", req)
 
 
 
     if (req.path.startsWith('/auth') || req.path.startsWith('/blocks') || req.path.startsWith('/cookies/runEntity')) {
+        console.log("runApp4")
         let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
         //console.log("req", req)
         //console.log("req.body", req.body)
@@ -651,11 +656,14 @@ async function initializeMiddleware(req, res, next) {
         let parent
         let fileArray
         if (reqPath.split("/")[1] == "api"){
+            console.log("runApp5")
            head  = await getHead("su", reqPath.split("/")[2], dynamodb)
             cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
+
+            console.log("runApp6")
            head  = await getHead("su", reqPath.split("/")[1], dynamodb)
             cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
