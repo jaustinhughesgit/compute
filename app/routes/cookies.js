@@ -1902,7 +1902,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "runEntity") {
                 const fileID = reqPath.split("/")[3]
                 console.log("--->", fileID)
-                mainObj["oai"] = {"name":"austin"};
+                mainObj["oai"] = {"name":"austin", "entity":fileID};
             }
 
             /* else if (action == "transcribe"){
