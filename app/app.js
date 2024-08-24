@@ -2261,6 +2261,20 @@ module.exports.lambdaHandler = async (event, context) => {
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
+    if (event.customParam) {
+        console.log("Direct Lambda invocation detected");
+
+        const { reqBody, accessToken, originalHost } = event;
+        // Process the Lambda-invoked request
+        return {
+            statusCode: 200,
+            body: JSON.stringify({
+                message: "Processed request from Lambda 1",
+                data: reqBody,
+            }),
+        };
+    }
+
     if (event.automate) {
         //console.log("automate is true")
 
