@@ -105,7 +105,16 @@ function isSubset(jsonA, jsonB) {
 async function isValid(req, res, data) {
     let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
     //console.log("req.path::", req.path)
-    let sub = await getSub(req.path.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/"), "su", dynamodb)
+    
+
+    if (req.path == "/"){
+        req.dynPpath = req.path
+    } else {
+        req.dynPath = "/cookies/runEntity"
+    }
+
+
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/"), "su", dynamodb)
     //console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
@@ -485,18 +494,17 @@ async function runApp (req, res, next) {
 
 
         if (req.path == "/"){
-            console.log("req.path === ''")
-            req.path = "/cookies/runEntity"
+            req.dynPpath = req.path
+        } else {
+            req.dynPath = "/cookies/runEntity"
         }
-
-            req.path = "/cookies/runEntity"
         
 
 
-        console.log("req.path000",req.path)
+        console.log("req.path000",req.dynPath)
         console.log("req.lib.isMiddlewareInitialized",req.lib.isMiddlewareInitialized)
         // Middleware 2: Check if middleware needs initialization
-        if (!req.lib.isMiddlewareInitialized && (req.path.startsWith('/auth') || req.path.startsWith('/cookies/'))) {
+        if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
             console.log("runApp1")
             req.blocks = false;
             req.lib.middlewareCache = await initializeMiddleware(req, res, next);
@@ -651,12 +659,12 @@ function getPageType(urlPath) {
 
 async function initializeMiddleware(req, res, next) {
     console.log("runApp3")
-    console.log("req.path",req.path)
+    console.log("req.dynPath",req.dynPath)
     //console.log("req", req)
 
 
 
-    if (req.path.startsWith('/auth') || req.path.startsWith('/blocks') || req.path.startsWith('/cookies/runEntity')) {
+    if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
         console.log("runApp4")
         let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
         //console.log("req", req)
@@ -667,7 +675,7 @@ async function initializeMiddleware(req, res, next) {
         //console.log("splitOriginalHost", splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
         console.log("reqPath", reqPath)
-        req.path = reqPath
+        req.dynPath = reqPath
         let head
         let cookie
         let parent
