@@ -485,8 +485,12 @@ async function runApp (req, res, next) {
 
 
         if (req.path == "/"){
+            console.log("req.path === ''")
             req.path = "/cookies/runEntity"
         }
+
+            req.path = "/cookies/runEntity"
+        
 
 
         console.log("req.path000",req.path)
