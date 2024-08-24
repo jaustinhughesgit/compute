@@ -483,6 +483,12 @@ async function runApp (req, res, next) {
             }
         };
 
+
+        if (req.path == "/"){
+            req.path = "/cookies/runEntity"
+        }
+
+
         console.log("req.path000",req.path)
         console.log("req.lib.isMiddlewareInitialized",req.lib.isMiddlewareInitialized)
         // Middleware 2: Check if middleware needs initialization
@@ -657,10 +663,6 @@ async function initializeMiddleware(req, res, next) {
         //console.log("splitOriginalHost", splitOriginalHost)
         const reqPath = splitOriginalHost.split("?")[0]
         console.log("reqPath", reqPath)
-        if (reqPath == "/"){
-            reqPath = "/cookies/runEntity"
-        }
-
         req.path = reqPath
         let head
         let cookie
