@@ -489,6 +489,8 @@ async function runApp (req, res, next) {
             req.lib.isMiddlewareInitialized = true;
         }
 
+        console.log("req.lib.middlewareCache",req.lib.middlewareCache)
+        console.log("req.lib",req.lib)
         // If middleware cache is empty, deny access
         if (req.lib.middlewareCache.length === 0) {
             return res.send("no access");
@@ -509,6 +511,7 @@ async function runApp (req, res, next) {
         next();
 
     } catch (error) {
+        console.log("err", error)
         next(error);  // Error handling
     }
 }
