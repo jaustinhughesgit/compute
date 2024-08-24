@@ -673,12 +673,7 @@ async function initializeMiddleware(req, res, next) {
         //console.log("originalHost", originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
-        let reqPath 
-        if (req.path  == ""){
-            reqPath = req.dynPath;
-        } else {
-            reqPath = splitOriginalHost.split("?")[0]
-        }
+        const reqPath = splitOriginalHost.split("?")[0]
         console.log("reqPath", reqPath)
         req.dynPath = reqPath
         let head
