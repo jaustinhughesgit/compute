@@ -678,7 +678,7 @@ async function initializeMiddleware(req, res, next) {
         //console.log("originalHost", originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
-        const reqPath = splitOriginalHost.split("?")[0]
+        let reqPath = splitOriginalHost.split("?")[0]
         reqPath = reqPath.replace("/cookies/runEntity")
         console.log("reqPath", reqPath)
         req.dynPath = reqPath
