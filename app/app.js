@@ -116,10 +116,8 @@ async function isValid(req, res, data) {
         req.dynPath = req.path
     }
 
-    let entitySending =  req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/","")
 
-    console.log("entitySending",entitySending)
-    let sub = await getSub(entitySending, "su", dynamodb)
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/",""), "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
@@ -450,7 +448,6 @@ app.all('/blocks/*',
 
 
         res.json = async function (data) {
-            console.log("isValid44")
             if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
             } else {
@@ -489,8 +486,6 @@ async function runApp (req, res, next) {
         res.originalJson = res.json;
 
         res.json = async function (data) {
-            console.log("isValid55")
-            console.log("isValid55", req)
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
                 res.originalJson.call(this, data);
@@ -501,11 +496,11 @@ async function runApp (req, res, next) {
         };
 
 
-        //if (req.path == "/"){
-        //    req.dynPath = "/cookies/runEntity"
-        //} else {
+        if (req.path == "/"){
+            req.dynPath = "/cookies/runEntity"
+        } else {
             req.dynPath = req.path
-        //}
+        }
         
 
 
