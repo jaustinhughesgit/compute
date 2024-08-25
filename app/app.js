@@ -455,7 +455,7 @@ app.all('/blocks/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
-        res.originalJson = res.json;
+        res.originalJson  = (...args) => res.json(...args);
 
 
         res.json = async function (data) {
@@ -500,7 +500,7 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson = res.json;
+        res.originalJson  = (...args) => res.json(...args);
 
         res.json = async function (data) {
             console.log("isValid55")
@@ -511,13 +511,7 @@ async function runApp (req, res, next) {
             if (isV) {
                 console.log("isValid = true")
                 console.log("this", this)
-                try{
-                    res.originalJson.call(this, { ok: true, response: { status: 'authenticated', file: '' } })
-                //await res.originalJson.call(this, data);
-                } catch (err){
-                    console.log(err)
-                    //res.send("VALID")
-                }
+                await res.originalJson.call(this, data);
             } else {
                 console.log("isValid = false")
                 console.log("this", this)
