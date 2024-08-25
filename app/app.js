@@ -116,8 +116,10 @@ async function isValid(req, res, data) {
         req.dynPath = req.path
     }
 
+    let entitySending =  req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/","")
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/",""), "su", dynamodb)
+    console.log("entitySending",entitySending)
+    let sub = await getSub(entitySending, "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
