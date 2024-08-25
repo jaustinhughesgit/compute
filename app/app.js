@@ -512,10 +512,10 @@ async function runApp (req, res, next) {
                 console.log("isValid = true")
                 console.log("this", this)
                 try{
-                await res.originalJson.call(this, data);
+                //await res.originalJson.call(this, data);
                 } catch (err){
                     console.log(err)
-                    res.send("VALID")
+                    //res.send("VALID")
                 }
             } else {
                 console.log("isValid = false")
