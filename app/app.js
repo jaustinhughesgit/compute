@@ -495,13 +495,13 @@ async function runApp (req, res, next) {
             }
         };
 
-
+/*
         if (req.path == "/"){
             req.dynPath = "/cookies/runEntity"
         } else {
             req.dynPath = req.path
         }
-        
+        */
 
 
         console.log("req.path000",req.dynPath)
