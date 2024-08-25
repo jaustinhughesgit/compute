@@ -485,7 +485,7 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson = res.json;
+        res.originalJson  = (...args) => res.json(...args);
 
         res.json = async function (data) {
             if (await isValid(req, res, data)) {
@@ -496,7 +496,7 @@ async function runApp (req, res, next) {
                 res.originalJson.call(this, {});
             }
         };
-
+console.log("req.path", req.path)
 
         if (req.path == "/"){
             req.dynPath = "/cookies/runEntity"
