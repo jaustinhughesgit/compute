@@ -21,7 +21,6 @@ const OpenAI = require("openai");
 const openai = new OpenAI();
 
 const Anthropic = require('@anthropic-ai/sdk');
-let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = require('./routes/cookies')
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true } }));
@@ -41,6 +40,8 @@ var indexRouter = require('./routes/index');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
 
+let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
+//let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
 
 console.log("")
 app.use('/embeddings', embeddingsRouter);
@@ -54,7 +55,7 @@ app.use(async (req, res, next) => {
     if (!cookiesRouter) {
         try {
             const privateKey = await getPrivateKey();
-            let { setupRouter, getSub } = require('./routes/cookies')
+            //let { setupRouter, getSub } = require('./routes/cookies')
             cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
             app.use('/:type(cookies|url)*', function (req, res, next) {
                 req.type = req.params.type;
@@ -673,7 +674,6 @@ async function initializeMiddleware(req, res, next) {
 
     if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
         console.log("runApp4")
-        let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
         //console.log("req", req)
         //console.log("req.body", req.body)
         let originalHost = req.body.headers["X-Original-Host"];
@@ -1169,7 +1169,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = await evaluateMathExpression2(expression);
             } else if (innerStr.startsWith(">")) {
                 //console.log("INSIDE > ")
-                let { getWord, getSub } = require('./routes/cookies')
+                //let { getWord, getSub } = require('./routes/cookies')
                 let subRes = await getSub(innerStr.replace(">", ""), "su", dynamodb)
                 //console.log("subRes", subRes)
                 //console.log("subRes.Items[0].a", subRes.Items[0].a)
@@ -1628,7 +1628,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             //console.log("key startsWith {|>", key)
             if (key.startsWith("{|>")) {
-                let { incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity, verifyThis, manageCookie } = await require('./routes/cookies');
+                //let { incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity, verifyThis, manageCookie } = await require('./routes/cookies');
 
                 keyClean = keyClean.replace(">", "")
                 set.key = keyClean
@@ -2259,7 +2259,7 @@ const lambdaHandler = async (event, context) => {
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
 
-        let { getSub } = await require('./routes/cookies')
+        //let { getSub } = await require('./routes/cookies')
         // Process the SES email
         //console.log("Received SES event:", JSON.stringify(event, null, 2));
         
@@ -2374,7 +2374,7 @@ const lambdaHandler = async (event, context) => {
     }
     if (event.enable) {
 
-        let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
+        //let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
 
         const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
 
