@@ -110,12 +110,13 @@ async function isValid(req, res, data) {
     
     
 
-    if (req.path == "/"){
-        req.dynPath = "/cookies/runEntity"
-    } else {
+    //if (req.path == "/"){
+    //    req.dynPath = "/cookies/runEntity"
+    //} else {
         req.dynPath = req.path
-    }
+    ///}
 
+    console.log("req.dynPath", req.dynPath)
     let entitySending =  req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/","")
 
     console.log("entitySending",entitySending)
