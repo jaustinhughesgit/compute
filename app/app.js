@@ -444,10 +444,10 @@ app.all('/blocks/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
-        res.originalJson = res.jsonn;
+        res.originalJson = res.json;
 
 
-        res.jsonn = async function (data) {
+        res.json = async function (data) {
             if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
             } else {
@@ -460,7 +460,7 @@ app.all('/blocks/*',
         req.blocks = true;
         let blocksData = await initializeMiddleware(req, res, next);
         //console.log("blocksData", blocksData)
-        res.jsonn({ "data": blocksData });
+        res.json({ "data": blocksData });
     }
 );
 
@@ -483,9 +483,9 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson = res.jsonn;
+        res.originalJson = res.json;
 
-        res.jsonn = async function (data) {
+        res.json = async function (data) {
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
                 res.originalJson.call(this, data);
