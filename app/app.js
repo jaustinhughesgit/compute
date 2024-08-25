@@ -460,9 +460,14 @@ app.all('/blocks/*',
 
         res.json = async function (data) {
             console.log("isValid44")
-            if (await isValid(req, res, data)) {
+            console.log("data2",data)
+            let isV = await isValid(req, res, data)
+            console.log("isV2", isV)
+            if (isV) {
+                console.log("isValid44 = true")
                 res.originalJson.call(this, data);
             } else {
+                console.log("isValid44 = false")
                 res.originalJson.call(this, {});
             }
         };
@@ -501,12 +506,14 @@ async function runApp (req, res, next) {
             console.log("isValid55")
             console.log("isValid55", req)
             console.log("data",data)
-            if (await isValid(req, res, data)) {
+            let isV = await isValid(req, res, data)
+            console.log(isV)
+            if (isV) {
                 console.log("isValid = true")
-                res.originalJson.call(this, data);
+                await res.originalJson.call(this, data);
             } else {
                 console.log("isValid = false")
-                res.originalJson.call(this, {});
+                await res.originalJson.call(this, {});
             }
         };
 
