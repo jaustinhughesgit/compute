@@ -110,10 +110,18 @@ async function isValid(req, res, data) {
     
     
 
+    let originalHost = req.body.headers["X-Original-Host"];
+    //console.log("originalHost", originalHost)
+    let splitOriginalHost = originalHost.split("1var.com")[1]
+    //console.log("splitOriginalHost", splitOriginalHost)
+    let reqPath = splitOriginalHost.split("?")[0]
+    reqPath = reqPath.replace("/cookies/runEntity","")
+    console.log("reqPath", reqPath)
+    req.dynPath = reqPath
     //if (req.path == "/"){
     //    req.dynPath = "/cookies/runEntity"
     //} else {
-        req.dynPath = req.path
+//        req.dynPath = req.path
     ///}
 
     console.log("req.dynPath", req.dynPath)
