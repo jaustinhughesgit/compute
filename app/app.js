@@ -110,21 +110,12 @@ async function isValid(req, res, data) {
     
     
 
-    let originalHost = req.body.headers["X-Original-Host"];
-    //console.log("originalHost", originalHost)
-    let splitOriginalHost = originalHost.split("1var.com")[1]
-    //console.log("splitOriginalHost", splitOriginalHost)
-    let reqPath = splitOriginalHost.split("?")[0]
-    reqPath = reqPath.replace("/cookies/runEntity","")
-    console.log("reqPath", reqPath)
-    req.dynPath = reqPath
-    //if (req.path == "/"){
-    //    req.dynPath = "/cookies/runEntity"
-    //} else {
-//        req.dynPath = req.path
-    ///}
+    if (req.path == "/"){
+        req.dynPath = "/cookies/runEntity"
+    } else {
+        req.dynPath = req.path
+    }
 
-    console.log("req.dynPath", req.dynPath)
     let entitySending =  req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/","")
 
     console.log("entitySending",entitySending)
@@ -460,9 +451,7 @@ app.all('/blocks/*',
 
         res.json = async function (data) {
             console.log("isValid44")
-            console.log("data2",data)
-            let isV = await isValid(req, res, data)
-            if (isV) {
+            if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
             } else {
                 res.originalJson.call(this, {});
@@ -502,15 +491,12 @@ async function runApp (req, res, next) {
         res.json = async function (data) {
             console.log("isValid55")
             console.log("isValid55", req)
-            console.log("data",data)
-            let isV = await isValid(req, res, data)
-            console.log(isV)
-            if (isV) {
+            if (await isValid(req, res, data)) {
                 console.log("isValid = true")
-                await res.originalJson.call(this, data);
+                res.originalJson.call(this, data);
             } else {
                 console.log("isValid = false")
-                await res.originalJson.call(this, {});
+                res.originalJson.call(this, {});
             }
         };
 
