@@ -117,7 +117,7 @@ async function isValid(req, res, data) {
     }
 
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/",""), "su", dynamodb)
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/",""), "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
@@ -444,10 +444,10 @@ app.all('/blocks/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
-        res.originalJson = res.json;
+        res.originalJson = res.jsonn;
 
 
-        res.json = async function (data) {
+        res.jsonn = async function (data) {
             if (await isValid(req, res, data)) {
                 res.originalJson.call(this, data);
             } else {
@@ -460,7 +460,7 @@ app.all('/blocks/*',
         req.blocks = true;
         let blocksData = await initializeMiddleware(req, res, next);
         //console.log("blocksData", blocksData)
-        res.json({ "data": blocksData });
+        res.jsonn({ "data": blocksData });
     }
 );
 
@@ -483,9 +483,9 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson = res.json;
+        res.originalJson = res.jsonn;
 
-        res.json = async function (data) {
+        res.jsonn = async function (data) {
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
                 res.originalJson.call(this, data);
