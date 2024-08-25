@@ -109,12 +109,14 @@ async function isValid(req, res, data) {
     console.log("req.path::", req.path)
     
     
-
-    if (req.path == "/"){
-        req.dynPath = "/cookies/runEntity"
-    } else {
-        req.dynPath = req.path
-    }
+    let originalHost = req.body.headers["X-Original-Host"];
+    //console.log("originalHost", originalHost)
+    let splitOriginalHost = originalHost.split("1var.com")[1]
+    //console.log("splitOriginalHost", splitOriginalHost)
+    let reqPath = splitOriginalHost.split("?")[0]
+    reqPath = reqPath.replace("/cookies/runEntity","")
+    console.log("reqPath", reqPath)
+    req.dynPath = reqPath
 
 
     let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/",""), "su", dynamodb)
