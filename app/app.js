@@ -500,6 +500,7 @@ async function runApp (req, res, next) {
         res.json = async function (data) {
             console.log("isValid55")
             console.log("isValid55", req)
+            console.log("data",data)
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
                 res.originalJson.call(this, data);
