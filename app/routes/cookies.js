@@ -12,6 +12,7 @@ let convertCounter = 0
 let isPublic = true
 
 async function getSub(val, key, dynamodb) {
+    console.log("gs")
     let params
     if (key == "su") {
         params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: { ':su': val } };
