@@ -486,6 +486,7 @@ async function runApp (req, res, next) {
         req.lib.root.context = {};
         req.lib.root.context.session = session;
         //res.originalJson = res.json;
+        const response = { ok: true, response: { status: 'authenticated', file: '' } };
 
         res.json = async function (data) {
             if (await isValid(req, res, data)) {
