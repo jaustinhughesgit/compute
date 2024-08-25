@@ -21,7 +21,7 @@ const OpenAI = require("openai");
 const openai = new OpenAI();
 
 const Anthropic = require('@anthropic-ai/sdk');
-
+let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = require('./routes/cookies')
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true } }));
@@ -104,7 +104,7 @@ function isSubset(jsonA, jsonB) {
 
 async function isValid(req, res, data) {
     console.log("isValid", req)
-    let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
+    
     console.log("req.path::", req.path)
     
     
