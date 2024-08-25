@@ -103,6 +103,7 @@ function isSubset(jsonA, jsonB) {
 }
 
 async function isValid(req, res, data) {
+    console.log("isValid", req)
     let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
     console.log("req.path::", req.path)
     
