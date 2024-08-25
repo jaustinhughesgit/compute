@@ -497,7 +497,7 @@ async function runApp (req, res, next) {
         req.lib.root.context.session = session;
         res.originalJson = res.json;
 
-        res.json = async function (data) {
+        /*res.json = async function (data) {
             console.log("isValid55")
             console.log("isValid55", req)
             if (await isValid(req, res, data)) {
@@ -507,7 +507,7 @@ async function runApp (req, res, next) {
                 console.log("isValid = false")
                 res.originalJson.call(this, {});
             }
-        };
+        };*/
 
 
         //if (req.path == "/"){
