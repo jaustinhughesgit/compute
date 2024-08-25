@@ -455,19 +455,16 @@ app.all('/blocks/*',
         req.lib.root = {}
         req.lib.root.context = {}
         req.lib.root.context.session = session
-        res.originalJson  = (...args) => res.json(...args);
+        res.originalJson = res.json;
 
 
         res.json = async function (data) {
             console.log("isValid44")
             console.log("data2",data)
             let isV = await isValid(req, res, data)
-            console.log("isV2", isV)
             if (isV) {
-                console.log("isValid44 = true")
                 res.originalJson.call(this, data);
             } else {
-                console.log("isValid44 = false")
                 res.originalJson.call(this, {});
             }
         };
@@ -500,21 +497,19 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson  = (...args) => res.json(...args);
+        res.originalJson = res.json;
 
         res.json = async function (data) {
             console.log("isValid55")
             console.log("isValid55", req)
             console.log("data",data)
             let isV = await isValid(req, res, data)
-            console.log("isV", isV)
+            console.log(isV)
             if (isV) {
                 console.log("isValid = true")
-                console.log("this", this)
                 await res.originalJson.call(this, data);
             } else {
                 console.log("isValid = false")
-                console.log("this", this)
                 await res.originalJson.call(this, {});
             }
         };
