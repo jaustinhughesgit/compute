@@ -485,15 +485,15 @@ async function runApp (req, res, next) {
         req.lib.root = {};
         req.lib.root.context = {};
         req.lib.root.context.session = session;
-        res.originalJson = res.json;
+        res.copyJson = res.json;
 
         res.json = async function (data) {
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
-                res.originalJson.call(this, data);
+                res.copyJson.call(this, data);
             } else {
                 console.log("isValid = false")
-                res.originalJson.call(this, {});
+                res.copyJson.call(this, {});
             }
         };
 
