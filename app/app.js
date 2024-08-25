@@ -102,10 +102,10 @@ function isSubset(jsonA, jsonB) {
     return true;
 }
 
-let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
 async function isValid(req, res, data) {
+    let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue } = await require('./routes/cookies')
+    console.log("req.path::", req.path)
     
-    //console.log("req.path::", req.path)
     
 
     if (req.path == "/"){
@@ -115,7 +115,7 @@ async function isValid(req, res, data) {
     }
 
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/"), "su", dynamodb)
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/",""), "su", dynamodb)
     //console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
