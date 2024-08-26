@@ -203,9 +203,13 @@ async function verifyThis(fileID, cookie, dynamodb) {
     }
     return { verified, subBySU, entity }
 }
+
+
+
+
 async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
     // Step 1: Pre-fetch all necessary data in batches
-    const initialData = await prefetchData(fileID, dynamodb, mapping);
+    const initialData = await prefetchData(fileID, dynamodb, mapping, cookie);
     
     // Step 2: Process the fetched data to construct the JSON response
     const result = processFetchedData(initialData, uuidv4);
@@ -214,7 +218,7 @@ async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
 }
 
 // Function to batch-fetch all required data
-async function prefetchData(fileID, dynamodb, mapping) {
+async function prefetchData(fileID, dynamodb, mapping, cookie) {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
     
     if (!verified) {
