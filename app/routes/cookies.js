@@ -204,9 +204,130 @@ async function verifyThis(fileID, cookie, dynamodb) {
     return { verified, subBySU, entity }
 }
 
+async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
+    // Step 1: Pre-fetch all necessary data in batches
+    const initialData = await prefetchData(fileID, dynamodb, mapping);
+    
+    // Step 2: Process the fetched data to construct the JSON response
+    const result = await processFetchedData(initialData, uuidv4, dynamodb, cookie);
+    
+    return result;
+}
+
+async function prefetchData(fileID, dynamodb, mapping) {
+    // Gather all the IDs to be fetched (children, linked, etc.)
+    const idsToFetch = new Set([fileID]);
+
+    // Use a recursive function or queue-based system to gather all necessary IDs
+    const dataQueue = [fileID];
+    
+    while (dataQueue.length > 0) {
+        const currentID = dataQueue.shift();
+        const entity = await getEntityByID(currentID, dynamodb);
+
+        if (entity) {
+            // Add children IDs
+            const children = mapping?.[entity.e] || entity.t;
+            if (children) {
+                children.forEach(child => idsToFetch.add(child));
+                dataQueue.push(...children);
+            }
+
+            // Add linked IDs
+            const linked = entity.l;
+            if (linked) {
+                linked.forEach(link => idsToFetch.add(link));
+                dataQueue.push(...linked);
+            }
+
+            // Add head or other associated data
+            if (entity.u) {
+                idsToFetch.add(entity.u);
+            }
+        }
+    }
+
+    // Batch request all the gathered IDs in a single DynamoDB call
+    const fetchedData = await batchFetchEntities([...idsToFetch], dynamodb);
+
+    return fetchedData;
+}
+
+async function batchFetchEntities(ids, dynamodb) {
+    const batchKeys = ids.map(id => ({
+        Key: {
+            fileID: { S: id }
+        }
+    }));
+
+    const params = {
+        RequestItems: {
+            'YourDynamoDBTable': {
+                Keys: batchKeys
+            }
+        }
+    };
+
+    const response = await dynamodb.batchGetItem(params).promise();
+    
+    return response.Responses['YourDynamoDBTable'];
+}
+
+async function processFetchedData(fetchedData, uuidv4, dynamodb, cookie) {
+    let obj = {};
+    let paths = {};
+    let paths2 = {};
+    let id2Path = {};
+    let convertCounter = 0;
+
+    // Process the fetched data
+    for (const entity of fetchedData) {
+        const fileID = entity.fileID.S;
+        const pathID = await getUUID(uuidv4);
+        const name = entity.name.S;
+
+        obj[fileID] = {
+            meta: {
+                name: name,
+                expanded: false,
+                head: entity.head?.S || null,
+            },
+            children: {},
+            using: !!entity.u,
+            linked: {},
+            pathid: pathID,
+            usingID: "",
+            location: fileLocation(false)
+        };
+
+        // Construct the path data
+        paths[fileID] = [fileID];
+        paths2[pathID] = [fileID];
+        id2Path[fileID] = pathID;
+
+        // Process children and linked relationships
+        const children = entity.children?.L || [];
+        const linked = entity.linked?.L || [];
+
+        for (const child of children) {
+            const childID = child.S;
+            obj[fileID].children[childID] = fetchedData.find(e => e.fileID.S === childID);
+        }
+
+        for (const link of linked) {
+            const linkedID = link.S;
+            obj[fileID].linked[linkedID] = fetchedData.find(e => e.fileID.S === linkedID);
+        }
+    }
+
+    const groupList = await getGroups(dynamodb);
+
+    return { obj, paths, paths2, id2Path, groups: groupList };
+}
 
 
-async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
+
+/*async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
     if (!verified) {
@@ -328,7 +449,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     const groupList = await getGroups(dynamodb);
 
     return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
-}
+}*/
 
 
 
