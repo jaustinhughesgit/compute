@@ -827,29 +827,29 @@ async function getCookie(val, key) {
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
-    console.log("req1", req)
+    //console.log("req1", req)
     if (req.body.headers.hasOwnProperty("X-accessToken")) {
-        console.log("has X-accessToken")
+        //console.log("has X-accessToken")
         mainObj["status"] = "authenticated";
         let val = req.body.headers["X-accessToken"];
-        console.log("X-accessToken = ", val)
+        //console.log("X-accessToken = ", val)
         let cookie = await getCookie(val, "ak")
-        console.log("cookie.Items[0]", cookie.Items[0])
+        //console.log("cookie.Items[0]", cookie.Items[0])
         return cookie.Items[0]
     } else {
-        console.log("1")
+        //console.log("1")
         const ak = await getUUID(uuidv4)
-        console.log("2")
+        //console.log("2")
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
-        console.log("3")
+        //console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
-        console.log("4")
-        const ttlDurationInSeconds = 60; // For example, 1 hour
+        //console.log("4")
+        const ttlDurationInSeconds = 86400; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-        console.log("createCookie=>", ci.toString(), gi.toString(), ex, ak)
+        //console.log("createCookie=>", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
-        console.log({domain: '.1var.com', maxAge: 86400,  httpOnly: true, secure: true, sameSite: 'None' })
+        //console.log({domain: '.1var.com', maxAge: ttlDurationInSeconds,  httpOnly: true, secure: true, sameSite: 'None' })
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
             maxAge: ttlDurationInSeconds * 1000,
@@ -1992,6 +1992,5 @@ module.exports = {
     addVersion,
     updateEntity,
     getEntity,
-    verifyThis,
-    manageCookie
+    verifyThis
 }
