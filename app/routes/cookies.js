@@ -852,7 +852,7 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
         console.log({domain: '.1var.com', maxAge: 36000000,  httpOnly: true, secure: true, sameSite: 'None' })
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
-            maxAge: 36000000,
+            maxAge: 39272727,
             httpOnly: true, // Inaccessible to client-side JS
             secure: true, // Only sent over HTTPS
             sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
