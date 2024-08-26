@@ -390,6 +390,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
 }
 
 async function getCachedData(key, dynamodb) {
+    console.log("key", key)
     console.log("before1")
     try{
     if (memo[key]) return memo[key];
