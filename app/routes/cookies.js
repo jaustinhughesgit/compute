@@ -392,13 +392,15 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
 async function getCachedData(key, dynamodb) {
     if (memo[key]) return memo[key];
 
-    const data = await dynamodb.getItem({
-        TableName: 'groups',
-        Key: { primaryKey: key }
-    }).promise();
+    const params = {
+        TableName: 'groups',  // Assuming you are caching group data
+        Key: { groupId: key }  // Replace 'groupId' with your actual primary key name in the 'groups' table
+    };
 
-    memo[key] = data;
-    return data;
+    const data = await dynamodb.get(params).promise();  // Using 'get' with DocumentClient
+    memo[key] = data.Item;  // DocumentClient returns the data in `Item`
+    
+    return data.Item;
 }
 
 
