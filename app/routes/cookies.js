@@ -203,127 +203,152 @@ async function verifyThis(fileID, cookie, dynamodb) {
     }
     return { verified, subBySU, entity }
 }
-
 async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
     // Step 1: Pre-fetch all necessary data in batches
     const initialData = await prefetchData(fileID, dynamodb, mapping);
     
     // Step 2: Process the fetched data to construct the JSON response
-    const result = await processFetchedData(initialData, uuidv4, dynamodb, cookie);
+    const result = processFetchedData(initialData, uuidv4);
     
     return result;
 }
 
+// Function to batch-fetch all required data
 async function prefetchData(fileID, dynamodb, mapping) {
-    // Gather all the IDs to be fetched (children, linked, etc.)
-    const idsToFetch = new Set([fileID]);
-
-    // Use a recursive function or queue-based system to gather all necessary IDs
-    const dataQueue = [fileID];
+    const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
     
-    while (dataQueue.length > 0) {
-        const currentID = dataQueue.shift();
-        const entity = await getEntityByID(currentID, dynamodb);
+    if (!verified) {
+        return null;
+    }
 
-        if (entity) {
-            // Add children IDs
-            const children = mapping?.[entity.e] || entity.t;
-            if (children) {
-                children.forEach(child => idsToFetch.add(child));
-                dataQueue.push(...children);
-            }
+    let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
+    const linked = entity.Items[0].l;
 
-            // Add linked IDs
-            const linked = entity.l;
-            if (linked) {
-                linked.forEach(link => idsToFetch.add(link));
-                dataQueue.push(...linked);
-            }
+    // Collect all IDs that we need to batch fetch
+    const idsToFetch = new Set([entity.Items[0].a, entity.Items[0].h]);
+    if (children) children.forEach(child => idsToFetch.add(child));
+    if (linked) linked.forEach(link => idsToFetch.add(link));
+    if (entity.Items[0].u) idsToFetch.add(entity.Items[0].u);
 
-            // Add head or other associated data
-            if (entity.u) {
-                idsToFetch.add(entity.u);
+    // Batch fetch all necessary entities
+    const fetchedEntities = await batchFetchEntities([...idsToFetch], dynamodb);
+
+    return {
+        entity,
+        fetchedEntities,
+        children,
+        linked,
+        headID: entity.Items[0].a,
+        subHID: entity.Items[0].h,
+        usingID: entity.Items[0].u
+    };
+}
+
+// Function to process the fetched data and construct the JSON response
+function processFetchedData(initialData, uuidv4) {
+    const { entity, fetchedEntities, children, linked, headID, subHID, usingID } = initialData;
+
+    const head = fetchedEntities[headID];
+    const subH = fetchedEntities[subHID] || { Count: 0 };
+    const name = head.Items[0].r;
+
+    // Generate path ID
+    const pathID = uuidv4();
+
+    let obj = {
+        [entity.fileID]: {
+            meta: {
+                name: name,
+                expanded: false,
+                head: subH.Items[0]?.su || null
+            },
+            children: {},
+            using: !!entity.Items[0].u,
+            linked: {},
+            pathid: pathID,
+            usingID: "",
+            location: fileLocation(isPublic)
+        }
+    };
+
+    let paths = {};
+    let paths2 = {};
+
+    // Process children
+    if (children) {
+        children.forEach(childID => {
+            const childEntity = fetchedEntities[childID];
+            if (childEntity) {
+                const childName = childEntity.Items[0].r;
+                obj[entity.fileID].children[childID] = {
+                    meta: {
+                        name: childName,
+                        expanded: false,
+                        head: childEntity.Items[0].su || null
+                    },
+                    children: {},
+                    linked: {}
+                };
             }
+        });
+    }
+
+    // Process linked entities
+    if (linked) {
+        linked.forEach(linkID => {
+            const linkedEntity = fetchedEntities[linkID];
+            if (linkedEntity) {
+                const linkedName = linkedEntity.Items[0].r;
+                obj[entity.fileID].linked[linkID] = {
+                    meta: {
+                        name: linkedName,
+                        expanded: false,
+                        head: linkedEntity.Items[0].su || null
+                    },
+                    children: {},
+                    linked: {}
+                };
+            }
+        });
+    }
+
+    // Handle "using" condition
+    if (entity.Items[0].u) {
+        const usingEntity = fetchedEntities[usingID];
+        if (usingEntity) {
+            obj[entity.fileID].meta.usingMeta = {
+                name: usingEntity.Items[0].r,
+                head: usingEntity.Items[0].su || null
+            };
         }
     }
 
-    // Batch request all the gathered IDs in a single DynamoDB call
-    const fetchedData = await batchFetchEntities([...idsToFetch], dynamodb);
-
-    return fetchedData;
+    return { obj, paths, paths2 };
 }
 
-async function batchFetchEntities(ids, dynamodb) {
-    const batchKeys = ids.map(id => ({
-        Key: {
-            fileID: { S: id }
-        }
-    }));
+// Function to batch-fetch entities by their fileIDs
+async function batchFetchEntities(fileIDs, dynamodb) {
+    const keys = fileIDs.map(fileID => ({ fileID: { S: fileID } }));
 
     const params = {
         RequestItems: {
-            'YourDynamoDBTable': {
-                Keys: batchKeys
+            'YourDynamoDBTableName': {
+                Keys: keys
             }
         }
     };
 
     const response = await dynamodb.batchGetItem(params).promise();
-    
-    return response.Responses['YourDynamoDBTable'];
+    const items = response.Responses['YourDynamoDBTableName'];
+
+    const result = {};
+    items.forEach(item => {
+        result[item.fileID.S] = item;
+    });
+
+    return result;
 }
 
-async function processFetchedData(fetchedData, uuidv4, dynamodb, cookie) {
-    let obj = {};
-    let paths = {};
-    let paths2 = {};
-    let id2Path = {};
-    let convertCounter = 0;
-
-    // Process the fetched data
-    for (const entity of fetchedData) {
-        const fileID = entity.fileID.S;
-        const pathID = await getUUID(uuidv4);
-        const name = entity.name.S;
-
-        obj[fileID] = {
-            meta: {
-                name: name,
-                expanded: false,
-                head: entity.head?.S || null,
-            },
-            children: {},
-            using: !!entity.u,
-            linked: {},
-            pathid: pathID,
-            usingID: "",
-            location: fileLocation(false)
-        };
-
-        // Construct the path data
-        paths[fileID] = [fileID];
-        paths2[pathID] = [fileID];
-        id2Path[fileID] = pathID;
-
-        // Process children and linked relationships
-        const children = entity.children?.L || [];
-        const linked = entity.linked?.L || [];
-
-        for (const child of children) {
-            const childID = child.S;
-            obj[fileID].children[childID] = fetchedData.find(e => e.fileID.S === childID);
-        }
-
-        for (const link of linked) {
-            const linkedID = link.S;
-            obj[fileID].linked[linkedID] = fetchedData.find(e => e.fileID.S === linkedID);
-        }
-    }
-
-    const groupList = await getGroups(dynamodb);
-
-    return { obj, paths, paths2, id2Path, groups: groupList };
-}
 
 
 
