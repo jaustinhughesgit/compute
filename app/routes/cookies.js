@@ -390,6 +390,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
 }
 
 async function getCachedData(key, dynamodb) {
+    console.log("before1")
+    try{
     if (memo[key]) return memo[key];
 
     const params = {
@@ -399,7 +401,10 @@ async function getCachedData(key, dynamodb) {
 
     const data = await dynamodb.get(params).promise();  // Using 'get' with DocumentClient
     memo[key] = data.Item;  // DocumentClient returns the data in `Item`
-    
+} catch (err){
+    console.log(err)
+}
+    console.log("after2")
     return data.Item;
 }
 
