@@ -844,15 +844,15 @@ async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
         console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
         console.log("4")
-        const ttlDurationInSeconds = 90000; // For example, 1 hour
+        const ttlDurationInSeconds = 86400; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         console.log("createCookie=>", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
-        console.log({domain: '.1var.com', maxAge: ex,  httpOnly: true, secure: true, sameSite: 'None' })
+        console.log({domain: '.1var.com', maxAge: 60000,  httpOnly: true, secure: true, sameSite: 'None' })
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
-            maxAge: ttlDurationInSeconds,
+            maxAge: 60000,
             httpOnly: true, // Inaccessible to client-side JS
             secure: true, // Only sent over HTTPS
             sameSite: 'None' // Can be 'Lax', 'Strict', or 'None'. 'None' requires 'secure' to be true.
