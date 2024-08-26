@@ -805,6 +805,10 @@ async function email(from, to, subject, emailText, emailHTML, ses) {
 }
 
 async function createCookie(ci, gi, ex, ak) {
+    console.log("createCookie ci", ci)
+    console.log("createCookie gi", gi)
+    console.log("createCookie ex", ex)
+    console.log("createCookie ak", ak)
     return await dynamodb.put({
         TableName: 'cookies',
         Item: { "ci": ci, "gi": gi, "ex": ex, "ak": ak }
@@ -823,26 +827,29 @@ async function getCookie(val, key) {
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
-    //console.log("req1", req)
+    console.log("req1", req)
     if (req.body.headers.hasOwnProperty("X-accessToken")) {
+        console.log("has X-accessToken")
         mainObj["status"] = "authenticated";
         let val = req.body.headers["X-accessToken"];
+        console.log("X-accessToken = ", val)
         let cookie = await getCookie(val, "ak")
-        //console.log("cookie", cookie.Items[0])
+        console.log("cookie.Items[0]", cookie.Items[0])
         return cookie.Items[0]
     } else {
-        //console.log("1")
+        console.log("1")
         const ak = await getUUID(uuidv4)
-        //console.log("2")
+        console.log("2")
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
-        //console.log("3")
+        console.log("3")
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
-        //console.log("4")
+        console.log("4")
         const ttlDurationInSeconds = 90000; // For example, 1 hour
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-        //console.log("createCookie", ci.toString(), gi.toString(), ex, ak)
+        console.log("createCookie=>", ci.toString(), gi.toString(), ex, ak)
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
+        console.log({domain: '.1var.com', maxAge: ex,  httpOnly: true, secure: true, sameSite: 'None' })
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
             maxAge: ex,
