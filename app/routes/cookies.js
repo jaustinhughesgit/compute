@@ -384,29 +384,22 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     }
 
     // Using memoization for groupList
-    const groupList = await getCachedData("groups", dynamodb);
+    const groupList = await getCachedData(dynamodb);
 
     return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
 }
 
-async function getCachedData(key, dynamodb) {
-    console.log("key", key)
-    console.log("before1")
-    try{
-    if (memo[key]) return memo[key];
+async function getCachedData(dynamodb) {
+    if (memo['groupList']) return memo['groupList'];
 
     const params = {
-        TableName: 'groups',  // Assuming you are caching group data
-        Key: { groupId: key }  // Replace 'groupId' with your actual primary key name in the 'groups' table
+        TableName: 'groups'
     };
 
-    const data = await dynamodb.get(params).promise();  // Using 'get' with DocumentClient
-    memo[key] = data.Item;  // DocumentClient returns the data in `Item`
-} catch (err){
-    console.log(err)
-}
-    console.log("after2")
-    return data.Item;
+    const data = await dynamodb.scan(params).promise();  // Fetch all groups
+    memo['groupList'] = data.Items;  // Cache the entire group list
+
+    return data.Items;
 }
 
 
