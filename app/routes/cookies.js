@@ -384,7 +384,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     }
 
     // Using memoization for groupList
-    const groupList = await getCachedData(dynamodb);
+    const groupList = await getGroups(dynamodb);
 
     return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
 }
