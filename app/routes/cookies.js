@@ -384,6 +384,63 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
 async function getCachedData(dynamodb) {
     if (memo['groupList']) return memo['groupList'];
 
+    // Fetching and caching groups
+    const groupParams = {
+        TableName: 'groups'
+    };
+    const groupData = await dynamodb.scan(groupParams).promise();
+    
+    let groupList = [];
+
+    for (const group of groupData.Items) {
+        // Fetch subdomain by group (g)
+        const subByG = await getSub(group.g.toString(), "g", dynamodb);
+        // Fetch word by attribute (a)
+        const groupName = await getWord(group.a.toString(), dynamodb);
+        
+        // Only proceed if the word is found
+        if (groupName.Items.length > 0) {
+            // Fetch subdomain by entity (e)
+            const subByE = await getSub(group.e.toString(), "e", dynamodb);
+            
+            // Add group object to the group list
+            groupList.push({
+                groupId: subByG.Items[0].su,
+                name: groupName.Items[0].r,
+                head: subByE.Items[0].su
+            });
+        }
+    }
+    
+    // Cache the group list
+    memo['groupList'] = groupList;
+    
+    // Fetching and caching subdomains
+    if (!memo['subdomains']) {
+        const subdomainParams = {
+            TableName: 'subdomains'
+        };
+        const subdomainData = await dynamodb.scan(subdomainParams).promise();
+        memo['subdomains'] = subdomainData.Items;
+    }
+
+    // Fetching and caching words
+    if (!memo['words']) {
+        const wordParams = {
+            TableName: 'words'
+        };
+        const wordData = await dynamodb.scan(wordParams).promise();
+        memo['words'] = wordData.Items;
+    }
+
+    return memo['groupList'];
+}
+
+
+/*
+async function getCachedData(dynamodb) {
+    if (memo['groupList']) return memo['groupList'];
+
     const params = {
         TableName: 'groups'
     };
@@ -392,7 +449,7 @@ async function getCachedData(dynamodb) {
     memo['groupList'] = data.Items;  // Cache the entire group list
 
     return data.Items;
-}
+}*/
 
 
 
