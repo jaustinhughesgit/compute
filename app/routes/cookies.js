@@ -393,7 +393,7 @@ async function getCachedData(key, dynamodb) {
     if (memo[key]) return memo[key];
 
     const data = await dynamodb.getItem({
-        TableName: 'YourTableName',
+        TableName: 'groups',
         Key: { primaryKey: key }
     }).promise();
 
