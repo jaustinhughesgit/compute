@@ -942,13 +942,13 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
 };
 
 const getHead = async (by, value, dynamodb) => {
-    console.log("by, value", by, value)
+    //console.log("by, value", by, value)
     const subBySU = await getSub(value, by, dynamodb);
-    console.log("subBySU", subBySU)
+    //console.log("subBySU", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("entity", entity)
+    //console.log("entity", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
-    console.log("headSub", headSub)
+    //console.log("headSub", headSub)
     return headSub
 }
 
@@ -1868,8 +1868,8 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
             response_format: { "type": "json_object" }
         });
         
-        console.log(">>>",response)
-        console.log("stringifyOPENAI", JSON.stringify(response))
+        //console.log(">>>",response)
+        //console.log("stringifyOPENAI", JSON.stringify(response))
         /*console.log("text.trim", response.choices[0].message.content)
         console.log(`--${response.choices[0].message.content}--`)
 
@@ -1957,7 +1957,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await linkEntities(childID, parentID)
                 mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4)
             } else if (action === "newGroup") {
-                console.log("newGroup")
+                //console.log("newGroup")
                 if (cookie != undefined) {
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]

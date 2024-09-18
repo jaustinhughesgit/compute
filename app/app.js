@@ -1808,23 +1808,23 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (assignObj && assignExecuted && typeof result === 'function') {
                 console.log("inside", result)
                 let tempFunction = () => result;
-                console.log("tempFunction", tempFunction)
+                //console.log("tempFunction", tempFunction)
                 let newResult = await tempFunction()
-                console.log("newResult", newResult)
+                //console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
-                console.log("other", assign)
-                console.log("result",result);
+                //console.log("other", assign)
+                //console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
-                console.log("libs.root.context", libs.root.context);
-                console.log("if", typeof nestedContext[assign.target], assignExecuted)
+                //console.log("libs.root.context", libs.root.context);
+                //console.log("if", typeof nestedContext[assign.target], assignExecuted)
                 //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
                 //    nestedContext[assign.target](...args)
                 //}
             }
         }
     } else if (action.assign) {
-        console.log("action.assign")
+        //console.log("action.assign")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -1837,7 +1837,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(libs, assign.path);
         if (assignObj) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
-            console.log("result1",result);
+            //console.log("result1",result);
             if (assignExecuted && typeof result === 'function') {
                 result = await result()
             } else if (typeof result === 'function') {
@@ -1846,7 +1846,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
-            console.log("result2", result);
+            //console.log("result2", result);
             await addValueToNestedKey(action.assign, nestedContext, result);
         }
     }
@@ -1863,12 +1863,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(libs, execute.path);
         let value = nestedContext[strClean]
         //let value = nestedContext[execute.value]
-        console.log("777: isObj", isObj)
-        console.log("777: nestedPath", nestedPath)
-        console.log("777: execute", execute)
-        console.log("777: nestedContext", nestedContext)
-        console.log("777: value", value)
-        console.log("777: typeof value.value", typeof value.value)
+        //console.log("777: isObj", isObj)
+        //console.log("777: nestedPath", nestedPath)
+        //console.log("777: execute", execute)
+        //console.log("777: nestedContext", nestedContext)
+        //console.log("777: value", value)
+        //console.log("777: typeof value.value", typeof value.value)
         // LOOK INTO ACTION.NEXT = FALSE. IS THIS POSSIBLE IN ACTION LIKE IN CHAIN.
         if (typeof value.value === 'function') {
             if (action.express) {
@@ -1883,7 +1883,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 async function executeValue() {
                 try {
                     const data = await value.value();
-                    console.log("data",data);
+                    //console.log("data",data);
                     return data;
                 } catch (error) {
                     console.error('Failed to execute value function:', error.message);
@@ -1891,10 +1891,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
                     
             }
-                    console.log("executeValue");
+                    //console.log("executeValue");
                     await executeValue()
                     .then(data => {
-                        console.log('Fetched data:', data);
+                        //console.log('Fetched data:', data);
                     })
                     .catch(error => {
                         console.error('Error:', error.message);
@@ -1938,29 +1938,29 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
-                console.log(">>C<<")
+                //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
-                console.log("result = result");
+                //console.log("result = result");
                  result = result
                 return
                 //chainParams = [];
             }
-            //console.log("chainParams", chainParams)
+            ////console.log("chainParams", chainParams)
             let accessClean = chainAction.access
             if (accessClean) {
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
 
-            console.log("a", accessClean);
-            console.log("b", chainAction.params);
-            console.log("c", chainAction.new);
-            console.log("d", result);
-            console.log("e", result[accessClean]);
-            console.log("f", result.length);
-            console.log("g", typeof result[accessClean]);
-            console.log("h", nestedPath)
+            //console.log("a", accessClean);
+            //console.log("b", chainAction.params);
+            //console.log("c", chainAction.new);
+            //console.log("d", result);
+            //console.log("e", result[accessClean]);
+            //console.log("f", result.length);
+            //console.log("g", typeof result[accessClean]);
+            //console.log("h", nestedPath)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
@@ -1968,49 +1968,49 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                console.log("--1aa--")
+                //console.log("--1aa--")
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2aa--")
+                //console.log("--2aa--")
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                console.log("--2bb--")
+                //console.log("--2bb--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                console.log("--2cc--")
+                //console.log("--2cc--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
-                console.log("--3dd--")
+                //console.log("--3dd--")
                 if (accessClean === 'promise') {
                     result = await result.promise();
                 } else {
 
-                    console.log("1..aa..")
+                    //console.log("1..aa..")
                     if (chainAction.new) {
-                        console.log("1..bb..")
+                        //console.log("1..bb..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        console.log("1..cc..")
+                        //console.log("1..cc..")
                         if (chainAction.access && accessClean.length != 0) {
-                            console.log("1..dd..")
+                            //console.log("1..dd..")
                             if (chainAction.express) {
-                                console.log("1..ee..")
+                                //console.log("1..ee..")
                                 if (chainAction.next || chainAction.next == undefined) {
-                                    console.log("1..f..")
+                                    //console.log("1..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    console.log("1..g..")
+                                    //console.log("1..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
 
-                                console.log("..h..")
-                                try { console.log("result", result) } catch (err) { }
+                                //console.log("..h..")
+                                /*try { console.log("result", result) } catch (err) { }
                                 try { console.log("accessClean", accessClean) } catch (err) { }
-                                try { console.log("chainParams", chainParams) } catch (err) { }
+                                try { console.log("chainParams", chainParams) } catch (err) { }*/
                                 try {
-                                    console.log("..i..")
+                                    //console.log("..i..")
                                     ////////console.log(chainParams[0])
                                     ////////console.log(typeof chainParams[0])
                                     if (chainParams.length > 0) {
@@ -2018,20 +2018,20 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             chainParams[0] = chainParams[0].toString();
                                         }
                                     }
-                                    console.log("1------await result(...chainParams)--------------------------");
-                                        console.log("chainParams", chainParams);
-                                    console.log("result",result);
+                                    //console.log("1------await result(...chainParams)--------------------------");
+                                        //console.log("chainParams", chainParams);
+                                    //console.log("result",result);
                                     if (assignExecuted){
                                     result = await result[accessClean](...chainParams);
                                     } else {
                                     //just make it a function  reference
-                                        console.log("accessClean", accessClean);
+                                        //console.log("accessClean", accessClean);
                                         result = result[accessClean];
                                     }
                                 } catch (err) {
-                                    console.log("err", err)
-                                    console.log("..j..")
-                                    //console.log("result", result.req.lib.root)
+                                    //console.log("err", err)
+                                    //console.log("..j..")
+                                    ////console.log("result", result.req.lib.root)
                                     result = result
                                 }
                             }
@@ -2039,36 +2039,36 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     }
                 }
             } else if (typeof result === 'function') {
-                console.log("--3b--")
+                //console.log("--3b--")
                 //if (accessClean === 'promise') {
                 //    result = await result.promise();
                 //} else {
 
-                console.log("2..a..")
+                //console.log("2..a..")
                 if (chainAction.new) {
-                    console.log("2..b..")
+                    //console.log("2..b..")
                     result = new result(...chainParams);
                 } else {
-                    console.log("2..c..")
+                    //console.log("2..c..")
                     //            if (chainAction.access && accessClean.length != 0){
-                    console.log("2..d..")
+                    //console.log("2..d..")
                     if (chainAction.express) {
-                        //console.log("..e..")
+                        ////console.log("..e..")
                         if (chainAction.next || chainAction.next == undefined) {
-                            //console.log("..f..")
+                            ////console.log("..f..")
                             result = await result(...chainParams)(req, res, next);
                         } else {
-                            //console.log("..g..")
+                            ////console.log("..g..")
                             result = await result(...chainParams)(req, res);
                         }
                     } else {
 
-                        console.log("..h..")
-                        try { console.log("result", result) } catch (err) { }
+                        //console.log("..h..")
+                        /*try { console.log("result", result) } catch (err) { }
                         //try{ console.log("accessClean", accessClean)} catch (err){}
-                        try { console.log("chainParams", chainParams) } catch (err) { }
+                        try { console.log("chainParams", chainParams) } catch (err) { }*/
                         try {
-                            console.log("..i..")
+                            //console.log("..i..")
                             ////////console.log(chainParams[0])
                             ////////console.log(typeof chainParams[0])
                             if (chainParams.length > 0) {
@@ -2078,11 +2078,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     chainParams[0] = chainParams[0].toString();
                                 }
                             }
-                            console.log("2------await result(...chainParams)--------------------------");
+                            //console.log("2------await result(...chainParams)--------------------------");
                             result = await result(...chainParams);
                         } catch (err) {
-                            console.log("err", err)
-                            console.log("..j..")
+                            //console.log("err", err)
+                            //console.log("..j..")
                             //console.log("result", result.req.lib.root)
                             result = result
                         }
@@ -2131,10 +2131,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    console.log("11111111")
+    //console.log("11111111")
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
-        console.log("55: assignExecuted", assignExecuted)
+        //console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
         ////////console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
