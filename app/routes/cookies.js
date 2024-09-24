@@ -144,7 +144,7 @@ async function getAccess(ai, dynamodb, cache) {
 }*/
 
 
-async function getVerified(key, val, dynamodb, cache = null) {
+/*async function getVerified(key, val, dynamodb, cache = null) {
     console.log("getVerified", key, val)
     const cacheKey = `${key}:${val}`;
     try{
@@ -177,9 +177,9 @@ async function getVerified(key, val, dynamodb, cache = null) {
     const result = await dynamodb.query(params).promise();
     cache.getVerified[cacheKey] = result;
     return result;
-}
+}*/
 
-/*async function getVerified(key, val, dynamodb) {
+async function getVerified(key, val, dynamodb) {
     let params
     if (key == "vi") {
         params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: { ':vi': val } };
@@ -190,7 +190,7 @@ async function getVerified(key, val, dynamodb, cache = null) {
     }
     let result = await dynamodb.query(params).promise();
     return result
-}*/
+}
 
 async function getWord(a, dynamodb, cache) {
     console.log("getWord", a)
