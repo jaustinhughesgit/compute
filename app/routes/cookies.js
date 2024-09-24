@@ -282,11 +282,11 @@ async function convertToJSON(
     parentPath2 = [],
     id2Path = {},
     usingID = "",
-    cache = {},
+    cache = null,
     convertCounter = { count: 0 }
 ) {
 
-    if (cache == null){
+    if (!cache) {
         cache = {
             getSub: {},
             getEntity: {},
@@ -295,9 +295,7 @@ async function convertToJSON(
             getAccess: {},
             getVerified: {},
         };
-     } else  {
-        console.log("cache == ", cache)
-     }
+    }
     
 
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, cache);
