@@ -305,6 +305,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     // Prefetching children data in a batch
     if (children) {
         const childKeys = children.map(child => ({ e: child }));
+        console.log("dynamodb", dynamodb)
+        console.log("dynamodb.batchGetItem", dynamodb.batchGetItem)
         const childData = await dynamodb.batchGetItem({
             RequestItems: {
                 YourTableName: { Keys: childKeys }
