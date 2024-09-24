@@ -86,79 +86,17 @@ async function getTasksIOS(tasks) {
     return converted
 }
 
+const cache = {
+    getSub: {},
+    getEntity: {},
+    getWord: {},
+    getGroup: {},
+    getAccess: {},
+    getVerified: {},
+};
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Utility Functions
-function sleep(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
-
-function setIsPublic(val) {
-    return val === "true" || val === true;
-}
-
-function fileLocation(isPublic) {
-    return isPublic ? "public" : "private";
-}
-
-// DynamoDB Functions with Caching
-async function getSub(value, key, dynamodb, cache) {
-    const cacheKey = `${key}:${value}`;
-    cache.getSub = cache.getSub || {};
-    if (cache.getSub[cacheKey]) {
-        return cache.getSub[cacheKey];
-    }
-    const params = {
-        TableName: 'subs',
-        KeyConditionExpression: `${key} = :val`,
-        ExpressionAttributeValues: { ':val': value }
-    };
-    const result = await dynamodb.query(params).promise();
-    cache.getSub[cacheKey] = result;
-    return result;
-}
-
-async function getEntity(e, dynamodb, cache) {
-    cache.getEntity = cache.getEntity || {};
-    if (cache.getEntity[e]) {
-        return cache.getEntity[e];
-    }
-    const params = {
-        TableName: 'entities',
-        KeyConditionExpression: 'e = :e',
-        ExpressionAttributeValues: { ':e': e }
-    };
-    const result = await dynamodb.query(params).promise();
-    cache.getEntity[e] = result;
-    return result;
-}
-
-async function getGroup(g, dynamodb, cache) {
-    cache.getGroup = cache.getGroup || {};
+async function getGroup(g, dynamodb) {
+    console.log("getGroup", g)
     if (cache.getGroup[g]) {
         return cache.getGroup[g];
     }
@@ -172,8 +110,28 @@ async function getGroup(g, dynamodb, cache) {
     return result;
 }
 
-async function getAccess(ai, dynamodb, cache) {
-    cache.getAccess = cache.getAccess || {};
+/*async function getGroup(g, dynamodb) {
+    params = { TableName: 'groups', KeyConditionExpression: 'g = :g', ExpressionAttributeValues: { ':g': g } };
+    return await dynamodb.query(params).promise()
+}*/
+
+/*async function getAccess(ai, dynamodb) {
+    if (cache.getAccess[ai]) {
+        return cache.getAccess[ai];
+    }
+    const params = {
+        TableName: 'access',
+        KeyConditionExpression: 'ai = :ai',
+        ExpressionAttributeValues: { ':ai': ai }
+    };
+    const result = await dynamodb.query(params).promise();
+    cache.getAccess[ai] = result;
+    return result;
+}*/
+
+
+async function getAccess(ai, dynamodb) {
+    console.log("getAccess", ai)
     if (cache.getAccess[ai]) {
         return cache.getAccess[ai];
     }
@@ -187,9 +145,15 @@ async function getAccess(ai, dynamodb, cache) {
     return result;
 }
 
-async function getVerified(key, val, dynamodb, cache) {
+/*async function getAccess(ai, dynamodb) {
+    params = { TableName: 'access', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: { ':ai': ai } };
+    return await dynamodb.query(params).promise()
+}*/
+
+
+async function getVerified(key, val, dynamodb) {
+    console.log("getVerified", key, val)
     const cacheKey = `${key}:${val}`;
-    cache.getVerified = cache.getVerified || {};
     if (cache.getVerified[cacheKey]) {
         return cache.getVerified[cacheKey];
     }
@@ -220,8 +184,21 @@ async function getVerified(key, val, dynamodb, cache) {
     return result;
 }
 
-async function getWord(a, dynamodb, cache) {
-    cache.getWord = cache.getWord || {};
+/*async function getVerified(key, val, dynamodb) {
+    let params
+    if (key == "vi") {
+        params = { TableName: 'verified', KeyConditionExpression: 'vi = :vi', ExpressionAttributeValues: { ':vi': val } };
+    } else if (key == "ai") {
+        params = { TableName: 'verified', IndexName: 'aiIndex', KeyConditionExpression: 'ai = :ai', ExpressionAttributeValues: { ':ai': val } }
+    } else if (key == "gi") {
+        params = { TableName: 'verified', IndexName: 'giIndex', KeyConditionExpression: 'gi = :gi', ExpressionAttributeValues: { ':gi': val } }
+    }
+    let result = await dynamodb.query(params).promise();
+    return result
+}*/
+
+async function getWord(a, dynamodb) {
+    console.log("getWord", a)
     if (cache.getWord[a]) {
         return cache.getWord[a];
     }
@@ -235,10 +212,13 @@ async function getWord(a, dynamodb, cache) {
     return result;
 }
 
-async function getGroups(dynamodb, cache) {
-    if (cache.groups) {
-        return cache.groups;
-    }
+/*async function getWord(a, dynamodb) {
+    params = { TableName: 'words', KeyConditionExpression: 'a = :a', ExpressionAttributeValues: { ':a': a } };
+    return await dynamodb.query(params).promise()
+}*/
+
+async function getGroups(dynamodb) {
+    console.log("getGroups")
     const params = { TableName: 'groups' };
     const groups = await dynamodb.scan(params).promise();
     const groupObjs = [];
@@ -248,8 +228,8 @@ async function getGroups(dynamodb, cache) {
     const wordPromises = [];
 
     for (const group of groups.Items) {
-        subPromises.push(getSub(group.g.toString(), "g", dynamodb, cache));
-        wordPromises.push(getWord(group.a.toString(), dynamodb, cache));
+        subPromises.push(getSub(group.g.toString(), "g", dynamodb));
+        wordPromises.push(getWord(group.a.toString(), dynamodb));
     }
 
     const subResults = await Promise.all(subPromises);
@@ -261,7 +241,7 @@ async function getGroups(dynamodb, cache) {
         const groupName = wordResults[i];
 
         if (groupName.Items.length > 0) {
-            const subByE = await getSub(groupItem.e.toString(), "e", dynamodb, cache);
+            const subByE = await getSub(groupItem.e.toString(), "e", dynamodb);
             groupObjs.push({
                 "groupId": subByG.Items[0].su,
                 "name": groupName.Items[0].r,
@@ -269,20 +249,55 @@ async function getGroups(dynamodb, cache) {
             });
         }
     }
-    cache.groups = groupObjs;
     return groupObjs;
 }
 
-async function verifyThis(fileID, cookie, dynamodb, cache) {
-    const subBySU = await getSub(fileID, "su", dynamodb, cache);
+/*async function getGroups(dynamodb) {
+    params = { TableName: 'groups' };
+    let groups = await dynamodb.scan(params).promise();
+    let groupObjs = []
+    for (group in groups.Items) {
+        const subByG = await getSub(groups.Items[group].g.toString(), "g", dynamodb);
+        const groupName = await getWord(groups.Items[group].a.toString(), dynamodb)
+        if (groupName.Items.length > 0) {
+            const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
+            groupObjs.push({ "groupId": subByG.Items[0].su, "name": groupName.Items[0].r, "head": subByE.Items[0].su })
+        }
+    }
+    return groupObjs
+}*/
+
+function fileLocation(val) {
+    console.log("fileLocation", val)
+    let location = "private"
+    if (val == "true" || val == true) {
+        location = "public"
+    }
+    console.log("return", location)
+    return location
+}
+
+function setIsPublic(val) {
+    console.log("setIsPublic", val)
+    if (val == "true" || val == true) {
+        isPublic = true
+    } else {
+        isPublic = false
+    }
+    return isPublic;
+}
+
+async function verifyThis(fileID, cookie, dynamodb) {
+    console.log("verifyThis",fileID, cookie)
+    const subBySU = await getSub(fileID, "su", dynamodb);
     const isPublic = setIsPublic(subBySU.Items[0].z);
-    const entity = await getEntity(subBySU.Items[0].e, dynamodb, cache);
-    const group = await getGroup(entity.Items[0].g, dynamodb, cache);
+    const entity = await getEntity(subBySU.Items[0].e, dynamodb);
+    const group = await getGroup(entity.Items[0].g, dynamodb);
 
     const groupAi = group.Items[0].ai.toString();
     const entityAi = entity.Items[0].ai.toString();
 
-    const verify = await getVerified("gi", cookie.gi.toString(), dynamodb, cache);
+    const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
 
     if (entityAi !== "0" && verified) {
@@ -296,34 +311,52 @@ async function verifyThis(fileID, cookie, dynamodb, cache) {
     return { verified, subBySU, entity, isPublic };
 }
 
+/*async function verifyThis(fileID, cookie, dynamodb) {
+    const subBySU = await getSub(fileID, "su", dynamodb);
+    setIsPublic(subBySU.Items[0].z);
+    const entity = await getEntity(subBySU.Items[0].e, dynamodb)
+    const group = await getGroup(entity.Items[0].g, dynamodb)
+    const access = await getAccess(group.Items[0].ai, dynamodb)
+    const verify = await getVerified("gi", cookie.gi.toString(), dynamodb)
+    let verified = false;
+    for (veri in verify.Items) {
+        if ((verify.Items[veri].ai == group.Items[0].ai && verify.Items[veri].bo) || group.Items[0].ai.toString() == "0") {
+            verified = true;
+        }
+
+    }
+
+    if (entity.Items[0].ai.toString() != "0" && verified == true) {
+        verified = false
+        for (veri in verify.Items) {
+            if ((verify.Items[veri].ai == entity.Items[0].ai && verify.Items[veri].bo)) {
+                verified = true;
+            }
+
+        }
+    }
+
+    if (isPublic) {
+        verified = true;
+    }
+    return { verified, subBySU, entity }
+}*/
+
+
 async function convertToJSON(
     fileID,
     parentPath = [],
-    isUsing = false,
-    mapping = null,
+    isUsing,
+    mapping,
     cookie,
     dynamodb,
     uuidv4,
-    pathID = null,
+    pathID,
     parentPath2 = [],
     id2Path = {},
-    usingID = "",
-    cache = null,
-    convertCounter = { count: 0 }
+    usingID = ""
 ) {
-    // Initialize cache if it doesn't exist
-    if (!cache) {
-        cache = {
-            getSub: {},
-            getEntity: {},
-            getWord: {},
-            getGroup: {},
-            getAccess: {},
-            getVerified: {},
-        };
-    }
-
-    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, cache);
+    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb);
 
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
@@ -331,7 +364,7 @@ async function convertToJSON(
 
     let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
     const linked = entity.Items[0].l;
-    const head = await getWord(entity.Items[0].a, dynamodb, cache);
+    const head = await getWord(entity.Items[0].a, dynamodb);
     const name = head.Items[0].r;
 
     const pathUUID = await getUUID(uuidv4)
@@ -341,7 +374,7 @@ async function convertToJSON(
     const paths2 = {};
     id2Path[fileID] = pathUUID;
 
-    const subH = await getSub(entity.Items[0].h, "e", dynamodb, cache);
+    const subH = await getSub(entity.Items[0].h, "e", dynamodb);
     if (subH.Count === 0) {
         await sleep(2000);
     }
@@ -367,27 +400,13 @@ async function convertToJSON(
     paths2[pathUUID] = newParentPath2;
 
     // Process children in parallel
-    if (children && children.length > 0 && convertCounter.count < 1000) {
-        convertCounter.count += children.length;
+    if (children && children.length > 0 && convertCounter < 1000) {
+        convertCounter += children.length;
 
         const childPromises = children.map(async (child) => {
-            const subByE = await getSub(child, "e", dynamodb, cache);
+            const subByE = await getSub(child, "e", dynamodb);
             const uuid = subByE.Items[0].su;
-            return await convertToJSON(
-                uuid,
-                newParentPath,
-                false,
-                mapping,
-                cookie,
-                dynamodb,
-                uuidv4,
-                pathUUID,
-                newParentPath2,
-                id2Path,
-                usingID,
-                cache,
-                convertCounter
-            );
+            return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID);
         });
 
         const childResponses = await Promise.all(childPromises);
@@ -395,14 +414,13 @@ async function convertToJSON(
             Object.assign(obj[fileID].children, childResponse.obj);
             Object.assign(paths, childResponse.paths);
             Object.assign(paths2, childResponse.paths2);
-            // No need to merge caches here
         }
     }
 
     // Process 'using' entity
     if (using) {
         usingID = fileID;
-        const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb, cache);
+        const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
         const headUsingObj = await convertToJSON(
             subOfHead.Items[0].su,
             newParentPath,
@@ -414,9 +432,7 @@ async function convertToJSON(
             pathUUID,
             newParentPath2,
             id2Path,
-            usingID,
-            cache,
-            convertCounter
+            usingID
         );
 
         const headKey = Object.keys(headUsingObj.obj)[0];
@@ -435,23 +451,9 @@ async function convertToJSON(
     // Process linked entities
     if (linked && linked.length > 0) {
         const linkedPromises = linked.map(async (link) => {
-            const subByE = await getSub(link, "e", dynamodb, cache);
+            const subByE = await getSub(link, "e", dynamodb);
             const uuid = subByE.Items[0].su;
-            return await convertToJSON(
-                uuid,
-                newParentPath,
-                false,
-                null,
-                cookie,
-                dynamodb,
-                uuidv4,
-                pathUUID,
-                newParentPath2,
-                id2Path,
-                usingID,
-                cache,
-                convertCounter
-            );
+            return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID);
         });
 
         const linkedResponses = await Promise.all(linkedPromises);
@@ -459,11 +461,10 @@ async function convertToJSON(
             Object.assign(obj[fileID].linked, linkedResponse.obj);
             Object.assign(paths, linkedResponse.paths);
             Object.assign(paths2, linkedResponse.paths2);
-            // No need to merge caches here
         }
     }
 
-    const groupList = await getGroups(dynamodb, cache);
+    const groupList = await getGroups(dynamodb);
 
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
