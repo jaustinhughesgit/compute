@@ -197,7 +197,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
 }
 
 
-
+/*
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "", dynamodbLL) {
 //async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
     // Step 1: Pre-fetch all necessary data in batches
@@ -238,7 +238,7 @@ async function prefetchData(fileID, dynamodb, mapping, cookie) {
         subHID: entity.Items[0].h,
         usingID: entity.Items[0].u
     };
-}
+}*/
 
 
 
