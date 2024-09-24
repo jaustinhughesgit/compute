@@ -268,19 +268,23 @@ async function getGroups(dynamodb) {
 }*/
 
 function fileLocation(val) {
+    console.log("fileLocation", val)
     let location = "private"
     if (val == "true" || val == true) {
         location = "public"
     }
+    console.log("return", location)
     return location
 }
 
 function setIsPublic(val) {
+    console.log("setIsPublic", val)
     if (val == "true" || val == true) {
         isPublic = true
     } else {
         isPublic = false
     }
+    return isPublic;
 }
 
 async function verifyThis(fileID, cookie, dynamodb) {
