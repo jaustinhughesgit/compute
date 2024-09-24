@@ -281,15 +281,15 @@ function setIsPublic(val) {
 
 async function verifyThis(fileID, cookie, dynamodb, cache) {
     console.log("verifyThis",fileID, cookie)
-    const subBySU = await getSub(fileID, "su", dynamodb, cache));
+    const subBySU = await getSub(fileID, "su", dynamodb, cache);
     const isPublic = setIsPublic(subBySU.Items[0].z);
-    const entity = await getEntity(subBySU.Items[0].e, dynamodb, cache));
-    const group = await getGroup(entity.Items[0].g, dynamodb, cache));
+    const entity = await getEntity(subBySU.Items[0].e, dynamodb, cache);
+    const group = await getGroup(entity.Items[0].g, dynamodb, cache);
 
     const groupAi = group.Items[0].ai.toString();
     const entityAi = entity.Items[0].ai.toString();
 
-    const verify = await getVerified("gi", cookie.gi.toString(), dynamodb, cache));
+    const verify = await getVerified("gi", cookie.gi.toString(), dynamodb, cache);
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
 
     if (entityAi !== "0" && verified) {
