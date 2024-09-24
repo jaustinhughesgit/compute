@@ -198,7 +198,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
 
 
 
-async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
+async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "", dynamodbLL) {
 //async function convertToJSON(fileID, dynamodb, uuidv4, mapping, cookie) {
     // Step 1: Pre-fetch all necessary data in batches
     const initialData = await prefetchData(fileID, dynamodb, mapping, cookie);
@@ -305,9 +305,8 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     // Prefetching children data in a batch
     if (children) {
         const childKeys = children.map(child => ({ e: child }));
-        console.log("dynamodb", dynamodb)
-        console.log("dynamodb.batchGetItem", dynamodb.batchGetItem)
-        const childData = await dynamodb.batchGetItem({
+        console.log("dynamodbLL", dynamodbLL)
+        const childData = await dynamodbLL.batchGetItem({
             RequestItems: {
                 YourTableName: { Keys: childKeys }
             }
@@ -354,7 +353,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     // Prefetching linked data in a batch
     if (linked) {
         const linkKeys = linked.map(link => ({ e: link }));
-        const linkedData = await dynamodb.batchGetItem({
+        const linkedData = await dynamodbLL.batchGetItem({
             RequestItems: {
                 YourTableName: { Keys: linkKeys }
             }
@@ -1895,7 +1894,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 
 
 
-async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic) {
+async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL) {
     //console.log("route", req)
     //console.log("req.body", req.body)
     //console.log("req.headers", req.headers)
@@ -1923,7 +1922,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("get")
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4)
+                mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL)
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
@@ -2468,7 +2467,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
 
     router.all('/*', async function (req, res, next) {
-        route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic)
+        route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL)
     });
 
     return router;
