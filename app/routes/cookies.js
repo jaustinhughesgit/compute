@@ -2149,14 +2149,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL) {
-    cache = {
-        getSub: {},
-        getEntity: {},
-        getWord: {},
-        getGroup: {},
-        getAccess: {},
-        getVerified: {},
-    }
+    
     //console.log("route", req)
     //console.log("req.body", req.body)
     //console.log("req.headers", req.headers)
