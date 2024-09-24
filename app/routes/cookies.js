@@ -338,6 +338,133 @@ async function verifyThis(fileID, cookie, dynamodb) {
     return { verified, subBySU, entity }
 }*/
 
+
+async function convertToJSON(
+    fileID,
+    parentPath = [],
+    isUsing,
+    mapping,
+    cookie,
+    dynamodb,
+    uuidv4,
+    pathID,
+    parentPath2 = [],
+    id2Path = {},
+    usingID = ""
+) {
+    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb);
+
+    if (!verified) {
+        return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
+    }
+
+    let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
+    const linked = entity.Items[0].l;
+    const head = await getWord(entity.Items[0].a, dynamodb);
+    const name = head.Items[0].r;
+
+    const pathUUID = await getUUID(uuidv4)
+    const using = Boolean(entity.Items[0].u);
+    const obj = {};
+    const paths = {};
+    const paths2 = {};
+    id2Path[fileID] = pathUUID;
+
+    const subH = await getSub(entity.Items[0].h, "e", dynamodb);
+    if (subH.Count === 0) {
+        await sleep(2000);
+    }
+
+    obj[fileID] = {
+        meta: {
+            name: name,
+            expanded: false,
+            head: subH.Items[0].su
+        },
+        children: {},
+        using: using,
+        linked: {},
+        pathid: pathUUID,
+        usingID: usingID,
+        location: fileLocation(isPublic)
+    };
+
+    const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
+    const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
+
+    paths[fileID] = newParentPath;
+    paths2[pathUUID] = newParentPath2;
+
+    // Process children in parallel
+    if (children && children.length > 0 && convertCounter < 1000) {
+        convertCounter += children.length;
+
+        const childPromises = children.map(async (child) => {
+            const subByE = await getSub(child, "e", dynamodb);
+            const uuid = subByE.Items[0].su;
+            return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID);
+        });
+
+        const childResponses = await Promise.all(childPromises);
+        for (const childResponse of childResponses) {
+            Object.assign(obj[fileID].children, childResponse.obj);
+            Object.assign(paths, childResponse.paths);
+            Object.assign(paths2, childResponse.paths2);
+        }
+    }
+
+    // Process 'using' entity
+    if (using) {
+        usingID = fileID;
+        const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
+        const headUsingObj = await convertToJSON(
+            subOfHead.Items[0].su,
+            newParentPath,
+            true,
+            entity.Items[0].m,
+            cookie,
+            dynamodb,
+            uuidv4,
+            pathUUID,
+            newParentPath2,
+            id2Path,
+            usingID
+        );
+
+        const headKey = Object.keys(headUsingObj.obj)[0];
+        Object.assign(obj[fileID].children, headUsingObj.obj[headKey].children);
+        Object.assign(paths, headUsingObj.paths);
+        Object.assign(paths2, headUsingObj.paths2);
+
+        obj[fileID].meta["usingMeta"] = {
+            "name": headUsingObj.obj[headKey].meta.name,
+            "head": headUsingObj.obj[headKey].meta.head,
+            "id": headKey,
+            "pathid": pathUUID
+        };
+    }
+
+    // Process linked entities
+    if (linked && linked.length > 0) {
+        const linkedPromises = linked.map(async (link) => {
+            const subByE = await getSub(link, "e", dynamodb);
+            const uuid = subByE.Items[0].su;
+            return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID);
+        });
+
+        const linkedResponses = await Promise.all(linkedPromises);
+        for (const linkedResponse of linkedResponses) {
+            Object.assign(obj[fileID].linked, linkedResponse.obj);
+            Object.assign(paths, linkedResponse.paths);
+            Object.assign(paths2, linkedResponse.paths2);
+        }
+    }
+
+    const groupList = await getGroups(dynamodb);
+
+    return { obj, paths, paths2, id2Path, groups: groupList };
+}
+/*
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
@@ -433,7 +560,7 @@ async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, 
     } else {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false }
     }
-}
+}*/
 
 /*
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "", dynamodbLL) {
