@@ -243,7 +243,7 @@ async function prefetchData(fileID, dynamodb, mapping, cookie) {
 
 
 let memo = {};
-
+/*
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "", dynamodbLL) {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
@@ -435,7 +435,7 @@ async function getCachedData(dynamodb) {
     }
 
     return memo['groupList'];
-}
+}*/
 
 
 /*
@@ -580,9 +580,6 @@ async function getCachedData(dynamodb) {
     return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
 }*/
 
-
-
-
 /*async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     const { verified, subBySU, entity } = await verifyThis(fileID, context.cookie, context.dynamodb);
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
@@ -702,30 +699,25 @@ async function getCachedData(dynamodb) {
     return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
 }*/
 
-/*async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
-    //console.log("convertToJSON", fileID, parentPath, isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2, id2Path, usingID)
+async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "") {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
 
     if (verified) {
-        //console.log("ALL GOOD!")
+
         let children
-        //console.log("mapping=",mapping)
         if (mapping) {
-            //console.log("mapping")
-            //console.log("subBySU.Items[0].e",subBySU.Items[0].e)
-            
+
             if (mapping.hasOwnProperty(subBySU.Items[0].e)) {
-                //console.log("mapping", mapping, subBySU.Items[0].e, mapping[subBySU.Items[0].e])
                 children = mapping[subBySU.Items[0].e]
             } else {
-                //console.log("inside mapping else")
+
                 children = entity.Items[0].t
             }
         } else {
-            //console.log("not mapping")
+
             children = entity.Items[0].t
         }
-        //console.log("children", children)
+
         const linked = entity.Items[0].l
         const head = await getWord(entity.Items[0].a, dynamodb)
         const name = head.Items[0].r
@@ -735,18 +727,17 @@ async function getCachedData(dynamodb) {
             using = true
         }
         pathID = await getUUID(uuidv4)
-        //console.log("entity.Items[0].h", entity.Items[0].h)
+
         let subH = await getSub(entity.Items[0].h, "e", dynamodb)
-        //console.log("subH", subH)
+
         if (subH.Count == 0) {
-            await sleep(2000) //wait 2 seconds and try again. Sometimes the data isn't available in the GSI, which is how getSub queries using "e"
+            await sleep(2000)
             subH = await getSub(entity.Items[0].h, "e", dynamodb)
         }
         obj[fileID] = { meta: { name: name, expanded: false, head: subH.Items[0].su }, children: {}, using: using, linked: {}, pathid: pathID, usingID: usingID, location: fileLocation(isPublic) };
         let paths = {}
         let paths2 = {}
-        //if (!pathID){
-        //}
+
         if (isUsing) {
             paths[fileID] = [...parentPath];
             paths2[pathID] = [...parentPath2];
@@ -757,24 +748,14 @@ async function getCachedData(dynamodb) {
         id2Path[fileID] = pathID
 
         if (children) {
-            //console.log("inside")
             for (let child of children) {
-                //console.log(child)
                 const subByE = await getSub(child, "e", dynamodb);
                 let uuid = subByE.Items[0].su
                 let childResponse = {}
-                //console.log("convertCounter", convertCounter)
                 if (convertCounter < 1000) {
-                    //console.log("----------runing convertToJSON", convertCounter)
                     childResponse = await convertToJSON(uuid, paths[fileID], false, mapping, cookie, dynamodb, uuidv4, pathID, paths2[pathID], id2Path, usingID);
                     convertCounter++;
                 }
-                //console.log("FILEID", fileID)
-                //console.log("OBJ", obj)
-                //console.log("OBJ[FILEID]", obj[fileID])
-                //console.log("childResponse.obj", childResponse.obj)
-                //console.log("childResponse.paths", childResponse.paths)
-                //console.log("childResponse.paths2", childResponse.paths2)
                 Object.assign(obj[fileID].children, childResponse.obj);
                 Object.assign(paths, childResponse.paths);
                 Object.assign(paths2, childResponse.paths2);
@@ -812,9 +793,8 @@ async function getCachedData(dynamodb) {
         return { obj: obj, paths: paths, paths2: paths2, id2Path: id2Path, groups: groupList };
     } else {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false }
-        //NEED TO PROVIDE BACK WHAT THE USER IS ALLOWED TO VIEW, like the Groups they have, AND ALSO MAKE SURE NO ERRORS HAPPEN FROM SENDING BACK {} FOR obj, paths, paths2 and id2Path
     }
-}*/
+}
 
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
     //console.log("updateEntity")
