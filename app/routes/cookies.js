@@ -299,6 +299,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
 
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     console.log("verify", verify)
+
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
     console.log("entityAi",entityAi)
     console.log("verified", verified)
@@ -2260,7 +2261,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("vi", vi)
                     await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), "0", dynamodb);
+                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), "1", dynamodb);
                     const uniqueId = await getUUID(uuidv4)
                     //console.log(uniqueId, "0", "0", )
                     let subRes = await createSubdomain(uniqueId, "0", "0", gNew.toString(), true, dynamodb)
