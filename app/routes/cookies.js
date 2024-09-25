@@ -1644,6 +1644,8 @@ function allVerified(list) {
 }
 
 async function verifyPath(splitPath, verifications, dynamodb) {
+    console.log("splitPath", splitPath)
+    console.log("vertifyPath", verifications)
     let verified = [];
     let verCounter = 0;
     for (ver in splitPath) {
@@ -1651,7 +1653,7 @@ async function verifyPath(splitPath, verifications, dynamodb) {
             let verValue = false
             verified.push(false)
             const sub = await getSub(splitPath[ver], "su", dynamodb);
-            //console.log("sub", sub)
+            console.log("sub", sub)
             //console.log("sub.Items[0].z", sub.Items[0].z)
             let groupID = sub.Items[0].g
             let entityID = sub.Items[0].e
@@ -2663,6 +2665,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "runEntity") {
                 let { runApp } = require('../app'); 
+                console.log("res-------")
+                console.log("res-------")
+                console.log("res-------")
+                console.log("res-------")
+                console.log("res-------")
+                console.log("res",res)
                 await runApp(req, res, next)
             }
 
