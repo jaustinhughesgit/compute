@@ -298,16 +298,21 @@ async function verifyThis(fileID, cookie, dynamodb) {
     const entityAi = entity.Items[0].ai.toString();
 
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
+    console.log("verify", verify)
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
-
+    console.log("entityAi",entityAi)
+    console.log("verified", verified)
     if (entityAi !== "0" && verified) {
+        console.log("inside condition")
         verified = verify.Items.some(veri => veri.ai === entityAi && veri.bo);
+        console.log("verified", verified)
     }
 
+    console.log("isPublic", isPublic)
     if (isPublic) {
         verified = true;
     }
-
+    console.log("=>", verified, subBySU, entity, isPublic)
     return { verified, subBySU, entity, isPublic };
 }
 
