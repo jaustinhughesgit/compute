@@ -2244,7 +2244,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("G")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     //console.log("H")
-                    const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
+                    //const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
                     //console.log("I")
                     const ttlDurationInSeconds = 90000; // For example, 1 hour
                     //console.log("J")
@@ -2269,9 +2269,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     let from = "noreply@email.1var.com"
                     let to = "austin@1var.com"
                     let subject = "1 VAR - Email Address Verification Request"
-                    let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/" + uniqueId
-                    let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/" + uniqueId
-                    let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
+                    //let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/" + uniqueId
+                    //let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/" + uniqueId
+                    //let emailer = await email(from, to, subject, emailText, emailHTML, ses)  //COMMENTED OUT BECAUSE WE ONLY GET 200 EMAILS IN AMAZON SES.
                     //console.log(emailer)
                     mainObj = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
                 }
@@ -2670,7 +2670,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res-------")
                 console.log("res-------")
                 console.log("res-------")
-                console.log("res",res)
                 await runApp(req, res, next)
             }
 
