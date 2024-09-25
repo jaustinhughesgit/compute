@@ -301,6 +301,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
     console.log("verify", verify)
 
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
+    console.log("groupAi",groupAi)
     console.log("entityAi",entityAi)
     console.log("verified", verified)
     if (entityAi !== "0" && verified) {
