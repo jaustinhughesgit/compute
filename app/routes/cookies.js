@@ -300,11 +300,6 @@ async function verifyThis(fileID, cookie, dynamodb) {
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     console.log("verify", verify)
 
-    function checkNums(number)
-        let verified = verify.Items.some(veri => veri.nums.includes(number));
-        console.log(verified);
-    }
-
     let verified = groupAi === "0" || verify.Items.some(veri => veri.ai.includes(groupAi) && veri.bo); // is the group access id == cookie access id
     console.log("groupAi",groupAi)
     console.log("entityAi",entityAi)
