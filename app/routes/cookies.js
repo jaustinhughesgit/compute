@@ -294,8 +294,8 @@ async function verifyThis(fileID, cookie, dynamodb) {
     const entity = await getEntity(subBySU.Items[0].e, dynamodb);
     const group = await getGroup(entity.Items[0].g, dynamodb);
 
-    const groupAi = group.Items[0].ai.toString();
-    const entityAi = entity.Items[0].ai.toString();
+    const groupAi = group.Items[0].ai;
+    const entityAi = entity.Items[0].ai;
 
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     console.log("verify", verify)
