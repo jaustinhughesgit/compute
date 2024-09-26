@@ -2458,7 +2458,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("to", to)
                 //console.log("ac", ac)
                 if (ex && at && va && to && ac && !buffer) {
-                    //console.log("values are truthy")
+                    console.log("values are truthy", ai.toString())
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
                     console.log(access)
