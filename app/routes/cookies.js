@@ -300,13 +300,13 @@ async function verifyThis(fileID, cookie, dynamodb) {
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     console.log("verify", verify)
 
-    let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo);
+    let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo); // is the group access id == cookie access id
     console.log("groupAi",groupAi)
     console.log("entityAi",entityAi)
     console.log("verified", verified)
     if (entityAi !== "0" && verified) {
         console.log("inside condition")
-        verified = verify.Items.some(veri => veri.ai === entityAi && veri.bo);
+        verified = verify.Items.some(veri => veri.ai === entityAi && veri.bo); // is the entity access id == cookie access id
         console.log("verified", verified)
     }
 
@@ -365,6 +365,7 @@ async function convertToJSON(
 ) {
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb);
 
+    
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
@@ -618,7 +619,7 @@ async function prefetchData(fileID, dynamodb, mapping, cookie) {
 
 
 
-let memo = {};
+//let memo = {};
 /*
 async function convertToJSON(fileID, parentPath = [], isUsing, mapping, cookie, dynamodb, uuidv4, pathID, parentPath2 = [], id2Path = {}, usingID = "", dynamodbLL) {
     const { verified, subBySU, entity } = await verifyThis(fileID, cookie, dynamodb);
@@ -2526,19 +2527,19 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "useAuthenticator") {
                 const Entity = reqPath.split("/")[3]
                 const Authenticator = reqPath.split("/")[4]
-                //console.log("Entity", Entity)
-                //console.log("Authenticator", Authenticator)
+                console.log("Entity", Entity)
+                console.log("Authenticator", Authenticator)
                 const subEntity = await getSub(Entity, "su", dynamodb);
                 const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
-                //console.log("subEntity", subEntity)
-                //console.log("subAuthenticator", subAuthenticator)
+                console.log("subEntity", subEntity)
+                console.log("subAuthenticator", subAuthenticator)
                 let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': subAuthenticator.Items[0].e.toString() } }
                 let access = await dynamodb.query(params).promise()
-                //console.log("access", access)
+                console.log("access", access)
                 const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), "1", dynamodb);
-                //console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
+                console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
-                //console.log("updateAuth", updateAuth)
+                console.log("updateAuth", updateAuth)
                 mainObj = { "alert": "success" }
             } else if (action == "createTask") {
                 const fileID = reqPath.split("/")[3]
