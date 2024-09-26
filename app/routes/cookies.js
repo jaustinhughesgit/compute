@@ -300,13 +300,18 @@ async function verifyThis(fileID, cookie, dynamodb) {
     const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
     console.log("verify", verify)
 
-    let verified = groupAi === "0" || verify.Items.some(veri => veri.ai === groupAi && veri.bo); // is the group access id == cookie access id
+    function checkNums(number)
+        let verified = verify.Items.some(veri => veri.nums.includes(number));
+        console.log(verified);
+    }
+
+    let verified = groupAi === "0" || verify.Items.some(veri => veri.ai.includes(groupAi) && veri.bo); // is the group access id == cookie access id
     console.log("groupAi",groupAi)
     console.log("entityAi",entityAi)
     console.log("verified", verified)
     if (entityAi !== "0" && verified) {
         console.log("inside condition")
-        verified = verify.Items.some(veri => veri.ai === entityAi && veri.bo); // is the entity access id == cookie access id
+        verified = verify.Items.some(veri => veri.ai.includes(entityAi) && veri.bo); // is the entity access id == cookie access id
         console.log("verified", verified)
     }
 
@@ -2263,12 +2268,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("vi", vi)
                     await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
 
-                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), "1", dynamodb);
+                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), ["1"], dynamodb);
                     const uniqueId = await getUUID(uuidv4)
                     //console.log(uniqueId, "0", "0", )
                     let subRes = await createSubdomain(uniqueId, "0", "0", gNew.toString(), true, dynamodb)
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), "0", dynamodb); //DO I NEED details.c
+                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), ["0"], dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
                     const fileResult = await createFile(uniqueId2, {"blocks":[{"entity": uniqueId2,"width": "100", "align": "center", "row":0, "col":0, "color":0}], "modules":{},"actions":[{"target":"{|res|}","chain":[{"access":"send","params":[ "{|entity|}"]}],"assign": "{|send|}!"}]}, s3)
                     actionFile = uniqueId2
@@ -2461,7 +2466,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("values are truthy")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
-                    //console.log(access)
+                    console.log(access)
 
                     if (sub.Items[0].e.toString() != "0") {
                         const details2 = await addVersion(sub.Items[0].e.toString(), "au", ai.toString(), null, dynamodb);
