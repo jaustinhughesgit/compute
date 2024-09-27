@@ -2156,7 +2156,6 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 };
 
 
-
 const tablesToClear = [
     'access',
     'cookies',
@@ -2171,56 +2170,72 @@ const tablesToClear = [
   ];
   
   const countersToReset = [
-    { tableName: 'aiCounter', primaryKey: 'aiCounter' },
-    { tableName: 'ciCounter', primaryKey: 'ciCounter' },
-    { tableName: 'eCounter', primaryKey: 'eCounter' },
-    { tableName: 'enCounter', primaryKey: 'enCounter' },
-    { tableName: 'gCounter', primaryKey: 'gCounter' },
-    { tableName: 'giCounter', primaryKey: 'giCounter' },
-    { tableName: 'siCounter', primaryKey: 'siCounter' },
-    { tableName: 'tiCounter', primaryKey: 'tiCounter' },
-    { tableName: 'vCounter', primaryKey: 'vCounter' },
-    { tableName: 'viCounter', primaryKey: 'viCounter' },
-    { tableName: 'wCounter', primaryKey: 'wCounter' },
+    'aiCounter',
+    'ciCounter',
+    'eCounter',
+    'enCounter',
+    'gCounter',
+    'giCounter',
+    'siCounter',
+    'tiCounter',
+    'vCounter',
+    'viCounter',
+    'wCounter',
   ];
   
-  async function clearTable(tableName, dynamodb) {
+  async function clearTable(tableName, dynamoDb) {
     const params = {
       TableName: tableName,
     };
   
     let items;
     do {
-      items = await dynamodb.scan(params).promise();
+      items = await dynamoDb.scan(params).promise();
   
       const deleteRequests = items.Items.map((item) => ({
         DeleteRequest: {
-          Key: {
-            // Adjust the primary key attributes as per your table schema
-            id: item.id,
-          },
+          Key: getPrimaryKey(item),
         },
       }));
   
       if (deleteRequests.length > 0) {
-        const batchParams = {
-          RequestItems: {
-            [tableName]: deleteRequests,
-          },
-        };
-        await dynamodb.batchWrite(batchParams).promise();
+        // DynamoDB batchWrite can handle up to 25 items at a time
+        const batches = [];
+        while (deleteRequests.length) {
+          batches.push(deleteRequests.splice(0, 25));
+        }
+  
+        for (const batch of batches) {
+          const batchParams = {
+            RequestItems: {
+              [tableName]: batch,
+            },
+          };
+          await dynamoDb.batchWrite(batchParams).promise();
+        }
       }
   
       params.ExclusiveStartKey = items.LastEvaluatedKey;
     } while (typeof items.LastEvaluatedKey !== 'undefined');
   }
   
-  async function resetCounter(counter, dynamodb) {
+  function getPrimaryKey(item) {
+    // Adjust this function based on the primary key structure of your tables
+    // For example, if the primary key is 'pk'
+    if (item.pk) {
+      return { pk: item.pk };
+    } else if (item.id) {
+      return { id: item.id };
+    } else {
+      throw new Error('Primary key not found in item');
+    }
+  }
+  
+  async function resetCounter(tableName, dynamoDb) {
     const params = {
-      TableName: counter.tableName,
+      TableName: tableName,
       Key: {
-        // Adjust the primary key attribute as per your table schema
-        pk: counter.primaryKey,
+        pk: tableName, // Since pk is the same as the table name
       },
       UpdateExpression: 'SET #x = :zero',
       ExpressionAttributeNames: {
@@ -2230,7 +2245,7 @@ const tablesToClear = [
         ':zero': 0,
       },
     };
-    await dynamodb.update(params).promise();
+    await dynamoDb.update(params).promise();
   }
 
 
