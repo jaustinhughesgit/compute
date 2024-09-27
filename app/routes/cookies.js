@@ -2155,7 +2155,6 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     return { "response": JSON.stringify(jsonParsed), "isPublic": isPublic, "entity": entity }
 };
 
-
 const tablesToClear = [
     'access',
     'cookies',
@@ -2165,7 +2164,8 @@ const tablesToClear = [
     'subdomains',
     'tasks',
     'words',
-    'verified'
+    'verified',
+    'version',
   ];
   
   const countersToReset = [
@@ -2182,17 +2182,18 @@ const tablesToClear = [
     { tableName: 'wCounter', primaryKey: 'wCounter' },
   ];
   
-  // Mapping of tables to their primary key attributes
-  const primaryKeyMap = {
-    'access': 'ai',
-    'cookies': 'ci',
-    'entities': 'e',
-    'groups': 'g',
-    'schedules': 'si',
-    'subdomains': 'su',
-    'tasks': 'ti',
-    'words': 'a',
-    'verified': 'vi'
+  // Updated mapping of tables to their key attributes (partition and sort keys)
+  const keySchemaMap = {
+    'access': { partitionKey: 'ai' },
+    'cookies': { partitionKey: 'ci' },
+    'entities': { partitionKey: 'e' },
+    'groups': { partitionKey: 'g' },
+    'schedules': { partitionKey: 'si' },
+    'subdomains': { partitionKey: 'su' },
+    'tasks': { partitionKey: 'ti' },
+    'words': { partitionKey: 'a' },
+    'verified': { partitionKey: 'vi' },
+    'version': { partitionKey: 'v', sortKey: 'd' }, // Include sort key for 'version'
   };
   
   async function clearTable(tableName, dynamoDb) {
@@ -2209,20 +2210,28 @@ const tablesToClear = [
         break;
       }
   
-      const primaryKeyAttribute = primaryKeyMap[tableName];
-      if (!primaryKeyAttribute) {
+      const keySchema = keySchemaMap[tableName];
+      if (!keySchema || !keySchema.partitionKey) {
         throw new Error(`Primary key attribute not defined for table ${tableName}`);
       }
   
       const deleteRequests = items.Items.map((item) => {
-        if (item[primaryKeyAttribute] === undefined) {
-          throw new Error(`Primary key '${primaryKeyAttribute}' not found in item`);
+        if (item[keySchema.partitionKey] === undefined) {
+          throw new Error(`Partition key '${keySchema.partitionKey}' not found in item`);
         }
+        const key = {
+          [keySchema.partitionKey]: item[keySchema.partitionKey],
+        };
+        if (keySchema.sortKey) {
+          if (item[keySchema.sortKey] === undefined) {
+            throw new Error(`Sort key '${keySchema.sortKey}' not found in item`);
+          }
+          key[keySchema.sortKey] = item[keySchema.sortKey];
+        }
+  
         return {
           DeleteRequest: {
-            Key: {
-              [primaryKeyAttribute]: item[primaryKeyAttribute],
-            },
+            Key: key,
           },
         };
       });
