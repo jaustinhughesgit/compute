@@ -2193,7 +2193,6 @@ const tablesToClear = [
     'subdomains': 'su',
     'tasks': 'ti',
     'verified': 'vi',
-    'versions': 'v',
     'words': 'a',
   };
   
