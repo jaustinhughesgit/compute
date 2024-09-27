@@ -2163,6 +2163,7 @@ const tablesToClear = [
     'groups',
     'schedules',
     'subdomains',
+    'tasks',
     'versions'
   ];
   
@@ -2188,6 +2189,7 @@ const tablesToClear = [
     'groups': 'g',
     'schedules': 'si',
     'subdomains': 'su',
+    'tasks': 'ti',
     'versions': 'v'
   };
   
