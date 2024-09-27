@@ -1994,7 +1994,7 @@ async function convertTimespanToUTC(options) {
 
 
 
-/*  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
+  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
     const region = "us-east-1";
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
@@ -2036,7 +2036,7 @@ async function convertTimespanToUTC(options) {
   
     console.log("Generated URL:", url);
     return url;
-  }*/
+  }
 
 async function retrieveAndParseJSON(fileName, isPublic) {
     let fileLocation = "private"
@@ -2179,10 +2179,9 @@ const tablesToClear = [
     { tableName: 'tiCounter', primaryKey: 'tiCounter' },
     { tableName: 'vCounter', primaryKey: 'vCounter' },
     { tableName: 'viCounter', primaryKey: 'viCounter' },
-    { tableName: 'wCounter', primaryKey: 'wCounter' },
+    { tableName: 'wCounter', primaryKey: 'wCounter' }
   ];
   
-  // Updated mapping of tables to their key attributes (partition and sort keys)
   const keySchemaMap = {
     'access': { partitionKey: 'ai' },
     'cookies': { partitionKey: 'ci' },
@@ -2193,7 +2192,7 @@ const tablesToClear = [
     'tasks': { partitionKey: 'ti' },
     'words': { partitionKey: 'a' },
     'verified': { partitionKey: 'vi' },
-    'versions': { partitionKey: 'v', sortKey: 'd' }, // Include sort key for 'version'
+    'versions': { partitionKey: 'v', sortKey: 'd' }
   };
   
   async function clearTable(tableName, dynamoDb) {
@@ -2259,7 +2258,7 @@ const tablesToClear = [
     const params = {
       TableName: counter.tableName,
       Key: {
-        pk: counter.primaryKey, // Using 'pk' as the primary key attribute
+        pk: counter.primaryKey,
       },
       UpdateExpression: 'SET #x = :zero',
       ExpressionAttributeNames: {
@@ -2822,11 +2821,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res-------")
                 console.log("res-------")
                 await runApp(req, res, next)
-            }
-
-            /* else if (action == "transcribe"){
+            } else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
-            } */
+            }
 
             mainObj["file"] = actionFile + ""
             response = mainObj
