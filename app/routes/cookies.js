@@ -2353,7 +2353,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const a = await createWord(aNew.toString(), newEntityName, dynamodb);
 
                 const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
-                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, "0", dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai, dynamodb);
 
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
