@@ -2157,6 +2157,83 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
 
 
 
+const tablesToClear = [
+    'access',
+    'cookies',
+    'entities',
+    'groups',
+    'schedules',
+    'subdomains',
+    'tasks',
+    'verified',
+    'versions',
+    'words',
+  ];
+  
+  const countersToReset = [
+    { tableName: 'aiCounter', primaryKey: 'aiCounter' },
+    { tableName: 'ciCounter', primaryKey: 'ciCounter' },
+    { tableName: 'eCounter', primaryKey: 'eCounter' },
+    { tableName: 'enCounter', primaryKey: 'enCounter' },
+    { tableName: 'gCounter', primaryKey: 'gCounter' },
+    { tableName: 'giCounter', primaryKey: 'giCounter' },
+    { tableName: 'siCounter', primaryKey: 'siCounter' },
+    { tableName: 'tiCounter', primaryKey: 'tiCounter' },
+    { tableName: 'vCounter', primaryKey: 'vCounter' },
+    { tableName: 'viCounter', primaryKey: 'viCounter' },
+    { tableName: 'wCounter', primaryKey: 'wCounter' },
+  ];
+  
+  async function clearTable(tableName) {
+    const params = {
+      TableName: tableName,
+    };
+  
+    let items;
+    do {
+      items = await dynamoDb.scan(params).promise();
+  
+      const deleteRequests = items.Items.map((item) => ({
+        DeleteRequest: {
+          Key: {
+            // Adjust the primary key attributes as per your table schema
+            id: item.id,
+          },
+        },
+      }));
+  
+      if (deleteRequests.length > 0) {
+        const batchParams = {
+          RequestItems: {
+            [tableName]: deleteRequests,
+          },
+        };
+        await dynamoDb.batchWrite(batchParams).promise();
+      }
+  
+      params.ExclusiveStartKey = items.LastEvaluatedKey;
+    } while (typeof items.LastEvaluatedKey !== 'undefined');
+  }
+  
+  async function resetCounter(counter) {
+    const params = {
+      TableName: counter.tableName,
+      Key: {
+        // Adjust the primary key attribute as per your table schema
+        pk: counter.primaryKey,
+      },
+      UpdateExpression: 'SET #x = :zero',
+      ExpressionAttributeNames: {
+        '#x': 'x',
+      },
+      ExpressionAttributeValues: {
+        ':zero': 0,
+      },
+    };
+    await dynamoDb.update(params).promise();
+  }
+
+
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL) {
     cache = {
@@ -2198,6 +2275,35 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
+
+            } else if (action == "resetDB") {
+
+                try {
+                    // Clear specified tables
+                    for (const tableName of tablesToClear) {
+                      await clearTable(tableName);
+                      console.log(`Cleared table: ${tableName}`);
+                    }
+                
+                    // Reset counters
+                    for (const counter of countersToReset) {
+                      await resetCounter(counter);
+                      console.log(`Reset counter in table: ${counter.tableName}`);
+                    }
+                
+                    return {
+                      statusCode: 200,
+                      body: JSON.stringify('Database reset completed successfully.'),
+                    };
+                  } catch (error) {
+                    console.error('Error resetting database:', error);
+                    return {
+                      statusCode: 500,
+                      body: JSON.stringify('An error occurred while resetting the database.'),
+                    };
+                  }
+                };
+
             } else if (action == "add") {
                 //console.log("add");
                 const fileID = reqPath.split("/")[3];
