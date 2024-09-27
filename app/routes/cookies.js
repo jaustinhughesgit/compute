@@ -2164,7 +2164,6 @@ const tablesToClear = [
     'schedules',
     'subdomains',
     'tasks',
-    'verified',
     'versions',
     'words',
   ];
