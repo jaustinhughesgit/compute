@@ -2303,7 +2303,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     };
                   }
                 };
-
+                mainObj = { "alert": "success" }
             } else if (action == "add") {
                 //console.log("add");
                 const fileID = reqPath.split("/")[3];
