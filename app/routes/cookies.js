@@ -2291,19 +2291,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                       console.log(`Reset counter in table: ${counter.tableName}`);
                     }
                 
-                    return {
-                      statusCode: 200,
-                      body: JSON.stringify('Database reset completed successfully.'),
-                    };
+                    mainObj = { "alert": "success" }
                   } catch (error) {
                     console.error('Error resetting database:', error);
-                    return {
-                      statusCode: 500,
-                      body: JSON.stringify('An error occurred while resetting the database.'),
-                    };
+                    
+                    mainObj = { "alert": "failed" }
                   }
-                };
-                mainObj = { "alert": "success" }
+                
+
             } else if (action == "add") {
                 //console.log("add");
                 const fileID = reqPath.split("/")[3];
