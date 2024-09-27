@@ -2185,16 +2185,16 @@ const tablesToClear = [
   
   // Mapping of tables to their primary key attributes
   const primaryKeyMap = {
-    'access': 'pk',
-    'cookies': 'pk',
-    'entities': 'pk',
-    'groups': 'pk',
-    'schedules': 'pk',
-    'subdomains': 'pk',
-    'tasks': 'pk',
-    'verified': 'pk',
-    'versions': 'pk',
-    'words': 'pk',
+    'access': 'ai',
+    'cookies': 'ci',
+    'entities': 'e',
+    'groups': 'g',
+    'schedules': 'si',
+    'subdomains': 'su',
+    'tasks': 'ti',
+    'verified': 'vi',
+    'versions': 'v',
+    'words': 'a',
   };
   
   async function clearTable(tableName, dynamoDb) {
