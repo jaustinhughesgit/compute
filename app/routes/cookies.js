@@ -1994,7 +1994,7 @@ async function convertTimespanToUTC(options) {
 
 
 
-  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
+/*  async function getPresignedUrl(languageCode = "en-US", mediaEncoding = "flac", sampleRate = 16000) {
     const region = "us-east-1";
     const transcribe = new AWS.TranscribeService();
     const endpoint = `transcribestreaming.${region}.amazonaws.com:8443`;
@@ -2036,7 +2036,7 @@ async function convertTimespanToUTC(options) {
   
     console.log("Generated URL:", url);
     return url;
-  }
+  }*/
 
 async function retrieveAndParseJSON(fileName, isPublic) {
     let fileLocation = "private"
@@ -2821,9 +2821,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res-------")
                 console.log("res-------")
                 await runApp(req, res, next)
-            } else if (action == "transcribe"){
-                mainObj["presign"] = await getPresignedUrl();
             }
+
+            /* else if (action == "transcribe"){
+                mainObj["presign"] = await getPresignedUrl();
+            } */
 
             mainObj["file"] = actionFile + ""
             response = mainObj
