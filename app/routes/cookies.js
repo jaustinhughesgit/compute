@@ -2165,7 +2165,7 @@ const tablesToClear = [
     'tasks',
     'words',
     'verified',
-    'version',
+    'versions',
   ];
   
   const countersToReset = [
@@ -2193,7 +2193,7 @@ const tablesToClear = [
     'tasks': { partitionKey: 'ti' },
     'words': { partitionKey: 'a' },
     'verified': { partitionKey: 'vi' },
-    'version': { partitionKey: 'v', sortKey: 'd' }, // Include sort key for 'version'
+    'versions': { partitionKey: 'v', sortKey: 'd' }, // Include sort key for 'version'
   };
   
   async function clearTable(tableName, dynamoDb) {
