@@ -2170,18 +2170,32 @@ const tablesToClear = [
   ];
   
   const countersToReset = [
-    'aiCounter',
-    'ciCounter',
-    'eCounter',
-    'enCounter',
-    'gCounter',
-    'giCounter',
-    'siCounter',
-    'tiCounter',
-    'vCounter',
-    'viCounter',
-    'wCounter',
+    { tableName: 'aiCounter', primaryKey: 'aiCounter' },
+    { tableName: 'ciCounter', primaryKey: 'ciCounter' },
+    { tableName: 'eCounter', primaryKey: 'eCounter' },
+    { tableName: 'enCounter', primaryKey: 'enCounter' },
+    { tableName: 'gCounter', primaryKey: 'gCounter' },
+    { tableName: 'giCounter', primaryKey: 'giCounter' },
+    { tableName: 'siCounter', primaryKey: 'siCounter' },
+    { tableName: 'tiCounter', primaryKey: 'tiCounter' },
+    { tableName: 'vCounter', primaryKey: 'vCounter' },
+    { tableName: 'viCounter', primaryKey: 'viCounter' },
+    { tableName: 'wCounter', primaryKey: 'wCounter' },
   ];
+  
+  // Mapping of tables to their primary key attributes
+  const primaryKeyMap = {
+    'access': 'pk',
+    'cookies': 'pk',
+    'entities': 'pk',
+    'groups': 'pk',
+    'schedules': 'pk',
+    'subdomains': 'pk',
+    'tasks': 'pk',
+    'verified': 'pk',
+    'versions': 'pk',
+    'words': 'pk',
+  };
   
   async function clearTable(tableName, dynamoDb) {
     const params = {
@@ -2192,50 +2206,53 @@ const tablesToClear = [
     do {
       items = await dynamoDb.scan(params).promise();
   
-      const deleteRequests = items.Items.map((item) => ({
-        DeleteRequest: {
-          Key: getPrimaryKey(item),
-        },
-      }));
+      if (!items.Items || items.Items.length === 0) {
+        console.log(`No items found in table ${tableName}`);
+        break;
+      }
   
-      if (deleteRequests.length > 0) {
-        // DynamoDB batchWrite can handle up to 25 items at a time
-        const batches = [];
-        while (deleteRequests.length) {
-          batches.push(deleteRequests.splice(0, 25));
+      const primaryKeyAttribute = primaryKeyMap[tableName];
+      if (!primaryKeyAttribute) {
+        throw new Error(`Primary key attribute not defined for table ${tableName}`);
+      }
+  
+      const deleteRequests = items.Items.map((item) => {
+        if (item[primaryKeyAttribute] === undefined) {
+          throw new Error(`Primary key '${primaryKeyAttribute}' not found in item`);
         }
-  
-        for (const batch of batches) {
-          const batchParams = {
-            RequestItems: {
-              [tableName]: batch,
+        return {
+          DeleteRequest: {
+            Key: {
+              [primaryKeyAttribute]: item[primaryKeyAttribute],
             },
-          };
-          await dynamoDb.batchWrite(batchParams).promise();
-        }
+          },
+        };
+      });
+  
+      // DynamoDB batchWrite can handle up to 25 items at a time
+      const batches = [];
+      while (deleteRequests.length) {
+        batches.push(deleteRequests.splice(0, 25));
+      }
+  
+      for (const batch of batches) {
+        const batchParams = {
+          RequestItems: {
+            [tableName]: batch,
+          },
+        };
+        await dynamoDb.batchWrite(batchParams).promise();
       }
   
       params.ExclusiveStartKey = items.LastEvaluatedKey;
     } while (typeof items.LastEvaluatedKey !== 'undefined');
   }
   
-  function getPrimaryKey(item) {
-    // Adjust this function based on the primary key structure of your tables
-    // For example, if the primary key is 'pk'
-    if (item.pk) {
-      return { pk: item.pk };
-    } else if (item.id) {
-      return { id: item.id };
-    } else {
-      throw new Error('Primary key not found in item');
-    }
-  }
-  
-  async function resetCounter(tableName, dynamoDb) {
+  async function resetCounter(counter, dynamoDb) {
     const params = {
-      TableName: tableName,
+      TableName: counter.tableName,
       Key: {
-        pk: tableName, // Since pk is the same as the table name
+        pk: counter.primaryKey, // Using 'pk' as the primary key attribute
       },
       UpdateExpression: 'SET #x = :zero',
       ExpressionAttributeNames: {
