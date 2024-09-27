@@ -2164,7 +2164,8 @@ const tablesToClear = [
     'schedules',
     'subdomains',
     'tasks',
-    'words'
+    'words',
+    'verified'
   ];
   
   const countersToReset = [
@@ -2190,7 +2191,8 @@ const tablesToClear = [
     'schedules': 'si',
     'subdomains': 'su',
     'tasks': 'ti',
-    'words': 'a'
+    'words': 'a',
+    'verified': 'vi'
   };
   
   async function clearTable(tableName, dynamoDb) {
