@@ -2184,14 +2184,14 @@ const tablesToClear = [
     { tableName: 'wCounter', primaryKey: 'wCounter' },
   ];
   
-  async function clearTable(tableName) {
+  async function clearTable(tableName, dynamodb) {
     const params = {
       TableName: tableName,
     };
   
     let items;
     do {
-      items = await dynamoDb.scan(params).promise();
+      items = await dynamodb.scan(params).promise();
   
       const deleteRequests = items.Items.map((item) => ({
         DeleteRequest: {
@@ -2208,14 +2208,14 @@ const tablesToClear = [
             [tableName]: deleteRequests,
           },
         };
-        await dynamoDb.batchWrite(batchParams).promise();
+        await dynamodb.batchWrite(batchParams).promise();
       }
   
       params.ExclusiveStartKey = items.LastEvaluatedKey;
     } while (typeof items.LastEvaluatedKey !== 'undefined');
   }
   
-  async function resetCounter(counter) {
+  async function resetCounter(counter, dynamodb) {
     const params = {
       TableName: counter.tableName,
       Key: {
@@ -2230,7 +2230,7 @@ const tablesToClear = [
         ':zero': 0,
       },
     };
-    await dynamoDb.update(params).promise();
+    await dynamodb.update(params).promise();
   }
 
 
@@ -2281,13 +2281,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 try {
                     // Clear specified tables
                     for (const tableName of tablesToClear) {
-                      await clearTable(tableName);
+                      await clearTable(tableName, dynamodb);
                       console.log(`Cleared table: ${tableName}`);
                     }
                 
                     // Reset counters
                     for (const counter of countersToReset) {
-                      await resetCounter(counter);
+                      await resetCounter(counter, dynamodb);
                       console.log(`Reset counter in table: ${counter.tableName}`);
                     }
                 
