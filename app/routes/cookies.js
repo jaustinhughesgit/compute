@@ -679,8 +679,45 @@ const createFile = async (su, fileData, s3) => {
     };
     const data = await s3.putObject(bucketParams).promise();
     return true;
-
 }
+
+const updateJSONL = async (newLine, s3) => {
+    try {
+      // Validate newLine is a valid JSON string
+      JSON.parse(newLine);
+  
+      const getParams = { Bucket: 'private.1var.com', Key: 'training.jsonl' };
+      const data = await s3.getObject(getParams).promise();
+      const etag = data.ETag; // The ETag of the object
+  
+      // Append the new line
+      let existingData = data.Body.toString();
+      if (!existingData.endsWith('\n')) {
+        existingData += '\n';
+      }
+  
+      let updatedFile = existingData + newLine + '\n';
+  
+      const putParams = {
+        Bucket: 'private.1var.com',
+        Key: 'training.jsonl',
+        Body: updatedFile,
+        ContentType: 'application/jsonl',
+        IfMatch: etag.replace(/"/g, ''), // Use the ETag for conditional write
+      };
+      const response = await s3.putObject(putParams).promise();
+      console.log('S3 putObject response:', response);
+    } catch (error) {
+      if (error.code === 'PreconditionFailed') {
+        console.error('Update failed due to concurrent modification:', error);
+        // Handle the concurrency issue, e.g., retry or inform the user
+      } else {
+        console.error('Error updating training.jsonl:', error);
+      }
+      throw error;
+    }
+  };
+
 
 const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
     //console.log("createEntity")
@@ -2131,6 +2168,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
             } */
+
+            await updateJSONL({"prompt": "Get the user's profile from the database using their user ID and send them a confirmation email.", "completion": "{num:1}"}, s3)
 
             mainObj["file"] = actionFile + ""
             response = mainObj
