@@ -696,24 +696,22 @@ const updateJSONL = async (newLine, s3) => {
         existingData += '\n';
       }
   
-      let updatedFile = existingData + newLine + '\n';
+      const updatedFile = existingData + newLine + '\n';
   
       const putParams = {
         Bucket: 'private.1var.com',
         Key: 'training.jsonl',
         Body: updatedFile,
         ContentType: 'application/jsonl',
-        IfMatch: etag.replace(/"/g, ''), // Use the ETag for conditional write
+        // Remove IfMatch as it's not valid for putObject
+        // If you want to ensure safe updates, use versioning or lock mechanisms
       };
+      
+      // Use putObject without IfMatch
       const response = await s3.putObject(putParams).promise();
       console.log('S3 putObject response:', response);
     } catch (error) {
-      if (error.code === 'PreconditionFailed') {
-        console.error('Update failed due to concurrent modification:', error);
-        // Handle the concurrency issue, e.g., retry or inform the user
-      } else {
-        console.error('Error updating training.jsonl:', error);
-      }
+      console.error('Error updating training.jsonl:', error);
       throw error;
     }
   };
