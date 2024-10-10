@@ -709,7 +709,7 @@ const updateJSONL = async (newLine, s3) => {
       
       // Use putObject without IfMatch
       const response = await s3.putObject(putParams).promise();
-      console.log('S3 putObject response:', response);
+      return true;
     } catch (error) {
       console.error('Error updating training.jsonl:', error);
       throw error;
@@ -1885,6 +1885,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
 
+            } else if (action === "addFineTune") {
+                
+                console.log("req.body.body", req.body.body)
+                const fileResult = await updateJSONL(req.body.body, s3)
+                mainObj = { "alert": "success" }
             } else if (action === "saveFile") {
                 //console.log("saveFile")
                 actionFile = reqPath.split("/")[3]
@@ -2166,8 +2171,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
             } */
-
-            await updateJSONL('{"prompt": "Get the users profile from the database using their user ID and send them a confirmation email.", "completion": "{num:1}"}', s3)
 
             mainObj["file"] = actionFile + ""
             response = mainObj
