@@ -1699,7 +1699,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("G")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     //console.log("H")
-                    //const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
+                    const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
                     //console.log("I")
                     const ttlDurationInSeconds = 90000; // For example, 1 hour
                     //console.log("J")
