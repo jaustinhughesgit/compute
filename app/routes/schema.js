@@ -1,7 +1,8 @@
 var express = require('express');
 var router = express.Router();
 var OpenAI = require("openai");
-var z = require("zod");
+var { zodResponseFormat } = require("openai/helpers/zod");
+var { z } = require("zod");
 
 router.get('/', async function(req, res, next) {
     const openai = new OpenAI({
@@ -9,14 +10,14 @@ router.get('/', async function(req, res, next) {
     });
 
     // Zod schema for the UI response
-    const UISchema = z.object({
+    const UI = z.object({
         type: z.enum(["div", "button", "header", "section", "field", "form"]),
     });
 
     try {
         // Make a request to OpenAI's API
-        const completion = await openai.chat.completions.create({
-            model: "gpt-4",
+        const completion = await openai.beta.chat.completions.parse({
+            model: "gpt-4o-2024-08-06",
             messages: [
                 {
                     role: "system",
@@ -24,29 +25,18 @@ router.get('/', async function(req, res, next) {
                 },
                 { role: "user", content: "Give me a type" },
             ],
+            // Ensures the response conforms to the provided Zod schema
+            response_format: zodResponseFormat(UI, "ui"),
         });
 
-        // Get the response content
-        const responseText = completion.choices[0].message.content;
+        // Extract the parsed result from the response
+        const ui = completion.choices[0].message.parsed;
 
-        console.log("responseText",  responseText)
-
-        // Parse the response using Zod schema
-        const parsedUI = UISchema.safeParse(JSON.parse(responseText));
-
-        if (parsedUI.success) {
-            // Render if the response matches the schema
-            res.render('schema', {
-                title: 'Schema',
-                message: parsedUI.data,
-            });
-        } else {
-            // If the validation fails, show an error
-            res.render('schema', {
-                title: 'Schema',
-                message: "Invalid response format: " + parsedUI.error.message,
-            });
-        }
+        // Render the result
+        res.render('schema', {
+            title: 'Schema',
+            message: ui
+        });
     } catch (error) {
         next(error);
     }
