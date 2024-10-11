@@ -43,6 +43,22 @@ const ModesSchema = z.record(
   // Define the schema for templates with dynamic keys (columns with rows and divs)
   const TemplatesSchema = z.record(ColumnsSchema);
   
+  const ActionSchema = z.object({
+    if: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // "if" is optional
+    while: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // "while" is optional
+    set: z.record(z.string(), z.string()).optional(), // "set" is optional
+    target: z.string().optional(), // "target" is optional
+    chain: z.array(z.object({
+      access: z.string(),
+      params: z.array(z.string()),
+      new: z.boolean().optional(), // "new" is optional
+      express: z.boolean().optional(), // "express" is optional
+    })).optional(), // "chain" is optional
+    actions: z.lazy(() => z.array(z.object({}))).optional(), // "actions" is optional
+    next: z.boolean().optional(), // "next" is optional
+    express: z.boolean().optional() // "express" is optional
+  });
+
   // Define the full main schema, including the new "assignments" object
   const UI = z.object({
     blocks: z.array(z.object({
@@ -51,22 +67,8 @@ const ModesSchema = z.record(
       subs: z.boolean().optional(),
       name: z.string().optional(),
     })),
-    modules: z.record(z.string()),  // Dynamic keys in `modules`
-    actions: z.array(z.object({
-      if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-      while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-      set: z.record(z.string(), z.string()).optional(),
-      target: z.string().optional(),
-      chain: z.array(z.object({
-        access: z.string(),
-        params: z.array(z.string()),
-        new: z.boolean().optional(),
-        express: z.boolean().optional(),
-      })).optional(),
-      actions: z.lazy(() => z.array(z.object({}))).optional(),
-      next: z.boolean().optional(),
-      express: z.boolean().optional(),
-    })),
+    modules: z.record(z.string()), // Dynamic keys in `modules`
+    actions: z.array(ActionSchema), // Use the updated ActionSchema
     commands: z.record(z.object({
       call: z.string(),
       ready: z.boolean(),
@@ -102,10 +104,19 @@ const ModesSchema = z.record(
       _speak: z.string(),
       command: z.array(z.string())
     })),
-    templates: TemplatesSchema,  // New templates structure with dynamic columns and rows
-    assignments: AssignmentsSchema // Dynamic assignments with modes and movement
+    templates: z.record(z.object({
+      rows: z.record(z.object({
+        divs: z.array(z.string())
+      }))
+    })),
+    assignments: z.record(z.object({
+      _editable: z.boolean(),
+      _movement: z.enum(['move', 'copy']),
+      _owners: z.array(z.string()),
+      _modes: z.record(z.union([z.string(), z.array(z.string()), z.object({})])),
+      _mode: z.string()
+    }))
   });
-
 
 
     // Zod schema for the UI response
@@ -130,6 +141,7 @@ const ModesSchema = z.record(
         });
 
         const ui = completion.choices[0].message.parsed;
+        console.log(ui)
 
         res.render('schema', {
             title: 'Schema',
