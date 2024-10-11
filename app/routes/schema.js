@@ -17,7 +17,7 @@ router.get('/', async function(req, res, next) {
     try {
         // Make a request to OpenAI's API
         const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4-0613",
+            model: "gpt-4o-2024-08-06",
             messages: [
                 {
                     role: "system",
