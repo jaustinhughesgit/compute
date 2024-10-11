@@ -1,9 +1,3 @@
-var express = require('express');
-var router = express.Router();
-var OpenAI = require("openai");
-var { zodResponseFormat } = require("openai/helpers/zod");
-var { z } = require("zod");
-
 router.get('/', async function(req, res, next) {
     const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
@@ -17,13 +11,15 @@ router.get('/', async function(req, res, next) {
     try {
         // Make a request to OpenAI's API
         const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4o-2024-08-06",
+            model: "gpt-4-0613",
             messages: [
                 {
                     role: "system",
-                    content: "You pick types at random.",
+                    content: `You pick types at random from the following options: "div", "button", "header", "section", "field", "form".
+Respond with a JSON object containing a single field "type" set to one of these options.
+For example: {"type": "div"}`,
                 },
-                { role: "user", content: "Give me a type" },
+                { role: "user", content: "Give me a type." },
             ],
             // Ensures the response conforms to the provided Zod schema
             response_format: zodResponseFormat(UI, "ui"),
@@ -41,5 +37,3 @@ router.get('/', async function(req, res, next) {
         next(error);
     }
 });
-
-module.exports = router;
