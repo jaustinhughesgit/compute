@@ -21,9 +21,7 @@ router.get('/', async function(req, res, next) {
             messages: [
                 {
                     role: "system",
-                    content: `You pick types at random from the following options: "div", "button", "header", "section", "field", "form".
-Respond with a JSON object containing a single field "type" set to one of these options.
-For example: {"type": "div"}`,
+                    content: `You pick types at random.`,
                 },
                 { role: "user", content: "Give me a type." },
             ],
