@@ -11,7 +11,7 @@ router.get('/', async function(req, res, next) {
 
     // Zod schema for the UI response
     const UI = z.object({
-        type: z.enum(["div", "button", "header", "section", "field", "form"]),
+        type: z.enum(["jinga", "zelda", "puzzles", "jump rope", "hocky", "video"]),
     });
 
     try {
@@ -21,9 +21,9 @@ router.get('/', async function(req, res, next) {
             messages: [
                 {
                     role: "system",
-                    content: `You pick types at random.`,
+                    content: `You pick games at random.`,
                 },
-                { role: "user", content: "Give me a type." },
+                { role: "user", content: "Give me a game." },
             ],
             // Ensures the response conforms to the provided Zod schema
             response_format: zodResponseFormat(UI, "ui"),
