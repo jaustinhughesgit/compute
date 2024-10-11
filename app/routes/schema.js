@@ -44,78 +44,20 @@ const ModesSchema = z.record(
   const TemplatesSchema = z.record(ColumnsSchema);
   
   const ActionSchema = z.object({
-    if: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // Optional
-    while: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // Optional
-    set: z.record(z.string(), z.string()).optional(), // Explicitly optional
-    target: z.string().optional(), // Optional
+    set: z.record(z.string().optional(), z.string().optional()).optional(), 
+    target: z.string().optional(), 
     chain: z.array(z.object({
-      access: z.string(),
-      params: z.array(z.string()),
-      new: z.boolean().optional(), // Optional
-      express: z.boolean().optional(), // Optional
-    })).optional(), // Optional
-    actions: z.lazy(() => z.array(z.object({}))).optional(), // Optional
-    next: z.boolean().optional(), // Optional
-    express: z.boolean().optional() // Optional
+      access: z.string().optional(),
+      params: z.array(z.string().optional()).optional()
+    })).optional(), 
   });
 
   // Define the full main schema, including the new "assignments" object
   const UI = z.object({
-    blocks: z.array(z.object({
-      entity: z.string(),
-      align: z.string(),
-      subs: z.boolean().optional(),
-      name: z.string().optional(),
-    })),
-    modules: z.record(z.string()), // Dynamic keys in `modules`
-    actions: z.array(ActionSchema), // Use the updated ActionSchema
-    commands: z.record(z.object({
-      call: z.string(),
-      ready: z.boolean(),
-      updateSpeechAt: z.boolean(),
-      timeOut: z.number(),
-    })),
-    calls: z.record(z.array(z.object({
-      if: z.array(z.object({
-        key: z.array(z.string()),
-        expression: z.string(),
-        value: z.union([z.string(), z.number(), z.boolean()])
-      })),
-      then: z.array(z.string()),
-      show: z.array(z.string()),
-      run: z.array(z.object({
-        function: z.string(),
-        args: z.array(z.union([z.string(), z.number()])),
-        custom: z.boolean().optional()
-      }))
-    }))),
-    menu: z.record(z.object({
-      _name: z.string(),
-      _classes: z.array(z.string()),
-      _show: z.boolean(),
-      _selected: z.boolean(),
-    }).catchall(z.lazy(() => z.object({})))),
-    functions: z.record(z.object({
-      parameters: z.array(z.string()),
-      body: z.array(z.string())
-    })),
-    automation: z.array(z.object({
-      _delay: z.string(),
-      _speak: z.string(),
-      command: z.array(z.string())
-    })),
-    templates: z.record(z.object({
-      rows: z.record(z.object({
-        divs: z.array(z.string())
-      }))
-    })),
-    assignments: z.record(z.object({
-      _editable: z.boolean(),
-      _movement: z.enum(['move', 'copy']),
-      _owners: z.array(z.string()),
-      _modes: z.record(z.union([z.string(), z.array(z.string()), z.object({})])),
-      _mode: z.string()
-    }))
+
+    modules: z.record(z.string().optional()).optional(), // Dynamic keys in `modules`
+    actions: z.array(ActionSchema).optional(), // Use the updated ActionSchema
+    
   });
 
 
