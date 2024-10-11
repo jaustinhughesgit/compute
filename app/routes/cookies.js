@@ -730,6 +730,7 @@ const createFineTune = async (openai) => {
     training_file: '1var-0-0-1',
     model: 'gpt-4o-mini-2024-07-18'
   });
+  console.log("fineTune", fineTune)
   return fineTune
 }
 
