@@ -727,7 +727,7 @@ const updateJSONL = async (newLine, keys, s3) => {
 
 const createFineTune = async (openai) => {
   const fineTune = await openai.fineTuning.jobs.create({
-    training_file: '1var-0.0.1',
+    training_file: '1var-0-0-1',
     model: 'gpt-4o-mini-2024-07-18'
   });
   return fineTune
