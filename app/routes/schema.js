@@ -44,19 +44,19 @@ const ModesSchema = z.record(
   const TemplatesSchema = z.record(ColumnsSchema);
   
   const ActionSchema = z.object({
-    if: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // "if" is optional
-    while: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // "while" is optional
-    set: z.record(z.string(), z.string()).optional(), // "set" is optional
-    target: z.string().optional(), // "target" is optional
+    if: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // Optional
+    while: z.array(z.array(z.union([z.string(), z.number()]))).optional(), // Optional
+    set: z.record(z.string(), z.string()).optional(), // Explicitly optional
+    target: z.string().optional(), // Optional
     chain: z.array(z.object({
       access: z.string(),
       params: z.array(z.string()),
-      new: z.boolean().optional(), // "new" is optional
-      express: z.boolean().optional(), // "express" is optional
-    })).optional(), // "chain" is optional
-    actions: z.lazy(() => z.array(z.object({}))).optional(), // "actions" is optional
-    next: z.boolean().optional(), // "next" is optional
-    express: z.boolean().optional() // "express" is optional
+      new: z.boolean().optional(), // Optional
+      express: z.boolean().optional(), // Optional
+    })).optional(), // Optional
+    actions: z.lazy(() => z.array(z.object({}))).optional(), // Optional
+    next: z.boolean().optional(), // Optional
+    express: z.boolean().optional() // Optional
   });
 
   // Define the full main schema, including the new "assignments" object
