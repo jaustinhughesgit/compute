@@ -681,10 +681,19 @@ const createFile = async (su, fileData, s3) => {
     return true;
 }
 
-const updateJSONL = async (newLine, s3) => {
+const updateJSONL = async (newLine, keys, s3) => {
     try {
       // Validate newLine is a valid JSON string
       JSON.parse(newLine);
+      let VAR = JSON.parse(newLine.completion)
+
+      for (let key in VAR) {
+        // If the key is not in the array, delete it
+        if (!keys.includes(key)) {
+          delete VAR[key];
+        }
+      }
+      newLine.completion = JSOn.stringify(VAR)
   
       const getParams = { Bucket: 'private.1var.com', Key: 'training.jsonl' };
       const data = await s3.getObject(getParams).promise();
@@ -715,6 +724,14 @@ const updateJSONL = async (newLine, s3) => {
       throw error;
     }
   };
+
+const createFineTune = async () => {
+  const fineTune = await openai.fineTuning.jobs.create({
+    training_file: '1var-0.0.1',
+    model: 'gpt-4o-mini-2024-07-18'
+  });
+  return fineTune
+}
 
 
 const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
@@ -1886,10 +1903,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["tasks"] = tasksISO
 
             } else if (action === "addFineTune") {
-                
+                let sections = reqPath.split("/")
                 console.log("req.body.body", req.body.body)
-                const fileResult = await updateJSONL(req.body.body, s3)
+                const fileResult = await updateJSONL(req.body.body, sections, s3)
                 mainObj = { "alert": "success" }
+            } else if (action === "createFineTune"){
+                const fineTuneResponse = await createFineTune()
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
                 //console.log("saveFile")
                 actionFile = reqPath.split("/")[3]
