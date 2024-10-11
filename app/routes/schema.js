@@ -29,6 +29,8 @@ router.get('/', async function(req, res, next) {
         // Get the response content
         const responseText = completion.choices[0].message.content;
 
+        console.log("responseText",  responseText)
+
         // Parse the response using Zod schema
         const parsedUI = UISchema.safeParse(JSON.parse(responseText));
 
