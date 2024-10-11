@@ -37,7 +37,7 @@ For example: {"type": "div"}`,
         // Render the result
         res.render('schema', {
             title: 'Schema',
-            message: ui
+            message: JSON.stringify(ui)
         });
     } catch (error) {
         next(error);
