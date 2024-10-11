@@ -11,7 +11,7 @@ router.get('/', async function(req, res, next) {
 
 
   const ActionSchema = z.object({
-    set: z.enum(["hand", "foot", "mouth", "arm", "head", "knee"])
+    set: z.record(z.string(), z.string())
   });
 
     // Zod schema for the UI response
