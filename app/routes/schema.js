@@ -1,3 +1,9 @@
+var express = require('express');
+var router = express.Router();
+var OpenAI = require("openai");
+var { zodResponseFormat } = require("openai/helpers/zod");
+var { z } = require("zod");
+
 router.get('/', async function(req, res, next) {
     const openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
@@ -37,3 +43,6 @@ For example: {"type": "div"}`,
         next(error);
     }
 });
+
+
+module.exports = router;
