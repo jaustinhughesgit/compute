@@ -39,6 +39,7 @@ var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuid
 var indexRouter = require('./routes/index');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
+const schemaRouter = require('./routes/schema');
 
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
 //let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
@@ -46,6 +47,7 @@ let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified,
 console.log("")
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
+app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
 
 app.use('/', indexRouter);
