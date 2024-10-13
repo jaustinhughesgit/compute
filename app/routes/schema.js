@@ -127,12 +127,9 @@ router.get('/', async function (req, res, next) {
         })
     );
 
-    // Define FlowSchema as an array of UI objects
-    const FlowSchema = z.array(UI);
-
     const mainSchema = z.lazy(() =>
         z.object({
-        flow: z.array(FlowSchema),
+        flow: z.array(UI),
     })
 );
 
