@@ -132,7 +132,7 @@ router.get('/', async function (req, res, next) {
 
     const mainSchema = z.lazy(() =>
         z.object({
-        flow: FlowSchema,
+        flow: z.array(FlowSchema),
     })
 );
 
