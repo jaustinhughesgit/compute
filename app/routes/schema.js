@@ -130,9 +130,11 @@ router.get('/', async function (req, res, next) {
     // Define FlowSchema as an array of UI objects
     const FlowSchema = z.array(UI);
 
-    const MainSchema = z.object({
+    const mainSchema = z.lazy(() =>
+        z.object({
         flow: FlowSchema,
-      });
+    })
+);
 
       
 
@@ -146,7 +148,7 @@ router.get('/', async function (req, res, next) {
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: zodResponseFormat(MainSchema, "MainSchema"),
+            response_format: zodResponseFormat(mainSchema, "mainSchema"),
         });
 
         const ui = completion.choices[0].message.parsed;
