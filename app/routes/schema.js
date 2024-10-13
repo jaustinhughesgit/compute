@@ -130,6 +130,12 @@ router.get('/', async function (req, res, next) {
     // Define FlowSchema as an array of UI objects
     const FlowSchema = z.array(UI);
 
+    const MainSchema = z.object({
+        flow: FlowSchema,
+      });
+
+      
+
     try {
         const completion = await openai.beta.chat.completions.parse({
             model: "gpt-4o-2024-08-06",
@@ -140,7 +146,7 @@ router.get('/', async function (req, res, next) {
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: zodResponseFormat(FlowSchema, "flow"),
+            response_format: zodResponseFormat(MainSchema, "MainSchema"),
         });
 
         const ui = completion.choices[0].message.parsed;
