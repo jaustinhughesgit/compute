@@ -152,7 +152,7 @@ router.get('/', async function (req, res, next) {
                 "json_schema": {
                     
                         "name": "MainSchema",
-                        "strict": true,
+                        "strict": false,
                         "schema": {
                             "$schema": "http://json-schema.org/draft-07/schema#",
                             "type": "object",
