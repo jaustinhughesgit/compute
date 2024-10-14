@@ -126,7 +126,7 @@ router.get('/', async function (req, res, next) {
       });
       
       // Define the full main schema
-      const UI = z.object({
+      const MainSchema = z.object({
         blocks: z.array(z.object({
           entity: z.string(),
           align: z.string(),
@@ -134,7 +134,10 @@ router.get('/', async function (req, res, next) {
           name: z.string().optional(),
         })),
         modules: z.object({}).catchall(z.string()),  
-        actions: z.array(ActionSchema), 
+        actions1: z.array(ActionSchema),  
+        actions2: z.array(ActionSchema).optional(),  
+        actions3: z.array(ActionSchema).optional(),  
+        actions4: z.array(ActionSchema).optional(), 
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
         menu: z.object({}).catchall(MenuSchema), 
@@ -143,10 +146,6 @@ router.get('/', async function (req, res, next) {
         templates: TemplatesSchema,
         assignments: z.object({}).catchall(AssignmentsSchema),
       });
-
-      const MainSchema = z.object({
-        flow: UI,
-    });
 
     try {
         const completion = await openai.beta.chat.completions.parse({
