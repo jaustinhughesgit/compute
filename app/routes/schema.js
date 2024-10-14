@@ -198,12 +198,10 @@ router.get('/', async function (req, res, next) {
             response_format: zodResponseFormat(MainSchema, "MainSchema"),
         });
 
-        const ui = completion.choices[0].message.parsed;
-        console.log(ui)
 
         res.render('schema', {
             title: 'Schema',
-            message: JSON.stringify(ui)
+            message: JSON.stringify(completion)
         });
     } catch (error) {
         next(error);
