@@ -83,23 +83,6 @@ router.get('/', async function (req, res, next) {
 
 
 
-    // Define ActionSchemaLevel2 with nestedActions as ActionSchemaLevel3
-    const ActionSchemaLevel2 = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.record(z.string()).optional(),
-        target: z.string().optional(),
-        chain: z.array(
-            z.object({
-                access: z.string(),
-                params: z.array(z.string()),
-                new: z.boolean().optional(),
-                express: z.boolean().optional(),
-            })
-        ).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-    });
 
     // Define ActionSchemaLevel1 with nestedActions as ActionSchemaLevel2
     const ActionSchemaLevel1 = z.object({
@@ -115,7 +98,6 @@ router.get('/', async function (req, res, next) {
                 express: z.boolean().optional(),
             })
         ).optional(),
-        nestedActions: z.array(ActionSchemaLevel2).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
     });
