@@ -41,26 +41,6 @@ router.get('/', async function (req, res, next) {
         "3": ColumnsSchema
     }).catchall(ColumnsSchema);
 
-    const ActionSchema = z.lazy(() =>
-        z.object({
-            if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-            while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-            set: z.object({}).catchall(z.string()).optional(),
-            target: z.string().optional(),
-            chain: z.array(
-                z.object({
-                    access: z.string(),
-                    params: z.array(z.string()),
-                    new: z.boolean().optional(),
-                    express: z.boolean().optional(),
-                })
-            ).optional(),
-            nestedActions: z.array(ActionSchema).optional(),
-            next: z.boolean().optional(),
-            express: z.boolean().optional(),
-        })
-    );
-
     const CommandSchema = z.object({
         call: z.string(),
         ready: z.boolean(),
@@ -104,34 +84,87 @@ router.get('/', async function (req, res, next) {
 
 
 
-    // Adjusted UI schema with z.lazy
-    const UI = z.lazy(() =>
-        z.object({
-            blocks: z.array(
-                z.object({
-                    entity: z.string(),
-                    align: z.string(),
-                    subs: z.boolean().optional(),
-                    name: z.string().optional(),
-                })
-            ),
-            modules: z.object({}).catchall(z.string()),
-            actions: z.array(ActionSchema),
-            commands: z.object({}).catchall(CommandSchema),
-            calls: z.object({}).catchall(z.array(CallSchema)),
-            menu: z.object({}).catchall(MenuSchema),
-            functions: z.object({}).catchall(FunctionSchema),
-            automation: AutomationSchema,
-            templates: TemplatesSchema,
-            assignments: z.object({}).catchall(AssignmentsSchema),
-        })
-    );
+    // Define ActionSchemaLevel3 without nestedActions
+    const ActionSchemaLevel3 = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.record(z.string()).optional(),
+        target: z.string().optional(),
+        chain: z.array(
+            z.object({
+                access: z.string(),
+                params: z.array(z.string()),
+                new: z.boolean().optional(),
+                express: z.boolean().optional(),
+            })
+        ).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+    });
 
-    const mainSchema = z.lazy(() =>
-        z.object({
+    // Define ActionSchemaLevel2 with nestedActions as ActionSchemaLevel3
+    const ActionSchemaLevel2 = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.record(z.string()).optional(),
+        target: z.string().optional(),
+        chain: z.array(
+            z.object({
+                access: z.string(),
+                params: z.array(z.string()),
+                new: z.boolean().optional(),
+                express: z.boolean().optional(),
+            })
+        ).optional(),
+        nestedActions: z.array(ActionSchemaLevel3).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+    });
+
+    // Define ActionSchemaLevel1 with nestedActions as ActionSchemaLevel2
+    const ActionSchemaLevel1 = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.record(z.string()).optional(),
+        target: z.string().optional(),
+        chain: z.array(
+            z.object({
+                access: z.string(),
+                params: z.array(z.string()),
+                new: z.boolean().optional(),
+                express: z.boolean().optional(),
+            })
+        ).optional(),
+        nestedActions: z.array(ActionSchemaLevel2).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+    });
+
+    // Use ActionSchemaLevel1 in UI schema
+    const UI = z.object({
+        blocks: z.array(
+            z.object({
+                entity: z.string(),
+                align: z.string(),
+                subs: z.boolean().optional(),
+                name: z.string().optional(),
+            })
+        ),
+        modules: z.record(z.string()),
+        actions: z.array(ActionSchemaLevel1),
+        commands: z.record(CommandSchema),
+        calls: z.record(z.array(CallSchema)),
+        menu: z.record(MenuSchema),
+        functions: z.record(FunctionSchema),
+        automation: AutomationSchema,
+        templates: TemplatesSchema,
+        assignments: z.record(AssignmentsSchema),
+    });
+
+    const MainSchema = z.object({
         flow: z.array(UI),
-    })
-);
+    });
+
 
       
 
@@ -145,7 +178,7 @@ router.get('/', async function (req, res, next) {
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: zodResponseFormat(mainSchema, "mainSchema"),
+            response_format: zodResponseFormat(MainSchema, "MainSchema"),
         });
 
         const ui = completion.choices[0].message.parsed;
