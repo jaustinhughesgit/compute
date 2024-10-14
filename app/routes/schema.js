@@ -126,7 +126,7 @@ router.get('/', async function (req, res, next) {
       });
       
       // Define the full main schema
-      const MainSchema = z.object({
+      const UI = z.object({
         blocks: z.array(z.object({
           entity: z.string(),
           align: z.string(),
@@ -144,7 +144,9 @@ router.get('/', async function (req, res, next) {
         assignments: z.object({}).catchall(AssignmentsSchema), // Dynamic assignments with modes and movement
       });
 
-      
+      const MainSchema = z.object({
+        flow: z.array(UI),
+    });
 
     try {
         const completion = await openai.beta.chat.completions.parse({
