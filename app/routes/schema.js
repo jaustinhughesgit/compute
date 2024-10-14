@@ -93,7 +93,7 @@ router.get('/', async function (req, res, next) {
 
 
       // Define the schema for actions
-      const action1Schema2 = z.object({
+      const nestedSchema = z.object({
         if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
@@ -109,7 +109,7 @@ router.get('/', async function (req, res, next) {
       });
 
       // Define the schema for actions
-      const action2Schema2 = z.object({
+      const actionSchema = z.object({
         if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
@@ -120,59 +120,11 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
+        nestedActions: z.array(nestedSchema).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
       });
 
-      // Define the schema for actions
-      const action1Schema = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        nestedActions: z.array(action1Schema2).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
-
-      // Define the schema for actions
-      const action2Schema = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        nestedActions: z.array(action2Schema2).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
-
-
-      const action3Schema = z.object({
-        data: z.union([
-          z.string(),
-          z.number(),
-          z.boolean(),
-          z.object({}).catchall(z.any()),
-          z.array(z.any()),
-          z.null(),
-        ]),
-      });
-      
-      const action4Schema = action3Schema;
-
-      
       // Define the full main schema
       const MainSchema = z.object({
         blocks: z.array(z.object({
@@ -182,12 +134,7 @@ router.get('/', async function (req, res, next) {
           name: z.string().optional(),
         })),
         modules: z.object({}).catchall(z.string()),  
-        actions1: z.array(action1Schema),   
-        actions2: z.array(action2Schema),
-        actions3: z.array(z.object({
-            name: z.string().optional(),
-          }).catchall(z.any())),
-        actions4: z.array(action4Schema),
+        actions: z.array(z.array(actionSchema)),
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
         menu: z.object({}).catchall(MenuSchema), 
