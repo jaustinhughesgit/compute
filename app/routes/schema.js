@@ -150,6 +150,10 @@ router.get('/', async function (req, res, next) {
             {
                 "type": "json_schema",
                 "json_schema": {
+                    
+                        "name": "MainSchema",
+                        "strict": true,
+                        "schema": {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
@@ -252,7 +256,7 @@ router.get('/', async function (req, res, next) {
                         "additionalProperties": false
                     }
                 }
-            }}
+            }}}
         });
 
 
