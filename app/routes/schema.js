@@ -159,11 +159,11 @@ router.get('/', async function (req, res, next) {
       });
 
       const action3Schema = z.object({
-        anyKey: z.any(),
+        empty: z.any(),
       }).catchall(z.any());
       
       const action4Schema = z.object({
-        anyKey: z.any(),
+        empty: z.any(),
       }).catchall(z.any());
 
       
