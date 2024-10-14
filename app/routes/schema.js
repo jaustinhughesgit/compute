@@ -45,22 +45,6 @@ router.get('/', async function (req, res, next) {
         "3": ColumnsSchema
       }).catchall(ColumnsSchema); // Dynamic columns
       
-      // Define the schema for actions
-      const ActionSchema = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        actions: z.lazy(() => z.array(z.object({}))).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
       
       // Define the schema for commands with known keys
       const CommandSchema = z.object({
@@ -106,6 +90,40 @@ router.get('/', async function (req, res, next) {
         _speak: z.string(),
         command: z.array(z.string()),
       }));
+
+
+      // Define the schema for actions
+      const ActionSchema2 = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
+        target: z.string().optional(),
+        chain: z.array(z.object({
+          access: z.string(),
+          params: z.array(z.string()),
+          new: z.boolean().optional(),
+          express: z.boolean().optional(),
+        })).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+      });
+
+      // Define the schema for actions
+      const ActionSchema = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
+        target: z.string().optional(),
+        chain: z.array(z.object({
+          access: z.string(),
+          params: z.array(z.string()),
+          new: z.boolean().optional(),
+          express: z.boolean().optional(),
+        })).optional(),
+        nestedActions: z.array(ActionSchema2).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+      });
       
       // Define the full main schema
       const MainSchema = z.object({
