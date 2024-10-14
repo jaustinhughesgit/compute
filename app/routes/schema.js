@@ -125,23 +125,6 @@ router.get('/', async function (req, res, next) {
       });
 
       // Define the schema for actions
-      const action3Schema2 = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
-
-
-      // Define the schema for actions
       const action1Schema = z.object({
         if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
@@ -175,22 +158,8 @@ router.get('/', async function (req, res, next) {
         express: z.boolean().optional(),
       });
 
-      // Define the schema for actions
-      const action3Schema = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        nestedActions: z.array(action3Schema2).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
+      
+
       
       // Define the full main schema
       const MainSchema = z.object({
@@ -203,7 +172,8 @@ router.get('/', async function (req, res, next) {
         modules: z.object({}).catchall(z.string()),  
         actions1: z.array(action1Schema),   
         actions2: z.array(action2Schema),
-        actions3: z.array(action3Schema),
+        actions3: z.array(z.object()),
+        actions4: z.array(z.object()),
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
         menu: z.object({}).catchall(MenuSchema), 
@@ -212,6 +182,8 @@ router.get('/', async function (req, res, next) {
         templates: TemplatesSchema,
         assignments: z.object({}).catchall(AssignmentsSchema)
       });
+
+
 
     try {
         const completion = await openai.beta.chat.completions.parse({
