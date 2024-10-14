@@ -104,7 +104,7 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
-        nestedActions: z.array(actionSchema).optional(),
+        nestedActions: z.array(actionSchema),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
       })
