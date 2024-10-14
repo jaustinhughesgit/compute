@@ -93,7 +93,23 @@ router.get('/', async function (req, res, next) {
 
 
       // Define the schema for actions
-      const ActionSchema2 = z.object({
+      const action1Schema2 = z.object({
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
+        target: z.string().optional(),
+        chain: z.array(z.object({
+          access: z.string(),
+          params: z.array(z.string()),
+          new: z.boolean().optional(),
+          express: z.boolean().optional(),
+        })).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
+      });
+
+      // Define the schema for actions
+      const action2Schema2 = z.object({
         if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
@@ -120,7 +136,7 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
-        nestedActions: z.array(ActionSchema2).optional(),
+        nestedActions: z.array(action1Schema2).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
       });
@@ -137,7 +153,7 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
-        nestedActions: z.array(ActionSchema2).optional(),
+        nestedActions: z.array(action2Schema2).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
       });
