@@ -158,13 +158,19 @@ router.get('/', async function (req, res, next) {
         express: z.boolean().optional(),
       });
 
+
       const action3Schema = z.object({
-        data: z.union([z.string(), z.number(), z.boolean(), z.object({}).catchall(z.any()), z.array(z.any())]),
+        data: z.union([
+          z.string(),
+          z.number(),
+          z.boolean(),
+          z.object({}).catchall(z.any()),
+          z.array(z.any()),
+          z.null(),
+        ]),
       });
       
-      const action4Schema = z.object({
-        data: z.union([z.string(), z.number(), z.boolean(), z.object({}).catchall(z.any()), z.array(z.any())]),
-      });
+      const action4Schema = action3Schema;
 
       
       // Define the full main schema
