@@ -96,26 +96,40 @@ router.get('/', async function (req, res, next) {
       // Define the schema for actions
       const actionSchema = z.lazy(() =>
         z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))),
-        while: z.array(z.array(z.union([z.string(), z.number()]))),
-        set: z.object({}).catchall(z.string()), // Updated set as a key-value structure
-        target: z.string(),
+        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
+        target: z.string().optional(),
         chain: z.array(z.object({
           access: z.string(),
           params: z.array(z.string()),
-          new: z.boolean(),
-          express: z.boolean(),
+          new: z.boolean().optional(),
+          express: z.boolean().optional(),
         })),
-        nestedActions: z.array(actionSchema),
-        next: z.boolean(),
-        express: z.boolean(),
+        nestedActions: z.array(actionSchema).optional(),
+        next: z.boolean().optional(),
+        express: z.boolean().optional(),
       })
     );
 
 
       // Define the full main schema
-      const MainSchema = z.object({ 
+      const MainSchema = z.object({
+        blocks: z.array(z.object({
+          entity: z.string(),
+          align: z.string(),
+          subs: z.boolean().optional(),
+          name: z.string().optional(),
+        })),
+        modules: z.object({}).catchall(z.string()),  
         actions: z.array(z.array(actionSchema)),
+        commands: z.object({}).catchall(CommandSchema),
+        calls: z.object({}).catchall(z.array(CallSchema)),
+        menu: z.object({}).catchall(MenuSchema), 
+        functions: z.object({}).catchall(FunctionSchema), 
+        automation: AutomationSchema,
+        templates: TemplatesSchema,
+        assignments: z.object({}).catchall(AssignmentsSchema)
       });
 
       console.log("MainSchema", MainSchema)
@@ -128,11 +142,114 @@ router.get('/', async function (req, res, next) {
             messages: [
                 {
                     role: "system",
-                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. `,
+                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. { "blocks": [], "modules": { "passport": "passport", "passport-microsoft": "passport-microsoft" }, "actions": [[ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "{|session|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "session" }, { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" }, { "params": [ "{|user|}", "{|done|}" ], "chain": [], "run": [ { "target": "{|done|}", "params": [ null, "{|user|}" ], "assign": "serialized" } ], "assign": "{|serializeFunction|}!" }, { "target": "passport", "chain": [ { "access": "serializeUser", "params": [ "{|~/serializeFunction|}" ] } ], "assign": "{|serializeUser|}!" }, { "params": [ "{|obj|}", "{|done|}" ], "chain": [], "nestedActions": [ { "target": "{|done|}", "params": [ null, "{|obj|}" ], "assign": "{|deserialized|}!" } ], "assign": "{|deserializeFunction|}!" }, { "target": "{|passport|}", "chain": [ { "access": "deserializeUser", "params": [ "{|deserializeFunction|}" ] } ], "assign": "{|deserializeUser|}!" }, { "set": { "user": "" } }, { "params": [ "{|accessToken|}", "{|refreshToken|}", "{|profile|}", "{|done|}" ], "actions": [ { "target": "{|done|}", "params": [ null, "{|profile|}" ], "actions": [ { "set": { "{|~/user|}": "{|profile|}" } } ], "assign": "{|doneZo|}!" } ], "assign": "{|callbackFunction|}!" }, { "target": "passport-microsoft", "chain": [ { "access": "Strategy", "params": [ { "clientID": "123456-1234-1234-1234-123456", "clientSecret": "abcdefghijklmnop", "callbackURL": "https://1var.com/blank/1234567890", "scope": [ "user.read" ] }, "{|callbackFunction|}" ], "new": true } ], "assign": "{|passportmicrosoft|}!" }, { "target": "{|passport|}", "chain": [ { "access": "use", "params": [ "{|passportmicrosoft|}" ] } ], "assign": "{|newStrategy|}!" }, { "target": "{|passport|}", "chain": [ { "access": "authenticate", "params": [ "microsoft", { "scope": [ "user.read" ] } ], "express": true, "next": false } ], "assign": "{|newAuthentication|}!" }, { "target": "{|res|}", "chain": [ { "access": "send", "params": [ "FORWARDING TO MICROSOFT" ], "assign": "{|send|}!" } ] } ]] }`,
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: zodResponseFormat(MainSchema, "MainSchema"),
+            response_format: {
+                "$schema": "http://json-schema.org/draft-07/schema#",
+                "type": "object",
+                "properties": {
+                    "actions": {
+                        "type": "array",
+                        "items": {
+                            "$ref": "#/$defs/action"
+                        }
+                    }
+                },
+                "required": ["actions"],
+                "additionalProperties": false,
+                "$defs": {
+                    "action": {
+                        "type": "object",
+                        "properties": {
+                            "if": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": ["string", "number"]
+                                    }
+                                }
+                            },
+                            "while": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": ["string", "number"]
+                                    }
+                                }
+                            },
+                            "set": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "target": {
+                                "type": "string"
+                            },
+                            "chain": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/$defs/chainItem"
+                                }
+                            },
+                            "nestedActions": {
+                                "type": "array",
+                                "items": {
+                                    "$ref": "#/$defs/action"
+                                }
+                            },
+                            "next": {
+                                "type": "boolean"
+                            },
+                            "express": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "if",
+                            "while",
+                            "set",
+                            "target",
+                            "chain",
+                            "nestedActions",
+                            "next",
+                            "express"
+                        ],
+                        "additionalProperties": false
+                    },
+                    "chainItem": {
+                        "type": "object",
+                        "properties": {
+                            "access": {
+                                "type": "string"
+                            },
+                            "params": {
+                                "type": "array",
+                                "items": {
+                                    "type": "string"
+                                }
+                            },
+                            "new": {
+                                "type": "boolean"
+                            },
+                            "express": {
+                                "type": "boolean"
+                            }
+                        },
+                        "required": [
+                            "access",
+                            "params",
+                            "new",
+                            "express"
+                        ],
+                        "additionalProperties": false
+                    }
+                }
+            },
         });
 
 
