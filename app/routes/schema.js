@@ -133,20 +133,18 @@ router.get('/', async function (req, res, next) {
           subs: z.boolean().optional(),
           name: z.string().optional(),
         })),
-        modules: z.object({}).catchall(z.string()),  // Dynamic keys in `modules`
-        actions: z.array(ActionSchema), // Use the updated ActionSchema
-        commands: z.object({}).catchall(CommandSchema), // Commands with dynamic structure
-        calls: z.object({}).catchall(z.array(CallSchema)), // Calls with dynamic structure
-        menu: z.object({}).catchall(MenuSchema),  // Menu with dynamic keys
-        functions: z.object({}).catchall(FunctionSchema),  // Functions with dynamic keys
-        automation: AutomationSchema, // Automation array
-        templates: TemplatesSchema,  // Templates structure with dynamic columns and rows
-        assignments: z.object({}).catchall(AssignmentsSchema), // Dynamic assignments with modes and movement
+        modules: z.object({}).catchall(z.string()),  
+        actions: z.array(ActionSchema), 
+        commands: z.object({}).catchall(CommandSchema),
+        calls: z.object({}).catchall(z.array(CallSchema)),
+        menu: z.object({}).catchall(MenuSchema), 
+        functions: z.object({}).catchall(FunctionSchema), 
+        automation: AutomationSchema,
+        templates: TemplatesSchema,
+        assignments: z.object({}).catchall(AssignmentsSchema),
       });
 
-      const MainSchema = z.object({
-        flow: z.array(UI),
-    });
+      const MainSchema = z.array(UI);
 
     try {
         const completion = await openai.beta.chat.completions.parse({
@@ -161,12 +159,10 @@ router.get('/', async function (req, res, next) {
             response_format: zodResponseFormat(MainSchema, "MainSchema"),
         });
 
-        const ui = completion.choices[0].message.parsed;
-        console.log(ui)
 
         res.render('schema', {
             title: 'Schema',
-            message: JSON.stringify(ui)
+            message: JSON.stringify(completion)
         });
     } catch (error) {
         next(error);
