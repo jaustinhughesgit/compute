@@ -148,108 +148,114 @@ router.get('/', async function (req, res, next) {
             ],
             response_format: 
             {
-                "$schema": "http://json-schema.org/draft-07/schema#",
-                "type": "object",
-                "properties": {
-                    "actions": {
-                        "type": "array",
-                        "items": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/$defs/action"
-                            }
-                        }
-                    }
-                },
-                "required": ["actions"],
-                "additionalProperties": false,
-                "$defs": {
-                    "action": {
-                        "type": "object",
-                        "properties": {
-                            "if": {
-                                "type": "array",
-                                "items": {
+                "type": "json_schema",
+                "json_schema": {
+                    
+                        "name": "MainSchema",
+                        "strict": true,
+                        "schema": {
+                            "$schema": "http://json-schema.org/draft-07/schema#",
+                            "type": "object",
+                            "properties": {
+                                "actions": {
                                     "type": "array",
                                     "items": {
-                                        "type": ["string", "number"]
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/$defs/action"
+                                        }
                                     }
                                 }
                             },
-                            "while": {
-                                "type": "array",
-                                "items": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": ["string", "number"]
-                                    }
+                            "required": ["actions"],
+                            "additionalProperties": false,
+                            "$defs": {
+                                "action": {
+                                    "type": "object",
+                                    "properties": {
+                                        "if": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": ["string", "number"]
+                                                }
+                                            }
+                                        },
+                                        "while": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": ["string", "number"]
+                                                }
+                                            }
+                                        },
+                                        "set": {
+                                            "type": "object",
+                                            "additionalProperties": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "target": {
+                                            "type": "string"
+                                        },
+                                        "chain": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/$defs/chainItem"
+                                            }
+                                        },
+                                        "nestedActions": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/$defs/action"
+                                            }
+                                        },
+                                        "next": {
+                                            "type": "boolean"
+                                        },
+                                        "express": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": [
+                                        "if",
+                                        "while",
+                                        "set",
+                                        "target",
+                                        "chain",
+                                        "nestedActions",
+                                        "next",
+                                        "express"
+                                    ],
+                                    "additionalProperties": false
+                                },
+                                "chainItem": {
+                                    "type": "object",
+                                    "properties": {
+                                        "access": {
+                                            "type": "string"
+                                        },
+                                        "params": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "new": {
+                                            "type": "boolean"
+                                        },
+                                        "express": {
+                                            "type": "boolean"
+                                        }
+                                    },
+                                    "required": ["access", "params", "new", "express"],
+                                    "additionalProperties": false
                                 }
-                            },
-                            "set": {
-                                "type": "object",
-                                "additionalProperties": {
-                                    "type": "string"
-                                }
-                            },
-                            "target": {
-                                "type": "string"
-                            },
-                            "chain": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/$defs/chainItem"
-                                }
-                            },
-                            "nestedActions": {
-                                "type": "array",
-                                "items": {
-                                    "$ref": "#/$defs/action"
-                                }
-                            },
-                            "next": {
-                                "type": "boolean"
-                            },
-                            "express": {
-                                "type": "boolean"
                             }
-                        },
-                        "required": [
-                            "if",
-                            "while",
-                            "set",
-                            "target",
-                            "chain",
-                            "nestedActions",
-                            "next",
-                            "express"
-                        ],
-                        "additionalProperties": false
-                    },
-                    "chainItem": {
-                        "type": "object",
-                        "properties": {
-                            "access": {
-                                "type": "string"
-                            },
-                            "params": {
-                                "type": "array",
-                                "items": {
-                                    "type": "string"
-                                }
-                            },
-                            "new": {
-                                "type": "boolean"
-                            },
-                            "express": {
-                                "type": "boolean"
-                            }
-                        },
-                        "required": ["access", "params", "new", "express"],
-                        "additionalProperties": false
-                    }
-                }
-            }
-            
+                        }}}
+                        
         });
 
 
