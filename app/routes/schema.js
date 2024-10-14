@@ -146,7 +146,10 @@ router.get('/', async function (req, res, next) {
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: {
+            response_format: 
+            {
+                "type": "json_schema",
+                "json_schema": {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
@@ -249,7 +252,7 @@ router.get('/', async function (req, res, next) {
                         "additionalProperties": false
                     }
                 }
-            },
+            }}
         });
 
 
