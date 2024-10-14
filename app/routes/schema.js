@@ -91,9 +91,9 @@ router.get('/', async function (req, res, next) {
         command: z.array(z.string()),
       }));
 
-
       // Define the schema for actions
-      const nestedSchema = z.object({
+      const actionSchema = z.lazy(() =>
+        z.object({
         if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
         set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
@@ -104,26 +104,12 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
+        nestedActions: z.array(actionSchema).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
-      });
+      })
+    );
 
-      // Define the schema for actions
-      const actionSchema = z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })).optional(),
-        nestedActions: z.array(nestedSchema).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      });
 
       // Define the full main schema
       const MainSchema = z.object({
