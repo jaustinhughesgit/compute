@@ -144,7 +144,9 @@ router.get('/', async function (req, res, next) {
         assignments: z.object({}).catchall(AssignmentsSchema),
       });
 
-      const MainSchema = z.array(UI);
+      const MainSchema = z.object({
+        flow: UI,
+    });
 
     try {
         const completion = await openai.beta.chat.completions.parse({
@@ -159,10 +161,12 @@ router.get('/', async function (req, res, next) {
             response_format: zodResponseFormat(MainSchema, "MainSchema"),
         });
 
+        const ui = completion.choices[0].message.parsed;
+        console.log(ui)
 
         res.render('schema', {
             title: 'Schema',
-            message: JSON.stringify(completion)
+            message: JSON.stringify(ui)
         });
     } catch (error) {
         next(error);
