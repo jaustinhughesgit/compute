@@ -146,7 +146,7 @@ router.get('/', async function (req, res, next) {
 
       console.log("MainSchema", MainSchema)
       let zrf = zodResponseFormat(MainSchema, "MainSchema")
-      console.log("zrf", zrf)
+      console.log("zrf", JSON.stringify(zrf))
 
     try {
         const completion = await openai.beta.chat.completions.parse({
