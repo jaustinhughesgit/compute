@@ -104,7 +104,7 @@ router.get('/', async function (req, res, next) {
           new: z.boolean().optional(),
           express: z.boolean().optional(),
         })).optional(),
-        nestedActions: z.array(actionSchema),
+        nestedActions: z.array(actionSchema).optional(),
         next: z.boolean().optional(),
         express: z.boolean().optional(),
       })
@@ -120,7 +120,7 @@ router.get('/', async function (req, res, next) {
           name: z.string().optional(),
         })),
         modules: z.object({}).catchall(z.string()),  
-        actions: z.array(z.array(actionSchema)),
+        actions: z.array(actionSchema),
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
         menu: z.object({}).catchall(MenuSchema), 
