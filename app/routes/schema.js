@@ -158,7 +158,9 @@ router.get('/', async function (req, res, next) {
         express: z.boolean().optional(),
       });
 
+      const action3Schema = z.object({}).catchall(z.any());
       
+      const action4Schema = z.object({}).catchall(z.any());
 
       
       // Define the full main schema
@@ -172,8 +174,8 @@ router.get('/', async function (req, res, next) {
         modules: z.object({}).catchall(z.string()),  
         actions1: z.array(action1Schema),   
         actions2: z.array(action2Schema),
-        actions3: z.array([]).catchall(z.any()),
-        actions4: z.array([]).catchall(z.any()),
+        actions3: z.array(action3Schema),
+        actions4: z.array(action4Schema),
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
         menu: z.object({}).catchall(MenuSchema), 
