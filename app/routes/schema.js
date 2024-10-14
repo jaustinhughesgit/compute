@@ -168,14 +168,7 @@ router.get('/', async function (req, res, next) {
         })),
         modules: z.object({}).catchall(z.string()),  
         actions1: z.array(action1Schema),   
-        actions2: z.array(action2Schema),
-        commands: z.object({}).catchall(CommandSchema),
-        calls: z.object({}).catchall(z.array(CallSchema)),
-        menu: z.object({}).catchall(MenuSchema), 
-        functions: z.object({}).catchall(FunctionSchema), 
-        automation: AutomationSchema,
-        templates: TemplatesSchema,
-        assignments: z.object({}).catchall(AssignmentsSchema),
+        actions2: z.array(action2Schema)
       });
 
     try {
