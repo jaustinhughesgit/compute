@@ -148,19 +148,16 @@ router.get('/', async function (req, res, next) {
             ],
             response_format: 
             {
-                "type": "json_schema",
-                "json_schema": {
-                    
-                        "name": "MainSchema",
-                        "strict": true,
-                        "schema": {
                 "$schema": "http://json-schema.org/draft-07/schema#",
                 "type": "object",
                 "properties": {
                     "actions": {
                         "type": "array",
                         "items": {
-                            "$ref": "#/$defs/action"
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/$defs/action"
+                            }
                         }
                     }
                 },
@@ -247,16 +244,12 @@ router.get('/', async function (req, res, next) {
                                 "type": "boolean"
                             }
                         },
-                        "required": [
-                            "access",
-                            "params",
-                            "new",
-                            "express"
-                        ],
+                        "required": ["access", "params", "new", "express"],
                         "additionalProperties": false
                     }
                 }
-            }}}
+            }
+            
         });
 
 
