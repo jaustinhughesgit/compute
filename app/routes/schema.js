@@ -158,9 +158,13 @@ router.get('/', async function (req, res, next) {
         express: z.boolean().optional(),
       });
 
-      const action3Schema = z.object({}).catchall(z.any());
+      const action3Schema = z.object({
+        anyKey: z.any(),
+      }).catchall(z.any());
       
-      const action4Schema = z.object({}).catchall(z.any());
+      const action4Schema = z.object({
+        anyKey: z.any(),
+      }).catchall(z.any());
 
       
       // Define the full main schema
