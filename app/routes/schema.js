@@ -580,8 +580,8 @@ router.get('/', async function (req, res, next) {
                                             "$ref": "#/$defs/action"
                                         }
                                     },
-                                    "target": {
-                                        "type": "assign"
+                                    "assign": {
+                                        "type": "string"
                                     },
                                     "next": {
                                         "type": "boolean"
