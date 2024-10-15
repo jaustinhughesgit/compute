@@ -736,7 +736,7 @@ async function initializeMiddleware(req, res, next) {
                 console.log("arrayOfJSON", arrayOfJSON)
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        console.log("req.body.body",req.body.body)
+                        console.log("req.body",JSON.stringify(req.body))
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
