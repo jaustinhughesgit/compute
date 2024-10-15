@@ -13,128 +13,128 @@ router.get('/', async function (req, res, next) {
 
     const ModesSchema = z.object({
         mode1: z.union([z.string(), z.array(z.string()), z.object({})]), // Can be a string, an array of strings, or an object
-      }).catchall(z.union([z.string(), z.array(z.string()), z.object({})]));
-      
-      // Define the schema for the assignments with dynamic keys
-      const AssignmentsSchema = z.object({
+    }).catchall(z.union([z.string(), z.array(z.string()), z.object({})]));
+
+    // Define the schema for the assignments with dynamic keys
+    const AssignmentsSchema = z.object({
         _editable: z.boolean(),         // Boolean indicating if it's editable
         _movement: z.enum(['move', 'copy']), // "move" or "copy"
         _owners: z.array(z.string()),   // Array of owners
         _modes: ModesSchema,            // Dynamic modes with various types
         _mode: z.string(),              // One of the modes from _modes
-      });
-      
-      // Define the schema for rows with "divs" as an array of strings
-      const RowsSchema = z.object({
+    });
+
+    // Define the schema for rows with "divs" as an array of strings
+    const RowsSchema = z.object({
         divs: z.array(z.string()),  // Array of divs in each row
-      }).catchall(z.object({}));
-      
-      // Define the schema for columns, where each column has rows
-      const ColumnsSchema = z.object({
+    }).catchall(z.object({}));
+
+    // Define the schema for columns, where each column has rows
+    const ColumnsSchema = z.object({
         rows: z.object({
-          "1": RowsSchema,
-          "2": RowsSchema,
-          "3": RowsSchema
+            "1": RowsSchema,
+            "2": RowsSchema,
+            "3": RowsSchema
         }).catchall(RowsSchema) // Rows are dynamic
-      }).catchall(z.object({}));
-      
-      // Define the schema for templates with dynamic keys (columns with rows and divs)
-      const TemplatesSchema = z.object({
+    }).catchall(z.object({}));
+
+    // Define the schema for templates with dynamic keys (columns with rows and divs)
+    const TemplatesSchema = z.object({
         "1": ColumnsSchema,
         "2": ColumnsSchema,
         "3": ColumnsSchema
-      }).catchall(ColumnsSchema); // Dynamic columns
-      
-      
-      // Define the schema for commands with known keys
-      const CommandSchema = z.object({
+    }).catchall(ColumnsSchema); // Dynamic columns
+
+
+    // Define the schema for commands with known keys
+    const CommandSchema = z.object({
         call: z.string(),
         ready: z.boolean(),
         updateSpeechAt: z.boolean(),
         timeOut: z.number(),
-      });
-      
-      // Define the calls schema
-      const CallSchema = z.object({
+    });
+
+    // Define the calls schema
+    const CallSchema = z.object({
         if: z.array(z.object({
-          key: z.array(z.string()),
-          expression: z.string(),
-          value: z.union([z.string(), z.number(), z.boolean()]),
+            key: z.array(z.string()),
+            expression: z.string(),
+            value: z.union([z.string(), z.number(), z.boolean()]),
         })),
         then: z.array(z.string()),
         show: z.array(z.string()),
         run: z.array(z.object({
-          function: z.string(),
-          args: z.array(z.union([z.string(), z.number()])),
-          custom: z.boolean().optional(),
+            function: z.string(),
+            args: z.array(z.union([z.string(), z.number()])),
+            custom: z.boolean().optional(),
         })),
-      });
-      
-      // Define the menu schema with dynamic menu settings
-      const MenuSchema = z.object({
+    });
+
+    // Define the menu schema with dynamic menu settings
+    const MenuSchema = z.object({
         _name: z.string(),
         _classes: z.array(z.string()),
         _show: z.boolean(),
         _selected: z.boolean(),
-      }).catchall(z.lazy(() => z.object({})));
-      
-      // Define the functions schema with parameters and body
-      const FunctionSchema = z.object({
+    }).catchall(z.lazy(() => z.object({})));
+
+    // Define the functions schema with parameters and body
+    const FunctionSchema = z.object({
         parameters: z.array(z.string()),
         body: z.array(z.string()),
-      });
-      
-      // Define the automation schema with fields like _delay, _speak, and command
-      const AutomationSchema = z.array(z.object({
+    });
+
+    // Define the automation schema with fields like _delay, _speak, and command
+    const AutomationSchema = z.array(z.object({
         _delay: z.string(),
         _speak: z.string(),
         command: z.array(z.string()),
-      }));
+    }));
 
 
 
-      // Define the schema for actions
-      const actionSchema = z.lazy(() =>
+    // Define the schema for actions
+    const actionSchema = z.lazy(() =>
         z.object({
-        if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-        set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
-        target: z.string().optional(),
-        chain: z.array(z.object({
-          access: z.string(),
-          params: z.array(z.string()),
-          new: z.boolean().optional(),
-          express: z.boolean().optional(),
-        })),
-        nestedActions: z.array(actionSchema).optional(),
-        next: z.boolean().optional(),
-        express: z.boolean().optional(),
-      })
+            if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+            while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
+            set: z.object({}).catchall(z.string()).optional(), // Updated set as a key-value structure
+            target: z.string().optional(),
+            chain: z.array(z.object({
+                access: z.string(),
+                params: z.array(z.string()),
+                new: z.boolean().optional(),
+                express: z.boolean().optional(),
+            })),
+            nestedActions: z.array(actionSchema).optional(),
+            next: z.boolean().optional(),
+            express: z.boolean().optional(),
+        })
     );
 
 
-      // Define the full main schema
-      const MainSchema = z.object({
+    // Define the full main schema
+    const MainSchema = z.object({
         blocks: z.array(z.object({
-          entity: z.string(),
-          align: z.string(),
-          subs: z.boolean().optional(),
-          name: z.string().optional(),
+            entity: z.string(),
+            align: z.string(),
+            subs: z.boolean().optional(),
+            name: z.string().optional(),
         })),
-        modules: z.object({}).catchall(z.string()),  
+        modules: z.object({}).catchall(z.string()),
         actions: z.array(z.array(actionSchema)),
         commands: z.object({}).catchall(CommandSchema),
         calls: z.object({}).catchall(z.array(CallSchema)),
-        menu: z.object({}).catchall(MenuSchema), 
-        functions: z.object({}).catchall(FunctionSchema), 
+        menu: z.object({}).catchall(MenuSchema),
+        functions: z.object({}).catchall(FunctionSchema),
         automation: AutomationSchema,
         templates: TemplatesSchema,
         assignments: z.object({}).catchall(AssignmentsSchema)
-      });
+    });
 
-      console.log("MainSchema", MainSchema)
-      let zrf = zodResponseFormat(MainSchema, "MainSchema")
-      console.log("zrf", JSON.stringify(zrf))
+    console.log("MainSchema", MainSchema)
+    let zrf = zodResponseFormat(MainSchema, "MainSchema")
+    console.log("zrf", JSON.stringify(zrf))
 
     try {
         const completion = await openai.beta.chat.completions.parse({
@@ -146,183 +146,515 @@ router.get('/', async function (req, res, next) {
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
-            response_format: 
+            response_format:
             {
                 "type": "json_schema",
                 "json_schema": {
-                    
-                        "name": "MainSchema",
-                        "strict": false,
-                        "schema": {
-                            "$schema": "http://json-schema.org/draft-07/schema#",
-                            "type": "object",
-                            "properties": {
-                                "blocks": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "object",
-                                        "properties": {
-                                            "entity": {
-                                                "type": "string"
-                                            },
-                                            "align": {
-                                                "type": "string"
-                                            },
-                                            "subs": {
-                                                "type": "boolean"
-                                            },
-                                            "name": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "required": [
-                                            "entity",
-                                            "align",
-                                            "subs",
-                                            "name"
-                                        ],
-                                        "additionalProperties": false
-                                    }
-                                },
-                                "modules": {
+
+                    "name": "MainSchema",
+                    "strict": false,
+                    "schema": {
+                        "$schema": "http://json-schema.org/draft-07/schema#",
+                        "type": "object",
+                        "properties": {
+                            "blocks": {
+                                "type": "array",
+                                "items": {
                                     "type": "object",
-                                    "properties": {},
-                                    "additionalProperties": {
-                                        "type": "string"
-                                    }
-                                },
-                                "actions": {
-                                    "type": "array",
-                                    "items": {
-                                        "type": "array",
-                                        "items": {
-                                            "$ref": "#/$defs/action"
+                                    "properties": {
+                                        "entity": {
+                                            "type": "string"
+                                        },
+                                        "align": {
+                                            "type": "string"
+                                        },
+                                        "subs": {
+                                            "type": "boolean"
+                                        },
+                                        "name": {
+                                            "type": "string"
                                         }
+                                    },
+                                    "required": [
+                                        "entity",
+                                        "align",
+                                        "subs",
+                                        "name"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "modules": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
+                                    "type": "string"
+                                }
+                            },
+                            "actions": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "$ref": "#/$defs/action"
                                     }
-                                },
-                                "commands": {
+                                }
+                            },
+                            "commands": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
                                     "type": "object",
-                                    "properties": {},
-                                    "additionalProperties": {
+                                    "properties": {
+                                        "call": {
+                                            "type": "string"
+                                        },
+                                        "ready": {
+                                            "type": "boolean"
+                                        },
+                                        "updateSpeechAt": {
+                                            "type": "boolean"
+                                        },
+                                        "timeOut": {
+                                            "type": "number"
+                                        }
+                                    },
+                                    "required": [
+                                        "call",
+                                        "ready",
+                                        "updateSpeechAt",
+                                        "timeOut"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "calls": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
+                                    "type": "array",
+                                    "items": {
                                         "type": "object",
                                         "properties": {
-                                            "call": {
-                                                "type": "string"
+                                            "if": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "key": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        "expression": {
+                                                            "type": "string"
+                                                        },
+                                                        "value": {
+                                                            "type": [
+                                                                "string",
+                                                                "number",
+                                                                "boolean"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "key",
+                                                        "expression",
+                                                        "value"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
                                             },
-                                            "ready": {
-                                                "type": "boolean"
+                                            "then": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
                                             },
-                                            "updateSpeechAt": {
-                                                "type": "boolean"
+                                            "show": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "string"
+                                                }
                                             },
-                                            "timeOut": {
-                                                "type": "number"
+                                            "run": {
+                                                "type": "array",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "function": {
+                                                            "type": "string"
+                                                        },
+                                                        "args": {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": [
+                                                                    "string",
+                                                                    "number"
+                                                                ]
+                                                            }
+                                                        },
+                                                        "custom": {
+                                                            "type": "boolean"
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "function",
+                                                        "args",
+                                                        "custom"
+                                                    ],
+                                                    "additionalProperties": false
+                                                }
                                             }
                                         },
                                         "required": [
-                                            "call",
-                                            "ready",
-                                            "updateSpeechAt",
-                                            "timeOut"
+                                            "if",
+                                            "then",
+                                            "show",
+                                            "run"
                                         ],
                                         "additionalProperties": false
                                     }
                                 }
                             },
-                            "required": [
-                                "blocks",
-                                "modules",
-                                "actions",
-                                "commands"
-                                ],
-                            "additionalProperties": false,
-                            "$defs": {
-                                "action": {
+                            "menu": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
                                     "type": "object",
                                     "properties": {
-                                        "if": {
+                                        "_name": {
+                                            "type": "string"
+                                        },
+                                        "_classes": {
                                             "type": "array",
                                             "items": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": ["string", "number"]
-                                                }
-                                            }
-                                        },
-                                        "while": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "array",
-                                                "items": {
-                                                    "type": ["string", "number"]
-                                                }
-                                            }
-                                        },
-                                        "set": {
-                                            "type": "object",
-                                            "additionalProperties": {
                                                 "type": "string"
                                             }
                                         },
-                                        "target": {
-                                            "type": "string"
-                                        },
-                                        "chain": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/$defs/chainItem"
-                                            }
-                                        },
-                                        "nestedActions": {
-                                            "type": "array",
-                                            "items": {
-                                                "$ref": "#/$defs/action"
-                                            }
-                                        },
-                                        "next": {
+                                        "_show": {
                                             "type": "boolean"
                                         },
-                                        "express": {
+                                        "_selected": {
                                             "type": "boolean"
                                         }
                                     },
                                     "required": [
-                                        "if",
-                                        "while",
-                                        "set",
-                                        "target",
-                                        "chain",
-                                        "nestedActions",
-                                        "next",
-                                        "express"
+                                        "_name",
+                                        "_classes",
+                                        "_show",
+                                        "_selected"
                                     ],
-                                    "additionalProperties": false
-                                },
-                                "chainItem": {
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "properties": {},
+                                        "additionalProperties": false
+                                    }
+                                }
+                            },
+                            "functions": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
                                     "type": "object",
                                     "properties": {
-                                        "access": {
-                                            "type": "string"
-                                        },
-                                        "params": {
+                                        "parameters": {
                                             "type": "array",
                                             "items": {
                                                 "type": "string"
                                             }
                                         },
-                                        "new": {
-                                            "type": "boolean"
-                                        },
-                                        "express": {
-                                            "type": "boolean"
+                                        "body": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
                                         }
                                     },
-                                    "required": ["access", "params", "new", "express"],
+                                    "required": [
+                                        "parameters",
+                                        "body"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            },
+                            "automation": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "_delay": {
+                                            "type": "string"
+                                        },
+                                        "_speak": {
+                                            "type": "string"
+                                        },
+                                        "command": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        }
+                                    },
+                                    "required": [
+                                        "_delay",
+                                        "_speak",
+                                        "command"
+                                    ],
+                                    "additionalProperties": false
+                                }
+                            }, 
+                            "templates": {
+                                "type": "object",
+                                "properties": {
+                                    "1": {
+                                        "type": "object",
+                                        "properties": {
+                                            "rows": {
+                                                "type": "object",
+                                                "properties": {
+                                                    "1": {
+                                                        "type": "object",
+                                                        "properties": {
+                                                            "divs": {
+                                                                "type": "array",
+                                                                "items": {
+                                                                    "type": "string"
+                                                                }
+                                                            }
+                                                        },
+                                                        "required": [
+                                                            "divs"
+                                                        ],
+                                                        "additionalProperties": {
+                                                            "type": "object",
+                                                            "properties": {},
+                                                            "additionalProperties": false
+                                                        }
+                                                    },
+                                                    "2": {
+                                                        "$ref": "#/properties_templates_properties_1_properties_rows_properties_1"
+                                                    },
+                                                    "3": {
+                                                        "$ref": "#/properties_templates_properties_1_properties_rows_properties_1"
+                                                    }
+                                                },
+                                                "required": [
+                                                    "1",
+                                                    "2",
+                                                    "3"
+                                                ],
+                                                "additionalProperties": {
+                                                    "$ref": "#/properties_templates_properties_1_properties_rows_properties_1"
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "rows"
+                                        ],
+                                        "additionalProperties": {
+                                            "type": "object",
+                                            "properties": {},
+                                            "additionalProperties": false
+                                        }
+                                    },
+                                    "2": {
+                                        "$ref": "#/properties_templates_properties_1"
+                                    },
+                                    "3": {
+                                        "$ref": "#/properties_templates_properties_1"
+                                    }
+                                },
+                                "required": [
+                                    "1",
+                                    "2",
+                                    "3"
+                                ],
+                                "additionalProperties": {
+                                    "$ref": "#/properties_templates_properties_1"
+                                }
+                            },
+                            "assignments": {
+                                "type": "object",
+                                "properties": {},
+                                "additionalProperties": {
+                                    "type": "object",
+                                    "properties": {
+                                        "_editable": {
+                                            "type": "boolean"
+                                        },
+                                        "_movement": {
+                                            "type": "string",
+                                            "enum": [
+                                                "move",
+                                                "copy"
+                                            ]
+                                        },
+                                        "_owners": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "_modes": {
+                                            "type": "object",
+                                            "properties": {
+                                                "mode1": {
+                                                    "anyOf": [
+                                                        {
+                                                            "type": "string"
+                                                        },
+                                                        {
+                                                            "type": "array",
+                                                            "items": {
+                                                                "type": "string"
+                                                            }
+                                                        },
+                                                        {
+                                                            "type": "object",
+                                                            "properties": {},
+                                                            "additionalProperties": false
+                                                        }
+                                                    ]
+                                                }
+                                            },
+                                            "required": [
+                                                "mode1"
+                                            ],
+                                            "additionalProperties": {
+                                                "anyOf": [
+                                                    {
+                                                        "type": "string"
+                                                    },
+                                                    {
+                                                        "type": "array",
+                                                        "items": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    {
+                                                        "type": "object",
+                                                        "properties": {},
+                                                        "additionalProperties": false
+                                                    }
+                                                ]
+                                            }
+                                        },
+                                        "_mode": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "required": [
+                                        "_editable",
+                                        "_movement",
+                                        "_owners",
+                                        "_modes",
+                                        "_mode"
+                                    ],
                                     "additionalProperties": false
                                 }
                             }
-                        }}}
-                        
+                        },
+                        "required": [
+                            "blocks",
+                            "modules",
+                            "actions",
+                            "commands",
+                            "menu",
+                            "functions",
+                            "automation"
+                        ],
+                        "additionalProperties": false,
+                        "$defs": {
+                            "action": {
+                                "type": "object",
+                                "properties": {
+                                    "if": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": ["string", "number"]
+                                            }
+                                        }
+                                    },
+                                    "while": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "array",
+                                            "items": {
+                                                "type": ["string", "number"]
+                                            }
+                                        }
+                                    },
+                                    "set": {
+                                        "type": "object",
+                                        "additionalProperties": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "target": {
+                                        "type": "string"
+                                    },
+                                    "chain": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/$defs/chainItem"
+                                        }
+                                    },
+                                    "nestedActions": {
+                                        "type": "array",
+                                        "items": {
+                                            "$ref": "#/$defs/action"
+                                        }
+                                    },
+                                    "next": {
+                                        "type": "boolean"
+                                    },
+                                    "express": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": [
+                                    "if",
+                                    "while",
+                                    "set",
+                                    "target",
+                                    "chain",
+                                    "nestedActions",
+                                    "next",
+                                    "express"
+                                ],
+                                "additionalProperties": false
+                            },
+                            "chainItem": {
+                                "type": "object",
+                                "properties": {
+                                    "access": {
+                                        "type": "string"
+                                    },
+                                    "params": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "new": {
+                                        "type": "boolean"
+                                    },
+                                    "express": {
+                                        "type": "boolean"
+                                    }
+                                },
+                                "required": ["access", "params", "new", "express"],
+                                "additionalProperties": false
+                            },
+                        }
+                    }
+                }
+            }
+
         });
 
 
@@ -337,3 +669,8 @@ router.get('/', async function (req, res, next) {
 
 
 module.exports = router;
+
+
+
+
+
