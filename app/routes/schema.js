@@ -142,7 +142,7 @@ router.get('/', async function (req, res, next) {
             messages: [
                 {
                     role: "system",
-                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. { "blocks": [], "modules": { "passport": "passport", "passport-microsoft": "passport-microsoft" }, "actions": [[ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "{|session|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "session" }, { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" }, { "params": [ "{|user|}", "{|done|}" ], "chain": [], "run": [ { "target": "{|done|}", "params": [ null, "{|user|}" ], "assign": "serialized" } ], "assign": "{|serializeFunction|}!" }, { "target": "passport", "chain": [ { "access": "serializeUser", "params": [ "{|~/serializeFunction|}" ] } ], "assign": "{|serializeUser|}!" }, { "params": [ "{|obj|}", "{|done|}" ], "chain": [], "nestedActions": [ { "target": "{|done|}", "params": [ null, "{|obj|}" ], "assign": "{|deserialized|}!" } ], "assign": "{|deserializeFunction|}!" }, { "target": "{|passport|}", "chain": [ { "access": "deserializeUser", "params": [ "{|deserializeFunction|}" ] } ], "assign": "{|deserializeUser|}!" }, { "set": { "user": "" } }, { "params": [ "{|accessToken|}", "{|refreshToken|}", "{|profile|}", "{|done|}" ], "actions": [ { "target": "{|done|}", "params": [ null, "{|profile|}" ], "actions": [ { "set": { "{|~/user|}": "{|profile|}" } } ], "assign": "{|doneZo|}!" } ], "assign": "{|callbackFunction|}!" }, { "target": "passport-microsoft", "chain": [ { "access": "Strategy", "params": [ { "clientID": "123456-1234-1234-1234-123456", "clientSecret": "abcdefghijklmnop", "callbackURL": "https://1var.com/blank/1234567890", "scope": [ "user.read" ] }, "{|callbackFunction|}" ], "new": true } ], "assign": "{|passportmicrosoft|}!" }, { "target": "{|passport|}", "chain": [ { "access": "use", "params": [ "{|passportmicrosoft|}" ] } ], "assign": "{|newStrategy|}!" }, { "target": "{|passport|}", "chain": [ { "access": "authenticate", "params": [ "microsoft", { "scope": [ "user.read" ] } ], "express": true, "next": false } ], "assign": "{|newAuthentication|}!" }, { "target": "{|res|}", "chain": [ { "access": "send", "params": [ "FORWARDING TO MICROSOFT" ], "assign": "{|send|}!" } ] } ]] }`,
+                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. `,
                 },
                 { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
             ],
@@ -157,6 +157,40 @@ router.get('/', async function (req, res, next) {
                             "$schema": "http://json-schema.org/draft-07/schema#",
                             "type": "object",
                             "properties": {
+                                "blocks": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "entity": {
+                                                "type": "string"
+                                            },
+                                            "align": {
+                                                "type": "string"
+                                            },
+                                            "subs": {
+                                                "type": "boolean"
+                                            },
+                                            "name": {
+                                                "type": "string"
+                                            }
+                                        },
+                                        "required": [
+                                            "entity",
+                                            "align",
+                                            "subs",
+                                            "name"
+                                        ],
+                                        "additionalProperties": false
+                                    }
+                                },
+                                "modules": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {
+                                        "type": "string"
+                                    }
+                                },
                                 "actions": {
                                     "type": "array",
                                     "items": {
@@ -165,9 +199,42 @@ router.get('/', async function (req, res, next) {
                                             "$ref": "#/$defs/action"
                                         }
                                     }
+                                },
+                                "commands": {
+                                    "type": "object",
+                                    "properties": {},
+                                    "additionalProperties": {
+                                        "type": "object",
+                                        "properties": {
+                                            "call": {
+                                                "type": "string"
+                                            },
+                                            "ready": {
+                                                "type": "boolean"
+                                            },
+                                            "updateSpeechAt": {
+                                                "type": "boolean"
+                                            },
+                                            "timeOut": {
+                                                "type": "number"
+                                            }
+                                        },
+                                        "required": [
+                                            "call",
+                                            "ready",
+                                            "updateSpeechAt",
+                                            "timeOut"
+                                        ],
+                                        "additionalProperties": false
+                                    }
                                 }
                             },
-                            "required": ["actions"],
+                            "required": [
+                                "blocks",
+                                "modules",
+                                "actions",
+                                "commands"
+                                ],
                             "additionalProperties": false,
                             "$defs": {
                                 "action": {
