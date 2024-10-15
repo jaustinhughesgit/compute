@@ -142,9 +142,9 @@ router.get('/', async function (req, res, next) {
             messages: [
                 {
                     role: "system",
-                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. `,
+                    content: `You create a nodejs middleware logic using json. The user make a request and provides an object It can be one middleware, or many. USER => """Take the most recent email and send it to me. ReferenceLogic: [{"blocks": [{"entity": "1v4ra88b0eb9-95f0-4ac0-b7d2-bddb24ca19c4","width": "100","align": "center"}],"modules": {},"actions": [{"set": {"stripeJSON": {"headers": {"Authorization": "..."}},"gmailKey": {"service": "gmail","auth": {"user": "...","pass": "..."}}}},{"next": true}]}]  UpdatingLogic: [{"blocks": [{"entity": "1v4r644b6416-52a3-4383-b748-f3c8aa5fd9dc","width": "100","align": "center"}],"modules": {},"actions": [],"email": []}]""" RESPONOSE => """[{"blocks": [{"entity": "1v4r644b6416-52a3-4383-b748-f3c8aa5fd9dc","width": "100","align": "center"}],"modules": {},"actions": [{"target": "{|nodemailer|}","chain": [{"access": "createTransport","params": ["{|gmailKey|}"]}],"assign": "{|transporter|}!"},{"set": {"recentEmail": "{|email=>[0]|}","subject": "{|recentEmail=>subject|}","emailBody": {"from": "support@1var.com","to": "jaustinhughes@gmail.com","subject": "Testing","text": "Testing","html": ""},"emailHTML": "{|emailBody=>html|}","emailText": "{|emailBody=>text|}"}},{"set": {"emailHTML": "{|subject|}","emailText": "{|subject|}"}},{"target": "{|transporter|}","chain": [{"access": "sendMail","params": ["{|emailBody|}"]}],"assign": "{|send|}!"},{"target": "{|res|}","chain": [{"access": "send","params": ["Email Sent! <br> To: j...@gmail.com<br>Subject:{|emailBody=>subject|} <br> Body:{|emailBody=>text|}"]}],"assign": "{|showPage|}!"}]]}]""". Here is another example: USER => """get me the cnn rss feed and give me the top 6 articles. ReferenceLogic: [] UpdatingLogic: [{"blocks": [{"entity": "1v4r521f3e2f-97ac-48cd-a7c0-00115b1c2788","width": "100","align": "center"}],"modules": {},"actions": []}]""" RESPONOSE => """[{"blocks": [{"entity": "1v4r521f3e2f-97ac-48cd-a7c0-00115b1c2788","width": "100","align": "center"}],"modules": {"fast-xml-parser": "fast-xml-parser"},"actions": [{"target": "{|axios|}","chain": [{"access": "get","params": ["http://rss.cnn.com/rss/cnn_topstories.rss"],"new": true}],"assign": "{|response|}"},{"set": {"rss": "{|response=>data|}","options": {"ignoreAttributes": false,"attributeNamePrefix": "@_","allowBooleanAttributes": true,"parseAttributeValue": true,"processEntities": true}}},{"target": "{|fast-xml-parser|}","chain": [{"access": "XMLParser","params": ["{|options|}"],"new": true}],"assign": "{|parser|}!"},{"target": "{|parser|}","chain": [{"access": "parse","params": ["{|rss|}"]}],"assign": "{|jObj|}!"},{"set": {"html": "","channel": "{|jObj=>rss.channel|}"}},{"set": {"counter": 0,"limit": "{|={|~/channel=>item.length|}-1|}","fixedMax": 6}},{"target": "{|math|}","chain": [{"access": "number","params": ["{|limit|}"]}],"assign": "{|max|}!"},{"while": [["{|counter|}","<","{|fixedMax|}"]],"set": {"item": "{|channel=>item[{|~/counter|}]|}","img": "{|item=>media:group.media:content|}","image": "{|img=>[0]|}","~/html": "{|~/html|}<br><br><img src='{|image=>@_url|}' width='100%'/><a href='{|item=>link|}'>{|item=>title|}</a>","~/counter": "{|={|~/counter|}+1|}"}},{"target": "{|res|}","chain": [{"access": "send","params": ["{|html|}"]}],"assign": "{|send|}!"}]}]`,
                 },
-                { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
+                { role: "user", content: `Create an app that uses moment-timezone to get the time in London. ReferenceLogic:[]  UpdatingLogic: [{"blocks": [{"entity": "1v4r91c6267f-7d0f-403b-a654-075967f3b8e1","width": "100","align": "center"}],"modules": {},"actions": [],"email": []}]` },
             ],
             response_format:
             {
@@ -320,37 +320,8 @@ router.get('/', async function (req, res, next) {
                             },
                             "menu": {
                                 "type": "object",
-                                "properties": {},
                                 "additionalProperties": {
-                                    "type": "object",
-                                    "properties": {
-                                        "_name": {
-                                            "type": "string"
-                                        },
-                                        "_classes": {
-                                            "type": "array",
-                                            "items": {
-                                                "type": "string"
-                                            }
-                                        },
-                                        "_show": {
-                                            "type": "boolean"
-                                        },
-                                        "_selected": {
-                                            "type": "boolean"
-                                        }
-                                    },
-                                    "required": [
-                                        "_name",
-                                        "_classes",
-                                        "_show",
-                                        "_selected"
-                                    ],
-                                    "additionalProperties": {
-                                        "type": "object",
-                                        "properties": {},
-                                        "additionalProperties": false
-                                    }
+                                    "$ref": "#/$defs/menuItem"
                                 }
                             },
                             "functions": {
@@ -404,7 +375,7 @@ router.get('/', async function (req, res, next) {
                                     ],
                                     "additionalProperties": false
                                 }
-                            }, 
+                            },
                             "templates": {
                                 "type": "object",
                                 "properties": {
@@ -609,6 +580,9 @@ router.get('/', async function (req, res, next) {
                                             "$ref": "#/$defs/action"
                                         }
                                     },
+                                    "target": {
+                                        "type": "assign"
+                                    },
                                     "next": {
                                         "type": "boolean"
                                     },
@@ -623,10 +597,38 @@ router.get('/', async function (req, res, next) {
                                     "target",
                                     "chain",
                                     "nestedActions",
+                                    "assign",
                                     "next",
                                     "express"
                                 ],
                                 "additionalProperties": false
+                            },
+                            "menuItem": {
+                                "type": "object",
+                                "properties": {
+                                    "_name": { "type": "string" },
+                                    "_classes": {
+                                        "type": "array",
+                                        "items": { "type": "string" }
+                                    },
+                                    "_show": { "type": "boolean" },
+                                    "_selected": { "type": "boolean" },
+                                    "_rgb": {
+                                        "type": "array",
+                                        "items": { "type": "number" }
+                                    },
+                                    "_color": {
+                                        "type": "array",
+                                        "items": { "type": "number" }
+                                    }
+                                },
+                                "required": ["_name", "_classes", "_show", "_selected"],
+                                "additionalProperties": {
+                                    "anyOf": [
+                                        { "$ref": "#/$defs/menuItem" },
+                                        { "type": "null" }
+                                    ]
+                                }
                             },
                             "chainItem": {
                                 "type": "object",
