@@ -9,7 +9,7 @@ router.get('/', async function (req, res, next) {
         apiKey: process.env.OPENAI_API_KEY,
     });
 
-/*
+
 
     const ModesSchema = z.object({
         mode1: z.union([z.string(), z.array(z.string()), z.object({})]), // Can be a string, an array of strings, or an object
@@ -130,10 +130,24 @@ router.get('/', async function (req, res, next) {
         automation: AutomationSchema,
         templates: TemplatesSchema,
         assignments: z.object({}).catchall(AssignmentsSchema)
-      });*/
+      });
 
-/*
-{
+      console.log("MainSchema", MainSchema)
+      let zrf = zodResponseFormat(MainSchema, "MainSchema")
+      console.log("zrf", JSON.stringify(zrf))
+
+    try {
+        const completion = await openai.beta.chat.completions.parse({
+            model: "gpt-4o-2024-08-06",
+            messages: [
+                {
+                    role: "system",
+                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. { "blocks": [], "modules": { "passport": "passport", "passport-microsoft": "passport-microsoft" }, "actions": [[ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "{|session|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "session" }, { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" }, { "params": [ "{|user|}", "{|done|}" ], "chain": [], "run": [ { "target": "{|done|}", "params": [ null, "{|user|}" ], "assign": "serialized" } ], "assign": "{|serializeFunction|}!" }, { "target": "passport", "chain": [ { "access": "serializeUser", "params": [ "{|~/serializeFunction|}" ] } ], "assign": "{|serializeUser|}!" }, { "params": [ "{|obj|}", "{|done|}" ], "chain": [], "nestedActions": [ { "target": "{|done|}", "params": [ null, "{|obj|}" ], "assign": "{|deserialized|}!" } ], "assign": "{|deserializeFunction|}!" }, { "target": "{|passport|}", "chain": [ { "access": "deserializeUser", "params": [ "{|deserializeFunction|}" ] } ], "assign": "{|deserializeUser|}!" }, { "set": { "user": "" } }, { "params": [ "{|accessToken|}", "{|refreshToken|}", "{|profile|}", "{|done|}" ], "actions": [ { "target": "{|done|}", "params": [ null, "{|profile|}" ], "actions": [ { "set": { "{|~/user|}": "{|profile|}" } } ], "assign": "{|doneZo|}!" } ], "assign": "{|callbackFunction|}!" }, { "target": "passport-microsoft", "chain": [ { "access": "Strategy", "params": [ { "clientID": "123456-1234-1234-1234-123456", "clientSecret": "abcdefghijklmnop", "callbackURL": "https://1var.com/blank/1234567890", "scope": [ "user.read" ] }, "{|callbackFunction|}" ], "new": true } ], "assign": "{|passportmicrosoft|}!" }, { "target": "{|passport|}", "chain": [ { "access": "use", "params": [ "{|passportmicrosoft|}" ] } ], "assign": "{|newStrategy|}!" }, { "target": "{|passport|}", "chain": [ { "access": "authenticate", "params": [ "microsoft", { "scope": [ "user.read" ] } ], "express": true, "next": false } ], "assign": "{|newAuthentication|}!" }, { "target": "{|res|}", "chain": [ { "access": "send", "params": [ "FORWARDING TO MICROSOFT" ], "assign": "{|send|}!" } ] } ]] }`,
+                },
+                { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
+            ],
+            response_format: 
+            {
                 "type": "json_schema",
                 "json_schema": {
                     
@@ -241,53 +255,6 @@ router.get('/', async function (req, res, next) {
                                 }
                             }
                         }}}
-*/
-
-      // Define chainItemSchema
-const chainItemSchema = z.object({
-    access: z.string(),
-    params: z.array(z.string()),
-    new: z.boolean(),
-    express: z.boolean(),
-  }).strict();
-  
-  // Define actionSchema with recursion using z.lazy
-  const actionSchema = z.lazy(() => z.object({
-    if: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-    while: z.array(z.array(z.union([z.string(), z.number()]))).optional(),
-    set: z.record(z.string()).optional(),
-    target: z.string(),
-    chain: z.array(chainItemSchema),
-    nestedActions: z.array(actionSchema).optional(),
-    next: z.boolean(),
-    express: z.boolean(),
-  }).strict());
-  
-  // Define MainSchema
-  const MainSchema = z.object({
-    actions: z.array(
-      z.array(
-        actionSchema
-      )
-    ),
-  }).strict();
-
-      console.log("MainSchema", MainSchema)
-      let zrf = zodResponseFormat(MainSchema, "MainSchema")
-      console.log("zrf", JSON.stringify(zrf))
-
-    try {
-        const completion = await openai.beta.chat.completions.parse({
-            model: "gpt-4o-2024-08-06",
-            messages: [
-                {
-                    role: "system",
-                    content: `You create a json programming language that nodejs express middleware. Each object in the array are middleware functions that continue to the next function or respoond to the user. It can be one middleware, or many. Here is an example: Create a microsoft oath login. { "blocks": [], "modules": { "passport": "passport", "passport-microsoft": "passport-microsoft" }, "actions": [[ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "{|session|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" } ], [ { "target": "{|passport|}", "chain": [ { "access": "initialize", "params": [], "express": true, "next": true } ], "assign": "session" }, { "target": "{|passport|}", "chain": [ { "access": "session", "params": [], "express": true, "next": true } ], "assign": "{|passportSession|}!" }, { "params": [ "{|user|}", "{|done|}" ], "chain": [], "run": [ { "target": "{|done|}", "params": [ null, "{|user|}" ], "assign": "serialized" } ], "assign": "{|serializeFunction|}!" }, { "target": "passport", "chain": [ { "access": "serializeUser", "params": [ "{|~/serializeFunction|}" ] } ], "assign": "{|serializeUser|}!" }, { "params": [ "{|obj|}", "{|done|}" ], "chain": [], "nestedActions": [ { "target": "{|done|}", "params": [ null, "{|obj|}" ], "assign": "{|deserialized|}!" } ], "assign": "{|deserializeFunction|}!" }, { "target": "{|passport|}", "chain": [ { "access": "deserializeUser", "params": [ "{|deserializeFunction|}" ] } ], "assign": "{|deserializeUser|}!" }, { "set": { "user": "" } }, { "params": [ "{|accessToken|}", "{|refreshToken|}", "{|profile|}", "{|done|}" ], "actions": [ { "target": "{|done|}", "params": [ null, "{|profile|}" ], "actions": [ { "set": { "{|~/user|}": "{|profile|}" } } ], "assign": "{|doneZo|}!" } ], "assign": "{|callbackFunction|}!" }, { "target": "passport-microsoft", "chain": [ { "access": "Strategy", "params": [ { "clientID": "123456-1234-1234-1234-123456", "clientSecret": "abcdefghijklmnop", "callbackURL": "https://1var.com/blank/1234567890", "scope": [ "user.read" ] }, "{|callbackFunction|}" ], "new": true } ], "assign": "{|passportmicrosoft|}!" }, { "target": "{|passport|}", "chain": [ { "access": "use", "params": [ "{|passportmicrosoft|}" ] } ], "assign": "{|newStrategy|}!" }, { "target": "{|passport|}", "chain": [ { "access": "authenticate", "params": [ "microsoft", { "scope": [ "user.read" ] } ], "express": true, "next": false } ], "assign": "{|newAuthentication|}!" }, { "target": "{|res|}", "chain": [ { "access": "send", "params": [ "FORWARDING TO MICROSOFT" ], "assign": "{|send|}!" } ] } ]] }`,
-                },
-                { role: "user", content: "Create an app the uses moment-timezone to get the time in London." },
-            ],
-            response_format: zodResponseFormat(MainSchema, "MainSchema")
-            
                         
         });
 
