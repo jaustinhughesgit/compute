@@ -1988,6 +1988,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("--2bb--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
+                console.log("accessClean", accessClean)
+                console.log("result", result)
+                console.log("chainAction.new", chainAction.new)
+                console.log("cchainAction.params", chainAction.params)
+                console.log("cchainAction.params.length", chainAction.params.length)
                 console.log("--2cc--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
