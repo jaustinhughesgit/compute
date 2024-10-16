@@ -2011,13 +2011,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("result", result)
                 console.log("result[accessClean]", result[accessClean])
                 console.log("chainAction.new", chainAction.new)
+                console.log("cchainAction.params", chainAction.params)
                 console.log("cchainAction.params.length", chainAction.params.length)
                 console.log("--2aa--")
-                result = await instantiateWithNew(result[accessClean], chainParams);
+                result = instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
                 console.log("--2bb--")
                 console.log("result",result)
-                result = await instantiateWithNew(result, []);
+                result = instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("accessClean", accessClean)
                 console.log("result", result)
@@ -2025,7 +2026,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("cchainAction.params", chainAction.params)
                 console.log("cchainAction.params.length", chainAction.params.length)
                 console.log("--2cc--")
-                result = await instantiateWithNew(result, chainAction.params);
+                result = instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 //console.log("--3dd--")
                 if (accessClean === 'promise') {
