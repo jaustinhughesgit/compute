@@ -638,15 +638,45 @@ async function processConfig(config, initialContext, lib) {
     return context;
 }
 
-async function installModule(moduleName, contextKey, context, lib) {
+/*async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
     await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
     lib.modules[moduleName] = moduleName
     if (!context.hasOwnProperty(contextKey)) {
         context[contextKey] = { "value": {}, "context": {} }
     }
+    
     context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
     return "/tmp/node_modules/" + moduleName
+}*/
+
+async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
+    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    lib.modules[moduleName] = moduleName;
+
+    // Require the installed module
+    const module = require("/tmp/node_modules/" + moduleName);
+
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        // It's a destructuring pattern
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            if (!context.hasOwnProperty(key)) {
+                context[key] = { "value": {}, "context": {} };
+            }
+            context[key].value = module[key];
+        }
+    } else {
+        // It's a simple module name
+        if (!context.hasOwnProperty(contextKey)) {
+            context[contextKey] = { "value": {}, "context": {} };
+        }
+        context[contextKey].value = module;
+    }
 }
 
 function getPageType(urlPath) {
