@@ -1271,12 +1271,25 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 //console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
                 console.log("isObj", isObj);
+                function isConstructor(val) {
+                    try {
+                      // Attempt to use the value as a constructor
+                      new new Proxy(val, { construct: () => ({}) });
+                      return true;
+                    } catch (err) {
+                      return false;
+                    }
+                  }
+
                 if (isObj) {
                     console.log("object", value)
                     return value;
+                } else if (isConstructor(value)){
+                    console.log("value is a conostructoor")
+                    modifiedStr = modifiedStr.replace(match[0], value);
                 } else {
                     console.log("stringify", value)
-                    modifiedStr = modifiedStr.replace(match[0], value);
+                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
 
