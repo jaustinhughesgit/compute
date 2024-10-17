@@ -1192,11 +1192,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             //        current = current.value;
             //    }
             //} else {
-            console.log("LL", key)
-            console.log("LL",current);
-            console.log("LL",curCounter);
-            ////////console.log("LL",current[key]);
-            ////////console.log("LL",keys.length - 1, curCounter);
+            console.log("LL1", key)
+            console.log("LL2",current);
+            console.log("LL3",curCounter);
+            console.log("LL4",current[key]);
+            console.log("LL5",keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
                 try { current = current[key].context } catch { }
             } else {
