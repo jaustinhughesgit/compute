@@ -645,6 +645,25 @@ async function processConfig(config, initialContext, lib) {
     if (!context.hasOwnProperty(contextKey)) {
         context[contextKey] = { "value": {}, "context": {} }
     }
+    context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
+    return "/tmp/node_modules/" + moduleName
+}*/
+
+
+
+
+
+
+
+
+
+/*async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
+    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    lib.modules[moduleName] = moduleName
+    if (!context.hasOwnProperty(contextKey)) {
+        context[contextKey] = { "value": {}, "context": {} }
+    }
     
     context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
     return "/tmp/node_modules/" + moduleName
@@ -706,6 +725,22 @@ async function installModule(moduleName, contextKey, context, lib) {
         context[contextKey].value = module;
     }
 }*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
@@ -1106,7 +1141,7 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    console.log("AAAAAAAA")
+    ////////console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1214,16 +1249,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        console.log("BBBBBBBB")
-        console.log("str",str)
-        console.log("nestedPath", nestedPath)
+        ////////console.log("BBBBBBBB")
+        ////////console.log("str",str)
+        ////////console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            console.log("CCCCCCCCCC")
+            ////////console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
@@ -1231,7 +1266,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            console.log("innerStr", innerStr)
+            //console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
@@ -1242,12 +1277,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 //console.log("subRes", subRes)
                 //console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                console.log("subWord", subWord)
+                //console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                console.log("DDDDDDDDDDD")
-                console.log("forceRoot",forceRoot)
-                console.log("nestedPath",nestedPath)
+                //console.log("DDDDDDDDDDD")
+                ////////console.log("forceRoot",forceRoot)
+                ////////console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 ////////console.log("value from json 2", value)
                 ////////console.log("typeof from json 2", typeof value)
@@ -1260,38 +1295,23 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (typeof value === "string" || typeof value === "number") {
-                console.log("value is string or number")
+                ////////console.log("value is string or number")
                 ////////console.log("match[0]", match[0])
                 ////////console.log("modifiedStr1", modifiedStr)
                 ////////console.log("value", value)
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
             } else {
-                console.log("str2", str);
+                //console.log("str2", str);
                 //console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
-                console.log("isObj", isObj);
-                function isConstructor(val) {
-                    try {
-                      // Attempt to use the value as a constructor
-                      new new Proxy(val, { construct: () => ({}) });
-                      return true;
-                    } catch (err) {
-                      return false;
-                    }
-                  }
-
-                  console.log("typeof value",typeof value)
+                //console.log("isObj", isObj);
                 if (isObj) {
-                    console.log("object", value)
+                    ////////console.log("object", value)
                     return value;
-                } else if (typeof value == "object"){
-                    console.log("value is a conostructoor", value)
-                    modifiedStr = value;
                 } else {
-                    console.log("stringify", value)
+                    //console.log("stringify", value)
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                    
                 }
             }
 
@@ -1305,9 +1325,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-                console.log("eeeeeee")
+
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("modifiedStr",modifiedStr)
+                    ////////console.log("modifiedStr",modifiedStr)
                     ////////console.log("match",match),
                     ////////console.log("jsonString",jsonString)
                     ////////console.log("jsonPath",jsonPath)
@@ -1360,7 +1380,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         if (modifiedStr.match(regex)) {
             return replace2(modifiedStr, nestedPath);
         }
-        console.log("modifiedStr", modifiedStr)
+
         return modifiedStr;
     }
 
@@ -1815,11 +1835,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<")
-        console.log("target.key",target.key)
-        console.log("libs",libs)
-        console.log("target.path",target.path)
         value = await replacePlaceholders(target.key, libs, target.path);
-        console.log("value", value)
         let args = [];
 
         if (value) {
@@ -1993,11 +2009,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
-    console.log("target",target)
-    console.log("action",action)
-    console.log("libs",libs)
-    console.log("nestedPath",nestedPath)
-    console.log("assignExecuted",assignExecuted)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -2008,12 +2019,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         nestedPath = nestedPath.slice(1)
     }
 
-    async function instantiateWithNew(constructor, args, assignExecuted) {
-        if (assignExecuted){
-            return new constructor(...args);
-        }  else {
-            return new constructor;
-        }
+    async function instantiateWithNew(constructor, args) {
+        console.log(contructor)
+        return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
 
@@ -2030,8 +2038,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
-                console.log("result = result");
-                result = result
+                //console.log("result = result");
+                 result = result
                 return
                 //chainParams = [];
             }
@@ -2061,26 +2069,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                console.log("accessClean", accessClean)
-                console.log("result", result)
-                console.log("result[accessClean]", result[accessClean])
-                console.log("chainAction.new", chainAction.new)
-                console.log("cchainAction.params", chainAction.params)
-                console.log("cchainAction.params.length", chainAction.params.length)
-                console.log("--2aa--")
-                result = instantiateWithNew(result[accessClean], chainParams, assignExecuted);
+                //console.log("--2aa--")
+                result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                console.log("--2bb--")
-                console.log("result",result)
-                result = instantiateWithNew(result, [], assignExecuted);
+                //console.log("--2bb--")
+                result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                console.log("accessClean", accessClean)
-                console.log("result", result)
-                console.log("chainAction.new", chainAction.new)
-                console.log("cchainAction.params", chainAction.params)
-                console.log("cchainAction.params.length", chainAction.params.length)
-                console.log("--2cc--")
-                result = instantiateWithNew(result, chainAction.params, assignExecuted);
+                //console.log("--2cc--")
+                result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 //console.log("--3dd--")
                 if (accessClean === 'promise') {
