@@ -1078,7 +1078,7 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    ////////console.log("AAAAAAAA")
+    console.log("AAAAAAAA1")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1086,6 +1086,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             const nestedKeys = nestedPath.split('.');
             for (let key of nestedKeys) {
                 if (current.hasOwnProperty(key)) {
+                    console.log("AAAAAAAA2")
                     current = current[key];
                 } else {
                     //console.error(`Nested path ${nestedPath} not found in JSON.`);
@@ -1112,6 +1113,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         let curCounter = 0
         if (current.value) {
             if (Object.keys(current.value).length == 0) {
+                console.log("AAAAAAAA3")
                 current = current.context
             }
         }
@@ -1127,8 +1129,10 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             ////////console.log("LL",current[key]);
             ////////console.log("LL",keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
+                console.log("AAAAAAAA4")
                 try { current = current[key].context } catch { }
             } else {
+                console.log("AAAAAAAA5")
                 try { current = current[key].value } catch { }
             }
             //return '';
@@ -1148,6 +1152,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         ////////console.log("keys2", keys2)
         ////////console.log("keys2", keys2)
         if (isValidJSON(current)) {
+            console.log("AAAAAAAA5")
             current = JSON.parse(current)
         }
         for (let key of keys2) {
@@ -1157,12 +1162,15 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             ////////console.log("k2.1:",current.hasOwnProperty(key))
             ////////console.log("k2.3:",current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
+                console.log("AAAAAAAA6")
                 current = current[key];
                 ////////console.log("k2.4", current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
+                    console.log("AAAAAAAA7")
                     current = current.value;
                 }
             } else if (current.hasOwnProperty("value")) {
+                console.log("AAAAAAAA8")
                 current = current[key];
                 ////////console.log("k2.5", current)
                 //return '';
@@ -1175,13 +1183,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         ////////console.log("Array.isArray(current)",Array.isArray(current))
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
+                console.log("AAAAAAAA9")
                 current = current[index];
             } else {
                 //console.error(`Index ${index} out of bounds for array.`);
                 return '';
             }
         }
-
+        console.log("current", current)
         return current;
     }
 
