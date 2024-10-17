@@ -1965,10 +1965,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         nestedPath = nestedPath.slice(1)
     }
 
-    async function instantiateWithNew(constructor, args) {
-        console.log(contructor)
-        console.log(args)
-        return new constructor(...args);
+    async function instantiateWithNew(constructor, args, assignExecuted) {
+        if (assignExecuted){
+            return new constructor(...args);
+        }  else {
+            return new constructor;
+        }
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
 
@@ -2023,11 +2025,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("cchainAction.params", chainAction.params)
                 console.log("cchainAction.params.length", chainAction.params.length)
                 console.log("--2aa--")
-                result = instantiateWithNew(result[accessClean], chainParams);
+                result = instantiateWithNew(result[accessClean], chainParams, assignExecuted);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
                 console.log("--2bb--")
                 console.log("result",result)
-                result = instantiateWithNew(result, []);
+                result = instantiateWithNew(result, [], assignExecuted);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("accessClean", accessClean)
                 console.log("result", result)
@@ -2035,7 +2037,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("cchainAction.params", chainAction.params)
                 console.log("cchainAction.params.length", chainAction.params.length)
                 console.log("--2cc--")
-                result = instantiateWithNew(result, chainAction.params);
+                result = instantiateWithNew(result, chainAction.params, assignExecuted);
             } else if (typeof result[accessClean] === 'function') {
                 //console.log("--3dd--")
                 if (accessClean === 'promise') {
