@@ -1286,7 +1286,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     console.log("object", value)
                     return value;
                 } else if (typeof value == "object"){
-                    console.log("value is a conostructoor")
+                    console.log("value is a conostructoor", value)
                     modifiedStr = value;
                 } else {
                     console.log("stringify", value)
