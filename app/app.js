@@ -1281,6 +1281,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     }
                   }
 
+                  console.log("typeof value",typeof value)
                 if (isObj) {
                     console.log("object", value)
                     return value;
