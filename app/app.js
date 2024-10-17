@@ -1213,6 +1213,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } catch (err){
                 console.log("LL10")
                 console.log(err)
+                console.log("current", current)
+                console.log("current[key]", current[key])
                 current = current[key]
             }
                 
