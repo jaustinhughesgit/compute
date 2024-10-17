@@ -1216,6 +1216,22 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("current", current)
                 console.log("current[key]", current[key])
                 current = current[key]
+                if (!current){
+                    return key
+                }
+                //
+                //
+                //
+                //
+                //
+                //
+                //current is not looping through and navigatiing to nested keys
+                //
+                //
+                //
+                //
+                //
+                //
             }
                 
             }
