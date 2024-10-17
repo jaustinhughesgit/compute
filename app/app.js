@@ -1199,10 +1199,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             console.log("LL5",keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
                 console.log("LL6")
-                try { current = current[key].context } catch { }
+                try { current = current[key].context } catch (err) { console.log(err) }
             } else {
                 console.log("LL7")
-                try { current = current[key].value } catch { }
+                try { current = current[key].value } catch (err) { console.log(err) }
+                
             }
             //return '';
             //}
@@ -1219,6 +1220,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
 
         console.log("keys2", keys2)
+        console.log("current", current)
         ////////console.log("keys2", keys2)
         if (isValidJSON(current)) {
             current = JSON.parse(current)
