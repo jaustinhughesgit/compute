@@ -1915,8 +1915,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
-                //console.log("other", assign)
-                //console.log("result",result);
+                console.log("other", assign)
+                console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof nestedContext[assign.target], assignExecuted)
@@ -2026,7 +2026,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     }
 
     async function instantiateWithNew(constructor, args) {
-        console.log(contructor)
+        console.log("contructor", contructor)
         return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
