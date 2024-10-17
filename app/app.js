@@ -1262,9 +1262,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 });
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-
+                console.log("eeeeeee")
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    ////////console.log("modifiedStr",modifiedStr)
+                    console.log("modifiedStr",modifiedStr)
                     ////////console.log("match",match),
                     ////////console.log("jsonString",jsonString)
                     ////////console.log("jsonPath",jsonPath)
@@ -1317,7 +1317,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         if (modifiedStr.match(regex)) {
             return replace2(modifiedStr, nestedPath);
         }
-
+        console.log("modifiedStr", modifiedStr)
         return modifiedStr;
     }
 
@@ -1950,6 +1950,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
+    console.log("target",target)
+    console.log("action",action)
+    console.log("libs",libs)
+    console.log("nestedPath",nestedPath)
+    console.log("assignExecuted",assignExecuted)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -1980,8 +1985,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
-                //console.log("result = result");
-                 result = result
+                console.log("result = result");
+                result = result
                 return
                 //chainParams = [];
             }
