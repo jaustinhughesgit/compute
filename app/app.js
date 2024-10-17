@@ -657,7 +657,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
 
 
-/*async function installModule(moduleName, contextKey, context, lib) {
+async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
     await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
     lib.modules[moduleName] = moduleName
@@ -667,9 +667,9 @@ async function installModule(moduleName, contextKey, context, lib) {
     
     context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
     return "/tmp/node_modules/" + moduleName
-}*/
+}
 
-
+/*
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
@@ -697,7 +697,7 @@ async function installModule(moduleName, contextKey, context, lib) {
         context[contextKey] = module;
     }
     console.log("context", JSON.stringify(context))
-}
+}*/
 
 /*async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
