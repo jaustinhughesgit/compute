@@ -1195,7 +1195,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        ////////console.log("BBBBBBBB")
+        console.log("BBBBBBBB1")
         ////////console.log("str",str)
         ////////console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
@@ -1245,6 +1245,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 ////////console.log("match[0]", match[0])
                 ////////console.log("modifiedStr1", modifiedStr)
                 ////////console.log("value", value)
+        console.log("BBBBBBBB2")
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
             } else {
@@ -1257,6 +1258,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return value;
                 } else {
                     //console.log("stringify", value)
+        console.log("BBBBBBBB3")
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
                 }
             }
@@ -1295,6 +1297,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                             }
                         }
                         ////////console.log("JSON PATH B4",currentValue)
+        console.log("BBBBBBBB4")
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
                         ////////console.log(`Error parsing JSON: ${e}`);
@@ -1305,6 +1308,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 ////////console.log("JSON PATH B5",updatedStr)
                 ////////console.log("JSON PATH B6",JSON.stringify(updatedStr))
                 if (updatedStr != "") {
+                    console.log("BBBBBBBB5")
                     return updatedStr;
                 }
                 //test
@@ -1324,6 +1328,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
 
         if (modifiedStr.match(regex)) {
+            console.log("BBBBBBBB6")
             return replace2(modifiedStr, nestedPath);
         }
 
