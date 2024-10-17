@@ -1276,7 +1276,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     return value;
                 } else {
                     console.log("stringify", value)
-                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
+                    modifiedStr = modifiedStr.replace(match[0], value);
                 }
             }
 
