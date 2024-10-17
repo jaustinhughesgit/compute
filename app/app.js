@@ -847,7 +847,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.JSON = { "value": JSON, "context": {} }
                         req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
                         req.lib.root.context.path = { "value": reqPath, "context": {} }
-                        req.lib.root.context.console = { "value": console, "context": {} }
+                        //req.lib.root.context.console = { "value": console, "context": {} }
                         req.lib.root.context.util = { "value": util, "context": {} }
                         req.lib.root.context.child_process = { "value": child_process, "context": {} }
                         req.lib.root.context.moment = { "value": moment, "context": {} }
