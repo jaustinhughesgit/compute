@@ -655,6 +655,34 @@ async function installModule(moduleName, contextKey, context, lib) {
         .map(([key, value]) => `--${key}=${value}`)
         .join(' ');
 
+    // Install the module
+    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    lib.modules[moduleName] = moduleName;
+
+    // Resolve the module path
+    const modulePath = path.join('/tmp/node_modules/', moduleName);
+
+    // Require the installed module
+    const module = require(modulePath);
+
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        // It's a destructuring pattern
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            // Store the export directly
+            context[key] = module[key];
+        }
+    } else {
+        // It's a simple module name
+        context[contextKey] = module;
+    }
+}
+
+/*async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
     await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
     lib.modules[moduleName] = moduleName;
 
@@ -677,7 +705,7 @@ async function installModule(moduleName, contextKey, context, lib) {
         }
         context[contextKey].value = module;
     }
-}
+}*/
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
