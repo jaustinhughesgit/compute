@@ -1285,18 +1285,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (isObj) {
                     console.log("object", value)
                     return value;
-                } else if (isConstructor(value)){
+                } else if (typeof value == "object"){
                     console.log("value is a conostructoor")
-                    modifiedStr = modifiedStr.replace(match[0], value);
+                    modifiedStr = value;
                 } else {
                     console.log("stringify", value)
-                    try {
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                    } catch (err){
-                        console.log(err)
-                        modifiedStr = value;
-                        console.log("modifiedStr", modifiedStr)
-                    }
+                    
                 }
             }
 
