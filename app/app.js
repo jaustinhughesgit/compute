@@ -695,6 +695,7 @@ async function installModule(moduleName, contextKey, context, lib) {
         // It's a simple module name
         context[contextKey] = module;
     }
+    console.log("context", JSON.stringify(context))
 }
 
 /*async function installModule(moduleName, contextKey, context, lib) {
