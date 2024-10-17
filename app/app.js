@@ -1204,7 +1204,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            ////////console.log("CCCCCCCCCC")
+            console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
@@ -1212,12 +1212,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            //console.log("innerStr", innerStr)
+            console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else if (innerStr.startsWith(">")) {
-                //console.log("INSIDE > ")
+                console.log("INSIDE > ")
                 //let { getWord, getSub } = require('./routes/cookies')
                 let subRes = await getSub(innerStr.replace(">", ""), "su", dynamodb)
                 //console.log("subRes", subRes)
@@ -1226,7 +1226,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 //console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                //console.log("DDDDDDDDDDD")
+                console.log("DDDDDDDDDDD")
                 ////////console.log("forceRoot",forceRoot)
                 ////////console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
