@@ -853,8 +853,13 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.moment = { "value": moment, "context": {} }
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
+                        console.log("pre-initializeModules", req.lib.root.context)
+                        console.log("pre-initializeModules", JSON.stringify(req.lib.root.context))
+                        console.log("pre-lib", req.lib)
                         await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("req.lib.root.context", req.lib.root.context)
+                        console.log("post-initializeModules", req.lib.root.context)
+                        console.log("post-initializeModules", JSON.stringify(req.lib.root.context))
+                        console.log("post-lib", req.lib)
                         
                     };
                 });
