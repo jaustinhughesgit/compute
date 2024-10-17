@@ -1078,7 +1078,7 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    console.log("AAAAAAAA1")
+    console.log("AAAAAAAA1", str)
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1331,7 +1331,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             console.log("BBBBBBBB6")
             return replace2(modifiedStr, nestedPath);
         }
-
+        console.log("modifiedStr", modifiedStr)
         return modifiedStr;
     }
 
