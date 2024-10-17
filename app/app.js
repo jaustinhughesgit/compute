@@ -1202,12 +1202,19 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 try { current = current[key].context } catch (err) { console.log(err) }
             } else {
                 console.log("LL7")
-                try { current = current[key].value } catch (err) { console.log(err) }
+                try { //current = current[key].value } catch (err) { console.log(err) }
                 if (current[key].hasOwnProperty("value")) {
+                    console.log("LL8")
                     current = current[key].value
                 } else {
+                    console.log("LL9")
                     current = current[key]
                 }
+            } catch (err){
+                console.log("LL10")
+                console.log(err)
+                current = current[key]
+            }
                 
             }
             //return '';
