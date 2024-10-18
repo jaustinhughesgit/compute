@@ -1368,7 +1368,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 } else {
                     console.log("stringify", value)
                     try {
+                    if (typeof value != "function"){    
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
+                    } else {
+                        return value
+                    }
                     } catch (err){
                         modifiedStr = value
                     }
