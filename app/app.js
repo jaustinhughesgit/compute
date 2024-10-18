@@ -1967,7 +1967,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
                 console.log("inside", result)
-                
                 let tempFunction = () => result;
                 console.log("tempFunction", tempFunction)
                 let newResult = await tempFunction()
