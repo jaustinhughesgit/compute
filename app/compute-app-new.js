@@ -690,11 +690,11 @@ async function installModule(moduleName, contextKey, context, lib) {
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
             // Store the export directly
-            context[key] = module[key];
+            context[key] = {"value":module[key], "context":{}};
         }
     } else {
         // It's a simple module name
-        context[contextKey] = module;
+        context[contextKey] = {"value":module, "context":{}};
     }
     console.log("context", JSON.stringify(context))
 }
