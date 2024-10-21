@@ -1952,7 +1952,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("inside", result)
                 let tempFunction = () => result;
                 console.log("tempFunction", tempFunction)
-                let newResult = await tempFunction()
+                let newResult = await result()
                 console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
