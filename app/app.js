@@ -1915,7 +1915,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<")
-        value = await replacePlaceholders(target.key, libs, target.path);
+        value = await replacePlaceholders(action.target, libs, target.path);
         let args = [];
 
         if (value) {
