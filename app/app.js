@@ -1484,6 +1484,8 @@ const json88 = {
 
 async function processString(str, libs, nestedPath) {
     console.log("0 PROCESS STRING")
+    console.log("str", str)
+    console.log("str.endsWith('|}!'", str.endsWith('|}!'))
     const isExecuted = str.endsWith('|}!');
 
 
