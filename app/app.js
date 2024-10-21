@@ -1196,9 +1196,42 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             ////////console.log("LL",current[key]);
             ////////console.log("LL",keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
-                try { current = current[key].context } catch { }
+                console.log("LL6")
+                try { current = current[key].context } catch (err) { console.log(err) }
             } else {
-                try { current = current[key].value } catch { }
+                console.log("LL7")
+                try { //current = current[key].value } catch (err) { console.log(err) }
+                if (current[key].hasOwnProperty("value")) {
+                    console.log("LL8")
+                    current = current[key].value
+                } else {
+                    console.log("LL9")
+                    current = current[key]
+                }
+            } catch (err){
+                console.log("LL10")
+                console.log(err)
+                console.log("current", current)
+                console.log("current[key]", current[key])
+                current = current[key]
+                if (!current){
+                    return key
+                }
+                //
+                //
+                //
+                //
+                //
+                //
+                //current is not looping through and navigatiing to nested keys
+                //
+                //
+                //
+                //
+                //
+                //
+            }
+                
             }
             //return '';
             //}
