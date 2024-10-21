@@ -1757,6 +1757,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
+    console.log("processAction", action)
+    console.log("nestedPath", nestedPath)
     let timeoutLength = 0
     if (action.timeout){
         timeoutLength = action.timeout
@@ -1900,62 +1902,71 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        console.log("action.target");
+        console.log("A action.target");
         const isObj = await isOnePlaceholder(action.target)
+        console.log("B isOnePlaceholder (isObj)", isObj)
         let strClean = await removeBrackets(action.target, isObj, false);
         let target
         if (isObj) {
             target = await getKeyAndPath(strClean, nestedPath)
+            console.log("C getKeyAndPath", target)
         } else {
             target = { "key": strClean, "path": nestedPath }
+            console.log("D just target", target)
         }
+        console.log("E getNestedContext", target.path)
         let nestedContext = await getNestedContext(libs, target.path);
+        console.log("F nestedContext", nestedContext)
 
         if (!nestedContext.hasOwnProperty(target.key)) {
+            console.log("G no nested contex")
             nestedContext[target.key] = { "value": {}, "context": {} }
+            console.log("H", target.key)
+            console.log("I", nestedContext[target.key])
         }
-        console.log(">>A<<")
+        console.log("J >>A<<", target.key, target.path)
         value = await replacePlaceholders(target.key, libs, target.path);
+        console.log("K value", value)
         let args = [];
 
         if (value) {
             //.arguments is the old .from
             if (action.params) {
                 let promises = action.params.map(async item => {
-                    console.log("arguments: item", item)
+                    console.log("L arguments: item", item)
                     const fromExecuted = item.endsWith('|}!');
-                    console.log("arguments: fromExecuted", fromExecuted)
+                    console.log("M arguments: fromExecuted", fromExecuted)
                     const fromObj = await isOnePlaceholder(item);
-                    console.log("arguments: fromObj", fromObj)
+                    console.log("N arguments: fromObj", fromObj)
                     let fromClean = await removeBrackets(item, fromObj, fromExecuted);
-                    console.log("arguments: fromClean", fromClean)
+                    console.log("O arguments: fromClean", fromClean)
                     let from
                     if (isObj) {
                         from = await getKeyAndPath(fromClean, nestedPath)
                     } else {
                         from = { "key": fromClean, "path": nestedPath }
                     }
-                    console.log("arguments: from", from)
+                    console.log("P arguments: from", from)
                     let nestedContext = await getNestedContext(libs, from.path);
-                    console.log("arguments: nestedContext", nestedContext)
+                    console.log("Q arguments: nestedContext", nestedContext)
 
-                    console.log(">>B<<")
+                    console.log("R >>B<<")
                     let value = await replacePlaceholders(item, libs, nestedPath);
-                    console.log("arguments: value", value)
+                    console.log("S arguments: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
                         return value();
                     }
                     return value;
                 });
                 args = await Promise.all(promises)
-                console.log("arguments: args", args)
+                console.log("T arguments: args", args)
             }
-            console.log("ZZ value", value)
-            console.log("ZZ target.key", target.key)
-            console.log("ZZ typeof", typeof nestedContext[target.key].value);
+            console.log("U ZZ value", value)
+            console.log("V ZZ target.key", target.key)
+            console.log("W ZZ typeof", typeof nestedContext[target.key].value);
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
-                console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
+                console.log("X Is a function: ", target.key, typeof nestedContext[target.key].value )
                 nestedContext[target.key].value = value(...args);
             }
         }
@@ -1967,30 +1978,31 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
             //const assignExecuted = action.assign.endsWith('|}!');
-            console.log("assignExecuted",assignExecuted, action.assign)
+            console.log("A1 assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
-            console.log("assignObj",assignObj)
+            console.log("A2 assignObj",assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-            console.log("strClean",strClean)
+            console.log("A3 strClean",strClean)
             let assign
             if (isObj) {
+                console.log("A4 isObj", isObj)
                 assign = await getKeyAndPath(strClean, nestedPath)
             } else {
                 assign = { "key": strClean, "path": nestedPath }
             }
-            console.log("assign", assign)
+            console.log("A5 assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
-            console.log("nestedContext", nestedContext)
+            console.log("A6 nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
-                console.log("inside", result)
+                console.log("A7 inside", result)
                 let tempFunction = () => result;
-                console.log("tempFunction", tempFunction)
+                console.log("A8 tempFunction", tempFunction)
                 let newResult = await tempFunction()
-                console.log("newResult", newResult)
+                console.log("A9 newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
-                console.log("other", assign)
-                console.log("result",result);
+                console.log("A10 other", assign)
+                console.log("A11 result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof nestedContext[assign.target], assignExecuted)
