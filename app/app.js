@@ -1185,6 +1185,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 current = current.context
             }
         }
+        console.log("keys", keys)
         for (let key of keys) {
             //if (current.hasOwnProperty(key)) {
             //    current = current[key];
