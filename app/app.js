@@ -1867,7 +1867,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        console.log("action.target");
+        console.log("action.target", action.target);
         const isObj = await isOnePlaceholder(action.target)
         let strClean = await removeBrackets(action.target, isObj, false);
         let target
@@ -1881,7 +1881,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (!nestedContext.hasOwnProperty(target.key)) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
-        console.log(">>A<<")
+        console.log(">>A<<", target.key)
         value = await replacePlaceholders(target.key, libs, target.path);
         let args = [];
 
@@ -1934,7 +1934,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
          console.log("value", value)
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
-            
+
             //const assignExecuted = action.assign.endsWith('|}!');
             console.log("assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
