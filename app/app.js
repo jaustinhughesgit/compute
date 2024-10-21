@@ -1496,30 +1496,32 @@ async function processString(str, libs, nestedPath) {
     }
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
-    //console.log("MMM1", newNestedPath)
-    //console.log("typeof", typeof mmm)
-    //console.log("MMM2", mmm)
+    console.log("MMM1", newNestedPath)
+    console.log("typeof", typeof mmm)
+    console.log("MMM2", mmm)
 
 
     const isObj = await isOnePlaceholder(str)
-    //console.log("str", str)
-    //console.log("isObj", isObj)
+    console.log("str", str)
+    console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("libs.root.context", libs.root.context)
-    //console.log("libs.root.context[str]", libs.root.context[str])
-    //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
+    console.log("libs.root.context[str]", libs.root.context[str])
+    console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         target = await getKeyAndPath(str.replace("{|", "").replace("|}", ""), nestedPath)
-        //console.log("target", target)
+        console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        //console.log("nestedValue", nestedValue[str.replace("{|", "").replace("|}", "")])
+        console.log("nestedValue", nestedValue)
         try {
+            console.log("try")
             mmm = nestedValue[str.replace("{|", "").replace("|}", "")].value
         } catch (e) {
+            console.log("catch")
             mmm = nestedValue[str.replace("{|", "").replace("|}", "")]
         }
     }
@@ -1528,10 +1530,13 @@ async function processString(str, libs, nestedPath) {
         mmm = libs.root.context[str].value
     }*/
 
-    //console.log("TYPEOF", typeof mmm)
+        console.log("mmm", mmm)
+        console.log("TYPEOF", typeof mmm)
     if (isExecuted) {
+
         mmm = await mmm();
     } else {
+        console.log("return mmm")
         return mmm;
     }
     /*const isExecuted = str.endsWith('|}!');
