@@ -2030,7 +2030,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     }
 
     async function instantiateWithNew(constructor, args) {
-        console.log("contructor", contructor)
         return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
