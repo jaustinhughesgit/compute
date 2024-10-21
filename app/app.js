@@ -996,11 +996,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
     let processedItem = item;
     let processedItem2 = item + "";
     if (typeof processedItem === 'string') {
-        console.log("BEFORE PROCESS STRING")
-        console.log(processedItem, nestedPath)
         let stringResponse = await processString(processedItem, libs, nestedPath);
-        console.log("AFTER PROCESS STRING")
-        console.log("stringResponse",stringResponse)
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
@@ -1189,7 +1185,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 current = current.context
             }
         }
-        console.log("keys", keys)
         for (let key of keys) {
             //if (current.hasOwnProperty(key)) {
             //    current = current[key];
@@ -1218,25 +1213,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } catch (err){
                 console.log("LL10")
                 console.log(err)
-                console.log("current", current)
-                console.log("current[key]", current[key])
                 current = current[key]
-                if (!current){
-                    return key
-                }
-                //
-                //
-                //
-                //
-                //
-                //
-                //current is not looping through and navigatiing to nested keys
-                //
-                //
-                //
-                //
-                //
-                //
             }
                 
             }
@@ -1373,11 +1350,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 } else {
                     console.log("stringify", value)
                     try {
-                    if (typeof value != "function"){    
                     modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                    } else {
-                        return value
-                    }
                     } catch (err){
                         modifiedStr = value
                     }
@@ -1483,9 +1456,6 @@ const json88 = {
 //console.log(replacePlaceholders(str, json));
 
 async function processString(str, libs, nestedPath) {
-    console.log("0 PROCESS STRING")
-    console.log("str", str)
-    console.log("str.endsWith('|}!'", str.endsWith('|}!'))
     const isExecuted = str.endsWith('|}!');
 
 
@@ -1493,7 +1463,6 @@ async function processString(str, libs, nestedPath) {
         if (!["req", "res"].includes(key)) {
             acc[key] = libs.root[key];
         }
-        console.log("RETURN")
         return acc;
     }, {});
 
@@ -1505,32 +1474,30 @@ async function processString(str, libs, nestedPath) {
     }
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
-    console.log("1MMM1", newNestedPath)
-    console.log("2typeof", typeof mmm)
-    console.log("3MMM2", mmm)
+    //console.log("MMM1", newNestedPath)
+    //console.log("typeof", typeof mmm)
+    //console.log("MMM2", mmm)
 
 
     const isObj = await isOnePlaceholder(str)
-    console.log("4str", str)
-    console.log("5isObj", isObj)
+    //console.log("str", str)
+    //console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("libs.root.context", libs.root.context)
-    console.log("6libs.root.context[str]", libs.root.context[str])
-    console.log("7typeof libs.root.context[str]", typeof libs.root.context[str])
+    //console.log("libs.root.context[str]", libs.root.context[str])
+    //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         target = await getKeyAndPath(str.replace("{|", "").replace("|}", ""), nestedPath)
-        console.log("8target", target)
+        //console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("9nestedValue", nestedValue)
+        //console.log("nestedValue", nestedValue[str.replace("{|", "").replace("|}", "")])
         try {
-            console.log("10try")
             mmm = nestedValue[str.replace("{|", "").replace("|}", "")].value
         } catch (e) {
-            console.log("11catch")
             mmm = nestedValue[str.replace("{|", "").replace("|}", "")]
         }
     }
@@ -1539,15 +1506,10 @@ async function processString(str, libs, nestedPath) {
         mmm = libs.root.context[str].value
     }*/
 
-        console.log("12mmm", mmm)
-        console.log("13TYPEOF", typeof mmm)
-        console.log("14isExecuted", isExecuted)
+    //console.log("TYPEOF", typeof mmm)
     if (isExecuted) {
-        console.log("15BEFORE:::::", mmm)
         mmm = await mmm();
-        console.log("16AFTER:::::", mmm)
     } else {
-        console.log("17return mmm")
         return mmm;
     }
     /*const isExecuted = str.endsWith('|}!');
@@ -1757,8 +1719,6 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
-    console.log("processAction", action)
-    console.log("nestedPath", nestedPath)
     let timeoutLength = 0
     if (action.timeout){
         timeoutLength = action.timeout
@@ -1902,71 +1862,62 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        console.log("A action.target");
+        console.log("action.target");
         const isObj = await isOnePlaceholder(action.target)
-        console.log("B isOnePlaceholder (isObj)", isObj)
         let strClean = await removeBrackets(action.target, isObj, false);
         let target
         if (isObj) {
             target = await getKeyAndPath(strClean, nestedPath)
-            console.log("C getKeyAndPath", target)
         } else {
             target = { "key": strClean, "path": nestedPath }
-            console.log("D just target", target)
         }
-        console.log("E getNestedContext", target.path)
         let nestedContext = await getNestedContext(libs, target.path);
-        console.log("F nestedContext", nestedContext)
 
         if (!nestedContext.hasOwnProperty(target.key)) {
-            console.log("G no nested contex")
             nestedContext[target.key] = { "value": {}, "context": {} }
-            console.log("H", target.key)
-            console.log("I", nestedContext[target.key])
         }
-        console.log("J >>A<<", target.key, target.path)
+        console.log(">>A<<")
         value = await replacePlaceholders(target.key, libs, target.path);
-        console.log("K value", value)
         let args = [];
 
         if (value) {
             //.arguments is the old .from
             if (action.params) {
                 let promises = action.params.map(async item => {
-                    console.log("L arguments: item", item)
+                    console.log("arguments: item", item)
                     const fromExecuted = item.endsWith('|}!');
-                    console.log("M arguments: fromExecuted", fromExecuted)
+                    console.log("arguments: fromExecuted", fromExecuted)
                     const fromObj = await isOnePlaceholder(item);
-                    console.log("N arguments: fromObj", fromObj)
+                    console.log("arguments: fromObj", fromObj)
                     let fromClean = await removeBrackets(item, fromObj, fromExecuted);
-                    console.log("O arguments: fromClean", fromClean)
+                    console.log("arguments: fromClean", fromClean)
                     let from
                     if (isObj) {
                         from = await getKeyAndPath(fromClean, nestedPath)
                     } else {
                         from = { "key": fromClean, "path": nestedPath }
                     }
-                    console.log("P arguments: from", from)
+                    console.log("arguments: from", from)
                     let nestedContext = await getNestedContext(libs, from.path);
-                    console.log("Q arguments: nestedContext", nestedContext)
+                    console.log("arguments: nestedContext", nestedContext)
 
-                    console.log("R >>B<<")
+                    console.log(">>B<<")
                     let value = await replacePlaceholders(item, libs, nestedPath);
-                    console.log("S arguments: value", value)
+                    console.log("arguments: value", value)
                     if (fromObj && fromExecuted && typeof value === 'function') {
                         return value();
                     }
                     return value;
                 });
                 args = await Promise.all(promises)
-                console.log("T arguments: args", args)
+                console.log("arguments: args", args)
             }
-            console.log("U ZZ value", value)
-            console.log("V ZZ target.key", target.key)
-            console.log("W ZZ typeof", typeof nestedContext[target.key].value);
+            console.log("ZZ value", value)
+            console.log("ZZ target.key", target.key)
+            console.log("ZZ typeof", typeof nestedContext[target.key].value);
 
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
-                console.log("X Is a function: ", target.key, typeof nestedContext[target.key].value )
+                console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
                 nestedContext[target.key].value = value(...args);
             }
         }
@@ -1978,31 +1929,30 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
             //const assignExecuted = action.assign.endsWith('|}!');
-            console.log("A1 assignExecuted",assignExecuted, action.assign)
+            console.log("assignExecuted",assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
-            console.log("A2 assignObj",assignObj)
+            console.log("assignObj",assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-            console.log("A3 strClean",strClean)
+            console.log("strClean",strClean)
             let assign
             if (isObj) {
-                console.log("A4 isObj", isObj)
                 assign = await getKeyAndPath(strClean, nestedPath)
             } else {
                 assign = { "key": strClean, "path": nestedPath }
             }
-            console.log("A5 assign", assign)
+            console.log("assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
-            console.log("A6 nestedContext", nestedContext)
+            console.log("nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result === 'function') {
-                console.log("A7 inside", result)
+                console.log("inside", result)
                 let tempFunction = () => result;
-                console.log("A8 tempFunction", tempFunction)
+                //console.log("tempFunction", tempFunction)
                 let newResult = await tempFunction()
-                console.log("A9 newResult", newResult)
+                //console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
             } else {
-                console.log("A10 other", assign)
-                console.log("A11 result",result);
+                console.log("other", assign)
+                console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof nestedContext[assign.target], assignExecuted)
@@ -2112,7 +2062,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     }
 
     async function instantiateWithNew(constructor, args) {
-        console.log("contructor", constructor)
+        console.log("contructor", contructor)
         return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
@@ -2213,17 +2163,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         //console.log("chainParams", chainParams);
                                     //console.log("result",result);
                                     if (assignExecuted){
-                                        console.log("result[accessClean]", result[accessClean])
-                                        console.log("result",result)
-                                        console.log("accessClean",accessClean)
-                                        console.log("chainParams",chainParams)
-                                    let output = await result[accessClean](...chainParams);
-                                    console.log("result of executed")
-                                    console.log("result of executed")
-                                    console.log("result of executed")
-                                    console.log("result of executed")
-                                    console.log("result of executed")
-                                    console.log("result",output)
+                                    result = await result[accessClean](...chainParams);
                                     } else {
                                     //just make it a function  reference
                                         //console.log("accessClean", accessClean);
