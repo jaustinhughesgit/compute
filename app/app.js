@@ -677,7 +677,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     // Install the module
     await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    lib.modules[moduleName] = moduleName;
+    lib.modules[moduleName] = {"value":moduleName, "context":{}};
 
     // Resolve the module path
     const modulePath = path.join('/tmp/node_modules/', moduleName);
