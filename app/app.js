@@ -1868,7 +1868,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                 }
                 console.log("putValueIntoContext")
-                await putValueIntoContext(firstParts, pathParts, value, libs, index);
+                await putValueIntoContext(firstParts, pathParts, value, libs.root.context, index);
                 console.log("###libs3", libs)
             } else {
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
