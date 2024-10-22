@@ -1942,7 +1942,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("ZZ target.key", target.key)
             console.log("ZZ typeof", typeof nestedContext[target.key].value);
             console.log("ZZ isClass(func)", isClass(nestedContext[target.key].value))
-            if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
+            console.log("ZZ args", args.length)
+            if ((typeof nestedContext[target.key].value === 'function' || isClass(nestedContext[target.key].value)) && args.length > 0) {
                 console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
                 nestedContext[target.key].value = value(...args);
             }
