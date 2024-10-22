@@ -152,8 +152,6 @@ app.all("/2356", async (req, res, next) => {
 
 });
 
-
-
 app.all("/eb1", async (req, res, next) => {
 
 
@@ -649,13 +647,6 @@ async function installModule(moduleName, contextKey, context, lib) {
     return "/tmp/node_modules/" + moduleName
 }*/
 
-
-
-
-
-
-
-
 /*
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
@@ -668,7 +659,6 @@ async function installModule(moduleName, contextKey, context, lib) {
     context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
     return "/tmp/node_modules/" + moduleName
 }*/
-
 
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
@@ -728,22 +718,6 @@ async function installModule(moduleName, contextKey, context, lib) {
         context[contextKey].value = module;
     }
 }*/
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
@@ -1734,15 +1708,19 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 
 async function processAction(action, libs, nestedPath, req, res, next) {
     let timeoutLength = 0
+
     if (action.timeout){
         timeoutLength = action.timeout
     }
+
     function delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
-}
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     if (timeoutLength > 0){
         await delay(timeoutLength);
     }
+
     if (action.set) {
         for (const key in action.set) {
 
@@ -1872,11 +1850,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 await putValueIntoContext(firstParts, pathParts, value, libs, index);
                 console.log("###libs3", libs)
             } else {
+                console.log("addValueToNestedKey")
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
+                console.log("libs.root.context", libs.root.context)
             }
         }
     }
-
 
     function isClass(func) {
         try {
