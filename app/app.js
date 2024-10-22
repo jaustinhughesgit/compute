@@ -1996,8 +1996,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
                 //    nestedContext[assign.target](...args)
                 //}
-                console.log("nestedContext[strClean]", nestedContext[strClean])
-                console.log("isClass(result)", isClass(result))
+                console.log("nestedContext[strClean].value", nestedContext[strClean].value)
+                console.log("isClass(nestedContext[strClean].value)", isClass(nestedContext[strClean].value))
                 
             }
         }
