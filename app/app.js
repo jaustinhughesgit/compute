@@ -1896,6 +1896,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         console.log("value", value)
         let args = [];
 
+
+        function isClass(func) {
+            try {
+              func(); // Attempt to call without 'new'
+              return false; // If no error, it's not a class
+            } catch (err) {
+              return /class constructor/.test(err.message);
+            }
+          }
+
         if (value) {
             //.arguments is the old .from
             if (action.params) {
@@ -1931,7 +1941,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("ZZ value", value)
             console.log("ZZ target.key", target.key)
             console.log("ZZ typeof", typeof nestedContext[target.key].value);
-
+            console.log("ZZ isClass(func)", isClass(nestedContext[target.key].value))
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
                 nestedContext[target.key].value = value(...args);
@@ -1963,14 +1973,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("nestedContext", nestedContext)
 
 
-            function isClass(func) {
-                try {
-                  func(); // Attempt to call without 'new'
-                  return false; // If no error, it's not a class
-                } catch (err) {
-                  return /class constructor/.test(err.message);
-                }
-              }
 
             console.log("isClass(result)", isClass(result))
             if (assignObj && assignExecuted && isClass(result)) {
