@@ -1012,6 +1012,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
     }
 
 }
+
 async function isOnePlaceholder(str) {
     if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!")) && !str.includes("=>") && !str.includes("[") && !str.includes("{|=")) {
         return str.indexOf("{|", 2) === -1;
@@ -1955,7 +1956,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (action.assign) {
             assignExecuted = action.assign.endsWith('|}!');
          }
-         console.log("value", value)
+         console.log("applyMethodChain--------------", 
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
 
@@ -2091,6 +2092,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
+    console.log("applyMethodChain target", target)
+    console.log("applyMethodChain action", action)
+    console.log("applyMethodChain libs", libs)
+    console.log("applyMethodChain nestedPath", nestedPath)
+    console.log("applyMethodChain assignExecuted", assignExecuted)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -2146,19 +2152,21 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                //console.log("--1aa--")
+                console.log("--1aa--")
 
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
                 console.log("--2aa--")
                 console.log("result", result)
                 console.log("accessClean", accessClean)
+                console.log("result[accessClean]",result[accessClean])
+                console.log("chainParams",chainParams)
                 result = await instantiateWithNew(result[accessClean], chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                //console.log("--2bb--")
+                console.log("--2bb--")
                 result = await instantiateWithNew(result, []);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                //console.log("--2cc--")
+                console.log("--2cc--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 //console.log("--3dd--")
