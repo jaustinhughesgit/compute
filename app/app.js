@@ -1997,7 +1997,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //    nestedContext[assign.target](...args)
                 //}
                 console.log("isClass(result)", isClass(result))
-                if ()
+                
             }
         }
     } else if (action.assign) {
