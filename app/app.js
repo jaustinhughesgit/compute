@@ -2162,6 +2162,18 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("result[accessClean]",result[accessClean])
                 console.log("chainParams",chainParams)
                 result = await instantiateWithNew(result[accessClean], chainParams);
+
+                const prototype = Object.getPrototypeOf(result);
+
+                // Get all property names (including methods) from the prototype
+                const propertyNames = Object.getOwnPropertyNames(prototype);
+                
+                // Filter to include only functions (methods)
+                const methods = propertyNames.filter((property) => {
+                  return typeof prototype[property] === 'function' && property !== 'constructor';
+                });
+                
+                console.log('Methods of result:', methods);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
                 console.log("--2bb--")
                 result = await instantiateWithNew(result, []);
