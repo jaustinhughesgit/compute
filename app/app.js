@@ -1876,6 +1876,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
     }
 
+
+    function isClass(func) {
+        try {
+          func(); // Attempt to call without 'new'
+          return false; // If no error, it's not a class
+        } catch (err) {
+          return /class constructor/.test(err.message);
+        }
+      }
+
     if (action.target) {
         console.log("action.target", action.target);
         const isObj = await isOnePlaceholder(action.target)
@@ -1897,14 +1907,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let args = [];
 
 
-        function isClass(func) {
-            try {
-              func(); // Attempt to call without 'new'
-              return false; // If no error, it's not a class
-            } catch (err) {
-              return /class constructor/.test(err.message);
-            }
-          }
 
         if (value) {
             //.arguments is the old .from
@@ -1973,6 +1975,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let nestedContext = await getNestedContext(libs, assign.path);
             console.log("nestedContext", nestedContext)
 
+            console.log("result", result)
 
 
             console.log("isClass(result)", isClass(result))
