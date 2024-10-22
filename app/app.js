@@ -1986,6 +1986,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 let newResult = tempFunction()
                 console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
+                console.log("isClass(newResult)", isClass(newResult))
             } else {
                 console.log("other", assign)
                 console.log("result",result);
@@ -1995,6 +1996,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
                 //    nestedContext[assign.target](...args)
                 //}
+                console.log("isClass(result)", isClass(result))
+                if ()
             }
         }
     } else if (action.assign) {
