@@ -1972,7 +1972,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("other", assign)
                 console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
-                //console.log("libs.root.context", libs.root.context);
+                console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof nestedContext[assign.target], assignExecuted)
                 //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
                 //    nestedContext[assign.target](...args)
