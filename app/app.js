@@ -1686,41 +1686,49 @@ async function addValueToNestedKey(key, nestedContext, value) {
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
 
     let pathHolder = libs
-    ////////console.log("###contextPath2.00", contextPath.slice(0,-1))
+    console.log("###contextPath2.00", contextPath.slice(0,-1))
     for (const part of contextPath.slice(0, -1)) {
+        console.log("pathHolder", pathHolder)
+        console.log("part", part)
         if (pathHolder.hasOwnProperty(part)) {
+            console.log("pathHolder has part")
             if (pathHolder[part].hasOwnProperty("context")) {
+                console.log("part has context")
                 pathHolder = pathHolder[part].context;
             } else {
+                console.log("part does noot have context")
                 pathHolder = pathHolder[part];
             }
         }
     }
-    ////////console.log("###pathHolder2.01", pathHolder)
-    ////////console.log("###contextPath2.02", contextPath.length-1)
-    ////////console.log("###contextPath2.03", contextPath[contextPath.length-1])
+    console.log("###pathHolder2.01", pathHolder)
+    console.log("###contextPath2.02", contextPath.length-1)
+    console.log("###contextPath2.03", contextPath[contextPath.length-1])
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length - 1])) {
+        console.log("ggg1")
         if (pathHolder[contextPath[contextPath.length - 1]].hasOwnProperty("value")) {
+            console.log("ggg2")
             pathHolder = pathHolder[contextPath[contextPath.length - 1]].value;
         } else {
+            console.log("ggg3")
             pathHolder = pathHolder[contextPath[contextPath.length - 1]];
         }
     }
-    ////////console.log("###pathHolder2.1", pathHolder)
-    ////////console.log("###objectPath2.12", objectPath.slice(0,-1))
+    console.log("###pathHolder2.1", pathHolder)
+    console.log("###objectPath2.12", objectPath.slice(0,-1))
     for (const part of objectPath.slice(0, -1)) {
         if (pathHolder.hasOwnProperty(part)) {
             pathHolder = pathHolder[part];
         }
     }
-    ////////console.log("###pathHolder2.22", pathHolder)
-    ////////console.log("###objectPath2.22",objectPath[objectPath.length - 1])
+    console.log("###pathHolder2.22", pathHolder)
+    console.log("###objectPath2.22",objectPath[objectPath.length - 1])
     if (index != undefined) {
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
         pathHolder[objectPath[objectPath.length - 1]] = value
     }
-    ////////console.log("###pathHolder2.3", pathHolder)
+    console.log("###pathHolder2.3", pathHolder)
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
