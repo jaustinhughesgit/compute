@@ -2156,6 +2156,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("--1aa--")
                 console.log("result", result)
                 console.log("accessClean", accessClean)
+                console.log("assignExecuted", assignExecuted)
+                console.log("typeof result", typeof result)
+                if (typeof result == "function" && assignExecuted){
+                    result = result()
+                    console.log("result after", result)
+                }
                 result = result[accessClean];
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
                 console.log("--2aa--")
