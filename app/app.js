@@ -1740,22 +1740,23 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const keyExecuted = key.endsWith('|}!');
             const keyObj = await isOnePlaceholder(key);
             let keyClean = await removeBrackets(key, keyObj, keyExecuted);
-            ////////console.log("keyClean",keyClean)
-            ////////console.log(key, nestedPath);
+            console.log("keyClean",keyClean)
+            console.log(key, nestedPath);
             let set
             if (keyObj) {
+                console.log("keyObj", keyObj)
                 set = await getKeyAndPath(keyClean, nestedPath)
             } else {
                 set = { "key": keyClean, "path": nestedPath }
             }
-            ////////console.log("66: set", set);
+            console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path, set.key);
-            ////////console.log("66: nestedContext",nestedContext)
+            console.log("66: nestedContext",nestedContext)
             try {
                 ////////console.log("66:2 nestedContext", nestedContext.originalFunction)
             } catch (err) { }
-            ////////console.log("66: action", action)
-            ////////console.log("66: action.set[key]",action.set[key])
+            console.log("66: action", action)
+            console.log("66: action.set[key]",action.set[key])
             function isValidJSON(string) {
                 try {
                     JSON.parse(string); // Try parsing the string
@@ -1834,7 +1835,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
 
             let arrowJson = keyClean.split("=>")
-            ////////console.log("66: arrowJson", arrowJson)
+            console.log("66: arrowJson", arrowJson)
             if (arrowJson.length > 1) {
                 let index
                 if (arrowJson[1].includes("[")) {
@@ -1842,12 +1843,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     arrowJson[1] = arrowJson[1].slice(0, -1).split("[")[0]
                 }
                 const pathParts = arrowJson[1].split('.');
-                ////////console.log("66: pathParts", pathParts)
+                console.log("66: pathParts", pathParts)
                 let firstParts = arrowJson[0].replace("~/", "root.").split('.')
-                ////////console.log("###firstParts", firstParts)
-                ////////console.log("###pathParts", pathParts)
-                ////////console.log("###value", value)
-                ////////console.log("###libs", libs)
+                console.log("###firstParts", firstParts)
+                console.log("###pathParts", pathParts)
+                console.log("###value", value)
+                console.log("###libs", libs)
                 if (index != undefined) {
                     if (index.includes("{|")) {
                         ////////console.log("index", index)
@@ -1858,8 +1859,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         ////////console.log("postIndex", index)
                     }
                 }
+                console.log("putValueIntoContext")
                 await putValueIntoContext(firstParts, pathParts, value, libs, index);
-                ////////console.log("###libs3", libs)
+                console.log("###libs3", libs)
             } else {
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
             }
@@ -1883,6 +1885,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         console.log(">>A<<", target.key)
         value = await replacePlaceholders(target.key, libs, target.path);
+        console.log("value", value)
         let args = [];
 
         if (value) {
