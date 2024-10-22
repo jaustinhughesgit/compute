@@ -2166,7 +2166,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 const propertyNames = Object.getOwnPropertyNames(prototype);
                 const methods = propertyNames.filter((property) => {
                     console.log("typeof prototype[property]",typeof prototype[property])
-                    console.log("property", propertyproperty)
+                    console.log("property", property)
                   return typeof prototype[property] === 'function' && property !== 'constructor';
                 });
                 console.log('Methods of result:', methods);
