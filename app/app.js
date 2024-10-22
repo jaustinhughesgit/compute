@@ -1961,7 +1961,19 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
             console.log("nestedContext", nestedContext)
-            if (assignObj && assignExecuted) {
+
+
+            function isClass(func) {
+                try {
+                  func(); // Attempt to call without 'new'
+                  return false; // If no error, it's not a class
+                } catch (err) {
+                  return /class constructor/.test(err.message);
+                }
+              }
+
+            console.log("isClass(result)", isClass(result))
+            if (assignObj && assignExecuted && isClass(result)) {
                 console.log("inside", result)
                 let tempFunction = () => result();
                 console.log("tempFunction", tempFunction)
