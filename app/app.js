@@ -1907,11 +1907,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         console.log("value", value)
         let args = [];
 
-
+        console.log("nestedContext[target.key]", nestedContext[target.key]);
 
         if (value) {
             //.arguments is the old .from
             if (action.params) {
+                console.log("action.params")
                 let promises = action.params.map(async item => {
                     console.log("arguments: item", item)
                     const fromExecuted = item.endsWith('|}!');
