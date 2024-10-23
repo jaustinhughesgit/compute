@@ -2187,36 +2187,37 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("--2cc--")
                 result = await instantiateWithNew(result, chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
-                //console.log("--3dd--")
+                console.log("--3dd--")
                 if (accessClean === 'promise') {
+                    console.log("PROMISE")
                     result = await result.promise();
                 } else {
 
-                    //console.log("1..aa..")
+                    console.log("1..aa..")
                     if (chainAction.new) {
-                        //console.log("1..bb..")
+                        console.log("1..bb..")
                         result = new result[accessClean](...chainParams);
                     } else {
-                        //console.log("1..cc..")
+                        console.log("1..cc..")
                         if (chainAction.access && accessClean.length != 0) {
-                            //console.log("1..dd..")
+                            console.log("1..dd..")
                             if (chainAction.express) {
-                                //console.log("1..ee..")
+                                console.log("1..ee..")
                                 if (chainAction.next || chainAction.next == undefined) {
-                                    //console.log("1..f..")
+                                    console.log("1..f..")
                                     result = await result[accessClean](...chainParams)(req, res, next);
                                 } else {
-                                    //console.log("1..g..")
+                                    console.log("1..g..")
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
                             } else {
 
-                                //console.log("..h..")
+                                console.log("..h..")
                                 /*try { console.log("result", result) } catch (err) { }
                                 try { console.log("accessClean", accessClean) } catch (err) { }
                                 try { console.log("chainParams", chainParams) } catch (err) { }*/
                                 try {
-                                    //console.log("..i..")
+                                    console.log("..i..")
                                     ////////console.log(chainParams[0])
                                     ////////console.log(typeof chainParams[0])
                                     if (chainParams.length > 0) {
@@ -2224,19 +2225,22 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             chainParams[0] = chainParams[0].toString();
                                         }
                                     }
-                                    //console.log("1------await result(...chainParams)--------------------------");
-                                        //console.log("chainParams", chainParams);
-                                    //console.log("result",result);
+                                    console.log("1------await result(...chainParams)--------------------------");
+                                    console.log("chainParams", chainParams);
+                                    console.log("result",result);
+                                    console.log("result[accessClean]",result[accessClean]);
                                     if (assignExecuted){
-                                    result = await result[accessClean](...chainParams);
+                                        console.log("if (assignExecuted){")
+                                        result = await result[accessClean](...chainParams);
                                     } else {
+                                        console.log("just make it a function  reference")
                                     //just make it a function  reference
-                                        //console.log("accessClean", accessClean);
+                                        console.log("accessClean", accessClean);
                                         result = result[accessClean];
                                     }
                                 } catch (err) {
-                                    //console.log("err", err)
-                                    //console.log("..j..")
+                                    console.log("err", err)
+                                    console.log("..j..")
                                     ////console.log("result", result.req.lib.root)
                                     result = result
                                 }
