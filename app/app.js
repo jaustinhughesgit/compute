@@ -2340,6 +2340,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         res.status(500).send('An error occurred');
     }*/
     console.log("returning result", result)
+    if (result == undefined){
+        result = {}
+    }
     return result;
 }
 
