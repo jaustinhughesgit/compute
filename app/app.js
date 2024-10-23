@@ -2002,7 +2002,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
             //console.log("result1",result);
             if (assignExecuted && typeof result === 'function') {
-                result = await result()
+                console.log("result",result)
+                console.log("args", args)
+                result = await result(...args)
             } else if (typeof result === 'function') {
                 result = JSON.stringify(result);
             }
