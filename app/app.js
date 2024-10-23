@@ -833,7 +833,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("post-initializeModules", JSON.stringify(req.lib.root.context.func))
-                        JSON.stringify(event, null, 2)
+                        
                         console.log("post-lib", req.lib)
 
                     };
