@@ -2114,6 +2114,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         console.log("6")
                 //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
+                console.log("chainParams", chainParams)
             } else {
                 console.log("7")
                 //console.log("result = result");
@@ -2131,14 +2132,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("accessClean", accessClean)
             }
 
-            //console.log("a", accessClean);
-            //console.log("b", chainAction.params);
-            //console.log("c", chainAction.new);
-            //console.log("d", result);
-            //console.log("e", result[accessClean]);
-            //console.log("f", result.length);
-            //console.log("g", typeof result[accessClean]);
-            //console.log("h", nestedPath)
+            console.log("a", accessClean);
+            console.log("b", chainAction.params);
+            console.log("c", chainAction.new);
+            console.log("d", result);
+            console.log("e", result[accessClean]);
+            console.log("f", result.length);
+            console.log("g", typeof result[accessClean]);
+            console.log("h", nestedPath)
 
             //target is not getting letters andd it's value.
             // we need to ensure it navvvigates to the path and gets the target value
