@@ -2352,6 +2352,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
     console.log("11111111")
+    console.log("action", action)
+    console.log("libs", libs)
+    console.log("nestedPath", nestedPath)
+    console.log("args", args)
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
         console.log("55: assignExecuted", assignExecuted)
