@@ -1952,6 +1952,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else {
                 assign = { "key": strClean, "path": nestedPath }
             }
+
+
             console.log("assign", assign)
             let nestedContext = await getNestedContext(libs, assign.path);
             console.log("nestedContext", nestedContext)
@@ -1973,11 +1975,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 console.log("libs.root.context", libs.root.context);
-                //console.log("if", typeof nestedContext[assign.target], assignExecuted)
-                //if (typeof nestedContext[assign.target] === "function" && assignExecuted){
-                //    nestedContext[assign.target](...args)
-                //}
-                //console.log("nestedContext[strClean].value", nestedContext[strClean].value)
+                console.log("if", typeof nestedContext[strClean], assignExecuted)
+                if (typeof nestedContext[strClean] === "function" && assignExecuted){
+                    nestedContext[strClean](...args)
+                }
+                console.log("libs.root.context", libs.root.context);
+                //console.log("nestedContext[strClean]", nestedContext[strClean].)
                 //console.log("isClass(nestedContext[strClean].value)", isClass(nestedContext[strClean].value))
                 
             }
