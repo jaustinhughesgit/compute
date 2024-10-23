@@ -1963,6 +1963,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             console.log("isClass(result)", isClass(result))
             if (assignObj && assignExecuted && isClass(result)) {
+                //check if applyMethodChain is already trying to execute this!!!!!!!!!!!!!!!!!!!
                 console.log("inside", result)
                 let tempFunction = () => result();
                 console.log("tempFunction", tempFunction)
@@ -1974,12 +1975,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("other", assign)
                 console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
-                console.log("libs.root.context", libs.root.context);
-                console.log("if", typeof result, assignExecuted)
-                if (typeof result === "function" && assignExecuted){
-                    nestedContext[strClean](...args)
-                }
-                console.log("libs.root.context", libs.root.context);
+                //console.log("libs.root.context", libs.root.context);
+                //console.log("if", typeof result, assignExecuted)
+                //if (typeof result === "function" && assignExecuted){
+                //    nestedContext[strClean](...args)
+                //}
+                //console.log("libs.root.context", libs.root.context);
                 //console.log("nestedContext[strClean]", nestedContext[strClean].)
                 //console.log("isClass(nestedContext[strClean].value)", isClass(nestedContext[strClean].value))
                 
@@ -2152,11 +2153,13 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("accessClean", accessClean)
                 console.log("assignExecuted", assignExecuted)
                 console.log("typeof result", typeof result)
-                if (typeof result[accessClean] == "function"){
-                    result = result[accessClean];
-                } else if (typeof result == "function" && assignExecuted){
-                    result = await result()
+                console.log("result[accessClean]", result[accessClean])
+                if (typeof result[accessClean] == "function" && assignExecuted){
+                    result = await result[accessClean]()
                     console.log("result after", result)
+                    //result = result[accessClean];
+                } else if (typeof result[accessClean] == "function"){
+                    console.log("result[accessClean]")
                     result = result[accessClean];
                 }
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
