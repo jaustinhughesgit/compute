@@ -2376,7 +2376,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
         console.log("createFunctionFromAction", assign.key, nestedContext)
-        await addValueToNestedKey(assign.key, nestedContext, {})
+        await addValueToNestedKey(assign.key, nestedContext, nestedContext[assign.key])
         let result;
         console.log("args", args)
 
