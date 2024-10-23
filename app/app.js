@@ -2351,29 +2351,29 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    //console.log("11111111")
+    console.log("11111111")
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
-        //console.log("55: assignExecuted", assignExecuted)
+        console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
-        ////////console.log("55: assignObj", assignObj)
+        console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-        ////////console.log("55: strClean", strClean)
+        console.log("55: strClean", strClean)
         let assign
         if (assignObj) {
             assign = await getKeyAndPath(strClean, nestedPath)
         } else {
             assign = { "key": strClean, "path": nestedPath }
         }
-        ////////console.log("55: assign", assign)
+        console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
-        ////////console.log("createFunctionFromAction", assign.key, nestedContext)
+        console.log("createFunctionFromAction", assign.key, nestedContext)
         await addValueToNestedKey(assign.key, nestedContext, {})
         let result;
-        ////////console.log("args", args)
+        console.log("args", args)
 
         if (action.params) {
-            /*let promises = args.map(async arg => {
+            let promises = args.map(async arg => {
                 console.log("11: arg", arg)
                 if (action.params && arg) {
                     const paramExecuted1 = arg.endsWith('|}!');
@@ -2394,27 +2394,27 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                         paramNestedContext1[param1.key] = arg;
                     }
                 }
-            })*/
+            })
 
             //from params might actually create context params. 
 
-            //let addToNested = await Promise.all(promises);
-            //console.log("addToNested", addToNested)
+            let addToNested = await Promise.all(promises);
+            console.log("addToNested", addToNested)
 
             let indexP = 0;
             for (par in action.params) {
-                //console.log("par", par)
+                console.log("par", par)
                 let param2 = action.params[par]
-                //console.log("11: param2", param2)
+                console.log("11: param2", param2)
                 if (param2 != null && param2 != "") {
                     const paramExecuted2 = param2.endsWith('|}!');
-                    //console.log("22: paramExecuted2", paramExecuted2)
+                    console.log("22: paramExecuted2", paramExecuted2)
                     const paramObj2 = await isOnePlaceholder(param2);
-                    //console.log("22: paramObj2", paramObj2)
+                    console.log("22: paramObj2", paramObj2)
                     let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                    //console.log("22: paramClean2", paramClean2)
+                    console.log("22: paramClean2", paramClean2)
                     let newNestedPath2 = nestedPath + "." + assign.key
-                    //console.log("22: newNestedPath2", newNestedPath2)
+                    console.log("22: newNestedPath2", newNestedPath2)
                     let p
                     const isObj = await isOnePlaceholder(paramClean2)
                     if (isObj) {
@@ -2422,51 +2422,26 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     } else {
                         p = { "key": paramClean2, "path": newNestedPath2 }
                     }
-                    //console.log("22: p", p)
+                    console.log("22: p", p)
                     let nestedParamContext2 = await getNestedContext(libs, p.path);
-                    //console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
+                    console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
                     await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
-                    ////////console.log("22: lib.root.context", libs.root.context);
+                    console.log("22: lib.root.context", libs.root.context);
                 }
                 indexP++
             }
         }
-        ////////console.log("222222")
-        console.log("lib.root.context", libs.root.context)
-        //.actions is the old .run
-        console.log("action",action)
-        console.log("nestedActions",action.nestedActions)
-        /*if (action.nestedActions) {
-            console.log("ACTIONS5 ACTIONS5")
-            for (const act of action.nestedActions) {
-                console.log("00: act", act)
-                let newNestedPath = nestedPath + "." + assign.key;
-                console.log("00: newNestedPath", newNestedPath, "libs", libs);
-                result = await runAction(act, libs, newNestedPath, req, res, next)
-                console.log("00: result", result)
-            }
-            console.log("00: lib.root.context", libs.root.context)
+
+        if (action.nestedActions) {
+            const nestedResults = await Promise.all(
+                action.nestedActions.map(async (act) => {
+                    let newNestedPath = nestedPath + "." + assign.key;
+                    return await runAction(act, libs, newNestedPath, req, res, next);
+                })
+            );
+            result = nestedResults[0];
         }
-        return result;*/
-
-
-
-if (action.nestedActions) {
-    const nestedResults = await Promise.all(
-        action.nestedActions.map(async (act) => {
-            let newNestedPath = nestedPath + "." + assign.key;
-            return await runAction(act, libs, newNestedPath, req, res, next);
-        })
-    );
-    // Process nestedResults if needed
-    console.log(nestedResults);
-    result = nestedResults[0]; // Assign the results of all nested actions
-}
-return result;
-
-
-
-
+        return result;
         
     };
 }
