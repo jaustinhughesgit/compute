@@ -2232,7 +2232,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if (assignExecuted){
                                         console.log("if (assignExecuted){")
                                         result = await result[accessClean](...chainParams);
-                                        console.log("result", result)
+                                        console.log("result777", result)
                                     } else {
                                         console.log("just make it a function  reference")
                                     //just make it a function  reference
@@ -2317,7 +2317,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         }
     }
     //console.log("--6--")
-    try {
+    /*try {
         // Log the files and folders in /opt
         const optDir = '/tmp';
         fs.readdir(optDir, (err, files) => {
@@ -2338,7 +2338,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     } catch (err) {
         //console.log(err);
         res.status(500).send('An error occurred');
-    }
+    }*/
     console.log("returning result", result)
     return result;
 }
