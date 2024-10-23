@@ -2012,15 +2012,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else {
                 result = JSON.stringify(result);
             }
-            if (result){
-                await addValueToNestedKey(assign.key, nestedContext, result);
-            }
+            await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
             console.log("result2.2", result);
-            if (result){
-                await addValueToNestedKey(action.assign, nestedContext, result);
-            }
+            await addValueToNestedKey(action.assign, nestedContext, result);
         }
     }
 
@@ -2380,7 +2376,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
         console.log("createFunctionFromAction", assign.key, nestedContext)
-        //await addValueToNestedKey(assign.key, nestedContext, {})
+        await addValueToNestedKey(assign.key, nestedContext, {})
         let result;
         console.log("args", args)
 
@@ -2452,9 +2448,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 })
             );
             result = nestedResults[0];
-            return result;
         }
-        return;
+        return result;
 
     };
 }
