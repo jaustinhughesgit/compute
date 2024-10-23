@@ -2006,7 +2006,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("result2.1",result);
             if (assignExecuted && typeof result === 'function') {
                 console.log("assign executed")
-                result = await result()
+                await result()
             } else if (typeof result === 'function') {
                 result = result;
             } else {
