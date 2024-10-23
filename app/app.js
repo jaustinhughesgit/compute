@@ -2016,7 +2016,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         } else {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
             console.log("result2.2", result);
-            await addValueToNestedKey(action.assign, nestedContext, result);
+            if (result){
+                await addValueToNestedKey(action.assign, nestedContext, result);
+            }
         }
     }
 
@@ -2448,8 +2450,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 })
             );
             result = nestedResults[0];
+            return result;
         }
-        return result;
+        return;
 
     };
 }
