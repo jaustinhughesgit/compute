@@ -1975,8 +1975,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("result",result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 console.log("libs.root.context", libs.root.context);
-                console.log("if", typeof nestedContext[strClean], assignExecuted)
-                if (typeof nestedContext[strClean] === "function" && assignExecuted){
+                console.log("if", typeof result, assignExecuted)
+                if (typeof result === "function" && assignExecuted){
                     nestedContext[strClean](...args)
                 }
                 console.log("libs.root.context", libs.root.context);
@@ -2083,10 +2083,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     let result = target
 
     if (nestedPath.endsWith(".")) {
+        console.log("1")
         nestedPath = nestedPath.slice(0, -1)
     }
 
     if (nestedPath.startsWith(".")) {
+        console.log("2")
         nestedPath = nestedPath.slice(1)
     }
 
@@ -2096,18 +2098,24 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
 
     if (action.chain && result) {
+        console.log("3")
         for (const chainAction of action.chain) {
+            console.log("4")
             let chainParams;
 
             // I FORGOT ABOUT THIS RETURN CAPABILITY. IT RETURNS WHAT THE "VALUE" OF WHAT CHAINACTION.RETURN HOLDS. 
             if (chainAction.hasOwnProperty('return')) {
+                console.log("5")
                 return chainAction.return;
             }
 
             if (chainAction.params) {
+
+        console.log("6")
                 //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
             } else {
+                console.log("7")
                 //console.log("result = result");
                  result = result
                 return
@@ -2116,8 +2124,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             ////console.log("chainParams", chainParams)
             let accessClean = chainAction.access
             if (accessClean) {
+                console.log("8")
                 const isObj = await isOnePlaceholder(accessClean)
+                console.log("isObj", isObj)
                 accessClean = await removeBrackets(accessClean, isObj, false);
+                console.log("accessClean", accessClean)
             }
 
             //console.log("a", accessClean);
@@ -2294,6 +2305,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     ////////console.log(libs.root.context[action.target].value.length)
                 } catch (err) { }
                 //console.error(`Method ${chainAction.access} is not a function on ${action.target}`);
+                console.log("else else")
                 return;
             }
         }
