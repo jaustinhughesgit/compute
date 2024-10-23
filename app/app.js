@@ -1988,7 +1988,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
     } else if (action.assign) {
-        //console.log("action.assign")
+        console.log("action.assign")
         const assignExecuted = action.assign.endsWith('|}!');
         const assignObj = await isOnePlaceholder(action.assign);
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -2001,7 +2001,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(libs, assign.path);
         if (assignObj) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
-            //console.log("result1",result);
+            console.log("result2.1",result);
             if (assignExecuted && typeof result === 'function') {
                 result = await result()
             } else if (typeof result === 'function') {
@@ -2010,7 +2010,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             await addValueToNestedKey(assign.key, nestedContext, result);
         } else {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
-            //console.log("result2", result);
+            console.log("result2.2", result);
             await addValueToNestedKey(action.assign, nestedContext, result);
         }
     }
