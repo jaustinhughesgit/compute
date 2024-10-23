@@ -2012,7 +2012,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else {
                 result = JSON.stringify(result);
             }
-            await addValueToNestedKey(assign.key, nestedContext, result);
+            if (result){
+                await addValueToNestedKey(assign.key, nestedContext, result);
+            }
         } else {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
             console.log("result2.2", result);
