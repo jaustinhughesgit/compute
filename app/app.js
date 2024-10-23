@@ -107,21 +107,21 @@ function isSubset(jsonA, jsonB) {
 
 async function isValid(req, res, data) {
     console.log("isValid", req)
-    
+
     console.log("req.path::", req.path)
-    
-    
+
+
     let originalHost = req.body.headers["X-Original-Host"];
     //console.log("originalHost", originalHost)
     let splitOriginalHost = originalHost.split("1var.com")[1]
     //console.log("splitOriginalHost", splitOriginalHost)
     let reqPath = splitOriginalHost.split("?")[0]
-    reqPath = reqPath.replace("/cookies/runEntity","")
+    reqPath = reqPath.replace("/cookies/runEntity", "")
     console.log("reqPath", reqPath)
     req.dynPath = reqPath
 
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/","").replace("/",""), "su", dynamodb)
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", ""), "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
@@ -473,7 +473,7 @@ app.all('/auth/*',
     }
 )
 
-async function runApp (req, res, next) {
+async function runApp(req, res, next) {
     console.log("runApp-runApp")
     try {
         // Middleware 1: Initialization
@@ -499,16 +499,16 @@ async function runApp (req, res, next) {
         };
 
 
-        if (req.path == "/"){
+        if (req.path == "/") {
             req.dynPath = "/cookies/runEntity"
         } else {
             req.dynPath = req.path
         }
-        
 
 
-        console.log("req.path000",req.dynPath)
-        console.log("req.lib.isMiddlewareInitialized",req.lib.isMiddlewareInitialized)
+
+        console.log("req.path000", req.dynPath)
+        console.log("req.lib.isMiddlewareInitialized", req.lib.isMiddlewareInitialized)
         // Middleware 2: Check if middleware needs initialization
         if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
             console.log("runApp1")
@@ -517,8 +517,8 @@ async function runApp (req, res, next) {
             req.lib.isMiddlewareInitialized = true;
         }
 
-        console.log("req.lib.middlewareCache",req.lib.middlewareCache)
-        console.log("req.lib",req.lib)
+        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        console.log("req.lib", req.lib)
         // If middleware cache is empty, deny access
         if (req.lib.middlewareCache.length === 0) {
             return res.send("no access");
@@ -667,7 +667,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     // Install the module
     await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    lib.modules[moduleName] = {"value":moduleName, "context":{}};
+    lib.modules[moduleName] = { "value": moduleName, "context": {} };
 
     // Resolve the module path
     const modulePath = path.join('/tmp/node_modules/', moduleName);
@@ -681,11 +681,11 @@ async function installModule(moduleName, contextKey, context, lib) {
         for (const key of keys) {
             // Store the export directly
             console.log("INSTALLING TO VALUE MIGHT NOT WORK")
-            context[key] = {"value":module[key], "context":{}};
+            context[key] = { "value": module[key], "context": {} };
         }
     } else {
         // It's a simple module name
-        context[contextKey] = {"value":module, "context":{}};
+        context[contextKey] = { "value": module, "context": {} };
     }
     console.log("context", JSON.stringify(context))
 }
@@ -738,13 +738,13 @@ function getPageType(urlPath) {
 async function initializeMiddleware(req, res, next) {
     console.log("runApp3")
 
-    if (req.path == "/"){
+    if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
     } else {
         req.dynPath = req.path
     }
 
-    console.log("req.dynPath",req.dynPath)
+    console.log("req.dynPath", req.dynPath)
     //console.log("req", req)
 
     if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
@@ -756,24 +756,24 @@ async function initializeMiddleware(req, res, next) {
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
         let reqPath = splitOriginalHost.split("?")[0]
-        reqPath = reqPath.replace("/cookies/runEntity","")
+        reqPath = reqPath.replace("/cookies/runEntity", "")
         console.log("reqPath", reqPath)
         req.dynPath = reqPath
         let head
         let cookie
         let parent
         let fileArray
-        if (reqPath.split("/")[1] == "api"){
+        if (reqPath.split("/")[1] == "api") {
             console.log("runApp5")
-           head  = await getHead("su", reqPath.split("/")[2], dynamodb)
+            head = await getHead("su", reqPath.split("/")[2], dynamodb)
             cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
 
             console.log("runApp6")
-           head  = await getHead("su", reqPath.split("/")[1], dynamodb)
-           console.log("runApp6.1")
+            head = await getHead("su", reqPath.split("/")[1], dynamodb)
+            console.log("runApp6.1")
             cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
             console.log("runApp6.2")
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
@@ -806,7 +806,7 @@ async function initializeMiddleware(req, res, next) {
                 console.log("arrayOfJSON", arrayOfJSON)
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        console.log("req.body",JSON.stringify(req.body))
+                        console.log("req.body", JSON.stringify(req.body))
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
@@ -834,7 +834,7 @@ async function initializeMiddleware(req, res, next) {
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("post-initializeModules", req.lib.root.context)
                         console.log("post-lib", req.lib)
-                        
+
                     };
                 });
                 return await Promise.all(resultArrayOfJSON)
@@ -1168,46 +1168,46 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             //    }
             //} else {
             console.log("LL2", key)
-            console.log("LL3",current);
-            console.log("LL4",current[key]);
-            console.log("LL5",keys.length - 1, curCounter);
+            console.log("LL3", current);
+            console.log("LL4", current[key]);
+            console.log("LL5", keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
                 console.log("LL6")
                 try { current = current[key].context } catch (err) { console.log(err) }
             } else {
                 console.log("LL7")
                 try { //current = current[key].value } catch (err) { console.log(err) }
-                if (current[key].hasOwnProperty("value")) {
-                    console.log("LL8")
-                    current = current[key].value
-                } else {
-                    console.log("LL9")
+                    if (current[key].hasOwnProperty("value")) {
+                        console.log("LL8")
+                        current = current[key].value
+                    } else {
+                        console.log("LL9")
+                        current = current[key]
+                    }
+                } catch (err) {
+                    console.log("LL10")
+                    console.log(err)
+                    console.log("current", current)
+                    console.log("current[key]", current[key])
                     current = current[key]
+                    if (!current) {
+                        return key
+                    }
+                    //
+                    //
+                    //
+                    //
+                    //
+                    //
+                    //current is not looping through and navigatiing to nested keys
+                    //
+                    //
+                    //
+                    //
+                    //
+                    //
                 }
-            } catch (err){
-                console.log("LL10")
-                console.log(err)
-                console.log("current", current)
-                console.log("current[key]", current[key])
-                current = current[key]
-                if (!current){
-                    return key
-                }
-                //
-                //
-                //
-                //
-                //
-                //
-                //current is not looping through and navigatiing to nested keys
-                //
-                //
-                //
-                //
-                //
-                //
-            }
-                
+
             }
             //return '';
             //}
@@ -1327,12 +1327,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 } else {
                     console.log("stringify", value)
                     try {
-                    if (typeof value != "function"){    
-                    modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                    } else {
-                        return value
-                    }
-                    } catch (err){
+                        if (typeof value != "function") {
+                            modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
+                        } else {
+                            return value
+                        }
+                    } catch (err) {
                         modifiedStr = value
                     }
                 }
@@ -1651,7 +1651,7 @@ async function addValueToNestedKey(key, nestedContext, value) {
     if (value == undefined || key == undefined) {
         //console.log("key/value undefined")
     } else {
-        key = key.replace("~/","");
+        key = key.replace("~/", "");
         if (!nestedContext.hasOwnProperty(key)) {
             nestedContext[key] = { "value": {}, "context": {} }
         }
@@ -1662,7 +1662,7 @@ async function addValueToNestedKey(key, nestedContext, value) {
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
 
     let pathHolder = libs
-    console.log("###contextPath2.00", contextPath.slice(0,-1))
+    console.log("###contextPath2.00", contextPath.slice(0, -1))
     for (const part of contextPath.slice(0, -1)) {
         console.log("pathHolder", pathHolder)
         console.log("part", part)
@@ -1678,8 +1678,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
         }
     }
     console.log("###pathHolder2.01", pathHolder)
-    console.log("###contextPath2.02", contextPath.length-1)
-    console.log("###contextPath2.03", contextPath[contextPath.length-1])
+    console.log("###contextPath2.02", contextPath.length - 1)
+    console.log("###contextPath2.03", contextPath[contextPath.length - 1])
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length - 1])) {
         console.log("ggg1")
         if (pathHolder[contextPath[contextPath.length - 1]].hasOwnProperty("value")) {
@@ -1691,14 +1691,14 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
         }
     }
     console.log("###pathHolder2.1", pathHolder)
-    console.log("###objectPath2.12", objectPath.slice(0,-1))
+    console.log("###objectPath2.12", objectPath.slice(0, -1))
     for (const part of objectPath.slice(0, -1)) {
         if (pathHolder.hasOwnProperty(part)) {
             pathHolder = pathHolder[part];
         }
     }
     console.log("###pathHolder2.22", pathHolder)
-    console.log("###objectPath2.22",objectPath[objectPath.length - 1])
+    console.log("###objectPath2.22", objectPath[objectPath.length - 1])
     if (index != undefined) {
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
@@ -1710,7 +1710,7 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 async function processAction(action, libs, nestedPath, req, res, next) {
     let timeoutLength = 0
 
-    if (action.timeout){
+    if (action.timeout) {
         timeoutLength = action.timeout
     }
 
@@ -1718,7 +1718,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    if (timeoutLength > 0){
+    if (timeoutLength > 0) {
         await delay(timeoutLength);
     }
 
@@ -1728,7 +1728,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const keyExecuted = key.endsWith('|}!');
             const keyObj = await isOnePlaceholder(key);
             let keyClean = await removeBrackets(key, keyObj, keyExecuted);
-            console.log("keyClean",keyClean)
+            console.log("keyClean", keyClean)
             console.log(key, nestedPath);
             let set
             if (keyObj) {
@@ -1739,12 +1739,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path, set.key);
-            console.log("66: nestedContext",nestedContext)
+            console.log("66: nestedContext", nestedContext)
             try {
                 ////////console.log("66:2 nestedContext", nestedContext.originalFunction)
             } catch (err) { }
             console.log("66: action", action)
-            console.log("66: action.set[key]",action.set[key])
+            console.log("66: action.set[key]", action.set[key])
             function isValidJSON(string) {
                 try {
                     JSON.parse(string); // Try parsing the string
@@ -1860,12 +1860,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
     function isClass(func) {
         try {
-          func(); // Attempt to call without 'new'
-          return false; // If no error, it's not a class
+            func(); // Attempt to call without 'new'
+            return false; // If no error, it's not a class
         } catch (err) {
-          return /class constructor/.test(err.message);
+            return /class constructor/.test(err.message);
         }
-      }
+    }
 
     if (action.target) {
         console.log("action.target", action.target);
@@ -1928,25 +1928,25 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("ZZ isClass(func)", isClass(nestedContext[target.key].value))
             console.log("ZZ args", args.length)
             if ((typeof nestedContext[target.key].value === 'function' || isClass(nestedContext[target.key].value)) && args.length > 0) {
-                console.log("Is a function: ", target.key, typeof nestedContext[target.key].value )
+                console.log("Is a function: ", target.key, typeof nestedContext[target.key].value)
                 nestedContext[target.key].value = value(...args);
             }
         }
         let newNestedPath = nestedPath
-        let assignExecuted = false; 
+        let assignExecuted = false;
         if (action.assign) {
             assignExecuted = action.assign.endsWith('|}!');
-         }
-         console.log("applyMethodChain--------------");
+        }
+        console.log("applyMethodChain--------------");
         result = await applyMethodChain(value, action, libs, newNestedPath, assignExecuted, res, req, next);
         if (action.assign) {
 
             //const assignExecuted = action.assign.endsWith('|}!');
-            console.log("assignExecuted",assignExecuted, action.assign)
+            console.log("assignExecuted", assignExecuted, action.assign)
             const assignObj = await isOnePlaceholder(action.assign);
-            console.log("assignObj",assignObj)
+            console.log("assignObj", assignObj)
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-            console.log("strClean",strClean)
+            console.log("strClean", strClean)
             let assign
             if (isObj) {
                 assign = await getKeyAndPath(strClean, nestedPath)
@@ -1974,7 +1974,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("isClass(newResult)", isClass(newResult))
             } else {
                 console.log("other", assign)
-                console.log("result",result);
+                console.log("result", result);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof result, assignExecuted)
@@ -1984,7 +1984,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("nestedContext[strClean]", nestedContext[strClean].)
                 //console.log("isClass(nestedContext[strClean].value)", isClass(nestedContext[strClean].value))
-                
+
             }
         }
     } else if (action.assign) {
@@ -2045,25 +2045,25 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //await value.value
 
                 async function executeValue() {
-                try {
-                    const data = await value.value();
-                    //console.log("data",data);
-                    return data;
-                } catch (error) {
-                    console.error('Failed to execute value function:', error.message);
-                    throw error;
+                    try {
+                        const data = await value.value();
+                        //console.log("data",data);
+                        return data;
+                    } catch (error) {
+                        console.error('Failed to execute value function:', error.message);
+                        throw error;
+                    }
+
                 }
-                    
-            }
-                    //console.log("executeValue");
-                    await executeValue()
+                //console.log("executeValue");
+                await executeValue()
                     .then(data => {
                         //console.log('Fetched data:', data);
                     })
                     .catch(error => {
                         console.error('Error:', error.message);
                     });
-                
+
             }
         } else {
             //console.error(`No function named ${strClean} found in context`);
@@ -2073,7 +2073,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.next) {
         next();
     }
-    
+
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
@@ -2113,14 +2113,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (chainAction.params) {
 
-        console.log("6")
+                console.log("6")
                 //console.log(">>C<<")
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
                 console.log("chainParams", chainParams)
             } else {
                 console.log("7")
                 //console.log("result = result");
-                 result = result
+                result = result
                 return
                 //chainParams = [];
             }
@@ -2155,11 +2155,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("assignExecuted", assignExecuted)
                 console.log("typeof result", typeof result)
                 console.log("result[accessClean]", result[accessClean])
-                if (typeof result[accessClean] == "function" && assignExecuted){
+                if (typeof result[accessClean] == "function" && assignExecuted) {
                     result = await result[accessClean]()
                     console.log("result after", result)
                     //result = result[accessClean];
-                } else if (typeof result[accessClean] == "function"){
+                } else if (typeof result[accessClean] == "function") {
                     console.log("result[accessClean]")
                     result = result[accessClean];
                 }
@@ -2167,15 +2167,15 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("--2aa--")
                 console.log("result", result)
                 console.log("accessClean", accessClean)
-                console.log("result[accessClean]",result[accessClean])
-                console.log("chainParams",chainParams)
+                console.log("result[accessClean]", result[accessClean])
+                console.log("chainParams", chainParams)
                 result = await instantiateWithNew(result[accessClean], chainParams);
                 const prototype = Object.getPrototypeOf(result);
                 const propertyNames = Object.getOwnPropertyNames(prototype);
                 const methods = propertyNames.filter((property) => {
-                    console.log("typeof prototype[property]",typeof prototype[property])
+                    console.log("typeof prototype[property]", typeof prototype[property])
                     console.log("property", property)
-                  return typeof prototype[property] === 'function' && property !== 'constructor';
+                    return typeof prototype[property] === 'function' && property !== 'constructor';
                 });
                 console.log('Methods of result:', methods);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
@@ -2184,7 +2184,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 const prototype = Object.getPrototypeOf(result);
                 const propertyNames = Object.getOwnPropertyNames(prototype);
                 const methods = propertyNames.filter((property) => {
-                  return typeof prototype[property] === 'function' && property !== 'constructor';
+                    return typeof prototype[property] === 'function' && property !== 'constructor';
                 });
                 console.log('Methods of result:', methods);
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
@@ -2231,15 +2231,15 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     }
                                     console.log("1------await result(...chainParams)--------------------------");
                                     console.log("chainParams", chainParams);
-                                    console.log("result",result);
-                                    console.log("result[accessClean]",result[accessClean]);
-                                    if (assignExecuted){
+                                    console.log("result", result);
+                                    console.log("result[accessClean]", result[accessClean]);
+                                    if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         result = await result[accessClean](...chainParams);
                                         console.log("result777", result)
                                     } else {
                                         console.log("just make it a function  reference")
-                                    //just make it a function  reference
+                                        //just make it a function  reference
                                         console.log("accessClean", accessClean);
                                         result = result[accessClean];
                                     }
@@ -2344,7 +2344,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
         res.status(500).send('An error occurred');
     }*/
     console.log("returning result", result)
-    if (result == undefined){
+    if (result == undefined) {
         result = {}
     }
     return result;
@@ -2386,7 +2386,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     console.log("11: param1", param1)
                     let paramNestedContext1 = await getNestedContext(libs, param1.path);
                     console.log("11: paramNestedContext1", paramNestedContext1)
-                    if (paramExecuted1 && paramObj1 && typeof arg === "function"){
+                    if (paramExecuted1 && paramObj1 && typeof arg === "function") {
                         console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
                         paramNestedContext1[param1.key] = await arg();
                     } else {
@@ -2442,7 +2442,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             result = nestedResults[0];
         }
         return result;
-        
+
     };
 }
 
@@ -2464,16 +2464,16 @@ const lambdaHandler = async (event, context) => {
         //let { getSub } = await require('./routes/cookies')
         // Process the SES email
         //console.log("Received SES event:", JSON.stringify(event, null, 2));
-        
+
         let emailId = event.Records[0].ses.mail.messageId
         let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
         let emailDate = event.Records[0].ses.mail.commonHeaders.date
         let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
         let emailTo = event.Records[0].ses.mail.commonHeaders.to
         let emailTarget = ""
-        for (let to in emailTo){
+        for (let to in emailTo) {
             //console.log(to)
-            if (emailTo[to].endsWith("email.1var.com")){
+            if (emailTo[to].endsWith("email.1var.com")) {
                 //console.log("ends with email.1var.com")
                 emailTarget = emailTo[to].split("@")[0]
             }
@@ -2493,10 +2493,10 @@ const lambdaHandler = async (event, context) => {
         if (data.ContentType == "application/json") {
             let s3JSON = await JSON.parse(data.Body.toString());
             //console.log("s3JSON",s3JSON)
-            s3JSON.email.unshift({"from":returnPath, "to":emailTarget, "subject":emailSubject, "date":emailDate, "emailID":emailId})
+            s3JSON.email.unshift({ "from": returnPath, "to": emailTarget, "subject": emailSubject, "date": emailDate, "emailID": emailId })
 
             const params = {
-                Bucket: fileLocation + ".1var.com", 
+                Bucket: fileLocation + ".1var.com",
                 Key: emailTarget,
                 Body: JSON.stringify(s3JSON),
                 ContentType: "application/json"
@@ -2508,7 +2508,7 @@ const lambdaHandler = async (event, context) => {
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
-    
+
     if (event.automate) {
         //console.log("automate is true")
 
@@ -2772,9 +2772,8 @@ const lambdaHandler = async (event, context) => {
 module.exports = {
     lambdaHandler,
     runApp
-  };
-  
-  
-  
-  
-  
+};
+
+
+
+
