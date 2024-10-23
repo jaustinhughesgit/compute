@@ -828,6 +828,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.moment = { "value": moment, "context": {} }
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
+                        req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
                         await initializeModules(req.lib, userJSON, req, res, next);
@@ -2002,9 +2003,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
             //console.log("result1",result);
             if (assignExecuted && typeof result === 'function') {
-                console.log("result",result)
-                console.log("args", args)
-                result = await result(...args)
+                result = await result()
             } else if (typeof result === 'function') {
                 result = JSON.stringify(result);
             }
