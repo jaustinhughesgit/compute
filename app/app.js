@@ -833,7 +833,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("post-initializeModules", req.lib.root.context)
-                        
+
                         console.log("post-lib", req.lib)
 
                     };
@@ -896,7 +896,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
                 }
             }
         }*/
-       console.log("tempContext", tempContext)
+        console.log("tempContext", tempContext)
         return tempContext;
     }
     console.log("libs", libs)
@@ -987,7 +987,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
             console.log("repHolder", repHolder)
             return repHolder
         });
-        
+
         return await Promise.all(newProcessedItem2);
     } else {
         console.log("return item, nestedPath, libs", item, nestedPath, libs)
@@ -1240,11 +1240,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
         console.log("current = ", current)
         for (let key of keys2) {
-            console.log("k2.07: key",key)
+            console.log("k2.07: key", key)
             console.log("k2.08: typeof", typeof current)
             console.log("k2.09: curent", current)
-            console.log("k2.1:",current.hasOwnProperty(key))
-            console.log("k2.3:",current.hasOwnProperty("value"))
+            console.log("k2.1:", current.hasOwnProperty(key))
+            console.log("k2.3:", current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
                 current = current[key];
                 console.log("k2.4", current)
@@ -1259,9 +1259,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             curCounter++;
         }
 
-        console.log("index",index)
-        console.log("current",current)
-        console.log("Array.isArray(current)",Array.isArray(current))
+        console.log("index", index)
+        console.log("current", current)
+        console.log("Array.isArray(current)", Array.isArray(current))
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
@@ -1474,7 +1474,7 @@ async function processString(str, libs, nestedPath) {
     console.log("str", str)
     console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
-    
+
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
@@ -1497,7 +1497,7 @@ async function processString(str, libs, nestedPath) {
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[target.key])
         try {
-            console.log("nestedValue[target.key].value",nestedValue[target.key].value)
+            console.log("nestedValue[target.key].value", nestedValue[target.key].value)
             mmm = nestedValue[target.key].value
         } catch (e) {
             console.log("nestedValue[target.key]", nestedValue[target.key])
@@ -1884,9 +1884,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs3", libs)
             } else {
                 console.log("addValueToNestedKey")
-                console.log("set.key",set.key.replace("~/", ""))
-                console.log("nestedContext",nestedContext)
-                console.log("value",value)
+                console.log("set.key", set.key.replace("~/", ""))
+                console.log("nestedContext", nestedContext)
+                console.log("value", value)
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
                 console.log("libs.root.context", libs.root.context)
             }
@@ -2037,7 +2037,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let nestedContext = await getNestedContext(libs, assign.path);
         if (assignObj) {
             let result = await createFunctionFromAction(action, libs, assign.path, req, res, next)
-            console.log("result2.1",result);
+            console.log("result2.1", result);
             if (assignExecuted && typeof result === 'function') {
                 console.log("assign executed")
                 result = await result()
@@ -2418,22 +2418,30 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             let promises = args.map(async arg => {
                 console.log("11: arg", arg)
                 if (action.params && arg) {
-                    const paramExecuted1 = arg.endsWith('|}!');
-                    console.log("11: paramExecuted1", arg, paramExecuted1)
-                    const paramObj1 = await isOnePlaceholder(arg);
-                    console.log("11: paramObj1", arg, paramObj1)
-                    let paramClean1 = await removeBrackets(arg, paramObj1, paramExecuted1);
-                    console.log("11: paramClean1", arg, paramClean1)
-                    let param1 = await getKeyAndPath(paramClean1, nestedPath);
-                    console.log("11: param1", arg, param1)
-                    let paramNestedContext1 = await getNestedContext(libs, param1.path);
-                    console.log("11: paramNestedContext1", arg, paramNestedContext1)
-                    if (paramExecuted1 && paramObj1 && typeof arg === "function") {
-                        console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
-                        paramNestedContext1[param1.key] = await arg();
+                    if (typeof arg == "string") {
+                        const paramExecuted1 = arg.endsWith('|}!');
+                        console.log("11: paramExecuted1", arg, paramExecuted1)
+                        const paramObj1 = await isOnePlaceholder(arg);
+                        console.log("11: paramObj1", arg, paramObj1)
+                        let paramClean1 = await removeBrackets(arg, paramObj1, paramExecuted1);
+                        console.log("11: paramClean1", arg, paramClean1)
+                        let param1 = await getKeyAndPath(paramClean1, nestedPath);
+                        console.log("11: param1", arg, param1)
+                        let paramNestedContext1 = await getNestedContext(libs, param1.path);
+                        console.log("11: paramNestedContext1", arg, paramNestedContext1)
+                        if (paramExecuted1 && paramObj1 && typeof arg === "function") {
+                            console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
+                            paramNestedContext1[param1.key] = await arg();
+                        } else {
+                            console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
+                            paramNestedContext1[param1.key] = arg;
+                        }
                     } else {
-                        console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
-                        paramNestedContext1[param1.key] = arg;
+                        console.log("~~~~~~~arg", arg)
+                        console.log("~~~~~~~args", args)
+                        console.log("~~~~~~~nestedContext", nestedContext)
+                        console.log("~~~~~~~strClean", strClean)
+                        console.log("~~~~~~~assign", assign)
                     }
                     return;
                 }
