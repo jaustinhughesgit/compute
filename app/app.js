@@ -981,6 +981,8 @@ async function replacePlaceholders(item, libs, nestedPath) {
     } else if (Array.isArray(processedItem)) {
         let newProcessedItem2 = processedItem.map(async element => {
             console.log("element", element)
+            console.log("item", item)
+            console.log("processedItem", processedItem)
             let repHolder = await replacePlaceholders(element, libs, nestedPath)
             console.log("repHolder", repHolder)
             return repHolder
