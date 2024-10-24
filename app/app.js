@@ -2434,9 +2434,10 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                             paramNestedContext1[param1.key] = await arg();
                         } else {
                             console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
-                            paramNestedContext1[param1.key] = arg;
+                            //paramNestedContext1[param1.key] = arg;
                         }
                     } else {
+                        nestedContext[assign.key] = arg
                         console.log("~~~~~~~arg", arg)
                         console.log("~~~~~~~args", args)
                         console.log("~~~~~~~nestedContext", nestedContext)
@@ -2453,6 +2454,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             console.log("addToNested", addToNested)
 
             let indexP = 0;
+            console.log("action.params",action.params)
             for (par in action.params) {
                 console.log("par", par)
                 let param2 = action.params[par]
