@@ -988,7 +988,7 @@ async function replacePlaceholders(item, libs, nestedPath) {
         
         return await Promise.all(newProcessedItem2);
     } else {
-        console.log("return item", item)
+        console.log("return item, nestedPath, libs", item, nestedPath, libs)
         return item
     }
 
