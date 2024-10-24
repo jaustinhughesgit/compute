@@ -1763,10 +1763,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 sending = JSON.stringify(sending)
             }
             let value = await replacePlaceholders(sending, libs, nestedPath)
+            console.log("isJ", isJ)
             if (isJ) {
+                console.log("value before", value)
                 value = JSON.parse(value)
+                console.log("value after", value)
             }
-            ////////console.log("66: value", value)
+            console.log("66: value", value)
 
             //console.log("key startsWith {|>", key)
             if (key.startsWith("{|>")) {
