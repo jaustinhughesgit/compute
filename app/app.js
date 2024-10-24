@@ -2434,7 +2434,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                             paramNestedContext1[param1.key] = await arg();
                         } else {
                             console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
-                            paramNestedContext1[param1.key] = arg;
+                            //paramNestedContext1[param1.key] = arg;
                         }
                     } else {
                         console.log("~~~~~~~arg", arg)
