@@ -2274,6 +2274,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("result[accessClean]", result[accessClean]);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
+                                        let holding = await axios.get("https://ibm.com")
+                                        console.log("holding", holding)
                                         result = await result[accessClean](...chainParams);
                                         console.log("result777", result)
                                     } else {
