@@ -1444,11 +1444,14 @@ const json88 = {
 //console.log(replacePlaceholders(str, json));
 
 async function processString(str, libs, nestedPath) {
+    console.log("~1")
     const isExecuted = str.endsWith('|}!');
 
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
+        console.log("~2")
         if (!["req", "res"].includes(key)) {
+            console.log("~3")
             acc[key] = libs.root[key];
         }
         return acc;
@@ -1456,8 +1459,10 @@ async function processString(str, libs, nestedPath) {
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
+        console.log("~4")
         newNestedPath = newNestedPath.replace("root.", "")
     } else if (nestedPath.startsWith("root")) {
+        console.log("~5")
         newNestedPath = newNestedPath.replace("root", "")
     }
 
@@ -1482,6 +1487,7 @@ async function processString(str, libs, nestedPath) {
     //console.log("libs.root.context[str]", libs.root.context[str])
     //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
+        console.log("~6")
         target = await getKeyAndPath(str.replace("{|", "").replace("|}", ""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
@@ -1494,6 +1500,9 @@ async function processString(str, libs, nestedPath) {
             console.log("error", e)
             mmm = nestedValue[target.key]
         }
+    } else {
+        console.log("~7")
+
     }
 
     /*if (str == "res"){
@@ -2280,7 +2289,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     }
                 }
             } else if (typeof result === 'function') {
-                //console.log("--3b--")
+                console.log("--3b--")
                 //if (accessClean === 'promise') {
                 //    result = await result.promise();
                 //} else {
