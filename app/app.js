@@ -790,8 +790,6 @@ async function initializeMiddleware(req, res, next) {
         //let fileArray = parent.paths[head];
         console.log("fileArray", fileArray);
 
-        let holding = await axios.get("https://ibm.com")
-        console.log("holding", holding)
 
         if (fileArray != undefined) {
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
@@ -2276,8 +2274,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("result[accessClean]", result[accessClean]);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
-                                        result = await result[accessClean](...chainParams);
-                                        console.log("result777", result)
+                                        try {
+                                            result = await result[accessClean](...chainParams);
+                                            console.log("result777", result)
+                                        } catch (err){
+                                            console.error("Error fetching data:", error);
+                                        }
                                     } else {
                                         console.log("just make it a function  reference")
                                         //just make it a function  reference
