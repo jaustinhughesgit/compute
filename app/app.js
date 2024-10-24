@@ -2479,6 +2479,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             );
             result = nestedResults[0];
         }
+        console.log("YY return result", result)
         return result;
 
     };
