@@ -2437,7 +2437,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                             paramNestedContext1[param1.key] = arg;
                         }
                     } else {
-                        nestedContext[assign.key] = arg
                         console.log("~~~~~~~arg", arg)
                         console.log("~~~~~~~args", args)
                         console.log("~~~~~~~nestedContext", nestedContext)
