@@ -1227,36 +1227,38 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         ////////console.log("keys2", keys2)
         ////////console.log("keys2", keys2)
         if (isValidJSON(current)) {
+            console.log("isValidJSON", true)
             current = JSON.parse(current)
         }
+        console.log("current = ", current)
         for (let key of keys2) {
-            ////////console.log("key",key)
-            ////////console.log("typeof", typeof current)
-            ////////console.log("curent", current)
-            ////////console.log("k2.1:",current.hasOwnProperty(key))
-            ////////console.log("k2.3:",current.hasOwnProperty("value"))
+            console.log("k2.07: key",key)
+            console.log("k2.08: typeof", typeof current)
+            console.log("k2.09: curent", current)
+            console.log("k2.1:",current.hasOwnProperty(key))
+            console.log("k2.3:",current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
                 current = current[key];
-                ////////console.log("k2.4", current)
+                console.log("k2.4", current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
                 }
             } else if (current.hasOwnProperty("value")) {
                 current = current[key];
-                ////////console.log("k2.5", current)
+                console.log("k2.5", current)
                 //return '';
             }
             curCounter++;
         }
 
-        ////////console.log("index",index)
-        ////////console.log("current",current)
-        ////////console.log("Array.isArray(current)",Array.isArray(current))
+        console.log("index",index)
+        console.log("current",current)
+        console.log("Array.isArray(current)",Array.isArray(current))
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
             } else {
-                //console.error(`Index ${index} out of bounds for array.`);
+                console.error(`Index ${index} out of bounds for array.`);
                 return '';
             }
         }
