@@ -1853,6 +1853,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs3", libs)
             } else {
                 console.log("addValueToNestedKey")
+                console.log("set.key",set.key.replace("~/", ""))
+                console.log("nestedContext",nestedContext)
+                console.log("value",value)
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
                 console.log("libs.root.context", libs.root.context)
             }
