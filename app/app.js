@@ -2417,15 +2417,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 console.log("11: arg", arg)
                 if (action.params && arg) {
                     const paramExecuted1 = arg.endsWith('|}!');
-                    console.log("11: paramExecuted1", paramExecuted1)
+                    console.log("11: paramExecuted1", arg, paramExecuted1)
                     const paramObj1 = await isOnePlaceholder(arg);
-                    console.log("11: paramObj1", paramObj1)
+                    console.log("11: paramObj1", arg, paramObj1)
                     let paramClean1 = await removeBrackets(arg, paramObj1, paramExecuted1);
-                    console.log("11: paramClean1", paramClean1)
+                    console.log("11: paramClean1", arg, paramClean1)
                     let param1 = await getKeyAndPath(paramClean1, nestedPath);
-                    console.log("11: param1", param1)
+                    console.log("11: param1", arg, param1)
                     let paramNestedContext1 = await getNestedContext(libs, param1.path);
-                    console.log("11: paramNestedContext1", paramNestedContext1)
+                    console.log("11: paramNestedContext1", arg, paramNestedContext1)
                     if (paramExecuted1 && paramObj1 && typeof arg === "function") {
                         console.log("11: paramNestedContext1 function", param1.key, arg, paramNestedContext1)
                         paramNestedContext1[param1.key] = await arg();
@@ -2433,6 +2433,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                         console.log("11: paramNestedContext1 not function", param1.key, arg, paramNestedContext1)
                         paramNestedContext1[param1.key] = arg;
                     }
+                    return;
                 }
             })
 
