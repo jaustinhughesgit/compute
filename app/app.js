@@ -1467,7 +1467,7 @@ async function processString(str, libs, nestedPath) {
 
 
     const isObj = await isOnePlaceholder(str)
-    //console.log("str", str)
+    console.log("str", str)
     console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
