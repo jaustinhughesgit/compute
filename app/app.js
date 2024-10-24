@@ -896,7 +896,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
                 }
             }
         }*/
-       console.loog("tempContext", tempContext)
+       console.log("tempContext", tempContext)
         return tempContext;
     }
     console.log("libs", libs)
