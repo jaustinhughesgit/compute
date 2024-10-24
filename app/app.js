@@ -1195,6 +1195,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     console.log("current[key]", current[key])
                     current = current[key]
                     if (!current) {
+                        console.log("returning key", key)
                         return key
                     }
                     //
@@ -1460,14 +1461,17 @@ async function processString(str, libs, nestedPath) {
         newNestedPath = newNestedPath.replace("root", "")
     }
 
+    console.log("----------------",)
+    console.log("str", str)
+    console.log("obj", obj)
+    console.log("newNestedPath", newNestedPath)
+    
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
-    console.log("MMM1", newNestedPath)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
 
     const isObj = await isOnePlaceholder(str)
-    console.log("str", str)
     console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
@@ -1500,8 +1504,9 @@ async function processString(str, libs, nestedPath) {
     console.log("MMM3", mmm)
     if (isExecuted) {
         mmm = await mmm();
+        console.log("executed", mmm)
     } else {
-        console.log("return")
+        console.log("return", mmm)
         return mmm;
     }
     /*const isExecuted = str.endsWith('|}!');
