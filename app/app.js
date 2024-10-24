@@ -791,7 +791,7 @@ async function initializeMiddleware(req, res, next) {
         console.log("fileArray", fileArray);
 
         let holding = await axios.get("https://ibm.com")
-
+        console.log("holding", holding)
 
         if (fileArray != undefined) {
             const promises = await fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
