@@ -1483,8 +1483,11 @@ async function processString(str, libs, nestedPath) {
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[target.key])
         try {
+            console.log("nestedValue[target.key].value",nestedValue[target.key].value)
             mmm = nestedValue[target.key].value
         } catch (e) {
+            console.log("nestedValue[target.key]", nestedValue[target.key])
+            console.log("error", e)
             mmm = nestedValue[target.key]
         }
     }
