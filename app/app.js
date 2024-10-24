@@ -2454,7 +2454,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             console.log("addToNested", addToNested)
 
             let indexP = 0;
-            console.log("action.params",action.params)
             for (par in action.params) {
                 console.log("par", par)
                 let param2 = action.params[par]
