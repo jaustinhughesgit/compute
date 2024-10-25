@@ -987,11 +987,8 @@ async function replacePlaceholders(item, libs, nestedPath) {
             console.log("repHolder", repHolder)
             return repHolder
         });
-try {
+
         return await Promise.all(newProcessedItem2);
-} catch (err){
-    console.log("err7", err)
-}
     } else {
         console.log("return item, nestedPath, libs", item, nestedPath, libs)
         return item
@@ -1957,12 +1954,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                     return value;
                 });
-                try {
                 args = await Promise.all(promises)
                 console.log("arguments: args", args)
-                } catch (err){
-                    console.log("err6", err);
-                }
             }
             console.log("ZZ value", value)
             console.log("ZZ target.key", target.key)
@@ -2279,14 +2272,22 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("chainParams", chainParams);
                                     console.log("result", result);
                                     console.log("result[accessClean]", result[accessClean]);
-                                        console.log(accessClean);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log(accessClean);
                                         try {
 
-                                            result = await result[accessClean](...chainParams);
-                                            console.log("result777", result)
+                                            //result = await result[accessClean](...chainParams);
+
+
+                                            let promises = webrequest.map(async arg => {
+                                                return await result[accessClean](...chainParams);
+                                            })
+                                                let addToNested = await Promise.all(promises);
+
+
+                                            console.log("result777", addToNested)
+                                            result = addToNested
                                         } catch (err){
                                             console.error("Error fetching data:", error);
                                         }
@@ -2300,7 +2301,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("err", err)
                                     console.log("..j..")
                                     ////console.log("result", result.req.lib.root)
-                                    //result = result
+                                    result = result
                                 }
                             }
                         }
@@ -2462,12 +2463,9 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             })
 
             //from params might actually create context params. 
-try{
+
             let addToNested = await Promise.all(promises);
             console.log("addToNested", addToNested)
-} catch (err){
-    console.log("err5", err)
-}
 
             let indexP = 0;
             for (par in action.params) {
