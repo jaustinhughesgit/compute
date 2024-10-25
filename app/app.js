@@ -17,6 +17,45 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = requir
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
+const boundAxios = {
+    // Bind all the necessary methods to preserve the original `this` context
+    constructor: axios.constructor.bind(axios),
+    request: axios.request.bind(axios),
+    _request: axios._request.bind(axios),
+    getUri: axios.getUri.bind(axios),
+    delete: axios.delete.bind(axios),
+    get: axios.get.bind(axios),
+    head: axios.head.bind(axios),
+    options: axios.options.bind(axios),
+    post: axios.post.bind(axios),
+    postForm: axios.postForm.bind(axios),
+    put: axios.put.bind(axios),
+    putForm: axios.putForm.bind(axios),
+    patch: axios.patch.bind(axios),
+    patchForm: axios.patchForm.bind(axios),
+    create: axios.create.bind(axios),
+    isCancel: axios.isCancel.bind(axios),
+    toFormData: axios.toFormData.bind(axios),
+    all: axios.all.bind(axios),
+    spread: axios.spread.bind(axios),
+    isAxiosError: axios.isAxiosError.bind(axios),
+    mergeConfig: axios.mergeConfig.bind(axios),
+
+    // Static properties can be copied directly without binding
+    defaults: axios.defaults,
+    interceptors: axios.interceptors,
+    Axios: axios.Axios,
+    CanceledError: axios.CanceledError,
+    CancelToken: axios.CancelToken,
+    VERSION: axios.VERSION,
+    AxiosError: axios.AxiosError,
+    Cancel: axios.Cancel,
+    AxiosHeaders: axios.AxiosHeaders,
+    formToJSON: axios.formToJSON,
+    getAdapter: axios.getAdapter,
+    HttpStatusCode: axios.HttpStatusCode
+}
+
 const OpenAI = require("openai");
 const openai = new OpenAI();
 
@@ -817,7 +856,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.req = { "value": req, "context": {} }
                         req.lib.root.context.res = { "value": res, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
-                        req.lib.root.context.axios = { "value": axios, "context": {} }
+                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
                         req.lib.root.context.fs = { "value": fs, "context": {} }
                         req.lib.root.context.JSON = { "value": JSON, "context": {} }
                         req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
