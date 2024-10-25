@@ -2314,15 +2314,19 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log("accessClean", accessClean)
-                                        console.log("action.target.replace",action.target.replace("{|","").replace("|}",""))
-                                        if (accessClean == "json" && action.target.replace("{|","").replace("|}","") == "res"){
+                                        console.log("action.target.replace", action.target.replace("{|", "").replace("|}", ""))
+                                        if (accessClean == "json" && action.target.replace("{|", "").replace("|}", "") == "res") {
                                             console.log("inside")
-                                            accessClean == "send"
                                             chainParams[0] = JSON.stringify(chainParams[0])
+                                            console.log("accessClean2", accessClean)
+                                            console.log("chainParams2", chainParams)
+                                            result = await result["send"](...chainParams);
+                                        } else {
+
+                                            console.log("accessClean2", accessClean)
+                                            console.log("chainParams2", chainParams)
+                                            result = await result[accessClean](...chainParams);
                                         }
-                                        console.log("accessClean2",accessClean)
-                                        console.log("chainParams2",chainParams)
-                                        result = await result[accessClean](...chainParams);
                                         console.log("result777", JSON.stringify(result))
                                     } else {
                                         console.log("just make it a function  reference")
