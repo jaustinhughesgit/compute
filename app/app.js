@@ -2313,6 +2313,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("result[accessClean]", result[accessClean]);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
+                                        if (accessClean == "json" && action.target.replace("{|","").replace("|}","") == "res"){
+                                            accessClean == "send"
+                                            chainParams[0] = JSON.stringify(chainParams[0])
+                                        }
                                         result = await result[accessClean](...chainParams);
                                         console.log("result777", JSON.stringify(result))
                                     } else {
