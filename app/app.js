@@ -44,7 +44,7 @@ const schemaRouter = require('./routes/schema');
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
 //let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
 
-console.log("")
+console.log("axios", axios)
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
