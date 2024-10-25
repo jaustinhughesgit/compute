@@ -2278,8 +2278,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log(accessClean);
                                         try {
 
-                                            let value = await result[accessClean](...chainParams);
-                                            result = {}
+                                            let funct = await result[accessClean].bind(result)
+                                            result = funct(...chainParams);
                                             console.log("result777", result)
                                         } catch (err){
                                             console.error("Error fetching data:", error);
