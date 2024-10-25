@@ -2274,23 +2274,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("result[accessClean]", result[accessClean]);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
-                                        console.log(accessClean);
-                                        try {
-
-                                            //result = await result[accessClean](...chainParams);
-
-
-                                            let promises = chainParams.map(async arg => {
-                                                return await result[accessClean](...chainParams);
-                                            })
-                                                let addToNested = await Promise.all(promises);
-
-
-                                            console.log("result777", addToNested)
-                                            result = addToNested
-                                        } catch (err){
-                                            console.error("Error fetching data:", error);
-                                        }
+                                        //result = await result[accessClean](...chainParams);
+                                        console.log("result777", result)
+                                        result = {}
                                     } else {
                                         console.log("just make it a function  reference")
                                         //just make it a function  reference
