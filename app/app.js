@@ -2316,6 +2316,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("accessClean", accessClean)
                                         console.log("action.target.replace",action.target.replace("{|","").replace("|}",""))
                                         if (accessClean == "json" && action.target.replace("{|","").replace("|}","") == "res"){
+                                            console.log("inside")
                                             accessClean == "send"
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                         }
