@@ -1533,7 +1533,7 @@ async function processString(str, libs, nestedPath) {
     //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         console.log("~6")
-        target = await getKeyAndPath(str.replace("{|", "").replace("|}!").replace("|}", ""), nestedPath)
+        target = await getKeyAndPath(str.replace("{|", "").replace("|}!","").replace("|}", ""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[target.key])
