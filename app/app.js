@@ -531,7 +531,7 @@ async function runApp(req, res, next) {
             console.log("data", data)
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
-                //res.json(response);
+                res.json(data);
             } else {
                 console.log("isValid = false")
                 res.json({});
