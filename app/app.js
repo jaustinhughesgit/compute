@@ -160,7 +160,7 @@ async function isValid(req, res, data) {
     req.dynPath = reqPath
 
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", ""), "su", dynamodb)
+    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("/api", ""), "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
@@ -528,6 +528,7 @@ async function runApp(req, res, next) {
         const response = { ok: true, response: { status: 'authenticated', file: '' } };
 
         res.json = async function (data) {
+            console.log("data", data)
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
                 //res.json(response);
