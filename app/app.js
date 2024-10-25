@@ -2315,7 +2315,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("if (assignExecuted){")
                                         result = await result[accessClean](...chainParams);
 try{
-let boundGet = await result[accessClean].bind(result);
+let boundGet = await {accessClean: result[accessClean].bind(result)}
 result = boundGet(...chainParams)
 
 } catch (err){
