@@ -155,7 +155,7 @@ async function isValid(req, res, data) {
     let splitOriginalHost = originalHost.split("1var.com")[1]
     //console.log("splitOriginalHost", splitOriginalHost)
     let reqPath = splitOriginalHost.split("?")[0]
-    reqPath = reqPath.replace("/cookies/runEntity", "").replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", "")
+    reqPath = reqPath.replace("/cookies/runEntity", "").replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", "").replace("/", "")
     console.log("reqPath", reqPath)
     req.dynPath = reqPath
 
