@@ -1533,7 +1533,7 @@ async function processString(str, libs, nestedPath) {
     //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         console.log("~6")
-        target = await getKeyAndPath(str.replace("{|", "").replace("|}", ""), nestedPath)
+        target = await getKeyAndPath(str.replace("{|", "").replace("|}!").replace("|}", ""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[target.key])
@@ -2241,7 +2241,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     //result = result[accessClean];
                 } else if (typeof result[accessClean] == "function") {
                     console.log("result[accessClean]")
-                    result = result[accessClean];
+                    result = result[accessClean]();
                 }
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
                 console.log("--2aa--")
@@ -2313,6 +2313,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("chainParams", chainParams);
                                     console.log("result", result);
                                     console.log("result[accessClean]", result[accessClean]);
+                                    console.log("assignExecuted",assignExecuted)
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log("accessClean", accessClean)
