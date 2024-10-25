@@ -2280,7 +2280,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                             let value = await result[accessClean](...chainParams);
                                             result = {}
-                                            result = value
                                             console.log("result777", result)
                                         } catch (err){
                                             console.error("Error fetching data:", error);
