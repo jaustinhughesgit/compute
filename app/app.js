@@ -2455,9 +2455,12 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             })
 
             //from params might actually create context params. 
-
+try{
             let addToNested = await Promise.all(promises);
             console.log("addToNested", addToNested)
+} catch (err){
+    console.log("err5", err)
+}
 
             let indexP = 0;
             for (par in action.params) {
