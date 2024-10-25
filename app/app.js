@@ -155,12 +155,12 @@ async function isValid(req, res, data) {
     let splitOriginalHost = originalHost.split("1var.com")[1]
     //console.log("splitOriginalHost", splitOriginalHost)
     let reqPath = splitOriginalHost.split("?")[0]
-    reqPath = reqPath.replace("/cookies/runEntity", "")
+    reqPath = reqPath.replace("/cookies/runEntity", "").replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", "")
     console.log("reqPath", reqPath)
     req.dynPath = reqPath
 
 
-    let sub = await getSub(req.dynPath.replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", ""), "su", dynamodb)
+    let sub = await getSub(req.dynPath, "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
     //console.log("params", params)
