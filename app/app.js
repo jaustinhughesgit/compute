@@ -531,7 +531,8 @@ async function runApp(req, res, next) {
             console.log("data", data)
             if (await isValid(req, res, data)) {
                 console.log("isValid = true")
-                res.json(data);
+                console.log("resp", response)
+                res.json(response);
             } else {
                 console.log("isValid = false")
                 res.json({});
@@ -2323,9 +2324,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("chainParams2", chainParams)
                                             result = await result["send"](...chainParams);
                                         } else {*/
-
+                                            
                                             console.log("accessClean2", accessClean)
                                             console.log("chainParams2", chainParams)
+
                                             result = await result[accessClean](...chainParams);
                                         //}
                                         //console.log("result777", JSON.stringify(result))
