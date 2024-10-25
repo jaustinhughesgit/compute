@@ -987,8 +987,11 @@ async function replacePlaceholders(item, libs, nestedPath) {
             console.log("repHolder", repHolder)
             return repHolder
         });
-
+try {
         return await Promise.all(newProcessedItem2);
+} catch (err){
+    console.log("err7", err)
+}
     } else {
         console.log("return item, nestedPath, libs", item, nestedPath, libs)
         return item
@@ -1954,8 +1957,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                     return value;
                 });
+                try {
                 args = await Promise.all(promises)
                 console.log("arguments: args", args)
+                } catch (err){
+                    console.log("err6", err);
+                }
             }
             console.log("ZZ value", value)
             console.log("ZZ target.key", target.key)
