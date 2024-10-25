@@ -20,6 +20,8 @@ const math = require('mathjs');
 const OpenAI = require("openai");
 const openai = new OpenAI();
 
+axios.defaults.proxy = false;
+
 const Anthropic = require('@anthropic-ai/sdk');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
