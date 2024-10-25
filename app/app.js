@@ -2314,7 +2314,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         result = await result[accessClean](...chainParams);
-                                        console.log("result777", result)
+                                        console.log("result777", JSON.stringify(result))
                                     } else {
                                         console.log("just make it a function  reference")
                                         //just make it a function  reference
