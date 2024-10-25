@@ -856,7 +856,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.req = { "value": req, "context": {} }
                         req.lib.root.context.res = { "value": res, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
-                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
+                        req.lib.root.context.axios = { "value": axios, "context": {} }
                         req.lib.root.context.fs = { "value": fs, "context": {} }
                         req.lib.root.context.JSON = { "value": JSON, "context": {} }
                         req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
@@ -2314,6 +2314,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         result = await result[accessClean](...chainParams);
+try{
+let boundGet = await result[accessClean].bind(result);
+result = boundGet(...chainParams)
+
+} catch (err){
+    result = await result[accessClean](...chainParams);
+
+}
                                         console.log("result777", result)
                                     } else {
                                         console.log("just make it a function  reference")
