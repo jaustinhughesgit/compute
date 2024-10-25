@@ -2280,7 +2280,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             //result = await result[accessClean](...chainParams);
 
 
-                                            let promises = webrequest.map(async arg => {
+                                            let promises = chainParams.map(async arg => {
                                                 return await result[accessClean](...chainParams);
                                             })
                                                 let addToNested = await Promise.all(promises);
