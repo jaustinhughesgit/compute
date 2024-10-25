@@ -20,8 +20,6 @@ const math = require('mathjs');
 const OpenAI = require("openai");
 const openai = new OpenAI();
 
-axios.defaults.proxy = false;
-
 const Anthropic = require('@anthropic-ai/sdk');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -2274,13 +2272,13 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("chainParams", chainParams);
                                     console.log("result", result);
                                     console.log("result[accessClean]", result[accessClean]);
-                                    console.log(accessClean);
+                                        console.log(accessClean);
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log(accessClean);
                                         try {
 
-                                            result = await result[accessClean](...chainParams);
+                                            result = await result[accessClean].bind(result[accessClean])(...chainParams);
                                             console.log("result777", result)
                                         } catch (err){
                                             console.error("Error fetching data:", error);
