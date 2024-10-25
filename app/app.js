@@ -44,7 +44,7 @@ const schemaRouter = require('./routes/schema');
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
 //let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
 
-console.log("axios", axios)
+console.log("")
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
@@ -2278,8 +2278,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log(accessClean);
                                         try {
 
-                                            let funct = result[accessClean].bind(result)
-                                            result = await funct(...chainParams);
+                                            result = await result[accessClean](...chainParams);
                                             console.log("result777", result)
                                         } catch (err){
                                             console.error("Error fetching data:", error);
@@ -2294,7 +2293,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("err", err)
                                     console.log("..j..")
                                     ////console.log("result", result.req.lib.root)
-                                    result = result
+                                    //result = result
                                 }
                             }
                         }
