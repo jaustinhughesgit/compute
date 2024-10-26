@@ -2421,7 +2421,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     console.log("result[accessClean]",result[accessClean])
                     console.log("typeof result[accessClean]",typeof result[accessClean])
                     console.log("chainParams",chainParams)
-                    result[accessClean](...chainParams)
+                    console.log("action.target", action.target)
+                    console.log("libs.root.context", libs.root.context)
+                    console.log("libs.root.context[action.target]", libs.root.context[action.target])
+                    console.log("libs.root.context[action.target].value",libs.root.context[action.target].value)
+                    libs.root.context[action.target].value[accessClean](...chainParams)
                     return
                     ////////console.log(libs.root.context[action.target].value)
                     ////////console.log(libs.root.context[action.target].value.length)
