@@ -2404,6 +2404,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
             } else if (assignExecuted && typeof result[accessClean] == "function"){
+                console.log("executinig function")
+                console.log("result",result)
+                console.log("accessClean",accessClean)
+                console.log("result[accessClean]",result[accessClean])
+                console.log("chainParams",chainParams)
                 return result[accessClean](...chainParams)
             } else {
                 console.log("--5--")
