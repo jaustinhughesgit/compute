@@ -2331,7 +2331,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                             result = await result[accessClean](...chainParams);
                                         }
-                                        console.log("result777", JSON.stringify(result))
+                                        //console.log("result777", JSON.stringify(result))
                                     } else {
                                         console.log("just make it a function  reference")
                                         //just make it a function  reference
@@ -2409,7 +2409,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("accessClean",accessClean)
                 console.log("result[accessClean]",result[accessClean])
                 console.log("chainParams",chainParams)
-                return result[accessClean](...chainParams)
+                result[accessClean](...chainParams)
+                return
             } else {
                 console.log("--5--")
                 try {
@@ -2420,7 +2421,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     console.log("result[accessClean]",result[accessClean])
                     console.log("typeof result[accessClean]",typeof result[accessClean])
                     console.log("chainParams",chainParams)
-                    return result[accessClean](...chainParams)
+                    result[accessClean](...chainParams)
+                    return
                     ////////console.log(libs.root.context[action.target].value)
                     ////////console.log(libs.root.context[action.target].value.length)
                 } catch (err) { }
