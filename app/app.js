@@ -2539,13 +2539,24 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             }
         }
 
-        if (action.nestedActions) {
+        /*if (action.nestedActions) {
             const nestedResults = await Promise.all(
                 action.nestedActions.map(async (act) => {
                     let newNestedPath = nestedPath + "." + assign.key;
                     return await runAction(act, libs, newNestedPath, req, res, next);
                 })
             );
+            result = nestedResults[0];
+        }*/
+
+        if (action.nestedActions) {
+            const nestedResults = [];
+            for (const act of action.nestedActions) {
+                let newNestedPath = `${nestedPath}.${assign.key}`;
+                const result = await runAction(act, libs, newNestedPath, req, res, next);
+                nestedResults.push(result);
+            }
+            // Set the first result or handle it as needed
             result = nestedResults[0];
         }
         console.log("YY return result", result)
