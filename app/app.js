@@ -701,7 +701,7 @@ async function installModule(moduleName, contextKey, context, lib) {
     return "/tmp/node_modules/" + moduleName
 }*/
 
-/*async function installModule(moduleName, contextKey, context, lib) {
+async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
         .join(' ');
@@ -730,58 +730,6 @@ async function installModule(moduleName, contextKey, context, lib) {
         context[contextKey] = { "value": module, "context": {} };
     }
     console.log("context", JSON.stringify(context))
-}*/
-
-
-
-// Utility function to dynamically load a module
-async function loadModule(modulePath) {
-    try {
-        // Try require first for CommonJS modules
-        console.log("try",modulePath )
-        return require(modulePath);
-    } catch (error) {
-        console.log("error>>", error)
-       // if (error.code === 'ERR_REQUIRE_ESM') {
-            // If it's an ES Module, use dynamic import
-            console.log("import", modulePath)
-                modulePath = path.join(modulePath, 'index.js'); // Adjust to the main file
-            
-            console.log("import modulePath", modulePath)
-            // Dynamically import the module
-            return import(modulePath);
-        //}
-        //throw error;
-    }
-}
-
-async function installModule(moduleName, contextKey, context, lib) {
-    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
-        .map(([key, value]) => `--${key}=${value}`)
-        .join(' ');
-
-    // Install the module
-    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    console.log("execResult", execResult);
-    lib.modules[moduleName] = { "value": moduleName, "context": {} };
-
-    // Resolve the module path
-    const modulePath = path.join('/tmp/node_modules/', moduleName);
-
-    // Dynamically load the module
-    const module = await loadModule(modulePath);
-
-    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
-        // It's a destructuring pattern
-        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
-        for (const key of keys) {
-            context[key] = { "value": module[key], "context": {} };
-        }
-    } else {
-        // It's a simple module name
-        context[contextKey] = { "value": module, "context": {} };
-    }
-    console.log("context", JSON.stringify(context));
 }
 
 /*async function installModule(moduleName, contextKey, context, lib) {
