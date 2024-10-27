@@ -1802,6 +1802,7 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
         pathHolder[objectPath[objectPath.length - 1]] = value
+        libs.root.context.uploadParams.value.body = value
     }
     console.log("###pathHolder2.3", pathHolder)
 }
