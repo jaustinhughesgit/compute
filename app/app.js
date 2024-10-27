@@ -1491,7 +1491,7 @@ const json88 = {
 async function processString(str, libs, nestedPath) {
     console.log("~1")
     const isExecuted = str.endsWith('|}!');
-
+console.log("isExecuted", isExecuted)
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
@@ -1556,6 +1556,7 @@ async function processString(str, libs, nestedPath) {
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
+    console.log("target", action.target)
     if (isExecuted) {
         mmm = await mmm();
         console.log("executed", mmm)
