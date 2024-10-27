@@ -1804,6 +1804,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
         console.log("else", objectPath[objectPath.length - 1].toString())
         pathHolder[objectPath[objectPath.length - 1].toString()] = "value"
     }
+    pathHolder["asdf1"] =  "asdf"
+    pathHolder["asdf2"] = value
     console.log("###pathHolder2.3", pathHolder)
 }
 
