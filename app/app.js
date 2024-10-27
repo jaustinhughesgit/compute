@@ -923,6 +923,9 @@ async function getNestedContext(libs, nestedPath, key = "") {
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
+            console.log("tempContext",tempContext)
+            console.log("tempContext",tempContext[part])
+            console.log("tempContext",tempContext[part].context)
             tempContext = tempContext[part].context;
         }
         /*if (arrowJson.length > 1){
@@ -1012,7 +1015,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }
 
-async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
+/*async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
     let processedItem2 = item + "";
     if (typeof processedItem === 'string') {
@@ -1034,7 +1037,29 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
         console.log("return item, nestedPath, libs", item, nestedPath, libs)
         return item
     }
+}*/
 
+async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
+    let processedItem = item;
+
+    if (typeof processedItem === 'string') {
+        let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution);
+        console.log("stringResponse", stringResponse);
+        return stringResponse;
+    } else if (Array.isArray(processedItem)) {
+        // Use Promise.all to wait until all items are processed
+        let newProcessedItems = await Promise.all(processedItem.map(async element => {
+            console.log("element", element);
+            let repHolder = await replacePlaceholders(element, libs, nestedPath, actionExecution);
+            console.log("repHolder", repHolder);
+            return repHolder;
+        }));
+
+        return newProcessedItems;
+    } else {
+        console.log("return item, nestedPath, libs", item, nestedPath, libs);
+        return item;
+    }
 }
 
 async function isOnePlaceholder(str) {
