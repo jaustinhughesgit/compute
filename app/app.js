@@ -707,7 +707,8 @@ async function installModule(moduleName, contextKey, context, lib) {
         .join(' ');
 
     // Install the module
-    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult)
     lib.modules[moduleName] = { "value": moduleName, "context": {} };
 
     // Resolve the module path
