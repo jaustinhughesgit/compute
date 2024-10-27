@@ -1556,7 +1556,6 @@ console.log("isExecuted", isExecuted)
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
-    console.log("target", action.target)
     if (isExecuted) {
         mmm = await mmm();
         console.log("executed", mmm)
