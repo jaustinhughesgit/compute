@@ -732,35 +732,41 @@ async function installModule(moduleName, contextKey, context, lib) {
     console.log("context", JSON.stringify(context))
 }*/
 
+async function loadModule(modulePath) {
+    try {
+        // Try using `require` in CommonJS environments
+        return require(modulePath);
+    } catch (requireError) {
+        if (requireError.code === 'ERR_REQUIRE_ESM' || requireError.code === 'MODULE_NOT_FOUND') {
+            console.log(`Falling back to dynamic import for ${modulePath}`);
+            // Fallback to `import()` in case of ESM module or other error
+            return import(pathToFileURL(modulePath).href);
+        } else {
+            // If it's a different error, rethrow it
+            throw requireError;
+        }
+    }
+}
+
 async function installModule(moduleName, contextKey, context, lib) {
-    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
-        .map(([key, value]) => `--${key}=${value}`)
-        .join(' ');
-
-    // Install the module
-    const execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    console.log("execResult", execResult);
-    lib.modules[moduleName] = { "value": moduleName, "context": {} };
-
-    // Resolve the module path
     const modulePath = path.join('/tmp/node_modules/', moduleName);
 
-    // Dynamically import the installed module
-    const module = await import(modulePath);
+    try {
+        const module = await loadModule(modulePath);
 
-    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
-        // It's a destructuring pattern
-        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
-        for (const key of keys) {
-            // Store the export directly
-            console.log("INSTALLING TO VALUE MIGHT NOT WORK")
-            context[key] = { "value": module[key], "context": {} };
+        if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+            const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+            for (const key of keys) {
+                context[key] = { "value": module[key], "context": {} };
+            }
+        } else {
+            context[contextKey] = { "value": module, "context": {} };
         }
-    } else {
-        // It's a simple module name
-        context[contextKey] = { "value": module, "context": {} };
+
+        console.log("context", JSON.stringify(context));
+    } catch (error) {
+        console.error("Failed to load module:", error);
     }
-    console.log("context", JSON.stringify(context));
 }
 
 /*async function installModule(moduleName, contextKey, context, lib) {
