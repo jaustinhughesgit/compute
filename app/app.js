@@ -745,19 +745,9 @@ async function loadModule(modulePath) {
        // if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES Module, use dynamic import
             console.log("import", modulePath)
-            const stats = await fs.stat(modulePath);
-            if (stats.isDirectory()) {
-                const packageJsonPath = path.join(modulePath, 'package.json');
-                const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'));
-                const mainFile = packageJson.main || 'index.js';
-                modulePath = path.join(modulePath, mainFile); // Adjust to the main file
-            }
-
-            // Add .js extension if missing
-            if (!modulePath.endsWith('.js')) {
-                modulePath += '.js';
-            }
-
+                modulePath = path.join(modulePath, 'index.js'); // Adjust to the main file
+            
+            console.log("import modulePath", modulePath)
             // Dynamically import the module
             return import(modulePath);
         //}
