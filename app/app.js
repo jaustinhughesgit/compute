@@ -1859,7 +1859,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("isJ", isJ)
             if (isJ) {
                 console.log("value before", value)
+                try{
                 value = JSON.parse(value)
+                } catch (err){
+                    console.log("err61111", err)
+                }
                 console.log("value after", value)
             }
             console.log("66: value", value)
