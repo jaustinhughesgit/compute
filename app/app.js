@@ -1802,7 +1802,7 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
         console.log("else")
-        pathHolder[objectPath[objectPath.length - 1]] = value
+        pathHolder[objectPath[objectPath.length - 1]] = "value"
     }
     console.log("###pathHolder2.3", pathHolder)
 }
