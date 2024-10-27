@@ -712,7 +712,7 @@ async function installModule(moduleName, contextKey, context, lib) {
     lib.modules[moduleName] = { "value": moduleName, "context": {} };
 
     // Resolve the module path
-    const modulePath = path.join('/tmp/node_modules/', moduleName);
+    const modulePath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
 
     // Require the installed module
     const module = require(modulePath);
