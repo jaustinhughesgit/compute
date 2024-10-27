@@ -742,12 +742,12 @@ async function loadModule(modulePath) {
         return require(modulePath);
     } catch (error) {
         console.log("error>>", error)
-        if (error.code === 'ERR_REQUIRE_ESM') {
+       // if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES Module, use dynamic import
             console.log("import", modulePath)
             return import(modulePath);
-        }
-        throw error;
+        //}
+        //throw error;
     }
 }
 
