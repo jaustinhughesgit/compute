@@ -1965,14 +1965,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
     }
 
-    function isClass(func) {
-        try {
-            func(); // Attempt to call without 'new'
-            return false; // If no error, it's not a class
-        } catch (err) {
-            return /class constructor/.test(err.message);
-        }
-    }
 
     if (action.target) {
         console.log("action.target", action.target);
@@ -2036,7 +2028,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("ZZ value", value)
             console.log("ZZ target.key", target.key)
             console.log("ZZ typeof", typeof nestedContext[target.key].value);
-            console.log("ZZ isClass(func)", isClass(nestedContext[target.key].value))
             console.log("ZZ args", args.length)
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 console.log("Is a function: ", target.key, typeof nestedContext[target.key].value)
@@ -2073,8 +2064,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("result", result)
 
 
-            console.log("isClass(result)", isClass(result))
-            if (assignObj && assignExecuted && isClass(result)) {
+            if (assignObj && assignExecuted ) {
                 //check if applyMethodChain is already trying to execute this!!!!!!!!!!!!!!!!!!!
                 console.log("inside", result)
                 let tempFunction = () => result();
@@ -2082,7 +2072,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 let newResult = tempFunction()
                 console.log("newResult", newResult)
                 await addValueToNestedKey(strClean, nestedContext, newResult)
-                console.log("isClass(newResult)", isClass(newResult))
             } else {
                 console.log("other", assign)
                 console.log("result", result);
@@ -2094,7 +2083,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //}
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("nestedContext[strClean]", nestedContext[strClean].)
-                //console.log("isClass(nestedContext[strClean].value)", isClass(nestedContext[strClean].value))
 
             }
         }
