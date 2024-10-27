@@ -1861,10 +1861,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (isJ) {
                 console.log("value before", value)
                 try{
-                    if (Buffer.isBuffer(pdfData)) {
+                    if (Buffer.isBuffer(value)) {
                         console.log("pdfData is a buffer");
                         //value = value
-                    } else if (typeof pdfData === 'object' && pdfData !== null) {
+                    } else if (typeof value === 'object' && value !== null) {
                         value = JSON.parse(value)
                         console.log("pdfData is likely a JSON object");
                     } else {
