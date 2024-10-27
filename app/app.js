@@ -709,7 +709,7 @@ async function installModule(moduleName, contextKey, context, lib) {
     // Install the module
     let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
     console.log("execResult", execResult)
-    lib.modules[moduleName] = { "value": moduleName, "context": {} };
+    lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
 
     // Resolve the module path
     const modulePath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
@@ -1583,7 +1583,7 @@ console.log("isExecuted", isExecuted)
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
-    if (isExecuted) {
+    if (isExecuted && typeof mmm =="function") {
         mmm = await mmm();
         console.log("executed", mmm)
     } else {
