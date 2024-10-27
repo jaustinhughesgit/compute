@@ -701,7 +701,7 @@ async function installModule(moduleName, contextKey, context, lib) {
     return "/tmp/node_modules/" + moduleName
 }*/
 
-async function installModule(moduleName, contextKey, context, lib) {
+/*async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
         .join(' ');
@@ -730,6 +730,37 @@ async function installModule(moduleName, contextKey, context, lib) {
         context[contextKey] = { "value": module, "context": {} };
     }
     console.log("context", JSON.stringify(context))
+}*/
+
+async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
+    // Install the module
+    const execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult);
+    lib.modules[moduleName] = { "value": moduleName, "context": {} };
+
+    // Resolve the module path
+    const modulePath = path.join('/tmp/node_modules/', moduleName);
+
+    // Dynamically import the installed module
+    const module = await import(modulePath);
+
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        // It's a destructuring pattern
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            // Store the export directly
+            console.log("INSTALLING TO VALUE MIGHT NOT WORK")
+            context[key] = { "value": module[key], "context": {} };
+        }
+    } else {
+        // It's a simple module name
+        context[contextKey] = { "value": module, "context": {} };
+    }
+    console.log("context", JSON.stringify(context));
 }
 
 /*async function installModule(moduleName, contextKey, context, lib) {
