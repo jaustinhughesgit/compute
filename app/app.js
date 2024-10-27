@@ -1406,7 +1406,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     ////////console.log("match",match),
                     ////////console.log("jsonString",jsonString)
                     ////////console.log("jsonPath",jsonPath)
-                    jsonPath = jsonPath.replace("|}", "")
+                    jsonPath = jsonPath.replace("{|","").replace("|}!", "").replace("|}", "")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
@@ -1913,9 +1913,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 if (index != undefined) {
                     if (index.includes("{|")) {
                         ////////console.log("index", index)
-                        index = index.replace("{|", "").replace("|}", "")
+                        index = index.replace("{|", "").replace("|}!", "").replace("|}", "")
                         ////////console.log("preIndex", index)
-                        index = libs.root.context[index.replace("{|", "").replace("|}", "").replace("~/", "")]
+                        index = libs.root.context[index.replace("{|", "").replace("|}!", "").replace("|}", "").replace("~/", "")]
                         index = parseInt(index.value.toString())
                         ////////console.log("postIndex", index)
                     }
@@ -2317,8 +2317,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log("accessClean", accessClean)
-                                        console.log("action.target.replace", action.target.replace("{|", "").replace("|}", ""))
-                                        if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}", "") == "res") {
+                                        console.log("action.target.replace", action.target.replace("{|", "").replace("|}!", "").replace("|}", ""))
+                                        if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             console.log("inside")
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("accessClean2", accessClean)
