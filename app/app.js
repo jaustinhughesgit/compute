@@ -1012,11 +1012,11 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }
 
-async function replacePlaceholders(item, libs, nestedPath) {
+async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
     let processedItem2 = item + "";
     if (typeof processedItem === 'string') {
-        let stringResponse = await processString(processedItem, libs, nestedPath);
+        let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution);
         console.log("stringResponsestringResponse", stringResponse)
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
@@ -1488,9 +1488,8 @@ const json88 = {
 
 //console.log(replacePlaceholders(str, json));
 
-async function processString(str, libs, nestedPath) {
+async function processString(str, libs, nestedPath, isExecuted) {
     console.log("~1")
-    const isExecuted = str.endsWith('|}!');
     console.log("str", str)
     console.log("nestedPath")
 console.log("isExecuted", isExecuted)
@@ -1948,7 +1947,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (action.target) {
         console.log("action.target", action.target);
         const isObj = await isOnePlaceholder(action.target)
-        let strClean = await removeBrackets(action.target, isObj, false);
+        let actionExecution = false
+        if (action.target.endsWith('|}!')){
+            actionExecution = true
+        }
+        let strClean = await removeBrackets(action.target, isObj, actionExecution);
         let target
         if (isObj) {
             target = await getKeyAndPath(strClean, nestedPath)
@@ -1961,7 +1964,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<", target.key)
-        value = await replacePlaceholders(target.key, libs, target.path);
+        value = await replacePlaceholders(target.key.replace("|",""), libs, target.path, actionExecution);
         console.log("value", value)
         let args = [];
 
