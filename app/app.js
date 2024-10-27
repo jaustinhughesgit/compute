@@ -745,7 +745,9 @@ async function loadModule(modulePath) {
        // if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES Module, use dynamic import
             console.log("import", modulePath)
-            return import(modulePath);
+            const resolvedPath = modulePath.endsWith('.js') ? modulePath : `${modulePath}.js`;
+            console.log(resolvedPath)
+            return import(resolvedPath);
         //}
         //throw error;
     }
