@@ -2062,6 +2062,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("nestedContext", nestedContext)
 
             console.log("result", result)
+            console.log("result", result)
 
 
             if (assignObj && assignExecuted && typeof result == "function") {
@@ -2075,6 +2076,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } else {
                 console.log("other", assign)
                 console.log("result", result);
+                const methods = result.filter((property) => {
+                    console.log("typeof prototype[property]", typeof prototype[property])
+                    console.log("property", property)
+                    return typeof prototype[property] === 'function' && property !== 'constructor';
+                });
+                console.log('Methods of result:', methods);
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof result, assignExecuted)
