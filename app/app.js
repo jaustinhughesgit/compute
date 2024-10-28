@@ -1400,7 +1400,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 const isObj = await isOnePlaceholder(str)
                 console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
-                    ////////console.log("object", value)
+                    console.log("object", value)
                     return value;
                 } else {
                     console.log("stringify", value)
@@ -1418,15 +1418,17 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (arrayIndexRegex.test(str)) {
-
+                console.log("arrayIndexRegex.test",str)
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
+                    console.log("match",match,  p1, p2)
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
                     return strArray[index] ?? "";
                 });
+                console.log("updatedStr", updatedStr)
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-
+                console.log("jsonPathRegex",jsonPathRegex)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
                     console.log("modifiedStr",modifiedStr)
                     console.log("match",match),
