@@ -1586,7 +1586,8 @@ console.log("isExecuted", isExecuted)
     console.log("MMM2", mmm)
     
     let isObj
-    if (typeof str == "object" && mmm != "[]"){
+    const parsed = JSON.parse(mmm);
+    if (typeof str == "object" && !Array.isArray(parsed)){
         isObj = await isOnePlaceholder(str)
     } else {
         isObj = false
