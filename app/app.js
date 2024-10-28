@@ -1113,7 +1113,7 @@ function isNumber(value) {
 function isArray(string) {
     if (string.startsWith("[")) {
         try {
-            const parsed = JSON.parse(string);
+            let parsed = JSON.parse(string);
             if (Array.isArray(parsed) && parsed.length > 0) {
                 return parsed
             } else {
@@ -1139,7 +1139,7 @@ function isMathEquation(expression) {
 function evaluateMathExpression(expression) {
     try {
         // Evaluate the math expression safely
-        const result = math.evaluate(expression);
+        let result = math.evaluate(expression);
         return result;
     } catch (error) {
         // Handle errors (e.g., syntax errors in the expression)
@@ -1189,7 +1189,7 @@ function isNestedArrayPlaceholder(str) {
 
 function evaluateMathExpression2(expression) {
     try {
-        const result = math.evaluate(expression);
+        let result = math.evaluate(expression);
         return result;
     } catch (error) {
         //console.error("Error evaluating expression:", error);
@@ -1203,7 +1203,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
-            const nestedKeys = nestedPath.split('.');
+            let nestedKeys = nestedPath.split('.');
             for (let key of nestedKeys) {
                 if (current.hasOwnProperty(key)) {
                     current = current[key];
@@ -1428,18 +1428,18 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    ////////console.log("modifiedStr",modifiedStr)
-                    ////////console.log("match",match),
-                    ////////console.log("jsonString",jsonString)
-                    ////////console.log("jsonPath",jsonPath)
+                    console.log("modifiedStr",modifiedStr)
+                    console.log("match",match),
+                    console.log("jsonString",jsonString)
+                    console.log("jsonPath",jsonPath)
                     jsonPath = jsonPath.replace("{|","").replace("|}!", "").replace("|}", "")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
-                        ////////console.log("JSON PATH B1",jsonObj)
-                        ////////console.log("JSON PATH B2",pathParts)
-                        ////////console.log("JSON PATH B3",currentValue)
+                        console.log("JSON PATH B1",jsonObj)
+                        console.log("JSON PATH B2",pathParts)
+                        console.log("JSON PATH B3",currentValue)
                         for (const part of pathParts) {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
@@ -1452,13 +1452,13 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         ////////console.log("JSON PATH B4",currentValue)
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
-                        ////////console.log(`Error parsing JSON: ${e}`);
+                        console.log(`Error parsing JSON: ${e}`);
                         ////////console.log("@modifiedStr",modifiedStr)
                         //return modifiedStr; // JSON parsing error
                     }
                 });
-                ////////console.log("JSON PATH B5",updatedStr)
-                ////////console.log("JSON PATH B6",JSON.stringify(updatedStr))
+                console.log("JSON PATH B5",updatedStr)
+                console.log("JSON PATH B6",JSON.stringify(updatedStr))
                 if (updatedStr != "") {
                     return updatedStr;
                 }
@@ -1680,13 +1680,13 @@ console.log("isExecuted", isExecuted)
 }
 
 async function runAction(action, libs, nestedPath, req, res, next) {
-    ////////console.log("runAction", action)
+    console.log("runAction", action)
     if (action != undefined) {
-        ////////console.log("A111111")
+        console.log("A111111")
         let runAction = true;
         //DON'T FORGET TO UPDATE JSON TO NOT INCLUDE THE S IN IF !!!!!!!!!!!!!!!!!!
         if (action.if) {
-            ////////console.log("B111111")
+            console.log("B111111")
             for (const ifObject of action.if) {
                 ////////console.log("D111111")
                 runAction = await condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], libs, nestedPath);
@@ -1697,7 +1697,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
         }
 
         if (runAction) {
-            ////////console.log("E111111")
+            console.log("E111111")
             //DON"T FORGET TO UPDATE JSON TO NOT INCLUDE S IN WHILE !!!!!!!!!!!!!!!!!!!!
             if (action.while) {
                 ////////console.log("F111111")
@@ -1746,10 +1746,13 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
 async function addValueToNestedKey(key, nestedContext, value) {
     if (value == undefined || key == undefined) {
-        //console.log("key/value undefined")
+        console.log("key/value undefined")
     } else {
         key = key.replace("~/", "");
         if (!nestedContext.hasOwnProperty(key)) {
+            console.log("addValueToNestedKey key", key)
+            console.log("addValueToNestedKey nestedContext", nestedContext)
+            console.log("addValueToNestedKey value", value)
             nestedContext[key] = { "value": {}, "context": {} }
         }
         nestedContext[key].value = value;
@@ -1947,12 +1950,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("###libs", libs)
                 if (index != undefined) {
                     if (index.includes("{|")) {
-                        ////////console.log("index", index)
+                        console.log("index", index)
                         index = index.replace("{|", "").replace("|}!", "").replace("|}", "")
-                        ////////console.log("preIndex", index)
+                        console.log("preIndex", index)
                         index = libs.root.context[index.replace("{|", "").replace("|}!", "").replace("|}", "").replace("~/", "")]
                         index = parseInt(index.value.toString())
-                        ////////console.log("postIndex", index)
+                        console.log("postIndex", index)
                     }
                 }
                 console.log("putValueIntoContext")
