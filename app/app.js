@@ -1584,9 +1584,9 @@ console.log("isExecuted", isExecuted)
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
-
+    
     let isObj
-    if (typeof str == "object"){
+    if (typeof str == "object" && mmm != []){
         isObj = await isOnePlaceholder(str)
     } else {
         isObj = false
