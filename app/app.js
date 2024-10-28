@@ -1890,7 +1890,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let sending = action.set[key]
             if (typeof action.set[key] === "object") {
                 isJ = true
-                sending = JSON.stringify(sending)
+                //sending = JSON.stringify(sending)
             }
             console.log("sending", sending)
             console.log("libs", libs)
