@@ -1420,6 +1420,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 }
                             }
                         }
+                        return obj
                     }
                     console.log(str, {[innerStr]: value})
                     value = await replacePlaceholdersInJson(str, {[innerStr]: value});
