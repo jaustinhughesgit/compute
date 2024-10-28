@@ -1401,6 +1401,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
                     console.log("object", value)
+
+
+
+                    value = str.replace("{|"+ innerStr + "|}", value)
+// we need to know how to get it recognized as a string and replaced
+// rather than return the value for the whole target. 
+
+
+
+
                     return value;
                 } else {
                     console.log("stringify", value)
