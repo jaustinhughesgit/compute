@@ -1844,14 +1844,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             } catch (err) { }
             console.log("66: action", action)
             console.log("66: action.set[key]", action.set[key])
-            function isValidJSON(string) {
-                try {
-                    JSON.parse(string); // Try parsing the string
-                    return true; // If parsing succeeds, return true
-                } catch (error) {
-                    return false; // If parsing fails, return false
-                }
-            }
+
             let isJ = false
             let sending = action.set[key]
             if (typeof action.set[key] === "object") {
@@ -1867,7 +1860,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         console.log("pdfData is a buffer");
                         //value = value
                     } else if (typeof value === 'object' && value !== null) {
-                        value = JSON.parse(value)
+                        
                         console.log("pdfData is likely a JSON object");
                     } else {
                         console.log("pdfData is neither a buffer nor a JSON object");
