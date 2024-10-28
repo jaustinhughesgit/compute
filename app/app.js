@@ -1198,9 +1198,9 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
-    ////////console.log("AAAAAAAA")
+    console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
+        console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -1208,7 +1208,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 if (current.hasOwnProperty(key)) {
                     current = current[key];
                 } else {
-                    //console.error(`Nested path ${nestedPath} not found in JSON.`);
+                    console.error(`Nested path ${nestedPath} not found in JSON.`);
                     return '';
                 }
             }
@@ -1342,16 +1342,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        ////////console.log("BBBBBBBB")
-        ////////console.log("str",str)
-        ////////console.log("nestedPath", nestedPath)
+        console.log("BBBBBBBB")
+        console.log("str",str)
+        console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            ////////console.log("CCCCCCCCCC")
+            console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
@@ -1359,26 +1359,26 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             }
 
             let value;
-            //console.log("innerStr", innerStr)
+            console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else if (innerStr.startsWith(">")) {
-                //console.log("INSIDE > ")
+                console.log("INSIDE > ")
                 //let { getWord, getSub } = require('./routes/cookies')
                 let subRes = await getSub(innerStr.replace(">", ""), "su", dynamodb)
-                //console.log("subRes", subRes)
-                //console.log("subRes.Items[0].a", subRes.Items[0].a)
+                console.log("subRes", subRes)
+                console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                //console.log("subWord", subWord)
+                console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                //console.log("DDDDDDDDDDD")
-                ////////console.log("forceRoot",forceRoot)
-                ////////console.log("nestedPath",nestedPath)
+                console.log("DDDDDDDDDDD")
+                console.log("forceRoot",forceRoot)
+                console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
-                ////////console.log("value from json 2", value)
-                ////////console.log("typeof from json 2", typeof value)
+                console.log("value from json 2", value)
+                console.log("typeof from json 2", typeof value)
             }
 
 
@@ -1388,17 +1388,17 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (typeof value === "string" || typeof value === "number") {
-                ////////console.log("value is string or number")
+                console.log("value is string or number")
                 ////////console.log("match[0]", match[0])
                 ////////console.log("modifiedStr1", modifiedStr)
                 ////////console.log("value", value)
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
             } else {
-                //console.log("str2", str);
-                //console.log("modifiedStr", modifiedStr);
+                console.log("str2", str);
+                console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
-                //console.log("isObj", isObj);
+                console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
                     ////////console.log("object", value)
                     return value;
@@ -1428,18 +1428,18 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
 
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    ////////console.log("modifiedStr",modifiedStr)
-                    ////////console.log("match",match),
-                    ////////console.log("jsonString",jsonString)
-                    ////////console.log("jsonPath",jsonPath)
+                    console.log("modifiedStr",modifiedStr)
+                    console.log("match",match),
+                    console.log("jsonString",jsonString)
+                    console.log("jsonPath",jsonPath)
                     jsonPath = jsonPath.replace("{|","").replace("|}!", "").replace("|}", "")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
-                        ////////console.log("JSON PATH B1",jsonObj)
-                        ////////console.log("JSON PATH B2",pathParts)
-                        ////////console.log("JSON PATH B3",currentValue)
+                        console.log("JSON PATH B1",jsonObj)
+                        console.log("JSON PATH B2",pathParts)
+                        console.log("JSON PATH B3",currentValue)
                         for (const part of pathParts) {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
@@ -1449,16 +1449,16 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 break;
                             }
                         }
-                        ////////console.log("JSON PATH B4",currentValue)
+                        console.log("JSON PATH B4",currentValue)
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
-                        ////////console.log(`Error parsing JSON: ${e}`);
+                        console.log(`Error parsing JSON: ${e}`);
                         ////////console.log("@modifiedStr",modifiedStr)
                         //return modifiedStr; // JSON parsing error
                     }
                 });
-                ////////console.log("JSON PATH B5",updatedStr)
-                ////////console.log("JSON PATH B6",JSON.stringify(updatedStr))
+                console.log("JSON PATH B5",updatedStr)
+                console.log("JSON PATH B6",JSON.stringify(updatedStr))
                 if (updatedStr != "") {
                     return updatedStr;
                 }
