@@ -1404,7 +1404,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
 
-                    value = str.replace("{|"+ innerStr + "|}", value)
+                    value = JSON.parse(str.replace("{|"+ innerStr + "|}", value))
 // we need to know how to get it recognized as a string and replaced
 // rather than return the value for the whole target. 
 
