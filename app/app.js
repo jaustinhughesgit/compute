@@ -1348,11 +1348,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
-        let modifiedStr = str;
         let stringified = str
         if (typeof str == "object"){
             stringified  = JSON.stringify(str)
         }
+        let modifiedStr = stringified;
 
         while ((match = regex.exec(stringified)) !== null) {
             console.log("CCCCCCCCCC")
