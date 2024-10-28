@@ -1422,8 +1422,10 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         }
                         return obj
                     }
+                    let placeholder4 = "{|" + innerStr + "|}"
                     console.log(str, {[innerStr]: value})
-                    value = await replacePlaceholdersInJson(str, {[innerStr]: value});
+                    console.log("value", value)
+                    value = await replacePlaceholdersInJson(str, {[placeholder4]: value});
                     console.log("value", value)
 // we need to know how to get it recognized as a string and replaced
 // rather than return the value for the whole target. 
