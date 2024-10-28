@@ -1858,6 +1858,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 isJ = true
                 sending = JSON.stringify(sending)
             }
+            console.log("sending", sending)
+            console.log("libs", libs)
+            console.log("nestedPath", nestedPath)
             let value = await replacePlaceholders(sending, libs, nestedPath)
             console.log("isJ", isJ)
             if (isJ) {
