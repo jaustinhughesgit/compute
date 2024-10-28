@@ -1402,7 +1402,18 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("str2222", str);
                 console.log("typeof str", typeof str);
                 console.log("modifiedStr", modifiedStr);
-                const isObj = await isOnePlaceholder(str)
+                let isObj
+                try {
+                    const parsed = JSON.parse(mmm);
+                    if (typeof str == "object" && !Array.isArray(parsed)) {
+                        isObj = await isOnePlaceholder(str)
+                    } else {
+                        isObj = false
+                    }
+                } catch (err) {
+                    console.log(err);
+                    isObj = false
+                }
                 console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
                     console.log("object", value)
