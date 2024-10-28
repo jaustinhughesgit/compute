@@ -1796,6 +1796,8 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
     }
     console.log("###pathHolder2.22", pathHolder)
     console.log("###objectPath2.22", objectPath[objectPath.length - 1])
+    console.log("value", value)
+    console.log("index", index)
     if (index != undefined) {
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
@@ -1963,6 +1965,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("putValueIntoContext")
                 await putValueIntoContext(firstParts, pathParts, value, libs, index);
                 console.log("###libs3", libs)
+                console.log("###libs3", libs.root.context)
+                console.log("###libs3", libs.root.context.uploadParams)
             } else {
                 console.log("addValueToNestedKey")
                 console.log("set.key", set.key.replace("~/", ""))
