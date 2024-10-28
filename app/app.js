@@ -1585,8 +1585,12 @@ console.log("isExecuted", isExecuted)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
-
-    const isObj = await isOnePlaceholder(str)
+    let obj
+    if (typeof str == "object"){
+        isObj = await isOnePlaceholder(str)
+    } else {
+        isObj = false
+    }
     console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
