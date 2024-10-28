@@ -1042,8 +1042,8 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
-
-    if (typeof processedItem === 'string') {
+    console.log("typeof processedItem", typeof processedItem)
+    if (typeof processedItem === 'string' || typeof processedItem === 'object') {
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution);
         console.log("stringResponse", stringResponse);
         return stringResponse;
@@ -1904,7 +1904,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         console.log("pdfData is a buffer");
                         //value = value
                     } else if (typeof value === 'object' && value !== null) {
-                        value = JSON.parse(value)
+                        //value = JSON.parse(value)
                         console.log("pdfData is likely a JSON object");
                     } else {
                         console.log("pdfData is neither a buffer nor a JSON object");
