@@ -1407,9 +1407,11 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         // Loop through each key in the object
                         for (let key in obj) {
                             if (typeof obj[key] === 'object' && obj[key] !== null) {
+                                console.log("It's an object")
                                 // Recursively call replacePlaceholders if the property is an object
                                 replacePlaceholders(obj[key], replacements);
                             } else if (typeof obj[key] === 'string') {
+                                console.log("It's a string")
                                 // Replace placeholders if the property is a string
                                 for (let placeholder in replacements) {
                                     if (obj[key] === `{|${placeholder}|}`) {
@@ -1419,8 +1421,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                             }
                         }
                     }
-
-                    value = replacePlaceholdersInJson(str, {[innerStr]: value});
+                    console.log(str, {[innerStr]: value})
+                    value = await replacePlaceholdersInJson(str, {[innerStr]: value});
+                    console.log("value", value)
 // we need to know how to get it recognized as a string and replaced
 // rather than return the value for the whole target. 
 
