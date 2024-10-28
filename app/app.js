@@ -924,9 +924,9 @@ async function getNestedContext(libs, nestedPath, key = "") {
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
-            console.log("tempContext", tempContext)
-            console.log("tempContext", tempContext[part])
-            console.log("tempContext", tempContext[part].context)
+            console.log("tempContext",tempContext)
+            console.log("tempContext",tempContext[part])
+            console.log("tempContext",tempContext[part].context)
             tempContext = tempContext[part].context;
         }
         /*if (arrowJson.length > 1){
@@ -1042,23 +1042,28 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
-    console.log("typeof processedItem", typeof processedItem)
-    if (typeof processedItem === 'string' || typeof processedItem === 'object') {
+
+    if (typeof processedItem === 'string') {
+        // Process string values
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution);
-        console.log("stringResponse", stringResponse);
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
-        // Use Promise.all to wait until all items are processed
+        // Process each element in the array
         let newProcessedItems = await Promise.all(processedItem.map(async element => {
-            console.log("element", element);
-            let repHolder = await replacePlaceholders(element, libs, nestedPath, actionExecution);
-            console.log("repHolder", repHolder);
-            return repHolder;
+            return await replacePlaceholders(element, libs, nestedPath, actionExecution);
         }));
-
         return newProcessedItems;
+    } else if (typeof processedItem === 'object' && processedItem !== null) {
+        // Process each key-value pair in the JSON object
+        let newObject = {};
+        for (let key in processedItem) {
+            if (processedItem.hasOwnProperty(key)) {
+                newObject[key] = await replacePlaceholders(processedItem[key], libs, nestedPath, actionExecution);
+            }
+        }
+        return newObject;
     } else {
-        console.log("return item, nestedPath, libs", item, nestedPath, libs);
+        // Return item if it’s not a string, array, or object
         return item;
     }
 }
@@ -1343,18 +1348,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
     async function replace2(str, nestedPath) {
         console.log("BBBBBBBB")
-        console.log("str", str)
+        console.log("str",str)
         console.log("nestedPath", nestedPath)
         //str = str.replace(/ /g, "")
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
-        let stringified = str
-        if (typeof str == "object") {
-            stringified = JSON.stringify(str)
-        }
-        let modifiedStr = stringified;
+        let modifiedStr = str;
 
-        while ((match = regex.exec(stringified)) !== null) {
+        while ((match = regex.exec(str)) !== null) {
             console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
@@ -1378,8 +1379,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 value = subWord.Items[0].s
             } else {
                 console.log("DDDDDDDDDDD")
-                console.log("forceRoot", forceRoot)
-                console.log("nestedPath", nestedPath)
+                console.log("forceRoot",forceRoot)
+                console.log("nestedPath",nestedPath)
                 value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
                 console.log("value from json 2", value)
                 console.log("typeof from json 2", typeof value)
@@ -1402,18 +1403,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("str2222", str);
                 console.log("typeof str", typeof str);
                 console.log("modifiedStr", modifiedStr);
-                let isObj
-                try {
-                    const parsed = JSON.parse(mmm);
-                    if (typeof str == "object" && !Array.isArray(parsed)) {
-                        isObj = await isOnePlaceholder(str)
-                    } else {
-                        isObj = false
-                    }
-                } catch (err) {
-                    console.log(err);
-                    isObj = false
-                }
+                const isObj = await isOnePlaceholder(str)
                 console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
                     console.log("object", value)
@@ -1438,12 +1428,12 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         return obj
                     }
                     let placeholder4 = "{|" + innerStr + "|}"
-                    console.log(str, { [innerStr]: value })
+                    console.log(str, {[innerStr]: value})
                     console.log("value", value)
-                    value = await replacePlaceholdersInJson(str, { [placeholder4]: value });
+                    value = await replacePlaceholdersInJson(str, {[placeholder4]: value});
                     console.log("value", value)
-                    // we need to know how to get it recognized as a string and replaced
-                    // rather than return the value for the whole target. 
+// we need to know how to get it recognized as a string and replaced
+// rather than return the value for the whole target. 
 
 
 
@@ -1465,9 +1455,9 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
 
 
             if (arrayIndexRegex.test(str)) {
-                console.log("arrayIndexRegex.test", str)
+                console.log("arrayIndexRegex.test",str)
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
-                    console.log("match", match, p1, p2)
+                    console.log("match",match,  p1, p2)
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
                     return strArray[index] ?? "";
@@ -1475,20 +1465,20 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 console.log("updatedStr", updatedStr)
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-                console.log("jsonPathRegex", jsonPathRegex)
+                console.log("jsonPathRegex",jsonPathRegex)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("modifiedStr", modifiedStr)
-                    console.log("match", match),
-                        console.log("jsonString", jsonString)
-                    console.log("jsonPath", jsonPath)
-                    jsonPath = jsonPath.replace("{|", "").replace("|}!", "").replace("|}", "")
+                    console.log("modifiedStr",modifiedStr)
+                    console.log("match",match),
+                    console.log("jsonString",jsonString)
+                    console.log("jsonPath",jsonPath)
+                    jsonPath = jsonPath.replace("{|","").replace("|}!", "").replace("|}", "")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
-                        console.log("JSON PATH B1", jsonObj)
-                        console.log("JSON PATH B2", pathParts)
-                        console.log("JSON PATH B3", currentValue)
+                        console.log("JSON PATH B1",jsonObj)
+                        console.log("JSON PATH B2",pathParts)
+                        console.log("JSON PATH B3",currentValue)
                         for (const part of pathParts) {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
@@ -1498,7 +1488,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                                 break;
                             }
                         }
-                        console.log("JSON PATH B4", currentValue)
+                        console.log("JSON PATH B4",currentValue)
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
                         console.log(`Error parsing JSON: ${e}`);
@@ -1506,8 +1496,8 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                         //return modifiedStr; // JSON parsing error
                     }
                 });
-                console.log("JSON PATH B5", updatedStr)
-                console.log("JSON PATH B6", JSON.stringify(updatedStr))
+                console.log("JSON PATH B5",updatedStr)
+                console.log("JSON PATH B6",JSON.stringify(updatedStr))
                 if (updatedStr != "") {
                     return updatedStr;
                 }
@@ -1567,7 +1557,7 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("~1")
     console.log("str", str)
     console.log("nestedPath")
-    console.log("isExecuted", isExecuted)
+console.log("isExecuted", isExecuted)
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
@@ -1596,18 +1586,8 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
-    let isObj
-    try {
-        const parsed = JSON.parse(mmm);
-        if (typeof str == "object" && !Array.isArray(parsed)) {
-            isObj = await isOnePlaceholder(str)
-        } else {
-            isObj = false
-        }
-    } catch (err) {
-        console.log(err);
-        isObj = false
-    }
+
+    const isObj = await isOnePlaceholder(str)
     console.log("isObj", isObj)
     //console.log("---------------------")
     //console.log("---------------------")
@@ -1619,7 +1599,7 @@ async function processString(str, libs, nestedPath, isExecuted) {
     //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         console.log("~6")
-        target = await getKeyAndPath(str.replace("{|", "").replace("|}!", "").replace("|}", ""), nestedPath)
+        target = await getKeyAndPath(str.replace("{|", "").replace("|}!","").replace("|}", ""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
         console.log("nestedValue", nestedValue[target.key])
@@ -1642,7 +1622,7 @@ async function processString(str, libs, nestedPath, isExecuted) {
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
-    if (isExecuted && typeof mmm == "function") {
+    if (isExecuted && typeof mmm =="function") {
         mmm = await mmm();
         console.log("executed", mmm)
     } else {
@@ -1924,7 +1904,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("isJ", isJ)
             if (isJ) {
                 console.log("value before", value)
-                try {
+                try{
                     if (Buffer.isBuffer(value)) {
                         console.log("pdfData is a buffer");
                         //value = value
@@ -1934,8 +1914,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     } else {
                         console.log("pdfData is neither a buffer nor a JSON object");
                     }
-
-                } catch (err) {
+                
+                } catch (err){
                     console.log("err61111", err)
                 }
                 console.log("value after", value)
@@ -2045,7 +2025,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         console.log("action.target", action.target);
         const isObj = await isOnePlaceholder(action.target)
         let actionExecution = false
-        if (action.target.endsWith('|}!')) {
+        if (action.target.endsWith('|}!')){
             actionExecution = true
         }
         let strClean = await removeBrackets(action.target, isObj, actionExecution);
@@ -2061,7 +2041,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<", target.key)
-        value = await replacePlaceholders(target.key.replace("|", ""), libs, target.path, actionExecution);
+        value = await replacePlaceholders(target.key.replace("|",""), libs, target.path, actionExecution);
         console.log("value", value)
         let args = [];
 
@@ -2152,7 +2132,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("other", assign)
                 console.log("result", result);
                 console.log("typeof result", typeof result);
-
+                
                 await addValueToNestedKey(strClean, nestedContext, result)
                 //console.log("libs.root.context", libs.root.context);
                 //console.log("if", typeof result, assignExecuted)
@@ -2414,7 +2394,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("chainParams", chainParams);
                                     console.log("result", result);
                                     console.log("result[accessClean]", result[accessClean]);
-                                    console.log("assignExecuted", assignExecuted)
+                                    console.log("assignExecuted",assignExecuted)
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
                                         console.log("accessClean", accessClean)
@@ -2426,7 +2406,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("chainParams2", chainParams)
                                             result = await result["send"](...chainParams);
                                         } else {
-
+                                            
                                             console.log("accessClean2", accessClean)
                                             console.log("chainParams2", chainParams)
 
@@ -2504,30 +2484,30 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             } else if (!accessClean && chainAction.params) {
                 console.log("--4--")
                 // SEE IF WE CAN USE THIS FOR NO METHOD FUNCTIONS LIKE method()(param, param, pram)
-            } else if (assignExecuted && typeof result[accessClean] == "function") {
+            } else if (assignExecuted && typeof result[accessClean] == "function"){
                 console.log("executinig function")
-                console.log("result", result)
-                console.log("accessClean", accessClean)
-                console.log("result[accessClean]", result[accessClean])
-                console.log("chainParams", chainParams)
+                console.log("result",result)
+                console.log("accessClean",accessClean)
+                console.log("result[accessClean]",result[accessClean])
+                console.log("chainParams",chainParams)
                 result[accessClean](...chainParams)
                 return
             } else {
                 console.log("--5--")
                 try {
                     console.log("executinig function")
-                    console.log("assignExecuted", assignExecuted)
-                    console.log("result", result)
-                    console.log("accessClean", accessClean)
-                    console.log("result[accessClean]", result[accessClean])
-                    console.log("typeof result[accessClean]", typeof result[accessClean])
-                    console.log("chainParams", chainParams)
-                    console.log("action.target", action.target.replace("{|", "").replace("|}!", "").replace("|}", ""))
+                    console.log("assignExecuted",assignExecuted)
+                    console.log("result",result)
+                    console.log("accessClean",accessClean)
+                    console.log("result[accessClean]",result[accessClean])
+                    console.log("typeof result[accessClean]",typeof result[accessClean])
+                    console.log("chainParams",chainParams)
+                    console.log("action.target", action.target.replace("{|","").replace("|}!","").replace("|}",""))
                     console.log("libs.root.context", libs.root.context)
-                    console.log("libs.root.context[action.target]", libs.root.context[action.target.replace("{|", "").replace("|}!", "").replace("|}", "")])
-                    console.log("libs.root.context[action.target].value", libs.root.context[action.target.replace("{|", "").replace("|}!", "").replace("|}", "")].value)
-                    let result = libs.root.context[action.target.replace("{|", "").replace("|}!", "").replace("|}", "")].value[accessClean](...chainParams)
-
+                    console.log("libs.root.context[action.target]", libs.root.context[action.target.replace("{|","").replace("|}!","").replace("|}","")])
+                    console.log("libs.root.context[action.target].value",libs.root.context[action.target.replace("{|","").replace("|}!","").replace("|}","")].value)
+                    let result = libs.root.context[action.target.replace("{|","").replace("|}!","").replace("|}","")].value[accessClean](...chainParams)
+                    
                     return result
                     ////////console.log(libs.root.context[action.target].value)
                     ////////console.log(libs.root.context[action.target].value.length)
