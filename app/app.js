@@ -1586,7 +1586,7 @@ console.log("isExecuted", isExecuted)
     console.log("MMM2", mmm)
     
     let isObj
-    if (typeof str == "object" && mmm != []){
+    if (typeof str == "object" && !Array.isArray(mmm)){
         isObj = await isOnePlaceholder(str)
     } else {
         isObj = false
