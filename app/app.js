@@ -1409,7 +1409,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                             if (typeof obj[key] === 'object' && obj[key] !== null) {
                                 console.log("It's an object")
                                 // Recursively call replacePlaceholders if the property is an object
-                                replacePlaceholders(obj[key], replacements);
+                                replacePlaceholdersInJson(obj[key], replacements);
                             } else if (typeof obj[key] === 'string') {
                                 console.log("It's a string")
                                 // Replace placeholders if the property is a string
