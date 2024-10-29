@@ -1399,45 +1399,18 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 ////////console.log("value", value)
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
                 ////////console.log("modifiedStr2",modifiedStr)
+            
+            
+            
+            
+            
             } else {
-                console.log("str2222", str);
-                console.log("typeof str", typeof str);
+                console.log("str2", str);
                 console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
                 console.log("isObj", isObj);
                 if (isObj || typeof value == "object") {
                     console.log("object", value)
-
-                    function replacePlaceholdersInJson(obj, replacements) {
-                        // Loop through each key in the object
-                        for (let key in obj) {
-                            if (typeof obj[key] === 'object' && obj[key] !== null) {
-                                console.log("It's an object")
-                                // Recursively call replacePlaceholders if the property is an object
-                                replacePlaceholdersInJson(obj[key], replacements);
-                            } else if (typeof obj[key] === 'string') {
-                                console.log("It's a string")
-                                // Replace placeholders if the property is a string
-                                for (let placeholder in replacements) {
-                                    if (obj[key] === `{|${placeholder}|}`) {
-                                        obj[key] = replacements[placeholder];
-                                    }
-                                }
-                            }
-                        }
-                        return obj
-                    }
-                    let placeholder4 = "{|" + innerStr + "|}"
-                    console.log(str, {[innerStr]: value})
-                    console.log("value", value)
-                    value = await replacePlaceholdersInJson(str, {[placeholder4]: value});
-                    console.log("value", value)
-// we need to know how to get it recognized as a string and replaced
-// rather than return the value for the whole target. 
-
-
-
-
                     return value;
                 } else {
                     console.log("stringify", value)
@@ -1452,7 +1425,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                     }
                 }
             }
-
 
             if (arrayIndexRegex.test(str)) {
                 console.log("arrayIndexRegex.test",str)
