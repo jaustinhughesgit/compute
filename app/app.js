@@ -678,6 +678,8 @@ async function processConfig(config, initialContext, lib) {
     return context;
 }
 
+
+
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
@@ -690,11 +692,19 @@ async function installModule(moduleName, contextKey, context, lib) {
     const moduleDirPath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
     let modulePath;
 
-    // Determine the entry file based on package.json or default to index.js
+    // Determine the entry file based on package.json's exports.default, main, or fallback to index.js
     try {
         const packageJsonPath = path.join(moduleDirPath, 'package.json');
         const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
-        modulePath = path.join(moduleDirPath, packageJson.main || 'index.js');
+        
+        // Check exports.default, then main, then fallback to index.js
+        if (packageJson.exports && packageJson.exports.default) {
+            modulePath = path.join(moduleDirPath, packageJson.exports.default);
+        } else if (packageJson.main) {
+            modulePath = path.join(moduleDirPath, packageJson.main);
+        } else {
+            modulePath = path.join(moduleDirPath, 'index.js');
+        }
     } catch (err) {
         console.warn(`Could not read package.json for ${moduleName}, defaulting to index.js`);
         modulePath = path.join(moduleDirPath, 'index.js');
@@ -709,7 +719,7 @@ async function installModule(moduleName, contextKey, context, lib) {
             // If it's an ES module, use dynamic import
             module = await import(modulePath);
         //} else {
-            throw error; // Re-throw other errors
+            //throw error; // Re-throw other errors
         //}
     }
 
@@ -724,6 +734,9 @@ async function installModule(moduleName, contextKey, context, lib) {
     }
     console.log("context", JSON.stringify(context));
 }
+
+
+
 
 /*
 // THIS IS WORKING AND ONLY USES REQUIRE TO IMPORT MODULES
