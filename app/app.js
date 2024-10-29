@@ -692,12 +692,10 @@ async function installModule(moduleName, contextKey, context, lib) {
     let module;
     try {
         // Try to require the module (for CommonJS)
-            console.log("performing require");
         module = require(modulePath);
     } catch (error) {
         if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES module, use dynamic import
-            console.log("performing import");
             module = await import(modulePath);
         } else {
             throw error; // Re-throw other errors
