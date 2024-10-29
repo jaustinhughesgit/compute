@@ -694,18 +694,17 @@ async function installModule(moduleName, contextKey, context, lib) {
         // Try to require the module (for CommonJS) --
         module = require(modulePath);
     } catch (error) {
-        if (error.code === 'ERR_REQUIRE_ESM') {
+        //if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES module, use dynamic import
             module = await import(modulePath);
-        } else {
-            throw error; // Re-throw other errors
-        }
+        //} else {
+            //throw error; // Re-throw other errors
+        //}
     }
 
     if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
-            console.log("INSTALLING TO VALUE MIGHT NOT WORK");
             context[key] = { "value": module[key], "context": {} };
         }
     } else {
