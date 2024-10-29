@@ -949,8 +949,6 @@ async function initializeMiddleware(req, res, next) {
                 console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
                 console.log("arrayOfJSON", arrayOfJSON)
-                let reqit = JSON.parse(JSON.stringify(req));
-                let resit = JSON.parse(JSON.stringify(req));
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         console.log("req.body", JSON.stringify(req.body))
@@ -961,8 +959,8 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
                         req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
                         req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
-                        req.lib.root.context.req = { "value": reqit, "context": {} }
-                        req.lib.root.context.res = { "value": resit, "context": {} }
+                        req.lib.root.context.req = { "value": req, "context": {} }
+                        req.lib.root.context.res = { "value": res, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
                         req.lib.root.context.axios = { "value": boundAxios, "context": {} }
                         req.lib.root.context.fs = { "value": fs, "context": {} }
@@ -978,7 +976,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
-                        await initializeModules(req.lib, userJSON, reqit, resit, next);
+                        await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -1988,7 +1986,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let sending = action.set[key]
             if (typeof action.set[key] === "object") {
                 isJ = true
-                //sending = JSON.stringify(sending)
+                sending = JSON.stringify(sending)
             }
             console.log("sending", sending)
             console.log("libs", libs)
