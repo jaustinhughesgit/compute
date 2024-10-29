@@ -716,7 +716,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     }
 
-    // Populate context based on module structure
+    // Populate context based on module structure --
     if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
