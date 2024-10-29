@@ -2309,8 +2309,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.next) {
-        console.log(context)
-        res.send("hello")
         next();
     }
 
