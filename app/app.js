@@ -1143,7 +1143,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }*/
 
-async function 6(item, libs, nestedPath, actionExecution) {
+async function (item, libs, nestedPath, actionExecution) {
     let processedItem = item;
     console.log("libs.root.context5", libs.root.context)
 
