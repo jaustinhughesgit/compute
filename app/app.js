@@ -680,7 +680,24 @@ async function processConfig(config, initialContext, lib) {
 
 
 
-async function installModule(moduleName, contextKey, context, lib) {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*async function installModule(moduleName, contextKey, context, lib) {
     console.log("moduleName", contextKey)
     console.log("contextKey", contextKey)
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
@@ -743,8 +760,79 @@ async function installModule(moduleName, contextKey, context, lib) {
     }
 
     console.log("context", JSON.stringify(context));
-}
+}*/
 
+
+
+async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
+    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult);
+    lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
+
+    const moduleDirPath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
+    let modulePath;
+
+    try {
+        const packageJsonPath = path.join(moduleDirPath, 'package.json');
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        
+        if (packageJson.exports && packageJson.exports.default) {
+            modulePath = path.join(moduleDirPath, packageJson.exports.default);
+        } else if (packageJson.main) {
+            modulePath = path.join(moduleDirPath, packageJson.main);
+        } else {
+            modulePath = path.join(moduleDirPath, 'index.js');
+        }
+    } catch (err) {
+        console.warn(`Could not read package.json for ${moduleName}, defaulting to index.js`);
+        modulePath = path.join(moduleDirPath, 'index.js');
+    }
+
+    let module;
+    try {
+        module = require(modulePath);
+    } catch (error) {
+        //if (error.code === 'ERR_REQUIRE_ESM') {
+            try {
+                module = await import(modulePath);
+            } catch (importError) {
+                console.error(`Failed to import ES module at ${modulePath}:`, importError);
+                throw importError;
+            }
+        //} else {
+        //    throw error;
+        //}
+    }
+
+    // Check if contextKey specifies individual keys within {}
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            if (module[key]) {
+                // Named export directly on the module
+                context[key] = { "value": module[key], "context": {} };
+            } else if (module.default && module.default[key]) {
+                // Nested named export within default export, if default is an object
+                context[key] = { "value": module.default[key], "context": {} };
+            } else {
+                console.warn(`Key ${key} not found in module ${moduleName}`);
+            }
+        }
+    } else {
+        // If contextKey does not specify specific keys, assign the default or full module
+        if (module.default) {
+            context[contextKey] = { "value": module.default, "context": {} };
+        } else {
+            context[contextKey] = { "value": module, "context": {} };
+        }
+    }
+
+    console.log("context", JSON.stringify(context));
+}
 
 
 
