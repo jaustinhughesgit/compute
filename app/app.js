@@ -1027,9 +1027,9 @@ async function getNestedContext(libs, nestedPath, key = "") {
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
-            console.log("tempContext",tempContext)
-            console.log("tempContext",tempContext[part])
-            console.log("tempContext",tempContext[part].context)
+            console.log("tempContext1",tempContext)
+            console.log("tempContext2",tempContext[part])
+            console.log("tempContext3",tempContext[part].context)
             tempContext = tempContext[part].context;
         }
         /*if (arrowJson.length > 1){
@@ -2118,12 +2118,14 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         } else {
             target = { "key": strClean, "path": nestedPath }
         }
+        console.log("libs.root.context8", libs.root.context)
         let nestedContext = await getNestedContext(libs, target.path);
-
+        console.log("libs.root.context9", libs.root.context)
         if (!nestedContext.hasOwnProperty(target.key)) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<", target.key)
+        console.log("libs.root.context10", libs.root.context)
         value = await replacePlaceholders(target.key.replace("|",""), libs, target.path, actionExecution);
         console.log("value", value)
         let args = [];
