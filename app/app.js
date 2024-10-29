@@ -949,6 +949,7 @@ async function initializeMiddleware(req, res, next) {
                 console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
                 console.log("arrayOfJSON", arrayOfJSON)
+                req.lib.root.context.res = { "value": res, "context": {} }
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         console.log("req.body", JSON.stringify(req.body))
@@ -960,7 +961,6 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
                         req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
                         req.lib.root.context.req = { "value": req, "context": {} }
-                        req.lib.root.context.res = { "value": res, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
                         req.lib.root.context.axios = { "value": boundAxios, "context": {} }
                         req.lib.root.context.fs = { "value": fs, "context": {} }
