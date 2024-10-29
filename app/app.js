@@ -2134,6 +2134,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         console.log(">>A<<", target.key)
         console.log("libs.root.context10", libs.root.context)
+        libs.root.context.res.value._headerSent = false
         value = await replacePlaceholders(target.key.replace("|",""), libs, target.path, actionExecution);
         console.log("value", value)
         let args = [];
