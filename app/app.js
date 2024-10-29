@@ -2307,6 +2307,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.next) {
+        console.log(context)
+        res.send("hello")
         next();
     }
 
@@ -2468,7 +2470,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     console.log("1------await result(...chainParams)--------------------------");
                                     console.log("chainParams", chainParams);
                                     console.log("result", result);
-                                    console.log("result[accessClean]", result[accessClean]);
+                                    //console.log("result[accessClean]", result[accessClean]);
                                     console.log("assignExecuted",assignExecuted)
                                     if (assignExecuted) {
                                         console.log("if (assignExecuted){")
@@ -2484,9 +2486,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             
                                             console.log("accessClean2", accessClean)
                                             console.log("chainParams2", chainParams)
- 
-                                            await result[accessClean](...chainParams);
-                                            result = {}
+
+                                            result = await result[accessClean](...chainParams);
                                         }
                                         console.log("result777", JSON.stringify(result))
                                     } else {
