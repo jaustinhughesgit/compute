@@ -692,12 +692,10 @@ async function installModule(moduleName, contextKey, context, lib) {
     const moduleDirPath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
     let modulePath;
 
-    // Determine the entry file based on package.json's exports.default, main, or fallback to index.js
     try {
         const packageJsonPath = path.join(moduleDirPath, 'package.json');
         const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
         
-        // Check exports.default, then main, then fallback to index.js
         if (packageJson.exports && packageJson.exports.default) {
             modulePath = path.join(moduleDirPath, packageJson.exports.default);
         } else if (packageJson.main) {
@@ -712,28 +710,36 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     let module;
     try {
-        // Try to require the module (for CommonJS)
         module = require(modulePath);
     } catch (error) {
-        //if (error.code === 'ERR_REQUIRE_ESM') {
-            // If it's an ES module, use dynamic import
-            console.log("modulePath",modulePath)
             module = await import(modulePath);
-            console.log("module",module)
-        //} else {
-            //throw error; // Re-throw other errors
-        //}
+
     }
 
+    // Populate context based on module structure
     if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
-            console.log("INSTALLING TO VALUE MIGHT NOT WORK");
-            context[key] = { "value": module[key], "context": {} };
+            if (module[key]) {
+                context[key] = { "value": module[key], "context": {} };
+            } else if (module.default && module.default[key]) {
+                // Access nested named exports within the default export, if any
+                context[key] = { "value": module.default[key], "context": {} };
+            } else {
+                console.warn(`Key ${key} not found in module ${moduleName}`);
+            }
         }
     } else {
-        context[contextKey] = { "value": module, "context": {} };
+        // If contextKey does not specify specific keys
+        if (module.default) {
+            // Use the default export if available
+            context[contextKey] = { "value": module.default, "context": {} };
+        } else {
+            // Otherwise, use the full module (CommonJS style)
+            context[contextKey] = { "value": module, "context": {} };
+        }
     }
+
     console.log("context", JSON.stringify(context));
 }
 
