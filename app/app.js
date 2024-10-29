@@ -691,7 +691,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     let module;
     try {
-        // Try to require the module (for CommonJS)
+        // Try to require the module (for CommonJS) --
         module = require(modulePath);
     } catch (error) {
         if (error.code === 'ERR_REQUIRE_ESM') {
