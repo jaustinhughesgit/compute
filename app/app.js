@@ -1143,8 +1143,9 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
 }*/
 
-async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
+async function 6(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
+    console.log("libs.root.context5", libs.root.context)
 
     if (typeof processedItem === 'string') {
         // Process string values
@@ -1635,12 +1636,17 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("str", str)
     console.log("nestedPath")
 console.log("isExecuted", isExecuted)
+console.log("libs.root.context4", libs.root.context)
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
         if (!["req", "res"].includes(key)) {
             console.log("~3")
+
+    console.log("libs.root.context6", libs.root.context)
             acc[key] = libs.root[key];
+
+    console.log("libs.root.context7", libs.root.context)
         }
         return acc;
     }, {});
