@@ -17,6 +17,7 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = requir
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
+
 const boundAxios = {
     // Bind all the necessary methods to preserve the original `this` context
     constructor: axios.constructor.bind(axios),
@@ -676,90 +677,70 @@ async function processConfig(config, initialContext, lib) {
     }
     return context;
 }
-/*
-async function installModule(moduleName, contextKey, context, lib) {
-    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
-    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    lib.modules[moduleName] = moduleName
-    if (!context.hasOwnProperty(contextKey)) {
-        context[contextKey] = { "value": {}, "context": {} }
-    }
-    context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
-    return "/tmp/node_modules/" + moduleName
-}*/
-
-/*
-async function installModule(moduleName, contextKey, context, lib) {
-    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp', }).map(([key, value]) => `--${key}=${value}`).join(' ');
-    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    lib.modules[moduleName] = moduleName
-    if (!context.hasOwnProperty(contextKey)) {
-        context[contextKey] = { "value": {}, "context": {} }
-    }
-    
-    context[contextKey].value = await require("/tmp/node_modules/" + moduleName);
-    return "/tmp/node_modules/" + moduleName
-}*/
 
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
         .join(' ');
 
-    // Install the module
+    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult);
+    lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
+
+    const modulePath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
+
+    let module;
+    try {
+        // Try to require the module (for CommonJS)
+        module = require(modulePath);
+    } catch (error) {
+        if (error.code === 'ERR_REQUIRE_ESM') {
+            // If it's an ES module, use dynamic import
+            module = await import(modulePath);
+        } else {
+            throw error; // Re-throw other errors
+        }
+    }
+
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            console.log("INSTALLING TO VALUE MIGHT NOT WORK");
+            context[key] = { "value": module[key], "context": {} };
+        }
+    } else {
+        context[contextKey] = { "value": module, "context": {} };
+    }
+    console.log("context", JSON.stringify(context));
+}
+
+/*
+// THIS IS WORKING AND ONLY USES REQUIRE TO IMPORT MODULES
+async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
     let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
     console.log("execResult", execResult)
     lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
 
-    // Resolve the module path
     const modulePath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
 
-    // Require the installed module
     const module = require(modulePath);
 
     if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
-        // It's a destructuring pattern
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
-            // Store the export directly
             console.log("INSTALLING TO VALUE MIGHT NOT WORK")
             context[key] = { "value": module[key], "context": {} };
         }
     } else {
-        // It's a simple module name
         context[contextKey] = { "value": module, "context": {} };
     }
     console.log("context", JSON.stringify(context))
 }
-
-/*async function installModule(moduleName, contextKey, context, lib) {
-    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
-        .map(([key, value]) => `--${key}=${value}`)
-        .join(' ');
-
-    await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    lib.modules[moduleName] = moduleName;
-
-    // Require the installed module
-    const module = require("/tmp/node_modules/" + moduleName);
-
-    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
-        // It's a destructuring pattern
-        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
-        for (const key of keys) {
-            if (!context.hasOwnProperty(key)) {
-                context[key] = { "value": {}, "context": {} };
-            }
-            context[key].value = module[key];
-        }
-    } else {
-        // It's a simple module name
-        if (!context.hasOwnProperty(contextKey)) {
-            context[contextKey] = { "value": {}, "context": {} };
-        }
-        context[contextKey].value = module;
-    }
-}*/
+*/
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
