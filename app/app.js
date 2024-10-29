@@ -717,7 +717,9 @@ async function installModule(moduleName, contextKey, context, lib) {
     } catch (error) {
         //if (error.code === 'ERR_REQUIRE_ESM') {
             // If it's an ES module, use dynamic import
+            console.log("modulePath",modulePath)
             module = await import(modulePath);
+            console.log("module",module)
         //} else {
             //throw error; // Re-throw other errors
         //}
