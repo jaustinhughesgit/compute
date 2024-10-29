@@ -1306,6 +1306,8 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
+    console.log("nestedPath"JSON.stringify(nestedPath))
+
     console.log("AAAAAAAA")
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
@@ -1657,7 +1659,9 @@ console.log("isExecuted", isExecuted)
     console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
+    console.log("libs.root.context1", libs.root.context)
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
+    console.log("libs.root.context2", libs.root.context)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
@@ -1669,9 +1673,7 @@ console.log("isExecuted", isExecuted)
     //console.log("---------------------")
     //console.log("---------------------")
     //console.log("---------------------")
-    //console.log("libs.root.context", libs.root.context)
-    //console.log("libs.root.context[str]", libs.root.context[str])
-    //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
+    console.log("libs.root.context3", libs.root.context)
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
         console.log("~6")
         target = await getKeyAndPath(str.replace("{|", "").replace("|}!","").replace("|}", ""), nestedPath)
@@ -2283,7 +2285,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 async function executeValue() {
                     try {
                         const data = await value.value();
-                        //console.log("data",data);
+                        console.log("data",data);
                         return data;
                     } catch (error) {
                         console.error('Failed to execute value function:', error.message);
