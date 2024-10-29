@@ -2127,14 +2127,21 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             target = { "key": strClean, "path": nestedPath }
         }
         console.log("libs.root.context8", libs.root.context)
-        let nestedContext = await getNestedContext(libs, target.path);
+        console.log("target.path", target.path)
+        let nestedContext
+        if (target.path == "root"){
+            console.log("ggggggg")
+            nestedContext = libs.root.context
+        } else {
+            console.log("hhhhhh")
+            nestedContext = await getNestedContext(libs, target.path);
+        }
         console.log("libs.root.context9", libs.root.context)
         if (!nestedContext.hasOwnProperty(target.key)) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
         console.log(">>A<<", target.key)
         console.log("libs.root.context10", libs.root.context)
-        libs.root.context.res.value._headerSent = false
         value = await replacePlaceholders(target.key.replace("|",""), libs, target.path, actionExecution);
         console.log("value", value)
         let args = [];
