@@ -1050,7 +1050,9 @@ async function getNestedContext(libs, nestedPath, key = "") {
         }*/
         console.log("tempContext", tempContext)
         console.log("libs.root.context15", libs.root.context)
-        return tempContext;
+        if (part != root){
+            return tempContext;
+        }
     }
     console.log("libs", libs)
     return libs
