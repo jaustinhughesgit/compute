@@ -1004,7 +1004,7 @@ async function initializeModules(libs, config, req, res, next) {
 
 async function getNestedContext(libs, nestedPath, key = "") {
     console.log("getNestedContext")
-    console.log("libs.root.context11", JSON.stringify(libs.root.context))
+    console.log("libs.root.context11",  libs.root.context)
     console.log("nestedPath", nestedPath)
     console.log("key", key)
     if (key.startsWith("~/")) {
@@ -1018,16 +1018,16 @@ async function getNestedContext(libs, nestedPath, key = "") {
         nestedPath = arrowJson[0]
     }
 
-    console.log("libs.root.context12", JSON.stringify(libs.root.context))
+    console.log("libs.root.context12", libs.root.context)
     console.log("444: nestedPath", nestedPath)
     const parts = nestedPath.split('.');
 
-    console.log("libs.root.context13", JSON.stringify(libs.root.context))
+    console.log("libs.root.context13", libs.root.context)
     console.log("parts", parts)
     if (nestedPath && nestedPath != "") {
         let tempContext = libs;
         let partCounter = 0
-        console.log("libs.root.context14", JSON.stringify(libs.root.context))
+        console.log("libs.root.context14", libs.root.context)
         for (let part of parts) {
             console.log("part", part)
             console.log("parts[part]", parts[part])
@@ -1049,7 +1049,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
             }
         }*/
         console.log("tempContext", tempContext)
-        console.log("libs.root.context15", JSON.stringify(libs.root.context))
+        console.log("libs.root.context15", libs.root.context)
         return tempContext;
     }
     console.log("libs", libs)
