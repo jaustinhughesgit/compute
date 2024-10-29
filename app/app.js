@@ -681,6 +681,8 @@ async function processConfig(config, initialContext, lib) {
 
 
 async function installModule(moduleName, contextKey, context, lib) {
+    console.log("moduleName", contextKey)
+    console.log("contextKey", contextKey)
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
         .join(' ');
