@@ -2484,9 +2484,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             
                                             console.log("accessClean2", accessClean)
                                             console.log("chainParams2", chainParams)
-                                            if (!result.headersSent) {
+                                            //f (!result.headersSent) {
                                                 result = await result[accessClean](...chainParams);
-                                            }
+                                            //}
                                         }
                                         //console.log("result777", JSON.stringify(result))
                                     } else {
