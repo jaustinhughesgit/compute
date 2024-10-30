@@ -578,16 +578,14 @@ async function runApp(req, res, next) {
             await runMiddleware(0);
         }
 
-        //next();
+        if (!res.headersSent) {
+            res.send("1var")
+        }
 
     } catch (error) {
         next(error);  
     }
 }
-
-app.use((req, res, next) => {
-    res.send("1var")
-  });
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
