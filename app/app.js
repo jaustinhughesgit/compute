@@ -1637,11 +1637,12 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("nestedPath")
 console.log("isExecuted", isExecuted)
 
-    let obj = Object.keys(libs.root).reduce((acc, key) => {
+console.log("libs.root.context", libs.root.context)
+    let obj = Object.keys(libs.root.context).reduce((acc, key) => {
         console.log("~2")
-        if (!["req"].includes(key)) {
+        if (!["req", "res"].includes(key)) {
             console.log("~3")
-            acc[key] = libs.root[key];
+            acc[key] = libs.root.context[key];
         }
         return acc;
     }, {});
