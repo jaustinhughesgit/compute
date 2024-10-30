@@ -92,17 +92,6 @@ app.use('/controller', controllerRouter);
 
 app.use('/', indexRouter);
 
-app.use((req, res, next) => {
-    // Set a custom timeout (e.g., 30 seconds)
-    req.setTimeout(60000, () => {
-        // If timeout occurs, respond with a 404 error
-        if (!res.headersSent) {
-            res.status(404).send('Not Found');
-        }
-    });
-    next();
-});
-
 app.use(async (req, res, next) => {
 
     if (!cookiesRouter) {
@@ -1649,16 +1638,17 @@ async function processString(str, libs, nestedPath, isExecuted) {
 console.log("isExecuted", isExecuted)
 
 console.log("libs.root.context", libs.root.context)
-    let obj = Object.keys(libs.root.context).reduce((acc, key) => {
+    /*let obj = Object.keys(libs.root.context).reduce((acc, key) => {
         console.log("~2")
         if (!["req", "res"].includes(key)) {
             console.log("~3a")
             console.log("~3b", key, libs.root.context)
-            console.log("~3c", key, acc)
+            console.log("~3c", key, libs.root.context)
             acc[key] = libs.root.context[key];
         }
         return acc;
-    }, {});
+    }, {});*/
+    let obj = libs.root.context
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
