@@ -1021,7 +1021,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
     const parts = nestedPath.split('.');
 
     console.log("parts", parts)
-    if (nestedPath && nestedPath != "") {
+    /*if (nestedPath && nestedPath != "") {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
@@ -1047,8 +1047,8 @@ async function getNestedContext(libs, nestedPath, key = "") {
         console.log("tempContext", tempContext)
         return tempContext;
     }
-    console.log("libs", libs)
-    return libs
+    console.log("libs", libs)*/
+    return libs.root.context
 }
 
 async function getNestedValue(libs, nestedPath) {
@@ -1633,15 +1633,15 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("str", str)
     console.log("nestedPath")
 console.log("isExecuted", isExecuted)
- obj = libs.root.context
-    /*let obj = Object.keys(libs.root).reduce((acc, key) => {
+
+    let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
         if (!["req", "res"].includes(key)) {
             console.log("~3")
             acc[key] = libs.root[key];
         }
         return acc;
-    }, {});*/
+    }, {});
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
@@ -1654,7 +1654,7 @@ console.log("isExecuted", isExecuted)
 
     console.log("----------------",)
     console.log("str", str)
-    //console.log("obj", obj)
+    console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
@@ -1691,9 +1691,9 @@ console.log("isExecuted", isExecuted)
 
     }
 
-    if (str == "res"){
+    /*if (str == "res"){
         mmm = libs.root.context[str].value
-    }
+    }*/
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
