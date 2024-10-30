@@ -1154,7 +1154,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
             return await replacePlaceholders(element, libs, nestedPath, actionExecution);
         }));
         return newProcessedItems;
-    /*} else if (typeof processedItem === 'object' && processedItem !== null) {
+    } else if (typeof processedItem === 'object' && processedItem !== null) {
         // Process each key-value pair in the JSON object
         let newObject = {};
         for (let key in processedItem) {
@@ -1162,7 +1162,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
                 newObject[key] = await replacePlaceholders(processedItem[key], libs, nestedPath, actionExecution);
             }
         }
-        return newObject;*/
+        return newObject;
     } else {
         // Return item if it’s not a string, array, or object
         return item;
@@ -1629,7 +1629,6 @@ const json88 = {
 //console.log(replacePlaceholders(str, json));
 
 async function processString(str, libs, nestedPath, isExecuted) {
-    console.log("libs.root.context.res", libs.root.context.res)
     console.log("~1")
     console.log("str", str)
     console.log("nestedPath")
