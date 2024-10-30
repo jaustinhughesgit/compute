@@ -1708,9 +1708,9 @@ console.log("libs.root.context4", libs.root.context)
 
     }
 
-    /*if (str == "res"){
+    if (str == "res"){
         mmm = libs.root.context[str].value
-    }*/
+    }
 
     console.log("TYPEOF", typeof mmm)
     console.log("MMM3", mmm)
