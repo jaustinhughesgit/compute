@@ -1648,7 +1648,7 @@ console.log("libs.root.context", libs.root.context)
         }
         return acc;
     }, {});*/
-    let obj = libs.root.context
+    //let obj = libs.root.context
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
@@ -1661,7 +1661,7 @@ console.log("libs.root.context", libs.root.context)
 
     console.log("----------------",)
     console.log("str", str)
-    console.log("obj", obj.context)
+    //console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
     let mmm = await replacePlaceholders2(str, libs.root.context, newNestedPath)
