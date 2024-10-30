@@ -585,6 +585,10 @@ async function runApp(req, res, next) {
     }
 }
 
+app.use((req, res, next) => {
+    res.send("1var")
+  });
+
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
     try {
@@ -676,24 +680,6 @@ async function processConfig(config, initialContext, lib) {
     }
     return context;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /*async function installModule(moduleName, contextKey, context, lib) {
