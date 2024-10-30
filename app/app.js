@@ -570,6 +570,8 @@ async function runApp(req, res, next) {
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
+                    console.log("res.headersSent",res.headersSent)
+                    console.log("res88", res)
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
                 }
             };
