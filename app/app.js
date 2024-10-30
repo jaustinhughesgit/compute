@@ -2498,6 +2498,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                                 } else {
                                                     await result[accessClean](...chainParams);
                                                 }
+                                                return {}
                                             //}
                                         }
                                         //console.log("result777", JSON.stringify(result))
