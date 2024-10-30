@@ -1264,7 +1264,7 @@ function evaluateMathExpression(expression) {
         return null;
     }
 }
-
+/*
 function replaceWords(input, obj) {
 
     return input.replace(/\[(\w+)]/g, (match, word) => {
@@ -1299,11 +1299,12 @@ function isContextKey(searchKey, obj) {
 
     return false;
 }
-
+*/
+/*
 function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
 }
-
+*/
 function evaluateMathExpression2(expression) {
     try {
         const result = math.evaluate(expression);
