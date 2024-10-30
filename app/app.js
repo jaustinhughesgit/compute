@@ -949,9 +949,13 @@ async function initializeMiddleware(req, res, next) {
                 results.forEach(result => arrayOfJSON.push(result));
                //console.log("arrayOfJSON", arrayOfJSON)
                 let resit = res
-                let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
-                    return async (req, res, next) => {
-                       //console.log("req.body", JSON.stringify(req.body))
+
+
+                async function executeMiddlewareInOrder(aoJSON) {
+                    for (const userJSON of aoJSON) {
+                        await new Promise((resolve) => {
+                            const middleware = async (req, res, next) => {
+                                //console.log("req.body", JSON.stringify(req.body))
                         console.log("req.lib.root.context.body",req.lib.root.context.body)
                         if (req.lib.root.context.body == undefined){
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
@@ -976,18 +980,19 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
+                        }
                        //console.log("pre-initializeModules", req.lib.root.context)
                        //console.log("pre-lib", req.lib)
                         await initializeModules(req.lib, userJSON, req, res, next);
-
+                                // Call next() manually if needed, or just resolve
+                                resolve(); // Move to the next middleware once done
+                            };
+                            middleware(req, res, next); // Execute middleware function
+                        });
                     }
-                       //console.log("post-initializeModules", req.lib.root.context)
-
-                       //console.log("post-lib", req.lib)
-
-                    };
-                });
-                return await Promise.all(resultArrayOfJSON)
+                }
+                executeMiddlewareInOrder(arrayOfJSON)
+               
             }
         } else {
             //console.log("ELSE87")
