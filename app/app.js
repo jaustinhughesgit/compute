@@ -1641,7 +1641,9 @@ console.log("libs.root.context", libs.root.context)
     let obj = Object.keys(libs.root.context).reduce((acc, key) => {
         console.log("~2")
         if (!["req", "res"].includes(key)) {
-            console.log("~3")
+            console.log("~3a")
+            console.log("~3b", key, libs.root.context)
+            console.log("~3c", key, acc)
             acc[key] = libs.root.context[key];
         }
         return acc;
