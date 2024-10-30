@@ -578,9 +578,6 @@ async function runApp(req, res, next) {
             await runMiddleware(0);
         }
 
-        if (!res.headersSent) {
-            res.send("1var")
-        }
 
     } catch (error) {
         next(error);  
