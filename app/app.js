@@ -1679,7 +1679,8 @@ console.log("isExecuted", isExecuted)
         target = await getKeyAndPath(str.replace("{|", "").replace("|}!","").replace("|}", ""), nestedPath)
         console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        console.log("nestedValue", nestedValue[target.key])
+        console.log("nestedValue", nestedValue)
+        console.log("nestedValue[target.key]", nestedValue[target.key])
         try {
             console.log("nestedValue[target.key].value", nestedValue[target.key].value)
             mmm = nestedValue[target.key].value
@@ -2275,14 +2276,17 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (typeof value.value === 'function') {
             if (action.express) {
                 if (!action.next) {
+                    console.log("!action.next")
                     await value.value(req, res);
                 } else {
+                    console.log("action.next")
                     await value.value(req, res, next);
                 }
             } else {
                 //await value.value
 
                 async function executeValue() {
+                    console.log("value.value()")
                     try {
                         const data = await value.value();
                         //console.log("data",data);
@@ -2333,6 +2337,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
     }
 
     async function instantiateWithNew(constructor, args) {
+        console.log("instantiateWithNew")
         return await new constructor(...args);
     }
     // DELETED (here) the action.access condition that avoided action.chain by putting everything in the action, so that we had less to prompt engineer for LLM.
@@ -2487,7 +2492,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("accessClean2", accessClean)
                                             console.log("chainParams2", chainParams)
                                             //f (!result.headersSent) {
-                                                result = await result[accessClean](...chainParams);
+                                                console.log()
+                                                if (accessClean == "send"){
+                                                await result[accessClean](...chainParams);
+                                                } else {
+                                                    result = await result[accessClean](...chainParams);
+                                                }
                                             //}
                                         }
                                         //console.log("result777", JSON.stringify(result))
