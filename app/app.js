@@ -1629,6 +1629,7 @@ const json88 = {
 //console.log(replacePlaceholders(str, json));
 
 async function processString(str, libs, nestedPath, isExecuted) {
+    console.log("libs.root.context.res", libs.root.context.res)
     console.log("~1")
     console.log("str", str)
     console.log("nestedPath")
