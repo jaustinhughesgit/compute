@@ -568,7 +568,6 @@ async function runApp(req, res, next) {
 
         // Middleware 3: Run through the middleware cache
         if (req.lib.middlewareCache.length > 0) {
-            console.log("runApp2")
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
@@ -577,12 +576,10 @@ async function runApp(req, res, next) {
             await runMiddleware(0);
         }
 
-        // All middlewares done, move to next
         next();
 
     } catch (error) {
-        console.log("err", error)
-        next(error);  // Error handling
+        next(error);  
     }
 }
 
@@ -1308,6 +1305,7 @@ function evaluateMathExpression2(expression) {
 
 async function replacePlaceholders2(str, json, nestedPath = "") {
     console.log("AAAAAAAA")
+    console.log("json", json)
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1594,9 +1592,10 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         }
 
         if (modifiedStr.match(regex)) {
+            console.log("modifiedStr.match",modifiedStr)
             return replace2(modifiedStr, nestedPath);
         }
-
+        console.log("after modified", modifiedStr)
         return modifiedStr;
     }
 
@@ -1658,7 +1657,7 @@ console.log("isExecuted", isExecuted)
     console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
-    let mmm = await replacePlaceholders2(str, obj, newNestedPath)
+    let mmm = await replacePlaceholders2(str, libs.root.context, newNestedPath)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
