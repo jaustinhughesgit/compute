@@ -978,8 +978,9 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                        //console.log("pre-initializeModules", req.lib.root.context)
                        //console.log("pre-lib", req.lib)
-                    }
                         await initializeModules(req.lib, userJSON, req, res, next);
+
+                    }
                        //console.log("post-initializeModules", req.lib.root.context)
 
                        //console.log("post-lib", req.lib)
