@@ -1032,18 +1032,6 @@ async function getNestedContext(libs, nestedPath, key = "") {
             console.log("tempContext",tempContext[part].context)
             tempContext = tempContext[part].context;
         }
-        /*if (arrowJson.length > 1){
-            const pathParts = arrowJson[1].split('.');
-            for (const part of pathParts) {
-                if (currentValue.hasOwnProperty(part)) {
-                    tempContext = tempContext[part];
-                } else {
-                    console.error(`Path ${arrowJson[1]} not found in JSON.`);
-                    tempContext = ''; // Path not found
-                    break;
-                }
-            }
-        }*/
         console.log("tempContext", tempContext)
         return tempContext;
     }
