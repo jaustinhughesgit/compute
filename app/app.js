@@ -949,7 +949,7 @@ async function initializeMiddleware(req, res, next) {
                 console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
                 console.log("arrayOfJSON", arrayOfJSON)
-                let resit = JSON.parse(JSON.stringify(res))
+                let resit = res
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         console.log("req.body", JSON.stringify(req.body))
