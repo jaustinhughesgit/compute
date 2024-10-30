@@ -991,7 +991,7 @@ async function initializeMiddleware(req, res, next) {
                         });
                     }
                 }
-                executeMiddlewareInOrder(arrayOfJSON)
+                await executeMiddlewareInOrder(arrayOfJSON)
                
             }
         } else {
