@@ -1422,7 +1422,7 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
         ////////console.log("keys2", keys2)
         if (isValidJSON(current)) {
             console.log("isValidJSON", true)
-            current = JSON.parse(current)
+            //current = JSON.parse(current)
         }
         console.log("current = ", current)
         for (let key of keys2) {
