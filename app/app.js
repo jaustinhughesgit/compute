@@ -1633,7 +1633,7 @@ async function processString(str, libs, nestedPath, isExecuted) {
     console.log("str", str)
     console.log("nestedPath")
 console.log("isExecuted", isExecuted)
-
+ obj = libs.root.context
     /*let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
         if (!["req", "res"].includes(key)) {
@@ -1654,7 +1654,7 @@ console.log("isExecuted", isExecuted)
 
     console.log("----------------",)
     console.log("str", str)
-    console.log("obj", obj)
+    //console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
     let mmm = await replacePlaceholders2(str, obj, newNestedPath)
