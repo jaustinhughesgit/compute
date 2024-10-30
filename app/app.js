@@ -1659,6 +1659,7 @@ console.log("isExecuted", isExecuted)
     console.log("str", str)
     console.log("obj", JSON.stringify(obj))
     console.log("newNestedPath", newNestedPath)
+    //asd
 
     let mmm = await replacePlaceholders2(str, libs.root.context, newNestedPath)
     console.log("typeof", typeof mmm)
