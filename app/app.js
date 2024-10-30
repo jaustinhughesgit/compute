@@ -1147,7 +1147,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution) {
     let processedItem = item;
 
     if (typeof processedItem === 'string') {
-
+        
         // Process string values
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution);
         return stringResponse;
@@ -1657,9 +1657,8 @@ console.log("isExecuted", isExecuted)
 
     console.log("----------------",)
     console.log("str", str)
-    console.log("obj", JSON.stringify(obj))
+    console.log("obj", obj.context)
     console.log("newNestedPath", newNestedPath)
-    //asd
 
     let mmm = await replacePlaceholders2(str, libs.root.context, newNestedPath)
     console.log("typeof", typeof mmm)
