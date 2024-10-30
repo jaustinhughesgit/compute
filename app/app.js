@@ -1639,7 +1639,7 @@ console.log("isExecuted", isExecuted)
 
     let obj = Object.keys(libs.root).reduce((acc, key) => {
         console.log("~2")
-        if (!["req", "res"].includes(key)) {
+        if (!["req"].includes(key)) {
             console.log("~3")
             acc[key] = libs.root[key];
         }
@@ -2314,7 +2314,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.next) {
-        //next();
+        next();
     }
 
 }
