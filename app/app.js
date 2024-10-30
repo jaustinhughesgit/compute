@@ -953,6 +953,7 @@ async function initializeMiddleware(req, res, next) {
                     return async (req, res, next) => {
                        //console.log("req.body", JSON.stringify(req.body))
                         console.log("req.lib.root.context.body",req.lib.root.context.body)
+                        if (req.lib.root.context.body == undefined){
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
                        //console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
@@ -977,6 +978,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                        //console.log("pre-initializeModules", req.lib.root.context)
                        //console.log("pre-lib", req.lib)
+                    }
                         await initializeModules(req.lib, userJSON, req, res, next);
                        //console.log("post-initializeModules", req.lib.root.context)
 
