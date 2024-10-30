@@ -92,6 +92,17 @@ app.use('/controller', controllerRouter);
 
 app.use('/', indexRouter);
 
+app.use((req, res, next) => {
+    // Set a custom timeout (e.g., 30 seconds)
+    req.setTimeout(60000, () => {
+        // If timeout occurs, respond with a 404 error
+        if (!res.headersSent) {
+            res.status(404).send('Not Found');
+        }
+    });
+    next();
+});
+
 app.use(async (req, res, next) => {
 
     if (!cookiesRouter) {
