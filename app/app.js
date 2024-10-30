@@ -1021,7 +1021,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
     const parts = nestedPath.split('.');
 
     console.log("parts", parts)
-    /*if (nestedPath && nestedPath != "") {
+    if (nestedPath && nestedPath != "") {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
@@ -1032,11 +1032,23 @@ async function getNestedContext(libs, nestedPath, key = "") {
             console.log("tempContext",tempContext[part].context)
             tempContext = tempContext[part].context;
         }
+        /*if (arrowJson.length > 1){
+            const pathParts = arrowJson[1].split('.');
+            for (const part of pathParts) {
+                if (currentValue.hasOwnProperty(part)) {
+                    tempContext = tempContext[part];
+                } else {
+                    console.error(`Path ${arrowJson[1]} not found in JSON.`);
+                    tempContext = ''; // Path not found
+                    break;
+                }
+            }
+        }*/
         console.log("tempContext", tempContext)
         return tempContext;
     }
-    console.log("libs", libs)*/
-    return libs.root.context
+    console.log("libs", libs)
+    return libs
 }
 
 async function getNestedValue(libs, nestedPath) {
