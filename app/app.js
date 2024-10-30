@@ -1635,7 +1635,7 @@ async function processString(str, libs, nestedPath, isExecuted) {
    //console.log("str", str)
    //console.log("nestedPath")
 console.log("isExecuted", isExecuted)
-
+console.log("libs.root.context.res",libs.root.context.res)
     let obj = Object.keys(libs.root).reduce((acc, key) => {
        //console.log("~2")
         if (!["req", "res"].includes(key)) {
