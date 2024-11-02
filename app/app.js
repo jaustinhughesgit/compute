@@ -2190,7 +2190,17 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (assignObj && assignExecuted && typeof result == "function") {
                 //check if applyMethodChain is already trying to execute this!!!!!!!!!!!!!!!!!!!
                 console.log("inside", result)
-                let tempFunction = () => result()(req, res, next);
+                let tempFunction
+                if (action.chain){
+                    if (action.chain.express){
+                        tempFunction = () => result()(req, res, next);
+                    } else {
+
+                        tempFunction = () => result()
+                    }
+                } else {
+                    tempFunction = () => result()
+                }
                 console.log("tempFunction", tempFunction)
                 let newResult = tempFunction()
                 console.log("newResult", newResult)
