@@ -676,7 +676,6 @@ async function processConfig(config, initialContext, lib) {
     return context;
 }
 
-
 /*async function installModule(moduleName, contextKey, context, lib) {
     console.log("moduleName", contextKey)
     console.log("contextKey", contextKey)
@@ -741,8 +740,6 @@ async function processConfig(config, initialContext, lib) {
 
     console.log("context", JSON.stringify(context));
 }*/
-
-
 
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
@@ -813,8 +810,6 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     console.log("context", JSON.stringify(context));
 }
-
-
 
 /*
 // THIS IS WORKING AND ONLY USES REQUIRE TO IMPORT MODULES
@@ -1457,7 +1452,14 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
             } else if (innerStr.startsWith(">")) {
                 console.log("INSIDE > ")
                 //let { getWord, getSub } = require('./routes/cookies')
-                let subRes = await getSub(innerStr.replace(">", ""), "su", dynamodb)
+
+                let getEntityID = innerStr.replace(">", "")
+                if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a"){
+                    getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3"
+
+                }
+                    
+                let subRes = await getSub(getEntityID, "su", dynamodb)
                 console.log("subRes", subRes)
                 console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
