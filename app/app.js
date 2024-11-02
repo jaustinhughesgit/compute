@@ -2196,7 +2196,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         tempFunction = () => result()(req, res, next);
                     } else {
 
-                        tempFunction = () => result()
+                        tempFunction = () => result()(req, res, next)
                     }
                 } else {
                     tempFunction = () => result()
