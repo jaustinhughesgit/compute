@@ -1282,9 +1282,11 @@ function evaluateMathExpression2(expression) {
     }
 }
 
-async function replacePlaceholders2(str, json, nestedPath = "") {
+async function replacePlaceholders2(str, libs, nestedPath = "") {
     console.log("AAAAAAAA")
-    console.log("json", json)
+    console.log("libs", libs)
+
+    let json = libs.root.context
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
@@ -1456,7 +1458,6 @@ async function replacePlaceholders2(str, json, nestedPath = "") {
                 let getEntityID = innerStr.replace(">", "")
                 if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a"){
                     getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3"
-
                 }
                     
                 let subRes = await getSub(getEntityID, "su", dynamodb)
@@ -1647,7 +1648,7 @@ console.log("libs.root.context", libs.root.context)
     //console.log("obj", obj)
     console.log("newNestedPath", newNestedPath)
 
-    let mmm = await replacePlaceholders2(str, libs.root.context, newNestedPath)
+    let mmm = await replacePlaceholders2(str, libs, newNestedPath)
     console.log("typeof", typeof mmm)
     console.log("MMM2", mmm)
 
