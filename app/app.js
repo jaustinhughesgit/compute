@@ -2196,7 +2196,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         tempFunction = () => result()(req, res, next);
                     } else {
 
-                        result()(req, res, next)
+                        libs.root.context.passport.value.initialize()(req, res, next)
                     }
                 } else {
                     tempFunction = () => result()
