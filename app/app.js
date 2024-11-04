@@ -2151,8 +2151,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     }
                     let nestedContext = await getNestedContext(libs, from.path);
 
-                    const isExecuted = processedItem[key].endsWith('|}!');
-                    let value = await replacePlaceholders(item, libs, nestedPath, isExecuted);
+                    let value = await replacePlaceholders(item, libs, nestedPath, fromExecuted);
                     return value;
                 });
                 args = await Promise.all(promises)
