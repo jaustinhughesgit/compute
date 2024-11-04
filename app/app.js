@@ -2301,20 +2301,28 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
+            console.log("000")
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
+                console.log("111")
                     result = await result[accessClean]()
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
+                console.log("222")
                 result = await new result[accessClean](...chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
+                console.log("333")
                 result = await new result();
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
+                console.log("444")
                 result = await new result(...chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
+                console.log("555")
                     if (chainAction.new) {
                         result = new result[accessClean](...chainParams);
                     } else {
+                        console.log("666")
                         if (chainAction.access && accessClean.length != 0) {
+                            console.log("777")
                             if (chainAction.express) {
                                 if (chainAction.next || chainAction.next == undefined) {
                                     console.log("chainAction.next")
