@@ -2129,12 +2129,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             nestedContext[target.key] = { "value": {}, "context": {} }
         }
 
-        let ex = actionExecute;
-        if (actionExecute && assignExecuted){
+        let ex = actionExecution;
+        if (actionExecution && assignExecuted){
             ex = false
         }
 
-        value = await replacePlaceholders(target.key.replace("|", ""), libs, target.path, actionExecute, false);
+        value = await replacePlaceholders(target.key.replace("|", ""), libs, target.path, actionExecution, false);
         let args = [];
 
         if (value) {
