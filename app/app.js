@@ -2317,7 +2317,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                         if (chainAction.access && accessClean.length != 0) {
                             if (chainAction.express) {
                                 if (chainAction.next || chainAction.next == undefined) {
+                                    console.log("chainAction.next")
                                     result = await result[accessClean](...chainParams)(req, res, next);
+                                    console.log(req)
                                 } else {
                                     result = await result[accessClean](...chainParams)(req, res);
                                 }
