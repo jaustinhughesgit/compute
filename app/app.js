@@ -956,6 +956,8 @@ async function initializeMiddleware(req, res, next) {
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
+                        console.log("req", req)
+                        console.log("req", req._passport)
 
                     };
                 });
