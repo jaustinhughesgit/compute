@@ -1824,7 +1824,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                     ////////console.log("G111111")
                     //console.log("---1", await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)
                     ////////console.log("---2", await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath))
-                    
+
                     const while0Executed = whileCondition[0].endsWith('|}!');
                     const while2Executed = whileCondition[2].endsWith('|}!');
                     while (await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath, while0Executed), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed) }], null, "&&", libs, nestedPath)) {
@@ -1983,7 +1983,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("libs", libs)
             console.log("nestedPath", nestedPath)
             let isEx = false
-            if (typeof sending == "string"){
+            if (typeof sending == "string") {
                 isEx = sending.endsWith('|}!')
             }
             let value = await replacePlaceholders(sending, libs, nestedPath, isEx)
@@ -2132,7 +2132,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
 
         let ex = actionExecution;
-        if (actionExecution && assignExecuted){
+        if (actionExecution && assignExecuted) {
             ex = false
         }
 
@@ -2305,7 +2305,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
                 console.log("111")
-                    result = await result[accessClean]()
+                result = await result[accessClean]()
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
                 console.log("222")
                 result = await new result[accessClean](...chainParams);
@@ -2314,46 +2314,59 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 result = await new result();
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("444")
-                result = await new result(...chainAction.params);
+                if (chainAction.express) {
+                    console.log("445")
+                    if (chainAction.next || chainAction.next == undefined) {
+                        console.log("446")
+                        console.log("chainAction.next")
+                        result = await result[accessClean](...chainParams)(req, res, next);
+                        console.log(req)
+                    } else {
+                        console.log("447")
+                        result = await result[accessClean](...chainParams)(req, res);
+                    }
+                } else {
+                    result = await new result(...chainAction.params);
+                }
             } else if (typeof result[accessClean] === 'function') {
                 console.log("555")
-                    if (chainAction.new) {
-                        result = new result[accessClean](...chainParams);
-                    } else {
-                        console.log("666")
-                        if (chainAction.access && accessClean.length != 0) {
-                            console.log("777")
-                            if (chainAction.express) {
-                                if (chainAction.next || chainAction.next == undefined) {
-                                    console.log("chainAction.next")
-                                    result = await result[accessClean](...chainParams)(req, res, next);
-                                    console.log(req)
-                                } else {
-                                    result = await result[accessClean](...chainParams)(req, res);
-                                }
+                if (chainAction.new) {
+                    result = new result[accessClean](...chainParams);
+                } else {
+                    console.log("666")
+                    if (chainAction.access && accessClean.length != 0) {
+                        console.log("777")
+                        if (chainAction.express) {
+                            if (chainAction.next || chainAction.next == undefined) {
+                                console.log("chainAction.next")
+                                result = await result[accessClean](...chainParams)(req, res, next);
+                                console.log(req)
                             } else {
-                                try {
-                                    if (chainParams.length > 0) {
-                                        if (typeof chainParams[0] == "number") {
-                                            chainParams[0] = chainParams[0].toString();
-                                        }
+                                result = await result[accessClean](...chainParams)(req, res);
+                            }
+                        } else {
+                            try {
+                                if (chainParams.length > 0) {
+                                    if (typeof chainParams[0] == "number") {
+                                        chainParams[0] = chainParams[0].toString();
                                     }
-                                    if (assignExecuted) {
-                                        if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
-                                            chainParams[0] = JSON.stringify(chainParams[0])
-                                            console.log("returning", accessClean, "99999")
-                                        } else {
-                                            result = await result[accessClean](...chainParams);
-                                        }
-                                    } else {
-                                        result = result[accessClean];
-                                    }
-                                } catch (err) {
-                                    console.log("err", err)
                                 }
+                                if (assignExecuted) {
+                                    if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
+                                        chainParams[0] = JSON.stringify(chainParams[0])
+                                        console.log("returning", accessClean, "99999")
+                                    } else {
+                                        result = await result[accessClean](...chainParams);
+                                    }
+                                } else {
+                                    result = result[accessClean];
+                                }
+                            } catch (err) {
+                                console.log("err", err)
                             }
                         }
                     }
+                }
             } else if (typeof result === 'function') {
                 if (chainAction.new) {
                     result = new result(...chainParams);
@@ -2386,7 +2399,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
         }
     }
-   
+
     console.log("returning result", result)
     if (result == undefined) {
         result = {}
