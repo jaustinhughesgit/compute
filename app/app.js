@@ -2309,9 +2309,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     if (chainAction.next || chainAction.next == undefined) {
                         console.log("chainAction.next")
                         result = await result[accessClean]()(req, res, next);
-                        console.log(req)
+                        console.log("req2",req)
                     } else {
                         result = await result[accessClean]()(req, res);
+                        console.log("req3",req)
                     }
                 } else {
                     result = await result[accessClean]()
