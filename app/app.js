@@ -1135,7 +1135,10 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
     } else if (Array.isArray(processedItem)) {
         // Process each element in the array
         let newProcessedItems = await Promise.all(processedItem.map(async element => {
-            const isExecuted = element.endsWith('|}!');
+            const isExecuted = false
+            if (typeof element == "striing"){
+                element.endsWith('|}!');
+            }
             return await replacePlaceholders(element, libs, nestedPath, isExecuted, true);
         }));
         return newProcessedItems;
