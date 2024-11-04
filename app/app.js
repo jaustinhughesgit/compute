@@ -2305,7 +2305,17 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
                 console.log("111")
+                if (chainAction.express) {
+                    if (chainAction.next || chainAction.next == undefined) {
+                        console.log("chainAction.next")
+                        result = await result[accessClean]()(req, res, next);
+                        console.log(req)
+                    } else {
+                        result = await result[accessClean]()(req, res);
+                    }
+                } else {
                     result = await result[accessClean]()
+                }
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
                 console.log("222")
                 result = await new result[accessClean](...chainParams);
