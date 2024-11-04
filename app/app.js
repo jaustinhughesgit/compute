@@ -2332,6 +2332,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 result = await new result();
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("444")
+                console.log("result", result)
                 result = await new result(...chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("555")
