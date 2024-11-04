@@ -1135,8 +1135,8 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
     } else if (Array.isArray(processedItem)) {
         // Process each element in the array
         let newProcessedItems = await Promise.all(processedItem.map(async element => {
-            const isExecuted = false
-            if (typeof element == "striing"){
+            let isExecuted = false
+            if (typeof element == "string"){
                 element.endsWith('|}!');
             }
             return await replacePlaceholders(element, libs, nestedPath, isExecuted, true);
@@ -1147,7 +1147,10 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
         let newObject = {};
         for (let key in processedItem) {
             if (processedItem.hasOwnProperty(key)) {
-                const isExecuted = processedItem[key].endsWith('|}!');
+                let isExecuted = false
+                if (typeof processedItem[key] == "string"){
+                    isExecuted = processedItem[key].endsWith('|}!');
+                }
                 newObject[key] = await replacePlaceholders(processedItem[key], libs, nestedPath, isExecuted, true);
             }
         }
