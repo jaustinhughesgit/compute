@@ -1606,7 +1606,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         return modifiedStr;
     }
 
-    let response = replace2(str, nestedPath);
+    let response = await replace2(str, nestedPath);
     console.log("response", response)
     return response
 }
