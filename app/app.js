@@ -2384,7 +2384,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("chainParams 3", chainParams)
                                             result = await result[accessClean](...chainParams);
                                             console.log("result 4", result)
+                                            try{
                                             re = result();
+                                            } catch (err){
+                                                console.log("err", err)
+                                                result('microsoft')
+                                            }
                                             console.log("re 5", re)
                                         }
                                     } else {
