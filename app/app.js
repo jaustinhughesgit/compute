@@ -1489,7 +1489,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                 console.log("DDDDDDDDDDD")
                 console.log("forceRoot", forceRoot)
                 console.log("nestedPath", nestedPath)
-                value = await getValueFromJson2(innerStr, json.context || {}, nestedPath, forceRoot);
+                value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
                 console.log("value from json 2", value)
                 console.log("typeof from json 2", typeof value)
             }
