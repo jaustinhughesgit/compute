@@ -2201,7 +2201,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         console.log("action", action)
                         console.log("action.chain", action.chain)
                         console.log("result", result)
-                        tempFunction = () => result
+                        tempFunction = () => result()
                     }
                 } else {
                     tempFunction = () => result()
