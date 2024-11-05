@@ -1529,7 +1529,8 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                             return value
                         }
                     } catch (err) {
-                        modifiedStr = value
+                        console.log("err", err);
+                        modifiedStr = value;
                     }
                 }
             }
@@ -1605,7 +1606,9 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         return modifiedStr;
     }
 
-    return replace2(str, nestedPath);
+    let response = replace2(str, nestedPath);
+    console.log("response", response)
+    return response
 }
 
 // Example usage
@@ -2307,7 +2310,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
+
+                console.log("chainAction.params", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
+                console.log("chainParams", chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
@@ -2339,6 +2345,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("444")
                 console.log("result", result)
+                
                 result = await new result(...chainAction.params);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("555")
