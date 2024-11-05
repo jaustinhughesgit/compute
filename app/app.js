@@ -2346,7 +2346,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 console.log("444")
                 console.log("result", result)
                 
-                result = await new result(...chainAction.params);
+                result = await new result(...chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("555")
                     if (chainAction.new) {
