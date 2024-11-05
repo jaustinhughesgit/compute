@@ -2371,13 +2371,18 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         }
                                     }
                                     if (assignExecuted) {
+                                        console.log("assignExecuted")
                                         if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
                                         } else {
+                                            console.log("result", result),
+                                            console.log("accessClean", accessClean)
+                                            console.log("chainParams", chainParams)
                                             result = await result[accessClean](...chainParams);
                                         }
                                     } else {
+                                        console.log("else just return value")
                                         result = result[accessClean];
                                     }
                                 } catch (err) {
