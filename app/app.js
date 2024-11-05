@@ -2191,13 +2191,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
 
             let nestedContext = await getNestedContext(libs, assign.path);
-
+            console.log("nestedContext", nestedContext)
             if (assignObj && assignExecuted && typeof result == "function") {
                 let tempFunction
                 if (action.chain) {
                     if (action.chain.express) {
                         tempFunction = () => result()(req, res, next);
                     } else {
+                        console.log("action", action)
+                        console.log("action.chain", action.chain)
+                        console.log("result", result)
                         tempFunction = () => result()
                     }
                 } else {
