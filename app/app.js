@@ -2379,13 +2379,13 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
                                         } else {
-                                            console.log("result", result),
-                                            console.log("accessClean", accessClean)
-                                            console.log("chainParams", chainParams)
+                                            console.log("result 1", result),
+                                            console.log("accessClean 2", accessClean)
+                                            console.log("chainParams 3", chainParams)
                                             result = await result[accessClean](...chainParams);
-                                            console.log("result", result)
+                                            console.log("result 4", result)
                                             re = result();
-                                            console.log("re", re)
+                                            console.log("re 5", re)
                                         }
                                     } else {
                                         console.log("else just return value")
