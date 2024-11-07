@@ -278,6 +278,7 @@ async function convertToJSON(
 ) {
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb);
 
+    console.log("convertToJSON")
 
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
@@ -1655,19 +1656,27 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     var mainObj = {}
     if (req.method === 'GET' || req.method === 'POST') {
 
+        console.log("1111")
         let cookie = await manageCookie(mainObj, req, res, dynamodb, uuidv4)
+        console.log("2222", cookie)
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
+        console.log("3333", verifications)
         let splitPath = reqPath.split("/")
+        console.log("4444", splitPath)
         let verified = await verifyPath(splitPath, verifications, dynamodb);
+        console.log("5555", verified)
 
 
-
-        if (allVerified(verified)) {
+        let allV = allVerified(verified);
+        console.log("6666", allV)
+        if (allV) {
+            console.log("7777", action)
             if (action === "get") {
-                //console.log("get")
+                console.log("get")
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
+                console.log("8888", mainObj)
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
@@ -2180,6 +2189,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "runEntity") {
+                console.log("9999", "runEntity")
                 let { runApp } = require('../app');
                 console.log("res-------")
                 console.log("res-------")
