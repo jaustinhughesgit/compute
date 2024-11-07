@@ -2024,14 +2024,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
             console.log("66: value", value)
 
-            //console.log("key startsWith {|>", key)
+            console.log("key startsWith {|> ", key)
             if (key.startsWith("{|>")) {
                 //let { incrementCounterAndGetNewValue, createWord, getSub, addVersion, updateEntity, getEntity, verifyThis, manageCookie } = await require('./routes/cookies');
 
+                console.log("keyClean", keyClean)
                 keyClean = keyClean.replace(">", "")
+                console.log("keyClean", keyClean)
                 set.key = keyClean
                 let subRes = await getSub(keyClean, "su", dynamodb)
-                //console.log("subRes", subRes)
+                console.log("subRes", subRes)
                 //console.log("subRes.Items[0].g", subRes.Items[0].g)
                 let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
                 //console.log("cookie33", cookie)
