@@ -2157,6 +2157,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
         if (value) {
             if (action.params) {
+                console.log("action.params", action.params)
                 let promises = action.params.map(async item => {
                     console.log("item",item);
                     console.log("typeof item", typeof item)
@@ -2180,7 +2181,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
                 });
                 args = await Promise.all(promises)
+                console.log("args", args)
             }
+            console.log("value", value)
+            console.log(typeof nestedContext[target.key].value)
+            console.log("args.length",  args.length)
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 nestedContext[target.key].value = value(...args);
             }
