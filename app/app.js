@@ -2158,6 +2158,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         if (value) {
             if (action.params) {
                 let promises = action.params.map(async item => {
+                    console.log("item",item);
+                    console.log("typeof item", typeof item)
+                    try{
                     const fromExecuted = item.endsWith('|}!');
                     const fromObj = await isOnePlaceholder(item);
                     let fromClean = await removeBrackets(item, fromObj, fromExecuted);
@@ -2171,6 +2174,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
                     let value = await replacePlaceholders(item, libs, nestedPath, fromExecuted);
                     return value;
+                } catch (err){
+                    console.log("err43", err)
+                    return item
+                }
                 });
                 args = await Promise.all(promises)
             }
