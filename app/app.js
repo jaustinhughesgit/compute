@@ -2036,23 +2036,23 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 console.log("subRes", subRes)
                 //console.log("subRes.Items[0].g", subRes.Items[0].g)
                 let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
-                //console.log("cookie33", cookie)
+                console.log("cookie33", cookie)
                 let { verified } = await verifyThis(keyClean, cookie, dynamodb)
-                //console.log("verified33", verified)
+                console.log("verified33", verified)
                 if (verified) {
-
+                    console.log("verified!!!!!!!")
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    //console.log("aNew", aNew)
+                    console.log("aNew", aNew)
                     let nonObj = ""
-                    //console.log("isJ", isJ)
+                    console.log("isJ", isJ)
                     if (isJ) {
                         nonObj = JSON.stringify(value)
                     } else {
                         nonObj = value
                     }
-                    //console.log("nonObj")
+                    console.log("nonObj", nonObj)
                     const a = await createWord(aNew.toString(), nonObj, dynamodb);
-                    //console.log("a", a)
+                    console.log("a", a)
                     params1 = {
                         "TableName": 'subdomains',
                         "Key": { "su": keyClean },
@@ -2061,8 +2061,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                             ':val': a
                         }
                     };
-                    await dynamodb.update(params1).promise();
-
+                    let resRes = await dynamodb.update(params1).promise();
+                    console.log("resRes", resRes)
 
 
 
@@ -2076,10 +2076,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                             ':val': a
                         }
                     };
-                    await dynamodb.update(params2).promise();
+                    let resPres = await dynamodb.update(params2).promise();
+                    console.log("resPres", resPres)
 
                     const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
+                    console.log("details2", details2)    
                     const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
+                    console.log("updateParent", updateParent)
                 }
             }
 
