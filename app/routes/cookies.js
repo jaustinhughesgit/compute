@@ -235,6 +235,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
 
     const groupAi = group.Items[0].ai;
     const entityAi = entity.Items[0].ai;
+    let verified
 
     if (isPublic) {
         verified = true;
@@ -242,7 +243,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
         const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
         console.log("verify", verify)
 
-        let verified = verify.Items.some(veri => groupAi.includes(veri.ai) && veri.bo); // is the group access id == cookie access id
+        verified = verify.Items.some(veri => groupAi.includes(veri.ai) && veri.bo); // is the group access id == cookie access id
         //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
         console.log("groupAi", groupAi)
         console.log("entityAi", entityAi)
