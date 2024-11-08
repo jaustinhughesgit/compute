@@ -152,7 +152,7 @@ async function getVerified(key, val, dynamodb) {
         };
     }
     const result = await dynamodb.query(params).promise();
-    cache.getVerified[cacheKey] = result;
+    //cache.getVerified[cacheKey] = result;
     return result;
 }
 
