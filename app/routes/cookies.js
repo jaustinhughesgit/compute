@@ -255,9 +255,10 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             
             
             console.log("verified", verified)
-        } else {
+
             let access = getAccess(entityAi, dynamodb)
             console.log("access recoord", access)
+            console.log("access body", body)
         }
     }
 
