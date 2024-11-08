@@ -262,6 +262,10 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 console.log("body.body", body.body)
                 let deep = deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
+                if (deep){
+                    let usingAuth = useAuth(Entity, Authenticator, dynamodb)
+                    console.log("usingAuth", usingAuth)
+                }
             }
         }
     }
@@ -270,6 +274,23 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
     console.log("isPublic", isPublic)
     console.log("=>", verified, subBySU, entity, isPublic)
     return { verified, subBySU, entity, isPublic };
+}
+
+async function useAuth(Entity, Authenticator, dynamodb){
+                console.log("Entity", Entity)
+                console.log("Authenticator", Authenticator)
+                const subEntity = await getSub(Entity, "su", dynamodb);
+                const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
+                console.log("subEntity", subEntity)
+                console.log("subAuthenticator", subAuthenticator)
+                let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': subAuthenticator.Items[0].e.toString() } }
+                let access = await dynamodb.query(params).promise()
+                console.log("access", access)
+                const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), subEntity.Items[0].c.toString(), dynamodb);
+                console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
+                const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
+                console.log("updateAuth", updateAuth)
+                return true
 }
 
 const deepEqual = (value1, value2) => {
