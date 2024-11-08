@@ -260,7 +260,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
                 console.log("body.body", body.body)
-                let deep = deepEqual(access.Items[0].va, body.body)
+                let deep = await deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
                 if (deep == true){
                     console.log("inside deep condition")
