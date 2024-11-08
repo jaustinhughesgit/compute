@@ -2042,7 +2042,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 //console.log("subRes.Items[0].g", subRes.Items[0].g)
                 let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
                 console.log("cookie33", cookie)
-                let { verified } = await verifyThis(keyClean, cookie, dynamodb)
+                let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
                 console.log("verified33", verified)
                 if (verified) {
                     console.log("verified!!!!!!!")
