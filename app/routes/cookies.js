@@ -266,7 +266,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                     console.log("inside deep condition")
                     console.log("fileID",fileID)
                     console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
-                    let usingAuth = await useAuth(fileID, access, cookie, dynamodb)
+                    let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb)
                     console.log("usingAuth", usingAuth)
                 }
             }
@@ -279,10 +279,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
     return { verified, subBySU, entity, isPublic };
 }
 
-async function useAuth(Entity, access, cookie, dynamodb){
-                console.log("Entity", Entity)
-                const subEntity = await getSub(Entity, "e", dynamodb);
-                console.log("subEntity", subEntity)
+async function useAuth(fileID, Entity, access, cookie, dynamodb){
 
                 // gett the sub is using a cookie. It probably shoould be the entity we want to access or that shouold recieve the acccess.
 
@@ -294,11 +291,11 @@ async function useAuth(Entity, access, cookie, dynamodb){
                 const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
                 //console.log("L")
                 //console.log("vi", vi)
-                await createVerified(vi.toString(), cookie.gi.toString(), "0", subEntity.Items[0].e.toString(), access.Items[0].ai.toString(), "0", ex, true, 0, 0)
+                await createVerified(vi.toString(), cookie.gi.toString(), "0", Entity.Items[0].e.toString(), access.Items[0].ai.toString(), "0", ex, true, 0, 0)
 
-                const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), subEntity.Items[0].c.toString(), dynamodb);
-                console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
-                const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
+                const details3 = await addVersion(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), Entity.Items[0].c.toString(), dynamodb);
+                console.log("updateEntity", Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
+                const updateAuth = await updateEntity(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
                 console.log("updateAuth", updateAuth)
                 return true
 }
