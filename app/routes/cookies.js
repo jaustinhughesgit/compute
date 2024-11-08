@@ -125,10 +125,10 @@ async function getAccess(ai, dynamodb) {
 
 async function getVerified(key, val, dynamodb) {
     console.log("getVerified", key, val)
-    const cacheKey = `${key}:${val}`;
-    if (cache.getVerified[cacheKey]) {
-        return cache.getVerified[cacheKey];
-    }
+    //const cacheKey = `${key}:${val}`;
+    //if (cache.getVerified[cacheKey]) {
+    //    return cache.getVerified[cacheKey];
+    //}
     let params;
     if (key === "vi") {
         params = {
