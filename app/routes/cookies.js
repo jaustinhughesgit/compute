@@ -379,8 +379,16 @@ async function convertToJSON(
     const paths2 = {};
     console.log("id2Path",id2Path)
     console.log("pathUUID",pathUUID)
+    console.log("parentPath2",parentPath2)
+    console.log("usingID",usingID)
     if (id2Path == null){
         id2Path = {}
+    }
+    if (parentPath2 == null){
+        parentPath2 = []
+    }
+    if (usingIDusingID == null){
+        usingID = ""
     }
     id2Path[fileID] = pathUUID;
 
