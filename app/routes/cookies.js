@@ -121,7 +121,7 @@ async function getAccess(ai, dynamodb) {
     const result = await dynamodb.query(params).promise();
     cache.getAccess[ai] = result;
     return result;
-}
+}aa
 
 async function getVerified(key, val, dynamodb) {
     console.log("getVerified", key, val)
