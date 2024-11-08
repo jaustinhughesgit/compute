@@ -264,7 +264,13 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 console.log("deep", deep)
                 if (deep){
                     console.log("inside deep condition")
-                    let usingAuth = await useAuth(Entity, Authenticator, dynamodb)
+                    let splitHost =  body.headers.X-Original-Host.split("/")
+                    console.log("splitHost",splitHost)
+                    let lastHost = splitHost[splitHost.length -1]
+                    console.log("lastHost",lastHost)
+                    let entityClean = lastHost.split("?")[0]
+                    console.log("entityClean",entityClean)
+                    let usingAuth = await useAuth(entityClean, body.headers.X-accessToken, dynamodb)
                     console.log("usingAuth", usingAuth)
                 }
             }
