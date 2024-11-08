@@ -265,8 +265,8 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 if (deep){
                     console.log("inside deep condition")
                     console.log("fileID",fileID)
-                    console.log("body.headers.X-accessToken",body.headers.X-accessToken)
-                    let usingAuth = await useAuth(fileID, body.headers.X-accessToken, dynamodb)
+                    console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
+                    let usingAuth = await useAuth(fileID, body.headers["X-accessToken"], dynamodb)
                     console.log("usingAuth", usingAuth)
                 }
             }
