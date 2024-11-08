@@ -281,7 +281,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
 
 async function useAuth(Entity, access, cookie, dynamodb){
                 console.log("Entity", Entity)
-                const subEntity = await getSub(Entity, "su", dynamodb);
+                const subEntity = await getSub(Entity, "e", dynamodb);
                 console.log("subEntity", subEntity)
 
                 // gett the sub is using a cookie. It probably shoould be the entity we want to access or that shouold recieve the acccess.
