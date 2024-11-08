@@ -268,6 +268,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                     console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
                     let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb)
                     console.log("usingAuth", usingAuth)
+                    verified = true;
                 }
             }
         }
