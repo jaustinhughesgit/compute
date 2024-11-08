@@ -263,7 +263,8 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 let deep = deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
                 if (deep){
-                    let usingAuth = useAuth(Entity, Authenticator, dynamodb)
+                    console.log("inside deep condition")
+                    let usingAuth = await useAuth(Entity, Authenticator, dynamodb)
                     console.log("usingAuth", usingAuth)
                 }
             }
