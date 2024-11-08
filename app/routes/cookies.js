@@ -247,14 +247,14 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
         //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
         console.log("groupAi", groupAi)
         console.log("entityAi", entityAi)
-        console.log("verified", verified)
+        console.log("verified1", verified)
         if (!verified) { // if the group isn't able to be verified, then try individual entities
             console.log("inside condition")
             verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo); // is the entity access id == cookie access id
             //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
             
             
-            console.log("verified", verified)
+            console.log("verified2", verified)
 
             for (x=0; x<entityAi.length; x++){
                 let access = await getAccess(entityAi[x], dynamodb)
@@ -271,8 +271,11 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                     verified = true;
                 }
             }
+            console.log("verified3", verified)
         }
+        console.log("verified4", verified)
     }
+    console.log("verified5", verified)
 
 
     console.log("isPublic", isPublic)
