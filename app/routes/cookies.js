@@ -379,6 +379,9 @@ async function convertToJSON(
     const paths2 = {};
     console.log("id2Path",id2Path)
     console.log("pathUUID",pathUUID)
+    if (id2Path == null){
+        id2Path = {}
+    }
     id2Path[fileID] = pathUUID;
 
     const subH = await getSub(entity.Items[0].h, "e", dynamodb);
