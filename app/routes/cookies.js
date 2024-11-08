@@ -281,7 +281,6 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
 
 async function useAuth(Entity, access, cookie, dynamodb){
                 console.log("Entity", Entity)
-                console.log("Authenticator", Authenticator)
                 const subEntity = await getSub(Entity, "su", dynamodb);
                 console.log("subEntity", subEntity)
 
