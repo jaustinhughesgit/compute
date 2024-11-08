@@ -226,7 +226,7 @@ function setIsPublic(val) {
     return isPublic;
 }
 
-async function verifyThis(fileID, cookie, dynamodb) {
+async function verifyThis(fileID, cookie, dynamodb, body) {
     console.log("verifyThis", fileID, cookie)
     const subBySU = await getSub(fileID, "su", dynamodb);
     const isPublic = setIsPublic(subBySU.Items[0].z);
@@ -240,7 +240,7 @@ async function verifyThis(fileID, cookie, dynamodb) {
     if (isPublic) {
         verified = true;
     } else {
-        const verify = await getVerified("gi", cookie.gi.toString(), dynamodb);
+        const verify = await getVerified("gi", cookie.gi.toString(), dynamodb, body);
         console.log("verify", verify)
 
         verified = verify.Items.some(veri => groupAi.includes(veri.ai) && veri.bo); // is the group access id == cookie access id
@@ -255,6 +255,9 @@ async function verifyThis(fileID, cookie, dynamodb) {
             
             
             console.log("verified", verified)
+        } else {
+            let access = getAccess(entityAi, dynamodb)
+            console.log("access recoord", access)
         }
     }
 
@@ -275,9 +278,11 @@ async function convertToJSON(
     pathID,
     parentPath2 = [],
     id2Path = {},
-    usingID = ""
+    usingID = "",
+    body
 ) {
-    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb);
+
+    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
 
     console.log("convertToJSON")
 
