@@ -258,9 +258,11 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
 
             for (x=0; x<entityAi.length; x++){
                 let access = await getAccess(entityAi[x], dynamodb)
-                console.log("access recoord", access)
+                console.log("access.Items[0].va", access.Items[0].va)
+                console.log("body.body", body.body)
+                let deep = deepEqual(access.Items[0].va, body.body)
+                console.log("deep", deep)
             }
-            console.log("access body", body)
         }
     }
 
@@ -269,6 +271,49 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
     console.log("=>", verified, subBySU, entity, isPublic)
     return { verified, subBySU, entity, isPublic };
 }
+
+const deepEqual = (value1, value2) => {
+    if (value1 === value2) return true;
+
+    // Check for Buffer comparison
+    if (Buffer.isBuffer(value1) && Buffer.isBuffer(value2)) {
+        return Buffer.compare(value1, value2) === 0;
+    }
+
+    // Check for Array comparison
+    if (Array.isArray(value1) && Array.isArray(value2)) {
+        if (value1.length !== value2.length) return false;
+        return value1.every((item, index) => deepEqual(item, value2[index]));
+    }
+
+    // Check for CSV comparison by parsing to arrays
+    if (typeof value1 === 'string' && typeof value2 === 'string') {
+        if (isCSV(value1) && isCSV(value2)) {
+            return deepEqual(parseCSV(value1), parseCSV(value2));
+        }
+    }
+
+    // Check for JSON object comparison
+    if (isObject(value1) && isObject(value2)) {
+        const keys1 = Object.keys(value1);
+        const keys2 = Object.keys(value2);
+        if (keys1.length !== keys2.length) return false;
+        return keys1.every(key => deepEqual(value1[key], value2[key]));
+    }
+
+    // For other types (string, number, etc.), they must match exactly
+    return value1 === value2;
+};
+
+const isObject = (val) => val && typeof val === 'object' && !Array.isArray(val) && !Buffer.isBuffer(val);
+
+// Helper function to check if a string is in CSV format (simple check)
+const isCSV = (str) => str.includes(',') || str.includes('\n');
+
+// Helper function to parse a CSV string into a 2D array for comparison
+const parseCSV = (csv) => {
+    return csv.trim().split('\n').map(row => row.split(',').map(cell => cell.trim()));
+};
 
 async function convertToJSON(
     fileID,
