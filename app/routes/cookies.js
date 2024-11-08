@@ -387,7 +387,7 @@ async function convertToJSON(
     if (parentPath2 == null){
         parentPath2 = []
     }
-    if (usingIDusingID == null){
+    if (usingID == null){
         usingID = ""
     }
     id2Path[fileID] = pathUUID;
