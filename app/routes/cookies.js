@@ -262,7 +262,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 console.log("body.body", body.body)
                 let deep = deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
-                if (deep){
+                if (deep == true){
                     console.log("inside deep condition")
                     console.log("fileID",fileID)
                     console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
