@@ -152,9 +152,9 @@ async function isValid(req, res, data) {
 
 
     let originalHost = req.body.headers["X-Original-Host"];
-    //console.log("originalHost", originalHost)
+    console.log("originalHost", originalHost)
     let splitOriginalHost = originalHost.split("1var.com")[1]
-    //console.log("splitOriginalHost", splitOriginalHost)
+    console.log("splitOriginalHost", splitOriginalHost)
     let reqPath = splitOriginalHost.split("?")[0]
     reqPath = reqPath.replace("/cookies/runEntity", "").replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", "").replace("/", "")
     console.log("reqPath", reqPath)
@@ -164,15 +164,15 @@ async function isValid(req, res, data) {
     let sub = await getSub(req.dynPath, "su", dynamodb)
     console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
-    //console.log("params", params)
+    console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
-    //console.log("accessItem", accessItem)
+    console.log("accessItem", accessItem)
     let isDataPresent = false
     if (accessItem.Items.length > 0) {
-        //console.log("accessItem.Items[0].va", accessItem.Items[0].va)
+        console.log("accessItem.Items[0].va", accessItem.Items[0].va)
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
-    //console.log("isDataPresent", isDataPresent)
+    console.log("isDataPresent", isDataPresent)
     if (isDataPresent) {
         let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
         const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
@@ -180,7 +180,7 @@ async function isValid(req, res, data) {
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createVerified(vi.toString(), cookie.gi.toString(), "0", sub.Items[0].e.toString(), accessItem.Items[0].ai, "0", ex, true, 0, 0)
     }
-    //console.log("validating data", data)
+    console.log("validating data", data)
     return data
 }
 
@@ -528,9 +528,13 @@ async function runApp(req, res, next) {
         //res.originalJson = res.json;
         const response = { ok: true, response: { status: 'authenticated', file: '' } };
 
+        console.log("req+>>", req)
+        console.log("res+>>", res)
         res.json = async function (data) {
             console.log("data", data)
-            if (await isValid(req, res, data)) {
+            let vld = await isValid(req, res, data)
+            console.log("vld",vld)
+            if (vld) {
                 console.log("isValid = true")
                 console.log("resp", response)
                 res.json(response);
