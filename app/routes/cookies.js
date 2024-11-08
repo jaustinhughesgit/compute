@@ -256,7 +256,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             
             console.log("verified", verified)
 
-            for (x=0; x<entityAi.length; x++){}
+            for (x=0; x<entityAi.length; x++){
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access recoord", access)
             }
