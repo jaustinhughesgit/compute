@@ -875,7 +875,7 @@ async function initializeMiddleware(req, res, next) {
         console.log("runApp4")
         console.log("req", req)
         console.log("req.body", req.body)
-        let originalHost = req.body.headers["X-Original-Host"];
+        let originalHost = req.headers["X-Original-Host"];
         //console.log("originalHost", originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
