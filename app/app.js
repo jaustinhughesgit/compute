@@ -151,7 +151,7 @@ async function isValid(req, res, data) {
     console.log("req.path::", req.path)
 
 
-    let originalHost = req.headers["x-original-host"];
+    let originalHost = req.body.headers["X-Original-Host"];
     console.log("originalHost", originalHost)
     let splitOriginalHost = originalHost.split("1var.com")[1]
     console.log("splitOriginalHost", splitOriginalHost)
@@ -873,11 +873,10 @@ async function initializeMiddleware(req, res, next) {
 
     if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
         console.log("runApp4")
-        console.log("req", req)
-        console.log("req.body", req.body)
-        console.log("req.headers", req.headers)
-        let originalHost = req.headers["x-original-host"];
-        console.log("originalHost", originalHost)
+        //console.log("req", req)
+        //console.log("req.body", req.body)
+        let originalHost = req.body.headers["X-Original-Host"];
+        //console.log("originalHost", originalHost)
         let splitOriginalHost = originalHost.split("1var.com")[1]
         //console.log("splitOriginalHost", splitOriginalHost)
         let reqPath = splitOriginalHost.split("?")[0]
@@ -934,7 +933,7 @@ async function initializeMiddleware(req, res, next) {
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         console.log("req.body", JSON.stringify(req.body))
-                        req.lib.root.context.body = { "value": req.body, "context": {} }
+                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         console.log("userJSON", userJSON)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
@@ -2398,7 +2397,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     }
                                     if (assignExecuted) {
                                         console.log("assignExecuted")
-                                        if ((accessClean == "json") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
+                                        if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
                                         } else {
