@@ -259,8 +259,8 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             for (x=0; x<entityAi.length; x++){
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
-                console.log("body.body", body.body)
-                let deep = await deepEqual(access.Items[0].va, body.body)
+                console.log("body.body", body)
+                let deep = await deepEqual(access.Items[0].va, body)
                 console.log("deep", deep)
                 if (deep == true){
                     console.log("inside deep condition")
@@ -2015,8 +2015,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
             } else if (action === "addFineTune") {
                 let sections = reqPath.split("/")
-                console.log("req.body.body", req.body.body)
-                const fileResult = await updateJSONL(req.body.body, sections, s3)
+                console.log("req.body", req.body)
+                const fileResult = await updateJSONL(req.body, sections, s3)
                 mainObj = { "alert": "success" }
             } else if (action === "createFineTune"){
                 const fineTuneResponse = await createFineTune(openai)
@@ -2027,7 +2027,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
                 //console.log("req", req)
                 //console.log("req.body", req.body)
-                const fileResult = await createFile(actionFile, req.body.body, s3)
+                const fileResult = await createFile(actionFile, req.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
                 let permission = reqPath.split("/")[4]
@@ -2043,8 +2043,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const sub = await getSub(subUuid, "su", dynamodb);
                 //console.log("sub", sub)
                 let buffer = false
-                if (requestBody.body.hasOwnProperty("type")) {
-                    if (requestBody.body.type == "Buffer") {
+                if (requestBody.hasOwnProperty("type")) {
+                    if (requestBody.type == "Buffer") {
                         buffer = true
                     }
                 }
@@ -2056,18 +2056,18 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let ac = false
                 if (!buffer) {
                     //console.log("requestBody.body", requestBody.body)
-                    ex = requestBody.body.expires
-                    at = requestBody.body.attempts
-                    va = requestBody.body.value
-                    to = requestBody.body.timeout
+                    ex = requestBody.expires
+                    at = requestBody.attempts
+                    va = requestBody.value
+                    to = requestBody.timeout
                     let permissions = ""
-                    if (requestBody.body.execute == true) { permissions += "e" }
-                    if (requestBody.body.read == true) { permissions += "r" }
-                    if (requestBody.body.write == true) { permissions += "w" }
-                    if (requestBody.body.add == true) { permissions += "a" }
-                    if (requestBody.body.delete == true) { permissions += "d" }
-                    if (requestBody.body.permit == true) { permissions += "p" }
-                    if (requestBody.body.own == true) { permissions += "o" }
+                    if (requestBody.execute == true) { permissions += "e" }
+                    if (requestBody.read == true) { permissions += "r" }
+                    if (requestBody.write == true) { permissions += "w" }
+                    if (requestBody.add == true) { permissions += "a" }
+                    if (requestBody.delete == true) { permissions += "d" }
+                    if (requestBody.permit == true) { permissions += "p" }
+                    if (requestBody.own == true) { permissions += "o" }
                     ac = permissions
                 }
                 //console.log("ex", ex)
@@ -2122,13 +2122,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let params1 = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
                 let access = await dynamodb.query(params1).promise()
                 let permissions = ""
-                if (requestBody.body.execute == true) { permissions += "e" }
-                if (requestBody.body.read == true) { permissions += "r" }
-                if (requestBody.body.write == true) { permissions += "w" }
-                if (requestBody.body.add == true) { permissions += "a" }
-                if (requestBody.body.delete == true) { permissions += "d" }
-                if (requestBody.body.permit == true) { permissions += "p" }
-                if (requestBody.body.own == true) { permissions += "o" }
+                if (requestBody.execute == true) { permissions += "e" }
+                if (requestBody.read == true) { permissions += "r" }
+                if (requestBody.write == true) { permissions += "w" }
+                if (requestBody.add == true) { permissions += "a" }
+                if (requestBody.delete == true) { permissions += "d" }
+                if (requestBody.permit == true) { permissions += "p" }
+                if (requestBody.own == true) { permissions += "o" }
                 let params2 = {
                     "TableName": 'access',
                     "Key": {
@@ -2136,7 +2136,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     },
                     "UpdateExpression": `set va = :va, ac = :ac`,
                     "ExpressionAttributeValues": {
-                        ':va': requestBody.body.value,
+                        ':va': requestBody.value,
                         ':ac': permissions
                     }
                 };
@@ -2163,7 +2163,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
 
-                const task = requestBody.body;
+                const task = requestBody;
                 //console.log(task);
                 let sDate = new Date(task.startDate + 'T00:00:00Z')
                 let sDateSeconds = sDate.getTime() / 1000;
@@ -2267,7 +2267,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 //console.log("deleteTask", action)
-                const task = requestBody.body;
+                const task = requestBody;
                 //console.log("task.taskID", task.taskID)
                 await removeSchedule(task.taskID);
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
@@ -2276,7 +2276,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "updateEntityByAI") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                const prompt = requestBody.body;
+                const prompt = requestBody;
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
                 const params = {
                     Bucket: fileLocation(oai.isPublic) + ".1var.com", // Replace with your bucket name
