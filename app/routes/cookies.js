@@ -265,7 +265,6 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 if (deep == true){
                     console.log("inside deep condition")
                     console.log("fileID",fileID)
-                    console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
                     let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb)
                     console.log("usingAuth", usingAuth)
                     verified = true;
@@ -1049,10 +1048,10 @@ async function getCookie(val, key) {
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
     //console.log("req1", req)
-    if (req.body.headers.hasOwnProperty("X-accessToken")) {
+    if (req.headers.hasOwnProperty("x-accesstoken")) {
         //console.log("has X-accessToken")
         mainObj["status"] = "authenticated";
-        let val = req.body.headers["X-accessToken"];
+        let val = req.headers["x-accessttoken"];
         //console.log("X-accessToken = ", val)
         let cookie = await getCookie(val, "ak")
         //console.log("cookie.Items[0]", cookie.Items[0])
@@ -1743,7 +1742,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     //console.log("route", req)
     //console.log("req.body", req.body)
     //console.log("req.headers", req.headers)
-    let originalHost = req.body.headers["X-Original-Host"]
+    let originalHost = req.headers["x-original-host"]
     let splitOriginalHost = originalHost.split("1var.com")[1]
     const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
     const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
