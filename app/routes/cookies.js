@@ -1043,18 +1043,21 @@ async function getCookie(val, key) {
     } else if (key == "gi") {
         params = { TableName: 'cookies', IndexName: 'giIndex', KeyConditionExpression: 'gi = :gi', ExpressionAttributeValues: { ':gi': val } }
     }
-    return await dynamodb.query(params).promise()
+    console.log("params", params)
+    let resp = await dynamodb.query(params).promise()
+    console.log("resp", resp)
+    return resp
 }
 
 async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
     //console.log("req1", req)
     if (req.headers.hasOwnProperty("x-accesstoken")) {
-        //console.log("has X-accessToken")
+        console.log("has X-accessToken")
         mainObj["status"] = "authenticated";
         let val = req.headers["x-accessttoken"];
-        //console.log("X-accessToken = ", val)
+        console.log("X-accessToken = ", val)
         let cookie = await getCookie(val, "ak")
-        //console.log("cookie.Items[0]", cookie.Items[0])
+        console.log("cookie.Items[0]", cookie.Items[0])
         return cookie.Items[0]
     } else {
         //console.log("1")
