@@ -2405,8 +2405,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("result 1", result),
                                             console.log("accessClean 2", accessClean)
                                             console.log("chainParams 3", chainParams)
-                                            const jsonObject = chainParams.toString('utf8')
-                                            console.log("jsonObject", jsonObject)
                                             result = await result[accessClean](...chainParams);
                                             console.log("result 4", result)
                                             try{
