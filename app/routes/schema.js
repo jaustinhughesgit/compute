@@ -666,7 +666,7 @@ router.get('/', async function (req, res, next) {
 
         res.render('schema', {
             title: 'Schema',
-            message: completion
+            message: JSON.stringify(completion, null, 4)
         });
     } catch (error) {
         next(error);
