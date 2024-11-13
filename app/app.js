@@ -530,19 +530,19 @@ async function runApp(req, res, next) {
 
         console.log("req+>>", req)
         console.log("res+>>", res)
-        res.json = async function (data) {
+        /*res.json = async function (data) {
             console.log("data", data)
             let vld = await isValid(req, res, data)
             console.log("vld",vld)
             if (vld) {
                 console.log("isValid = true")
                 console.log("resp", response)
-                return response;
+                res.json(response);
             } else {
                 console.log("isValid = false")
-                return {};
+                res.json({});
             }
-        };
+        };*/
 
 
         if (req.path == "/") {
