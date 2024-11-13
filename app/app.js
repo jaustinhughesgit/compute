@@ -2400,6 +2400,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
+                                            result = await result[accessClean](...chainParams);
                                         } else {
                                             console.log("result 1", result),
                                             console.log("accessClean 2", accessClean)
