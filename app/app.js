@@ -530,7 +530,7 @@ async function runApp(req, res, next) {
 
         console.log("req+>>", req)
         console.log("res+>>", res)
-        /*res.json = async function (data) {
+        res.json = async function (data) {
             console.log("data", data)
             let vld = await isValid(req, res, data)
             console.log("vld",vld)
@@ -542,7 +542,7 @@ async function runApp(req, res, next) {
                 console.log("isValid = false")
                 res.json({});
             }
-        };*/
+        };
 
 
         if (req.path == "/") {
@@ -2400,7 +2400,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
-                                            result = await result[accessClean](...chainParams);
                                         } else {
                                             console.log("result 1", result),
                                             console.log("accessClean 2", accessClean)
