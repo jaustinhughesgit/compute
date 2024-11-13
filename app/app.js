@@ -537,10 +537,10 @@ async function runApp(req, res, next) {
             if (vld) {
                 console.log("isValid = true")
                 console.log("resp", response)
-                return response;
+                res.json(response);
             } else {
                 console.log("isValid = false")
-                return {};
+                res.json({});
             }
         };
 
