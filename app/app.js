@@ -2400,7 +2400,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                             chainParams[0] = JSON.stringify(chainParams[0])
                                             console.log("returning", accessClean, "99999")
-                                            
                                         } else {
                                             console.log("result 1", result),
                                             console.log("accessClean 2", accessClean)
@@ -2411,9 +2410,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             re = result();
                                             } catch (err){
                                                 console.log("err", err)
-                                                //result('microsoft')
+                                                result('microsoft')
                                             }
-                                            //console.log("re 5", re)
+                                            console.log("re 5", re)
                                         }
                                     } else {
                                         console.log("else just return value")
