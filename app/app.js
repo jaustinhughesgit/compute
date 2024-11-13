@@ -2410,9 +2410,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             re = result();
                                             } catch (err){
                                                 console.log("err", err)
-                                                //result('microsoft')
+                                                result('microsoft')
                                             }
-                                            //console.log("re 5", re)
+                                            console.log("re 5", re)
                                         }
                                     } else {
                                         console.log("else just return value")
