@@ -502,7 +502,10 @@ app.all('/blocks/*',
         req.blocks = true;
         let blocksData = await initializeMiddleware(req, res, next);
         //console.log("blocksData", blocksData)
-        res.json({ "data": blocksData });
+
+        if (req._headerSent == false){
+            res.json({ "data": blocksData });
+        }
     }
 );
 
@@ -567,7 +570,10 @@ async function runApp(req, res, next) {
         console.log("req.lib", req.lib)
         // If middleware cache is empty, deny access
         if (req.lib.middlewareCache.length === 0) {
-            return res.send("no access");
+            if (req._headerSent == false){
+                res.send("no access");
+            }
+            return
         }
 
         // Middleware 3: Run through the middleware cache
