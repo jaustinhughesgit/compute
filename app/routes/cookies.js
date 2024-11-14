@@ -2347,8 +2347,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else {
                 console.log("returning", { "ok": true, "response": response })
                 console.log("res", res)
-                
-                //res.json({ "ok": true, "response": response });  // commented because the page can't send headers after they are already sent.
+                if (req._headerSent == false){
+                    res.json({ "ok": true, "response": response });  // conditioned because the page can't send headers after they are already sent.
+                }
             }
 
         } else {
