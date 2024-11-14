@@ -2347,7 +2347,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else {
                 console.log("returning", { "ok": true, "response": response })
                 //console.log("res", res)
-                res.json({ "ok": true, "response": response });
+                //res.json({ "ok": true, "response": response });
             }
 
         } else {
