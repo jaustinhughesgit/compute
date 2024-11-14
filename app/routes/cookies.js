@@ -2357,16 +2357,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             }
 
         } else {
-
-            if (req._headerSent == false){
                 res.json({})
-            }
         }
     } else {
-
-        if (req._headerSent == false){
             res.json({})
-        }
     }
 }
 
