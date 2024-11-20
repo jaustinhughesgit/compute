@@ -1022,7 +1022,7 @@ async function getValFromDB(id, req, res, next){
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
                 console.log("subWord", subWord)
                 value = subWord.Items[0].s
-                return value
+                return JSON.parse(value)
         } else{
             return {}
         }
