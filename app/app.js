@@ -941,6 +941,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("req.body", JSON.stringify(req.body))
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         console.log("userJSON", userJSON)
+                        userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
@@ -985,11 +986,118 @@ async function initializeMiddleware(req, res, next) {
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
     for (const action of config.actions) {
-        let runResponse = await runAction(action, libs, "root", req, res, next);
+        let runResponse
+        if (typeof action == "string"){
+            respoonse = await getValFromDB(action, req, res, next)
+        } else {
+            response = await runAction(action, libs, "root", req, res, next);
+        }
         if (runResponse == "contune") {
             continue
         }
     }
+}
+
+async function getValFromDB(id, req, res, next){
+    if (id.startsWith("{|")) {
+
+        const keyExecuted = id.endsWith('|}!');
+        const keyObj = await isOnePlaceholder(key);
+        let keyClean = await removeBrackets(key, keyObj, keyExecuted);
+        console.log("keyClean:before", keyClean)
+        keyClean = keyClean.replace(">", "")
+        keyClean = keyClean.replace("<", "")
+        console.log("keyClean:after", keyClean)
+        let subRes = await getSub(keyClean, "su", dynamodb)
+        console.log("subRes", subRes)
+        //console.log("subRes.Items[0].g", subRes.Items[0].g)
+        let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+        console.log("cookie33", cookie)
+        let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
+        console.log("verified33", verified)
+        if (verified) {
+            let subRes = await getSub(getEntityID, "su", dynamodb)
+                console.log("subRes", subRes)
+                console.log("subRes.Items[0].a", subRes.Items[0].a)
+                let subWord = await getWord(subRes.Items[0].a, dynamodb)
+                console.log("subWord", subWord)
+                value = subWord.Items[0].s
+                return value
+        } else{
+            return {}
+        }
+    }
+}
+
+async function deepMerge(obj1, obj2) {
+    if (typeof obj1 !== 'object' || obj1 === null) return obj2;
+    if (typeof obj2 !== 'object' || obj2 === null) return obj2;
+    const result = Array.isArray(obj1) ? [...obj1] : { ...obj1 };
+    for (const key in obj2) {
+        if (obj2.hasOwnProperty(key)) {
+            if (typeof obj2[key] === 'object' && obj2[key] !== null && !Array.isArray(obj2[key])) {
+                result[key] = deepMerge(result[key] || {}, obj2[key]);
+            } else {
+                result[key] = obj2[key];
+            }
+        }
+    }
+    return result;
+}
+
+function updateLevel(obj, replacer) {
+    for (const [key, value] of Object.entries(replacer)) {
+        if (value !== null) {
+            obj[key] = value;
+        } else {
+            delete obj[key]
+        }
+    }
+    return obj
+}
+
+function ifDB(str, time){
+    if (time == "first"){
+        return str.startsWith('{|<')
+    } else if (time == "last") {
+        return str.endsWith('>|}')
+    }
+}
+
+async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
+    let entries = Object.entries(obj)
+    for (const [key, value] of entries) {
+        if (typeof value === 'object' && value !== null && !key.startsWith("{|")) {
+            await replaceSpecialKeysAndValues(obj[key])
+        }  else if (typeof value == "string"){
+            if (ifDB(value, time)) {
+                replacer = await getValFromDB(value, req, res, next)
+                obj[key] = replacer
+                for (k in replacer){
+                    if (replacer[k] == null){
+                        delete obj[key][k]
+                    }
+                }
+            }
+            if (ifDB(key, time)){
+                obj = await updateLevel(obj, getValFromDB(key, req, res, next)) // take the db response and merge them using updateLevel
+            }
+            if (ifDB(key, time)) {
+                delete obj[key]
+            }
+        } else if (typeof value === 'object' && value !== null && key.startsWith("{|")){
+            if (ifDB(key, time)){
+                replacer = JSON.parse(JSON.stringify(obj[key]))
+                let deep = await deepMerge(obj[key], await getValFromDB(key, req, res, next));
+                obj = await updateLevel(obj, deep) // take the db response and merge them using updateLevel
+            }
+            
+            if (ifDB(key, time)) {
+                delete obj[key]
+            }
+        }
+    }
+    return obj
 }
 
 async function getNestedContext(libs, nestedPath, key = "") {
