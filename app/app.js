@@ -990,6 +990,7 @@ async function initializeModules(libs, config, req, res, next) {
         let runResponse
         if (typeof action == "string"){
             dbAction = await getValFromDB(action, req, res, next)
+            console.log(dbAction)
             respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
             response = await runAction(action, libs, "root", req, res, next);
@@ -1039,7 +1040,7 @@ async function deepMerge(obj1, obj2) {
     for (const key in obj2) {
         if (obj2.hasOwnProperty(key)) {
             if (typeof obj2[key] === 'object' && obj2[key] !== null && !Array.isArray(obj2[key])) {
-                result[key] = deepMerge(result[key] || {}, obj2[key]);
+                result[key] = await deepMerge(result[key] || {}, obj2[key]);
             } else {
                 result[key] = obj2[key];
             }
