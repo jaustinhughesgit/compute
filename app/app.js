@@ -1073,6 +1073,7 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
         if (typeof value === 'object' && value !== null && !key.startsWith("{|")) {
             await replaceSpecialKeysAndValues(obj[key])
         }  else if (typeof value == "string"){
+            console.log("ifDB1", ifDB(key, time), key, time)
             if (ifDB(value, time)) {
                 replacer = await getValFromDB(value, req, res, next)
                 obj[key] = replacer
@@ -1082,19 +1083,22 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
                     }
                 }
             }
+            console.log("ifDB2", ifDB(key, time), key, time)
             if (ifDB(key, time)){
                 obj = await updateLevel(obj, getValFromDB(key, req, res, next)) // take the db response and merge them using updateLevel
             }
+            console.log("ifDB3", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 delete obj[key]
             }
         } else if (typeof value === 'object' && value !== null && key.startsWith("{|")){
+            console.log("ifDB4", ifDB(key, time), key, time)
             if (ifDB(key, time)){
                 replacer = JSON.parse(JSON.stringify(obj[key]))
                 let deep = await deepMerge(obj[key], await getValFromDB(key, req, res, next));
                 obj = await updateLevel(obj, deep) // take the db response and merge them using updateLevel
             }
-            
+            console.log("ifDB5", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 delete obj[key]
             }
