@@ -971,6 +971,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("req1", req)
                         console.log("req2", req._passport)
                         console.log("req3", req.user)
+                        console.log("userJSON", userJSON)
 
                     };
                 });
