@@ -1016,7 +1016,7 @@ async function getValFromDB(id, req, res, next){
         let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
         console.log("verified33", verified)
         if (verified) {
-            let subRes = await getSub(getEntityID, "su", dynamodb)
+            let subRes = await getSub(keyClean, "su", dynamodb)
                 console.log("subRes", subRes)
                 console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
