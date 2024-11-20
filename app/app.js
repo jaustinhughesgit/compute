@@ -988,7 +988,8 @@ async function initializeModules(libs, config, req, res, next) {
     for (const action of config.actions) {
         let runResponse
         if (typeof action == "string"){
-            respoonse = await getValFromDB(action, req, res, next)
+            dbAction = await getValFromDB(action, req, res, next)
+            respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
             response = await runAction(action, libs, "root", req, res, next);
         }
@@ -1021,7 +1022,8 @@ async function getValFromDB(id, req, res, next){
                 console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
                 console.log("subWord", subWord)
-                value = subWord.Items[0].s
+                value = subWord.Items[0].r
+                console.log(value)
                 return JSON.parse(value)
         } else{
             return {}
