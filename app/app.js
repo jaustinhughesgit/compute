@@ -1002,8 +1002,8 @@ async function getValFromDB(id, req, res, next){
     if (id.startsWith("{|")) {
 
         const keyExecuted = id.endsWith('|}!');
-        const keyObj = await isOnePlaceholder(key);
-        let keyClean = await removeBrackets(key, keyObj, keyExecuted);
+        const keyObj = await isOnePlaceholder(id);
+        let keyClean = await removeBrackets(id, keyObj, keyExecuted);
         console.log("keyClean:before", keyClean)
         keyClean = keyClean.replace(">", "")
         keyClean = keyClean.replace("<", "")
