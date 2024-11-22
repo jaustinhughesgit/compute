@@ -1813,7 +1813,7 @@ async function processString(str, libs, nestedPath, isExecuted, returnEx) {
     //console.log("libs.root.context", libs.root.context)
     //console.log("libs.root.context[str]", libs.root.context[str])
     //console.log("typeof libs.root.context[str]", typeof libs.root.context[str])
-    if ((isObj || typeof libs.root.context[str] === "object") && !str.includes("{|>")) {
+    if ((isObj || typeof libs.root.context[str] === "object") && !str.includes(">|}")) {
         console.log("~6")
         let strClean
         target = await getKeyAndPath(str.replace("{|", "").replace("|}!", "").replace("|}", ""), nestedPath)
