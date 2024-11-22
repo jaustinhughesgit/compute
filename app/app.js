@@ -1640,11 +1640,12 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
 
             } else {
+                //this returnns on first instance. itshouldd complete and return after.
                 console.log("str2", str);
                 console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
                 console.log("isObj", isObj);
-                if (isObj || typeof value == "object") {
+                if (isObj && typeof value == "object") {
                     console.log("object", value)
                     return value;
                 } else {
