@@ -1597,12 +1597,12 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
-            } else if (innerStr.startsWith(">")) {
-                console.log("INSIDE > ")
+            } else if (innerStr.endsWith("<")) {
+                console.log("INSIDE < ")
                 //let { getWord, getSub } = require('./routes/cookies')
 
                 let getEntityID = innerStr.replace(">", "")
-                if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a") {
+                if (innerStr.replace("<", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a") {
                     getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3"
                 }
 
