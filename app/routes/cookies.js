@@ -2042,23 +2042,37 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = { "alert": "success" }
             } else if (action === "createFineTune") {
                 let sections = reqPath.split("/")
-                console.log()
-                const fineTuneResponse = await fineTune(openai, "create", "")
+                console.log("sections[3]", sections[3])
+                console.log("sections[4]", sections[4])
+                const fineTuneResponse = await fineTune(openai, "create", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "listFineTune") {
-                const fineTuneResponse = await fineTune(openai, "list", "")
+                console.log("sections[3]", sections[3])
+                const fineTuneResponse = await fineTune(openai, "list", sections[3], "")
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "deleteFineTune") {
-                const fineTuneResponse = await fineTune(openai, "delete", "")
+                let sections = reqPath.split("/")
+                console.log("sections[3]", sections[3])
+                console.log("sections[4]", sections[4])
+                const fineTuneResponse = await fineTune(openai, "delete", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "eventsFineTune") {
-                const fineTuneResponse = await fineTune(openai, "events", "")
+                let sections = reqPath.split("/")
+                console.log("sections[3]", sections[3])
+                console.log("sections[4]", sections[4])
+                const fineTuneResponse = await fineTune(openai, "events", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "retrieveFineTune") {
-                const fineTuneResponse = await fineTune(openai, "retrieve", "")
+                let sections = reqPath.split("/")
+                console.log("sections[3]", sections[3])
+                console.log("sections[4]", sections[4])
+                const fineTuneResponse = await fineTune(openai, "retrieve", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "cancelFineTune") {
-                const fineTuneResponse = await fineTune(openai, "cancel", "")
+                let sections = reqPath.split("/")
+                console.log("sections[3]", sections[3])
+                console.log("sections[4]", sections[4])
+                const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
                 //console.log("saveFile")
