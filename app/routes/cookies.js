@@ -2047,6 +2047,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fineTuneResponse = await fineTune(openai, "create", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "listFineTune") {
+                let sections = reqPath.split("/")
                 console.log("sections[3]", sections[3])
                 const fineTuneResponse = await fineTune(openai, "list", sections[3], "")
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
