@@ -252,20 +252,20 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             console.log("inside condition")
             verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo); // is the entity access id == cookie access id
             //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
-            
-            
+
+
             console.log("verified2", verified)
 
-            for (x=0; x<entityAi.length; x++){
+            for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
                 console.log("body.body", body.body)
                 let deep = await deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
-                if (deep == true){
+                if (deep == true) {
                     console.log("inside deep condition")
-                    console.log("fileID",fileID)
-                    console.log("body.headers.X-accessToken",body.headers["X-accessToken"])
+                    console.log("fileID", fileID)
+                    console.log("body.headers.X-accessToken", body.headers["X-accessToken"])
                     let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb)
                     console.log("usingAuth", usingAuth)
                     verified = true;
@@ -283,25 +283,25 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
     return { verified, subBySU, entity, isPublic };
 }
 
-async function useAuth(fileID, Entity, access, cookie, dynamodb){
+async function useAuth(fileID, Entity, access, cookie, dynamodb) {
 
-                // gett the sub is using a cookie. It probably shoould be the entity we want to access or that shouold recieve the acccess.
+    // gett the sub is using a cookie. It probably shoould be the entity we want to access or that shouold recieve the acccess.
 
 
-                const ttlDurationInSeconds = 90000; // For example, 1 hour
-                //console.log("J")
-                const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
-                //console.log("K")
-                const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
-                //console.log("L")
-                //console.log("vi", vi)
-                await createVerified(vi.toString(), cookie.gi.toString(), "0", Entity.Items[0].e.toString(), access.Items[0].ai.toString(), "0", ex, true, 0, 0)
+    const ttlDurationInSeconds = 90000; // For example, 1 hour
+    //console.log("J")
+    const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+    //console.log("K")
+    const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+    //console.log("L")
+    //console.log("vi", vi)
+    await createVerified(vi.toString(), cookie.gi.toString(), "0", Entity.Items[0].e.toString(), access.Items[0].ai.toString(), "0", ex, true, 0, 0)
 
-                const details3 = await addVersion(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), Entity.Items[0].c.toString(), dynamodb);
-                console.log("updateEntity", Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
-                const updateAuth = await updateEntity(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
-                console.log("updateAuth", updateAuth)
-                return true
+    const details3 = await addVersion(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), Entity.Items[0].c.toString(), dynamodb);
+    console.log("updateEntity", Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
+    const updateAuth = await updateEntity(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
+    console.log("updateAuth", updateAuth)
+    return true
 }
 
 const deepEqual = (value1, value2) => {
@@ -380,17 +380,17 @@ async function convertToJSON(
     const obj = {};
     const paths = {};
     const paths2 = {};
-    console.log("id2Path",id2Path)
-    console.log("pathUUID",pathUUID)
-    console.log("parentPath2",parentPath2)
-    console.log("usingID",usingID)
-    if (id2Path == null){
+    console.log("id2Path", id2Path)
+    console.log("pathUUID", pathUUID)
+    console.log("parentPath2", parentPath2)
+    console.log("usingID", usingID)
+    if (id2Path == null) {
         id2Path = {}
     }
-    if (parentPath2 == null){
+    if (parentPath2 == null) {
         parentPath2 = []
     }
-    if (usingID == null){
+    if (usingID == null) {
         usingID = ""
     }
     id2Path[fileID] = pathUUID;
@@ -783,56 +783,80 @@ const createFile = async (su, fileData, s3) => {
 
 const updateJSONL = async (newLine, keys, s3) => {
     try {
-      // Validate newLine is a valid JSON string
-      JSON.parse(newLine);
-      let VAR = JSON.parse(newLine.completion)
+        // Validate newLine is a valid JSON string
+        JSON.parse(newLine);
+        let VAR = JSON.parse(newLine.completion)
 
-      for (let key in VAR) {
-        // If the key is not in the array, delete it
-        if (!keys.includes(key)) {
-          delete VAR[key];
+        for (let key in VAR) {
+            // If the key is not in the array, delete it
+            if (!keys.includes(key)) {
+                delete VAR[key];
+            }
         }
-      }
-      newLine.completion = JSOn.stringify(VAR)
-  
-      const getParams = { Bucket: 'private.1var.com', Key: 'training.jsonl' };
-      const data = await s3.getObject(getParams).promise();
-      const etag = data.ETag; // The ETag of the object
-  
-      // Append the new line
-      let existingData = data.Body.toString();
-      if (!existingData.endsWith('\n')) {
-        existingData += '\n';
-      }
-  
-      const updatedFile = existingData + newLine + '\n';
-  
-      const putParams = {
-        Bucket: 'private.1var.com',
-        Key: 'training.jsonl',
-        Body: updatedFile,
-        ContentType: 'application/jsonl',
-        // Remove IfMatch as it's not valid for putObject
-        // If you want to ensure safe updates, use versioning or lock mechanisms
-      };
-      
-      // Use putObject without IfMatch
-      const response = await s3.putObject(putParams).promise();
-      return true;
-    } catch (error) {
-      console.error('Error updating training.jsonl:', error);
-      throw error;
-    }
-  };
+        newLine.completion = JSOn.stringify(VAR)
 
-const createFineTune = async (openai) => {
-  const fineTune = await openai.fineTuning.jobs.create({
-    training_file: 'file-var001',
-    model: 'gpt-4o-mini-2024-07-18'
-  });
-  console.log("fineTune", fineTune)
-  return fineTune
+        const getParams = { Bucket: 'private.1var.com', Key: 'training.jsonl' };
+        const data = await s3.getObject(getParams).promise();
+        const etag = data.ETag; // The ETag of the object
+
+        // Append the new line
+        let existingData = data.Body.toString();
+        if (!existingData.endsWith('\n')) {
+            existingData += '\n';
+        }
+
+        const updatedFile = existingData + newLine + '\n';
+
+        const putParams = {
+            Bucket: 'private.1var.com',
+            Key: 'training.jsonl',
+            Body: updatedFile,
+            ContentType: 'application/jsonl',
+            // Remove IfMatch as it's not valid for putObject
+            // If you want to ensure safe updates, use versioning or lock mechanisms
+        };
+
+        // Use putObject without IfMatch
+        const response = await s3.putObject(putParams).promise();
+        return true;
+    } catch (error) {
+        console.error('Error updating training.jsonl:', error);
+        throw error;
+    }
+};
+
+const fineTune = async (openai, method, val, sub) => {
+    let  fineTune = {}
+    if (method == "create") {
+        fineTune = await openai.fineTuning.jobs.create({
+            training_file: val,
+            model: sub
+        })
+        //training_file: 'file-var001',
+        //model: 'gpt-4o-mini-2024-07-18'
+    } else if (method == "list") {
+        fineTune = await openai.fineTuning.jobs.list({ limit: parseInt(val) });
+
+    } else if (method == "delete") {
+        fineTune = await openai.models.delete(val);
+        //'ft:gpt-3.5-turbo:acemeco:suffix:abc123'
+    } else if (method == "events") {
+        fineTune = await openai.fineTuning.jobs.listEvents(val, { limit: parseInt(sub) });
+        // valis fineTune.id
+    } else if (method == "retrieve") {
+        fineTune = await openai.fineTuning.jobs.retrieve(val);
+
+    } else if (method == "cancel") {
+        fineTune = await openai.fineTuning.jobs.cancel(val);
+
+    }
+    console.log("fineTune", fineTune)
+    return fineTune
 }
+
+
+
+
 
 
 const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
@@ -1860,7 +1884,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     //console.log("G")
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     //console.log("H")
-                    const access = await createAccess(ai.toString(), gNew.toString(), "0", {"count":1, "metric":"year"}, 10, {"count":1, "metric":"minute"}, {}, "rwado")
+                    const access = await createAccess(ai.toString(), gNew.toString(), "0", { "count": 1, "metric": "year" }, 10, { "count": 1, "metric": "minute" }, {}, "rwado")
                     //console.log("I")
                     const ttlDurationInSeconds = 90000; // For example, 1 hour
                     //console.log("J")
@@ -2016,8 +2040,25 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("req.body.body", req.body.body)
                 const fileResult = await updateJSONL(req.body.body, sections, s3)
                 mainObj = { "alert": "success" }
-            } else if (action === "createFineTune"){
-                const fineTuneResponse = await createFineTune(openai)
+            } else if (action === "createFineTune") {
+                let sections = reqPath.split("/")
+                console.log()
+                const fineTuneResponse = await fineTune(openai, "create", "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "listFineTune") {
+                const fineTuneResponse = await fineTune(openai, "list", "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "deleteFineTune") {
+                const fineTuneResponse = await fineTune(openai, "delete", "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "eventsFineTune") {
+                const fineTuneResponse = await fineTune(openai, "events", "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "retrieveFineTune") {
+                const fineTuneResponse = await fineTune(openai, "retrieve", "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "cancelFineTune") {
+                const fineTuneResponse = await fineTune(openai, "cancel", "")
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
                 //console.log("saveFile")
@@ -2337,13 +2378,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("params", params)
                 s3.getSignedUrl('putObject', params, (error, url) => {
                     if (error) {
-                        if (req._headerSent == false){
+                        if (req._headerSent == false) {
                             res.status(500).json({ error: 'Error generating presigned URL' });
                         }
                     } else {
                         //console.log("preSigned URL:", url)
                         response.putURL = url
-                        if (req._headerSent == false){
+                        if (req._headerSent == false) {
                             res.json({ "ok": true, "response": response });
                         }
                     }
@@ -2351,16 +2392,16 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else {
                 console.log("returning", { "ok": true, "response": response })
                 console.log("res", res)
-                if (response.file != ""){
+                if (response.file != "") {
                     res.json({ "ok": true, "response": response });  // conditioned because the page can't send headers after they are already sent.
                 }
             }
 
         } else {
-                res.json({})
+            res.json({})
         }
     } else {
-            res.json({})
+        res.json({})
     }
 }
 
