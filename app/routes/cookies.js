@@ -2346,7 +2346,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "shorthand"){
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = requestBody.body.shorthand;
-                let newJPL = shorthand(arrayLogic);
+                let newJPL = await shorthand(arrayLogic);
                 console.log("newJPL")
                 console.log("newJPL")
                 console.log("newJPL")
