@@ -2343,6 +2343,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
 
                 mainObj["oai"] = JSON.parse(oai.response);
+            } else if (action == "shorthand"){
+                let { shorthand } = require('../routes/shorthand');
+                const arrayLogic = requestBody.body.shorthand;
+                let newJPL = shorthand(arrayLogic);
+                console.log("newJPL")
+                console.log("newJPL")
+                console.log("newJPL")
+                console.log(newJPL)
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');
