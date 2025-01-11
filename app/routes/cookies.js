@@ -2344,6 +2344,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "shorthand"){
+                actionFile = reqPath.split("/")[3]
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = requestBody.body.shorthand;
                 console.log("newJPL")
@@ -2351,7 +2352,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("arrayLogic", arrayLogic)
                 let newJPL = await shorthand(arrayLogic);
                 console.log(newJPL)
-                mainObj = { "alert": "success", "data":{}}
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');
