@@ -2346,11 +2346,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "shorthand"){
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = requestBody.body.shorthand;
+                console.log("newJPL")
+                console.log("newJPL")
+                console.log("arrayLogic", arrayLogic)
                 let newJPL = await shorthand(arrayLogic);
-                console.log("newJPL")
-                console.log("newJPL")
-                console.log("newJPL")
                 console.log(newJPL)
+                mainObj = {"alert":newJPL}
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');

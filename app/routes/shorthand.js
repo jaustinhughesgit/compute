@@ -768,6 +768,7 @@ async function shorthand(shorthandArray){
     }
 
     async function processArray(arr){
+        console.log("arr",arr)
         for (a=0; a<arr.length;a++){
             if (!Array.isArray(arr[a])) {
                 let rowArray = arr[a].match(/.{1,5}/g);
@@ -785,6 +786,7 @@ async function shorthand(shorthandArray){
         //console.log(JSON.stringify(lastRow))
         //console.log("\n\n\n")
     }
+    console.log("shorthandArray",shorthandArray)
     let v = await processArray(shorthandArray)
     return v
 }
