@@ -2356,8 +2356,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("newJPL");
                 console.log("arrayLogic", arrayLogic);
                 var zeroArray = ["JSON", JSON.stringify(jsonpl)]
-                arrayLogic.unshift(["", "JOIN", "SUBSTITUTE", "MED", "SUM", "AVG", "USE", "CONDITION", "ALL", "ITE", "JSON", "ARRAY", "ADDPROPERTY", "MERGE", "NESTED", "DELETEPROPERTY", "STRING", "INTEGER", "FLOAT", "BUFFER", "APPEND", "PREPEND", "RANGE", "|||", "==", "!=", ">", ">=", "<", "<="]);
                 arrayLogic.unshift(zeroArray)
+                arrayLogic.unshift(["", "JOIN", "SUBSTITUTE", "MED", "SUM", "AVG", "USE", "CONDITION", "ALL", "ITE", "JSON", "ARRAY", "ADDPROPERTY", "MERGE", "NESTED", "DELETEPROPERTY", "STRING", "INTEGER", "FLOAT", "BUFFER", "APPEND", "PREPEND", "RANGE", "|||", "==", "!=", ">", ">=", "<", "<="]);
+                
                 let newJPL = await shorthand(arrayLogic);
                 console.log(newJPL);
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
