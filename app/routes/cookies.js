@@ -2386,6 +2386,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
+                    console.log("response", response)
                     res.json({ "ok": true, "response": response });
                 }
             } else if (action === "reqPut") {
