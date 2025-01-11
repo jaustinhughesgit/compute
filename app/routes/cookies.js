@@ -2344,11 +2344,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "shorthand"){
-                actionFile = reqPath.split("/")[3]
+                let hhh = reqPath.split("/")[2];
+                actionFile = reqPath.split("/")[3];
+                console.log("hhh", hhh);
+                console.log("actionFile",actionFile);
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = requestBody.body.shorthand;
-                let jsonpl = await retrieveAndParseJSON(actionFile, "public")
-                console.log(jsonpl)
+                let jsonpl = await retrieveAndParseJSON(actionFile, "public");
+                console.log(jsonpl);
                 console.log("newJPL");
                 console.log("newJPL");
                 console.log("arrayLogic", arrayLogic);
