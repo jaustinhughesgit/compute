@@ -2351,7 +2351,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("arrayLogic", arrayLogic)
                 let newJPL = await shorthand(arrayLogic);
                 console.log(newJPL)
-                mainObj = { "alert": "success" }
+                mainObj = { "alert": "success", "data":{}}
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');
