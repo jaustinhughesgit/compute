@@ -312,7 +312,7 @@ async function shorthand(shorthandArray){
             return baseObj;
         },
         NESTED: (rowArray) => {
-            const baseRef = resolveCell(rowArray[1]);
+            const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef)) {
             console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
             return {};
