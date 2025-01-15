@@ -496,22 +496,19 @@ async function shorthand(shorthandArray){
         for (let i = 0; i < pathTokens.length; i++) {
             const isLast = i === pathTokens.length - 1;
             const token = parsePathToken(pathTokens[i]);
-      
+    
             if (!isLast) {
                 if (typeof token === "number") {
-                    if (!Array.isArray(current[token])) {
-                        current[token] = [];
-                    } else {
-                        current[token] = [...current[token]];
+                    if (!Array.isArray(current)) {
+                        current = [];
+                    }
+                    if (!current[token] || typeof current[token] !== "object") {
+                        current[token] = {};
                     }
                     current = current[token];
                 } else {
                     if (typeof current[token] !== "object" || current[token] === null) {
                         current[token] = {};
-                    } else {
-                        current[token] = Array.isArray(current[token])
-                            ? [...current[token]]
-                            : { ...current[token] };
                     }
                     current = current[token];
                 }
@@ -520,14 +517,8 @@ async function shorthand(shorthandArray){
                     if (!Array.isArray(current)) {
                         current = [];
                     }
-                    if (token >= current.length) {
-                        current.length = token + 1;
-                    }
                     current[token] = newValue;
                 } else {
-                    if (typeof current !== "object" || current === null || Array.isArray(current)) {
-                        current = {};
-                    }
                     current[token] = newValue;
                 }
             }
