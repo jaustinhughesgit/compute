@@ -4,7 +4,9 @@ async function shorthand(shorthandArray){
     var rowID = [];
     var rowResult = [];
     var highestCol = 0;
-
+    var resRow = 0
+    var curRow = 0
+    
     const comparisonOperators = {
         "==": (a, b) => a === b,
         "!=": (a, b) => a != b,
@@ -13,7 +15,7 @@ async function shorthand(shorthandArray){
         "<": (a, b) => a < b,
         "<=": (a, b) => a <= b
     };
-
+    
     function deepMerge(target, source) {
         if (source && typeof source === "object" && !Array.isArray(source)) {
             if (!target || typeof target !== "object" || Array.isArray(target)) {
@@ -37,7 +39,7 @@ async function shorthand(shorthandArray){
             return source;
         }
     }
-
+    
     var keywords = {
         JOIN: (rowArray) => {
             return resolveRow(rowArray).slice(1).join("");
@@ -48,7 +50,7 @@ async function shorthand(shorthandArray){
             const replacement = resolveCell(rowArray[3]);
             const nth = resolveCell(rowArray[4]);
             let occurrences = 0;
-
+    
             return str.replace(new RegExp(search, "g"), (match) => {
                 if (!nth || nth === "") {
                     return replacement;
@@ -70,7 +72,7 @@ async function shorthand(shorthandArray){
             const rowIndex = fromCell.row;
             const startCol = Math.min(fromCell.col, toCell.col);
             const endCol   = Math.max(fromCell.col, toCell.col);
-
+    
             let results = [];
             for (let col = startCol; col <= endCol; col++) {
                 let rawCellTxt = matrix[rowIndex][col];
@@ -80,9 +82,9 @@ async function shorthand(shorthandArray){
             return results;
         },
         USE: (rowArray) => {
-        const argRef = rowArray[1];
-        const resolvedVal = resolveCell(argRef);
-        return { __useArray: resolvedVal };
+          const argRef = rowArray[1];
+          const resolvedVal = resolveCell(argRef);
+          return { __useArray: resolvedVal };
         },
         AVG: (rowArray) => {
             const values = rowArray.slice(1).map((cell) => {
@@ -109,18 +111,18 @@ async function shorthand(shorthandArray){
                     return isNaN(resolvedValue) ? null : parseFloat(resolvedValue);
                 })
                 .filter((val) => val !== null);
-
+    
             values.sort((a, b) => a - b);
-
+    
             const len = values.length;
             if (len === 0) return "0.00";
-
+    
             const mid = Math.floor(len / 2);
-
+    
             if (len % 2 !== 0) {
                 return values[mid].toFixed(2);
             }
-
+    
             const median = (values[mid - 1] + values[mid]) / 2;
             return median.toFixed(2);
         },
@@ -128,18 +130,18 @@ async function shorthand(shorthandArray){
             const leftVal = resolveCell(rowArray[1]);
             const operator = resolveCell(rowArray[2]);
             const rightVal = resolveCell(rowArray[3]);
-
+    
             const leftNum = parseFloat(leftVal);
             const rightNum = parseFloat(rightVal);
-
+    
             if (!comparisonOperators[operator]) {
                 return false;
             }
-
+    
             if (!isNaN(leftNum) && !isNaN(rightNum)) {
                 return comparisonOperators[operator](leftNum, rightNum);
             }
-
+    
             if (operator === "==") {
                 return leftVal === rightVal;
             } else if (operator === "!=") {
@@ -149,46 +151,46 @@ async function shorthand(shorthandArray){
             }
         },
         ITE: (rowArray) => {
-        const conditionVal = resolveCell(rowArray[1]);
-        const thenVal      = resolveCell(rowArray[2]);
-        const elseVal      = resolveCell(rowArray[3]);
-
-        let isTrue;
-
-        if (typeof conditionVal === "boolean") {
+          const conditionVal = resolveCell(rowArray[1]);
+          const thenVal      = resolveCell(rowArray[2]);
+          const elseVal      = resolveCell(rowArray[3]);
+    
+          let isTrue;
+    
+          if (typeof conditionVal === "boolean") {
             isTrue = conditionVal;
-        }
-        else if (typeof conditionVal === "string") {
+          }
+          else if (typeof conditionVal === "string") {
             const lower = conditionVal.toLowerCase();
             if (lower === "true") {
-            isTrue = true;
+              isTrue = true;
             } else if (lower === "false" || lower === "") {
-            isTrue = false;
+              isTrue = false;
             } else {
-            isTrue = true;
+              isTrue = true;
             }
-        }
-        else {
-
+          }
+          else {
+    
             isTrue = Boolean(conditionVal);
-        }
-
-        return isTrue ? thenVal : elseVal;
+          }
+    
+          return isTrue ? thenVal : elseVal;
         },
         ALL: (rowArray) => {
             const values = rowArray.slice(1).map((cell) => resolveCell(cell));
             const bools = values.map((val) => {
                 if (typeof val === "boolean") return val;
-
+    
                 if (typeof val === "string") {
                     const lower = val.toLowerCase();
                     if (lower === "true") return true;
                     if (lower === "false" || lower === "") return false;
                 }
-
+    
                 return Boolean(val);
             });
-
+    
             return bools.every((b) => b === true);
         },
         JSON: (rowArray) => {
@@ -259,17 +261,21 @@ async function shorthand(shorthandArray){
             let baseRef = rowArray[1];
             let key = resolveCell(rowArray[2]);
             let valueRef = rowArray[3];
-
-            if (isRowResultRef(baseRef)) {
-                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
-                let baseObj = rowResult[baseIndex];
-
+            if (isRowResultRef(baseRef) || isJSON(baseRef)) {
+                let baseObj
+                if (isRowResultRef(baseRef)){
+                    let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                    baseObj = rowResult[baseIndex];
+                } else {
+                    baseObj = baseRef
+                }
+    
                 if (typeof baseObj !== "object" || baseObj === null) {
                     baseObj = {};
                 } else {
                     baseObj = Array.isArray(baseObj) ? [...baseObj] : { ...baseObj };
                 }
-
+    
                 let finalVal;
                 if (isRowResultRef(valueRef)) {
                     let valIndex = parseInt(valueRef.slice(0, 3), 10);
@@ -277,7 +283,7 @@ async function shorthand(shorthandArray){
                 } else {
                     finalVal = resolveCell(valueRef);
                 }
-
+    
                 baseObj[key] = finalVal;
                 return baseObj;
             } else {
@@ -286,18 +292,24 @@ async function shorthand(shorthandArray){
             }
         },
         MERGE: (rowArray) => {
-            if (!isRowResultRef(rowArray[1])) {
-                console.error("MERGE: The base reference is not a rowResult reference:", rowArray[1]);
+            let baseRef = rowArray[1];
+            if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
+                console.error("MERGE: The base reference is not a rowResult reference:", baseRef);
                 return {};
             }
-
-            let baseIndex = parseInt(rowArray[1].slice(0, 3), 10);
-            let baseObj = rowResult[baseIndex];
-
+    
+            let baseObj
+            if (isRowResultRef(baseRef)){
+                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseObj = rowResult[baseIndex];
+            } else {
+                baseObj = baseRef
+            }
+    
             for (let i = 2; i < rowArray.length; i++) {
                 let newDataRef = rowArray[i];
                 let newData = resolveCell(newDataRef);
-
+    
                 if (typeof newData === "string") {
                     try {
                         newData = JSON.parse(newData);
@@ -305,62 +317,71 @@ async function shorthand(shorthandArray){
                         console.warn("MERGE: newData is a string that did not parse as JSON. Using it as plain text:", newData);
                     }
                 }
-
+    
                 baseObj = deepMerge(baseObj, newData);
             }
-
+    
             return baseObj;
         },
         NESTED: (rowArray) => {
             const baseRef = rowArray[1];
-            if (!isRowResultRef(baseRef)) {
-            console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
-            return {};
+            if (!isRowResultRef(baseRef)  && !isJSON(baseRef)) {
+              console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
+              return {};
             }
-
-            //USE is not working because it's not referecing the rowResult. We need to allow referencing non-rowResult because a reference to a row result is the same.
-
-            const baseIndex = parseInt(baseRef.slice(0, 3), 10);
-            const originalObj = rowResult[baseIndex];
-        
-            if (typeof originalObj !== "object" || originalObj === null) {
-            return setNestedValue({}, rowArray.slice(2, -1), resolveCell(rowArray[rowArray.length - 1]));
+            
+            let baseObj
+            if (isRowResultRef(baseRef)){
+                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseObj = rowResult[baseIndex];
+            } else {
+                baseObj = baseRef
             }
-        
-            let newObj = Array.isArray(originalObj)
-            ? [...originalObj]
-            : { ...originalObj };
-        
+          
+            if (typeof baseObj !== "object" || baseObj === null) {
+              return setNestedValue({}, rowArray.slice(2, -1), resolveCell(rowArray[rowArray.length - 1]));
+            }
+          
+            let newObj = Array.isArray(baseObj)
+              ? [...baseObj]
+              : { ...baseObj };
+          
             const pathTokens = rowArray.slice(2, rowArray.length - 1);
             const valueRef = rowArray[rowArray.length - 1];
-        
+          
             let finalVal;
             if (isRowResultRef(valueRef)) {
-            let valIndex = parseInt(valueRef.slice(0, 3), 10);
-            finalVal = rowResult[valIndex];
+              let valIndex = parseInt(valueRef.slice(0, 3), 10);
+              finalVal = rowResult[valIndex];
             } else {
-            finalVal = resolveCell(valueRef);
+              finalVal = resolveCell(valueRef);
             }
-        
+          
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
-        
+          
             return updatedObj;
         },
         DELETEPROPERTY: (rowArray) => {
             const baseRef = rowArray[1];
-            if (!isRowResultRef(baseRef)) {
-            console.error("DELETEPROPERTY: The base reference is not a rowResult reference:", baseRef);
-            return {};
+            if (!isRowResultRef(baseRef)  && !isJSON(baseRef)) {
+              console.error("DELETEPROPERTY: The base reference is not a rowResult reference:", baseRef);
+              return {};
             }
-            const baseIndex = parseInt(baseRef.slice(0, 3), 10);
-            const originalObj = rowResult[baseIndex];
-            if (typeof originalObj !== "object" || originalObj === null) {
-            return {};
+            let baseObj;
+            if (isRowResultRef(baseRef)){
+                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseObj = rowResult[baseIndex];
+            } else {
+                baseObj = baseRef;
             }
-            let newObj = Array.isArray(originalObj)
-            ? [...originalObj]
-            : { ...originalObj };
-        
+    
+            if (typeof baseObj !== "object" || baseObj === null) {
+              return {};
+            }
+            let newObj = Array.isArray(baseObj)
+              ? [...baseObj]
+              : { ...baseObj };
+          
             const pathTokens = rowArray.slice(2);
             deleteNestedValue(newObj, pathTokens);
             return newObj;
@@ -395,9 +416,34 @@ async function shorthand(shorthandArray){
             } catch (e) {
                 return Buffer.from([]);
             }
+        },
+        ROWRESULT: (rowArray) => {
+            if (rowResult[resRow] == true){
+                rowResult[parseInt(rowArray[1])] = resolveCell(rowArray[2])
+                rowResult[resRow] = false
+                resRow = 0
+            } else {
+                rowResult[parseInt(rowArray[1])] = resolveCell(rowArray[2])
+                rowResult[parseInt(resRow)] = true
+            }
         }
     };
-
+    
+    function isJSON(value) {
+        try {
+            if (typeof value == "string"){
+                JSON.parse(value);
+                return true;
+            } else if (typeof value == "object"){
+                return true
+            } else {
+                return false
+            }
+        } catch (e) {
+            return false;
+        }
+    }
+    
     function parsePathToken(token) {
         const match = token.match(/^\[(\d+)\]$/);
         if (match) {
@@ -405,52 +451,52 @@ async function shorthand(shorthandArray){
         }
         return token;
     }
-
+    
     function deleteNestedValue(obj, pathTokens) {
         if (!pathTokens || pathTokens.length === 0) return obj;
-    
+      
         const lastToken = parsePathToken(pathTokens[pathTokens.length - 1]);
-    
+      
         let current = obj;
         for (let i = 0; i < pathTokens.length - 1; i++) {
-        const token = parsePathToken(pathTokens[i]);
-    
-        if (typeof token === "number") {
+          const token = parsePathToken(pathTokens[i]);
+      
+          if (typeof token === "number") {
             if (!Array.isArray(current[token])) {
-            return obj;
+              return obj;
             }
             current[token] = [...current[token]];
             current = current[token];
-        } else {
+          } else {
             if (typeof current[token] !== "object" || current[token] === null) {
-            return obj;
+              return obj;
             }
             current[token] = Array.isArray(current[token])
-            ? [...current[token]]
-            : { ...current[token] };
+              ? [...current[token]]
+              : { ...current[token] };
             current = current[token];
+          }
         }
-        }
-    
+      
         if (typeof lastToken === "number") {
-        if (Array.isArray(current) && lastToken < current.length) {
+          if (Array.isArray(current) && lastToken < current.length) {
             current.splice(lastToken, 1);
-        }
+          }
         } else {
-        if (typeof current === "object" && current !== null) {
+          if (typeof current === "object" && current !== null) {
             delete current[lastToken];
+          }
         }
-        }
-    
+      
         return obj;
     }
-
+    
     function setNestedValue(obj, pathTokens, newValue) {
         let current = obj;
         for (let i = 0; i < pathTokens.length; i++) {
             const isLast = i === pathTokens.length - 1;
             const token = parsePathToken(pathTokens[i]);
-    
+      
             if (!isLast) {
                 if (typeof token === "number") {
                     if (!Array.isArray(current[token])) {
@@ -488,15 +534,23 @@ async function shorthand(shorthandArray){
         }
         return obj;
     }
-
+    
     function isRowResultRef(txt) {
         return /^\d{3}!!$/.test(txt);
     }
-
+    
     function isFullRowRef(txt) {
         return /^\d{3}~~$/.test(txt);
     }
-
+    
+    function isCellRef(txt) {
+        return /^\d{3}[A-Z]{2}$/.test(txt);
+    }
+    
+    function isCellRefString(txt) {
+        return /^\d{3}[a-z]{2}$/.test(txt);
+    }
+    
     function getRow(cellTxt){
         if (getCellID(cellTxt)){
             return cellTxt.slice(0, 3);
@@ -504,7 +558,7 @@ async function shorthand(shorthandArray){
             return undefined;
         }
     }
-
+    
     function resolveRow(row){
         let arr = [];
         for (let x = 0; x < row.length; x++){
@@ -513,21 +567,28 @@ async function shorthand(shorthandArray){
         }
         return arr;
     }
-
+    
+    function getColumnLabel(index) {
+        let label = "";
+        while (index >= 0) {
+            label = String.fromCharCode((index % 26) + 65) + label;
+            index = Math.floor(index / 26) - 1;
+        }
+        return label;
+    }
+    
     function resolveCell(cellTxt) {
         if (isRowResultRef(cellTxt)) {
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
         }
-
+    
         if (isFullRowRef(cellTxt)) {
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             return matrix[rowIndex] || [];
         }
-
+    
         let cell = getCellID(cellTxt);
-        //console.log("cellTxt", cellTxt)
-        //console.log("cell", cell)
         if (cell) {
             let ref = matrix[cell.row][cell.col];
             if (getCellID(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
@@ -539,11 +600,11 @@ async function shorthand(shorthandArray){
             return cellTxt;
         }
     }
-
+    
     function getCellID(txt) {
-        const rowPart = txt.slice(0, 3);
-        const colPart = txt.slice(3);
-
+        const rowPart = txt.toString().slice(0, 3);
+        const colPart = txt.toString().slice(3);
+    
         if (!isNaN(rowPart) && colID.includes(colPart)) {
             const rowIndex = parseInt(rowPart, 10);
             const colIndex = colID.indexOf(colPart);
@@ -552,39 +613,39 @@ async function shorthand(shorthandArray){
             return null;
         }
     }
-
+    
     function generateColIDs() {
         colID = [];
         let label = "";
-
+    
         for (let index = 0; index <= highestCol; index++) {
             let num = index + 26; 
             label = "";
-
+    
             do {
                 label = String.fromCharCode(65 + (num % 26)) + label;
                 num = Math.floor(num / 26) - 1;
             } while (num >= 0);
-
+    
             colID.push(label);
         }
     }
-
+    
     function generateRowID() {
         let newID = rowID.length.toString().padStart(3, "0");
         rowID.push(newID);
         return newID;
     }
-
+    
     async function addRow(n, position, rowData) {
         if (Array.isArray(n)) {
             rowData = n;
             n = undefined;
             position = undefined;
         }
-
+    
         let newRow = Array.isArray(rowData) ? [...rowData] : [];
-
+    
         if (n === undefined) {
             matrix.push(newRow);
             generateRowID();
@@ -601,9 +662,9 @@ async function shorthand(shorthandArray){
             } else {
                 insertIndex = n - 1;
             }
-
+    
             if (insertIndex < 0) insertIndex = 0;
-
+    
             matrix.splice(insertIndex, 0, newRow);
             rowID.splice(insertIndex, 0, generateRowID());
             if (newRow.length - 1 > highestCol) {
@@ -614,7 +675,7 @@ async function shorthand(shorthandArray){
             console.error("Invalid arguments passed to addRow.");
         }
     }
-
+    
     async function displayTable() {
         for (let row = 0; row < matrix.length; row++) {
             let rowLog = "RowID: " + rowID[row] + " [";
@@ -629,142 +690,159 @@ async function shorthand(shorthandArray){
             console.log(rowLog);
         }
     }
-
+    
     function parseFunction(row, startIndex) {
-    const functionName = resolveCell(row[startIndex]);
-    let funcObj = {};
-    funcObj["AA"] = functionName;
-
-    let argIndex = 0;
-    let i = startIndex + 1;
-
-    while (i < row.length && row[i] !== "|||") {
-        const token = row[i];
-        if (token in keywords) {
-        const nestedParse = parseFunction(row, i);
-        argIndex++;
-        const argKey = String.fromCharCode(65 + argIndex);
-        funcObj["A" + argKey] = nestedParse.nestedObj;
-        i = nestedParse.newIndex;
+      const functionName = resolveCell(row[startIndex]);
+      let funcObj = {};
+      funcObj["AA"] = functionName;
+      let argIndex = 0;
+      let i = startIndex + 1;
+      while (i < row.length && row[i] !== "|||") {
+        let token 
+        if (isCellRefString(row[i])){
+            token = row[i].toUpperCase();
         } else {
-        argIndex++;
-        const argKey = String.fromCharCode(65 + argIndex);
-        funcObj["A" + argKey] = token;
-        i++;
+            token = resolveCell(row[i]);
         }
-    }
-
-    const endIndex = i;
-
-    let functionArray = [ functionName ];
-    const objKeysSorted = Object.keys(funcObj).sort(); 
-    for (let k of objKeysSorted) {
+        
+        if (token in keywords) {
+          const nestedParse = parseFunction(row, i);
+          argIndex++;
+          const argKey = getColumnLabel(argIndex);
+          funcObj[argKey] = nestedParse.nestedObj;
+          /*const argKey = String.fromCharCode(65 + argIndex);
+          funcObj["A" + argKey] = nestedParse.nestedObj; // There is likely an issue fixing "A" as the only functionObj, what if it is "B" (the 27th - 43rd column), or other?*/
+          i = nestedParse.newIndex;
+        } else {
+          argIndex++;
+          const argKey = getColumnLabel(argIndex);
+          funcObj[argKey] = token;
+          /*const argKey = String.fromCharCode(65 + argIndex);
+          funcObj["A" + argKey] = token; // There is likely an issue fixing "A" as the only functionObj, what if it is "B" (the 27th - 43rd column), or other?*/
+          i++;
+        }
+      }
+    
+      const endIndex = i;
+    
+      let functionArray = [ functionName ];
+      const objKeysSorted = Object.keys(funcObj).sort(); 
+      for (let k of objKeysSorted) {
         if (k === "AA" || k === "RESULTS") continue;
         const val = funcObj[k];
         if (val && typeof val === "object" && val.RESULTS !== undefined) {
-        functionArray.push(val.RESULTS);
+          functionArray.push(val.RESULTS);
         } else {
-        functionArray.push(val);
+          functionArray.push(val);
         }
-    }
-
-    // Expand any __useArray references
-    let expandedArray = [];
-    for (let item of functionArray) {
+      }
+    
+      let expandedArray = [];
+      for (let item of functionArray) {
         if (item && typeof item === "object" && Array.isArray(item.__useArray)) {
-        expandedArray.push(...item.__useArray);
+          expandedArray.push(...item.__useArray);
         } else {
-        expandedArray.push(item);
+          expandedArray.push(item);
         }
-    }
-    functionArray = expandedArray;
-
-    let result;
-    try {
+      }
+      functionArray = expandedArray;
+    
+      let result;
+      try {
         result = keywords[functionName](functionArray);
-    } catch (err) {
+      } catch (err) {
         console.error("Error executing function:", functionName, err);
         result = "";
-    }
-
-    funcObj["RESULTS"] = result;
-
-    if (endIndex < row.length && row[endIndex] === "|||") {
+      }
+    
+      funcObj["RESULTS"] = result;
+    
+      if (endIndex < row.length && row[endIndex] === "|||") {
         i++;
-    }
-
-    return {
+      }
+    
+      return {
         nestedObj: funcObj,
         newIndex: i
-    };
+      };
     }
-
+    
     function parseNestedKeywords(rowArray) {
-    let i = 0;
-    let topLevelFunctions = [];
-
-    while (i < rowArray.length) {
+      let i = 0;
+      let topLevelFunctions = [];
+    
+      while (i < rowArray.length) {
         const token = rowArray[i];
         const resolved = resolveCell(token);
-        //console.log("resolved", resolved)
         if (resolved in keywords && rowArray[0] != "") {
-        const parsed = parseFunction(rowArray, i);
-        topLevelFunctions.push(parsed.nestedObj);
-        i = parsed.newIndex;
+          const parsed = parseFunction(rowArray, i);
+          topLevelFunctions.push(parsed.nestedObj);
+          i = parsed.newIndex;
         } 
         else {
-        if (
+          if (
             Array.isArray(resolved) && 
             resolved.length > 0 && 
             typeof resolved[0] === "string" && 
             resolved[0] in keywords && resolved[0] != ""
-        ) {
+          ) {
             const subParsed = parseNestedKeywords(resolved);
             topLevelFunctions.push(subParsed);
-        } else {}
-        i++;
+          } else {}
+          i++;
         }
-    }
-
-    if (topLevelFunctions.length === 1) {
+      }
+    
+      if (topLevelFunctions.length === 1) {
         return topLevelFunctions[0];
-    } 
-    else {
+      } 
+      else {
         return {
-        type: "MULTIPLE_FUNCTIONS",
-        list: topLevelFunctions
+          type: "MULTIPLE_FUNCTIONS",
+          list: topLevelFunctions
         };
+      }
     }
-    }
-
+    
     async function run() {
-    rowResult = [];
-
-    for (let row = 0; row < matrix.length; row++) {
-        const rowArray = matrix[row];
+      rowResult = [];
+      resRow = 0;
+      let sweep = 0
+      async function loopRows(){
+        const rowArray = matrix[resRow];
         if (!Array.isArray(rowArray)) {
             rowArray = rowArray.match(/.{1,5}/g);
         }
         let parsedObject = parseNestedKeywords(rowArray);
-
+    
         if (parsedObject.type === "MULTIPLE_FUNCTIONS") {
-
-        if (parsedObject.list.length > 0) {
-            rowResult[row] = parsedObject.list[0].RESULTS;
+    
+          if (parsedObject.list.length > 0) {
+            rowResult[resRow] = parsedObject.list[0].RESULTS;
+          } else {
+            rowResult[resRow] = resolveCell(rowArray[0]);
+          }
         } else {
-            rowResult[row] = resolveCell(rowArray[0]);
+    
+            if (parsedObject.RESULTS !== undefined && parsedObject.RESULTS !== null){
+                rowResult[resRow] = parsedObject.RESULTS
+            }
         }
-        } else {
-
-        rowResult[row] = parsedObject.RESULTS !== undefined
-            ? parsedObject.RESULTS
-            : resolveCell(rowArray[0]);
+        resRow++;
+        if (resRow < matrix.length) {
+            loopRows()
+        } else if (sweep < 1){
+            resRow = 0;
+            sweep++
+            loopRows()
         }
-    }
-
-    for (let row = 0; row < rowResult.length; row++) {
+      }
+      loopRows();
+    
+    
+      for (let row = 0; row < rowResult.length; row++) {
         //console.log(rowID[row], matrix[row], rowResult[row]);
-    }
+      }
     }
 
     async function processArray(arr){
