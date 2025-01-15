@@ -2357,7 +2357,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("arrayLogic", arrayLogic);
                 var zeroArray = ["JSON", JSON.stringify(jsonpl)]
                 await arrayLogic.unshift(zeroArray)
-                await arrayLogic.unshift(["", "JOIN", "SUBSTITUTE", "MED", "SUM", "AVG", "USE", "CONDITION", "ALL", "ITE", "JSON", "ARRAY", "ADDPROPERTY", "MERGE", "NESTED", "DELETEPROPERTY", "STRING", "INTEGER", "FLOAT", "BUFFER", "APPEND", "PREPEND", "RANGE", "|||", "==", "!=", ">", ">=", "<", "<="]);
+                await arrayLogic.unshift(["", "JOIN", "SUBSTITUTE", "MED", "SUM", "AVG", "USE", "CONDITION", "ALL", "ITE", "JSON", "ARRAY", "ADDPROPERTY", "MERGE", "NESTED", "DELETEPROPERTY", "STRING", "INTEGER", "FLOAT", "BUFFER", "APPEND", "PREPEND", "RANGE", "ROWRESULT", "|||", "==", "!=", ">", ">=", "<", "<="]);
                 
                 let newJPL = await shorthand(arrayLogic);
                 console.log(newJPL);
