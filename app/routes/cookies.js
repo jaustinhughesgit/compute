@@ -2394,8 +2394,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("arrayLogic", arrayLogic);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
                 delete jsonpl.shorthand 
-                shorthandLogic.input.concat(arrayLogic)
-                shorthandLogic.input[0] = jsonpl
+                shorthandLogic.input = [];
+                shorthandLogic.input.concat(arrayLogic);
+                shorthandLogic.input[0] = jsonpl;
                 
                 let newJPL = await shorthand(shorthandLogic);
                 console.log(newJPL);
