@@ -2383,6 +2383,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("hhh", hhh);
                 console.log("actionFile",actionFile);
                 let { shorthand } = require('../routes/shorthand');
+                console.log("requestBody",requestBody)
+                console.log("requestBody.body",requestBody.body)
                 const arrayLogic = requestBody.body.shorthand;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 console.log(jsonpl);
