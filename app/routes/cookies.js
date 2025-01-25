@@ -2389,12 +2389,26 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("newJPL");
                 console.log("newJPL");
                 console.log("arrayLogic", arrayLogic);
-                var arrayLogic = [jsonpl]
-                await arrayLogic.push();
+                let shorthand = JSON.parse(JSON.stringify(jsonpl.shorthand))
+                delete jsonpl.shorthand 
+                shorthand.input.concat(arrayLogic)
+                shorthand.input[0] = jsonpl
                 
-                let newJPL = await shorthand(arrayLogic);
+                let newJPL = await shorthand(shorthand);
                 console.log(newJPL);
-                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
+                newJPL["shorthand"] = shorthand
+
+                const params = {
+                    Bucket: "public.1var.com", 
+                    Key: fileID,
+                    Body: newJPL,
+                    ContentType: "application/json"
+                };
+                //console.log(JSON.stringify(params))
+                //console.log(JSON.stringify(params.body))
+                await s3.putObject(params).promise();
+
+                mainObj = newJPL//await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');

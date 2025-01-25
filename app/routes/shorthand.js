@@ -1421,11 +1421,12 @@ async function shorthand(shorthandObj){
     
         // Done building matrix. Now parse everything:
         await run(skip);
+        return rowResult[0]
     }
 
     console.log("shorthandArray",shorthandArray)
-    let v = await processArray(shorthandArray)
-    return v
+    let rr0 = await processArray(shorthandArray)
+    return rr0
 
 }
 
