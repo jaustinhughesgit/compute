@@ -2378,6 +2378,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "shorthand"){
+                console.log("reqPath", reqPath);
                 let hhh = reqPath.split("/")[2];
                 actionFile = reqPath.split("/")[3];
                 console.log("hhh", hhh);
