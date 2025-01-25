@@ -8,8 +8,8 @@ async function shorthand(shorthandObj){
     let resRow = 0
     let curRow = 0
     let shorthandArray = shorthandObj.input
-    let skip = scripts.skip
-    let maxSweeps = scripts.sweeps
+    let skip = shorthandObj.skip
+    let maxSweeps = shorthandObj.sweeps
 
 
     const comparisonOperators = {
