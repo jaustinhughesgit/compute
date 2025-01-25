@@ -2389,14 +2389,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("newJPL");
                 console.log("newJPL");
                 console.log("arrayLogic", arrayLogic);
-                let shorthand = JSON.parse(JSON.stringify(jsonpl.shorthand))
+                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
                 delete jsonpl.shorthand 
-                shorthand.input.concat(arrayLogic)
-                shorthand.input[0] = jsonpl
+                shorthandLogic.input.concat(arrayLogic)
+                shorthandLogic.input[0] = jsonpl
                 
-                let newJPL = await shorthand(shorthand);
+                let newJPL = await shorthand(shorthandLogic);
                 console.log(newJPL);
-                newJPL["shorthand"] = shorthand
+                newJPL["shorthand"] = shorthandLogic
 
                 const params = {
                     Bucket: "public.1var.com", 
