@@ -2390,14 +2390,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 console.log(jsonpl);
                 console.log("newJPL");
-                console.log("newJPL");
                 console.log("arrayLogic", arrayLogic);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
                 console.log("shorthandLogic",shorthandLogic)
                 delete jsonpl.shorthand 
                 shorthandLogic.input.concat(arrayLogic);
                 shorthandLogic.input[0] = [jsonpl];
-                console.log("updatedLogic", shorthandLogic)
+                console.log("updatedLogic", JSON.stringify(shorthandLogic, null, 2))
                 let newJPL = await shorthand(shorthandLogic);
                 console.log(JSON.stringify(newJPL, null, 2));
                 newJPL["shorthand"] = shorthandLogic
