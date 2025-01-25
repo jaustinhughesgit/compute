@@ -2405,7 +2405,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const params = {
                     Bucket: "public.1var.com", 
                     Key: actionFile,
-                    Body: newJPL,
+                    Body: JSON.stringify(newJPL),
                     ContentType: "application/json"
                 };
                 //console.log(JSON.stringify(params))
