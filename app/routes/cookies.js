@@ -2412,7 +2412,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log(JSON.stringify(params.body))
                 await s3.putObject(params).promise();
 
-                mainObj = newJPL//await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
                 let { runApp } = require('../app');
