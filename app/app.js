@@ -584,6 +584,10 @@ async function runApp(req, res, next) {
                     console.log("res.headersSent", res.headersSent)
                     console.log("res88", res)
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
+                    //we are trying to get rid of req and pass the exact params. This makes shorthand easy without having to update req, we just use values
+                    //that we need manually. The question is "req" in the line above.
+                    //how do we not pass req into middlewareCache
+                    //What is middlewareCache? Can we not use req in it?
                 }
             };
             await runMiddleware(0);
@@ -894,10 +898,11 @@ async function initializeMiddleware(req, res, next) {
         let cookie
         let parent
         let fileArray
+        let xAccessToken = req.body.headers["X-accessToken"]
         if (reqPath.split("/")[1] == "api") {
             console.log("runApp5")
             head = await getHead("su", reqPath.split("/")[2], dynamodb)
-            cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+            cookie = await manageCookie({}, req, xAccessToken, dynamodb, uuidv4)
             console.log("req.body", req.body)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, req.body)
             fileArray = parent.paths[reqPath.split("/")[2]];
@@ -906,7 +911,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("runApp6")
             head = await getHead("su", reqPath.split("/")[1], dynamodb)
             console.log("runApp6.1")
-            cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+            cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             console.log("runApp6.2")
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
             console.log("runApp6.3")
@@ -1015,7 +1020,8 @@ async function getValFromDB(id, req, res, next){
         let subRes = await getSub(keyClean, "su", dynamodb)
         console.log("subRes", subRes)
         //console.log("subRes.Items[0].g", subRes.Items[0].g)
-        let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+        let xAccessToken = req.body.headers["X-accessToken"]
+        let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
         console.log("cookie33", cookie)
         let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
         console.log("verified33", verified)
@@ -2164,7 +2170,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 let subRes = await getSub(keyClean, "su", dynamodb)
                 console.log("subRes", subRes)
                 //console.log("subRes.Items[0].g", subRes.Items[0].g)
-                let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+                let xAccessToken = req.body.headers["X-accessToken"]
+                let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
                 console.log("cookie33", cookie)
                 let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
                 console.log("verified33", verified)
