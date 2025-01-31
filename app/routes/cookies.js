@@ -1755,7 +1755,7 @@ async function resetCounter(counter, dynamoDb) {
     await dynamoDb.update(params).promise();
 }
 
-async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL) {
+async function route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action) {
     cache = {
         getSub: {},
         getEntity: {},
@@ -1767,17 +1767,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     //console.log("route", req)
     //console.log("req.body", req.body)
     //console.log("req.headers", req.headers)
-    let originalHost = req.body.headers["X-Original-Host"]
-    let splitOriginalHost = originalHost.split("1var.com")[1]
-    const computeUrl = `https://compute.1var.com${splitOriginalHost}`;
-    const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
-    const reqPath = splitOriginalHost.split("?")[0]
-    const action = reqPath.split("/")[2]
-    const requestBody = req.body;
+
     var response = {}
     var actionFile = ""
     var mainObj = {}
-    if (req.method === 'GET' || req.method === 'POST') {
+    if (reqMethod === 'GET' || reqMethod === 'POST') {
 
         console.log("1111")
         let cookie = await manageCookie(mainObj, req, res, dynamodb, uuidv4)
@@ -2071,8 +2065,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
             } else if (action === "addFineTune") {
                 let sections = reqPath.split("/")
-                console.log("req.body.body", req.body.body)
-                const fileResult = await updateJSONL(req.body.body, sections, s3)
+                console.log("req.body.body", reqBody.body)
+                const fileResult = await updateJSONL(reqBody.body, sections, s3)
                 mainObj = { "alert": "success" }
             } else if (action === "createFineTune") {
                 let sections = reqPath.split("/")
@@ -2115,7 +2109,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
                 //console.log("req", req)
                 //console.log("req.body", req.body)
-                const fileResult = await createFile(actionFile, req.body.body, s3)
+                const fileResult = await createFile(actionFile, reqBody.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
                 let permission = reqPath.split("/")[4]
@@ -2131,8 +2125,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const sub = await getSub(subUuid, "su", dynamodb);
                 //console.log("sub", sub)
                 let buffer = false
-                if (requestBody.body.hasOwnProperty("type")) {
-                    if (requestBody.body.type == "Buffer") {
+                if (reqBody.body.hasOwnProperty("type")) {
+                    if (reqBody.body.type == "Buffer") {
                         buffer = true
                     }
                 }
@@ -2143,19 +2137,19 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let to = false
                 let ac = false
                 if (!buffer) {
-                    //console.log("requestBody.body", requestBody.body)
-                    ex = requestBody.body.expires
-                    at = requestBody.body.attempts
-                    va = requestBody.body.value
-                    to = requestBody.body.timeout
+                    //console.log("reqBody.body", reqBody.body)
+                    ex = reqBody.body.expires
+                    at = reqBody.body.attempts
+                    va = reqBody.body.value
+                    to = reqBody.body.timeout
                     let permissions = ""
-                    if (requestBody.body.execute == true) { permissions += "e" }
-                    if (requestBody.body.read == true) { permissions += "r" }
-                    if (requestBody.body.write == true) { permissions += "w" }
-                    if (requestBody.body.add == true) { permissions += "a" }
-                    if (requestBody.body.delete == true) { permissions += "d" }
-                    if (requestBody.body.permit == true) { permissions += "p" }
-                    if (requestBody.body.own == true) { permissions += "o" }
+                    if (reqBody.body.execute == true) { permissions += "e" }
+                    if (reqBody.body.read == true) { permissions += "r" }
+                    if (reqBody.body.write == true) { permissions += "w" }
+                    if (reqBody.body.add == true) { permissions += "a" }
+                    if (reqBody.body.delete == true) { permissions += "d" }
+                    if (reqBody.body.permit == true) { permissions += "p" }
+                    if (reqBody.body.own == true) { permissions += "o" }
                     ac = permissions
                 }
                 //console.log("ex", ex)
@@ -2210,13 +2204,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let params1 = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
                 let access = await dynamodb.query(params1).promise()
                 let permissions = ""
-                if (requestBody.body.execute == true) { permissions += "e" }
-                if (requestBody.body.read == true) { permissions += "r" }
-                if (requestBody.body.write == true) { permissions += "w" }
-                if (requestBody.body.add == true) { permissions += "a" }
-                if (requestBody.body.delete == true) { permissions += "d" }
-                if (requestBody.body.permit == true) { permissions += "p" }
-                if (requestBody.body.own == true) { permissions += "o" }
+                if (reqBody.body.execute == true) { permissions += "e" }
+                if (reqBody.body.read == true) { permissions += "r" }
+                if (reqBody.body.write == true) { permissions += "w" }
+                if (reqBody.body.add == true) { permissions += "a" }
+                if (reqBody.body.delete == true) { permissions += "d" }
+                if (reqBody.body.permit == true) { permissions += "p" }
+                if (reqBody.body.own == true) { permissions += "o" }
                 let params2 = {
                     "TableName": 'access',
                     "Key": {
@@ -2224,7 +2218,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     },
                     "UpdateExpression": `set va = :va, ac = :ac`,
                     "ExpressionAttributeValues": {
-                        ':va': requestBody.body.value,
+                        ':va': reqBody.body.value,
                         ':ac': permissions
                     }
                 };
@@ -2251,7 +2245,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
 
-                const task = requestBody.body;
+                const task = reqBody.body;
                 //console.log(task);
                 let sDate = new Date(task.startDate + 'T00:00:00Z')
                 let sDateSeconds = sDate.getTime() / 1000;
@@ -2355,7 +2349,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 //console.log("deleteTask", action)
-                const task = requestBody.body;
+                const task = reqBody.body;
                 //console.log("task.taskID", task.taskID)
                 await removeSchedule(task.taskID);
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
@@ -2364,7 +2358,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "updateEntityByAI") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                const prompt = requestBody.body;
+                const prompt = reqBody.body;
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
                 const params = {
                     Bucket: fileLocation(oai.isPublic) + ".1var.com", // Replace with your bucket name
@@ -2380,13 +2374,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "shorthand"){
                 actionFile = reqPath.split("/")[3];
                 let { shorthand } = require('../routes/shorthand');
-                const arrayLogic = requestBody.body;
+                const arrayLogic = reqBody.body;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
                 //delete jsonpl.shorthand 
                 shorthandLogic.input.push(arrayLogic[0]);
 
-                let newJPL = await shorthand(shorthandLogic);
+                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action);
                 
                 newJPL["shorthand"] = shorthandLogic
                 const params = {
@@ -2405,6 +2399,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res-------")
                 console.log("res-------")
                 console.log("res-------")
+                //asking for it to runEntity might require manual adjustments to req.path so that it will run the entity AI chooses not the original request of shorthand.
                 await runApp(req, res, next)
             }
 
@@ -2425,14 +2420,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         url: url,
                         policy: policy
                     });
-                    sendBack(res, "json", { signedUrl: signedUrl });
+                    return sendBack(res, "json", { signedUrl: signedUrl });
                 } else {
                     const cookies = signer.getSignedCookie({ policy: policy });
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
                     console.log("response", response)
-                    sendBack(res, "json", { "ok": true, "response": response });
+                    return sendBack(res, "json", { "ok": true, "response": response });
                 }
             } else if (action === "reqPut") {
                 const bucketName = fileLocation(isPublic) + '.1var.com';
@@ -2448,15 +2443,15 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("params", params)
                 s3.getSignedUrl('putObject', params, (error, url) => {
                     if (error) {
-                        if (req._headerSent == false) {
+                        if (reqHeaderSent == false) {
                             //res.status(500).json({ error: 'Error generating presigned URL' });
-                            sendBack(res, "json", { "ok": false, "response": {} });
+                            return sendBack(res, "json", { "ok": false, "response": {} });
                         }
                     } else {
                         //console.log("preSigned URL:", url)
                         response.putURL = url
-                        if (req._headerSent == false) {
-                            sendBack(res, "json", { "ok": true, "response": response });
+                        if (reqHeaderSent == false) {
+                            return sendBack(res, "json", { "ok": true, "response": response });
                         }
                     }
                 });
@@ -2465,35 +2460,51 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res", res)
                 if (response.file != "") {
                     // conditioned because the page can't send headers after they are already sent.
-                    sendBack(res, "json", { "ok": true, "response": response });
+                    return sendBack(res, "json", { "ok": true, "response": response });
                 }
             }
 
         } else {
-            sendBack(res, "json", {});
+            return sendBack(res, "json", {});
         }
     } else {
-        sendBack(res, "json", {});
+        return sendBack(res, "json", {});
     }
 }
 
-function sendBack(res, type, val){
+function sendBack(res, type, val, isShorthand){
     //Create the ability to detect if it is shorthand
     //check if it is shorthand and send back to shorthand.
     //if not shorthand then do the following;
-    res.json(val)
+    if (!isShorthand){
+        res.json(val)
+    } else {
+        return val //returning the value back to the shorthand request
+    }
 }
 
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
 
     router.all('/*', async function (req, res, next) {
-        route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL)
+
+        let originalHost = req.body.headers["X-Original-Host"];
+        let splitOriginalHost = originalHost.split("1var.com")[1];
+        const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
+        let reqPath = splitOriginalHost.split("?")[0];
+        let reqBody = req.body;
+        const action = reqPath.split("/")[2];
+        const reqMethod = req.method;
+        const reqType = req.type;
+        const reqHeaderSent = req._headerSent;
+
+        route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, false, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action)
     });
 
     return router;
 }
 
 module.exports = {
+    route,
     setupRouter,
     getHead,
     convertToJSON,
