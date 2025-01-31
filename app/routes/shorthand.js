@@ -50,7 +50,25 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     var keywords = {
         ROUTE: (rowArray) =>{
 
-            let resp = route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+
+            let xAccessToken = req.body.headers["X-accessToken"]
+            let originalHost = "https://abc.api.1var.com/cookies/"+"newGroup/r1/r1";
+            let splitOriginalHost = originalHost.split("1var.com")[1];
+            const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
+            let reqPath = splitOriginalHost.split("?")[0];
+            let reqBody = req.body;
+            const action = reqPath.split("/")[2];
+
+
+
+            let newReq = {};
+            newReq.body = req.body
+            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+"newGroup/r1/r1"
+            newReq.method = req.method
+            newReq.type = req.type
+            newReq._headerSent = req._headerSent
+            newReq.path = req.path
+            let resp = route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("resp=>", resp);
             return ""
         },
