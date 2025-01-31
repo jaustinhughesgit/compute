@@ -54,7 +54,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let xAccessToken = req.body.headers["X-accessToken"]
             let originalHost = "https://abc.api.1var.com/cookies/"+"newGroup/r1/r1";
             let splitOriginalHost = originalHost.split("1var.com")[1];
-            const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody = req.body;
             const action = reqPath.split("/")[2];
