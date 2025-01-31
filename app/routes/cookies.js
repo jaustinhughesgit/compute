@@ -2425,14 +2425,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         url: url,
                         policy: policy
                     });
-                    sendBack(json,{ signedUrl: signedUrl });
+                    sendBack("json",{ signedUrl: signedUrl });
                 } else {
                     const cookies = signer.getSignedCookie({ policy: policy });
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
                     console.log("response", response)
-                    sendBack(json,{ "ok": true, "response": response });
+                    sendBack("json",{ "ok": true, "response": response });
                 }
             } else if (action === "reqPut") {
                 const bucketName = fileLocation(isPublic) + '.1var.com';
@@ -2450,13 +2450,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     if (error) {
                         if (req._headerSent == false) {
                             //res.status(500).json({ error: 'Error generating presigned URL' });
-                            sendBack(json,{ "ok": false, "response": {} });
+                            sendBack("json",{ "ok": false, "response": {} });
                         }
                     } else {
                         //console.log("preSigned URL:", url)
                         response.putURL = url
                         if (req._headerSent == false) {
-                            sendBack(json,{ "ok": true, "response": response });
+                            sendBack("json",{ "ok": true, "response": response });
                         }
                     }
                 });
@@ -2465,19 +2465,22 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("res", res)
                 if (response.file != "") {
                     // conditioned because the page can't send headers after they are already sent.
-                    sendBack(json,{ "ok": true, "response": response });
+                    sendBack("json",{ "ok": true, "response": response });
                 }
             }
 
         } else {
-            sendBack(json,{});
+            sendBack("json",{});
         }
     } else {
-        sendBack(json,{});
+        sendBack("json",{});
     }
 }
 
 function sendBack(type,val){
+    //Create the ability to detect if it is shorthand
+    //check if it is shorthand and send back to shorthand.
+    //if not shorthand then do the following;
     res[type](val)
 }
 
