@@ -1091,9 +1091,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     var keywords = {
         ROUTE: async (rowArray) =>{
 
-
+            let act = rowArray[1];
+            let param1 = rowArray[2];
+            let param2 = rowArray[3];
             let xAccessToken = req.body.headers["X-accessToken"]
-            let originalHost = "https://abc.api.1var.com/cookies/"+"newGroup/r4/r4";
+            let originalHost = "https://abc.api.1var.com/cookies/"+act+"/"+param1+"/"+param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody = req.body;
@@ -1103,7 +1105,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
             let newReq = {};
             newReq.body = req.body
-            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+"newGroup/r1/r1"
+            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+"newGroup/r5/r5"
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
