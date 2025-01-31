@@ -48,7 +48,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
     var keywords = {
-        ROUTE: (rowArray) =>{
+        ROUTE: async (rowArray) =>{
 
 
             let xAccessToken = req.body.headers["X-accessToken"]
@@ -67,7 +67,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
-            let resp = route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("resp=>", resp);
             return ""
         },
@@ -800,7 +800,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log(rowLog);
         }
     }
-    function parseFunction(row, startIndex) {
+    async function parseFunction(row, startIndex) {
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
             let i = startIndex + 1;
@@ -972,7 +972,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             functionArray = expanded;
             let result;
             try {
-                result = keywords[functionName](functionArray);
+                result = await keywords[functionName](functionArray);
             } catch (err) {
                 console.error("Error executing function:", functionName, err);
                 result = "";
