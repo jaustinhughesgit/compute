@@ -1613,7 +1613,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     } else {
         response = await openai.chat.completions.create({
             messages: [{ role: "system", content: combinedPrompt }],
-            model: "gpt-4o-2024-08-06", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
+            model: "o1-mini-2024-09-12",//"gpt-4o-2024-08-06", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
             response_format: { "type": "json_object" }
         });
 
@@ -2378,38 +2378,24 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "shorthand"){
-                console.log("reqPath", reqPath);
-                let hhh = reqPath.split("/")[2];
                 actionFile = reqPath.split("/")[3];
-                console.log("hhh", hhh);
-                console.log("actionFile",actionFile);
                 let { shorthand } = require('../routes/shorthand');
-                console.log("requestBody",requestBody)
-                console.log("requestBody.body",requestBody.body)
                 const arrayLogic = requestBody.body;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
-                console.log(jsonpl);
-                console.log("newJPL");
-                console.log("arrayLogic", arrayLogic);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
-                console.log("shorthandLogic",shorthandLogic)
-                delete jsonpl.shorthand 
+                //delete jsonpl.shorthand 
                 shorthandLogic.input.push(arrayLogic[0]);
-                console.log("updatedLogic", JSON.stringify(shorthandLogic, null, 3))
-                let newJPL = await shorthand(shorthandLogic);
-                console.log(JSON.stringify(newJPL, null, 2));
-                newJPL["shorthand"] = shorthandLogic
 
+                let newJPL = await shorthand(shorthandLogic);
+                
+                newJPL["shorthand"] = shorthandLogic
                 const params = {
                     Bucket: "public.1var.com", 
                     Key: actionFile,
                     Body: JSON.stringify(newJPL),
                     ContentType: "application/json"
                 };
-                //console.log(JSON.stringify(params))
-                //console.log(JSON.stringify(params.body))
                 await s3.putObject(params).promise();
-
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL);
             } else if (action == "runEntity") {
                 console.log("9999", "runEntity")
@@ -2439,14 +2425,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         url: url,
                         policy: policy
                     });
-                    res.json({ signedUrl: signedUrl });
+                    sendBack(json,{ signedUrl: signedUrl });
                 } else {
                     const cookies = signer.getSignedCookie({ policy: policy });
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
                     console.log("response", response)
-                    res.json({ "ok": true, "response": response });
+                    sendBack(json,{ "ok": true, "response": response });
                 }
             } else if (action === "reqPut") {
                 const bucketName = fileLocation(isPublic) + '.1var.com';
@@ -2463,13 +2449,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 s3.getSignedUrl('putObject', params, (error, url) => {
                     if (error) {
                         if (req._headerSent == false) {
-                            res.status(500).json({ error: 'Error generating presigned URL' });
+                            //res.status(500).json({ error: 'Error generating presigned URL' });
+                            sendBack(json,{ "ok": false, "response": {} });
                         }
                     } else {
                         //console.log("preSigned URL:", url)
                         response.putURL = url
                         if (req._headerSent == false) {
-                            res.json({ "ok": true, "response": response });
+                            sendBack(json,{ "ok": true, "response": response });
                         }
                     }
                 });
@@ -2477,16 +2464,21 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("returning", { "ok": true, "response": response })
                 console.log("res", res)
                 if (response.file != "") {
-                    res.json({ "ok": true, "response": response });  // conditioned because the page can't send headers after they are already sent.
+                    // conditioned because the page can't send headers after they are already sent.
+                    sendBack(json,{ "ok": true, "response": response });
                 }
             }
 
         } else {
-            res.json({})
+            sendBack(json,{});
         }
     } else {
-        res.json({})
+        sendBack(json,{});
     }
+}
+
+function sendBack(type,val){
+    res[type](val)
 }
 
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
