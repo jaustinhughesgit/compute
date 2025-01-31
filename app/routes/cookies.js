@@ -2380,7 +2380,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //delete jsonpl.shorthand 
                 shorthandLogic.input.push(arrayLogic[0]);
 
-                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 
                 newJPL["shorthand"] = shorthandLogic
                 const params = {
