@@ -1083,17 +1083,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
 
 
-        if (args.length > 0) {
-            const input = args[0];
-
-            if (input.length >= 3) {
-                console.log(matrix);
-                console.log(rowResult);
-            } else {
-
-            }
-        } else {
-        }
+      
 
         if (
             JSON.stringify(rowResult) === JSON.stringify(shorthandObj.expected)
