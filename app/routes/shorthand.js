@@ -1085,15 +1085,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
       
 
-        if (
-            JSON.stringify(rowResult) === JSON.stringify(shorthandObj.expected)
-        ) {
-            console.log(`Script index ${processing} is working`);
-        } else if (shorthandObj.expected.length === 0) {
-            console.log(`Script expected ${processing} is empty`);
-        } else {
-            console.log(`Script index ${processing} is NOT working`);
-        }
         return rowResult[0];
     }
 
