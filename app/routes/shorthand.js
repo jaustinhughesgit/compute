@@ -1,6 +1,6 @@
 
 let { route } = require('./routes/cookies')
-async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action){
+async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, , xAccessToken){
     const math = require('mathjs');
     let matrix = [];
     let colID = [];
@@ -50,7 +50,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     var keywords = {
         ROUTE: (rowArray) =>{
 
-            let resp = route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action);
+            let resp = route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("resp=>", resp);
             return ""
         },

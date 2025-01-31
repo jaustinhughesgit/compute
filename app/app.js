@@ -174,7 +174,8 @@ async function isValid(req, res, data) {
     }
     console.log("isDataPresent", isDataPresent)
     if (isDataPresent) {
-        let cookie = await manageCookie({}, req, res, dynamodb, uuidv4)
+        let xAccessToken = req.body.headers["X-accessToken"]
+        let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
         const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
         const ttlDurationInSeconds = 90000; // take the data from access.ex and calculate duration in seconds
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;

@@ -1071,12 +1071,12 @@ async function getCookie(val, key) {
     return await dynamodb.query(params).promise()
 }
 
-async function manageCookie(mainObj, req, res, dynamodb, uuidv4) {
+async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
     //console.log("req1", req)
-    if (req.body.headers.hasOwnProperty("X-accessToken")) {
+    if (xAccessToken) {
         //console.log("has X-accessToken")
         mainObj["status"] = "authenticated";
-        let val = req.body.headers["X-accessToken"];
+        let val = xAccessToken;
         //console.log("X-accessToken = ", val)
         let cookie = await getCookie(val, "ak")
         //console.log("cookie.Items[0]", cookie.Items[0])
@@ -1755,7 +1755,7 @@ async function resetCounter(counter, dynamoDb) {
     await dynamoDb.update(params).promise();
 }
 
-async function route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action) {
+async function route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     cache = {
         getSub: {},
         getEntity: {},
@@ -1774,7 +1774,7 @@ async function route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, A
     if (reqMethod === 'GET' || reqMethod === 'POST') {
 
         console.log("1111")
-        let cookie = await manageCookie(mainObj, req, res, dynamodb, uuidv4)
+        let cookie = await manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4)
         console.log("2222", cookie)
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
         console.log("3333", verifications)
@@ -2380,7 +2380,7 @@ async function route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, A
                 //delete jsonpl.shorthand 
                 shorthandLogic.input.push(arrayLogic[0]);
 
-                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action);
+                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 
                 newJPL["shorthand"] = shorthandLogic
                 const params = {
@@ -2486,7 +2486,7 @@ function sendBack(res, type, val, isShorthand){
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
 
     router.all('/*', async function (req, res, next) {
-
+        let xAccessToken = req.body.headers["X-accessToken"]
         let originalHost = req.body.headers["X-Original-Host"];
         let splitOriginalHost = originalHost.split("1var.com")[1];
         const signer = new AWS.CloudFront.Signer(keyPairId, privateKey);
@@ -2497,7 +2497,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
         const reqType = req.type;
         const reqHeaderSent = req._headerSent;
 
-        route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, false, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action)
+        route(res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, false, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken)
     });
 
     return router;
