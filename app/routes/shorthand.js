@@ -7,14 +7,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     let rowID = [];
     let rowResult = [];
     let highestCol = 0;
-    let resRow = 0
-    let curRow = 0
-    let shorthandArray = shorthandObj.input
-    let skip = shorthandObj.skip
-    let maxSweeps = shorthandObj.sweeps
-
-
-
+    let resRow = 0;
+    let sweep = 0;
+    let shorthandArray = shorthandObj.input;
+    let skip = shorthandObj.skip;
+    let maxSweeps = shorthandObj.sweeps;
+    let processing = 0;
 
     const comparisonOperators = {
         "==": (a, b) => a === b,
@@ -24,6 +22,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         "<": (a, b) => a < b,
         "<=": (a, b) => a <= b
     };
+
     function deepMerge(target, source) {
         if (source && typeof source === "object" && !Array.isArray(source)) {
             if (!target || typeof target !== "object" || Array.isArray(target)) {
@@ -47,6 +46,1067 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return source;
         }
     }
+
+    function safelyParseJSON(str) {
+        try {
+            return JSON.parse(str);
+        } catch (e) {
+            console.warn("Failed to parse JSON. Returning string as-is.");
+            return str;
+        }
+    }
+
+    function getNested(obj, path) {
+        let current = obj;
+        for (const segment of path) {
+            if (current == null || !(segment in current)) {
+                return undefined;
+            }
+            current = current[segment];
+        }
+        return current;
+    }
+
+    function isJSON(value) {
+        try {
+            if (typeof value === "string") {
+                JSON.parse(value);
+                return true;
+            } else if (typeof value === "object") {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function parsePathToken(token) {
+        try {
+            const match = token.match(/^\[(\d+)\]$/);
+            if (match) {
+                return parseInt(match[1], 10);
+            }
+        } catch { /* ignore */ }
+        return token;
+    }
+
+    function deleteNestedValue(obj, pathTokens) {
+        if (!pathTokens || pathTokens.length === 0) return obj;
+        const lastToken = parsePathToken(pathTokens[pathTokens.length - 1]);
+        let current = obj;
+        for (let i = 0; i < pathTokens.length - 1; i++) {
+            const token = parsePathToken(pathTokens[i]);
+            if (typeof token === "number") {
+                if (!Array.isArray(current[token])) {
+                    return obj;
+                }
+                current[token] = [...current[token]];
+                current = current[token];
+            } else {
+                if (typeof current[token] !== "object" || current[token] === null) {
+                    return obj;
+                }
+                current[token] = Array.isArray(current[token])
+                    ? [...current[token]]
+                    : { ...current[token] };
+                current = current[token];
+            }
+        }
+        if (typeof lastToken === "number") {
+            if (Array.isArray(current) && lastToken < current.length) {
+                current.splice(lastToken, 1);
+            }
+        } else {
+            if (typeof current === "object" && current !== null) {
+                delete current[lastToken];
+            }
+        }
+        return obj;
+    }
+
+    function setNestedValue(obj, pathTokens, newValue) {
+        let current = obj;
+        for (let i = 0; i < pathTokens.length; i++) {
+            const isLast = i === pathTokens.length - 1;
+            const token = parsePathToken(pathTokens[i]);
+            if (!isLast) {
+                if (typeof token === "number") {
+                    if (!Array.isArray(current)) {
+                        current = [];
+                    }
+                    if (!current[token] || typeof current[token] !== "object") {
+                        current[token] = {};
+                    }
+                    current = current[token];
+                } else {
+                    if (typeof current[token] !== "object" || current[token] === null) {
+                        current[token] = {};
+                    }
+                    current = current[token];
+                }
+            } else {
+                if (typeof token === "number") {
+                    if (!Array.isArray(current)) {
+                        current = [];
+                    }
+                    current[token] = newValue;
+                } else {
+                    current[token] = newValue;
+                }
+            }
+        }
+        return obj;
+    }
+
+    function isCellRefPlusPlus(txt) {
+        return /^\d{3}\+\+$/.test(txt);
+    }
+
+    function isRowReplace(txt) {
+        return /^\d{3}%!$/.test(txt);
+    }
+
+    function isRowSplice(txt) {
+        return /^\d{3}%%$/.test(txt);
+    }
+
+    function isRowResultRef(txt) {
+        return /^\d{3}!!$/.test(txt);
+    }
+
+    function isFullRowRef(txt) {
+        return /^\d{3}~~$/.test(txt);
+    }
+
+    function isRunRef(txt) {
+        return /^\d{3}@@$/.test(txt);
+    }
+
+    function isCellRefString(txt) {
+        return /^\d{3}[a-z]{2}$/.test(txt.toString());
+    }
+
+    function isCellRef(txt) {
+        if (typeof txt !== "string") return false;
+        return (
+            isRowResultRef(txt) ||
+            isFullRowRef(txt) ||
+            isRunRef(txt) ||
+            isCellRefPlusPlus(txt) ||
+            isRowReplace(txt) ||
+            isRowSplice(txt) ||
+            // fallback:
+            /^\d{3}([A-Za-z]{2}|\d{2})$/.test(txt.toString())
+        );
+    }
+
+    function getRow(cellTxt) {
+        if (getCellID(cellTxt)) {
+            return cellTxt.slice(0, 3);
+        } else {
+            return undefined;
+        }
+    }
+
+    function getColumnLabel(index) {
+        let label = "";
+        while (index >= 0) {
+            label = String.fromCharCode((index % 26) + 65) + label;
+            index = Math.floor(index / 26) - 1;
+        }
+        return label;
+    }
+
+    function getCellID(txt) {
+        if (!isCellRef(txt)) return null;
+        if (!txt) return null;
+        const str = txt.toString();
+
+        if (isCellRefPlusPlus(str)) {
+            const rowIndex = parseInt(str.slice(0, 3), 10);
+            let colIndex = highestCol + 1; // increment from the global highest
+            if (colIndex > highestCol) {
+                highestCol = colIndex;
+                generateColIDs();
+            }
+            return { row: rowIndex, col: colIndex };
+        }
+
+        const rowPart = str.slice(0, 3);
+        const rowIndex = parseInt(rowPart, 10);
+        if (isNaN(rowIndex)) return null;
+
+        const colPart = str.slice(3);
+        if (!colPart) return null;
+
+        const upperCol = colPart.toUpperCase();
+        if (/^[A-Z]+$/.test(upperCol)) {
+            let colIndex = colID.indexOf(upperCol);
+            if (colIndex === -1) {
+                colID.push(upperCol);
+                colIndex = colID.length - 1;
+                if (colIndex > highestCol) {
+                    highestCol = colIndex;
+                    generateColIDs();
+                }
+            }
+            return { row: rowIndex, col: colIndex };
+        }
+        else if (/^\d+$/.test(colPart)) {
+            const colIndex = parseInt(colPart, 10);
+            if (!isNaN(colIndex)) {
+                if (colIndex > highestCol) {
+                    highestCol = colIndex;
+                    generateColIDs();
+                }
+                return { row: rowIndex, col: colIndex };
+            }
+        }
+        return null;
+    }
+
+    function generateColIDs() {
+        colID = [];
+        let label = "";
+        for (let index = 0; index <= highestCol; index++) {
+            let num = index + 26;
+            label = "";
+            do {
+                label = String.fromCharCode(65 + (num % 26)) + label;
+                num = Math.floor(num / 26) - 1;
+            } while (num >= 0);
+            colID.push(label);
+        }
+    }
+
+    function generateRowID() {
+        let newID = rowID.length.toString().padStart(3, "0");
+        rowID.push(newID);
+        return newID;
+    }
+
+    async function addRow(n, position, rowData) {
+        if (Array.isArray(n)) {
+            rowData = n;
+            n = undefined;
+            position = undefined;
+        }
+        let newRow = Array.isArray(rowData) ? [...rowData] : [];
+        if (n === undefined) {
+            matrix.push(newRow);
+            generateRowID();
+            if (newRow.length - 1 > highestCol) {
+                highestCol = newRow.length - 1;
+                generateColIDs();
+            }
+        } else if (Number.isInteger(n)) {
+            let insertIndex;
+            if (position === "above") {
+                insertIndex = n - 1;
+            } else if (position === "below") {
+                insertIndex = n;
+            } else {
+                insertIndex = n - 1;
+            }
+            if (insertIndex < 0) insertIndex = 0;
+            matrix.splice(insertIndex, 0, newRow);
+            rowID.splice(insertIndex, 0, generateRowID());
+            if (newRow.length - 1 > highestCol) {
+                highestCol = newRow.length - 1;
+                generateColIDs();
+            }
+        } else {
+            console.error("Invalid arguments passed to addRow.");
+        }
+    }
+
+    async function displayTable() {
+        for (let row = 0; row < matrix.length; row++) {
+            let rowLog = "RowID: " + rowID[row] + " [";
+            for (let col = 0; col < matrix[row].length; col++) {
+                if (col == 0) {
+                    rowLog += '"' + matrix[row][col] + '"';
+                } else {
+                    rowLog += ', "' + matrix[row][col] + '"';
+                }
+            }
+            rowLog += ']';
+            console.log(rowLog);
+        }
+    }
+
+    function getRowReferences(rowIndex) {
+        if (!matrix[rowIndex]) return [];
+        const rowData = matrix[rowIndex];
+        const result = new Set();
+
+        for (let cell of rowData) {
+            if (typeof cell === "string" && isCellRef(cell)) {
+                let refRow = parseInt(cell.slice(0, 3), 10);
+                if (!isNaN(refRow)) {
+                    result.add(refRow);
+                }
+            }
+        }
+        return Array.from(result);
+    }
+
+    function getRowsReferencing(targetRowIndex) {
+        const result = new Set();
+        for (let r = 0; r < matrix.length; r++) {
+            if (!matrix[r]) continue;
+            for (let cell of matrix[r]) {
+                if (typeof cell === "string" && isCellRef(cell)) {
+                    let refRow = parseInt(cell.slice(0, 3), 10);
+                    if (!isNaN(refRow) && refRow === targetRowIndex) {
+                        result.add(r);
+                        break;
+                    }
+                }
+            }
+        }
+        return Array.from(result);
+    }
+
+    function gatherDown(startRow, maxLevels) {
+        let visited = new Set();
+        let queue = [{ row: startRow, level: 0 }];
+        visited.add(startRow);
+
+        while (queue.length > 0) {
+            const { row, level } = queue.shift();
+            if (level < maxLevels) {
+                const refs = getRowReferences(row);
+                for (let ref of refs) {
+                    if (!visited.has(ref)) {
+                        visited.add(ref);
+                        queue.push({ row: ref, level: level + 1 });
+                    }
+                }
+            }
+        }
+        return visited;
+    }
+
+    function gatherUp(startRow, maxLevels) {
+        let visited = new Set();
+        let queue = [{ row: startRow, level: 0 }];
+        visited.add(startRow);
+
+        while (queue.length > 0) {
+            const { row, level } = queue.shift();
+            if (level < maxLevels) {
+                const refs = getRowsReferencing(row);
+                for (let ref of refs) {
+                    if (!visited.has(ref)) {
+                        visited.add(ref);
+                        queue.push({ row: ref, level: level + 1 });
+                    }
+                }
+            }
+        }
+        return visited;
+    }
+
+    function resolveRow(row) {
+        let arr = [];
+        for (let x = 0; x < row.length; x++) {
+            let el = resolveCell(row[x]);
+            arr.push(el);
+        }
+        return arr;
+    }
+
+    function resolveCell(cellTxt) {
+        if (isRowResultRef(cellTxt)) {
+            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
+            return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
+        }
+        if (isFullRowRef(cellTxt)) {
+            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
+            let rowData = matrix[rowIndex];
+            if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
+                let parsed = parseNestedKeywords(rowData);
+                if (parsed.type === "MULTIPLE_FUNCTIONS") {
+                    const allResults = parsed.list.map(fn => fn.RESULTS);
+                    return allResults;
+                }
+                else if (parsed && parsed.RESULTS !== undefined) {
+                    return parsed.RESULTS;
+                }
+                else {
+                    return rowData;
+                }
+            } else {
+                return rowData;
+            }
+        }
+        let cell = getCellID(cellTxt);
+        if (cell && typeof cellTxt === "string") {
+            let ref = matrix[cell.row][cell.col];
+            if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
+                return resolveCell(ref);
+            } else {
+                return ref;
+            }
+        } else {
+            return cellTxt;
+        }
+    }
+
+    function parseFunction(row, startIndex) {
+        const functionName = resolveCell(row[startIndex]);
+        if (functionName === "ITE") {
+            let i = startIndex + 1;
+            let conditionVal;
+            if (row[i] in keywords) {
+                const conditionParsed = parseFunction(row, i);
+                i = conditionParsed.newIndex;
+                conditionVal = conditionParsed.nestedObj.RESULTS;
+            } else {
+                conditionVal = resolveCell(row[i]);
+                i++;
+            }
+            let isTrue;
+            if (typeof conditionVal === "boolean") {
+                isTrue = conditionVal;
+            } else if (typeof conditionVal === "string") {
+                const lower = conditionVal.toLowerCase();
+                if (lower === "true") {
+                    isTrue = true;
+                } else if (lower === "false" || lower === "") {
+                    isTrue = false;
+                } else {
+                    isTrue = true;
+                }
+            } else {
+                isTrue = Boolean(conditionVal);
+            }
+            let thenScripts = [];
+            while (
+                i < row.length &&
+                row[i] !== "*****" &&
+                row[i] !== "-----" &&
+                row[i] !== "#####"
+            ) {
+                if (row[i] in keywords) {
+                    const parsedThen = parseFunction(row, i);
+                    thenScripts.push(parsedThen.nestedObj.RESULTS);
+                    i = parsedThen.newIndex;
+                } else {
+                    thenScripts.push(resolveCell(row[i]));
+                    i++;
+                }
+            }
+            if (row[i] === "*****") {
+                i++;
+            }
+            let elseScripts = [];
+            if (!isTrue) {
+                while (
+                    i < row.length &&
+                    row[i] !== "-----" &&
+                    row[i] !== "*****" &&
+                    row[i] !== "#####"
+                ) {
+                    if (row[i] in keywords) {
+                        const parsedElse = parseFunction(row, i);
+                        elseScripts.push(parsedElse.nestedObj.RESULTS);
+                        i = parsedElse.newIndex;
+                    } else {
+                        elseScripts.push(resolveCell(row[i]));
+                        i++;
+                    }
+                }
+                if (row[i] === "*****") {
+                    i++;
+                }
+            } else {
+                while (
+                    i < row.length &&
+                    row[i] !== "-----" &&
+                    row[i] !== "#####" &&
+                    row[i] !== undefined
+                ) {
+                    if (row[i] === "*****") {
+                        i++;
+                        break;
+                    }
+                    i++;
+                }
+            }
+            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
+                i++;
+            }
+            const finalResult = isTrue ? thenScripts : elseScripts;
+            return {
+                nestedObj: {
+                    AA: "ITE",
+                    RESULTS: finalResult
+                },
+                newIndex: i
+            };
+        }
+        else if (functionName === "RUN") {
+            const ref = resolveCell(row[startIndex + 1]);
+            let rowNumbers = [];
+            if (Array.isArray(ref)) {
+                rowNumbers = ref.map(num => parseInt(num, 10));
+            } else {
+                rowNumbers = [parseInt(ref, 10)];
+            }
+            const fnObj = {
+                AA: "RUN",
+                AB: rowNumbers,
+                RESULTS: null
+            };
+            let i = startIndex + 2;
+            while (
+                i < row.length &&
+                row[i] !== "-----" &&
+                row[i] !== "*****" &&
+                row[i] !== "#####"
+            ) {
+                i++;
+            }
+            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
+                i++;
+            }
+            return {
+                nestedObj: fnObj,
+                newIndex: i
+            };
+        }
+        else {
+            let funcObj = {};
+            funcObj["AA"] = functionName;
+            let argIndex = 0;
+            let i = startIndex + 1;
+            while (
+                i < row.length &&
+                row[i] !== "-----" &&
+                row[i] !== "*****" &&
+                row[i] !== "#####"
+            ) {
+                const maybeFnName = resolveCell(row[i]);
+                if (maybeFnName in keywords) {
+                    const nestedParse = parseFunction(row, i);
+                    argIndex++;
+                    const argKey = getColumnLabel(argIndex);
+                    funcObj[argKey] = nestedParse.nestedObj;
+                    i = nestedParse.newIndex;
+                } else {
+                    argIndex++;
+                    const argKey = getColumnLabel(argIndex);
+                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : resolveCell(row[i]);
+                    i++;
+                }
+            }
+            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
+                i++;
+            }
+            let functionArray = [functionName];
+            const argKeys = Object.keys(funcObj).sort();
+            for (let k of argKeys) {
+                if (k === "AA" || k === "RESULTS") continue;
+                const val = funcObj[k];
+                if (val && typeof val === "object" && val.RESULTS !== undefined) {
+                    functionArray.push(val.RESULTS);
+                } else {
+                    functionArray.push(val);
+                }
+            }
+            let expanded = [];
+            for (let item of functionArray) {
+                if (item && typeof item === "object" && Array.isArray(item.__useArray)) {
+                    expanded.push(...item.__useArray);
+                } else {
+                    expanded.push(item);
+                }
+            }
+            functionArray = expanded;
+            let result;
+            try {
+                if (keywords[functionName]) {
+                    result = keywords[functionName](functionArray);
+                } else {
+                    console.warn("No keyword function found for:", functionName);
+                    result = "";
+                }
+            } catch (err) {
+                console.error("Error executing function:", functionName, err);
+                result = "";
+            }
+            funcObj["RESULTS"] = result;
+            return {
+                nestedObj: funcObj,
+                newIndex: i
+            };
+        }
+    }
+
+    function parseNestedKeywords(rowArray) {
+        let i = 0;
+        let topLevelFunctions = [];
+        while (i < rowArray.length) {
+            let token = rowArray[i];
+            let resolved = resolveCell(token);
+
+            if (resolved in keywords && rowArray[0] !== "") {
+                const parsed = parseFunction(rowArray, i);
+                topLevelFunctions.push(parsed.nestedObj);
+                i = parsed.newIndex;
+                continue;
+            }
+            else if (/^\d{3}%%$/.test(resolved) || /^\d{3}%!$/.test(resolved)) {
+                const functionRow = parseInt(resolved.slice(0, 3), 10);
+                let args = [];
+                let j = i + 1;
+                while (j < rowArray.length && rowArray[j] !== "-----") {
+                    args.push(rowArray[j]);
+                    j++;
+                }
+                let type = "";
+                if (/^\d{3}%%$/.test(resolved)) {
+                    type = "slice";
+                } else if (/^\d{3}%!$/.test(resolved)) {
+                    type = "replace";
+                }
+                topLevelFunctions.push({
+                    AA: "USER_FUNCTION_CALL",
+                    functionRow: functionRow,
+                    arguments: args,
+                    type: type
+                });
+                if (j < rowArray.length && rowArray[j] === "-----") {
+                    j++;
+                }
+                i = j;
+            }
+            else if (/^\d{3}@@$/.test(resolved)) {
+                const rowToRun = parseInt(resolved.slice(0, 3), 10);
+                topLevelFunctions.push({
+                    AA: "RUN",
+                    AB: [rowToRun],
+                    RESULTS: null
+                });
+                i++;
+            }
+            else if (resolved === "-----") {
+                i++;
+            }
+            else {
+                topLevelFunctions.push("rowArray");
+                i++;
+            }
+        }
+        if (topLevelFunctions.length > 1) {
+            return {
+                type: "MULTIPLE_FUNCTIONS",
+                list: topLevelFunctions
+            };
+        } else {
+            return topLevelFunctions[0];
+        }
+    }
+
+    function parseRow(rowIndex) {
+        const rowArray = matrix[rowIndex] || [];
+        if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
+            rowResult[rowIndex] = rowArray[0];
+            return rowArray[0];
+        }
+        if (!Array.isArray(rowArray) || rowArray.length === 0) {
+            rowResult[rowIndex] = "";
+            return "";
+        }
+
+        if (rowArray[0] === "FUNCTION") {
+            const paramNames = Array.isArray(rowArray[1]) ? rowArray[1] : [];
+            const body = rowArray.slice(2);
+            rowResult[rowIndex] = {
+                type: "functionDefinition",
+                paramNames: paramNames,
+                body: body
+            };
+            return rowResult[rowIndex];
+        }
+
+        const parsed = parseNestedKeywords(rowArray);
+        let topLevelFns = [];
+        if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
+            topLevelFns = parsed.list;
+        } else if (parsed) {
+            topLevelFns = [parsed];
+        }
+        let finalResults = [];
+
+        for (let fnObj of topLevelFns) {
+            if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
+                finalResults.push(rowArray[0]);
+                continue;
+            }
+
+            if (fnObj.AA !== "USER_FUNCTION_CALL") {
+                if (fnObj.AA === "RUN") {
+                    const subRows = fnObj.AB;
+                    for (const subRow of subRows) {
+                        parseRow(subRow);
+                    }
+                    finalResults.push(fnObj.RESULTS);
+                } else {
+                    finalResults.push(fnObj.RESULTS);
+                }
+            }
+            else {
+                const functionRowIndex = fnObj.functionRow;
+                let fnDef = rowResult[functionRowIndex];
+                if (!fnDef || fnDef.type !== "functionDefinition") {
+                    parseRow(functionRowIndex);
+                    fnDef = rowResult[functionRowIndex];
+                }
+                if (fnDef && fnDef.type === "functionDefinition") {
+                    const { paramNames, body } = fnDef;
+                    const callArgs = fnObj.arguments;
+                    const type = fnObj.type;
+
+                    let substitutedBody = body.map(token => {
+                        let paramIdx = paramNames.indexOf(token);
+                        if (paramIdx >= 0) {
+                            return callArgs[paramIdx];
+                        }
+                        return token;
+                    });
+
+                    const originalRow = matrix[functionRowIndex];
+                    matrix[functionRowIndex] = substitutedBody;
+                    parseRow(functionRowIndex);
+                    let resultToInsert = rowResult[functionRowIndex];
+
+                    matrix[functionRowIndex] = originalRow;
+                    rowResult[functionRowIndex] = resultToInsert;
+
+                    let retIndex = callArgs[0].replace("¡¡", "!!");
+                    if (isCellRef(retIndex) && !retIndex.includes("!!")) {
+                        const cellInfo = getCellID(retIndex.toUpperCase());
+                        if (!cellInfo) {
+                            console.warn("Invalid cell reference, skipping:", retIndex);
+                            continue;
+                        }
+                        let { row, col } = cellInfo;
+                        while (matrix.length <= row) {
+                            matrix.push([]);
+                            let newRowID = rowID.length.toString().padStart(3, "0");
+                            rowID.push(newRowID);
+                        }
+                        while (matrix[row].length <= col) {
+                            matrix[row].push("");
+                        }
+                        if (type === "slice") {
+                            const itemsToInsert = [resultToInsert];
+                            matrix[row].splice(col, 0, ...itemsToInsert);
+                        } else if (type === "replace") {
+                            matrix[row][col] = resultToInsert;
+                        }
+                        finalResults.push(matrix[row][col]);
+                        if (col > highestCol) {
+                            highestCol = col;
+                            generateColIDs();
+                        }
+                    }
+                    else if (isRowResultRef(retIndex)) {
+                        const rowRef = parseInt(retIndex.slice(0, 3), 10);
+                        rowResult[rowRef] = resultToInsert;
+                        finalResults.push(rowResult[rowRef]);
+                        rowResult[functionRowIndex] = resultToInsert;
+                    }
+                    else {
+                        finalResults.push(resultToInsert);
+                    }
+                } else {
+                    finalResults.push(fnDef);
+                }
+            }
+        }
+        rowResult[rowIndex] = (finalResults.length === 1 ? finalResults[0] : finalResults);
+
+        if (typeof rowArray[0] === "string") {
+            if (
+                rowResult[rowIndex] == null ||
+                isFullRowRef(rowResult[rowIndex]) ||
+                isCellRef(rowResult[rowIndex]) ||
+                (rowArray[0].includes("!!") || rowArray[0].includes("<<"))
+            ) {
+                if (parsed && parsed.AA === "FIND") {
+                } else {
+                    rowResult[rowIndex] = resolveCell(rowArray[0]) || null;
+                }
+            }
+        }
+        return rowResult[rowIndex];
+    }
+
+    async function run(skipArray) {
+        rowResult = [];
+        resRow = 0;
+        sweep = 0;
+
+        function checkLoopSkip(r) {
+            if (matrix[r] && matrix[r][0] === "LOOP") {
+                let currentVal = 0;
+                if (Array.isArray(rowResult[r])) {
+                    currentVal = parseInt(rowResult[r][0], 10) || 0;
+                } else if (!isNaN(rowResult[r])) {
+                    currentVal = parseInt(rowResult[r], 10);
+                }
+                let loopLimit = parseInt(matrix[r][1], 10) || 0;
+                if (currentVal < loopLimit) {
+                    return true;
+                } else {
+                    // Reset the loop
+                    if (Array.isArray(rowResult[r])) {
+                        rowResult[r][0] = 0;
+                    } else {
+                        rowResult[r] = [0];
+                    }
+                }
+            }
+            return false;
+        }
+
+        while (resRow < matrix.length) {
+            if (!skipArray.includes(resRow)) {
+                parseRow(resRow);
+            }
+            const skipBump = checkLoopSkip(resRow);
+            if (!skipBump) {
+                resRow++;
+            }
+            if (resRow >= matrix.length && sweep < maxSweeps - 1) {
+                resRow = 0;
+                sweep++;
+            }
+        }
+    }
+
+    function expandRowToMultiple(rowData) {
+        let resultRows = [];
+        let currentRow = [];
+
+        function finalizeRow() {
+            if (currentRow.length > 0) {
+                resultRows.push([...currentRow]);
+                currentRow = [];
+            }
+        }
+
+        function chunkIfFirst5isRef(str) {
+            if (str.length >= 5) {
+                const firstFive = str.slice(0, 5);
+                if (isCellRef(firstFive)) {
+                    let pieces = [];
+                    for (let i = 0; i < str.length; i += 5) {
+                        pieces.push(str.slice(i, i + 5));
+                    }
+                    return pieces;
+                }
+            }
+            return [str];
+        }
+
+        function splitRowAndColumns(str) {
+            const rowParts = str.split("=====");
+            rowParts.forEach((part, idx) => {
+                if (part.includes(".....")) {
+                    let colParts = part.split(".....");
+                    colParts.forEach(colItem => {
+                        let possiblyChunked = chunkIfFirst5isRef(colItem);
+                        possiblyChunked.forEach(item => currentRow.push(item));
+                    });
+                } else {
+                    let possiblyChunked = chunkIfFirst5isRef(part);
+                    possiblyChunked.forEach(item => currentRow.push(item));
+                }
+                // "=====" signals new row
+                if (idx < rowParts.length - 1) {
+                    finalizeRow();
+                }
+            });
+        }
+
+        if (Array.isArray(rowData)) {
+            for (let element of rowData) {
+                if (typeof element === "string") {
+                    if (element === "=====") {
+                        finalizeRow();
+                    }
+                    else if (element.includes("=====")) {
+                        splitRowAndColumns(element);
+                    }
+                    else if (element.includes(".....")) {
+                        let colParts = element.split(".....");
+                        colParts.forEach(colItem => {
+                            let possiblyChunked = chunkIfFirst5isRef(colItem);
+                            possiblyChunked.forEach(item => currentRow.push(item));
+                        });
+                    }
+                    else {
+                        let possiblyChunked = chunkIfFirst5isRef(element);
+                        possiblyChunked.forEach(item => currentRow.push(item));
+                    }
+                } else {
+                    currentRow.push(element);
+                }
+            }
+            finalizeRow();
+        }
+        else if (typeof rowData === "string") {
+            splitRowAndColumns(rowData);
+            finalizeRow();
+        }
+        else {
+            resultRows.push([rowData]);
+        }
+
+        return resultRows;
+    }
+
+    async function manageArrowCells(rowData) {
+        if (Array.isArray(rowData)) {
+            if (/^\d{3}<<$/.test(rowData[0])) {
+                const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
+                const newValues = rowData.slice(1).map((val) => {
+                    if (isCellRefString(val)) {
+                        return val.toUpperCase();
+                    }
+                    return val;
+                });
+                if (!matrix[rowIndex]) {
+                    matrix[rowIndex] = [];
+                    if (!rowID[rowIndex]) {
+                        rowID[rowIndex] = rowIndex.toString().padStart(3, "0");
+                    }
+                }
+                const existingRow = matrix[rowIndex];
+                for (let j = 0; j < newValues.length; j++) {
+                    existingRow[j] = newValues[j];
+                }
+                matrix[rowIndex] = existingRow;
+                if (existingRow.length - 1 > highestCol) {
+                    highestCol = existingRow.length - 1;
+                    generateColIDs();
+                }
+                skip.push(resRow);
+
+                let subRows = expandRowToMultiple(newValues);
+                for (let subRow of subRows) {
+                    await addRow(subRow);
+                }
+            }
+            else if (/^\d{3}>>$/.test(rowData[0])) {
+                const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
+                const newValues = rowData.slice(1).map((val) => {
+                    if (isCellRefString(val)) {
+                        return val.toUpperCase();
+                    }
+                    return val;
+                });
+                if (!matrix[rowIndex]) {
+                    matrix[rowIndex] = [];
+                    if (!rowID[rowIndex]) {
+                        rowID[rowIndex] = rowIndex.toString().padStart(3, "0");
+                    }
+                }
+                matrix[rowIndex] = newValues;
+                if (newValues.length - 1 > highestCol) {
+                    highestCol = newValues.length - 1;
+                    generateColIDs();
+                }
+                skip.push(resRow);
+
+                let subRows = expandRowToMultiple(newValues);
+                for (let subRow of subRows) {
+                    await addRow(subRow);
+                }
+            }
+            else {
+                let subRows = expandRowToMultiple(rowData);
+                for (let subRow of subRows) {
+                    await addRow(subRow);
+                }
+            }
+        }
+        else {
+            let subRows = expandRowToMultiple(rowData);
+            for (let subRow of subRows) {
+                await addRow(subRow);
+            }
+        }
+        return
+    }
+
+    async function processArray(data) {
+        if (
+            Array.isArray(data) &&
+            data.length > 0 &&
+            typeof data[0] === "object" &&
+            (data[0].physical || data[0].virtual)
+        ) {
+            for (let segment of data) {
+                const typeKey = Object.keys(segment)[0];
+                const segmentRows = segment[typeKey];
+                const startRowCount = matrix.length;
+                for (let rowData of segmentRows) {
+                    await manageArrowCells(rowData)
+                }
+
+                await run(skip);
+
+                if (typeKey === "virtual") {
+                    const endRowCount = matrix.length;
+                    const numNewRows = endRowCount - startRowCount;
+
+                    matrix.splice(startRowCount, numNewRows);
+                    rowID.splice(startRowCount, numNewRows);
+                    rowResult.splice(startRowCount, numNewRows);
+                }
+            }
+        }
+        else {
+            for (let i = 0; i < data.length; i++) {
+                const rowData = data[i];
+                await manageArrowCells(rowData)
+            }
+            await run(skip);
+        }
+
+
+        if (args.length > 0) {
+            const input = args[0];
+
+            if (input.length >= 3) {
+                console.log(matrix);
+                console.log(rowResult);
+            } else {
+
+            }
+        } else {
+        }
+
+        if (
+            JSON.stringify(rowResult) === JSON.stringify(shorthandObj.expected)
+        ) {
+            console.log(`Script index ${processing} is working`);
+        } else if (shorthandObj.expected.length === 0) {
+            console.log(`Script expected ${processing} is empty`);
+        } else {
+            console.log(`Script index ${processing} is NOT working`);
+        }
+        return rowResult[0];
+    }
+
     var keywords = {
         ROUTE: async (rowArray) =>{
 
@@ -72,7 +1132,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return ""
         },
         EMPTY: (rowArray) => {
-            return ""
+            return "";
         },
         JOIN: (rowArray) => {
             const updatedArray = rowArray.map(str =>
@@ -82,9 +1142,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             const flattenDeep = (arr) => {
                 return arr.reduce((acc, item) => {
                     if (Array.isArray(item)) {
-                        acc.push(...flattenDeep(item)); 
+                        acc.push(...flattenDeep(item));
                     } else if (item && typeof item === "object" && Array.isArray(item.__useArray)) {
-                        acc.push(...flattenDeep(item.__useArray)); 
+                        acc.push(...flattenDeep(item.__useArray));
                     } else {
                         acc.push(item);
                     }
@@ -101,6 +1161,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             const replacement = resolveCell(rowArray[3]);
             const nth = resolveCell(rowArray[4]);
             let occurrences = 0;
+            if (typeof str !== "string" || typeof search !== "string") {
+                return str;
+            }
             return str.replace(new RegExp(search, "g"), (match) => {
                 if (!nth || nth === "") {
                     return replacement;
@@ -295,12 +1358,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let key = resolveCell(rowArray[2]);
             let valueRef = rowArray[3];
             if (isRowResultRef(baseRef) || isJSON(baseRef)) {
-                let baseObj
+                let baseObj;
                 if (isRowResultRef(baseRef)) {
                     let baseIndex = parseInt(baseRef.slice(0, 3), 10);
                     baseObj = rowResult[baseIndex];
                 } else {
-                    baseObj = baseRef
+                    baseObj = baseRef;
                 }
                 if (typeof baseObj !== "object" || baseObj === null) {
                     baseObj = {};
@@ -350,7 +1413,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
                 return deepMerge(baseRef, newData);
             } else {
-                // If we get here, baseRef is neither an array nor an object
                 console.error("MERGE: rowArray[1] must be either an array or object:", baseRef);
                 return {};
             }
@@ -361,12 +1423,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
                 return {};
             }
-            let baseObj
+            let baseObj;
             if (isRowResultRef(baseRef)) {
                 let baseIndex = parseInt(baseRef.slice(0, 3), 10);
                 baseObj = rowResult[baseIndex];
             } else {
-                baseObj = baseRef
+                baseObj = baseRef;
             }
             if (typeof baseObj !== "object" || baseObj === null) {
                 return setNestedValue({}, rowArray.slice(2, -1), resolveCell(rowArray[rowArray.length - 1]));
@@ -389,11 +1451,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         GET: (rowArray) => {
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
-                console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
                 return {};
             }
-            const pathTokens = rowArray.slice(2, rowArray.length);
-            let nested = getNested(baseRef, pathTokens)
+            const pathTokens = rowArray.slice(2);
+            let nested = getNested(baseRef, pathTokens);
             return nested;
         },
         DELETEPROPERTY: (rowArray) => {
@@ -420,7 +1481,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return newObj;
         },
         STRING: (rowArray) => {
-            let val
+            let val;
             if (isJSON(rowArray[1])) {
                 val = JSON.stringify(rowArray[1], null, 2);
             } else {
@@ -457,16 +1518,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
         ROWRESULT: (rowArray) => {
             rowResult[parseInt(rowArray[1], 10)] = resolveCell(rowArray[2]);
-            //return rowResult[ parseInt(rowArray[1], 10) ]
         },
         LOOP: (rowArray) => {
             if (!rowResult[resRow]) {
-                rowResult[resRow] = [0]
+                rowResult[resRow] = [0];
             }
-    
-            rowResult[resRow][0] = rowResult[resRow][0] + 1
-            let res = rowResult[resRow][0]
-            return res
+            rowResult[resRow][0] = rowResult[resRow][0] + 1;
+            let res = rowResult[resRow][0];
+            return res;
         },
         ADD: (rowArray) => {
             let total = 0;
@@ -511,9 +1570,25 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return parseInt(rowArray[1], 10);
         },
         MATRIX: (rowArray) => {
-            let row = getCellID(rowArray[1].toUpperCase()).row;
-            let col = getCellID(rowArray[1].toUpperCase()).col;
+            const cellInfo = getCellID(rowArray[1].toUpperCase());
+            if (!cellInfo) {
+                console.warn("Invalid cell reference, skipping:", rowArray[1]);
+                return;
+            }
+            let { row, col } = cellInfo;
+            while (matrix.length <= row) {
+                matrix.push([]);
+                let newRowID = rowID.length.toString().padStart(3, "0");
+                rowID.push(newRowID);
+            }
+            while (matrix[row].length <= col) {
+                matrix[row].push("");
+            }
             matrix[row][col] = rowArray[2];
+            if (col > highestCol) {
+                highestCol = col;
+                generateColIDs();
+            }
         },
         UPPER: (rowArray) => {
             const str = resolveCell(rowArray[1]);
@@ -542,622 +1617,78 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
             }
             return "";
-        }
-    };
-    function safelyParseJSON(str) {
-        try {
-            return JSON.parse(str);
-        } catch (e) {
-            console.warn("Failed to parse JSON. Returning string as-is.");
-            return str;
-        }
-    }
-    
-    function getNested(obj, path) {
-        let current = obj;
-        for (const segment of path) {
-            if (current == null || !(segment in current)) {
-                return undefined;
-            }
-            current = current[segment];
-        }
-        return current;
-    }
-    function isJSON(value) {
-        try {
-            if (typeof value == "string") {
-                JSON.parse(value);
-                return true;
-            } else if (typeof value == "object") {
-                return true
-            } else {
-                return false
-            }
-        } catch (e) {
-            return false;
-        }
-    }
-    function parsePathToken(token) {
-        try {
-            const match = token.match(/^\[(\d+)\]$/);
-            if (match) {
-                return parseInt(match[1], 10);
-            }
-        } catch { }
-        return token;
-    }
-    function deleteNestedValue(obj, pathTokens) {
-        if (!pathTokens || pathTokens.length === 0) return obj;
-        const lastToken = parsePathToken(pathTokens[pathTokens.length - 1]);
-        let current = obj;
-        for (let i = 0; i < pathTokens.length - 1; i++) {
-            const token = parsePathToken(pathTokens[i]);
-            if (typeof token === "number") {
-                if (!Array.isArray(current[token])) {
-                    return obj;
-                }
-                current[token] = [...current[token]];
-                current = current[token];
-            } else {
-                if (typeof current[token] !== "object" || current[token] === null) {
-                    return obj;
-                }
-                current[token] = Array.isArray(current[token])
-                    ? [...current[token]]
-                    : { ...current[token] };
-                current = current[token];
-            }
-        }
-        if (typeof lastToken === "number") {
-            if (Array.isArray(current) && lastToken < current.length) {
-                current.splice(lastToken, 1);
-            }
-        } else {
-            if (typeof current === "object" && current !== null) {
-                delete current[lastToken];
-            }
-        }
-        return obj;
-    }
-    function setNestedValue(obj, pathTokens, newValue) {
-        let current = obj;
-        for (let i = 0; i < pathTokens.length; i++) {
-            const isLast = i === pathTokens.length - 1;
-            const token = parsePathToken(pathTokens[i]);
-            if (!isLast) {
-                if (typeof token === "number") {
-                    if (!Array.isArray(current)) {
-                        current = [];
-                    }
-                    if (!current[token] || typeof current[token] !== "object") {
-                        current[token] = {};
-                    }
-                    current = current[token];
-                } else {
-                    if (typeof current[token] !== "object" || current[token] === null) {
-                        current[token] = {};
-                    }
-                    current = current[token];
-                }
-            } else {
-                if (typeof token === "number") {
-                    if (!Array.isArray(current)) {
-                        current = [];
-                    }
-                    current[token] = newValue;
-                } else {
-                    current[token] = newValue;
-                }
-            }
-        }
-        return obj;
-    }
-    function isRowResultRef(txt) {
-        return /^\d{3}!!$/.test(txt);
-    }
-    function isFullRowRef(txt) {
-        return /^\d{3}~~$/.test(txt);
-    }
-    function isCellRef(txt) {
-        return /^\d{3}[A-Z]{2}$/.test(txt);
-    }
-    function isCellRefString(txt) {
-        return /^\d{3}[a-z]{2}$/.test(txt);
-    }
-    function getRow(cellTxt) {
-        if (getCellID(cellTxt)) {
-            return cellTxt.slice(0, 3);
-        } else {
-            return undefined;
-        }
-    }
-    function resolveRow(row) {
-        let arr = [];
-        for (let x = 0; x < row.length; x++) {
-            let el = resolveCell(row[x]);
-            arr.push(el);
-        }
-        return arr;
-    }
-    function getColumnLabel(index) {
-        let label = "";
-        while (index >= 0) {
-            label = String.fromCharCode((index % 26) + 65) + label;
-            index = Math.floor(index / 26) - 1;
-        }
-        return label;
-    }
-    function resolveCell(cellTxt) {
-        if (isRowResultRef(cellTxt)) {
-            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
-            return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
-        }
-        if (isFullRowRef(cellTxt)) {
-            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
-            let rowData = matrix[rowIndex];
-            if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
-                let parsed = parseNestedKeywords(rowData);
-                if (parsed.type === "MULTIPLE_FUNCTIONS") {
-                    const allResults = parsed.list.map(fn => fn.RESULTS);
-                    return allResults;
-                }
-                else if (parsed && parsed.RESULTS !== undefined) {
-                    return parsed.RESULTS;
-                }
-                else {
-                    return rowData;
-                }
-            } else {
-                return rowData;
-            }
-        }
-        let cell = getCellID(cellTxt);
-        if (cell) {
-            let ref = matrix[cell.row][cell.col];
-            if (getCellID(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
-                return resolveCell(ref);
-            } else {
-                return ref;
-            }
-        } else {
-            return cellTxt;
-        }
-    }
-    function getCellID(txt) {
-        const rowPart = txt.toString().slice(0, 3);
-        const colPart = txt.toString().slice(3);
-        if (!isNaN(rowPart) && colID.includes(colPart)) {
-            const rowIndex = parseInt(rowPart, 10);
-            const colIndex = colID.indexOf(colPart);
-            return { row: rowIndex, col: colIndex };
-        } else {
+        },
+        SKIP: (rowArray) => {
             return null;
-        }
-    }
-    function generateColIDs() {
-        colID = [];
-        let label = "";
-        for (let index = 0; index <= highestCol; index++) {
-            let num = index + 26;
-            label = "";
-            do {
-                label = String.fromCharCode(65 + (num % 26)) + label;
-                num = Math.floor(num / 26) - 1;
-            } while (num >= 0);
-            colID.push(label);
-        }
-    }
-    function generateRowID() {
-        let newID = rowID.length.toString().padStart(3, "0");
-        rowID.push(newID);
-        return newID;
-    }
-    async function addRow(n, position, rowData) {
-        if (Array.isArray(n)) {
-            rowData = n;
-            n = undefined;
-            position = undefined;
-        }
-        let newRow = Array.isArray(rowData) ? [...rowData] : [];
-        if (n === undefined) {
-            matrix.push(newRow);
-            generateRowID();
-            if (newRow.length - 1 > highestCol) {
-                highestCol = newRow.length - 1;
+        },
+        SPLICE: (rowArray) => {
+            const cellInfo = getCellID(rowArray[1].toUpperCase());
+            if (!cellInfo) {
+                console.warn("SPLICE: invalid cell reference:", rowArray[1]);
+                return;
+            }
+            const { row, col } = cellInfo;
+            while (matrix.length <= row) {
+                matrix.push([]);
+                let newRowID = rowID.length.toString().padStart(3, "0");
+                rowID.push(newRowID);
+            }
+            while (matrix[row].length < col) {
+                matrix[row].push("");
+            }
+            const itemsToInsert = rowArray.slice(2);
+            matrix[row].splice(col, 0, ...itemsToInsert);
+            if (matrix[row].length - 1 > highestCol) {
+                highestCol = matrix[row].length - 1;
                 generateColIDs();
             }
-        } else if (Number.isInteger(n)) {
-            let insertIndex;
-            if (position === "above") {
-                insertIndex = n - 1;
-            } else if (position === "below") {
-                insertIndex = n;
+        },
+        FUNCTION: (rowArray) => {
+            // placeholder
+        },
+        TREE: (rowArray) => {
+            const levels = parseInt(resolveCell(rowArray[1]), 10) || 0;
+            const direction = (resolveCell(rowArray[3]) || "").toLowerCase();
+            let rootRef = rowArray[2];
+            if (typeof rootRef === "string") {
+                rootRef = parseInt(rootRef, 10);
+            }
+            if (isNaN(rootRef)) {
+                console.warn("TREE: Invalid root row reference:", rowArray[2]);
+                return null;
+            }
+            let visitedSet = new Set();
+            if (direction === "down") {
+                visitedSet = gatherDown(rootRef, levels);
+            }
+            else if (direction === "up") {
+                visitedSet = gatherUp(rootRef, levels);
+            }
+            else if (direction === "out") {
+                const downSet = gatherDown(rootRef, levels);
+                const upSet = gatherUp(rootRef, levels);
+                visitedSet = new Set([...downSet, ...upSet]);
             } else {
-                insertIndex = n - 1;
+                console.warn(`TREE: Unrecognized direction "${direction}", returning just the root row.`);
+                visitedSet.add(rootRef);
             }
-            if (insertIndex < 0) insertIndex = 0;
-            matrix.splice(insertIndex, 0, newRow);
-            rowID.splice(insertIndex, 0, generateRowID());
-            if (newRow.length - 1 > highestCol) {
-                highestCol = newRow.length - 1;
-                generateColIDs();
+            const visitedRows = Array.from(visitedSet).sort((a, b) => a - b);
+            if (visitedRows.length === 0) {
+                return null;
             }
-        } else {
-            console.error("Invalid arguments passed to addRow.");
-        }
-    }
-    async function displayTable() {
-        for (let row = 0; row < matrix.length; row++) {
-            let rowLog = "RowID: " + rowID[row] + " [";
-            for (let col = 0; col < matrix[row].length; col++) {
-                if (col == 0) {
-                    rowLog += '"' + matrix[row][col] + '"';
+            const maxRow = visitedRows[visitedRows.length - 1];
+            let fullOutput = [];
+            for (let i = 0; i <= maxRow; i++) {
+                if (visitedSet.has(i) && matrix[i]) {
+                    fullOutput[i] = [...matrix[i]];
                 } else {
-                    rowLog += ', "' + matrix[row][col] + '"';
+                    fullOutput[i] = null;
                 }
             }
-            rowLog += ']';
-            console.log(rowLog);
-        }
-    }
-    async function parseFunction(row, startIndex) {
-        const functionName = resolveCell(row[startIndex]);
-        if (functionName === "ITE") {
-            let i = startIndex + 1;
-            let conditionVal;
-            if (row[i] in keywords) {
-                const conditionParsed = parseFunction(row, i);
-                i = conditionParsed.newIndex;
-                conditionVal = conditionParsed.nestedObj.RESULTS;
-            } else {
-                conditionVal = resolveCell(row[i]);
-                i++;
-            }
-            let isTrue;
-            if (typeof conditionVal === "boolean") {
-                isTrue = conditionVal;
-            } else if (typeof conditionVal === "string") {
-                const lower = conditionVal.toLowerCase();
-                if (lower === "true") {
-                    isTrue = true;
-                } else if (lower === "false" || lower === "") {
-                    isTrue = false;
-                } else {
-                    isTrue = true;
-                }
-            } else {
-                isTrue = Boolean(conditionVal);
-            }
-            let thenScripts = [];
-            while (
-                i < row.length &&
-                row[i] !== "*****" &&   
-                row[i] !== "-----" &&
-                row[i] !== "#####"
-            ) {
-                if (row[i] in keywords) {
-                    const parsedThen = parseFunction(row, i);
-                    thenScripts.push(parsedThen.nestedObj.RESULTS);
-                    i = parsedThen.newIndex;
-                } else {
-                    thenScripts.push(resolveCell(row[i]));
-                    i++;
-                }
-            }
-            if (row[i] === "*****") {
-                i++;
-            }
-            let elseScripts = [];
-            if (!isTrue) {
-                while (
-                    i < row.length &&
-                    row[i] !== "-----" &&
-                    row[i] !== "*****" &&
-                    row[i] !== "#####"
-                ) {
-                    if (row[i] in keywords) {
-                        const parsedElse = parseFunction(row, i);
-                        elseScripts.push(parsedElse.nestedObj.RESULTS);
-                        i = parsedElse.newIndex;
-                    } else {
-                        elseScripts.push(resolveCell(row[i]));
-                        i++;
-                    }
-                }
-                if (row[i] === "*****") {
-                    i++;
-                }
-            } else {
-                while (
-                    i < row.length &&
-                    row[i] !== "-----" &&
-                    row[i] !== "#####" &&
-                    row[i] !== undefined
-                ) {
-                    if (row[i] === "*****") {
-                        i++;
-                        break;
-                    }
-                    i++;
-                }
-            }
-            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
-                i++;
-            }
-            const finalResult = isTrue ? thenScripts : elseScripts;
-            return {
-                nestedObj: {
-                    AA: "ITE", 
-                    RESULTS: finalResult
-                },
-                newIndex: i
-            };
-        }
-        else if (functionName === "RUN") {
-            const ref = resolveCell(row[startIndex + 1]);
-            let rowNumbers = [];
-            if (Array.isArray(ref)) {
-                rowNumbers = ref.map(num => parseInt(num, 10));
-            } else {
-                rowNumbers = [parseInt(ref, 10)];
-            }
-            const fnObj = {
-                AA: "RUN",
-                AB: rowNumbers, 
-                RESULTS: null
-            };
-            let i = startIndex + 2;
-            while (
-                i < row.length &&
-                row[i] !== "-----" &&
-                row[i] !== "*****" &&
-                row[i] !== "#####"
-            ) {
-                i++;
-            }
-            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
-                i++;
-            }
-            return {
-                nestedObj: fnObj,
-                newIndex: i
-            };
-        } else {
-            let funcObj = {};
-            funcObj["AA"] = functionName; 
-            let argIndex = 0;
-            let i = startIndex + 1;
-            while (
-                i < row.length &&
-                row[i] !== "-----" &&
-                row[i] !== "*****" &&
-                row[i] !== "#####"
-            ) {
-                const maybeFnName = resolveCell(row[i]);
-                if (maybeFnName in keywords) {
-                    const nestedParse = parseFunction(row, i);
-                    argIndex++;
-                    const argKey = getColumnLabel(argIndex); 
-                    funcObj[argKey] = nestedParse.nestedObj; 
-                    i = nestedParse.newIndex;
-                } else {
-                    argIndex++;
-                    const argKey = getColumnLabel(argIndex);
-                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : resolveCell(row[i]);
-                    i++;
-                }
-            }
-            if (row[i] === "-----" || row[i] === "*****" || row[i] === "#####") {
-                i++;
-            }
-            let functionArray = [functionName];
-            const argKeys = Object.keys(funcObj).sort();
-            for (let k of argKeys) {
-                if (k === "AA" || k === "RESULTS") continue;
-                const val = funcObj[k];
-                if (val && typeof val === "object" && val.RESULTS !== undefined) {
-                    functionArray.push(val.RESULTS);
-                } else {
-                    functionArray.push(val);
-                }
-            }
-            let expanded = [];
-            for (let item of functionArray) {
-                if (item && typeof item === "object" && Array.isArray(item.__useArray)) {
-                    expanded.push(...item.__useArray);
-                } else {
-                    expanded.push(item);
-                }
-            }
-            functionArray = expanded;
-            let result;
-            try {
-                result = await keywords[functionName](functionArray);
-            } catch (err) {
-                console.error("Error executing function:", functionName, err);
-                result = "";
-            }
-            funcObj["RESULTS"] = result;
-            return {
-                nestedObj: funcObj,
-                newIndex: i
-            };
-        }
-    }
-    function parseNestedKeywords(rowArray) {
-        let i = 0;
-        let topLevelFunctions = [];
-        while (i < rowArray.length) {
-            const token = rowArray[i];
-            const resolved = resolveCell(token);
-            if (resolved in keywords && rowArray[0] != "") {
-                const parsed = parseFunction(rowArray, i);
-                topLevelFunctions.push(parsed.nestedObj);
-                i = parsed.newIndex;
-                while (rowArray[i] === "-----" || rowArray[i] === "*****" || rowArray[i] === "#####") {
-                    i++;
-                }
-            }
-            else {
-                topLevelFunctions.push("rowArray");
-                i++;
-            }
-        }
-        if (topLevelFunctions.length > 1) {
-            if (topLevelFunctions[0].AA in keywords) {
-                return {
-                    type: "MULTIPLE_FUNCTIONS",
-                    list: topLevelFunctions
-                }
-            } else {
-                return topLevelFunctions[0]
-            }
-        }
-        else {
-            return topLevelFunctions[0];
-        }
-    }
-    function parseRow(rowIndex) {
-        const rowArray = matrix[rowIndex] || [];
-        if (!Array.isArray(rowArray) || rowArray.length === 0) {
-            rowResult[rowIndex] = "";
-            return "";
-        }
-        // --- Use your existing nested parsing logic ---
-        const parsed = parseNestedKeywords(rowArray);
-        let topLevelFns = [];
-        if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
-            topLevelFns = parsed.list;
-        } else if (parsed) {
-            topLevelFns = [parsed];
-        }
-        let finalResults = [];
-        for (let fnObj of topLevelFns) {
-            if (!fnObj || !fnObj.AA) {
-                finalResults.push(null);
-                continue;
-            }
-            if (fnObj.AA === "RUN") {
-                const subRows = fnObj.AB;
-                for (const subRow of subRows) {
-                    parseRow(subRow);
-                }
-                finalResults.push(fnObj.RESULTS);
-            } else {
-                finalResults.push(fnObj.RESULTS);
-            }
-        }
-        rowResult[rowIndex] = (finalResults.length === 1 ? finalResults[0] : finalResults);
+            return fullOutput;
+        },
+    };
 
-        if (
-            rowResult[rowIndex] == null ||
-            (typeof rowArray[0] === "string" && (rowArray[0].includes("!!") || rowArray[0].includes("<<")))
-        ) {
-            rowResult[rowIndex] = resolveCell(rowArray[0]) || null;
-        }
-        return rowResult[rowIndex];
-    }
-    async function run(skipArray) {
-        rowResult = [];
-        resRow = 0;
-        sweep = 0;
-        function checkLoopSkip(r) {
-            if (matrix[r] && matrix[r][0] === "LOOP") {
-                let currentVal = 0;
-                if (Array.isArray(rowResult[r])) {
-                    currentVal = parseInt(rowResult[r][0], 10) || 0;
-                } else if (!isNaN(rowResult[r])) {
-                    currentVal = parseInt(rowResult[r], 10);
-                }
-                let loopLimit = parseInt(matrix[r][1], 10) || 0;
-                if (currentVal < loopLimit) {
-                    return true;
-                } else {
-                    if (Array.isArray(rowResult[r])) {
-                        rowResult[r][0] = 0;
-                    } else {
-                        rowResult[r] = [0];
-                    }
-                }
-            }
-            return false;
-        }
-        while (resRow < matrix.length) {
-            if (!skipArray.includes(resRow)) {
-                parseRow(resRow);
-            }
-            const skipBump = checkLoopSkip(resRow);
-            if (!skipBump) {
-                resRow++;
-            }
-            if (resRow >= matrix.length && sweep < maxSweeps - 1) {
-                resRow = 0;
-                sweep++;
-            }
-        }
-    }
-    async function processArray(arr) {
-        for (let i = 0; i < arr.length; i++) {
-            const rowData = arr[i];
-            if (!Array.isArray(rowData)) {
-                let rowArray = rowData.match(/.{1,5}/g);
-                await addRow(rowArray);
-                continue;
-            }
-            if (/^\d{3}<<$/.test(rowData[0])) {
-                const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
-                const newValues = rowData.slice(1).map((val) => {
-                    if (isCellRefString(val)) {
-                        return val.toUpperCase();
-                    }
-                    return val;
-                });
-                if (!matrix[rowIndex]) {
-                    matrix[rowIndex] = [];
-                    if (!rowID[rowIndex]) {
-                        rowID[rowIndex] = rowIndex.toString().padStart(3, "0");
-                    }
-                }
-                const existingRow = matrix[rowIndex];
-                for (let j = 0; j < newValues.length; j++) {
-                    existingRow[j] = newValues[j];
-                }
-                matrix[rowIndex] = existingRow;
-                if (existingRow.length - 1 > highestCol) {
-                    highestCol = existingRow.length - 1;
-                    generateColIDs();
-                }
-                skip.push(resRow);
-                await addRow(rowData);
-            } else if (/^\d{3}>>$/.test(rowData[0])) {
-                const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
-                const newValues = rowData.slice(1).map((val) => {
-                    if (isCellRefString(val)) {
-                        return val.toUpperCase();
-                    }
-                    return val;
-                });
-                if (!matrix[rowIndex]) {
-                    matrix[rowIndex] = [];
-                    if (!rowID[rowIndex]) {
-                        rowID[rowIndex] = rowIndex.toString().padStart(3, "0");
-                    }
-                }
-                matrix[rowIndex] = newValues;
-                if (newValues.length - 1 > highestCol) {
-                    highestCol = newValues.length - 1;
-                    generateColIDs();
-                }
-                skip.push(resRow)
-                await addRow(rowData);
-            }
-            else {
-                await addRow(rowData);
-            }
-        }
-        await run(skip);
-        return rowResult[0]
-    }
     console.log("shorthandArray",shorthandArray)
     let rr0 = await processArray(shorthandArray)
     return rr0
