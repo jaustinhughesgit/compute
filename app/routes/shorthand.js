@@ -1093,7 +1093,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
 
             let xAccessToken = req.body.headers["X-accessToken"]
-            let originalHost = "https://abc.api.1var.com/cookies/"+"newGroup/r2/r2";
+            let originalHost = "https://abc.api.1var.com/cookies/"+"newGroup/r3/r3";
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody = req.body;
