@@ -1105,14 +1105,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
             let newReq = {};
             newReq.body = req.body
-            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+"newGroup/r5/r5"
+            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+act+"/"+param1+"/"+param2;
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("resp=>", resp);
-            return ""
+            return resp
         },
         EMPTY: (rowArray) => {
             return "";

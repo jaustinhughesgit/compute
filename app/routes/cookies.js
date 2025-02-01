@@ -1861,7 +1861,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
-                    console.log("parentEntity", parentEntity)
+                    console.log("parentEntity", parentEntity) //This seems like I was trying to add a new group to a parent. THere isn't logic in the front-end that is sending parentEntity
                     setIsPublic(true)
                     //console.log("A")
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
@@ -2046,6 +2046,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
 
             } else if (action === "reqPut") {
+                //This logic request for the permission to put a file in s3 bucket.
                 actionFile = reqPath.split("/")[3]
                 fileCategory = reqPath.split("/")[4]
                 fileType = reqPath.split("/")[5]
@@ -2377,11 +2378,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const arrayLogic = reqBody.body;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
-                //delete jsonpl.shorthand 
                 shorthandLogic.input.push(arrayLogic[0]);
-
                 let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
-                
                 newJPL["shorthand"] = shorthandLogic
                 const params = {
                     Bucket: "public.1var.com", 
