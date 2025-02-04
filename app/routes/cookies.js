@@ -1530,6 +1530,8 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
     const data = await s3.getObject(params).promise();
+    console.log("data",data);
+    console.log("data.Body",data.Body)
     return await JSON.parse(data.Body.published.toString());
 }
 
