@@ -1528,11 +1528,11 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     if (isPublic == "true" || isPublic == true) {
         fileLocation = "public"
     }
-    const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
+    const params = { Bucket: fileLocation + '.1var.com', Key: fileName, ContentType: "application/json" };
     const data = await s3.getObject(params).promise();
     console.log("data",data);
-    console.log("data.Body",data.Body)
-    return await JSON.parse(data.Body.published.toString());
+    console.log("data.Body",JSON.parse(data.Body.toString('utf-8')));
+    return await JSON.parse(data.Body.toString('utf-8'));
 }
 
 async function runPrompt(question, entity, dynamodb, openai, Anthropic) {

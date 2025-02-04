@@ -624,7 +624,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     const data = await s3.getObject(params).promise();
     //console.log("data63", data)
     if (data.ContentType == "application/json") {
-        let s3JSON = await JSON.parse(data.Body.toString('utf-8'));
+        let s3JSON = await JSON.parse(data.Body.toString());
 
         const promises = await s3JSON.published.blocks.map(async (obj, index) => {
             //console.log("999obj", obj)
