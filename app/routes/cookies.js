@@ -1530,7 +1530,7 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
     const data = await s3.getObject(params).promise();
-    return await JSON.parse(data.Body.toString());
+    return await JSON.parse(data.Body.published.toString());
 }
 
 async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
@@ -1613,7 +1613,7 @@ async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
     } else {
         response = await openai.chat.completions.create({
             messages: [{ role: "system", content: combinedPrompt }],
-            model: "o1-mini-2024-09-12",//"gpt-4o-2024-08-06", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
+            model: "o3-mini-2025-01-31",//"o1-mini-2024-09-12",//"gpt-4o-2024-08-06", //"gpt-3.5-turbo-0125", // "gpt-3.5-turbo-1106",
             response_format: { "type": "json_object" }
         });
 
@@ -1839,7 +1839,25 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai, dynamodb);
                 const uniqueId = await getUUID(uuidv4);
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", parent.Items[0].z, dynamodb)
-                const fileResult = await createFile(uniqueId, { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] }, s3);
+                const fileResult = await createFile(uniqueId, 
+                    { "input": [
+                        {"physical": [ 
+                            [{}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
+                         ]},{ "virtual": [ ]}
+
+                    ],"published": {
+                         "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] 
+                        },
+                        "skip": [],"sweeps": 1,"expected": []}, s3);
                 actionFile = uniqueId;
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
                 const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
@@ -1897,7 +1915,18 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), [ai.toString()], dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
                     const fileResult = await createFile(uniqueId2, 
-                        {
+                        { "input": [{"physical": [ 
+                            [{}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
+                            ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
+                         ]},{ "virtual": [ ]}],"published": {
                             "blocks": [{"entity": uniqueId2 ,"name": "Primary"}],
                             "modules": {},
                             "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
@@ -1912,24 +1941,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                                 "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
                                 "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
                                 "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
-                            },
-                            "shorthand":{
-                                "sweeps": 1,
-                                "skip": [],
-                                "input": [
-                                    [{}],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
-                                    ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                                ]
                             }
-                        }
+                        },"skip": [],"sweeps": 1,"expected": []}
                         , s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
@@ -1986,7 +1999,22 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, mpE.Items[0].ai, dynamodb);
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
-                const fileResult = await createFile(uniqueId, { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] }, s3)
+                const fileResult = await createFile(uniqueId, 
+                    { "input": [{"physical": [ 
+                        [{}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
+                     ]},{ "virtual": [ ]},],"published": { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] 
+                    },"skip": [],"sweeps": 1,"expected": []}
+                    
+                    , s3)
                 actionFile = uniqueId
                 let newM = {}
                 newM[mrE.Items[0].e] = e.toString()
@@ -2015,7 +2043,23 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
 
-                const fileResult = await createFile(uniqueId, { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] }, s3)
+                const fileResult = await createFile(uniqueId, 
+                    { "input": [{"physical": [ 
+                        [{}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
+                     ]},{ "virtual": [ ]},],"published": 
+                    { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] 
+                },"skip": [],"sweeps": 1,"expected": []}
+                
+                , s3)
                 actionFile = uniqueId
 
                 //copy parent
@@ -2360,6 +2404,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 const prompt = reqBody.body;
+                //The oai is the published. not the entire shorthand
+                //The updated prompt will be the shorthand and we will run it to get the published.
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
                 const params = {
                     Bucket: fileLocation(oai.isPublic) + ".1var.com", // Replace with your bucket name
@@ -2374,10 +2420,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "shorthand"){
                 actionFile = reqPath.split("/")[3];
+
+//this needs to be updated so that the entire var is the shorthand.
+
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = reqBody.body;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
-                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl.shorthand))
+                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 shorthandLogic.input.push(arrayLogic[0]);
                 let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 newJPL["shorthand"] = shorthandLogic

@@ -504,7 +504,7 @@ app.all('/blocks/*',
         let blocksData = await initializeMiddleware(req, res, next);
         //console.log("blocksData", blocksData)
 
-        if (req._headerSent == false){
+        if (req._headerSent == false) {
             res.json({ "data": blocksData });
         }
     }
@@ -571,7 +571,7 @@ async function runApp(req, res, next) {
         console.log("req.lib", req.lib)
         // If middleware cache is empty, deny access
         if (req.lib.middlewareCache.length === 0) {
-            if (req._headerSent == false){
+            if (req._headerSent == false) {
                 res.send("no access");
             }
             return
@@ -626,14 +626,14 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     if (data.ContentType == "application/json") {
         let s3JSON = await JSON.parse(data.Body.toString());
 
-        const promises = await s3JSON.blocks.map(async (obj, index) => {
+        const promises = await s3JSON.published.blocks.map(async (obj, index) => {
             //console.log("999obj", obj)
             let subRes = await getSub(obj.entity, "su", dynamodb)
             //console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
             //console.log("999name", name)
-            s3JSON.name = name.Items[0].r
-            s3JSON.entity = obj.entity
+            s3JSON.published.name = name.Items[0].r
+            s3JSON.published.entity = obj.entity
             let loc = subRes.Items[0].z
             //console.log("999loc", loc)
             let fileLoc = "private"
@@ -641,9 +641,9 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
                 fileLoc = "public"
             }
             //console.log("999fileLoc", fileLoc)
-            s3JSON.blocks[index].privacy = fileLoc
+            s3JSON.published.blocks[index].privacy = fileLoc
             //console.log("s3JSON", s3JSON)
-            return s3JSON
+            return s3JSON.published
         })
         let results22 = await Promise.all(promises);
         if (results22.length > 0) {
@@ -655,28 +655,45 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
             //console.log("999subRes", subRes)
             let name = await getWord(subRes.Items[0].a, dynamodb)
             //console.log("999name", name)
-            s3JSON2.name = name.Items[0].r
-            s3JSON2.entity = fileName
+            s3JSON2.published.name = name.Items[0].r
+            s3JSON2.published.entity = fileName
             //console.log("s3JSON", s3JSON2)
-            return s3JSON2
+            return s3JSON2.published
         }
     } else {
         let subRes = await getSub(fileName, "su", dynamodb)
         //console.log("999subRes", subRes)
         let name = getWord(subRes.Items[0].a, dynamodb)
         return {
-            "blocks": [], "modules": {}, "actions": [{
-                "target": "{|res|}",
-                "chain": [
-                    {
-                        "access": "send",
-                        "params": [
-                            fileName
-                        ]
-                    }
-                ]
-            }],
-            "name": name.Items[0].s
+            "input": [
+                {
+                    "physical": [
+                        [{}],
+                    ]
+                },
+                {
+                    "virtual": [
+
+                    ]
+                },
+            ],
+            "published": {
+                "blocks": [], "modules": {}, "actions": [{
+                    "target": "{|res|}",
+                    "chain": [
+                        {
+                            "access": "send",
+                            "params": [
+                                fileName
+                            ]
+                        }
+                    ]
+                }],
+                "name": name.Items[0].s
+            },
+            "skip": [],
+            "sweeps": 1,
+            "expected": ['Joel Austin Hughes Jr.']
         }
     }
 }
@@ -994,7 +1011,7 @@ async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
     for (const action of config.actions) {
         let runResponse
-        if (typeof action == "string"){
+        if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
             console.log(dbAction)
             respoonse = await runAction(dbAction, libs, "root", req, res, next);
@@ -1007,7 +1024,7 @@ async function initializeModules(libs, config, req, res, next) {
     }
 }
 
-async function getValFromDB(id, req, res, next){
+async function getValFromDB(id, req, res, next) {
     if (id.startsWith("{|")) {
 
         const keyExecuted = id.endsWith('|}!');
@@ -1027,14 +1044,14 @@ async function getValFromDB(id, req, res, next){
         console.log("verified33", verified)
         if (verified) {
             let subRes = await getSub(keyClean, "su", dynamodb)
-                console.log("subRes", subRes)
-                console.log("subRes.Items[0].a", subRes.Items[0].a)
-                let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                console.log("subWord", subWord)
-                value = subWord.Items[0].r
-                console.log(value)
-                return JSON.parse(value)
-        } else{
+            console.log("subRes", subRes)
+            console.log("subRes.Items[0].a", subRes.Items[0].a)
+            let subWord = await getWord(subRes.Items[0].a, dynamodb)
+            console.log("subWord", subWord)
+            value = subWord.Items[0].r
+            console.log(value)
+            return JSON.parse(value)
+        } else {
             return {}
         }
     }
@@ -1067,8 +1084,8 @@ function updateLevel(obj, replacer) {
     return obj
 }
 
-function ifDB(str, time){
-    if (time == "first"){
+function ifDB(str, time) {
+    if (time == "first") {
         return str.startsWith('{|<')
     } else if (time == "last") {
         return str.endsWith('>|}')
@@ -1080,28 +1097,28 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
     for (const [key, value] of entries) {
         if (typeof value === 'object' && value !== null && !key.startsWith("{|")) {
             await replaceSpecialKeysAndValues(obj[key])
-        }  else if (typeof value == "string"){
+        } else if (typeof value == "string") {
             console.log("ifDB1", ifDB(key, time), key, time)
             if (ifDB(value, time)) {
                 replacer = await getValFromDB(value, req, res, next)
                 obj[key] = replacer
-                for (k in replacer){
-                    if (replacer[k] == null){
+                for (k in replacer) {
+                    if (replacer[k] == null) {
                         delete obj[key][k]
                     }
                 }
             }
             console.log("ifDB2", ifDB(key, time), key, time)
-            if (ifDB(key, time)){
+            if (ifDB(key, time)) {
                 obj = await updateLevel(obj, getValFromDB(key, req, res, next)) // take the db response and merge them using updateLevel
             }
             console.log("ifDB3", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 delete obj[key]
             }
-        } else if (typeof value === 'object' && value !== null && key.startsWith("{|")){
+        } else if (typeof value === 'object' && value !== null && key.startsWith("{|")) {
             console.log("ifDB4", ifDB(key, time), key, time)
-            if (ifDB(key, time)){
+            if (ifDB(key, time)) {
                 replacer = JSON.parse(JSON.stringify(obj[key]))
                 let deep = await deepMerge(obj[key], await getValFromDB(key, req, res, next));
                 obj = await updateLevel(obj, deep) // take the db response and merge them using updateLevel
@@ -1210,11 +1227,11 @@ async function condition(left, conditions, right, operator = "&&", libs, nestedP
 
 async function checkCondition(left, condition, right, libs, nestedPath) {
     const leftExecuted = false;
-    if  (typeof left == "string"){
+    if (typeof left == "string") {
         left.endsWith('|}!');
     }
     const rightExecuted = false;
-    if  (typeof right == "string"){
+    if (typeof right == "string") {
         right.endsWith('|}!');
     }
     left = await replacePlaceholders(left, libs, nestedPath, leftExecuted)
@@ -1276,7 +1293,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
         // Process each element in the array
         let newProcessedItems = await Promise.all(processedItem.map(async element => {
             let isExecuted = false
-            if (typeof element == "string"){
+            if (typeof element == "string") {
                 element.endsWith('|}!');
             }
             return await replacePlaceholders(element, libs, nestedPath, isExecuted, true);
@@ -1288,7 +1305,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
         for (let key in processedItem) {
             if (processedItem.hasOwnProperty(key)) {
                 let isExecuted = false
-                if (typeof processedItem[key] == "string"){
+                if (typeof processedItem[key] == "string") {
                     isExecuted = processedItem[key].endsWith('|}!');
                 }
                 newObject[key] = await replacePlaceholders(processedItem[key], libs, nestedPath, isExecuted, true);
@@ -1975,7 +1992,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                     ////////console.log("G111111")
                     //console.log("---1", await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath)
                     ////////console.log("---2", await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath) }], null, "&&", libs, nestedPath))
-                    
+
                     const while0Executed = whileCondition[0].endsWith('|}!');
                     const while2Executed = whileCondition[2].endsWith('|}!');
                     while (await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath, while0Executed), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed) }], null, "&&", libs, nestedPath)) {
@@ -2134,7 +2151,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             console.log("libs", libs)
             console.log("nestedPath", nestedPath)
             let isEx = false
-            if (typeof sending == "string"){
+            if (typeof sending == "string") {
                 isEx = sending.endsWith('|}!')
             }
             let value = await replacePlaceholders(sending, libs, nestedPath, isEx)
@@ -2216,7 +2233,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     console.log("resPres", resPres)
 
                     const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
-                    console.log("details2", details2)    
+                    console.log("details2", details2)
                     const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
                     console.log("updateParent", updateParent)
                 }
@@ -2289,7 +2306,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
 
         let ex = actionExecution;
-        if (actionExecution && assignExecuted){
+        if (actionExecution && assignExecuted) {
             ex = false
         }
 
@@ -2300,33 +2317,33 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (action.params) {
                 console.log("action.params", action.params)
                 let promises = action.params.map(async item => {
-                    console.log("item",item);
+                    console.log("item", item);
                     console.log("typeof item", typeof item)
-                    try{
-                    const fromExecuted = item.endsWith('|}!');
-                    const fromObj = await isOnePlaceholder(item);
-                    let fromClean = await removeBrackets(item, fromObj, fromExecuted);
-                    let from
-                    if (isObj) {
-                        from = await getKeyAndPath(fromClean, nestedPath)
-                    } else {
-                        from = { "key": fromClean, "path": nestedPath }
-                    }
-                    let nestedContext = await getNestedContext(libs, from.path);
+                    try {
+                        const fromExecuted = item.endsWith('|}!');
+                        const fromObj = await isOnePlaceholder(item);
+                        let fromClean = await removeBrackets(item, fromObj, fromExecuted);
+                        let from
+                        if (isObj) {
+                            from = await getKeyAndPath(fromClean, nestedPath)
+                        } else {
+                            from = { "key": fromClean, "path": nestedPath }
+                        }
+                        let nestedContext = await getNestedContext(libs, from.path);
 
-                    let value = await replacePlaceholders(item, libs, nestedPath, fromExecuted);
-                    return value;
-                } catch (err){
-                    console.log("err43", err)
-                    return item
-                }
+                        let value = await replacePlaceholders(item, libs, nestedPath, fromExecuted);
+                        return value;
+                    } catch (err) {
+                        console.log("err43", err)
+                        return item
+                    }
                 });
                 args = await Promise.all(promises)
                 console.log("args", args)
             }
             console.log("value", value)
             console.log(typeof nestedContext[target.key].value)
-            console.log("args.length",  args.length)
+            console.log("args.length", args.length)
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 nestedContext[target.key].value = value(...args);
             }
@@ -2484,10 +2501,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                     if (chainAction.next || chainAction.next == undefined) {
                         console.log("chainAction.next")
                         result = await result[accessClean]()(req, res, next);
-                        console.log("req2",req)
+                        console.log("req2", req)
                     } else {
                         result = await result[accessClean]()(req, res);
-                        console.log("req3",req)
+                        console.log("req3", req)
                     }
                 } else {
                     result = await result[accessClean]()
@@ -2501,61 +2518,61 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
                 console.log("444")
                 console.log("result", result)
-                
+
                 result = await new result(...chainParams);
             } else if (typeof result[accessClean] === 'function') {
                 console.log("555")
-                    if (chainAction.new) {
-                        result = new result[accessClean](...chainParams);
-                    } else {
-                        console.log("666")
-                        if (chainAction.access && accessClean.length != 0) {
-                            console.log("777")
-                            if (chainAction.express) {
-                                if (chainAction.next || chainAction.next == undefined) {
-                                    console.log("chainAction.next")
-                                    result = await result[accessClean](...chainParams)(req, res, next);
-                                    console.log(req)
-                                } else {
-                                    result = await result[accessClean](...chainParams)(req, res);
-                                }
+                if (chainAction.new) {
+                    result = new result[accessClean](...chainParams);
+                } else {
+                    console.log("666")
+                    if (chainAction.access && accessClean.length != 0) {
+                        console.log("777")
+                        if (chainAction.express) {
+                            if (chainAction.next || chainAction.next == undefined) {
+                                console.log("chainAction.next")
+                                result = await result[accessClean](...chainParams)(req, res, next);
+                                console.log(req)
                             } else {
-                                try {
-                                    if (chainParams.length > 0) {
-                                        if (typeof chainParams[0] == "number") {
-                                            chainParams[0] = chainParams[0].toString();
-                                        }
+                                result = await result[accessClean](...chainParams)(req, res);
+                            }
+                        } else {
+                            try {
+                                if (chainParams.length > 0) {
+                                    if (typeof chainParams[0] == "number") {
+                                        chainParams[0] = chainParams[0].toString();
                                     }
-                                    if (assignExecuted) {
-                                        console.log("assignExecuted")
-                                        if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
-                                            chainParams[0] = JSON.stringify(chainParams[0])
-                                            console.log("returning", accessClean, "99999")
-                                            result = await result[accessClean](...chainParams);
-                                        } else {
-                                            console.log("result 1", result),
-                                            console.log("accessClean 2", accessClean)
-                                            console.log("chainParams 3", chainParams)
-                                            result = await result[accessClean](...chainParams);
-                                            console.log("result 4", result)
-                                            try{
-                                            re = result();
-                                            } catch (err){
-                                                console.log("err", err)
-                                                //result('microsoft')
-                                            }
-                                            //console.log("re 5", re)
-                                        }
-                                    } else {
-                                        console.log("else just return value")
-                                        result = result[accessClean];
-                                    }
-                                } catch (err) {
-                                    console.log("err", err)
                                 }
+                                if (assignExecuted) {
+                                    console.log("assignExecuted")
+                                    if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
+                                        chainParams[0] = JSON.stringify(chainParams[0])
+                                        console.log("returning", accessClean, "99999")
+                                        result = await result[accessClean](...chainParams);
+                                    } else {
+                                        console.log("result 1", result),
+                                            console.log("accessClean 2", accessClean)
+                                        console.log("chainParams 3", chainParams)
+                                        result = await result[accessClean](...chainParams);
+                                        console.log("result 4", result)
+                                        try {
+                                            re = result();
+                                        } catch (err) {
+                                            console.log("err", err)
+                                            //result('microsoft')
+                                        }
+                                        //console.log("re 5", re)
+                                    }
+                                } else {
+                                    console.log("else just return value")
+                                    result = result[accessClean];
+                                }
+                            } catch (err) {
+                                console.log("err", err)
                             }
                         }
                     }
+                }
             } else if (typeof result === 'function') {
                 if (chainAction.new) {
                     result = new result(...chainParams);
@@ -2588,7 +2605,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
         }
     }
-   
+
     console.log("returning result", result)
     if (result == undefined) {
         result = {}
