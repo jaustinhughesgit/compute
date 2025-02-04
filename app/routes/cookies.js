@@ -2428,12 +2428,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 shorthandLogic.input.push(arrayLogic[0]);
-                let newJPL = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
-                newJPL["shorthand"] = shorthandLogic
+                let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+                //newJPL["shorthand"] = shorthandLogic
                 const params = {
                     Bucket: "public.1var.com", 
                     Key: actionFile,
-                    Body: JSON.stringify(newJPL),
+                    Body: JSON.stringify(newShorthand),
                     ContentType: "application/json"
                 };
                 await s3.putObject(params).promise();
