@@ -8,7 +8,7 @@ router.get('/', async function(req, res, next) {
     });
 
     const chatCompletion = await openai.embeddings.create({
-        input: "<div><input id=\"name\">", model: "text-embedding-3-small",
+        input: "<div><input id=\"name\">", model: "text-embedding-3-large",
     });
     res.render('embeddings', { category: "cricket", embeddings: JSON.stringify(chatCompletion) });
 });
