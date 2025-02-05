@@ -1,6 +1,6 @@
 
 let { route } = require('./cookies')
-async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken){
+async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
     let matrix = [];
     let colID = [];
@@ -457,6 +457,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     function parseFunction(row, startIndex) {
+
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
             let i = startIndex + 1;
@@ -548,8 +549,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 },
                 newIndex: i
             };
-        }
-        else if (functionName === "RUN") {
+        } else if (functionName === "RUN") {
             const ref = resolveCell(row[startIndex + 1]);
             let rowNumbers = [];
             if (Array.isArray(ref)) {
@@ -578,8 +578,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 nestedObj: fnObj,
                 newIndex: i
             };
-        }
-        else {
+        } else {
             let funcObj = {};
             funcObj["AA"] = functionName;
             let argIndex = 0;
@@ -1081,21 +1080,37 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             await run(skip);
         }
-
-
-      
-
         return rowResult[0];
     }
 
+    async function getVAR(data) {
+        let entity = Object.keys(data).find(k => k !== "add");
+        let xAccessToken = req.body.headers["X-accessToken"]
+        let originalHost = "https://abc.api.1var.com/cookies/" + "get" + "/" + entity;
+        let splitOriginalHost = originalHost.split("1var.com")[1];
+        let reqPath = splitOriginalHost.split("?")[0];
+        let reqBody = req.body;
+        const action = reqPath.split("/")[2];
+        let newReq = {};
+        newReq.body = req.body
+        newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + "get" + "/" + entity;
+        newReq.method = req.method
+        newReq.type = req.type
+        newReq._headerSent = req._headerSent
+        newReq.path = req.path
+        let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+        console.log("get=>", resp);
+        return resp
+    }
+
     var keywords = {
-        ROUTE: async (rowArray) =>{
+        ROUTE: async (rowArray) => {
 
             let act = rowArray[1];
             let param1 = rowArray[2];
             let param2 = rowArray[3];
             let xAccessToken = req.body.headers["X-accessToken"]
-            let originalHost = "https://abc.api.1var.com/cookies/"+act+"/"+param1+"/"+param2;
+            let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody = req.body;
@@ -1105,7 +1120,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
             let newReq = {};
             newReq.body = req.body
-            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/"+act+"/"+param1+"/"+param2;
+            newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
@@ -1672,7 +1687,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
-    console.log("shorthandArray",shorthandArray)
+    console.log("shorthandArray", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
     return shorthandObj
