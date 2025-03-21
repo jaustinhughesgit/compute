@@ -2496,7 +2496,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     if (error) {
                         if (reqHeaderSent == false) {
                             //res.status(500).json({ error: 'Error generating presigned URL' });
-        console.log("sendBack:1", {});
+                            console.log("sendBack:1", {});
                             return sendBack(res, "json", { "ok": false, "response": {} }, isShorthand);
                         }
                     } else {
@@ -2515,6 +2515,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     // conditioned because the page can't send headers after they are already sent.
                     console.log("sendBack:3", response);
                     return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
+                } else {
+                    console.log("sendBack:3.1"), {};
+                    return sendBack(res, "json", {}, isShorthand);
                 }
             }
 
