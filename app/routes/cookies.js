@@ -2222,7 +2222,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 }
                 //console.log("actionFile", actionFile)
                 //console.log("subUuid", subUuid)
-                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
 
             } else if (action === "validation") {
                 const subUuid = reqPath.split("/")[3]
