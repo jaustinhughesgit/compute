@@ -2516,8 +2516,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.log("sendBack:3", response);
                     return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 } else {
-                    console.log("sendBack:3.1 response =>"), "\"" + JSON.stringify(response) + "\"";
-                    console.log("sendBack:3.1 isShorthand =>"), isShorthand;
+                    console.log("sendBack:3.0 =>",response)
+                    console.log("sendBack:3.1 response =>", "-" + JSON.stringify(response) + "-");
+                    console.log("sendBack:3.1 isShorthand =>", isShorthand);
                     //return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 }
             }
