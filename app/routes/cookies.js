@@ -2288,7 +2288,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("access.Items[0]",access.Items[0]);
                 console.log("useE.Items[0]",useE.Items[0]);
                 console.log("useE",useE)
-                const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), useE.Items[0].c.toString(), dynamodb);
+                let changeID = "1"
+                if (useE.Items[0].hasOwnProperty("c")){
+                    changeID = useE.Items[0].c.toString();
+                }
+                const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), changeID, dynamodb);
                 console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
                 console.log("updateAuth", updateAuth)
