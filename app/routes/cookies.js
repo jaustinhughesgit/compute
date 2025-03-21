@@ -252,7 +252,11 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             console.log("inside condition")
             verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo); // is the entity access id == cookie access id
             //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
-            let bb = JSON.parse(JSON.stringify(body));
+
+            let bb = {};
+            if (body){
+                bb =JSON.parse(JSON.stringify(body));
+            }
 
             if (bb.hasOwnProperty("body")){
                 console.log("body.body", body)
