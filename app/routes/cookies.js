@@ -2284,6 +2284,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let access = await dynamodb.query(params).promise()
                 console.log("access", access)
                 const useE = await getEntity(subEntity.Items[0].e, dynamodb)
+                console.log("usubEntity.Items[0]",subEntity.Items[0]);
+                console.log("access.Items[0]",access.Items[0]);
+                console.log("useE.Items[0]",useE.Items[0]);
+                console.log("useE",useE)
                 const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), useE.Items[0].c.toString(), dynamodb);
                 console.log("updateEntity", subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
                 const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
