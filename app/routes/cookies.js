@@ -2528,9 +2528,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.log("sendBack:3.0 =>",response)
                     console.log("sendBack:3.1 response =>", "-" + JSON.stringify(response) + "-");
                     console.log("sendBack:3.1 isShorthand =>", isShorthand);
-                    if (response.hasOwnProperty("status")){
-
-                    } else 
+                    if (!response.hasOwnProperty("status")){
                         return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                     }
                 }
