@@ -252,19 +252,21 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             console.log("inside condition")
             verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo); // is the entity access id == cookie access id
             //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
+            let bb = JSON.parse(JSON.stringify(body));
 
+            if (bb.hasOwnProperty("body")){
+                console.log("body.body", body)
+                bb = JSON.parse(JSON.stringify(body.body));
+            }
 
             console.log("verified2", verified)
 
             for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
-                console.log("body2", body)
-                if (body.hasOwnProperty("body")){
-                    console.log("body.body", body)
-                    body = body.body;
-                }
-                let deep = await deepEqual(access.Items[0].va, body)
+                console.log("body2", bb)
+                
+                let deep = await deepEqual(access.Items[0].va, bb)
                 console.log("deep", deep)
                 if (deep == true) {
                     console.log("inside deep condition")
