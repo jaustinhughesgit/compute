@@ -930,7 +930,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("runApp6.1")
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             console.log("runApp6.2")
-            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4)
+            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, req.body)
             console.log("runApp6.3")
             fileArray = parent.paths[reqPath.split("/")[1]];
         }
