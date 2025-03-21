@@ -259,7 +259,6 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
-                console.log("body", body)
                 console.log("body.body", body.body)
                 let deep = await deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
@@ -363,9 +362,6 @@ async function convertToJSON(
     dynamodbLL,
     body
 ) {
-    console.log("fileID--->>",fileID)
-    console.log("cookie--->>",cookie)
-    console.log("body--->>",body)
 
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
 
@@ -1772,7 +1768,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         getVerified: {},
     }
     //console.log("route", req)
-    //console.log("req.body", req.body)
+    console.log("req.body", req.body)
+    console.log("reqBody", reqBody)
     //console.log("req.headers", req.headers)
 
     var response = {}
@@ -1783,7 +1780,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         console.log("1111")
         let cookie = await manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4)
         console.log("2222", cookie)
-        const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb, reqBody)
+        const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
         console.log("3333", verifications)
         let splitPath = reqPath.split("/")
         console.log("4444", splitPath)
@@ -2109,7 +2106,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action === "file") {
                 //console.log("file")
                 actionFile = reqPath.split("/")[3]
-                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
                 let tasksUnix = await getTasks(actionFile, "su", dynamodb)
                 //console.log("tasksUnix", tasksUnix)
                 let tasksISO = await getTasksIOS(tasksUnix)
@@ -2474,7 +2471,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             response = mainObj
 
             if (action === "file") {
-                console.log("file2")
+                //console.log("file2")
                 const expires = 90000;
                 const url = "https://" + fileLocation(isPublic) + ".1var.com/" + actionFile;
                 const policy = JSON.stringify({ Statement: [{ Resource: url, Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) } } }] });
