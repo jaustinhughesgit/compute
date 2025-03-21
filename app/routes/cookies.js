@@ -360,8 +360,12 @@ async function convertToJSON(
     parentPath2 = [],
     id2Path = {},
     usingID = "",
+    dynamodbLL,
     body
 ) {
+    console.log("fileID--->>",fileID)
+    console.log("cookie--->>",cookie)
+    console.log("body--->>",body)
 
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
 
@@ -1779,7 +1783,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         console.log("1111")
         let cookie = await manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4)
         console.log("2222", cookie)
-        const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
+        const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb, reqBody)
         console.log("3333", verifications)
         let splitPath = reqPath.split("/")
         console.log("4444", splitPath)
@@ -2470,7 +2474,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             response = mainObj
 
             if (action === "file") {
-                //console.log("file2")
+                console.log("file2")
                 const expires = 90000;
                 const url = "https://" + fileLocation(isPublic) + ".1var.com/" + actionFile;
                 const policy = JSON.stringify({ Statement: [{ Resource: url, Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) } } }] });
