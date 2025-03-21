@@ -259,6 +259,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb)
                 console.log("access.Items[0].va", access.Items[0].va)
+                console.log("body", body)
                 console.log("body.body", body.body)
                 let deep = await deepEqual(access.Items[0].va, body.body)
                 console.log("deep", deep)
