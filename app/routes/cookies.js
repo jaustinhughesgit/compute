@@ -259,37 +259,37 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             }
 
             if (bb.hasOwnProperty("body")){
-                console.log("body.body", body)
+                console.log("body.body", body);
                 bb = JSON.parse(JSON.stringify(body.body));
             }
 
-            console.log("verified2", verified)
+            console.log("verified2", verified);
 
             for (x = 0; x < entityAi.length; x++) {
-                let access = await getAccess(entityAi[x], dynamodb)
-                console.log("access.Items[0].va", access.Items[0].va)
-                console.log("body2", bb)
+                let access = await getAccess(entityAi[x], dynamodb);
+                console.log("access.Items[0].va", access.Items[0].va);
+                console.log("body2", bb);
                 
-                let deep = await deepEqual(access.Items[0].va, bb)
-                console.log("deep", deep)
-                if (deep == true) {
-                    console.log("inside deep condition")
-                    console.log("fileID", fileID)
-                    console.log("body.headers.X-accessToken", body.headers["X-accessToken"])
-                    let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb)
-                    console.log("usingAuth", usingAuth)
+                let deep = await deepEqual(access.Items[0].va, bb);
+                console.log("deep", deep);
+                if (deep == true  && verified == false) {
+                    console.log("inside deep condition");
+                    console.log("fileID", fileID);
+                    console.log("body.headers.X-accessToken", body.headers["X-accessToken"]);
+                    let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb);
+                    console.log("usingAuth", usingAuth);
                     verified = true;
                 }
             }
-            console.log("verified3", verified)
+            console.log("verified3", verified);
         }
-        console.log("verified4", verified)
+        console.log("verified4", verified);
     }
-    console.log("verified5", verified)
+    console.log("verified5", verified);
 
 
-    console.log("isPublic", isPublic)
-    console.log("=>", verified, subBySU, entity, isPublic)
+    console.log("isPublic", isPublic);
+    console.log("=>", verified, subBySU, entity, isPublic);
     return { verified, subBySU, entity, isPublic };
 }
 
