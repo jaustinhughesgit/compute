@@ -307,6 +307,8 @@ async function useAuth(fileID, Entity, access, cookie, dynamodb) {
     //console.log("vi", vi)
     await createVerified(vi.toString(), cookie.gi.toString(), "0", Entity.Items[0].e.toString(), access.Items[0].ai.toString(), "0", ex, true, 0, 0)
 
+
+
     const details3 = await addVersion(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), Entity.Items[0].c.toString(), dynamodb);
     console.log("updateEntity", Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c)
     const updateAuth = await updateEntity(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
@@ -780,7 +782,8 @@ async function addVersion(newE, col, val, forceC, dynamodb) {
 };
 
 const createFile = async (su, fileData, s3) => {
-    //console.log("createFile")
+    console.log("createFile")
+    console.log("fileData", fileData)
     const jsonString = JSON.stringify(fileData);
     const bucketParams = {
         Bucket: fileLocation(isPublic) + '.1var.com',
@@ -2163,11 +2166,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
-                //console.log("saveFile")
+                console.log("saveFile")
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
-                //console.log("req", req)
-                //console.log("req.body", req.body)
+                console.log("req", req)
+                console.log("req.body", req.body)
                 const fileResult = await createFile(actionFile, reqBody.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
