@@ -1860,7 +1860,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fileResult = await createFile(uniqueId, 
                     { "input": [{"physical": [ 
                         [{}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
                         ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
                         ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
@@ -1870,7 +1870,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
                      ]},{ "virtual": [ ]}],"published": {
-                        "blocks": [{"entity": uniqueId2 ,"name": "Primary"}],
+                        "blocks": [{"entity": uniqueId ,"name": "Primary"}],
                         "modules": {},
                         "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
                         "function": {},
