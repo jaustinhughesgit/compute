@@ -2039,7 +2039,22 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                     ]},{ "virtual": [ ]},],"published": { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] 
+                     ]},{ "virtual": [ ]}],"published": {
+                        "blocks": [{"entity": uniqueId2 ,"name": "Primary"}],
+                        "modules": {},
+                        "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
+                        "function": {},
+                        "automation": [],
+                        "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
+                        "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
+                        "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
+                        "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
+                        "assignments": {
+                            "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
+                            "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
+                            "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
+                            "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
+                        }
                     },"skip": [],"sweeps": 1,"expected": []}
                     
                     , s3)
@@ -2083,9 +2098,23 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
                         ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                     ]},{ "virtual": [ ]},],"published": 
-                    { "blocks": [{ "entity": uniqueId, "width": "100", "align": "center", "row": 0, "col": 0, "color": 0 }], "modules": {}, "actions": [{ "target": "{|res|}", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}!" }] 
-                },"skip": [],"sweeps": 1,"expected": []}
+                     ]},{ "virtual": [ ]}],"published": {
+                        "blocks": [{"entity": uniqueId2 ,"name": "Primary"}],
+                        "modules": {},
+                        "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
+                        "function": {},
+                        "automation": [],
+                        "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
+                        "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
+                        "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
+                        "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
+                        "assignments": {
+                            "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
+                            "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
+                            "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
+                            "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
+                        }
+                    },"skip": [],"sweeps": 1,"expected": []}
                 
                 , s3)
                 actionFile = uniqueId
