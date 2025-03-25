@@ -7,6 +7,8 @@ function normalizeVector(vector) {
     return vector.map(val => val / norm);
 }
 
+//not updating 1
+
 router.get('/', async function(req, res, next) {
     try {
         const openai = new OpenAI({
