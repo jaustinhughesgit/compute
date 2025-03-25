@@ -10,7 +10,7 @@ router.get('/', async function(req, res, next) {
     const chatCompletion = await openai.embeddings.create({
         input: "/event/wedding/people/groom/bachelor-party/itinerary/day-1/arrival/flight-info/individual-arrivals/best-man/arrival-time/4pm", model: "text-embedding-3-large",
     });
-    res.render('embeddings', { category: "/event/wedding/people/groom/bachelor-party/itinerary/day-1/arrival/flight-info/individual-arrivals/best-man/arrival-time/4pm", embeddings: JSON.stringify(chatCompletion) });
+    res.render('embeddings', { category: "/event/wedding/people/groom/bachelor-party/itinerary/day-1/arrival/flight-info/individual-arrivals/best-man/arrival-time/4pm", embeddings: JSON.stringify(chatCompletion.data[0].embedding) });
 });
 
 module.exports = router;
