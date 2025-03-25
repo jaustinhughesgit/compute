@@ -16,7 +16,7 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: "/event/wedding/events/reception/timeline/entries/first-dance/songs/primary-choice/artist/john-legend/all-of-me/play",
+            input: "/event/wedding/media/photography/shot-list/ceremony/family/formal/must-have/bride-with-mother/completed",
             model: "text-embedding-3-large",
         });
 
@@ -24,7 +24,7 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: "/event/wedding/events/reception/timeline/entries/first-dance/songs/primary-choice/artist/john-legend/all-of-me/play",
+            category: "/event/wedding/media/photography/shot-list/ceremony/family/formal/must-have/bride-with-mother/completed",
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
