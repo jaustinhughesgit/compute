@@ -14,7 +14,7 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: "/event/wedding/attire/bride/accessories/veil/embellishments/floral-appliqué/colors/ivory",
+            input: "/event/wedding/events/reception/timeline/entries/first-dance/songs/primary-choice/artist/john-legend/all-of-me/play",
             model: "text-embedding-3-large",
         });
 
@@ -22,7 +22,7 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: "/event/wedding/attire/bride/accessories/veil/embellishments/floral-appliqué/colors/ivory",
+            category: "/event/wedding/events/reception/timeline/entries/first-dance/songs/primary-choice/artist/john-legend/all-of-me/play",
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
