@@ -14,7 +14,7 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: "/event/wedding/people/groom/bachelor-party/itinerary/day-1/arrival/flight-info/individual-arrivals/best-man/arrival-time/4pm",
+            input: "/event/wedding/attire/bride/accessories/veil/embellishments/floral-appliqué/colors/ivory",
             model: "text-embedding-3-large",
         });
 
@@ -22,7 +22,7 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: "/event/wedding/people/groom/bachelor-party/itinerary/day-1/arrival/flight-info/individual-arrivals/best-man/arrival-time/4pm",
+            category: "/event/wedding/attire/bride/accessories/veil/embellishments/floral-appliqué/colors/ivory",
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
