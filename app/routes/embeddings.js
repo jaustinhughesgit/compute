@@ -16,7 +16,7 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: "/event/wedding/media/photography/shot-list/ceremony/family/formal/must-have/bride-with-mother/completed",
+            input: "/event/wedding/people/guests/list/rsvps/meal-selection/dietary-restrictions/allergies/seafood",
             model: "text-embedding-3-large",
         });
 
@@ -24,7 +24,7 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: "/event/wedding/media/photography/shot-list/ceremony/family/formal/must-have/bride-with-mother/completed",
+            category: "/event/wedding/people/guests/list/rsvps/meal-selection/dietary-restrictions/allergies/seafood",
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
