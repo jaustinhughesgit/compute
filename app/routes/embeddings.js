@@ -16,23 +16,15 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: `{
-    "input": [
-        "/event/wedding/people/bride/todo/wedding-day/attire",
+            input: `"/event/wedding/people/bride/todo/wedding-day/attire",
         "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
         "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
-        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up"
-    ],
-    "expecting": [
+        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories"
-    ],
-    "performing": [
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
-    ]
-}`,
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories",
+        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"`,
             model: "text-embedding-3-large",
         });
 
@@ -40,23 +32,15 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: `{
-    "input": [
-        "/event/wedding/people/bride/todo/wedding-day/attire",
+            category: `"/event/wedding/people/bride/todo/wedding-day/attire",
         "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
         "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
-        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up"
-    ],
-    "expecting": [
+        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
         "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories"
-    ],
-    "performing": [
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
-    ]
-}`,
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories",
+        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"`,
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
