@@ -18,22 +18,19 @@ router.get('/', async function(req, res, next) {
         const response = await openai.embeddings.create({
             input: `{
     "input": [
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/tuxedo",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/shoes",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/socks",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/belt-or-suspenders",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/shirt",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/bowtie-or-tie",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/cufflinks",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/pocket-square",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/jacket"
+        "/event/wedding/people/bride/todo/wedding-day/attire",
+        "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
+        "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
+        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up"
     ],
     "expecting": [
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories"
     ],
     "performing": [
-        "/event/wedding/people/groom/todo/wedding-day/attire/check-tux",
-        "/event/wedding/people/groom/todo/wedding-day/attire/get-dressed"
+        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
     ]
 }`,
             model: "text-embedding-3-large",
@@ -45,22 +42,19 @@ router.get('/', async function(req, res, next) {
         res.render('embeddings', {
             category: `{
     "input": [
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/tuxedo",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/shoes",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/socks",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/belt-or-suspenders",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/shirt",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/bowtie-or-tie",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/cufflinks",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/pocket-square",
-        "/event/wedding/people/groom/todo/wedding-day/gather-items/attire/jacket"
+        "/event/wedding/people/bride/todo/wedding-day/attire",
+        "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
+        "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
+        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up"
     ],
     "expecting": [
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
+        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories"
     ],
     "performing": [
-        "/event/wedding/people/groom/todo/wedding-day/attire/check-tux",
-        "/event/wedding/people/groom/todo/wedding-day/attire/get-dressed"
+        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"
     ]
 }`,
             embedding: JSON.stringify(embedding),
