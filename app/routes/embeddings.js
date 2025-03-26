@@ -16,15 +16,16 @@ router.get('/', async function(req, res, next) {
         });
 
         const response = await openai.embeddings.create({
-            input: `"/event/wedding/people/bride/todo/wedding-day/attire",
-        "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
-        "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
-        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories",
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"`,
+            input: `event: wedding
+ - people/bride/todo/wedding-day/attire
+ - people/bride/todo/wedding-day/attire/put-on-dress
+ - people/bride/todo/wedding-day/attire/shoes-and-accessories
+ - people/bride/todo/wedding-day/attire/final-touch-up
+ - people/bride/todo/wedding-day/gather-items/wedding-dress
+ - people/bride/todo/wedding-day/gather-items/veil
+ - people/bride/todo/wedding-day/gather-items/shoes
+ - people/bride/todo/wedding-day/gather-items/accessories
+ - people/groom/success/wedding-day/groomed-and-dressed`,
             model: "text-embedding-3-large",
         });
 
@@ -32,15 +33,16 @@ router.get('/', async function(req, res, next) {
         const normalizedEmbedding = normalizeVector(embedding);
 
         res.render('embeddings', {
-            category: `"/event/wedding/people/bride/todo/wedding-day/attire",
-        "/event/wedding/people/bride/todo/wedding-day/attire/put-on-dress",
-        "/event/wedding/people/bride/todo/wedding-day/attire/shoes-and-accessories",
-        "/event/wedding/people/bride/todo/wedding-day/attire/final-touch-up",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/wedding-dress",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/veil",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/shoes",
-        "/event/wedding/people/bride/todo/wedding-day/gather-items/accessories",
-        "/event/wedding/people/groom/success/wedding-day/groomed-and-dressed"`,
+            category: `event: wedding
+ - people/bride/todo/wedding-day/attire
+ - people/bride/todo/wedding-day/attire/put-on-dress
+ - people/bride/todo/wedding-day/attire/shoes-and-accessories
+ - people/bride/todo/wedding-day/attire/final-touch-up
+ - people/bride/todo/wedding-day/gather-items/wedding-dress
+ - people/bride/todo/wedding-day/gather-items/veil
+ - people/bride/todo/wedding-day/gather-items/shoes
+ - people/bride/todo/wedding-day/gather-items/accessories
+ - people/groom/success/wedding-day/groomed-and-dressed`,
             embedding: JSON.stringify(embedding),
             normalized: JSON.stringify(normalizedEmbedding),
         });
