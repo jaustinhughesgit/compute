@@ -1166,33 +1166,33 @@ async function verifyPath(splitPath, verifications, dynamodb) {
             verified.push(false)
             const sub = await getSub(splitPath[ver], "su", dynamodb);
             console.log("sub", sub)
-            //console.log("sub.Items[0].z", sub.Items[0].z)
+            console.log("sub.Items[0].z", sub.Items[0].z)
             let groupID = sub.Items[0].g
             let entityID = sub.Items[0].e
             if (sub.Items[0].z) {
                 verValue = true
             }
             for (veri in verifications.Items) {
-                //console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
-                //console.log("groupID", groupID)
-                //console.log("entityID", entityID)
+                console.log("^^^^^^^^^^^^^^^^^^^^^^^^")
+                console.log("groupID", groupID)
+                console.log("entityID", entityID)
 
                 if (entityID != "0") {
-                    //console.log("entityID!=0")
+                    console.log("entityID!=0")
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
-                    //console.log("eSub", eSub)
+                    console.log("eSub", eSub)
                     groupID = eSub.Items[0].g
-                    //console.log("eSub.Items[0].ai", eSub.Items[0].ai)
+                    console.log("eSub.Items[0].ai", eSub.Items[0].ai)
                     if (eSub.Items[0].ai.toString() == "0") {
                         verValue = true
-                        //console.log("verValue1", verValue)
+                        console.log("verValue1", verValue)
                     }
-                    //console.log("groupID2", groupID)
+                    console.log("groupID2", groupID)
                 }
 
                 if (sub.Items.length > 0) {
-                    //console.log("entityID3", entityID)
-                    //console.log("groupID3", groupID)
+                    console.log("entityID3", entityID)
+                    console.log("groupID3", groupID)
                     if (sub.Items[0].z == true) {
                         verValue = true
                     } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
@@ -1207,7 +1207,7 @@ async function verifyPath(splitPath, verifications, dynamodb) {
                         }
                     } else if (entityID == "0" && groupID == "0") {
                         //MAYBE THIS IS NOT NEEDED. ADDED IT BUT NEVER TESTED IT
-                        //console.log("e and g are 0 so verValue is true")
+                        console.log("e and g are 0 so verValue is true")
                         verValue = true;
                     }
                 }
