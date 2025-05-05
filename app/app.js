@@ -96,51 +96,50 @@ app.use('/', indexRouter);
 
 async function ensureTable(tableName) {
     try {
-      await dynamodb.send(new DescribeTableCommand({ TableName: tableName }));
+      await dynamodbLL.describeTable({ TableName: tableName }).promise();
     } catch (err) {
-      if (err.name !== 'ResourceNotFoundException') throw err;
-      await dynamodb.send(
-        new CreateTableCommand({
-          TableName: tableName,
-          AttributeDefinitions: [
-            { AttributeName: 'root', AttributeType: 'S' },
-            { AttributeName: 'id',   AttributeType: 'N' }
-          ],
-          KeySchema: [
-            { AttributeName: 'root', KeyType: 'HASH' }, // partition
-            { AttributeName: 'id',   KeyType: 'RANGE' } // sort
-          ],
-          BillingMode: 'PAY_PER_REQUEST'
-        })
-      );
+      if (err.code !== 'ResourceNotFoundException') throw err;
+  
+      await dynamodbLL.createTable({
+        TableName: tableName,
+        AttributeDefinitions: [
+          { AttributeName: 'root', AttributeType: 'S' },
+          { AttributeName: 'id',   AttributeType: 'N' }
+        ],
+        KeySchema: [
+          { AttributeName: 'root', KeyType: 'HASH' },   // partition
+          { AttributeName: 'id',   KeyType: 'RANGE' }   // sort
+        ],
+        BillingMode: 'PAY_PER_REQUEST'
+      }).promise();
+  
       // wait until ACTIVE
-      await dynamodb.waitFor('tableExists', { TableName: tableName });
+      await dynamodbLL.waitFor('tableExists', { TableName: tableName }).promise();
     }
   }
   
   // naïve “auto‑increment”: use Date.now(); swap for a real counter if needed
   const nextId = () => Date.now();
 
-app.post('/api/ingest', async (req, res) => {
+  app.post('/api/ingest', async (req, res) => {
     try {
-      const { category, root, paths } = req.body;      // {category:'categoryA', root:'subCatA', paths:[{p, emb}, …]}
-      if (!category || !root || !paths?.length) return res.status(400).json({ error:'bad payload' });
+      const { category, root, paths } = req.body;     // expect {category, root, paths:[{p,emb},…]}
+      if (!category || !root || !Array.isArray(paths) || !paths.length) {
+        return res.status(400).json({ error: 'bad payload' });
+      }
   
       const tableName = `i_${category}`;
       await ensureTable(tableName);
   
-      // build a flat “pathN / embN” map
-      const item = {
-        root : { S: root },
-        id   : { N: String(nextId()) }
-      };
+      // flatten to pathN / embN pairs
+      const item = { root, id: nextId() };
       paths.forEach(({ p, emb }, idx) => {
-        item[`path${idx + 1}`] = { S: p };
-        item[`emb${idx + 1}`]  = { L: emb.map(f => ({ N: f.toString() })) };
+        item[`path${idx + 1}`] = p;
+        item[`emb${idx + 1}`]  = emb;      // DocumentClient accepts JS arrays
       });
   
-      await dynamodb.send(new PutItemCommand({ TableName: tableName, Item: item }));
-      res.json({ ok:true });
+      await dynamodb.put({ TableName: tableName, Item: item }).promise();
+      res.json({ ok: true });
     } catch (err) {
       console.error(err);
       res.status(500).json({ error: err.message });
