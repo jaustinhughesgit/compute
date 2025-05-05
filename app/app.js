@@ -77,6 +77,7 @@ ses = new AWS.SES();
 var cookiesRouter;
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
 var indexRouter = require('./routes/index');
+var indexingRouter = require('./routes/indexing');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
@@ -89,8 +90,62 @@ app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
+app.use('/indexing', indexingRouter);
 
 app.use('/', indexRouter);
+
+async function ensureTable(tableName) {
+    try {
+      await dynamodb.send(new DescribeTableCommand({ TableName: tableName }));
+    } catch (err) {
+      if (err.name !== 'ResourceNotFoundException') throw err;
+      await dynamodb.send(
+        new CreateTableCommand({
+          TableName: tableName,
+          AttributeDefinitions: [
+            { AttributeName: 'root', AttributeType: 'S' },
+            { AttributeName: 'id',   AttributeType: 'N' }
+          ],
+          KeySchema: [
+            { AttributeName: 'root', KeyType: 'HASH' }, // partition
+            { AttributeName: 'id',   KeyType: 'RANGE' } // sort
+          ],
+          BillingMode: 'PAY_PER_REQUEST'
+        })
+      );
+      // wait until ACTIVE
+      await dynamodb.waitFor('tableExists', { TableName: tableName });
+    }
+  }
+  
+  // naïve “auto‑increment”: use Date.now(); swap for a real counter if needed
+  const nextId = () => Date.now();
+
+app.post('/api/ingest', async (req, res) => {
+    try {
+      const { category, root, paths } = req.body;      // {category:'categoryA', root:'subCatA', paths:[{p, emb}, …]}
+      if (!category || !root || !paths?.length) return res.status(400).json({ error:'bad payload' });
+  
+      const tableName = `i_${category}`;
+      await ensureTable(tableName);
+  
+      // build a flat “pathN / embN” map
+      const item = {
+        root : { S: root },
+        id   : { N: String(nextId()) }
+      };
+      paths.forEach(({ p, emb }, idx) => {
+        item[`path${idx + 1}`] = { S: p };
+        item[`emb${idx + 1}`]  = { L: emb.map(f => ({ N: f.toString() })) };
+      });
+  
+      await dynamodb.send(new PutItemCommand({ TableName: tableName, Item: item }));
+      res.json({ ok:true });
+    } catch (err) {
+      console.error(err);
+      res.status(500).json({ error: err.message });
+    }
+  });
 
 app.use(async (req, res, next) => {
 
