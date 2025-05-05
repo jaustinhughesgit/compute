@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Breadcrumb → DynamoDB loader</title>
+  <script type="importmap">
+    { "imports": {
+        "@xenova/transformers":
+        "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
+      }}
+  </script>
+  <style>
+    body{font-family:system-ui,sans-serif;margin:2rem}
+    pre{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap}
+  </style>
+</head>
+<body>
+
+<h1>Upload taxonomy JSON → DynamoDB</h1>
+
+<label>JSON taxonomy
+  <textarea id="jsonInput" rows="12" style="width:100%">{ "categoryA": { "subCategoryA": ["breadcrumbA1/to/a/detail","breadcrumbA2/to/a/detail"] }, "categoryB": { "subCategoryB": ["breadcrumbB1/to/a/detail","breadcrumbB2/to/a/detail"] } }</textarea>
+</label>
+<br>
+<button id="goBtn" disabled>Process &amp; upload</button>
+
+<p id="status">Loading embedding model…</p>
+<pre id="log"></pre>
+
+<script type="module">
+  import { pipeline } from '@xenova/transformers';
+  const $btn  = document.getElementById('goBtn');
+  const $stat = document.getElementById('status');
+  const $log  = document.getElementById('log');
+
+  // 1) load model once
+  let encoder = null;
+  (async () => {
+    encoder = await pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2');
+    $stat.textContent = 'Model ready ✔';
+    $btn.disabled = false;
+  })();
+
+  // 2) click → read JSON → embed → POST
+  $btn.addEventListener('click', async () => {
+    let taxo;
+    try   { taxo = JSON.parse(document.getElementById('jsonInput').value) }
+    catch (e) { return alert('Bad JSON'); }
+
+    for (const [category, subCats] of Object.entries(taxo)) {
+      for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
+
+        // embed each breadcrumb
+        const paths = [];
+        for (const path of breadcrumbs) {
+          $stat.textContent = `Embedding “${path}”…`;
+          const [[emb]] = await encoder(path);               // [1,384]
+          paths.push({ p: path, emb });
+        }
+
+        // POST to Lambda
+        $stat.textContent = `POSTing ${subCat} to i_${category}…`;
+        const res = await fetch('/api/ingest', {
+          method : 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body   : JSON.stringify({ category, root: subCat, paths })
+        }).then(r => r.json());
+
+        $log.textContent += `stored ${subCat} → ${JSON.stringify(res)}\n`;
+      }
+    }
+    $stat.textContent = 'All done ✔';
+  });
+</script>
+</body>
+</html>
