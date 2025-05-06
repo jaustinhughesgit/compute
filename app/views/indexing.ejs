@@ -3,23 +3,28 @@
 <head>
   <meta charset="utf-8">
   <title>Breadcrumb → DynamoDB loader</title>
+
+  <!-- Xenova import‑map -->
   <script type="importmap">
     { "imports": {
         "@xenova/transformers":
         "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
       }}
   </script>
+
   <style>
     body{font-family:system-ui,sans-serif;margin:2rem}
-    pre{background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap}
+    pre {background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap}
   </style>
 </head>
 <body>
-
 <h1>Upload taxonomy JSON → DynamoDB</h1>
 
 <label>JSON taxonomy
-  <textarea id="jsonInput" rows="12" style="width:100%">{ "categoryA": { "subCategoryA": ["breadcrumbA1/to/a/detail","breadcrumbA2/to/a/detail"] }, "categoryB": { "subCategoryB": ["breadcrumbB1/to/a/detail","breadcrumbB2/to/a/detail"] } }</textarea>
+  <textarea id="jsonInput" rows="12" style="width:100%">
+{ "categoryA": { "subCategoryA": [ "breadcrumbA1/to/a/detail", "breadcrumbA2/to/a/detail" ] },
+  "categoryB": { "subCategoryB": [ "breadcrumbB1/to/a/detail", "breadcrumbB2/to/a/detail" ] } }
+  </textarea>
 </label>
 <br>
 <button id="goBtn" disabled>Process &amp; upload</button>
@@ -29,23 +34,36 @@
 
 <script type="module">
   import { pipeline } from '@xenova/transformers';
+
   const $btn  = document.getElementById('goBtn');
   const $stat = document.getElementById('status');
   const $log  = document.getElementById('log');
 
-  // 1) load model once
+  // ── helper: always return a plain JS array ────────────────────
+  function normaliseEmbedding(e) {
+    if (Array.isArray(e)) return e;        // already OK
+    if (e && e.data && e.dims) {           // {dims,type,data}
+      const n   = e.dims[0];
+      const arr = new Array(n);
+      for (let i = 0; i < n; i++) arr[i] = e.data[i];
+      return arr;
+    }
+    throw new Error('Unknown embedding format');
+  }
+
+  // ── 1. load model once ────────────────────────────────────────
   let encoder = null;
   (async () => {
-    encoder = await pipeline('feature-extraction','Xenova/all-MiniLM-L6-v2');
+    encoder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
     $stat.textContent = 'Model ready ✔';
     $btn.disabled = false;
   })();
 
-  // 2) click → read JSON → embed → POST
+  // ── 2. click → read JSON → embed → POST ───────────────────────
   $btn.addEventListener('click', async () => {
     let taxo;
-    try   { taxo = JSON.parse(document.getElementById('jsonInput').value) }
-    catch (e) { return alert('Bad JSON'); }
+    try { taxo = JSON.parse(document.getElementById('jsonInput').value); }
+    catch { return alert('Bad JSON'); }
 
     for (const [category, subCats] of Object.entries(taxo)) {
       for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
@@ -54,7 +72,8 @@
         const paths = [];
         for (const path of breadcrumbs) {
           $stat.textContent = `Embedding “${path}”…`;
-          const [[emb]] = await encoder(path);               // [1,384]
+          const [[raw]] = await encoder(path);          // may be array or tensor‑json
+          const emb     = normaliseEmbedding(raw);
           paths.push({ p: path, emb });
         }
 

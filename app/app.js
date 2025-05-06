@@ -94,6 +94,17 @@ app.use('/indexing', indexingRouter);
 
 app.use('/', indexRouter);
 
+function normaliseEmbedding(e) {
+    if (Array.isArray(e)) return e;
+    if (e && e.data && e.dims) {
+      const n = e.dims[0];
+      const arr = new Array(n);
+      for (let i = 0; i < n; i++) arr[i] = e.data[i];
+      return arr;
+    }
+    throw new Error('Bad embedding format');
+  }
+
 async function ensureTable(tableName) {
     try {
       await dynamodbLL.describeTable({ TableName: tableName }).promise();
@@ -135,7 +146,7 @@ async function ensureTable(tableName) {
       const item = { root, id: nextId() };
       paths.forEach(({ p, emb }, idx) => {
         item[`path${idx + 1}`] = p;
-        item[`emb${idx + 1}`]  = emb;      // DocumentClient accepts JS arrays
+        item[`emb${idx + 1}`]  = normaliseEmbedding(emb);   // ← ensure plain array
       });
   
       await dynamodb.put({ TableName: tableName, Item: item }).promise();
