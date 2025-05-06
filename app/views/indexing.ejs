@@ -54,7 +54,7 @@
   // ── 1. load model once ────────────────────────────────────────
   let encoder = null;
   (async () => {
-    encoder = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    encoder = await pipeline('feature-extraction', 'Xenova/all-mpnet-base-v2');
     $stat.textContent = 'Model ready ✔';
     $btn.disabled = false;
   })();
