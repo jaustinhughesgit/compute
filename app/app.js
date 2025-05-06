@@ -146,7 +146,7 @@ async function ensureTable(tableName) {
       const item = { root, id: nextId() };
       paths.forEach(({ p, emb }, idx) => {
         item[`path${idx + 1}`] = p;
-        item[`emb${idx + 1}`]  = normaliseEmbedding(emb);   // ← ensure plain array
+        item[`emb${idx + 1}`] = JSON.stringify(normaliseEmbedding(emb));
       });
   
       await dynamodb.put({ TableName: tableName, Item: item }).promise();
