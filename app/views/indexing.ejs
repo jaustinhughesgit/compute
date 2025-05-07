@@ -6,15 +6,17 @@
 
   <!-- Xenova import‑map -->
   <script type="importmap">
-    { "imports": {
+    {
+      "imports": {
         "@xenova/transformers":
-        "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
-      }}
+          "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
+      }
+    }
   </script>
 
   <style>
-    body{font-family:system-ui,sans-serif;margin:2rem}
-    pre {background:#f5f5f5;padding:1rem;border-radius:4px;white-space:pre-wrap}
+    body { font-family: system-ui, sans-serif; margin: 2rem; }
+    pre  { background:#f5f5f5; padding:1rem; border-radius:4px; white-space:pre-wrap; }
   </style>
 </head>
 <body>
@@ -62,8 +64,11 @@
   // ── 2. click → read JSON → embed → POST ───────────────────────
   $btn.addEventListener('click', async () => {
     let taxo;
-    try { taxo = JSON.parse(document.getElementById('jsonInput').value); }
-    catch { return alert('Bad JSON'); }
+    try {
+      taxo = JSON.parse(document.getElementById('jsonInput').value);
+    } catch {
+      return alert('Bad JSON');
+    }
 
     for (const [category, subCats] of Object.entries(taxo)) {
       for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
@@ -77,12 +82,16 @@
           paths.push({ p: path, emb });
         }
 
-        // POST to Lambda
+        // POST to Lambda – root is forced to lowercase here
         $stat.textContent = `POSTing ${subCat} to i_${category}…`;
         const res = await fetch('/api/ingest', {
           method : 'POST',
           headers: { 'Content-Type':'application/json' },
-          body   : JSON.stringify({ category, root: subCat, paths })
+          body   : JSON.stringify({
+                    category,
+                    root: subCat.toLowerCase(), //  ← lower‑cased
+                    paths
+                  })
         }).then(r => r.json());
 
         $log.textContent += `stored ${subCat} → ${JSON.stringify(res)}\n`;
