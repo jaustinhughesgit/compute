@@ -2494,7 +2494,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("position>>>>>>>", reqBody)
                 const { description, domain, subdomain, embedding } = reqBody.body || {};
 
-                const { description, domain, subdomain, embedding } = req.body || {};
 
                 if (!embedding || !domain || !subdomain) {
                     return res.status(400).json({ error: 'embedding, domain & subdomain required' });
