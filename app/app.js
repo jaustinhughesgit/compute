@@ -17,7 +17,6 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = requir
 const moment = require('moment-timezone')
 const math = require('mathjs');
 
-
 const boundAxios = {
     // Bind all the necessary methods to preserve the original `this` context
     constructor: axios.constructor.bind(axios),
@@ -59,6 +58,7 @@ const boundAxios = {
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
+const EMB_MODEL = 'text-embedding-3-small';
 
 const Anthropic = require('@anthropic-ai/sdk');
 app.use(express.json());
@@ -97,13 +97,14 @@ app.use('/', indexRouter);
 function normaliseEmbedding(e) {
     if (Array.isArray(e)) return e;
     if (e && e.data && e.dims) {
-      const n = e.dims[0];
-      const arr = new Array(n);
-      for (let i = 0; i < n; i++) arr[i] = e.data[i];
-      return arr;
+      const n   = e.dims[0];
+      const out = new Array(n);
+      for (let i = 0; i < n; i++) out[i] = e.data[i];
+      return out;
     }
     throw new Error('Bad embedding format');
   }
+  
 
 async function ensureTable(tableName) {
     try {
