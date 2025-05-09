@@ -57,76 +57,59 @@
 
 <p id="status">Ready ✔</p>
 <pre id="log"></pre>
-
+<label>Generated embedding index
+  <textarea id="outJson" rows="12" style="width:100%"></textarea>
+</label>
 <script type="module">
-  const $btn  = document.getElementById('goBtn');
-  const $stat = document.getElementById('status');
-  const $log  = document.getElementById('log');
+  const $btn   = document.getElementById('goBtn');
+  const $stat  = document.getElementById('status');
+  const $log   = document.getElementById('log');
+  const $out   = document.getElementById('outJson');
 
-  /**
-   * POST text → /embed  → { embedding:[…] }
-   * (Your server route must include the raw vector in the JSON it returns.)
-   */
+  /** POST `text` → /embed → { embedding:[…] } */
   async function getEmbedding(text) {
-    const res = await fetch('/embed', {
+    const res  = await fetch('/embed', {
       method : 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type':'application/json' },
       body   : JSON.stringify({ text })
     });
-
-    if (!res.ok) {
-      throw new Error(`embed HTTP ${res.status}`);
-    }
-
-    const json = await res.json();
-    if (!json.embedding) {
-      throw new Error('No "embedding" field in /embed response');
-    }
-    return json.embedding;           // plain JS array
+    if (!res.ok) throw new Error(`embed HTTP ${res.status}`);
+    const { embedding } = await res.json();
+    if (!embedding)     throw new Error('missing "embedding" in /embed reply');
+    return embedding;
   }
 
   $btn.addEventListener('click', async () => {
-    let taxo;
+    let src;
     try {
-      taxo = JSON.parse(document.getElementById('jsonInput').value);
+      src = JSON.parse(document.getElementById('jsonInput').value);
     } catch {
       return alert('Bad JSON');
     }
 
-    const indexes = taxo.indexes ?? {};
-    for (const [category, breadcrumbs] of Object.entries(indexes)) {
+    const out = { indexes: {} };
 
-      const paths = [];
-      for (const path of breadcrumbs) {
-        $stat.textContent = `Embedding “${path}” …`;
-        try {
-          const emb = await getEmbedding(path);
-          paths.push({ p: path, emb });
-        } catch (err) {
-          console.error(err);
-          $log.textContent += `❌  failed embedding ${path}: ${err.message}\n`;
-        }
+    const idx = src.indexes ?? {};
+    for (const [category, paths] of Object.entries(idx)) {
+      if (!paths.length) continue;          // nothing to do
+      // use the first breadcrumb string for the embedding
+      const text = paths[0];
+
+      $stat.textContent = `Embedding “${text}”…`;
+      try {
+        out.indexes[category] = await getEmbedding(text);
+        $log.textContent += `✔ ${category}\n`;
+      } catch (err) {
+        console.error(err);
+        $log.textContent += `❌ ${category}: ${err.message}\n`;
       }
-
-      // nothing to send?
-      if (!paths.length) continue;
-
-      $stat.textContent = `POSTing ${category} (${paths.length}) …`;
-      const res = await fetch('/api/ingest', {
-        method : 'POST',
-        headers: { 'Content-Type':'application/json' },
-        body   : JSON.stringify({
-                  category,
-                  root : category.toLowerCase(),
-                  paths
-                })
-      }).then(r => r.json());
-
-      $log.textContent += `✔ stored ${category} → ${JSON.stringify(res)}\n`;
     }
 
-    $stat.textContent = 'All done ✔';
+    $stat.textContent  = 'Done ✔';
+    $out.value         = JSON.stringify(out, null, 2);
+    $out.select();               // highlight for easy copy
   });
 </script>
+
 </body>
 </html>
