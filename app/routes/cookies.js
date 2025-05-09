@@ -2535,18 +2535,38 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const distances = {};
                 for (let i = 1; i <= 5; i++) {
                     const attr = `emb${i}`;
-                    const ref = item[attr];
-                    if (Array.isArray(ref) && ref.length === embedding.length) {
-                        distances[attr] = cosineDist(embedding, ref);
+                    const raw = item[attr];
+                    let refArr = null;
+
+                    // if stored as a JSON string, parse it
+                    if (typeof raw === 'string') {
+                        try {
+                            refArr = JSON.parse(raw);
+                        } catch (err) {
+                            console.warn(`Failed to parse ${attr} for ${domain}/${subdomain}:`, err);
+                            continue;
+                        }
                     }
+                    // if it’s already an array, use it directly
+                    else if (Array.isArray(raw)) {
+                        refArr = raw;
+                    }
+
+                    // skip anything that didn’t become an array of the right length
+                    if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
+                        continue;
+                    }
+
+                    // compute distance against the parsed vector
+                    distances[attr] = cosineDist(embedding, refArr);
                 }
                 console.log("-^-^-^-^-^-^-^-^-^-^-^-")
                 mainObj = {
-                    position  : distances,
+                    position: distances,
                     domain,
                     subdomain,
-                    id        : item.id ?? null
-                  }
+                    id: item.id ?? null
+                }
                 console.log("mainObj", mainObj)
             } else if (action == "addIndex") {
 
