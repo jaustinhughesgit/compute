@@ -135,26 +135,41 @@ async function ensureTable(tableName) {
 
   app.post('/api/ingest', async (req, res) => {
     try {
-      const { category, root, paths } = req.body;     // expect {category, root, paths:[{p,emb},…]}
-      if (!category || !root || !Array.isArray(paths) || !paths.length) {
+      let { category, root, paths } = req.body;      // paths may be strings OR objects
+      if (!category || !root || !Array.isArray(paths) || paths.length === 0) {
         return res.status(400).json({ error: 'bad payload' });
       }
   
+      //------------------------------------------------------------------
+      // ❶ If the items are strings, embed them with OpenAI in one call
+      //------------------------------------------------------------------
+      if (typeof paths[0] === 'string') {
+        const { data } = await openai.embeddings.create({
+          model : EMB_MODEL,
+          input : paths                            // batch request (cheap & fast)
+        });
+  
+        // convert → [{ p, emb }, …] so the rest of the code stays unchanged
+        paths = paths.map((p, i) => ({ p, emb: data[i].embedding }));
+      }
+  
+      //------------------------------------------------------------------
+      // ❷ DynamoDB write – identical to your original logic
+      //------------------------------------------------------------------
       const tableName = `i_${category}`;
       await ensureTable(tableName);
   
-      // flatten to pathN / embN pairs
       const item = { root, id: nextId() };
       paths.forEach(({ p, emb }, idx) => {
         item[`path${idx + 1}`] = p;
-        item[`emb${idx + 1}`] = JSON.stringify(normaliseEmbedding(emb));
+        item[`emb${idx + 1}`]  = JSON.stringify(normaliseEmbedding(emb));
       });
   
       await dynamodb.put({ TableName: tableName, Item: item }).promise();
-      res.json({ ok: true });
+      res.json({ ok: true, wrote: paths.length });
     } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: err.message });
+      console.error('ingest error:', err);
+      res.status(502).json({ error: err.message || 'embedding‑service‑unavailable' });
     }
   });
 
