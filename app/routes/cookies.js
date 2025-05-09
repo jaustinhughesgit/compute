@@ -2475,7 +2475,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "position"){
-                console.log("position>>>>>>>")
+                console.log("position>>>>>>>", reqBody)
                 const { description, domain, subdomain } = reqBody.body || {};
 
                 if (!description || !domain || !subdomain) {
