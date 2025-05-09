@@ -4,15 +4,7 @@
   <meta charset="utf-8">
   <title>Breadcrumb → DynamoDB loader</title>
 
-  <!-- Xenova import‑map -->
-  <script type="importmap">
-    {
-      "imports": {
-        "@xenova/transformers":
-          "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
-      }
-    }
-  </script>
+  <!-- ⚠️  Xenova import‑map removed – no more WASM in the browser -->
 
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; }
@@ -364,43 +356,20 @@
           ]
       }
     }
-  
   </textarea>
-</label>
-<br>
-<button id="goBtn" disabled>Process &amp; upload</button>
+</label><br>
 
-<p id="status">Loading embedding model…</p>
+<button id="goBtn">Process & upload</button>
+
+<p id="status">Ready ✔</p>
 <pre id="log"></pre>
 
 <script type="module">
-  import { pipeline } from '@xenova/transformers';
-
   const $btn  = document.getElementById('goBtn');
   const $stat = document.getElementById('status');
   const $log  = document.getElementById('log');
 
-  // ── helper: always return a plain JS array ────────────────────
-  function normaliseEmbedding(e) {
-    if (Array.isArray(e)) return e;        // already OK
-    if (e && e.data && e.dims) {           // {dims,type,data}
-      const n   = e.dims[0];
-      const arr = new Array(n);
-      for (let i = 0; i < n; i++) arr[i] = e.data[i];
-      return arr;
-    }
-    throw new Error('Unknown embedding format');
-  }
-
-  // ── 1. load model once ────────────────────────────────────────
-  let encoder = null;
-  (async () => {
-    encoder = await pipeline('feature-extraction', 'Xenova/all-mpnet-base-v2');
-    $stat.textContent = 'Model ready ✔';
-    $btn.disabled = false;
-  })();
-
-  // ── 2. click → read JSON → embed → POST ───────────────────────
+  // ── click → read JSON → POST raw paths ─────────────────────────────
   $btn.addEventListener('click', async () => {
     let taxo;
     try {
@@ -412,24 +381,15 @@
     for (const [category, subCats] of Object.entries(taxo)) {
       for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
 
-        // embed each breadcrumb
-        const paths = [];
-        for (const path of breadcrumbs) {
-          $stat.textContent = `Embedding “${path}”…`;
-          const [[raw]] = await encoder(path);          // may be array or tensor‑json
-          const emb     = normaliseEmbedding(raw);
-          paths.push({ p: path, emb });
-        }
+        $stat.textContent = `Uploading “${subCat}” (${breadcrumbs.length} paths)…`;
 
-        // POST to Lambda – root is forced to lowercase here
-        $stat.textContent = `POSTing ${subCat} to i_${category}…`;
         const res = await fetch('/api/ingest', {
           method : 'POST',
           headers: { 'Content-Type':'application/json' },
           body   : JSON.stringify({
-                    category,
-                    root: subCat.toLowerCase(), //  ← lower‑cased
-                    paths
+                    category,                       // eg. agriculture
+                    root : subCat.toLowerCase(),    // eg. agroeconomics
+                    paths: breadcrumbs              // raw strings – no embeddings yet
                   })
         }).then(r => r.json());
 
