@@ -240,11 +240,11 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             //cant use .some. we need to know which ai objects are being used and merge the access types  rw + pd = rwpd
 
             let bb = {};
-            if (body){
-                bb =JSON.parse(JSON.stringify(body));
+            if (body) {
+                bb = JSON.parse(JSON.stringify(body));
             }
 
-            if (bb.hasOwnProperty("body")){
+            if (bb.hasOwnProperty("body")) {
                 console.log("body.body", body);
                 bb = JSON.parse(JSON.stringify(body.body));
             }
@@ -255,10 +255,10 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 let access = await getAccess(entityAi[x], dynamodb);
                 console.log("access.Items[0].va", access.Items[0].va);
                 console.log("body2", bb);
-                
+
                 let deep = true;//await deepEqual(access.Items[0].va, bb);
                 console.log("deep", deep);
-                if (deep == true  && verified == false) {
+                if (deep == true && verified == false) {
                     console.log("inside deep condition");
                     console.log("fileID", fileID);
                     console.log("body.headers.X-accessToken", body.headers["X-accessToken"]);
@@ -827,7 +827,7 @@ const updateJSONL = async (newLine, keys, s3) => {
 };
 
 const fineTune = async (openai, method, val, sub) => {
-    let  fineTune = {}
+    let fineTune = {}
     if (method == "create") {
         fineTune = await openai.fineTuning.jobs.create({
             training_file: val,
@@ -1531,8 +1531,8 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
     const data = await s3.getObject(params).promise();
-    console.log("data",data);
-    console.log("data.Body",data.Body.toString('utf-8'))
+    console.log("data", data);
+    console.log("data.Body", data.Body.toString('utf-8'))
     return await JSON.parse(data.Body.toString('utf-8'));
 }
 
@@ -1843,35 +1843,39 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai, dynamodb);
                 const uniqueId = await getUUID(uuidv4);
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", parent.Items[0].z, dynamodb)
-                const fileResult = await createFile(uniqueId, 
-                    { "input": [{"physical": [ 
-                        [{}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                     ]},{ "virtual": [ ]}],"published": {
-                        "blocks": [{"entity": uniqueId ,"name": "Primary"}],
-                        "modules": {},
-                        "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
-                        "function": {},
-                        "automation": [],
-                        "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
-                        "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
-                        "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
-                        "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
-                        "assignments": {
-                            "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
-                            "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
-                            "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
-                            "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
-                        }
-                    },"skip": [],"sweeps": 1,"expected": []}, s3);
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [{
+                            "physical": [
+                                [{}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                            ]
+                        }, { "virtual": [] }], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            }
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }, s3);
                 actionFile = uniqueId;
                 const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
                 const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
@@ -1928,35 +1932,39 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), [ai.toString()], dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
-                    const fileResult = await createFile(uniqueId2, 
-                        { "input": [{"physical": [ 
-                            [{}],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
-                            ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                         ]},{ "virtual": [ ]}],"published": {
-                            "blocks": [{"entity": uniqueId2 ,"name": "Primary"}],
-                            "modules": {},
-                            "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
-                            "function": {},
-                            "automation": [],
-                            "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
-                            "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
-                            "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
-                            "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
-                            "assignments": {
-                                "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
-                                "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
-                                "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
-                                "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
-                            }
-                        },"skip": [],"sweeps": 1,"expected": []}
+                    const fileResult = await createFile(uniqueId2,
+                        {
+                            "input": [{
+                                "physical": [
+                                    [{}],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId2, "name": "Primary" }]],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                    ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                                ]
+                            }, { "virtual": [] }], "published": {
+                                "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
+                                "modules": {},
+                                "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                                "function": {},
+                                "automation": [],
+                                "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                                "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                                "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                                "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                                "assignments": {
+                                    "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                    "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                    "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                    "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                                }
+                            }, "skip": [], "sweeps": 1, "expected": []
+                        }
                         , s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
@@ -2013,36 +2021,40 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, mpE.Items[0].ai, dynamodb);
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
-                const fileResult = await createFile(uniqueId, 
-                    { "input": [{"physical": [ 
-                        [{}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                     ]},{ "virtual": [ ]}],"published": {
-                        "blocks": [{"entity": uniqueId ,"name": "Primary"}],
-                        "modules": {},
-                        "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
-                        "function": {},
-                        "automation": [],
-                        "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
-                        "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
-                        "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
-                        "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
-                        "assignments": {
-                            "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
-                            "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
-                            "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
-                            "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
-                        }
-                    },"skip": [],"sweeps": 1,"expected": []}
-                    
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [{
+                            "physical": [
+                                [{}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                            ]
+                        }, { "virtual": [] }], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            }
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }
+
                     , s3)
                 actionFile = uniqueId
                 let newM = {}
@@ -2072,37 +2084,41 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const uniqueId = await getUUID(uuidv4)
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
 
-                const fileResult = await createFile(uniqueId, 
-                    { "input": [{"physical": [ 
-                        [{}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}],["ROWRESULT", "0", "NESTED", "000!!", "function", {}],["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "calls", {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "templates", {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}}],
-                        ["ROWRESULT", "000", "NESTED", "000!!", "assignments", {"a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello5"},"_mode": "_html"},"b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello6"},"_mode": "_html"},"c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello7"},"_mode": "_html"},"d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Hello8"},"_mode": "_html"}}]
-                     ]},{ "virtual": [ ]}],"published": {
-                        "blocks": [{"entity": uniqueId ,"name": "Primary"}],
-                        "modules": {},
-                        "actions": [{"target": "{|res|}!","chain": [{"access": "send","params": ["{|entity|}"]}],"assign": "{|send|}"}],
-                        "function": {},
-                        "automation": [],
-                        "menu": {"ready": {"_name": "Ready","_classes": ["Root"],"_show": false,"_selected": true,"options": {"_name": "Options","_classes": ["ready"],"_show": true,"_selected": false,"back": {"_name": "Back","_classes": ["options"],"_show": false,"_selected": false}},"close": {"_name": "Close","_classes": ["ready"],"_show": false,"_selected": false}}},
-                        "commands": {"ready": {"call": "ready","ready": false,"updateSpeechAt": true,"timeOut": 0},"back": {"call": "back","ready": true,"updateSpeechAt": true,"timeOut": 0},"close": {"call": "close","ready": false,"updateSpeechAt": true,"timeOut": 0},"options": {"call": "options","ready": false,"updateSpeechAt": true,"timeOut": 0}},
-                        "calls": {"ready": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "show","args": ["menu",0],"custom": false}]}],"back": [{"if": [{"key": ["ready","_selected"],"expression": "!=","value": true}],"then": ["ready"],"show": ["ready"],"run": [{"function": "highlight","args": ["ready",0],"custom": false}]}],"close": [{"if": [],"then": ["ready"],"show": [],"run": [{"function": "hide","args": ["menu",0]}]}],"options": [{"if": [{"key": ["ready","_selected"],"expression": "==","value": true}],"then": ["ready","options"],"show": ["options"],"run": []}]},
-                        "templates": {"init": {"1": {"rows": {"1": {"cols": ["a","b"]}}}},"second": {"2": {"rows": {"1": {"cols": ["c","d"]}}}}},
-                        "assignments": {
-                            "a": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 1"},"_mode": "_html"},
-                            "b": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 2"},"_mode": "_html"},
-                            "c": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 3"},"_mode": "_html"},
-                            "d": {"_editable": false,"_movement": "move","_owners": [],"_modes": {"_html": "Box 4"},"_mode": "_html"}
-                        }
-                    },"skip": [],"sweeps": 1,"expected": []}
-                
-                , s3)
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [{
+                            "physical": [
+                                [{}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                            ]
+                        }, { "virtual": [] }], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            }
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }
+
+                    , s3)
                 actionFile = uniqueId
 
                 //copy parent
@@ -2327,13 +2343,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 //We're only grabbing the first entity and applying it. THere might be multiple access entities that we need to loop through and give them all to the set entity.
                 const useE = await getEntity(subEntity.Items[0].e, dynamodb)
-                console.log("usubEntity.Items[0]",subEntity.Items[0]);
-                for (ac in access.Items){
-                    console.log("access.Items[0]",access.Items[ac]);
-                    console.log("useE.Items[0]",useE.Items[0]);
-                    console.log("useE",useE)
+                console.log("usubEntity.Items[0]", subEntity.Items[0]);
+                for (ac in access.Items) {
+                    console.log("access.Items[0]", access.Items[ac]);
+                    console.log("useE.Items[0]", useE.Items[0]);
+                    console.log("useE", useE)
                     let changeID = "1"
-                    if (useE.Items[0].hasOwnProperty("c")){
+                    if (useE.Items[0].hasOwnProperty("c")) {
                         changeID = useE.Items[0].c.toString();
                     }
                     const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[ac].ai.toString(), changeID, dynamodb);
@@ -2474,83 +2490,68 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
 
                 mainObj["oai"] = JSON.parse(oai.response);
-            } else if (action == "position"){
+            } else if (action == "position") {
                 console.log("position>>>>>>>", reqBody)
-                const { description, domain, subdomain } = reqBody.body || {};
+                const { description, domain, subdomain, embedding } = reqBody.body || {};
 
-                if (!description || !domain || !subdomain) {
-                  return res.status(400).json({ error: 'description, domain & subdomain required' });
+                const { description, domain, subdomain, embedding } = req.body || {};
+
+                if (!embedding || !domain || !subdomain) {
+                    return res.status(400).json({ error: 'embedding, domain & subdomain required' });
                 }
-              
-                /* 1️⃣  embed the user text (re‑using OpenAI here is simpler than
-                       sending the vector from the client; if cost matters you can
-                       instead include the vector in the POST body) */
-                let vector;
-                try {
-                  const { data } = await openai.embeddings.create({
-                    model : 'text-embedding-3-small',
-                    input : description
-                  });
-                  vector = data[0].embedding;         // 1 × 1536 float[]
-                } catch (err) {
-                  console.error('OpenAI embedding failure:', err);
-                  return res.status(502).json({ error: 'embedding‑service‑unavailable' });
-                }
-              
-                /* 2️⃣  pull the record for that sub‑domain from DynamoDB  */
+
+                /* 1️⃣  pull the record for that sub‑domain from DynamoDB */
                 const tableName = `i_${domain}`;
                 let item;
                 try {
-                  /* root = partition key, id = sort key: fetch the *first* row for
-                     that sub‑domain.  If you need *all* rows, remove `.Limit = 1`. */
-                  const params = {
-                    TableName : tableName,
-                    KeyConditionExpression    : '#r = :sub',
-                    ExpressionAttributeNames  : { '#r': 'root' },
-                    ExpressionAttributeValues : { ':sub': subdomain },
-                    Limit : 1
-                  };
-                  const data = await dynamodb.query(params).promise();
-                  if (!data.Items.length) {
-                    return res.status(404).json({ error: 'no record for that sub‑domain' });
-                  }
-                  item = data.Items[0];
+                    const params = {
+                        TableName: tableName,
+                        KeyConditionExpression: '#r = :sub',
+                        ExpressionAttributeNames: { '#r': 'root' },
+                        ExpressionAttributeValues: { ':sub': subdomain },
+                        Limit: 1
+                    };
+                    const data = await dynamodb.query(params).promise();
+                    if (!data.Items.length) {
+                        return res.status(404).json({ error: 'no record for that sub‑domain' });
+                    }
+                    item = data.Items[0];
                 } catch (err) {
-                  console.error('DynamoDB query failed:', err);
-                  return res.status(502).json({ error: 'db‑unavailable' });
+                    console.error('DynamoDB query failed:', err);
+                    return res.status(502).json({ error: 'db‑unavailable' });
                 }
-              
-                /* 3️⃣  compute cosine distance for emb1…emb5 */
+
+                /* 2️⃣  cosine distance helper */
                 const cosineDist = (a, b) => {
-                  let dot = 0, na = 0, nb = 0;
-                  for (let i = 0; i < a.length; i++) {
-                    dot += a[i] * b[i];
-                    na  += a[i] * a[i];
-                    nb  += b[i] * b[i];
-                  }
-                  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+                    let dot = 0, na = 0, nb = 0;
+                    for (let i = 0; i < a.length; i++) {
+                        dot += a[i] * b[i];
+                        na += a[i] * a[i];
+                        nb += b[i] * b[i];
+                    }
+                    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
                 };
-              
+
+                /* 3️⃣  compare with emb1…emb5 */
                 const distances = {};
                 for (let i = 1; i <= 5; i++) {
-                  const attr = `emb${i}`;
-                  if (item[attr] && Array.isArray(item[attr])) {
-                    distances[attr] = cosineDist(vector, item[attr]);
-                  }
+                    const attr = `emb${i}`;
+                    const ref = item[attr];
+                    if (Array.isArray(ref) && ref.length === embedding.length) {
+                        distances[attr] = cosineDist(embedding, ref);
+                    }
                 }
-              
-                /* 4️⃣  send back the object the PositionModule expects */
-                mainObj = {
-                  position : distances,          // { emb1: 0.23, … }
-                  domain,
-                  subdomain,
-                  id : item.id                   // handy for debugging
-                };
                 console.log("-^-^-^-^-^-^-^-^-^-^-^-")
-                console.log("mainObj",mainObj)
-            } else if (action == "addIndex"){
+                mainObj = {
+                    position  : distances,
+                    domain,
+                    subdomain,
+                    id        : item.id ?? null
+                  }
+                console.log("mainObj", mainObj)
+            } else if (action == "addIndex") {
 
-            } else if (action == "shorthand"){
+            } else if (action == "shorthand") {
                 actionFile = reqPath.split("/")[3];
                 //this needs to be updated so that the entire var is the shorthand.
                 let { shorthand } = require('../routes/shorthand');
@@ -2561,7 +2562,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 //newJPL["shorthand"] = shorthandLogic
                 const params = {
-                    Bucket: "public.1var.com", 
+                    Bucket: "public.1var.com",
                     Key: actionFile,
                     Body: JSON.stringify(newShorthand),
                     ContentType: "application/json"
@@ -2644,10 +2645,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.log("sendBack:3", response);
                     return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 } else {
-                    console.log("sendBack:3.0 =>",response)
+                    console.log("sendBack:3.0 =>", response)
                     console.log("sendBack:3.1 response =>", "-" + JSON.stringify(response) + "-");
                     console.log("sendBack:3.1 isShorthand =>", isShorthand);
-                    if (!response.hasOwnProperty("status")){
+                    if (!response.hasOwnProperty("status")) {
                         return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                     }
                 }
@@ -2663,12 +2664,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     }
 }
 
-function sendBack(res, type, val, isShorthand){
+function sendBack(res, type, val, isShorthand) {
     //Create the ability to detect if it is shorthand
     //check if it is shorthand and send back to shorthand.
     //if not shorthand then do the following;
     console.log("isShorthand========>", isShorthand)
-    if (!isShorthand){
+    if (!isShorthand) {
         res.json(val)
     } else {
         return val //returning the value back to the shorthand request
