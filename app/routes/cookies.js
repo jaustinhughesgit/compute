@@ -2492,10 +2492,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "position") {
                 console.log("position>>>>>>>", reqBody)
-                const { description, domain, subdomain, embedding } = reqBody.body || {};
+                const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
 
 
-                if (!embedding || !domain || !subdomain) {
+                if (!embedding || !domain || !subdomain || !entity) {
                     return res.status(400).json({ error: 'embedding, domain & subdomain required' });
                 }
 
@@ -2561,10 +2561,52 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     distances[attr] = cosineDist(embedding, refArr);
                 }
                 console.log("-^-^-^-^-^-^-^-^-^-^-^-")
+                try {
+                    const updateParams = {
+                      TableName: 'subdomains',
+                      Key: { su: entity },
+                      UpdateExpression: `
+                        SET #d1 = :d1,
+                            #d2 = :d2,
+                            #d3 = :d3,
+                            #d4 = :d4,
+                            #d5 = :d5,
+                            #path = :path
+                      `,
+                      ExpressionAttributeNames: {
+                        '#d1': 'dist1',
+                        '#d2': 'dist2',
+                        '#d3': 'dist3',
+                        '#d4': 'dist4',
+                        '#d5': 'dist5',
+                        '#path': 'path'
+                      },
+                      ExpressionAttributeValues: {
+                        ':d1': distances.emb1 ?? null,
+                        ':d2': distances.emb2 ?? null,
+                        ':d3': distances.emb3 ?? null,
+                        ':d4': distances.emb4 ?? null,
+                        ':d5': distances.emb5 ?? null,
+                        ':path': `/${domain}/${subdomain}`
+                      },
+                      ReturnValues: 'UPDATED_NEW'
+                    };
+                
+                    const updateResult = await dynamodb.update(updateParams).promise();
+                    console.log('Updated subdomains record:', updateResult);
+                  } catch (err) {
+                    console.error('Failed to update subdomains table:', err);
+                    // decide whether to treat this as fatal or continue
+                    return res.status(502).json({ error: 'failed to save distances' });
+                  }
+                
+                  // 5️⃣  finally send back what PositionModule expects
+
                 mainObj = {
                     position: distances,
                     domain,
                     subdomain,
+                    entity,
                     id: item.id ?? null
                 }
                 console.log("mainObj", mainObj)
