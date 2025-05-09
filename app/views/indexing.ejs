@@ -4,7 +4,15 @@
   <meta charset="utf-8">
   <title>Breadcrumb → DynamoDB loader</title>
 
-  <!-- ❶  nothing to import – we embed server‑side now -->
+  <!-- Xenova import‑map -->
+  <script type="importmap">
+    {
+      "imports": {
+        "@xenova/transformers":
+          "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
+      }
+    }
+  </script>
 
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; }
@@ -16,100 +24,420 @@
 
 <label>JSON taxonomy
   <textarea id="jsonInput" rows="12" style="width:100%">
-{
-  "indexes": {
-    "agriculture": ["agriculture"],
-    "architecture": ["architecture"],
-    "biology": ["biology"],
-    "business": ["business"],
-    "characteristic": ["characteristic"],
-    "chemistry": ["chemistry"],
-    "community": ["community"],
-    "cosmology": ["cosmology"],
-    "economics": ["economics"],
-    "education": ["education"],
-    "entertainment": ["entertainment"],
-    "environment": ["environment"],
-    "event": ["event"],
-    "food": ["food"],
-    "geology": ["geology"],
-    "geography": ["geography"],
-    "government": ["government"],
-    "health": ["health"],
-    "history": ["history"],
-    "language": ["language"],
-    "law": ["law"],
-    "manufacturing": ["manufacturing"],
-    "mathematics": ["mathematics"],
-    "people": ["people"],
-    "psychology": ["psychology"],
-    "philosophy": ["philosophy"],
-    "religion": ["religion"],
-    "sports": ["sports"],
-    "technology": ["technology"],
-    "transportation": ["transportation"]
-  }
-}
+    {
+      "agriculture": {
+          "agroeconomics": [
+              "markets/commodity/corn/price-trends/quarterly/q1/2024/average-price/usd/4.75",
+              "policy/subsidies/crop-insurance/enrollment/farmers/region/southeast/participation-rate/percent/62",
+              "labor/wages/seasonal-workers/mexico/us-work-visas/average-daily-wage/usd/11.30",
+              "economic-impact/trade/tariffs/soybeans/export-volume/country/china/2023/metric-tons/500000",
+              "farm-income/net-farm-income/projection/fiscal-year/2025/scenario/worst-case/total/usd/85000"
+          ],
+          "agrochemicals": [
+              "inputs/fertilizers/nitrogen/types/anhydrous-ammonia/application-rate/acre/120lbs",
+              "pesticides/insecticides/application/methods/aerial/safety-guidelines/document-id/FS-3048",
+              "regulations/epa/approvals/herbicides/product/roundup/status/approved/date/2024-11-16",
+              "residue/testing/fruits/strawberries/ppm-levels/chemical/chlorpyrifos/result/0.01",
+              "distribution/logistics/supply-chain/manufacturers/bayer/shipping-region/asia/cost-per-ton/usd/450"
+          ],
+          "agronomy": [
+              "soil/health/organic-matter/composition/depth/inches/0-6/percentage/3.5",
+              "crop-rotation/systems/three-year-cycle/year-2/planting/barley/variety/heritage",
+              "field-trials/wheat/yield-comparison/fertilizer-types/test-plot/alpha/result/bushels/78",
+              "planting/schedules/zone-7a/early-spring/legumes/pea/variety/little-marvel/seed-rate/100lbs-per-acre",
+              "weed-control/manual-removal/row-spacing/corn/inches/30/labor-hours/required/12"
+          ],
+          "agtech": [
+              "sensors/soil-moisture/devices/vendor/agriSense/model/SMX3000/battery-life/days/180",
+              "drones/usage/crop-monitoring/drone-model/dji-agras/t30/flight-duration/minutes/28",
+              "software/farm-management/apps/provider/trimble/version/2025.1/features/irrigation-scheduling/enabled",
+              "iot/networks/protocols/lorawan/base-station/range/km/15",
+              "data-integration/platforms/cloud-storage/vendor/aws/s3-bucket/encryption/aes256"
+          ],
+          "animal-health": [
+              "vaccinations/livestock/cattle/schedule/vaccine-type/brucellosis/dosage/ml/2",
+              "parasite-control/sheep/internal/parasiticide/moxidectin/application-interval/days/60",
+              "diagnostics/swine/respiratory-issues/lab-tests/test-name/PRRSV-PCR/result/positive",
+              "nutrition/rations/dairy-cows/lactating/energy-density/mcal/kg/1.75",
+              "record-keeping/herd-health/system/management-software/farmvet/entry-frequency/daily"
+          ],
+          "aquaculture": [
+              "species-selection/tilapia/habitat/type/recirculating-tank/stocking-density/fish/m³/25",
+              "feed/formulation/protein-content/fingerlings/supplier/skretting/protein-percent/38",
+              "disease-management/biosecurity/measures/facility-type/pond/barrier-method/UV-filter",
+              "harvest/schedules/salmon/growth-cycle/days-to-harvest/market-weight/500",
+              "water-quality/parameters/ph/range/optimal/6.8-to-7.5/test-frequency/daily"
+          ],
+          "aquaponics": [
+              "system-design/media-bed/layout/type/U-shape/dimensions/feet/8x3",
+              "fish-choice/species/koi/growth-duration/months/12/harvest-weight/kg/0.7",
+              "plant-choice/leafy-greens/lettuce/variety/butterhead/harvest-cycle/days/45",
+              "water-circulation/pump/model/ecoPlus/gph/1056/rating/continuous-duty",
+              "nutrient-balance/monitoring/element/nitrate/ppm/ideal/100"
+          ],
+          "biodiversity": [
+              "ecosystems/agricultural/hedgerow-management/species-diversity/survey-area/acres/10/species-count/27",
+              "pollinators/habitat/beekeeping/apiaries/location/field-edge/colony-density/hives-per-acre/2",
+              "crop-diversity/intercropping/models/legume-cereal/plot/trial-7/yield-increase/percent/12",
+              "genetic-diversity/seed-banks/repository/icarda/sample-origin/ethiopia/sample-id/ETH-2042",
+              "wildlife/corridors/farm-boundaries/width/meters/15/planting-type/native-shrubs"
+          ],
+          "biotechnology": [
+              "genetic-engineering/crops/gmo-corn/trait/herbicide-tolerance/event-id/MON89034/approval-status/approved",
+              "tissue-culture/banana/propagation-lab/cycle/stage-3/rooting-days/12",
+              "synthetic-biology/microbial-engineering/biofertilizer/strain-designation/Bacillus-FB33/nitrogen-fixation-rate/mg/day/18",
+              "crispr/editing/soybean/gene-target/FAD2/alteration-type/knockout/confirmed/yes",
+              "regulation/intellectual-property/patents/trait/drought-resistance/filed-year/2023/status/granted"
+          ],
+          "certification": [
+              "organic/audit/compliance-check/inputs/fertilizer/inspection-date/2024-09-15/passed/yes",
+              "fair-trade/coffee/farm-id/CT456/certification-validity/start-date/2023-06-01/expiry/2026-06-01",
+              "global-gap/fresh-produce/traceability/code/PRD-ZN00345/last-update/date/2025-02-20",
+              "usda-certified/organic-labeling/meat/products/processing-plant/id/PLT9347/audit-result/approved",
+              "rainforest-alliance/criteria/biodiversity/protection-measures/pond-buffer-zone/meters/10"
+          ],
+          "climate": [
+              "carbon-emissions/crop-production/corn/region/iowa/season/2023/total-emissions/tons/2400",
+              "temperature-trends/decadal-data/region/midwest/usgs-records/highest-average/february/2024/temp-c/9.2",
+              "adaptation/strategies/crop-choice/drought-prone-areas/switch/millet/acreage-change/percent/35",
+              "greenhouse-gas-mitigation/livestock/manure-management/system/bio-digester/gas-capture-rate/m³/day/450",
+              "weather-models/agricultural-forecast/tool/noaa/gdd-prediction/week/17/deviation/degree-days/42"
+          ],
+          "crop-production": [
+              "planting/seasons/maize/zone/5a/optimal-start/date/2025-04-12",
+              "harvest/techniques/combine/efficiency/rate/acres/hour/4.2",
+              "fertility-programs/soil-type/clay-loam/crop/wheat/total-nitrogen/lbs-per-acre/90",
+              "diseases/fungal/blight/risk-index/threshold/exceeded/date/2025-05-20",
+              "yield-analysis/soybean/variety/xtendflex/field/id/F1234/harvest-weight/bushels/58.4"
+          ],
+          "dairy": [
+              "milking/systems/robotic/machine-model/LELY-Astronaut-A5/milking-frequency/day/2.8",
+              "feed/total-mixed-ration/components/forage-type/alfalfa/percent-dry-matter/42",
+              "reproduction/cycle/estrus-detection/device/id/HeatWatch-V2/detection-accuracy/percent/91",
+              "milk-quality/scc-tests/sample-batch/id/MILK-20250402/somatic-cell-count/units/ml/152000",
+              "calf-rearing/protocol/colostrum-intake/hour/post-birth/2/intake-ml/3800"
+          ],
+          "data": [
+              "collection/field-sensors/type/weather-station/parameter/wind-speed/data-point/id/WS2025-03-02T14/value/12.6",
+              "storage/platform/cloud/aws-region/us-west-2/sync-frequency/minutes/30",
+              "visualization/tools/dashboards/software/powerbi/usage/user/farm-ops-view/active/yes",
+              "integration/standards/api-format/agjson/schema-version/2.1.0/compatibility/checked",
+              "analysis/machine-learning/model/yield-prediction/input-variable/soil-ph/value/6.7"
+          ],
+          "education": [
+              "curriculum/agriculture-studies/secondary-schools/module/sustainable-farming/unit/3/lesson-count/7",
+              "certifications/short-courses/organic-agriculture/provider/university-of-florida/completion-time/months/6",
+              "e-learning/platforms/agriacademy/course/drone-operations/quiz-1/passing-score/percent/80",
+              "internships/farm-training/host/green-sky-farms/duration/weeks/12/start-date/2025-06-10",
+              "literacy-programs/rural-communities/target-age-group/14-18/participation-rate/percent/73"
+          ],
+          "engineering": [
+              "irrigation-systems/design/pivot-layout/field-id/FRM-9082/radius/meters/125",
+              "greenhouse/construction/material/covering/polycarbonate/thickness/mm/6",
+              "farm-structures/storage/silo-type/concrete/capacity/tons/350",
+              "machinery/integration/gps-module/model/john-deere-STARFIRE/accuracy/inches/3",
+              "automation/controllers/temperature/hardware-brand/arduino-sensor/model/DHT22/installed/yes"
+          ],
+          "farm-equipment": [
+              "tractors/power-rating/model/kubota-M7/hp/168/usage/hours/740",
+              "harvesters/type/combine/brand/case-ih/model/8240/header-width/feet/40",
+              "plows/moldboard/configuration/3-bottom/mount/type/3-point/linkage-category/II",
+              "sprayers/capacity/gallons/500/tank-material/polyethylene/boom-length/feet/30",
+              "maintenance/schedule/oil-change/machine-type/rototiller/interval/hours/100"
+          ],
+          "farm-management": [
+              "planning/crop-calendar/region/central-valley/season/2025/sowing-start-date/2025-03-20",
+              "recordkeeping/software/farmwizard/data-entry/interval/days/3",
+              "personnel-management/seasonal-workers/recruitment/platform/agjobs/target-country/guatemala",
+              "inventory/inputs/seeds/wheat/stock-on-hand/bags/97",
+              "decision-support/financial-analysis/cash-flow/month/june/net-income/usd/11340"
+          ],
+          "finance": [
+              "loans/agriculture-mortgages/bank/farm-credit-usa/interest-rate/percent/5.1",
+              "subsidies/direct-payment-program/beneficiary-id/FARM8721/payment-amount/usd/2400",
+              "investment/venture-capital/startup/vertical-farming/funding-round/series-a/amount/usd/4.2M",
+              "insurance/crop-coverage/policy/number/ACROP4567/payout-triggered/date/2024-09-15",
+              "cost-analysis/input-breakdown/fertilizer/cost-per-acre/usd/68.25"
+          ],
+          "food-processing": [
+              "equipment/sterilization/temperature-monitoring/line-id/PLANT-A3/temperature/celsius/121",
+              "preservation/methods/dehydration/crop/tomato/moisture-final-percent/6.5",
+              "packaging/formats/vacuum-bags/material/poly-nylon/thickness/microns/80",
+              "processing-line/efficiency/station/blanching/output-rate/units/hour/3400",
+              "storage/conditions/frozen-goods/product/green-beans/temperature/fahrenheit/-10"
+          ],
+          "food-safety": [
+              "haccp/plans/cold-storage/critical-control-point/temperature-log/compliant/yes",
+              "microbiological-testing/sample/id/B12345/bacteria/salmonella/result/negative",
+              "traceability/barcodes/lot-number/TOM-20250319/scan-date/2025-03-21",
+              "employee-training/sanitation/last-certification/date/2024-12-01/completion/status/valid",
+              "recalls/alerts/product/lettuce/batch-id/LT-9342/reason/listeria-contamination"
+          ],
+          "forestry": [
+              "forest-type/temperate/management-practices/selective-logging/rotation-period/years/25",
+              "reforestation/projects/region/andes/species/pinus-radiata/seedling-survival-rate/percent/87",
+              "fire-prevention/control-methods/firebreak-width/meters/30/vegetation-cleared/yes",
+              "timber/harvesting/methods/cable-logging/equipment/model/tigercat-234/machine-hours/120",
+              "biodiversity/monitoring/bird-population/species-count/plot-id/FOR-22/detected/14"
+          ],
+          "genetics": [
+              "plant-breeding/corn/trait-selection/drought-resistance/gene-variant/DT-45/expressed/true",
+              "genome-mapping/species/sorghum/platform/illumina/x-coverage/30x",
+              "genetic-testing/livestock/breed/angus/sample-id/GEN-8931/tested-for/marbled-meat/score/high",
+              "marker-assisted-selection/rice/locus/QTL-R3/genotype/AA",
+              "inheritance/traits/crossbreeding/trial/farm-id/GNT-2202/offspring-fertility-rate/percent/93"
+          ],
+          "horticulture": [
+              "orchard/layout/design-pattern/high-density/spacing/feet/8x12/total-trees/650",
+              "greenhouse/flower-production/species/gerbera/variety/red-flame/days-to-bloom/87",
+              "pruning/schedule/shrubs/species/hydrangea/timing/month/february",
+              "propagation/methods/cuttings/plant/rosemary/rooting-hormone/iba/concentration/ppm/2500",
+              "fertilization/schedule/container-plants/crop/ornamental-pepper/frequency/weeks/2"
+          ],
+          "hydroponics": [
+              "system-type/nutrient-film-technique/channel-count/rows/18/length-per-channel/feet/12",
+              "nutrient-solution/formulation/macro-nutrients/NPK-ratio/solution-id/NFX-23/range/5-10-15",
+              "plant-growth/lettuce/variety/romaine/harvest-weight/grams/420",
+              "lighting/system/led/brand/MarsHydro/intensity/umol/m²/s/210",
+              "ph-management/balancing-agents/acid-type/phosphoric-acid/application-rate/ml/liter/2"
+          ],
+          "irrigation": [
+              "methods/drip-irrigation/line-pressure/psi/15/filter-type/screen/filter-size/microns/150",
+              "scheduling/software/provider/netafim/model/AgriLogic/irrigation-cycle/start-time/04:00",
+              "efficiency/assessment/field-id/IRR-119/output/uniformity-coefficient/percent/87",
+              "canal-irrigation/system/region/punjab/water-discharge/liters/sec/620",
+              "maintenance/flush-valves/interval/days/14/status/completed"
+          ],
+          "labor": [
+              "recruitment/seasonal-workers/source/country/honduras/visa-type/H2A/arrival-date/2025-05-01",
+              "training/safety/hazard-awareness/session-type/in-field/attendance-rate/percent/95",
+              "wages/payment-structure/type/piece-rate/crop/strawberry/rate-per-pound/usd/0.85",
+              "housing/temporary/worker-count/units/10/capacity/persons-per-unit/6",
+              "compliance/labor-laws/inspection/agency/OSHA/report-id/LBR-8893/findings/none"
+          ],
+          "land-use": [
+              "zoning/land-type/agricultural/commercial-conversion-request/parish/st-martin/status/denied",
+              "land-degradation/erosion-rate/farm-id/LU-334/topsoil-loss/tons-per-acre/4.5",
+              "reclamation/projects/area/abandoned-quarry/use/agroforestry/start-date/2023-10-12",
+              "mapping/satellite-imagery/provider/sentinel-2/update-frequency/days/5",
+              "ownership/parcel-records/farm-block/F1008/title-status/verified"
+          ],
+          "livestock": [
+              "breeds/cattle/beef/angus/age-group/feeder/weight-lbs/850",
+              "feeding/rations/pig-growth-stage/finisher/feed-type/high-energy/daily-intake/kg/3.2",
+              "reproduction/sheep/seasonal-breeding/ram-introduction/date/2025-08-15",
+              "housing/poultry/layer-birds/cage-type/enriched/stocking-density/birds-per-m²/8",
+              "disease-management/goat/pox/vaccination-batch/id/GVX-2215/administered/on/2025-04-01"
+          ],
+          "marketing": [
+              "sales/channels/direct-to-consumer/farmers-market/region/northeast/weekly-revenue/usd/1125",
+              "branding/labels/grass-fed-beef/label-claim-certification/verified-by/USDA/date/2024-06-30",
+              "advertising/platforms/social-media/campaign-type/video/ad-duration/seconds/45",
+              "exports/commodity/avocados/destination/country/japan/year/2024/volume/tons/1800",
+              "consumer-insights/surveys/product/preference-ranking/crop-type/kale/rank/3"
+          ],
+          "mechanization": [
+              "machinery/type/planter/model/kinze-3605/row-spacing/inches/30/speed/mph/5.5",
+              "automation/harvest/aid/mechanism/grape-picker/brand/pellenc/efficiency/clusters/hour/2100",
+              "energy-use/diesel/tractor-model/case-magnum/fuel-consumption/hour/gallons/3.8",
+              "labor-substitution/impact-analysis/crop/cotton/year/2023/reduction-percent/22",
+              "machine-learning/integration/harrow/adjustment-system/sensor-type/ultrasonic/response-time/ms/150"
+          ],
+          "nutrition": [
+              "crop-nutrients/sweet-potato/beta-carotene/variety/orange-delight/content/mg-per-100g/8.5",
+              "livestock-feed/supplements/protein-blocks/species/cattle/daily-dosage/grams/120",
+              "human-health/deficiencies/rural-children/region/east-africa/iron-deficiency-rate/percent/38",
+              "food-enrichment/grains/fortification/micronutrient/folic-acid/amount/ug-per-serving/400",
+              "dietary-trends/plant-based/consumption-growth/year/2024/global-percent-increase/14"
+          ],
+          "organic-farming": [
+              "certification-status/farm-id/ORG-7789/renewal-date/2025-12-01/status/pending",
+              "inputs/approved-fertilizers/source/fish-emulsion/brand/OceanGrow/nitrogen-percent/5",
+              "pest-control/biological-methods/insect/aphids/predator/species/ladybeetle/release-rate/units/2000",
+              "weed-suppression/mulching/material/straw/layer-depth/inches/4",
+              "crop-rotation/year-3/legume/green-manure/variety/hairy-vetch/seeding-rate/lbs-per-acre/30"
+          ],
+          "pest-management": [
+              "monitoring/traps/insect/codling-moth/trap-type/pheromone/weekly-catch/quantity/15",
+              "chemical-control/threshhold-levels/soybean-aphid/infestation/density/aphids-per-plant/250",
+              "integrated-pest-management/crop/tomato/control-strategy/type/physical/barrier-mesh-size/mm/1.5",
+              "resistance/tracking/weeds/species/palmer-amaranth/herbicide-type/glyphosate/resistance-status/confirmed",
+              "spray-calibration/sprayer-type/backpack/speed/pace/mph/2.5/output/liters-per-minute/1.2"
+          ],
+          "plant-health": [
+              "disease-identification/wheat/pathogen/rust-type/stripe-rust/sample-confirmed/yes",
+              "symptoms-analysis/leaf-color/crop/soybean/discoloration/type/interveinal-chlorosis",
+              "plant-vigor/assessment-method/drone-imagery/spectral-index/NDVI/value/0.82",
+              "soil-related-stress/compaction/depth-analysis/cm/18-24/root-penetration-rate/low",
+              "nutrient-deficiency/corn/element/zinc/leaf-symptom/striping/location/midrib"
+          ],
+          "policy": [
+              "subsidies/crop-support/program/type/direct-payments/fiscal-year/2025/maximum-amount/usd/50000",
+              "regulations/import-controls/product/livestock-feed/country-of-origin/argentina/status/banned",
+              "legislation/farm-bill/section/soil-conservation/enacted-year/2023/amendment-id/A45",
+              "taxation/agricultural-land/incentives/state/iowa/property-tax-relief/percent/15",
+              "compliance/environmental/standard/water-usage-report/farm-id/POL-2209/submitted/on/2025-03-01"
+          ],
+          "postharvest": [
+              "storage/temperature-control/product/mango/storage-type/cold-room/temperature/celsius/13",
+              "sorting/mechanization/machine-type/grader/brand/satake/capacity/kg-per-hour/1800",
+              "quality-assurance/checks/sample-id/PH-1189/defects-present/type/black-spot/severity/medium",
+              "transport/pre-cooling/method/forced-air/product/strawberries/pre-cooling-time/minutes/45",
+              "loss-analysis/crop/onion/postharvest-loss-percent/measured-batch/B-2025-03-22/value/9.3"
+          ],
+          "precision-farming": [
+              "variable-rate-application/nitrogen/zone-management/field-id/PRF-207/zones/4/application-rate/lbs-per-acre/72",
+              "drone-surveys/imagery/processing-software/provider/pix4d/data-layer/ndvi/mean-index/0.79",
+              "yield-monitoring/combine-sensor/calibration-date/2025-03-15/error-margin/percent/3.2",
+              "sensor-networks/soil-moisture/depth-layer/cm/0-10/sensor-id/SMX-902/value/percent/21.7",
+              "data-sync/cloud-platform/account-id/PRF-22A/last-upload/time/2025-04-02T22:10"
+          ],
+          "research": [
+              "field-trials/experiment-type/fertilizer-comparison/crop/maize/replication/number/3",
+              "lab-analysis/soil-samples/pH-test/batch-id/SRCH-8404/result/5.9",
+              "academic-publications/topic/climate-resilient-crops/published-journal/agronomy-research/date/2024-08-01",
+              "funding/grants/agency/usaid/project-title/improving-rice-root-structure/award-amount/usd/450000",
+              "genotype-analysis/species/sorghum/sample-count/field/RSCH-12A/analyzed/42"
+          ],
+          "robotics": [
+              "field-robot/navigation/gps-system/brand/topcon/version/V3.4/accuracy/cm/2.5",
+              "harvest-automation/robot-type/strawberry-picker/efficiency/minutes-per-plant/0.8",
+              "maintenance/logs/robot-unit/id/ROB-2124/last-service-date/2025-02-28/issue-reported/no",
+              "weeding/robotic-arm/control-method/vision-guided/weed-detection-accuracy/percent/91",
+              "programming/interface/language/python/module/agri-movement/line-commands/total/18"
+          ],
+          "rural-development": [
+              "infrastructure/irrigation/projects/village/kalibo/type/gravity-fed/length/km/4.2",
+              "education/initiatives/youth-agriculture-programs/school-partnerships/region/southeast-asia/total-schools/32",
+              "credit-access/microloans/target-group/women-led-farms/approval-rate/percent/76",
+              "electrification/solar-installations/location/farm-cluster-B2/capacity/kW/12",
+              "healthcare/clinics/mobile-units/service-area/villages-covered/number/15"
+          ],
+          "soil-science": [
+              "soil-types/loam/properties/bulk-density/field/F-303/value/g-per-cm³/1.25",
+              "organic-matter/levels/monitoring/interval/months/6/plot-id/SS-1101/percent/2.8",
+              "salinity-assessment/ec-meter/reading/field/SSALT-9/value/ds-per-meter/3.4",
+              "microbial-activity/assays/soil-respiration/test-method/substrate-induced/CO2-production-rate/mg/day/28",
+              "erosion-models/rainfall-impact/plot/slope-degree/12/predicted-loss/tons-per-hectare/7.1"
+          ],
+          "supply-chain": [
+              "logistics/cold-chain/transport-method/refrigerated-truck/fleet-id/TR-9402/temperature-celsius/4",
+              "traceability/blockchain/crop/coffee/batch-id/CN-445/scan-date/2025-03-11",
+              "distribution-centers/location/hub/dallas/storage-capacity/tons/1200",
+              "packaging/material/sustainable/biodegradable-film/supplier/ecopack/type/PF-65",
+              "retail-delivery/product/leafy-greens/store-id/ST-2034/arrival-time/10:30am"
+          ],
+          "sustainability": [
+              "carbon-footprint/assessment/farm-id/SUS-8723/crop/cotton/year/2024/emissions-co2e/tons/17.8",
+              "renewable-energy/solar-installation/farm/green-roots/panel-count/units/140",
+              "certification/regen-ag/principle/soil-health/verification-status/completed/date/2025-01-15",
+              "biodiversity-buffer/zone/width/meters/25/native-species-planted/number/18",
+              "sustainable-inputs/fertilizer/type/compost-source/city-waste/org-matter-percent/48"
+          ],
+          "vertical-farming": [
+              "facility/design/type/stacked-tray/layers/8/lighting-system/led/type/blue-red-spectrum",
+              "crop/leafy-greens/variety/arugula/growth-duration/days/28/yield/grams-per-tray/650",
+              "nutrient-delivery/system/hydroponic/cycle-frequency/hours/2",
+              "automation/control-platform/vendor/farmOS/module/temp-monitor/status/active",
+              "energy-usage/monthly-consumption/building/VF-920/kWh/12000"
+          ],
+          "waste-management": [
+              "organic-waste/composting/method/vermicompost/bin-volume/liters/300",
+              "recycling/farm-plastic/type/greenhouse-film/pickup-frequency/months/3",
+              "wastewater/processing/unit/model/HYDRO-360/output-quality/standard/A+",
+              "animal-waste/utilization/manure-digestion/digestate-output/liters/560",
+              "policy/compliance/audit/farm-id/WMS-2024/status/passed/date/2025-02-09"
+          ],
+          "water-management": [
+              "irrigation-efficiency/analysis/crop-type/rice/system/flooded-to-drip/savings/percent/42",
+              "rainwater-harvesting/storage-system/cistern-capacity/liters/10000/location/roof-top",
+              "water-quality/monitoring/source/groundwater/test-result/nitrate-ppm/6.8",
+              "drought-strategy/zone/central-valley/water-allocation/priority-level/high",
+              "sensor-network/deployment/unit-id/WTR-408/depth/cm/30/moisture-content/percent/24"
+          ],
+          "weed-management": [
+              "herbicide/application-schedule/crop/corn/product/type/selective/application-rate/liters-per-acre/1.5",
+              "manual-control/labor-requirements/weed-pressure/high/crew-size/people/12",
+              "mulching/type/black-plastic/crop/pepper/suppression-rate/percent/90",
+              "monitoring/weed-surveys/species/pigweed/density/m²/18",
+              "resistance-management/rotation-strategy/herbicide-groups/alternated-per-season/yes"
+          ]
+      }
+    }
+  
   </textarea>
 </label>
 <br>
-<button id="goBtn">Process &amp; upload</button>
+<button id="goBtn" disabled>Process &amp; upload</button>
 
-<p id="status">Ready ✔</p>
+<p id="status">Loading embedding model…</p>
 <pre id="log"></pre>
-<label>Generated embedding index
-  <textarea id="outJson" rows="12" style="width:100%"></textarea>
-</label>
-<script type="module">
-  const $btn   = document.getElementById('goBtn');
-  const $stat  = document.getElementById('status');
-  const $log   = document.getElementById('log');
-  const $out   = document.getElementById('outJson');
 
-  /** POST `text` → /embed → { embedding:[…] } */
-  async function getEmbedding(text) {
-    const res  = await fetch('https://1var.com/embed', {
-      method : 'POST',
-      headers: { 'Content-Type':'application/json' },
-      body   : JSON.stringify({ text })
-    });
-    if (!res.ok) throw new Error(`embed HTTP ${res.status}`);
-    const { embedding } = await res.json();
-    if (!embedding)     throw new Error('missing "embedding" in /embed reply');
-    return embedding;
+<script type="module">
+  import { pipeline } from '@xenova/transformers';
+
+  const $btn  = document.getElementById('goBtn');
+  const $stat = document.getElementById('status');
+  const $log  = document.getElementById('log');
+
+  // ── helper: always return a plain JS array ────────────────────
+  function normaliseEmbedding(e) {
+    if (Array.isArray(e)) return e;        // already OK
+    if (e && e.data && e.dims) {           // {dims,type,data}
+      const n   = e.dims[0];
+      const arr = new Array(n);
+      for (let i = 0; i < n; i++) arr[i] = e.data[i];
+      return arr;
+    }
+    throw new Error('Unknown embedding format');
   }
 
+  // ── 1. load model once ────────────────────────────────────────
+  let encoder = null;
+  (async () => {
+    encoder = await pipeline('feature-extraction', 'Xenova/all-mpnet-base-v2');
+    $stat.textContent = 'Model ready ✔';
+    $btn.disabled = false;
+  })();
+
+  // ── 2. click → read JSON → embed → POST ───────────────────────
   $btn.addEventListener('click', async () => {
-    let src;
+    let taxo;
     try {
-      src = JSON.parse(document.getElementById('jsonInput').value);
+      taxo = JSON.parse(document.getElementById('jsonInput').value);
     } catch {
       return alert('Bad JSON');
     }
 
-    const out = { indexes: {} };
+    for (const [category, subCats] of Object.entries(taxo)) {
+      for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
 
-    const idx = src.indexes ?? {};
-    for (const [category, paths] of Object.entries(idx)) {
-      if (!paths.length) continue;          // nothing to do
-      // use the first breadcrumb string for the embedding
-      const text = paths[0];
+        // embed each breadcrumb
+        const paths = [];
+        for (const path of breadcrumbs) {
+          $stat.textContent = `Embedding “${path}”…`;
+          const [[raw]] = await encoder(path);          // may be array or tensor‑json
+          const emb     = normaliseEmbedding(raw);
+          paths.push({ p: path, emb });
+        }
 
-      $stat.textContent = `Embedding “${text}”…`;
-      try {
-        out.indexes[category] = await getEmbedding(text);
-        $log.textContent += `✔ ${category}\n`;
-      } catch (err) {
-        console.error(err);
-        $log.textContent += `❌ ${category}: ${err.message}\n`;
+        // POST to Lambda – root is forced to lowercase here
+        $stat.textContent = `POSTing ${subCat} to i_${category}…`;
+        const res = await fetch('/api/ingest', {
+          method : 'POST',
+          headers: { 'Content-Type':'application/json' },
+          body   : JSON.stringify({
+                    category,
+                    root: subCat.toLowerCase(), //  ← lower‑cased
+                    paths
+                  })
+        }).then(r => r.json());
+
+        $log.textContent += `stored ${subCat} → ${JSON.stringify(res)}\n`;
       }
     }
-
-    $stat.textContent  = 'Done ✔';
-    $out.value         = JSON.stringify(out, null, 2);
-    $out.select();               // highlight for easy copy
+    $stat.textContent = 'All done ✔';
   });
 </script>
-
 </body>
 </html>
