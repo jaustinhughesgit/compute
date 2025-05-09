@@ -24,7 +24,6 @@ async function getSub(val, key, dynamodb) {
 }
 
 async function getEntity(e, dynamodb) {
-    //console.log("getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': e } };
     return await dynamodb.query(params).promise()
 }
@@ -39,28 +38,21 @@ async function getTasks(val, col, dynamodb) {
     //
     //
     //
-    //console.log("getTasks", col, val)
     if (col == "e") {
         const subByE = await getSub(groups.Items[group].e.toString(), "e", dynamodb);
         let params = { TableName: 'tasks', IndexName: 'urlIndex', KeyConditionExpression: 'url = :url', ExpressionAttributeValues: { ':url': subByE.Items[0].su } }
-        //console.log("params", params)
         return await dynamodb.query(params).promise()
     } else if (col == "su") {
         let params = { TableName: 'tasks', IndexName: 'urlIndex', KeyConditionExpression: '#url = :urlValue', ExpressionAttributeNames: { '#url': 'url', }, ExpressionAttributeValues: { ':urlValue': val } }
-        //console.log("params", params)
         return await dynamodb.query(params).promise()
     }
 }
 
 async function getTasksIOS(tasks) {
-    //console.log("tasks", tasks)
     tasks = tasks.Items
     let converted = []
     for (let task in tasks) {
-        //console.log("task", task)
-        //console.log("tasks[task]", tasks[task])
         converted.push({})
-        //console.log("converted", converted)
         converted[task].url = tasks[task].url
         let momentSD = moment.unix(tasks[task].sd).utc()
         converted[task].startDate = momentSD.format("YYYY-MM-DD")
@@ -125,10 +117,6 @@ async function getAccess(ai, dynamodb) {
 
 async function getVerified(key, val, dynamodb) {
     console.log("getVerified", key, val)
-    //const cacheKey = `${key}:${val}`;
-    //if (cache.getVerified[cacheKey]) {
-    //    return cache.getVerified[cacheKey];
-    //}
     let params;
     if (key === "vi") {
         params = {
@@ -152,7 +140,6 @@ async function getVerified(key, val, dynamodb) {
         };
     }
     const result = await dynamodb.query(params).promise();
-    //cache.getVerified[cacheKey] = result;
     return result;
 }
 
@@ -177,7 +164,6 @@ async function getGroups(dynamodb) {
     const groups = await dynamodb.scan(params).promise();
     const groupObjs = [];
 
-    // Prepare batch requests for getSub and getWord
     const subPromises = [];
     const wordPromises = [];
 
@@ -2342,7 +2328,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //We're only grabbing the first entity and applying it. THere might be multiple access entities that we need to loop through and give them all to the set entity.
                 const useE = await getEntity(subEntity.Items[0].e, dynamodb)
                 console.log("usubEntity.Items[0]",subEntity.Items[0]);
-                    for (ac in access.Items){
+                for (ac in access.Items){
                     console.log("access.Items[0]",access.Items[ac]);
                     console.log("useE.Items[0]",useE.Items[0]);
                     console.log("useE",useE)
@@ -2488,11 +2474,85 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
 
                 mainObj["oai"] = JSON.parse(oai.response);
+            } else if (action == "position"){
+                console.log("position>>>>>>>")
+                const { description, domain, subdomain } = reqBody.body || {};
+
+                if (!description || !domain || !subdomain) {
+                  return res.status(400).json({ error: 'description, domain & subdomain required' });
+                }
+              
+                /* 1️⃣  embed the user text (re‑using OpenAI here is simpler than
+                       sending the vector from the client; if cost matters you can
+                       instead include the vector in the POST body) */
+                let vector;
+                try {
+                  const { data } = await openai.embeddings.create({
+                    model : 'text-embedding-3-small',
+                    input : description
+                  });
+                  vector = data[0].embedding;         // 1 × 1536 float[]
+                } catch (err) {
+                  console.error('OpenAI embedding failure:', err);
+                  return res.status(502).json({ error: 'embedding‑service‑unavailable' });
+                }
+              
+                /* 2️⃣  pull the record for that sub‑domain from DynamoDB  */
+                const tableName = `i_${domain}`;
+                let item;
+                try {
+                  /* root = partition key, id = sort key: fetch the *first* row for
+                     that sub‑domain.  If you need *all* rows, remove `.Limit = 1`. */
+                  const params = {
+                    TableName : tableName,
+                    KeyConditionExpression    : '#r = :sub',
+                    ExpressionAttributeNames  : { '#r': 'root' },
+                    ExpressionAttributeValues : { ':sub': subdomain },
+                    Limit : 1
+                  };
+                  const data = await dynamodb.query(params).promise();
+                  if (!data.Items.length) {
+                    return res.status(404).json({ error: 'no record for that sub‑domain' });
+                  }
+                  item = data.Items[0];
+                } catch (err) {
+                  console.error('DynamoDB query failed:', err);
+                  return res.status(502).json({ error: 'db‑unavailable' });
+                }
+              
+                /* 3️⃣  compute cosine distance for emb1…emb5 */
+                const cosineDist = (a, b) => {
+                  let dot = 0, na = 0, nb = 0;
+                  for (let i = 0; i < a.length; i++) {
+                    dot += a[i] * b[i];
+                    na  += a[i] * a[i];
+                    nb  += b[i] * b[i];
+                  }
+                  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+                };
+              
+                const distances = {};
+                for (let i = 1; i <= 5; i++) {
+                  const attr = `emb${i}`;
+                  if (item[attr] && Array.isArray(item[attr])) {
+                    distances[attr] = cosineDist(vector, item[attr]);
+                  }
+                }
+              
+                /* 4️⃣  send back the object the PositionModule expects */
+                mainObj = {
+                  position : distances,          // { emb1: 0.23, … }
+                  domain,
+                  subdomain,
+                  id : item.id                   // handy for debugging
+                };
+                console.log("-^-^-^-^-^-^-^-^-^-^-^-")
+                console.log("mainObj",mainObj)
+            } else if (action == "addIndex"){
+
             } else if (action == "shorthand"){
                 actionFile = reqPath.split("/")[3];
-
-//this needs to be updated so that the entire var is the shorthand.
-
+                //this needs to be updated so that the entire var is the shorthand.
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = reqBody.body;
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
