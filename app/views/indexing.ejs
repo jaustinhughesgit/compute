@@ -4,15 +4,7 @@
   <meta charset="utf-8">
   <title>Breadcrumb → DynamoDB loader</title>
 
-  <!-- Xenova import‑map -->
-  <script type="importmap">
-    {
-      "imports": {
-        "@xenova/transformers":
-          "https://cdn.jsdelivr.net/npm/@xenova/transformers@latest/dist/transformers.min.js"
-      }
-    }
-  </script>
+  <!-- ❶  nothing to import – we embed server‑side now -->
 
   <style>
     body { font-family: system-ui, sans-serif; margin: 2rem; }
@@ -24,44 +16,75 @@
 
 <label>JSON taxonomy
   <textarea id="jsonInput" rows="12" style="width:100%">
-{ "categoryA": { "subCategoryA": [ "breadcrumbA1/to/a/detail", "breadcrumbA2/to/a/detail" ] },
-  "categoryB": { "subCategoryB": [ "breadcrumbB1/to/a/detail", "breadcrumbB2/to/a/detail" ] } }
+{
+  "indexes": {
+    "agriculture": ["agriculture"],
+    "architecture": ["architecture"],
+    "biology": ["biology"],
+    "business": ["business"],
+    "characteristic": ["characteristic"],
+    "chemistry": ["chemistry"],
+    "community": ["community"],
+    "cosmology": ["cosmology"],
+    "economics": ["economics"],
+    "education": ["education"],
+    "entertainment": ["entertainment"],
+    "environment": ["environment"],
+    "event": ["event"],
+    "food": ["food"],
+    "geology": ["geology"],
+    "geography": ["geography"],
+    "government": ["government"],
+    "health": ["health"],
+    "history": ["history"],
+    "language": ["language"],
+    "law": ["law"],
+    "manufacturing": ["manufacturing"],
+    "mathematics": ["mathematics"],
+    "people": ["people"],
+    "psychology": ["psychology"],
+    "philosophy": ["philosophy"],
+    "religion": ["religion"],
+    "sports": ["sports"],
+    "technology": ["technology"],
+    "transportation": ["transportation"]
+  }
+}
   </textarea>
 </label>
 <br>
-<button id="goBtn" disabled>Process &amp; upload</button>
+<button id="goBtn">Process &amp; upload</button>
 
-<p id="status">Loading embedding model…</p>
+<p id="status">Ready ✔</p>
 <pre id="log"></pre>
 
 <script type="module">
-  import { pipeline } from '@xenova/transformers';
-
   const $btn  = document.getElementById('goBtn');
   const $stat = document.getElementById('status');
   const $log  = document.getElementById('log');
 
-  // ── helper: always return a plain JS array ────────────────────
-  function normaliseEmbedding(e) {
-    if (Array.isArray(e)) return e;        // already OK
-    if (e && e.data && e.dims) {           // {dims,type,data}
-      const n   = e.dims[0];
-      const arr = new Array(n);
-      for (let i = 0; i < n; i++) arr[i] = e.data[i];
-      return arr;
+  /**
+   * POST text → /embed  → { embedding:[…] }
+   * (Your server route must include the raw vector in the JSON it returns.)
+   */
+  async function getEmbedding(text) {
+    const res = await fetch('/embed', {
+      method : 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body   : JSON.stringify({ text })
+    });
+
+    if (!res.ok) {
+      throw new Error(`embed HTTP ${res.status}`);
     }
-    throw new Error('Unknown embedding format');
+
+    const json = await res.json();
+    if (!json.embedding) {
+      throw new Error('No "embedding" field in /embed response');
+    }
+    return json.embedding;           // plain JS array
   }
 
-  // ── 1. load model once ────────────────────────────────────────
-  let encoder = null;
-  (async () => {
-    encoder = await pipeline('feature-extraction', 'Xenova/all-mpnet-base-v2');
-    $stat.textContent = 'Model ready ✔';
-    $btn.disabled = false;
-  })();
-
-  // ── 2. click → read JSON → embed → POST ───────────────────────
   $btn.addEventListener('click', async () => {
     let taxo;
     try {
@@ -70,33 +93,38 @@
       return alert('Bad JSON');
     }
 
-    for (const [category, subCats] of Object.entries(taxo)) {
-      for (const [subCat, breadcrumbs] of Object.entries(subCats)) {
+    const indexes = taxo.indexes ?? {};
+    for (const [category, breadcrumbs] of Object.entries(indexes)) {
 
-        // embed each breadcrumb
-        const paths = [];
-        for (const path of breadcrumbs) {
-          $stat.textContent = `Embedding “${path}”…`;
-          const [[raw]] = await encoder(path);          // may be array or tensor‑json
-          const emb     = normaliseEmbedding(raw);
+      const paths = [];
+      for (const path of breadcrumbs) {
+        $stat.textContent = `Embedding “${path}” …`;
+        try {
+          const emb = await getEmbedding(path);
           paths.push({ p: path, emb });
+        } catch (err) {
+          console.error(err);
+          $log.textContent += `❌  failed embedding ${path}: ${err.message}\n`;
         }
-
-        // POST to Lambda – root is forced to lowercase here
-        $stat.textContent = `POSTing ${subCat} to i_${category}…`;
-        const res = await fetch('/api/ingest', {
-          method : 'POST',
-          headers: { 'Content-Type':'application/json' },
-          body   : JSON.stringify({
-                    category,
-                    root: subCat.toLowerCase(), //  ← lower‑cased
-                    paths
-                  })
-        }).then(r => r.json());
-
-        $log.textContent += `stored ${subCat} → ${JSON.stringify(res)}\n`;
       }
+
+      // nothing to send?
+      if (!paths.length) continue;
+
+      $stat.textContent = `POSTing ${category} (${paths.length}) …`;
+      const res = await fetch('/api/ingest', {
+        method : 'POST',
+        headers: { 'Content-Type':'application/json' },
+        body   : JSON.stringify({
+                  category,
+                  root : category.toLowerCase(),
+                  paths
+                })
+      }).then(r => r.json());
+
+      $log.textContent += `✔ stored ${category} → ${JSON.stringify(res)}\n`;
     }
+
     $stat.textContent = 'All done ✔';
   });
 </script>
