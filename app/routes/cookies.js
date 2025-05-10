@@ -2703,30 +2703,21 @@ const dist1Upper = Math.min(1,  dist1 + DIST_LIMIT);
 
 let matches = [];
 try {
-  const params = {
-    TableName : 'subdomains',
-    IndexName : 'path-index',                 // GSI  (PK=path  SK=dist1)
-    ExpressionAttributeNames: {
-      '#p'  : 'path',
-      '#d1' : 'dist1',
-      '#d2' : 'dist2', '#d3': 'dist3',
-      '#d4' : 'dist4', '#d5': 'dist5'
-    },
-    ExpressionAttributeValues: {
-      ':path': fullPath,
-      ':lo'  : dist1Lower,
-      ':hi'  : dist1Upper,
-      ':lim' : DIST_LIMIT
-    },
-
-    /* ── index‑powered range on dist1 ── */
-    KeyConditionExpression:
-      '#p = :path AND #d1 BETWEEN :lo AND :hi',
-
-    /* ── in‑memory filter for the other four distances ── */
-    FilterExpression:
-      '#d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim'
-  };
+    const params = {
+        TableName : 'subdomains',
+        IndexName : 'path-index',                // PK = path (S),  SK = dist1 (N)
+        ExpressionAttributeNames: {
+          '#p'  : 'path',
+          '#d1' : 'dist1'
+        },
+        ExpressionAttributeValues: {
+          ':path': fullPath,
+          ':lo'  : dist1Lower,
+          ':hi'  : dist1Upper
+        },
+        KeyConditionExpression:
+          '#p = :path AND #d1 BETWEEN :lo AND :hi'
+      };
 
   console.log("params",params)
 
