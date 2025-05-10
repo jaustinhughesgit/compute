@@ -2622,6 +2622,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
                  ************************************************************/
             } else if (action === 'search') {
+                console.log("search//////")
                 const { domain, subdomain, query = '', entity = null } = reqBody.body || {};
 
                 if (!domain || !subdomain) {
@@ -2684,13 +2685,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 }
 
                 /* 3️⃣ respond exactly the way the front‑end expects ------------------- */
-                return res.json({
+                mainObj = {
                     query,                 // echo back the original string (if sent)
                     domain,
                     subdomain,
                     entity,                // caller id (optional)
                     matches                // array<item> – every matching row
-                });
+                };
+                console.log("mainObj",mainObj)
             }
 
             else if (action == "addIndex") {
