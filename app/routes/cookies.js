@@ -2622,67 +2622,57 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
                  ************************************************************/
             } else if (action === 'search') {
-                console.log("search//////")
-                const { domain, subdomain, query = '', entity = null } = reqBody.body || {};
+                console.log('search//////');
+  const { domain, subdomain, query = '', entity = null } = reqBody.body || {};
 
-                if (!domain || !subdomain) {
-                    return res.status(400).json({ error: 'domain & subdomain required' });
-                }
+  if (!domain || !subdomain) {
+    return res.status(400).json({ error: 'domain & subdomain required' });
+  }
 
-                const DIST_LIMIT = 0.20;
-                const fullPath = `/${domain}/${subdomain}`;
+  const DIST_LIMIT = 0.20;
+  const fullPath   = `/${domain}/${subdomain}`;
 
-                /* 1️⃣ choose best access pattern
-                   ----------------------------------------------------------
-                   • If you created a GSI on   path   (recommended!) we can
-                     Query that index and then Filter on the distances.
-                   • Otherwise we fall back to a full table Scan + filter.
-                */
-                let matches = [];
-                try {
-                    const base = {
-                        TableName: 'subdomains',
-                        ExpressionAttributeNames: {
-                            '#p': 'path',
-                            '#d1': 'dist1',
-                            '#d2': 'dist2',
-                            '#d3': 'dist3',
-                            '#d4': 'dist4',
-                            '#d5': 'dist5'
-                        },
-                        ExpressionAttributeValues: {
-                            ':path': fullPath,
-                            ':lim': DIST_LIMIT
-                        },
-                        FilterExpression:
-                            '#d1 <= :lim AND #d2 <= :lim AND #d3 <= :lim ' +
-                            'AND #d4 <= :lim AND #d5 <= :lim'
-                    };
+  let matches = [];
+  try {
+    const base = {
+      TableName: 'subdomains',
+      ExpressionAttributeNames: {
+        '#p': 'path',
+        '#d1': 'dist1', '#d2': 'dist2', '#d3': 'dist3', '#d4': 'dist4', '#d5': 'dist5'
+      },
+      ExpressionAttributeValues: {
+        ':path': fullPath,
+        ':lim' : DIST_LIMIT
+      }
+    };
 
-                    /* —— prefer Query on a GSI called  path-index  —— */
-                    const params = {
-                        ...base,
-                        IndexName: 'path-index',                 // 🔁— rename if your GSI differs
-                        KeyConditionExpression: '#p = :path'
-                    };
+    const params = { ...base };                 // start from the base
+    const useQuery = !!process.env.SUBDOMAIN_PATH_GSI;   // or detect GSI some other way
+    const distFilter =
+      '#d1 <= :lim AND #d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim';
 
-                    const useQuery = !!process.env.SUBDOMAIN_PATH_GSI; // flag you can set
-                    const fn = useQuery ? dynamodb.query.bind(dynamodb)
-                        : dynamodb.scan.bind(dynamodb);
-                    if (!useQuery) delete params.KeyConditionExpression, delete params.IndexName;
+    if (useQuery) {
+      params.IndexName             = 'path-index';   // 🔁 rename if your GSI name differs
+      params.KeyConditionExpression = '#p = :path';
+      params.FilterExpression       = distFilter;
+    } else {
+      params.FilterExpression = '#p = :path AND ' + distFilter;
+    }
 
-                    /* 2️⃣ paged retrieval ------------------------------------------------ */
-                    let last;
-                    do {
-                        const data = await fn({ ...params, ExclusiveStartKey: last }).promise();
-                        matches.push(...data.Items);
-                        last = data.LastEvaluatedKey;
-                    } while (last);
+    const fn = useQuery ? dynamodb.query.bind(dynamodb)
+                        : dynamodb.scan .bind(dynamodb);
 
-                } catch (err) {
-                    console.error('search → DynamoDB failed:', err);
-                    return res.status(502).json({ error: 'db‑unavailable' });
-                }
+    let last;
+    do {
+      const data = await fn({ ...params, ExclusiveStartKey: last }).promise();
+      matches.push(...data.Items);
+      last = data.LastEvaluatedKey;
+    } while (last);
+
+  } catch (err) {
+    console.error('search → DynamoDB failed:', err);
+    return res.status(502).json({ error: 'db‑unavailable' });
+  }
 
                 /* 3️⃣ respond exactly the way the front‑end expects ------------------- */
                 mainObj = {
