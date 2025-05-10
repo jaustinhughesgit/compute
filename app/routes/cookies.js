@@ -2603,6 +2603,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 // 5️⃣  finally send back what PositionModule expects
 
                 mainObj = {
+                    action, 
                     position: distances,
                     domain,
                     subdomain,
@@ -2741,7 +2742,7 @@ try {
 }
 
 /*  respond to the front‑end  */
-const mainObj = { query, domain, subdomain, entity, matches };
+const mainObj = { action, query, domain, subdomain, entity, matches };
 console.log('mainObj', mainObj);
             }
 
