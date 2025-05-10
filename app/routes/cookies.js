@@ -2724,8 +2724,7 @@ try {
       '#p = :path AND #d1 BETWEEN :lo AND :hi',
 
     /* ── in‑memory filter for the other four distances ── */
-    FilterExpression:
-      '#d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim'
+   
   };
 
   let last;
