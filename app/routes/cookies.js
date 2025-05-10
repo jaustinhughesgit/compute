@@ -2622,67 +2622,127 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
                  ************************************************************/
             } else if (action === 'search') {
+                // ──────────────────────────────────────────────────────────────
+                //  search  route  – uses the GSI  path‑index  (path / dist1)
+                // ──────────────────────────────────────────────────────────────
                 console.log('search//////');
-  const { domain, subdomain, query = '', entity = null } = reqBody.body || {};
+                const { domain, subdomain, query = '', entity = null, embedding } = reqBody.body || {};
 
-  if (!domain || !subdomain) {
-    return res.status(400).json({ error: 'domain & subdomain required' });
-  }
+                if (!embedding || !domain || !subdomain || !entity) {
+                    return res.status(400).json({ error: 'embedding, domain & subdomain required' });
+                }
 
-  const DIST_LIMIT = 0.20;
-  const fullPath   = `/${domain}/${subdomain}`;
+                const tableName = `i_${domain}`;
+                let item;
+                try {
+                    const params = {
+                        TableName: tableName,
+                        KeyConditionExpression: '#r = :sub',
+                        ExpressionAttributeNames: { '#r': 'root' },
+                        ExpressionAttributeValues: { ':sub': subdomain },
+                        Limit: 1
+                    };
+                    const data = await dynamodb.query(params).promise();
+                    if (!data.Items.length) {
+                        return res.status(404).json({ error: 'no record for that sub‑domain' });
+                    }
+                    item = data.Items[0];
+                } catch (err) {
+                    console.error('DynamoDB query failed:', err);
+                    return res.status(502).json({ error: 'db‑unavailable' });
+                }
 
-  let matches = [];
-  try {
-    const base = {
-      TableName: 'subdomains',
-      ExpressionAttributeNames: {
-        '#p': 'path',
-        '#d1': 'dist1', '#d2': 'dist2', '#d3': 'dist3', '#d4': 'dist4', '#d5': 'dist5'
-      },
-      ExpressionAttributeValues: {
-        ':path': fullPath,
-        ':lim' : DIST_LIMIT
-      }
-    };
-
-    const params = { ...base };                 // start from the base
-    const useQuery = !!process.env.SUBDOMAIN_PATH_GSI;   // or detect GSI some other way
-    const distFilter =
-      '#d1 <= :lim AND #d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim';
-
-    if (useQuery) {
-      params.IndexName             = 'path-index';   // 🔁 rename if your GSI name differs
-      params.KeyConditionExpression = '#p = :path';
-      params.FilterExpression       = distFilter;
-    } else {
-      params.FilterExpression = '#p = :path AND ' + distFilter;
-    }
-
-    const fn = useQuery ? dynamodb.query.bind(dynamodb)
-                        : dynamodb.scan .bind(dynamodb);
-
-    let last;
-    do {
-      const data = await fn({ ...params, ExclusiveStartKey: last }).promise();
-      matches.push(...data.Items);
-      last = data.LastEvaluatedKey;
-    } while (last);
-
-  } catch (err) {
-    console.error('search → DynamoDB failed:', err);
-    return res.status(502).json({ error: 'db‑unavailable' });
-  }
-
-                /* 3️⃣ respond exactly the way the front‑end expects ------------------- */
-                mainObj = {
-                    query,                 // echo back the original string (if sent)
-                    domain,
-                    subdomain,
-                    entity,                // caller id (optional)
-                    matches                // array<item> – every matching row
+                const cosineDist = (a, b) => {
+                    let dot = 0, na = 0, nb = 0;
+                    for (let i = 0; i < a.length; i++) {
+                        dot += a[i] * b[i];
+                        na += a[i] * a[i];
+                        nb += b[i] * b[i];
+                    }
+                    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
                 };
-                console.log("mainObj",mainObj)
+
+                const distances = {};
+                for (let i = 1; i <= 5; i++) {
+                    const attr = `emb${i}`;
+                    const raw = item[attr];
+                    let refArr = null;
+
+                    if (typeof raw === 'string') {
+                        try {
+                            refArr = JSON.parse(raw);
+                        } catch (err) {
+                            console.warn(`Failed to parse ${attr} for ${domain}/${subdomain}:`, err);
+                            continue;
+                        }
+                    }
+                    else if (Array.isArray(raw)) {
+                        refArr = raw;
+                    }
+
+                    if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
+                        continue;
+                    }
+
+                    distances[attr] = cosineDist(embedding, refArr);
+                }
+
+
+
+                const DIST_LIMIT = 0.20;
+const fullPath   = `/${domain}/${subdomain}`;
+
+// we already computed  distances.emb1  above
+const dist1 = distances.emb1;
+if (typeof dist1 !== 'number') {
+  return res.status(500).json({ error: 'dist1 missing from first pass' });
+}
+
+const dist1Lower = Math.max(0,  dist1 - DIST_LIMIT);   // clamp to 0–1 if desired
+const dist1Upper = Math.min(1,  dist1 + DIST_LIMIT);
+
+let matches = [];
+try {
+  const params = {
+    TableName : 'subdomains',
+    IndexName : 'path-index',                 // GSI  (PK=path  SK=dist1)
+    ExpressionAttributeNames: {
+      '#p'  : 'path',
+      '#d1' : 'dist1',
+      '#d2' : 'dist2', '#d3': 'dist3',
+      '#d4' : 'dist4', '#d5': 'dist5'
+    },
+    ExpressionAttributeValues: {
+      ':path': fullPath,
+      ':lo'  : dist1Lower,
+      ':hi'  : dist1Upper,
+      ':lim' : DIST_LIMIT
+    },
+
+    /* ── index‑powered range on dist1 ── */
+    KeyConditionExpression:
+      '#p = :path AND #d1 BETWEEN :lo AND :hi',
+
+    /* ── in‑memory filter for the other four distances ── */
+    FilterExpression:
+      '#d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim'
+  };
+
+  let last;
+  do {
+    const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
+    matches.push(...data.Items);
+    last = data.LastEvaluatedKey;
+  } while (last);
+
+} catch (err) {
+  console.error('search → DynamoDB failed:', err);
+  return res.status(502).json({ error: 'db‑unavailable' });
+}
+
+/*  respond to the front‑end  */
+const mainObj = { query, domain, subdomain, entity, matches };
+console.log('mainObj', mainObj);
             }
 
             else if (action == "addIndex") {
