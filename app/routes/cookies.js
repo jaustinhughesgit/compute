@@ -2728,10 +2728,19 @@ try {
       '#d2 <= :lim AND #d3 <= :lim AND #d4 <= :lim AND #d5 <= :lim'
   };
 
+  console.log("params",params)
+
   let last;
   do {
     const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
+
+    console.log('[query] raw count:', data.Count);              // ★  How many survived KeyCondition?
+    if (data.Items.length && !matches.length) {
+      console.log('[query] first item (raw):', JSON.stringify(data.Items[0], null, 2));
+    }
+    
     matches.push(...data.Items);
+    last = data.LastEvaluatedKey;
     last = data.LastEvaluatedKey;
   } while (last);
 
