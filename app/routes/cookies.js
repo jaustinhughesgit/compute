@@ -2690,7 +2690,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 
 
-                const DIST_LIMIT = 0.20;
+                const DIST_LIMIT = 0.10;
 const fullPath   = `/${domain}/${subdomain}`;
 
 // we already computed  distances.emb1  above
