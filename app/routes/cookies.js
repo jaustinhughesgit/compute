@@ -2563,9 +2563,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("-^-^-^-^-^-^-^-^-^-^-^-")
                 try {
                     const updateParams = {
-                      TableName: 'subdomains',
-                      Key: { su: entity },
-                      UpdateExpression: `
+                        TableName: 'subdomains',
+                        Key: { su: entity },
+                        UpdateExpression: `
                         SET #d1 = :d1,
                             #d2 = :d2,
                             #d3 = :d3,
@@ -2573,34 +2573,34 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             #d5 = :d5,
                             #path = :path
                       `,
-                      ExpressionAttributeNames: {
-                        '#d1': 'dist1',
-                        '#d2': 'dist2',
-                        '#d3': 'dist3',
-                        '#d4': 'dist4',
-                        '#d5': 'dist5',
-                        '#path': 'path'
-                      },
-                      ExpressionAttributeValues: {
-                        ':d1': distances.emb1 ?? null,
-                        ':d2': distances.emb2 ?? null,
-                        ':d3': distances.emb3 ?? null,
-                        ':d4': distances.emb4 ?? null,
-                        ':d5': distances.emb5 ?? null,
-                        ':path': `/${domain}/${subdomain}`
-                      },
-                      ReturnValues: 'UPDATED_NEW'
+                        ExpressionAttributeNames: {
+                            '#d1': 'dist1',
+                            '#d2': 'dist2',
+                            '#d3': 'dist3',
+                            '#d4': 'dist4',
+                            '#d5': 'dist5',
+                            '#path': 'path'
+                        },
+                        ExpressionAttributeValues: {
+                            ':d1': distances.emb1 ?? null,
+                            ':d2': distances.emb2 ?? null,
+                            ':d3': distances.emb3 ?? null,
+                            ':d4': distances.emb4 ?? null,
+                            ':d5': distances.emb5 ?? null,
+                            ':path': `/${domain}/${subdomain}`
+                        },
+                        ReturnValues: 'UPDATED_NEW'
                     };
-                
+
                     const updateResult = await dynamodb.update(updateParams).promise();
                     console.log('Updated subdomains record:', updateResult);
-                  } catch (err) {
+                } catch (err) {
                     console.error('Failed to update subdomains table:', err);
                     // decide whether to treat this as fatal or continue
                     return res.status(502).json({ error: 'failed to save distances' });
-                  }
-                
-                  // 5️⃣  finally send back what PositionModule expects
+                }
+
+                // 5️⃣  finally send back what PositionModule expects
 
                 mainObj = {
                     position: distances,
@@ -2610,7 +2610,90 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     id: item.id ?? null
                 }
                 console.log("mainObj", mainObj)
-            } else if (action == "addIndex") {
+
+                /************************************************************
+                 *  action === "search"
+                 *  ---------------------------------------------------------
+                 *  Body must contain: domain, subdomain
+                 *  Optional: query (original text), entity (caller id)
+                 *
+                 *  Reads from the "subdomains" table and returns every row
+                 *  whose  path  matches  "/{domain}/{subdomain}"  AND whose
+                 *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
+                 ************************************************************/
+            } else if (action === 'search') {
+                const { domain, subdomain, query = '', entity = null } = reqBody.body || {};
+
+                if (!domain || !subdomain) {
+                    return res.status(400).json({ error: 'domain & subdomain required' });
+                }
+
+                const DIST_LIMIT = 0.20;
+                const fullPath = `/${domain}/${subdomain}`;
+
+                /* 1️⃣ choose best access pattern
+                   ----------------------------------------------------------
+                   • If you created a GSI on   path   (recommended!) we can
+                     Query that index and then Filter on the distances.
+                   • Otherwise we fall back to a full table Scan + filter.
+                */
+                let matches = [];
+                try {
+                    const base = {
+                        TableName: 'subdomains',
+                        ExpressionAttributeNames: {
+                            '#p': 'path',
+                            '#d1': 'dist1',
+                            '#d2': 'dist2',
+                            '#d3': 'dist3',
+                            '#d4': 'dist4',
+                            '#d5': 'dist5'
+                        },
+                        ExpressionAttributeValues: {
+                            ':path': fullPath,
+                            ':lim': DIST_LIMIT
+                        },
+                        FilterExpression:
+                            '#d1 <= :lim AND #d2 <= :lim AND #d3 <= :lim ' +
+                            'AND #d4 <= :lim AND #d5 <= :lim'
+                    };
+
+                    /* —— prefer Query on a GSI called  path-index  —— */
+                    const params = {
+                        ...base,
+                        IndexName: 'path-index',                 // 🔁— rename if your GSI differs
+                        KeyConditionExpression: '#p = :path'
+                    };
+
+                    const useQuery = !!process.env.SUBDOMAIN_PATH_GSI; // flag you can set
+                    const fn = useQuery ? dynamodb.query.bind(dynamodb)
+                        : dynamodb.scan.bind(dynamodb);
+                    if (!useQuery) delete params.KeyConditionExpression, delete params.IndexName;
+
+                    /* 2️⃣ paged retrieval ------------------------------------------------ */
+                    let last;
+                    do {
+                        const data = await fn({ ...params, ExclusiveStartKey: last }).promise();
+                        matches.push(...data.Items);
+                        last = data.LastEvaluatedKey;
+                    } while (last);
+
+                } catch (err) {
+                    console.error('search → DynamoDB failed:', err);
+                    return res.status(502).json({ error: 'db‑unavailable' });
+                }
+
+                /* 3️⃣ respond exactly the way the front‑end expects ------------------- */
+                return res.json({
+                    query,                 // echo back the original string (if sent)
+                    domain,
+                    subdomain,
+                    entity,                // caller id (optional)
+                    matches                // array<item> – every matching row
+                });
+            }
+
+            else if (action == "addIndex") {
 
             } else if (action == "shorthand") {
                 actionFile = reqPath.split("/")[3];
