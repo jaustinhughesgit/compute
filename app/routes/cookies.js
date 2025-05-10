@@ -2742,11 +2742,9 @@ try {
 }
 
 /*  respond to the front‑end  */
-const mainObj = { action, query, domain, subdomain, entity, matches };
+mainObj = { action, query, domain, subdomain, entity, matches };
 console.log('mainObj', mainObj);
-            }
-
-            else if (action == "addIndex") {
+            } else if (action == "addIndex") {
 
             } else if (action == "shorthand") {
                 actionFile = reqPath.split("/")[3];
