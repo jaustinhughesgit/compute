@@ -412,7 +412,7 @@ async function convertToJSON(
         pathid: pathUUID,
         usingID: usingID,
         location: fileLocation(isPublic),
-        verified: varified
+        verified: verified
     };
 
     const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
