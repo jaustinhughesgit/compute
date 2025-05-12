@@ -221,7 +221,7 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
 
     const groupAi = group.Items[0].ai;
     const entityAi = entity.Items[0].ai;
-    let verified
+    let verified = false;
 
     if (isPublic) {
         verified = true;
@@ -256,7 +256,8 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
                 console.log("access.Items[0].va", access.Items[0].va);
                 console.log("body2", bb);
 
-                let deep = true;//await deepEqual(access.Items[0].va, bb);
+                console.log("deepEqual", access.Items[0].va, bb)
+                let deep = await deepEqual(access.Items[0].va, bb);
                 console.log("deep", deep);
                 if (deep == true && verified == false) {
                     console.log("inside deep condition");
@@ -1758,6 +1759,124 @@ async function resetCounter(counter, dynamoDb) {
     await dynamoDb.update(params).promise();
 }
 
+async function searchSubdomains(embedding, domain, subdomain, entity, query, limit){
+
+    if (!embedding || !domain || !subdomain || !entity) {
+        return res.status(400).json({ error: 'embedding, domain & subdomain required' });
+    }
+
+    const tableName = `i_${domain}`;
+    let item;
+    try {
+        const params = {
+            TableName: tableName,
+            KeyConditionExpression: '#r = :sub',
+            ExpressionAttributeNames: { '#r': 'root' },
+            ExpressionAttributeValues: { ':sub': subdomain },
+            Limit: 1
+        };
+        const data = await dynamodb.query(params).promise();
+        if (!data.Items.length) {
+            return res.status(404).json({ error: 'no record for that sub‑domain' });
+        }
+        item = data.Items[0];
+    } catch (err) {
+        console.error('DynamoDB query failed:', err);
+        return res.status(502).json({ error: 'db‑unavailable' });
+    }
+
+    const cosineDist = (a, b) => {
+        let dot = 0, na = 0, nb = 0;
+        for (let i = 0; i < a.length; i++) {
+            dot += a[i] * b[i];
+            na += a[i] * a[i];
+            nb += b[i] * b[i];
+        }
+        return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+    };
+
+    const distances = {};
+    for (let i = 1; i <= 5; i++) {
+        const attr = `emb${i}`;
+        const raw = item[attr];
+        let refArr = null;
+
+        if (typeof raw === 'string') {
+            try {
+                refArr = JSON.parse(raw);
+            } catch (err) {
+                console.warn(`Failed to parse ${attr} for ${domain}/${subdomain}:`, err);
+                continue;
+            }
+        }
+        else if (Array.isArray(raw)) {
+            refArr = raw;
+        }
+
+        if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
+            continue;
+        }
+
+        distances[attr] = cosineDist(embedding, refArr);
+    }
+
+
+
+    const DIST_LIMIT = limit;
+    const fullPath = `/${domain}/${subdomain}`;
+
+    // we already computed  distances.emb1  above
+    const dist1 = distances.emb1;
+    if (typeof dist1 !== 'number') {
+        return res.status(500).json({ error: 'dist1 missing from first pass' });
+    }
+
+    const dist1Lower = Math.max(0, dist1 - DIST_LIMIT);   // clamp to 0–1 if desired
+    const dist1Upper = Math.min(1, dist1 + DIST_LIMIT);
+
+    let matches = [];
+    try {
+        const params = {
+            TableName: 'subdomains',
+            IndexName: 'path-index',                // PK = path (S),  SK = dist1 (N)
+            ExpressionAttributeNames: {
+                '#p': 'path',
+                '#d1': 'dist1'
+            },
+            ExpressionAttributeValues: {
+                ':path': fullPath,
+                ':lo': dist1Lower,
+                ':hi': dist1Upper
+            },
+            KeyConditionExpression:
+                '#p = :path AND #d1 BETWEEN :lo AND :hi'
+        };
+
+        console.log("params", params)
+
+        let last;
+        do {
+            const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
+
+            console.log('[query] raw count:', data.Count);              // ★  How many survived KeyCondition?
+            if (data.Items.length && !matches.length) {
+                console.log('[query] first item (raw):', JSON.stringify(data.Items[0], null, 2));
+            }
+
+            matches.push(...data.Items);
+            last = data.LastEvaluatedKey;
+            last = data.LastEvaluatedKey;
+        } while (last);
+
+    } catch (err) {
+        console.error('search → DynamoDB failed:', err);
+        return res.status(502).json({ error: 'db‑unavailable' });
+    }
+
+    /*  respond to the front‑end  */
+    return { action, query, domain, subdomain, entity, matches };
+}
+
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     cache = {
         getSub: {},
@@ -2603,7 +2722,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 // 5️⃣  finally send back what PositionModule expects
 
                 mainObj = {
-                    action, 
+                    action,
                     position: distances,
                     domain,
                     subdomain,
@@ -2628,122 +2747,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 // ──────────────────────────────────────────────────────────────
                 console.log('search//////');
                 const { domain, subdomain, query = '', entity = null, embedding } = reqBody.body || {};
-
-                if (!embedding || !domain || !subdomain || !entity) {
-                    return res.status(400).json({ error: 'embedding, domain & subdomain required' });
-                }
-
-                const tableName = `i_${domain}`;
-                let item;
-                try {
-                    const params = {
-                        TableName: tableName,
-                        KeyConditionExpression: '#r = :sub',
-                        ExpressionAttributeNames: { '#r': 'root' },
-                        ExpressionAttributeValues: { ':sub': subdomain },
-                        Limit: 1
-                    };
-                    const data = await dynamodb.query(params).promise();
-                    if (!data.Items.length) {
-                        return res.status(404).json({ error: 'no record for that sub‑domain' });
-                    }
-                    item = data.Items[0];
-                } catch (err) {
-                    console.error('DynamoDB query failed:', err);
-                    return res.status(502).json({ error: 'db‑unavailable' });
-                }
-
-                const cosineDist = (a, b) => {
-                    let dot = 0, na = 0, nb = 0;
-                    for (let i = 0; i < a.length; i++) {
-                        dot += a[i] * b[i];
-                        na += a[i] * a[i];
-                        nb += b[i] * b[i];
-                    }
-                    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
-                };
-
-                const distances = {};
-                for (let i = 1; i <= 5; i++) {
-                    const attr = `emb${i}`;
-                    const raw = item[attr];
-                    let refArr = null;
-
-                    if (typeof raw === 'string') {
-                        try {
-                            refArr = JSON.parse(raw);
-                        } catch (err) {
-                            console.warn(`Failed to parse ${attr} for ${domain}/${subdomain}:`, err);
-                            continue;
-                        }
-                    }
-                    else if (Array.isArray(raw)) {
-                        refArr = raw;
-                    }
-
-                    if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
-                        continue;
-                    }
-
-                    distances[attr] = cosineDist(embedding, refArr);
-                }
-
-
-
-                const DIST_LIMIT = 0.10;
-const fullPath   = `/${domain}/${subdomain}`;
-
-// we already computed  distances.emb1  above
-const dist1 = distances.emb1;
-if (typeof dist1 !== 'number') {
-  return res.status(500).json({ error: 'dist1 missing from first pass' });
-}
-
-const dist1Lower = Math.max(0,  dist1 - DIST_LIMIT);   // clamp to 0–1 if desired
-const dist1Upper = Math.min(1,  dist1 + DIST_LIMIT);
-
-let matches = [];
-try {
-    const params = {
-        TableName : 'subdomains',
-        IndexName : 'path-index',                // PK = path (S),  SK = dist1 (N)
-        ExpressionAttributeNames: {
-          '#p'  : 'path',
-          '#d1' : 'dist1'
-        },
-        ExpressionAttributeValues: {
-          ':path': fullPath,
-          ':lo'  : dist1Lower,
-          ':hi'  : dist1Upper
-        },
-        KeyConditionExpression:
-          '#p = :path AND #d1 BETWEEN :lo AND :hi'
-      };
-
-  console.log("params",params)
-
-  let last;
-  do {
-    const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
-
-    console.log('[query] raw count:', data.Count);              // ★  How many survived KeyCondition?
-    if (data.Items.length && !matches.length) {
-      console.log('[query] first item (raw):', JSON.stringify(data.Items[0], null, 2));
-    }
-    
-    matches.push(...data.Items);
-    last = data.LastEvaluatedKey;
-    last = data.LastEvaluatedKey;
-  } while (last);
-
-} catch (err) {
-  console.error('search → DynamoDB failed:', err);
-  return res.status(502).json({ error: 'db‑unavailable' });
-}
-
-/*  respond to the front‑end  */
-mainObj = { action, query, domain, subdomain, entity, matches };
-console.log('mainObj', mainObj);
+                let limit = 0.2;
+                mainObj = searchSubdomains(embedding, domain, subdomain, entity, query, limit)
+                console.log('mainObj', mainObj);
             } else if (action == "addIndex") {
 
             } else if (action == "shorthand") {
