@@ -58,7 +58,7 @@ const boundAxios = {
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
-const EMB_MODEL = 'text-embedding-3-small';
+const EMB_MODEL = 'text-embedding-3-large';
 
 const Anthropic = require('@anthropic-ai/sdk');
 app.use(express.json());

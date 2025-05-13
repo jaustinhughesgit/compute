@@ -2743,12 +2743,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
                  ************************************************************/
             } else if (action === 'search') {
-                // ──────────────────────────────────────────────────────────────
-                //  search  route  – uses the GSI  path‑index  (path / dist1)
-                // ──────────────────────────────────────────────────────────────
                 console.log('search//////');
-                const { domain, subdomain, query = '', entity = null, embedding } = reqBody.body || {};
-                let limit = 0.2;
+                const { domain, subdomain, query = '', entity = null, embedding, limit } = reqBody.body || {};
                 mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
                 console.log('mainObj', mainObj);
             } else if (action == "addIndex") {
