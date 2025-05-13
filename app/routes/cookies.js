@@ -2749,7 +2749,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log('search//////');
                 const { domain, subdomain, query = '', entity = null, embedding } = reqBody.body || {};
                 let limit = 0.2;
-                mainObj = searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
+                mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
                 console.log('mainObj', mainObj);
             } else if (action == "addIndex") {
 
