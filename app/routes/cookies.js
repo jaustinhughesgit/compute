@@ -1760,7 +1760,7 @@ async function resetCounter(counter, dynamoDb) {
     await dynamoDb.update(params).promise();
 }
 
-async function searchSubdomains(embedding, domain, subdomain, entity, query, limit){
+async function searchSubdomains(embedding, domain, subdomain, entity, query, limit, action){
 
     if (!embedding || !domain || !subdomain || !entity) {
         return res.status(400).json({ error: 'embedding, domain & subdomain required' });
@@ -1823,7 +1823,7 @@ async function searchSubdomains(embedding, domain, subdomain, entity, query, lim
 
 
 
-    const DIST_LIMIT = 0.2;
+    const DIST_LIMIT = limit;
     const fullPath = `/${domain}/${subdomain}`;
 
     // we already computed  distances.emb1  above
@@ -2749,7 +2749,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log('search//////');
                 const { domain, subdomain, query = '', entity = null, embedding } = reqBody.body || {};
                 let limit = 0.2;
-                mainObj = searchSubdomains(embedding, domain, subdomain, entity, query, limit)
+                mainObj = searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
                 console.log('mainObj', mainObj);
             } else if (action == "addIndex") {
 
