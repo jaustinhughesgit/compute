@@ -412,7 +412,7 @@ async function convertToJSON(
         pathid: pathUUID,
         usingID: usingID,
         location: fileLocation(isPublic),
-        verified: verified
+        verified: verified // is always true at this point
     };
 
     const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
@@ -1823,7 +1823,7 @@ async function searchSubdomains(embedding, domain, subdomain, entity, query, lim
 
 
 
-    const DIST_LIMIT = limit;
+    const DIST_LIMIT = 0.2;
     const fullPath = `/${domain}/${subdomain}`;
 
     // we already computed  distances.emb1  above
