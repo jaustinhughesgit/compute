@@ -1832,8 +1832,14 @@ async function searchSubdomains(embedding, domain, subdomain, entity, query, lim
         return res.status(500).json({ error: 'dist1 missing from first pass' });
     }
 
+    console.log("dist1", dist1);
+    console.log("DIST_LIMIT", DIST_LIMIT);
+
     const dist1Lower = Math.max(0, dist1 - DIST_LIMIT);   // clamp to 0–1 if desired
     const dist1Upper = Math.min(1, dist1 + DIST_LIMIT);
+
+    console.log("dist1Lower", dist1Lower)
+    console.log("dist1Upper", dist1Upper)
 
     let matches = [];
     try {
