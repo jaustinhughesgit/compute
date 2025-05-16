@@ -88,7 +88,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             if (match) {
                 return parseInt(match[1], 10);
             }
-        } catch { /* ignore */ }
+        } catch {}
         return token;
     }
 
@@ -197,7 +197,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             isCellRefPlusPlus(txt) ||
             isRowReplace(txt) ||
             isRowSplice(txt) ||
-            // fallback:
             /^\d{3}([A-Za-z]{2}|\d{2})$/.test(txt.toString())
         );
     }
@@ -226,7 +225,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         if (isCellRefPlusPlus(str)) {
             const rowIndex = parseInt(str.slice(0, 3), 10);
-            let colIndex = highestCol + 1; // increment from the global highest
+            let colIndex = highestCol + 1;
             if (colIndex > highestCol) {
                 highestCol = colIndex;
                 generateColIDs();
@@ -864,7 +863,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (currentVal < loopLimit) {
                     return true;
                 } else {
-                    // Reset the loop
+
                     if (Array.isArray(rowResult[r])) {
                         rowResult[r][0] = 0;
                     } else {
@@ -928,7 +927,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     let possiblyChunked = chunkIfFirst5isRef(part);
                     possiblyChunked.forEach(item => currentRow.push(item));
                 }
-                // "=====" signals new row
+
                 if (idx < rowParts.length - 1) {
                     finalizeRow();
                 }
@@ -1642,7 +1641,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         },
         FUNCTION: (rowArray) => {
-            // placeholder
+
         },
         TREE: (rowArray) => {
             const levels = parseInt(resolveCell(rowArray[1]), 10) || 0;
