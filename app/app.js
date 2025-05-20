@@ -1073,8 +1073,8 @@ async function initializeMiddleware(req, res, next) {
 
                         console.log("post-lib", req.lib)
                         console.log("req1", req)
-                        console.log("req2", req._passport)
-                        console.log("req3", req.user)
+                        console.log("res.req", res.req)
+                        console.log("res null 2", JSON.stringify(res, null, 2))
                         console.log("req4", req.ip)
                         console.log("userJSON", userJSON)
 
