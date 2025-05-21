@@ -1119,6 +1119,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         newReq._headerSent = req._headerSent
         newReq.path = req.path
         let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+        resp = resp.response
         console.log("get=>", resp);
         //return resp
         console.log("resp", resp)
