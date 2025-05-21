@@ -2189,11 +2189,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
-                shorthandLogic.input =
-                    [{
+                shorthandLogic.input = arrayLogic;
+                shorthandLogic.input.upshift({
                         "physical": [[shorthandLogic.published]]
-                    }]
-                shorthandLogic.input.push(arrayLogic[0]);
+                    })
                 console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 console.log("newShorthand", newShorthand)
