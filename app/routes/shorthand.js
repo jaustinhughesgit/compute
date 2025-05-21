@@ -1137,7 +1137,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             // Re-run the imported matrix as a new shorthand instance.
             let published = await shorthand(resp);
-            delete resp.published.blocks
             console.log("resp>>", resp)
             return published;
         } else {
@@ -1149,7 +1148,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 const fixBlocks = resp.published.blocks
                 resp = await deepMerge(resp, overrides);
             }
-            delete resp.published.blocks
             console.log("resp>>", resp)
             return resp.published;
         }
@@ -1737,8 +1735,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     };
 
     console.log("shorthandArray", shorthandArray)
+    const blocks = shorthand.published.blocks
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
+    shorthandObj.published.blocks = blocks;
     return shorthandObj
 }
 
