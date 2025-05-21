@@ -1144,7 +1144,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let overrides = data[entity];
             if (overrides) {
                 console.log("overrides", overrides)
-                const fixBlocks = resp.publilshed.blocks
+                const fixBlocks = resp.published.blocks
                 resp = await deepMerge(resp, overrides);
                 resp.published.blocks = fixBlocks
             }
