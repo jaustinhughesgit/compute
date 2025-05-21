@@ -296,8 +296,14 @@ async function convertToJSON(
     dynamodbLL,
     body
 ) {
+    console.log("fileID",fileID)
+    console.log("cookie",cookie)
+    console.log("body",body)
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-
+    console.log("verified",verified)
+    console.log("subBySU",subBySU)
+    console.log("entity",entity)
+    console.log("isPublic",isPublic)
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
