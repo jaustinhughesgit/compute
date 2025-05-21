@@ -2177,7 +2177,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
             } else if (action == "addIndex") {
 
-            } else if (action == "getFile"){
+            } else if (action == "getFile") {
                 actionFile = reqPath.split("/")[3];
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 mainObj = JSON.parse(JSON.stringify(jsonpl))
@@ -2189,7 +2189,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
-                shorthandLogic.input = [shorthandLogic.published]
+                shorthandLogic.input =
+                    [{
+                        "physical": [[shorthandLogic.published]]
+                    }]
                 shorthandLogic.input.push(arrayLogic[0]);
                 console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
