@@ -413,7 +413,7 @@ async function convertToJSON(
     console.log("returning ----obj", obj)
     console.log("returning ----paths", paths)
     console.log("returning ----paths2", paths2)
-    console.log("returning ----id2Path", id2Pathid2Path)
+    console.log("returning ----id2Path", id2Path)
     console.log("returning ----groupList", groupList)
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
