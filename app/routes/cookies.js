@@ -357,6 +357,7 @@ async function convertToJSON(
         const childPromises = children.map(async (child) => {
             const subByE = await getSub(child, "e", dynamodb);
             const uuid = subByE.Items[0].su;
+            console.log("returning children")
             return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
         });
         const childResponses = await Promise.all(childPromises);
@@ -397,6 +398,7 @@ async function convertToJSON(
         const linkedPromises = linked.map(async (link) => {
             const subByE = await getSub(link, "e", dynamodb);
             const uuid = subByE.Items[0].su;
+            console.log("performing convertToJSON LINKED")
             return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
         });
         const linkedResponses = await Promise.all(linkedPromises);
@@ -406,7 +408,9 @@ async function convertToJSON(
             Object.assign(paths2, linkedResponse.paths2);
         }
     }
+    console.log("getGroups")
     const groupList = await getGroups(dynamodb);
+    console.log("returning ----", groupList)
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
