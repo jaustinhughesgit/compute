@@ -410,7 +410,11 @@ async function convertToJSON(
     }
     console.log("getGroups")
     const groupList = await getGroups(dynamodb);
-    console.log("returning ----", groupList)
+    console.log("returning ----obj", obj)
+    console.log("returning ----paths", paths)
+    console.log("returning ----paths2", paths2)
+    console.log("returning ----id2Path", id2Pathid2Path)
+    console.log("returning ----groupList", groupList)
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
