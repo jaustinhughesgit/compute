@@ -1133,10 +1133,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let overrides = data[entity];
             if (overrides) {
                 resp = await deepMerge(resp, overrides);
+                resp.published.blocks
             }
             // Re-run the imported matrix as a new shorthand instance.
             let published = await shorthand(resp);
-            console.log("published",published)
+            delete resp.published.blocks
+            console.log("resp>>", resp)
             return published;
         } else {
             // Otherwise, simply merge any overrides and return the published value.
@@ -1146,10 +1148,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.log("overrides", overrides)
                 const fixBlocks = resp.published.blocks
                 resp = await deepMerge(resp, overrides);
-                resp.published.blocks = fixBlocks
             }
-            console.log("resp",JSON.stringify(resp, null, 2))
-            console.log("resp.published",resp.published)
+            delete resp.published.blocks
+            console.log("resp>>", resp)
             return resp.published;
         }
     }
