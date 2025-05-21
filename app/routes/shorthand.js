@@ -1057,7 +1057,18 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 const segmentRows = segment[typeKey];
                 const startRowCount = matrix.length;
                 for (let rowData of segmentRows) {
-                    await manageArrowCells(rowData)
+                    if (
+                        typeof rowData === "object" &&
+                        !Array.isArray(rowData) &&
+                        !("physical" in rowData || "virtual" in rowData)
+                    ) {
+                        console.log("importMatrix", rowData)
+                        let publishedValue = await getVAR(rowData);
+                        console.log("publishedValue!!", publishedValue)
+                        await addRow([publishedValue]);
+                    } else {
+                        await manageArrowCells(rowData);
+                    }
                 }
 
                 await run(skip);
@@ -1075,7 +1086,17 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         else {
             for (let i = 0; i < data.length; i++) {
                 const rowData = data[i];
-                await manageArrowCells(rowData)
+                if (
+                    typeof rowData === "object" &&
+                    !Array.isArray(rowData) &&
+                    !("physical" in rowData || "virtual" in rowData)
+                ) {
+                    let publishedValue = await getVAR(rowData);
+                    console.log("publishedValue", publishedValue)
+                    await addRow([publishedValue]);
+                } else {
+                    await manageArrowCells(rowData);
+                }
             }
             await run(skip);
         }
@@ -1099,12 +1120,39 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         newReq.path = req.path
         let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
         console.log("get=>", resp);
-        return resp
+        //return resp
+        console.log("resp", resp)
+        // If the import object has an "add" key then add those rows to the imported matrix's input,
+        // and merge any root-level overrides (like input, published, sweeps, skips).
+        if (data["++"]) {
+            if (!Array.isArray(resp.input)) {
+                resp.input = [];
+            }
+            resp.input.push(...data["++"]);
+            let overrides = data[entity];
+            if (overrides) {
+                resp = deepMerge(resp, overrides);
+            }
+            // Re-run the imported matrix as a new shorthand instance.
+            let published = await shorthand(resp);
+            console.log("published",published)
+            return published;
+        } else {
+            // Otherwise, simply merge any overrides and return the published value.
+            console.log("data => ", data)
+            let overrides = data[entity];
+            if (overrides) {
+                console.log("overrides", overrides)
+                resp = deepMerge(resp, overrides);
+            }
+            console.log("resp",JSON.stringify(resp, null, 2))
+            console.log("resp.published",resp.published)
+            return resp.published;
+        }
     }
 
     var keywords = {
         ROUTE: async (rowArray) => {
-
             let act = rowArray[1];
             let param1 = rowArray[2];
             let param2 = rowArray[3];
@@ -1114,8 +1162,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody = req.body;
             const action = reqPath.split("/")[2];
-
-
 
             let newReq = {};
             newReq.body = req.body
