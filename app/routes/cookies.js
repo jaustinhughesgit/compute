@@ -2190,7 +2190,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
                 shorthandLogic.input = arrayLogic;
-                shorthandLogic.input.upshift({
+                shorthandLogic.input.unshift({
                         "physical": [[shorthandLogic.published]]
                     })
                 console.log("shorthandLogic", shorthandLogic)
