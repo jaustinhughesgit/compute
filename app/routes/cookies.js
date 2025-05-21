@@ -2221,9 +2221,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let { runApp } = require('../app');
 
                 
-                mainObj = await runApp(req, res, next)
-                console.log("----------------------------")
+                let o = await runApp(req, res, next)
+                console.log("----------------------------", o)
                 console.log("mainObj", mainObj),
+                mainObj = {}
             }
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
