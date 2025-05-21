@@ -71,7 +71,7 @@ let cache = {
     getVerified: {}
 };
 async function getGroup(g, dynamodb) {
-    
+
     if (cache.getGroup[g]) {
         return cache.getGroup[g];
     }
@@ -85,7 +85,7 @@ async function getGroup(g, dynamodb) {
     return result;
 }
 async function getAccess(ai, dynamodb) {
-    
+
     if (cache.getAccess[ai]) {
         return cache.getAccess[ai];
     }
@@ -99,7 +99,7 @@ async function getAccess(ai, dynamodb) {
     return result;
 }
 async function getVerified(key, val, dynamodb) {
-    
+
     let params;
     if (key === "vi") {
         params = {
@@ -126,7 +126,7 @@ async function getVerified(key, val, dynamodb) {
     return result;
 }
 async function getWord(a, dynamodb) {
-    
+
     if (cache.getWord[a]) {
         return cache.getWord[a];
     }
@@ -140,7 +140,7 @@ async function getWord(a, dynamodb) {
     return result;
 }
 async function getGroups(dynamodb) {
-    
+
     const params = { TableName: 'groups' };
     const groups = await dynamodb.scan(params).promise();
     const groupObjs = [];
@@ -168,16 +168,16 @@ async function getGroups(dynamodb) {
     return groupObjs;
 }
 function fileLocation(val) {
-    
+
     let location = "private"
     if (val == "true" || val == true) {
         location = "public"
     }
-    
+
     return location
 }
 function setIsPublic(val) {
-    
+
     if (val == "true" || val == true) {
         isPublic = true
     } else {
@@ -186,7 +186,7 @@ function setIsPublic(val) {
     return isPublic;
 }
 async function verifyThis(fileID, cookie, dynamodb, body) {
-    
+
     const subBySU = await getSub(fileID, "su", dynamodb);
     const isPublic = setIsPublic(subBySU.Items[0].z);
     const entity = await getEntity(subBySU.Items[0].e, dynamodb);
@@ -198,48 +198,48 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
         verified = true;
     } else {
         const verify = await getVerified("gi", cookie.gi.toString(), dynamodb, body);
-        
+
         verified = verify.Items.some(veri => groupAi.includes(veri.ai) && veri.bo);
-        
-        
-        
+
+
+
         if (!verified) {
-            
-            verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo); 
+
+            verified = verify.Items.some(veri => entityAi.includes(veri.ai) && veri.bo);
 
             let bb = {};
             if (body) {
                 bb = JSON.parse(JSON.stringify(body));
             }
             if (bb.hasOwnProperty("body")) {
-                
+
                 bb = JSON.parse(JSON.stringify(body.body));
             }
-            
+
             for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb);
-                
-                
-                
+
+
+
                 let deep = await deepEqual(access.Items[0].va, bb);
-                
+
                 if (deep == true && verified == false) {
-                    
-                    
-                    
+
+
+
                     let usingAuth = await useAuth(fileID, entity, access, cookie, dynamodb);
-                    
+
                     verified = true;
                 }
             }
-            
-        }
-        
-    }
-    
 
-    
-    
+        }
+
+    }
+
+
+
+
     return { verified, subBySU, entity, isPublic };
 }
 async function useAuth(fileID, Entity, access, cookie, dynamodb) {
@@ -251,7 +251,7 @@ async function useAuth(fileID, Entity, access, cookie, dynamodb) {
 
     const details3 = await addVersion(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), Entity.Items[0].c.toString(), dynamodb);
     const updateAuth = await updateEntity(Entity.Items[0].e.toString(), "ai", access.Items[0].ai.toString(), details3.v, details3.c, dynamodb);
-    
+
     return true
 }
 const deepEqual = (value1, value2) => {
@@ -297,7 +297,7 @@ async function convertToJSON(
     body
 ) {
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-    
+
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
@@ -310,10 +310,10 @@ async function convertToJSON(
     const obj = {};
     const paths = {};
     const paths2 = {};
-    
-    
-    
-    
+
+
+
+
     if (id2Path == null) {
         id2Path = {}
     }
@@ -340,7 +340,7 @@ async function convertToJSON(
         pathid: pathUUID,
         usingID: usingID,
         location: fileLocation(isPublic),
-        verified: verified 
+        verified: verified
     };
     const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
     const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
@@ -644,7 +644,7 @@ async function addVersion(newE, col, val, forceC, dynamodb) {
     }
 };
 const createFile = async (su, fileData, s3) => {
-    
+
     const jsonString = JSON.stringify(fileData);
     const bucketParams = {
         Bucket: fileLocation(isPublic) + '.1var.com',
@@ -653,7 +653,7 @@ const createFile = async (su, fileData, s3) => {
         ContentType: 'application/json'
     };
     const data = await s3.putObject(bucketParams).promise();
-    
+
     return true;
 }
 const updateJSONL = async (newLine, keys, s3) => {
@@ -668,7 +668,7 @@ const updateJSONL = async (newLine, keys, s3) => {
         newLine.completion = JSOn.stringify(VAR)
         const getParams = { Bucket: 'private.1var.com', Key: 'training.jsonl' };
         const data = await s3.getObject(getParams).promise();
-        const etag = data.ETag; 
+        const etag = data.ETag;
 
         let existingData = data.Body.toString();
         if (!existingData.endsWith('\n')) {
@@ -709,7 +709,7 @@ const fineTune = async (openai, method, val, sub) => {
     } else if (method == "cancel") {
         fineTune = await openai.fineTuning.jobs.cancel(val);
     }
-    
+
     return fineTune
 }
 const createEntity = async (e, a, v, g, h, ai, dynamodb) => {
@@ -881,16 +881,16 @@ async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
         const ak = await getUUID(uuidv4)
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
-        const ttlDurationInSeconds = 86400; 
+        const ttlDurationInSeconds = 86400;
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
             maxAge: ttlDurationInSeconds * 1000,
-            httpOnly: true, 
-            secure: true, 
-            sameSite: 'None' 
+            httpOnly: true,
+            secure: true,
+            sameSite: 'None'
         });
         return { "ak": ak, "gi": gi, "ex": ex, "ci": ci }
     }
@@ -921,8 +921,8 @@ function allVerified(list) {
     return v
 }
 async function verifyPath(splitPath, verifications, dynamodb) {
-    
-    
+
+
     let verified = [];
     let verCounter = 0;
     for (ver in splitPath) {
@@ -930,32 +930,32 @@ async function verifyPath(splitPath, verifications, dynamodb) {
             let verValue = false
             verified.push(false)
             const sub = await getSub(splitPath[ver], "su", dynamodb);
-            
-            
+
+
             let groupID = sub.Items[0].g
             let entityID = sub.Items[0].e
             if (sub.Items[0].z) {
                 verValue = true
             }
             for (veri in verifications.Items) {
-                
-                
-                
+
+
+
                 if (entityID != "0") {
-                    
+
                     let eSub = await getEntity(sub.Items[0].e, dynamodb)
-                    
+
                     groupID = eSub.Items[0].g
-                    
+
                     if (eSub.Items[0].ai.toString() == "0") {
                         verValue = true
-                        
+
                     }
-                    
+
                 }
                 if (sub.Items.length > 0) {
-                    
-                    
+
+
                     if (sub.Items[0].z == true) {
                         verValue = true
                     } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
@@ -969,7 +969,7 @@ async function verifyPath(splitPath, verifications, dynamodb) {
                             verValue = true
                         }
                     } else if (entityID == "0" && groupID == "0") {
-                        
+
                         verValue = true;
                     }
                 }
@@ -1047,7 +1047,7 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
                     const params = {
                         TableName: "enabled",
                         Key: {
-                            "time": scheduleName, 
+                            "time": scheduleName,
                         },
                         UpdateExpression: "set #enabled = :enabled, #en = :en",
                         ExpressionAttributeNames: {
@@ -1055,10 +1055,10 @@ async function createSchedule(ti, en, sdS, edS, stS, etS, itS, moS, tuS, weS, th
                             "#en": "en"
                         },
                         ExpressionAttributeValues: {
-                            ":enabled": 1, 
+                            ":enabled": 1,
                             ":en": enData.Items[0].x
                         },
-                        ReturnValues: "UPDATED_NEW" 
+                        ReturnValues: "UPDATED_NEW"
                     };
                     try {
                         const result = await dynamodb.update(params).promise();
@@ -1158,7 +1158,7 @@ async function convertTimespanToUTC(options) {
     }
 
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
-        endUTC.clone().add(1, 'day');  
+        endUTC.clone().add(1, 'day');
     }
     let timespans = [firstTimespan];
     if (eOrigUTC.format("YYYY-MM-DD") != endUTC.format("YYYY-MM-DD")) {
@@ -1186,7 +1186,7 @@ async function retrieveAndParseJSON(fileName, isPublic) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
     const data = await s3.getObject(params).promise();
-    
+
     return await JSON.parse(data.Body.toString('utf-8'));
 }
 async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
@@ -1286,7 +1286,7 @@ async function clearTable(tableName, dynamoDb) {
     do {
         items = await dynamoDb.scan(params).promise();
         if (!items.Items || items.Items.length === 0) {
-            
+
             break;
         }
         const keySchema = keySchemaMap[tableName];
@@ -1346,96 +1346,96 @@ async function resetCounter(counter, dynamoDb) {
 
 async function searchSubdomains(
     embedding, domain, subdomain, entity, query, limit, action
-  ) {
-  
+) {
+
     if (!embedding || !domain || !subdomain || !entity) {
-      return res.status(400).json({ error: "embedding, domain & subdomain required" });
+        return res.status(400).json({ error: "embedding, domain & subdomain required" });
     }
-  
+
 
     const tableName = `i_${domain}`;
     let item;
     try {
-      const params = {
-        TableName: tableName,
-        KeyConditionExpression       : "#r = :sub",
-        ExpressionAttributeNames     : { "#r": "root" },
-        ExpressionAttributeValues    : { ":sub": subdomain },
-        Limit: 1
-      };
-      const data = await dynamodb.query(params).promise();
-      if (!data.Items.length) {
-        return res.status(404).json({ error: "no record for that sub‑domain" });
-      }
-      item = data.Items[0];
+        const params = {
+            TableName: tableName,
+            KeyConditionExpression: "#r = :sub",
+            ExpressionAttributeNames: { "#r": "root" },
+            ExpressionAttributeValues: { ":sub": subdomain },
+            Limit: 1
+        };
+        const data = await dynamodb.query(params).promise();
+        if (!data.Items.length) {
+            return res.status(404).json({ error: "no record for that sub‑domain" });
+        }
+        item = data.Items[0];
     } catch (err) {
-      console.error("DynamoDB query failed:", err);
-      return res.status(502).json({ error: "db‑unavailable" });
+        console.error("DynamoDB query failed:", err);
+        return res.status(502).json({ error: "db‑unavailable" });
     }
-  
+
     const cosineDist = (a, b) => {
-      let dot = 0, na = 0, nb = 0;
-      for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        na  += a[i] * a[i];
-        nb  += b[i] * b[i];
-      }
-      return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+        let dot = 0, na = 0, nb = 0;
+        for (let i = 0; i < a.length; i++) {
+            dot += a[i] * b[i];
+            na += a[i] * a[i];
+            nb += b[i] * b[i];
+        }
+        return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
     };
-  
+
     const distances = {};
     for (let i = 1; i <= 5; i++) {
-      const attr = `emb${i}`;
-      const raw  = item[attr];
-  
-      let refArr = null;
-      if (typeof raw === "string") {
-        try { refArr = JSON.parse(raw); } catch { }
-      } else if (Array.isArray(raw)) {
-        refArr = raw;
-      }
-  
-      if (Array.isArray(refArr) && refArr.length === embedding.length) {
-        distances[`dist${i}`] = cosineDist(embedding, refArr);
-      }
-    }
-  
+        const attr = `emb${i}`;
+        const raw = item[attr];
 
-    const dist1      = distances.dist1;
-    if (typeof dist1 !== "number") {
-      return res.status(500).json({ error: "dist1 missing from first pass" });
+        let refArr = null;
+        if (typeof raw === "string") {
+            try { refArr = JSON.parse(raw); } catch { }
+        } else if (Array.isArray(raw)) {
+            refArr = raw;
+        }
+
+        if (Array.isArray(refArr) && refArr.length === embedding.length) {
+            distances[`dist${i}`] = cosineDist(embedding, refArr);
+        }
     }
-  
+
+
+    const dist1 = distances.dist1;
+    if (typeof dist1 !== "number") {
+        return res.status(500).json({ error: "dist1 missing from first pass" });
+    }
+
     const dist1Lower = Math.max(0, dist1 - limit);
     const dist1Upper = Math.min(1, dist1 + limit);
-  
+
     const fullPath = `/${domain}/${subdomain}`;
     let matches = [];
     try {
-      const params = {
-        TableName: "subdomains",
-        IndexName: "path-index", 
-        ExpressionAttributeNames : { "#p": "path", "#d1": "dist1" },
-        ExpressionAttributeValues: { ":path": fullPath, ":lo": dist1Lower, ":hi": dist1Upper },
-        KeyConditionExpression   : "#p = :path AND #d1 BETWEEN :lo AND :hi"
-      };
-  
-      let last;
-      do {
-        const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
-        matches.push(...data.Items);
-        last = data.LastEvaluatedKey;
-      } while (last);
-  
+        const params = {
+            TableName: "subdomains",
+            IndexName: "path-index",
+            ExpressionAttributeNames: { "#p": "path", "#d1": "dist1" },
+            ExpressionAttributeValues: { ":path": fullPath, ":lo": dist1Lower, ":hi": dist1Upper },
+            KeyConditionExpression: "#p = :path AND #d1 BETWEEN :lo AND :hi"
+        };
+
+        let last;
+        do {
+            const data = await dynamodb.query({ ...params, ExclusiveStartKey: last }).promise();
+            matches.push(...data.Items);
+            last = data.LastEvaluatedKey;
+        } while (last);
+
     } catch (err) {
-      console.error("search → DynamoDB failed:", err);
-      return res.status(502).json({ error: "db‑unavailable" });
+        console.error("search → DynamoDB failed:", err);
+        return res.status(502).json({ error: "db‑unavailable" });
     }
-  
+
     /* ───────────── respond ───────────── */
     return { action, query, domain, subdomain, entity, distances, matches };
-  }
-  
+}
+
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     cache = {
         getSub: {},
@@ -1445,32 +1445,32 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         getAccess: {},
         getVerified: {},
     }
-    
-    
+
+
     var response = {}
     var actionFile = ""
     var mainObj = {}
     if (reqMethod === 'GET' || reqMethod === 'POST') {
-        
+
         let cookie = await manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4)
-        
+
         const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb)
-        
+
         let splitPath = reqPath.split("/")
-        
+
         let verified = await verifyPath(splitPath, verifications, dynamodb);
-        
+
 
         let allV = allVerified(verified);
-        
+
         if (allV) {
-            
+
             if (action === "get") {
-                
+
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 mainObj = await convertToJSON(fileID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
-                
+
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
@@ -1478,11 +1478,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 try {
                     for (const tableName of tablesToClear) {
                         await clearTable(tableName, dynamodb);
-                        
+
                     }
                     for (const counter of countersToReset) {
                         await resetCounter(counter, dynamodb);
-                        
+
                     }
                     mainObj = { "alert": "success" }
                 } catch (error) {
@@ -1557,7 +1557,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
-                    
+
                     setIsPublic(true)
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
@@ -1567,7 +1567,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), gNew.toString(), "0", { "count": 1, "metric": "year" }, 10, { "count": 1, "metric": "minute" }, {}, "rwado")
-                    const ttlDurationInSeconds = 90000; 
+                    const ttlDurationInSeconds = 90000;
                     const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
                     const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
                     await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
@@ -1618,8 +1618,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     let subject = "1 VAR - Email Address Verification Request"
                     let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/" + uniqueId
                     let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/" + uniqueId
-                    let emailer = await email(from, to, subject, emailText, emailHTML, ses)  
-                    
+                    let emailer = await email(from, to, subject, emailText, emailHTML, ses)
+
                     mainObj = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
                 }
             } else if (action === "useGroup") {
@@ -1776,49 +1776,49 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["tasks"] = tasksISO
             } else if (action === "addFineTune") {
                 let sections = reqPath.split("/")
-                
+
                 const fileResult = await updateJSONL(reqBody.body, sections, s3)
                 mainObj = { "alert": "success" }
             } else if (action === "createFineTune") {
                 let sections = reqPath.split("/")
-                
-                
+
+
                 const fineTuneResponse = await fineTune(openai, "create", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "listFineTune") {
                 let sections = reqPath.split("/")
-                
+
                 const fineTuneResponse = await fineTune(openai, "list", sections[3], "")
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "deleteFineTune") {
                 let sections = reqPath.split("/")
-                
-                
+
+
                 const fineTuneResponse = await fineTune(openai, "delete", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "eventsFineTune") {
                 let sections = reqPath.split("/")
-                
-                
+
+
                 const fineTuneResponse = await fineTune(openai, "events", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "retrieveFineTune") {
                 let sections = reqPath.split("/")
-                
-                
+
+
                 const fineTuneResponse = await fineTune(openai, "retrieve", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "cancelFineTune") {
                 let sections = reqPath.split("/")
-                
-                
+
+
                 const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
-                
+
                 actionFile = reqPath.split("/")[3]
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
-                
+
                 const fileResult = await createFile(actionFile, reqBody.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
@@ -1859,7 +1859,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 if (ex && at && va && to && ac && !buffer) {
                     const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
                     const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
-                    
+
                     if (sub.Items[0].e.toString() != "0") {
                         const details2 = await addVersion(sub.Items[0].e.toString(), "ai", ai.toString(), null, dynamodb);
                         const updateParent = await updateEntity(sub.Items[0].e.toString(), "ai", ai.toString(), details2.v, details2.c, dynamodb);
@@ -1914,28 +1914,28 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "useAuthenticator") {
                 const Entity = reqPath.split("/")[3]
                 const Authenticator = reqPath.split("/")[4]
-                
-                
+
+
                 const subEntity = await getSub(Entity, "su", dynamodb);
                 const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
-                
-                
+
+
                 let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': subAuthenticator.Items[0].e.toString() } }
                 let access = await dynamodb.query(params).promise()
-                
+
                 const useE = await getEntity(subEntity.Items[0].e, dynamodb)
-                
+
                 for (ac in access.Items) {
-                    
-                    
-                    
+
+
+
                     let changeID = "1"
                     if (useE.Items[0].hasOwnProperty("c")) {
                         changeID = useE.Items[0].c.toString();
                     }
                     const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[ac].ai.toString(), changeID, dynamodb);
                     const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[ac].ai.toString(), details3.v, details3.c, dynamodb);
-                    
+
                 }
                 mainObj = { "alert": "success" }
             } else if (action == "createTask") {
@@ -2052,7 +2052,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
                 mainObj["oai"] = JSON.parse(oai.response);
             } else if (action == "position") {
-                
+
                 const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
 
                 if (!embedding || !domain || !subdomain || !entity) {
@@ -2113,7 +2113,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                     distances[attr] = cosineDist(embedding, refArr);
                 }
-                
+
                 try {
                     const updateParams = {
                         TableName: 'subdomains',
@@ -2145,7 +2145,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         ReturnValues: 'UPDATED_NEW'
                     };
                     const updateResult = await dynamodb.update(updateParams).promise();
-                    
+
                 } catch (err) {
                     console.error('Failed to update subdomains table:', err);
                     return res.status(502).json({ error: 'failed to save distances' });
@@ -2159,7 +2159,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     entity,
                     id: item.id ?? null
                 }
-                
+
                 /************************************************************
                  *  action === "search"
                  *  ---------------------------------------------------------
@@ -2171,20 +2171,25 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
                  ************************************************************/
             } else if (action === 'search') {
-                
+
                 const { domain, subdomain, query = '', entity = null, embedding, limit } = reqBody.body || {};
                 mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
-                
+
             } else if (action == "addIndex") {
+
+            } else if (action == "getFile"){
+                actionFile = reqPath.split("/")[3];
+                let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                mainObj = JSON.parse(JSON.stringify(jsonpl))
             } else if (action == "shorthand") {
                 actionFile = reqPath.split("/")[3];
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = reqBody.body;
-                console.log("arrayLogic",arrayLogic)
+                console.log("arrayLogic", arrayLogic)
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 shorthandLogic.input.push(arrayLogic[0]);
-                console.log("shorthandLogic",shorthandLogic)
+                console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 const params = {
                     Bucket: "public.1var.com",
@@ -2195,13 +2200,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
             } else if (action == "runEntity") {
-                
+
                 let { runApp } = require('../app');
-                
-                
-                
-                
-                
+
                 await runApp(req, res, next)
             }
             /* else if (action == "transcribe"){
@@ -2218,15 +2219,15 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                         url: url,
                         policy: policy
                     });
-                    
+
                     return sendBack(res, "json", { signedUrl: signedUrl }, isShorthand);
                 } else {
                     const cookies = signer.getSignedCookie({ policy: policy });
                     for (const cookieName in cookies) {
                         res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
                     }
-                    
-                    
+
+
                     return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 }
             } else if (action === "reqPut") {
@@ -2242,26 +2243,26 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 s3.getSignedUrl('putObject', params, (error, url) => {
                     if (error) {
                         if (reqHeaderSent == false) {
-                            
+
                             return sendBack(res, "json", { "ok": false, "response": {} }, isShorthand);
                         }
                     } else {
                         response.putURL = url
                         if (reqHeaderSent == false) {
-                            
+
                             return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                         }
                     }
                 });
             } else {
-                
-                
+
+
                 if (response.file != "") {
-                    
+
                     return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 } else {
-                    
-                    
+
+
                     if (!response.hasOwnProperty("status")) {
                         return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                     }
@@ -2271,13 +2272,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             return sendBack(res, "json", {}, isShorthand);
         }
     } else {
-        
+
         return sendBack(res, "json", {}, isShorthand);
     }
 }
 function sendBack(res, type, val, isShorthand) {
 
-    
+
     if (!isShorthand) {
         res.json(val)
     } else {

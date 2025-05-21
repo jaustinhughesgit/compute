@@ -1106,14 +1106,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     async function getVAR(data) {
         let entity = Object.keys(data).find(k => k !== "add");
         let xAccessToken = req.body.headers["X-accessToken"]
-        let originalHost = "https://abc.api.1var.com/cookies/" + "file" + "/" + entity;
+        let originalHost = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         let splitOriginalHost = originalHost.split("1var.com")[1];
         let reqPath = splitOriginalHost.split("?")[0];
         let reqBody = req.body;
         const action = reqPath.split("/")[2];
         let newReq = {};
         newReq.body = req.body
-        newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + "file" + "/" + entity;
+        newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         newReq.method = req.method
         newReq.type = req.type
         newReq._headerSent = req._headerSent
