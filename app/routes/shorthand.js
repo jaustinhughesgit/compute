@@ -1735,10 +1735,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     };
 
     console.log("shorthandArray", shorthandArray)
-    const blocks = shorthand.published.blocks
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
-    shorthandObj.published.blocks = blocks;
     return shorthandObj
 }
 
