@@ -2229,9 +2229,11 @@ console.log("action",action)
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
             } else if (action == "runEntity") {
-
-                actionFile = reqPath.split("/")[3];
-                console.log("runEntity inside")
+                console.log("reqPath", reqPath);
+                console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
+                console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
+                actionFile = reqPath.split("?")[0].split("/")[3];
+                console.log("runEntity inside", actionFile)
                 let { runApp } = require('../app');
                 console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
