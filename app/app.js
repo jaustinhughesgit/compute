@@ -2083,8 +2083,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 }
 
 
-                let addToNested = await Promise.all(promises);
-                console.log("addToNested", addToNested)
 
                 let indexP = 0;
                 for (par in action.params) {
@@ -2275,13 +2273,12 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 const client = new SchedulerClient(config);
                 const data = await dynamodb.query(params).promise();
 
-                for (const item of data.Items) {
-                    let stUnix = data.Items[item].sd + data.Items[item].st
-                    let etUnix = data.Items[item].sd + data.Items[item].et
-
-
-                    var startTime = moment(stUnix * 1000);
-                    var endTime = moment(etUnix * 1000);
+                for (const itm of data.Items) {
+                    const stUnix = itm.sd + itm.st;   // ✓ use fields directly
+                    const etUnix = itm.sd + itm.et;
+                  
+                    const startTime = moment(stUnix * 1000);
+                    const endTime   = moment(etUnix * 1000);
 
                     while (startTime <= endTime) {
 
