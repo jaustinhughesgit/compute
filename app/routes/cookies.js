@@ -2311,7 +2311,7 @@ console.log("action",action)
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file"))
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/runEntity"))
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/get"))
-                if (!isShorthand && (reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file") || reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/runEntity") || reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/get"))){
+                if (!response.hasOwnProperty("ot") && !isShorthand && (reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file") || reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/runEntity") || reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/get"))){
                 //if (response.file !== "" || !response.hasOwnProperty("status")) {
                     return sendBack(res, "json", { ok: true, response }, isShorthand);
                 //}
