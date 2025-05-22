@@ -1183,6 +1183,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     var keywords = {
         ROUTE: async (rowArray) => {
+            console.log("rowArray",rowArray)
             console.log("ROUTE")
             let act = rowArray[1];
             let param1 = rowArray[2];
@@ -1202,7 +1203,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq._headerSent = req._headerSent
             newReq.path = req.path
             console.log("STARTING route(...)")
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            console.log("act", act)
+            action = await act
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
