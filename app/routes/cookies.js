@@ -2233,7 +2233,7 @@ console.log("action",action)
                 let { runApp } = require('../app');
                 console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
-                mainObj = ot
+                mainObj["ot"] =  ot
                 console.log("ot",ot)
             }
             /* else if (action == "transcribe"){
