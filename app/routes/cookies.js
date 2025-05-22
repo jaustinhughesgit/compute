@@ -2308,7 +2308,7 @@ console.log("action",action)
             }
             
             /* ── NEW: final catch‑all so the function never resolves to undefined ── */
-            return sendBack(res, "json", { ok: true, response }, isShorthand);
+            //return sendBack(res, "json", { ok: true, response }, isShorthand);
 
         } else {
             return sendBack(res, "json", {}, isShorthand);
