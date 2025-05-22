@@ -2059,6 +2059,7 @@ console.log("action",action)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "updateEntityByAI") {
+                console.log("updateEntityByAI", reqPath)
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 const prompt = reqBody.body;
@@ -2072,7 +2073,9 @@ console.log("action",action)
                 };
 
                 await s3.putObject(params).promise();
+                console.log("Making oai")
                 mainObj["oai"] = JSON.parse(oai.response);
+                console.log("mainObj", mainObj)
             } else if (action == "position") {
 
                 const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
