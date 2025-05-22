@@ -389,7 +389,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         return visited;
     }
 
-    function gatherUp(startRow, maxLevels) {
+    async function gatherUp(startRow, maxLevels) {
         let visited = new Set();
         let queue = [{ row: startRow, level: 0 }];
         visited.add(startRow);
@@ -397,7 +397,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         while (queue.length > 0) {
             const { row, level } = queue.shift();
             if (level < maxLevels) {
-                const refs = getRowsReferencing(row);
+                const refs = await getRowsReferencing(row);
                 for (let ref of refs) {
                     if (!visited.has(ref)) {
                         visited.add(ref);
@@ -409,16 +409,16 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         return visited;
     }
 
-    function resolveRow(row) {
+    async function resolveRow(row) {
         let arr = [];
         for (let x = 0; x < row.length; x++) {
-            let el = resolveCell(row[x]);
+            let el = await resolveCell(row[x]);
             arr.push(el);
         }
         return arr;
     }
 
-    function resolveCell(cellTxt) {
+    async function resolveCell(cellTxt) {
         if (isRowResultRef(cellTxt)) {
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
@@ -427,7 +427,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             let rowData = matrix[rowIndex];
             if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
-                let parsed = parseNestedKeywords(rowData);
+                let parsed = await parseNestedKeywords(rowData);
                 if (parsed.type === "MULTIPLE_FUNCTIONS") {
                     const allResults = parsed.list.map(fn => fn.RESULTS);
                     return allResults;
@@ -446,7 +446,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         if (cell && typeof cellTxt === "string") {
             let ref = matrix[cell.row][cell.col];
             if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
-                return resolveCell(ref);
+                return await resolveCell(ref);
             } else {
                 return ref;
             }
@@ -455,7 +455,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseFunction(row, startIndex) {
+    async function parseFunction(row, startIndex) {
 
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
@@ -466,7 +466,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 i = conditionParsed.newIndex;
                 conditionVal = conditionParsed.nestedObj.RESULTS;
             } else {
-                conditionVal = resolveCell(row[i]);
+                conditionVal = await resolveCell(row[i]);
                 i++;
             }
             let isTrue;
@@ -549,7 +549,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 newIndex: i
             };
         } else if (functionName === "RUN") {
-            const ref = resolveCell(row[startIndex + 1]);
+            const ref = await resolveCell(row[startIndex + 1]);
             let rowNumbers = [];
             if (Array.isArray(ref)) {
                 rowNumbers = ref.map(num => parseInt(num, 10));
@@ -588,17 +588,17 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 row[i] !== "*****" &&
                 row[i] !== "#####"
             ) {
-                const maybeFnName = resolveCell(row[i]);
+                const maybeFnName = await resolveCell(row[i]);
                 if (maybeFnName in keywords) {
-                    const nestedParse = parseFunction(row, i);
+                    const nestedParse = await parseFunction(row, i);
                     argIndex++;
-                    const argKey = getColumnLabel(argIndex);
+                    const argKey = await getColumnLabel(argIndex);
                     funcObj[argKey] = nestedParse.nestedObj;
                     i = nestedParse.newIndex;
                 } else {
                     argIndex++;
-                    const argKey = getColumnLabel(argIndex);
-                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : resolveCell(row[i]);
+                    const argKey = await getColumnLabel(argIndex);
+                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : await resolveCell(row[i]);
                     i++;
                 }
             }
@@ -645,21 +645,21 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseNestedKeywords(rowArray) {
+    async function parseNestedKeywords(rowArray) {
         let i = 0;
         let topLevelFunctions = [];
         while (i < rowArray.length) {
             let token = rowArray[i];
-            let resolved = resolveCell(token);
+            let resolved = await resolveCell(token);
 
             if (resolved in keywords && rowArray[0] !== "") {
-                const parsed = parseFunction(rowArray, i);
+                const parsed = await parseFunction(rowArray, i);
                 topLevelFunctions.push(parsed.nestedObj);
                 i = parsed.newIndex;
                 continue;
             }
             else if (/^\d{3}%%$/.test(resolved) || /^\d{3}%!$/.test(resolved)) {
-                const functionRow = parseInt(resolved.slice(0, 3), 10);
+                const functionRow = await parseInt(resolved.slice(0, 3), 10);
                 let args = [];
                 let j = i + 1;
                 while (j < rowArray.length && rowArray[j] !== "-----") {
@@ -684,7 +684,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 i = j;
             }
             else if (/^\d{3}@@$/.test(resolved)) {
-                const rowToRun = parseInt(resolved.slice(0, 3), 10);
+                const rowToRun = await parseInt(resolved.slice(0, 3), 10);
                 topLevelFunctions.push({
                     AA: "RUN",
                     AB: [rowToRun],
@@ -710,7 +710,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseRow(rowIndex) {
+    async function parseRow(rowIndex) {
         const rowArray = matrix[rowIndex] || [];
         if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
             rowResult[rowIndex] = rowArray[0];
@@ -732,7 +732,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return rowResult[rowIndex];
         }
 
-        const parsed = parseNestedKeywords(rowArray);
+        const parsed = await parseNestedKeywords(rowArray);
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
             topLevelFns = parsed.list;
@@ -751,7 +751,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (fnObj.AA === "RUN") {
                     const subRows = fnObj.AB;
                     for (const subRow of subRows) {
-                        parseRow(subRow);
+                        await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
                 } else {
@@ -762,7 +762,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 const functionRowIndex = fnObj.functionRow;
                 let fnDef = rowResult[functionRowIndex];
                 if (!fnDef || fnDef.type !== "functionDefinition") {
-                    parseRow(functionRowIndex);
+                    await parseRow(functionRowIndex);
                     fnDef = rowResult[functionRowIndex];
                 }
                 if (fnDef && fnDef.type === "functionDefinition") {
@@ -780,7 +780,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
                     const originalRow = matrix[functionRowIndex];
                     matrix[functionRowIndex] = substitutedBody;
-                    parseRow(functionRowIndex);
+                    await parseRow(functionRowIndex);
                     let resultToInsert = rowResult[functionRowIndex];
 
                     matrix[functionRowIndex] = originalRow;
@@ -811,7 +811,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         finalResults.push(matrix[row][col]);
                         if (col > highestCol) {
                             highestCol = col;
-                            generateColIDs();
+                            await generateColIDs();
                         }
                     }
                     else if (isRowResultRef(retIndex)) {
@@ -839,7 +839,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             ) {
                 if (parsed && parsed.AA === "FIND") {
                 } else {
-                    rowResult[rowIndex] = resolveCell(rowArray[0]) || null;
+                    rowResult[rowIndex] = await resolveCell(rowArray[0]) || null;
                 }
             }
         }
@@ -876,9 +876,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
-                parseRow(resRow);
+                await parseRow(resRow);
             }
-            const skipBump = checkLoopSkip(resRow);
+            const skipBump = await checkLoopSkip(resRow);
             if (!skipBump) {
                 resRow++;
             }
@@ -929,7 +929,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
 
                 if (idx < rowParts.length - 1) {
-                    finalizeRow();
+                    await finalizeRow();
                 }
             });
         }
@@ -998,7 +998,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
                 skip.push(resRow);
 
-                let subRows = expandRowToMultiple(newValues);
+                let subRows = await expandRowToMultiple(newValues);
                 for (let subRow of subRows) {
                     await addRow(subRow);
                 }
@@ -1020,24 +1020,24 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 matrix[rowIndex] = newValues;
                 if (newValues.length - 1 > highestCol) {
                     highestCol = newValues.length - 1;
-                    generateColIDs();
+                    await generateColIDs();
                 }
                 skip.push(resRow);
 
-                let subRows = expandRowToMultiple(newValues);
+                let subRows = await expandRowToMultiple(newValues);
                 for (let subRow of subRows) {
                     await addRow(subRow);
                 }
             }
             else {
-                let subRows = expandRowToMultiple(rowData);
+                let subRows = await expandRowToMultiple(rowData);
                 for (let subRow of subRows) {
                     await addRow(subRow);
                 }
             }
         }
         else {
-            let subRows = expandRowToMultiple(rowData);
+            let subRows = await expandRowToMultiple(rowData);
             for (let subRow of subRows) {
                 await addRow(subRow);
             }
