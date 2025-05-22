@@ -409,10 +409,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         return visited;
     }
 
-    function resolveRow(row) {
+    async function resolveRow(row) {
         let arr = [];
         for (let x = 0; x < row.length; x++) {
-            let el = resolveCell(row[x]);
+            let el = await resolveCell(row[x]);
             arr.push(el);
         }
         return arr;
@@ -457,7 +457,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     async function parseFunction(row, startIndex) {
 
-        const functionName = resolveCell(row[startIndex]);
+        const functionName = await resolveCell(row[startIndex]);
         if (functionName === "ITE") {
             let i = startIndex + 1;
             let conditionVal;
@@ -466,7 +466,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 i = conditionParsed.newIndex;
                 conditionVal = conditionParsed.nestedObj.RESULTS;
             } else {
-                conditionVal = resolveCell(row[i]);
+                conditionVal = await resolveCell(row[i]);
                 i++;
             }
             let isTrue;
@@ -549,7 +549,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 newIndex: i
             };
         } else if (functionName === "RUN") {
-            const ref = resolveCell(row[startIndex + 1]);
+            const ref = await resolveCell(row[startIndex + 1]);
             let rowNumbers = [];
             if (Array.isArray(ref)) {
                 rowNumbers = ref.map(num => parseInt(num, 10));
@@ -588,7 +588,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 row[i] !== "*****" &&
                 row[i] !== "#####"
             ) {
-                const maybeFnName = resolveCell(row[i]);
+                const maybeFnName = await resolveCell(row[i]);
                 if (maybeFnName in keywords) {
                     const nestedParse = await parseFunction(row, i);
                     argIndex++;
@@ -658,7 +658,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         let topLevelFunctions = [];
         while (i < rowArray.length) {
             let token = rowArray[i];
-            let resolved = resolveCell(token);
+            let resolved = await resolveCell(token);
 
             if (resolved in keywords && rowArray[0] !== "") {
                 const parsed = await parseFunction(rowArray, i);
@@ -719,6 +719,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseRow(rowIndex) {
+        console.log("parseRow", rowIndex)
         const rowArray = matrix[rowIndex] || [];
         if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
             rowResult[rowIndex] = rowArray[0];
@@ -730,6 +731,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
 
         if (rowArray[0] === "FUNCTION") {
+            console.log("FUNCTION")
             const paramNames = Array.isArray(rowArray[1]) ? rowArray[1] : [];
             const body = rowArray.slice(2);
             rowResult[rowIndex] = {
@@ -838,7 +840,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         rowResult[rowIndex] = (finalResults.length === 1 ? finalResults[0] : finalResults);
 
+
         if (typeof rowArray[0] === "string") {
+        console.log("string")
             if (
                 rowResult[rowIndex] == null ||
                 isFullRowRef(rowResult[rowIndex]) ||
@@ -847,10 +851,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             ) {
                 if (parsed && parsed.AA === "FIND") {
                 } else {
-                    rowResult[rowIndex] = resolveCell(rowArray[0]) || null;
+                    console.log("resolveCell")
+                    rowResult[rowIndex] = await resolveCell(rowArray[0]) || null;
                 }
             }
         }
+        console.log("return rowResult[rowIndex]", rowResult[rowIndex])
         return rowResult[rowIndex];
     }
 
@@ -1224,11 +1230,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             const flattened = flattenDeep(items);
             return flattened.join("");
         },
-        SUBSTITUTE: (rowArray) => {
-            const str = resolveCell(rowArray[1]);
-            const search = resolveCell(rowArray[2]);
-            const replacement = resolveCell(rowArray[3]);
-            const nth = resolveCell(rowArray[4]);
+        SUBSTITUTE: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
+            const search = await resolveCell(rowArray[2]);
+            const replacement = await resolveCell(rowArray[3]);
+            const nth = await resolveCell(rowArray[4]);
             let occurrences = 0;
             if (typeof str !== "string" || typeof search !== "string") {
                 return str;
@@ -1245,7 +1251,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return match;
             });
         },
-        RANGE: (rowArray) => {
+        RANGE: async (rowArray) => {
             const fromRef = rowArray[1];
             const toRef = rowArray[2];
             const fromCell = getCellID(fromRef);
@@ -1257,38 +1263,38 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let results = [];
             for (let col = startCol; col <= endCol; col++) {
                 let rawCellTxt = matrix[rowIndex][col];
-                let resolved = resolveCell(rawCellTxt);
+                let resolved = await resolveCell(rawCellTxt);
                 results.push(resolved);
             }
             return results;
         },
-        USE: (rowArray) => {
+        USE: async (rowArray) => {
             const argRef = rowArray[1];
-            const resolvedVal = resolveCell(argRef);
+            const resolvedVal = await resolveCell(argRef);
             return { __useArray: resolvedVal };
         },
-        AVG: (rowArray) => {
-            const values = rowArray.slice(1).map((cell) => {
-                const resolvedValue = resolveCell(cell);
+        AVG: async (rowArray) => {
+            const values = rowArray.slice(1).map(async (cell) => {
+                const resolvedValue = await resolveCell(cell);
                 return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
             });
             const sum = values.reduce((acc, val) => acc + val, 0);
             const average = values.length > 0 ? sum / values.length : 0;
             return average.toFixed(2);
         },
-        SUM: (rowArray) => {
-            const values = rowArray.slice(1).map((cell) => {
-                const resolvedValue = resolveCell(cell);
+        SUM: async (rowArray) => {
+            const values = rowArray.slice(1).map(async (cell) => {
+                const resolvedValue = await resolveCell(cell);
                 return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
             });
             const sum = values.reduce((acc, val) => acc + val, 0);
             return sum.toFixed(2);
         },
-        MED: (rowArray) => {
+        MED: async (rowArray) => {
             const values = rowArray
                 .slice(1)
-                .map((cell) => {
-                    const resolvedValue = resolveCell(cell);
+                .map(async (cell) => {
+                    const resolvedValue = await resolveCell(cell);
                     return isNaN(resolvedValue) ? null : parseFloat(resolvedValue);
                 })
                 .filter((val) => val !== null);
@@ -1302,10 +1308,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             const median = (values[mid - 1] + values[mid]) / 2;
             return median.toFixed(2);
         },
-        CONDITION: (rowArray) => {
-            const leftVal = resolveCell(rowArray[1]);
-            const operator = resolveCell(rowArray[2]);
-            const rightVal = resolveCell(rowArray[3]);
+        CONDITION: async (rowArray) => {
+            const leftVal = await resolveCell(rowArray[1]);
+            const operator = await resolveCell(rowArray[2]);
+            const rightVal = await resolveCell(rowArray[3]);
             const leftNum = parseFloat(leftVal);
             const rightNum = parseFloat(rightVal);
             if (!comparisonOperators[operator]) {
@@ -1322,10 +1328,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return false;
             }
         },
-        ITE: (rowArray) => {
-            const conditionVal = resolveCell(rowArray[1]);
-            const thenVal = resolveCell(rowArray[2]);
-            const elseVal = resolveCell(rowArray[3]);
+        ITE: async (rowArray) => {
+            const conditionVal = await resolveCell(rowArray[1]);
+            const thenVal = await resolveCell(rowArray[2]);
+            const elseVal = await resolveCell(rowArray[3]);
             let isTrue;
             if (typeof conditionVal === "boolean") {
                 isTrue = conditionVal;
@@ -1358,8 +1364,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             });
             return bools.every((b) => b === true);
         },
-        JSON: (rowArray) => {
-            let jsonStr = resolveCell(rowArray[1]);
+        JSON: async (rowArray) => {
+            let jsonStr = await resolveCell(rowArray[1]);
             if (typeof jsonStr !== "string") {
                 return jsonStr;
             }
@@ -1370,9 +1376,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return {};
             }
         },
-        ARRAY: (rowArray) => {
+        ARRAY: async (rowArray) => {
             try {
-                let arrStr = resolveCell(rowArray[1]);
+                let arrStr = await resolveCell(rowArray[1]);
                 if (typeof arrStr === "string" && rowArray.length === 2) {
                     let parsed = JSON.parse(arrStr);
                     if (Array.isArray(parsed)) {
@@ -1381,7 +1387,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
                 const resolvedArray = [];
                 for (let i = 1; i < rowArray.length; i++) {
-                    const cellValue = resolveCell(rowArray[i]);
+                    const cellValue = await resolveCell(rowArray[i]);
                     resolvedArray.push(cellValue);
                 }
                 return resolvedArray;
@@ -1390,13 +1396,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return [];
             }
         },
-        APPEND: (rowArray) => {
+        APPEND: async (rowArray) => {
             try {
-                const baseRef = resolveCell(rowArray[1]);
+                const baseRef = await resolveCell(rowArray[1]);
                 let copyArr = Array.isArray(baseRef) ? [...baseRef] : [];
                 const resolvedElements = [];
                 for (let i = 2; i < rowArray.length; i++) {
-                    const cellValue = resolveCell(rowArray[i]);
+                    const cellValue = await resolveCell(rowArray[i]);
                     resolvedElements.push(cellValue);
                 }
                 copyArr.push(...resolvedElements);
@@ -1406,13 +1412,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return [];
             }
         },
-        PREPEND: (rowArray) => {
+        PREPEND: async (rowArray) => {
             try {
-                const baseRef = resolveCell(rowArray[1]);
+                const baseRef = await resolveCell(rowArray[1]);
                 let copyArr = Array.isArray(baseRef) ? [...baseRef] : [];
                 const resolvedElements = [];
                 for (let i = 2; i < rowArray.length; i++) {
-                    const cellValue = resolveCell(rowArray[i]);
+                    const cellValue = await resolveCell(rowArray[i]);
                     resolvedElements.push(cellValue);
                 }
                 copyArr.unshift(...resolvedElements);
@@ -1422,9 +1428,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return [];
             }
         },
-        ADDPROPERTY: (rowArray) => {
+        ADDPROPERTY: async (rowArray) => {
             let baseRef = rowArray[1];
-            let key = resolveCell(rowArray[2]);
+            let key = await resolveCell(rowArray[2]);
             let valueRef = rowArray[3];
             if (isRowResultRef(baseRef) || isJSON(baseRef)) {
                 let baseObj;
@@ -1444,7 +1450,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     let valIndex = parseInt(valueRef.slice(0, 3), 10);
                     finalVal = rowResult[valIndex];
                 } else {
-                    finalVal = resolveCell(valueRef);
+                    finalVal = await resolveCell(valueRef);
                 }
                 baseObj[key] = finalVal;
                 return baseObj;
@@ -1453,7 +1459,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return {};
             }
         },
-        MERGE: (rowArray) => {
+        MERGE: async (rowArray) => {
             let baseRef = rowArray[1];
             if (isRowResultRef(baseRef)) {
                 const baseIndex = parseInt(baseRef.slice(0, 3), 10);
@@ -1472,7 +1478,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }, {});
             } else if (typeof baseRef === "object" && baseRef !== null) {
                 const newDataRef = rowArray[2];
-                let newData = resolveCell(newDataRef);
+                let newData = await resolveCell(newDataRef);
                 if (typeof newData === "string") {
                     try {
                         newData = JSON.parse(newData);
@@ -1486,7 +1492,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return {};
             }
         },
-        NESTED: (rowArray) => {
+        NESTED: async (rowArray) => {
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
@@ -1512,7 +1518,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 let valIndex = parseInt(valueRef.slice(0, 3), 10);
                 finalVal = rowResult[valIndex];
             } else {
-                finalVal = resolveCell(valueRef);
+                finalVal = await resolveCell(valueRef);
             }
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
             return updatedObj;
@@ -1558,24 +1564,24 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             return val;
         },
-        INTEGER: (rowArray) => {
-            let val = resolveCell(rowArray[1]);
+        INTEGER: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
             let intVal = parseInt(val, 10);
             if (isNaN(intVal)) {
                 return 0;
             }
             return intVal;
         },
-        FLOAT: (rowArray) => {
-            let val = resolveCell(rowArray[1]);
+        FLOAT: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
             let floatVal = parseFloat(val);
             if (isNaN(floatVal)) {
                 return 0.0;
             }
             return floatVal;
         },
-        BUFFER: (rowArray) => {
-            let val = resolveCell(rowArray[1]);
+        BUFFER: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
             if (typeof val !== "string") {
                 return Buffer.from([]);
             }
@@ -1585,8 +1591,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 return Buffer.from([]);
             }
         },
-        ROWRESULT: (rowArray) => {
-            rowResult[parseInt(rowArray[1], 10)] = resolveCell(rowArray[2]);
+        ROWRESULT: async (rowArray) => {
+            rowResult[parseInt(rowArray[1], 10)] = await resolveCell(rowArray[2]);
         },
         LOOP: (rowArray) => {
             if (!rowResult[resRow]) {
@@ -1596,10 +1602,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let res = rowResult[resRow][0];
             return res;
         },
-        ADD: (rowArray) => {
+        ADD: async (rowArray) => {
             let total = 0;
             for (let i = 1; i < rowArray.length; i++) {
-                const expr = resolveCell(rowArray[i]);
+                const expr = await resolveCell(rowArray[i]);
                 let val;
                 try {
                     val = math.evaluate(expr.toString());
@@ -1612,7 +1618,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             return total;
         },
-        SUBTRACT: (rowArray) => {
+        SUBTRACT: async (rowArray) => {
             if (rowArray.length < 2) return 0;
             let initial = 0;
             try {
@@ -1623,7 +1629,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             for (let i = 2; i < rowArray.length; i++) {
                 let val;
-                const expr = resolveCell(rowArray[i]);
+                const expr = await resolveCell(rowArray[i]);
                 try {
                     val = math.evaluate(expr.toString());
                 } catch (e) {
@@ -1659,22 +1665,22 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 generateColIDs();
             }
         },
-        UPPER: (rowArray) => {
-            const str = resolveCell(rowArray[1]);
+        UPPER: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
             if (typeof str !== "string") {
                 return "";
             }
             return str.toUpperCase();
         },
-        LOWER: (rowArray) => {
-            const str = resolveCell(rowArray[1]);
+        LOWER: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
             if (typeof str !== "string") {
                 return "";
             }
             return str.toLowerCase();
         },
-        FIND: (rowArray) => {
-            const needle = resolveCell(rowArray[1]);
+        FIND: async (rowArray) => {
+            const needle = await resolveCell(rowArray[1]);
             if (typeof needle !== "string") {
                 return "";
             }
