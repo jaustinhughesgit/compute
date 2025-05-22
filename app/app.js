@@ -851,11 +851,14 @@ async function condition(left, conditions, right, operator = "&&", libs, nestedP
     return conditions.reduce(
         async (accPromise, cond) => {
             const acc = await accPromise;                  // ← wait
-            const cur = await checkCondition(...cond);
+            const cur = await checkCondition(left, cond.condition, cond.right, libs, nestedPath);
             return operator === '&&' ? acc && cur : acc || cur;
         },
         Promise.resolve(operator === '&&')                 // ← start with a Promise
     );
+
+
+
 }
 
 async function checkCondition(left, condition, right, libs, nestedPath) {
