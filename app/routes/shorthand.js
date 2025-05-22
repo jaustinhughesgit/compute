@@ -627,8 +627,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             functionArray = expanded;
             let result;
             try {
+                console.log("keywores[functionName]")
                 if (keywords[functionName]) {
+                    console.log("true")
                     result = await keywords[functionName](functionArray);   // new
+                    console.log("result", result)
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -637,7 +640,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.error("Error executing function:", functionName, err);
                 result = "";
             }
+            console.log("funcObj['results'] = results", results)
             funcObj["RESULTS"] = result;
+            console.log("return", {
+                nestedObj: funcObj,
+                newIndex: i
+            })
             return {
                 nestedObj: funcObj,
                 newIndex: i
@@ -731,7 +739,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             };
             return rowResult[rowIndex];
         }
-
+        console.log("parseNestedKeywords")
         const parsed = await parseNestedKeywords(rowArray);
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
@@ -811,11 +819,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         finalResults.push(matrix[row][col]);
                         if (col > highestCol) {
                             highestCol = col;
-                            generateColIDs();
+                            await generateColIDs();
                         }
                     }
                     else if (isRowResultRef(retIndex)) {
-                        const rowRef = parseInt(retIndex.slice(0, 3), 10);
+                        const rowRef = await parseInt(retIndex.slice(0, 3), 10);
                         rowResult[rowRef] = resultToInsert;
                         finalResults.push(rowResult[rowRef]);
                         rowResult[functionRowIndex] = resultToInsert;
@@ -847,19 +855,21 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function run(skipArray) {
+        console.log("run running")
         rowResult = [];
         resRow = 0;
         sweep = 0;
 
-        function checkLoopSkip(r) {
+        async function checkLoopSkip(r) {
+            console.log("checkLoopSkip r", r)
             if (matrix[r] && matrix[r][0] === "LOOP") {
                 let currentVal = 0;
                 if (Array.isArray(rowResult[r])) {
-                    currentVal = parseInt(rowResult[r][0], 10) || 0;
+                    currentVal = await parseInt(rowResult[r][0], 10) || 0;
                 } else if (!isNaN(rowResult[r])) {
-                    currentVal = parseInt(rowResult[r], 10);
+                    currentVal = await parseInt(rowResult[r], 10);
                 }
-                let loopLimit = parseInt(matrix[r][1], 10) || 0;
+                let loopLimit = await parseInt(matrix[r][1], 10) || 0;
                 if (currentVal < loopLimit) {
                     return true;
                 } else {
@@ -876,9 +886,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
+                console.log("parseRow")
                 await parseRow(resRow);
             }
-            const skipBump = checkLoopSkip(resRow);
+            console.log("skipBump")
+            const skipBump = await checkLoopSkip(resRow);
+            console.log("skipBump", skipBump)
             if (!skipBump) {
                 resRow++;
             }
