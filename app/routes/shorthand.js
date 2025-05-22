@@ -455,7 +455,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    async function parseFunction(row, startIndex) {
+    function parseFunction(row, startIndex) {
 
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
@@ -628,7 +628,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let result;
             try {
                 if (keywords[functionName]) {
-                    result = await keywords[functionName](functionArray);
+                    result = keywords[functionName](functionArray);
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -1175,7 +1175,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("STARTING route(...)")
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("ROUTE resp=>", resp);
-            return resp
+            return {}
         },
         EMPTY: (rowArray) => {
             return "";
