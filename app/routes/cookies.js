@@ -9,6 +9,7 @@ const keyPairId = 'K2LZRHRSYZRU3Y';
 let convertCounter = 0
 let isPublic = true
 async function getSub(val, key, dynamodb) {
+    console.log("getSub", val, key)
     let params
     if (key == "su") {
         params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: { ':su': val } };
@@ -22,6 +23,7 @@ async function getSub(val, key, dynamodb) {
     return await dynamodb.query(params).promise()
 }
 async function getEntity(e, dynamodb) {
+    console.log("inside getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': e } };
     return await dynamodb.query(params).promise()
 }
@@ -527,9 +529,13 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
     return response.Attributes.x;
 };
 const getHead = async (by, value, dynamodb) => {
+    console.log("getHead", by, value)
     const subBySU = await getSub(value, by, dynamodb);
+    console.log("getEntity", subBySU.Items[0].e)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
+    console.log("getSub",entity.Items[0].h)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
+    console.log("headSub", headSub)
     return headSub
 }
 const createWord = async (id, word, dynamodb) => {
