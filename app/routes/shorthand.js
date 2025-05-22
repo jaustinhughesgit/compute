@@ -455,7 +455,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseFunction(row, startIndex) {
+    async function parseFunction(row, startIndex) {
 
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
@@ -628,7 +628,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let result;
             try {
                 if (keywords[functionName]) {
-                    result = keywords[functionName](functionArray);
+                    result = await keywords[functionName](functionArray);
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
