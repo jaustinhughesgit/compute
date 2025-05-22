@@ -1484,7 +1484,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         let allV = allVerified(verified);
         console.log("allV", allV)
         if (allV) {
-
+console.log("action",action)
             if (action === "get") {
 
                 const fileID = reqPath.split("/")[3]
