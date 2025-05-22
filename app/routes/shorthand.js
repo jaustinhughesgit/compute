@@ -455,6 +455,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
+    async function awaitAll(arr) {
+        return Promise.all(arr.map(v => Promise.resolve(v)));
+      }
+
     async function parseFunction(row, startIndex) {
 
         const functionName = await resolveCell(row[startIndex]);
@@ -598,7 +602,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 } else {
                     argIndex++;
                     const argKey = getColumnLabel(argIndex);
-                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : resolveCell(row[i]);
+                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : await resolveCell(row[i]);
                     i++;
                 }
             }
@@ -630,7 +634,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.log("keywores[functionName]")
                 if (keywords[functionName]) {
                     console.log("true")
-                    result = await keywords[functionName](functionArray);   // new
+                    const resolvedArgs = await awaitAll(functionArray);
+                    //                       ↑ resolves the promises
+                    result = await keywords[functionName](resolvedArgs);
                     console.log("result", result)
                 } else {
                     console.warn("No keyword function found for:", functionName);
@@ -1149,10 +1155,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
         resp = resp.response
         console.log("get=>", resp);
-        //return resp
         console.log("resp", resp)
-        // If the import object has an "add" key then add those rows to the imported matrix's input,
-        // and merge any root-level overrides (like input, published, sweeps, skips).
         if (data["++"]) {
             if (!Array.isArray(resp.input)) {
                 resp.input = [];
@@ -1163,12 +1166,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 resp = await deepMerge(resp, overrides);
                 resp.published.blocks
             }
-            // Re-run the imported matrix as a new shorthand instance.
             let published = await shorthand(resp);
             console.log("resp>>", resp)
             return published;
         } else {
-            // Otherwise, simply merge any overrides and return the published value.
             console.log("data => ", data)
             let overrides = data[entity];
             if (overrides) {
@@ -1277,19 +1278,20 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return { __useArray: resolvedVal };
         },
         AVG: async (rowArray) => {
-            const values = rowArray.slice(1).map(async (cell) => {
+            const values = await Promise.all(rowArray.slice(1).map(async (cell) => {
                 const resolvedValue = await resolveCell(cell);
                 return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
-            });
+            }));
+            
             const sum = values.reduce((acc, val) => acc + val, 0);
             const average = values.length > 0 ? sum / values.length : 0;
             return average.toFixed(2);
         },
         SUM: async (rowArray) => {
-            const values = rowArray.slice(1).map(async (cell) => {
+            const values = await Promise.all(rowArray.slice(1).map(async (cell) => {
                 const resolvedValue = await resolveCell(cell);
                 return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
-            });
+            }));
             const sum = values.reduce((acc, val) => acc + val, 0);
             return sum.toFixed(2);
         },
@@ -1354,8 +1356,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             return isTrue ? thenVal : elseVal;
         },
-        ALL: (rowArray) => {
-            const values = rowArray.slice(1).map((cell) => resolveCell(cell));
+        ALL: async (rowArray) => {
+            const values = await Promise.all(rowArray.slice(1).map((cell) => resolveCell(cell)));
             const bools = values.map((val) => {
                 if (typeof val === "boolean") return val;
                 if (typeof val === "string") {
