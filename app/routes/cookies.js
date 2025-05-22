@@ -2247,12 +2247,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     }]
                 });
             
-                if (reqType === 'url') {                                    // ↔ direct CloudFront URL
+                if (reqType === 'url') {                          // direct CloudFront URL
                     const signedUrl = signer.getSignedUrl({ url, policy });
                     return sendBack(res, "json", { signedUrl }, isShorthand);
                 }
             
-                /* signed cookies branch */
+                /* signed‑cookies branch */
                 const cookies = signer.getSignedCookie({ policy });
                 Object.entries(cookies).forEach(([name, val]) => {
                     res.cookie(name, val, {
@@ -2289,14 +2289,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 }
             
             } else {
-                /* fall‑through: nothing special, but always return */
-                if (response.file !== "") {
-                    return sendBack(res, "json", { ok: true, response }, isShorthand);
-                }
-                if (!response.hasOwnProperty("status")) {
+                /* fall‑through: always respond */
+                if (response.file !== "" || !response.hasOwnProperty("status")) {
                     return sendBack(res, "json", { ok: true, response }, isShorthand);
                 }
             }
+            
+            /* ── NEW: final catch‑all so the function never resolves to undefined ── */
+            return sendBack(res, "json", { ok: true, response }, isShorthand);
         } else {
             return sendBack(res, "json", {}, isShorthand);
         }
