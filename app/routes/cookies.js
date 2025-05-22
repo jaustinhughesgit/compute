@@ -2307,8 +2307,12 @@ console.log("action",action)
                 /* fall‑through: always respond */
                 console.log("isShorthand",isShorthand)
                 console.log("!!!RESPONSE!!!", response)
-                if (response.file !== "" || !response.hasOwnProperty("status")) {
-                    //return sendBack(res, "json", { ok: true, response }, isShorthand);
+                console.log(reqBody.headers['X-Original-Host'])
+                console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file"))
+                if (!isShorthand && reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file")){
+                //if (response.file !== "" || !response.hasOwnProperty("status")) {
+                    return sendBack(res, "json", { ok: true, response }, isShorthand);
+                //}
                 }
             }
             
