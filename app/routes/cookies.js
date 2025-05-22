@@ -2307,7 +2307,7 @@ console.log("action",action)
                 /* fall‑through: always respond */
                 console.log("!!!RESPONSE!!!", response)
                 if (response.file !== "" || !response.hasOwnProperty("status")) {
-                    if (!response.hasOwnProperty("ot")){
+                    if (response.hasOwnProperty("ot")){
                         return sendBack(res, "json", { ok: true, response }, isShorthand);
                     }
                 }
