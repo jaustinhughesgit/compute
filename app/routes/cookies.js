@@ -533,9 +533,9 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
 const getHead = async (by, value, dynamodb) => {
     console.log("getHead", by, value)
     const subBySU = await getSub(value, by, dynamodb);
-    console.log("getEntity", subBySU.Items[0].e)
+    console.log("getEntity", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("getSub",entity.Items[0].h)
+    console.log("getSub",entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     return headSub
 }
@@ -2227,6 +2227,8 @@ console.log("action",action)
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
             } else if (action == "runEntity") {
+
+                actionFile = reqPath.split("/")[3];
                 console.log("runEntity inside")
                 let { runApp } = require('../app');
                 console.log("running app runApp 12345")
