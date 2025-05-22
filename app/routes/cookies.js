@@ -410,11 +410,7 @@ async function convertToJSON(
     }
     console.log("getGroups")
     const groupList = await getGroups(dynamodb);
-    console.log("returning ----obj", obj)
-    console.log("returning ----paths", paths)
-    console.log("returning ----paths2", paths2)
-    console.log("returning ----id2Path", id2Path)
-    console.log("returning ----groupList", groupList)
+    console.log("returning ----", groupList)
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
@@ -2224,11 +2220,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 let { runApp } = require('../app');
 
-                
-                let o = await runApp(req, res, next)
-                console.log("----------------------------", o)
-                console.log("mainObj", mainObj),
-                mainObj = {}
+                runApp(req, res, next)
             }
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
