@@ -418,7 +418,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         return arr;
     }
 
-    function resolveCell(cellTxt) {
+    async function resolveCell(cellTxt) {
         if (isRowResultRef(cellTxt)) {
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
@@ -427,7 +427,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             let rowData = matrix[rowIndex];
             if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
-                let parsed = parseNestedKeywords(rowData);
+                let parsed = await parseNestedKeywords(rowData);
                 if (parsed.type === "MULTIPLE_FUNCTIONS") {
                     const allResults = parsed.list.map(fn => fn.RESULTS);
                     return allResults;
@@ -455,14 +455,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseFunction(row, startIndex) {
+    async function parseFunction(row, startIndex) {
 
         const functionName = resolveCell(row[startIndex]);
         if (functionName === "ITE") {
             let i = startIndex + 1;
             let conditionVal;
             if (row[i] in keywords) {
-                const conditionParsed = parseFunction(row, i);
+                const conditionParsed = await parseFunction(row, i);
                 i = conditionParsed.newIndex;
                 conditionVal = conditionParsed.nestedObj.RESULTS;
             } else {
@@ -492,7 +492,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 row[i] !== "#####"
             ) {
                 if (row[i] in keywords) {
-                    const parsedThen = parseFunction(row, i);
+                    const parsedThen = await parseFunction(row, i);
                     thenScripts.push(parsedThen.nestedObj.RESULTS);
                     i = parsedThen.newIndex;
                 } else {
@@ -512,7 +512,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     row[i] !== "#####"
                 ) {
                     if (row[i] in keywords) {
-                        const parsedElse = parseFunction(row, i);
+                        const parsedElse = await parseFunction(row, i);
                         elseScripts.push(parsedElse.nestedObj.RESULTS);
                         i = parsedElse.newIndex;
                     } else {
@@ -590,7 +590,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             ) {
                 const maybeFnName = resolveCell(row[i]);
                 if (maybeFnName in keywords) {
-                    const nestedParse = parseFunction(row, i);
+                    const nestedParse = await parseFunction(row, i);
                     argIndex++;
                     const argKey = getColumnLabel(argIndex);
                     funcObj[argKey] = nestedParse.nestedObj;
@@ -628,7 +628,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let result;
             try {
                 if (keywords[functionName]) {
-                    result = keywords[functionName](functionArray);
+                    result = await keywords[functionName](functionArray);   // new
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -645,7 +645,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseNestedKeywords(rowArray) {
+    async function parseNestedKeywords(rowArray) {
         let i = 0;
         let topLevelFunctions = [];
         while (i < rowArray.length) {
@@ -653,7 +653,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let resolved = resolveCell(token);
 
             if (resolved in keywords && rowArray[0] !== "") {
-                const parsed = parseFunction(rowArray, i);
+                const parsed = await parseFunction(rowArray, i);
                 topLevelFunctions.push(parsed.nestedObj);
                 i = parsed.newIndex;
                 continue;
@@ -710,7 +710,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function parseRow(rowIndex) {
+    async function parseRow(rowIndex) {
         const rowArray = matrix[rowIndex] || [];
         if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
             rowResult[rowIndex] = rowArray[0];
@@ -732,7 +732,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return rowResult[rowIndex];
         }
 
-        const parsed = parseNestedKeywords(rowArray);
+        const parsed = await parseNestedKeywords(rowArray);
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
             topLevelFns = parsed.list;
@@ -751,7 +751,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (fnObj.AA === "RUN") {
                     const subRows = fnObj.AB;
                     for (const subRow of subRows) {
-                        parseRow(subRow);
+                        await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
                 } else {
@@ -762,7 +762,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 const functionRowIndex = fnObj.functionRow;
                 let fnDef = rowResult[functionRowIndex];
                 if (!fnDef || fnDef.type !== "functionDefinition") {
-                    parseRow(functionRowIndex);
+                    await parseRow(functionRowIndex);
                     fnDef = rowResult[functionRowIndex];
                 }
                 if (fnDef && fnDef.type === "functionDefinition") {
@@ -780,7 +780,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
                     const originalRow = matrix[functionRowIndex];
                     matrix[functionRowIndex] = substitutedBody;
-                    parseRow(functionRowIndex);
+                    await parseRow(functionRowIndex);
                     let resultToInsert = rowResult[functionRowIndex];
 
                     matrix[functionRowIndex] = originalRow;
@@ -876,7 +876,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
-                parseRow(resRow);
+                await parseRow(resRow);
             }
             const skipBump = checkLoopSkip(resRow);
             if (!skipBump) {
@@ -1175,7 +1175,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("STARTING route(...)")
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
             console.log("ROUTE resp=>", resp);
-            return
+            return resp
         },
         EMPTY: (rowArray) => {
             return "";

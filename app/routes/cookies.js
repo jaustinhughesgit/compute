@@ -2224,8 +2224,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "runEntity") {
 
                 let { runApp } = require('../app');
-
+                console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
+                mainObj = ot
                 console.log("ot",ot)
             }
             /* else if (action == "transcribe"){
