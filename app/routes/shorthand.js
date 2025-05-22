@@ -640,7 +640,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.error("Error executing function:", functionName, err);
                 result = "";
             }
-            console.log("funcObj['results'] = results", results)
+            console.log("funcObj['results'] = results", result)
             funcObj["RESULTS"] = result;
             console.log("return", {
                 nestedObj: funcObj,
