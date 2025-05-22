@@ -914,9 +914,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return [str];
         }
 
-        function splitRowAndColumns(str) {
+        async function splitRowAndColumns(str) {
             const rowParts = str.split("=====");
-            rowParts.forEach((part, idx) => {
+            rowParts.forEach(async (part, idx) => {
                 if (part.includes(".....")) {
                     let colParts = part.split(".....");
                     colParts.forEach(colItem => {
