@@ -18,6 +18,7 @@ const moment = require('moment-timezone')
 const math = require('mathjs');
 
 const boundAxios = {
+    // Bind all the necessary methods to preserve the original `this` context
     constructor: axios.constructor.bind(axios),
     request: axios.request.bind(axios),
     _request: axios._request.bind(axios),
@@ -40,6 +41,7 @@ const boundAxios = {
     isAxiosError: axios.isAxiosError.bind(axios),
     mergeConfig: axios.mergeConfig.bind(axios),
 
+    // Static properties can be copied directly without binding
     defaults: axios.defaults,
     interceptors: axios.interceptors,
     Axios: axios.Axios,
@@ -81,6 +83,7 @@ const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
 
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
+//let { setupRouter, getHead, convertToJSON, manageCookie, getSub, getWord } = await require('./routes/cookies')
 
 console.log("")
 app.use('/embeddings', embeddingsRouter);
@@ -122,15 +125,17 @@ async function ensureTable(tableName) {
         BillingMode: 'PAY_PER_REQUEST'
       }).promise();
   
+      // wait until ACTIVE
       await dynamodbLL.waitFor('tableExists', { TableName: tableName }).promise();
     }
   }
   
+  // naïve “auto‑increment”: use Date.now(); swap for a real counter if needed
   const nextId = () => Date.now();
 
   app.post('/api/ingest', async (req, res) => {
     try {
-      let { category, root, paths } = req.body;  
+      let { category, root, paths } = req.body;      // paths may be strings OR objects
       if (!category || !root || !Array.isArray(paths) || paths.length === 0) {
         return res.status(400).json({ error: 'bad payload' });
       }
@@ -261,6 +266,295 @@ async function isValid(req, res, data) {
     return data
 }
 
+app.all("/0001", async (req, res, next) => {
+
+});
+
+app.all("/2356", async (req, res, next) => {
+
+});
+
+app.all("/eb1", async (req, res, next) => {
+
+
+    // gets all tasks that are now and runs them
+    /*
+        function isTimeInInterval(timeInDay, st, it) {
+            const diff = timeInDay - st;
+            
+            return diff >= 0 && diff % it === 0;
+          }
+        var now = moment.utc();
+    
+    
+    var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
+    
+    var now = moment.utc();
+    var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
+    
+    var todayDow = now.format('dd').toLowerCase();
+    var currentDateInSeconds = now.unix();
+    const gsiName = `${todayDow}Index`;
+    
+    console.log("gsiName", gsiName, "timeInDay", timeInDay, "todayDow", todayDow, "currentDateInSeconds", currentDateInSeconds);
+    
+    const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+    
+        const queryParams = {
+            TableName: 'tasks',
+            IndexName: gsiName,
+            KeyConditionExpression: `#${todayDow} = :dowVal and sd < :currentDate`,
+            ExpressionAttributeNames: {
+              [`#${todayDow}`]: todayDow, 
+            },
+            ExpressionAttributeValues: {
+              ':dowVal': 1,
+              ':currentDate': currentDateInSeconds,
+            },
+          };
+    
+          const data = await dynamodb.query(queryParams).promise();
+    
+    let urls = [];
+    let check
+    let interval
+    // Assuming `data` is obtained from a DynamoDB query as before
+    for (const rec of data.Items) {
+      check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it); // Ensure `it` is in seconds
+      interval = rec.it
+      if (check) {
+        urls.push(rec.url);
+      }
+    }
+    
+    for (const url of urls) {
+      await automate("https://1var.com/" + url);
+      await delay(500); // Assuming you want a 0.5 second delay
+    }
+    
+    res.json({"check":check, "interval":interval, "urls":urls, "gsiName":gsiName, "timeInDay":timeInDay, "todayDow":todayDow, "currentDateInSeconds": currentDateInSeconds, "queryParams":queryParams, "data":data})
+    */
+
+
+
+
+
+
+    // This adds the records into the enabled table
+    /*
+    const tableName = 'enabled';
+
+    for (let hour = 0; hour < 24; hour++) {
+    for (let minute = 0; minute < 60; minute++) {
+        const time = `${hour.toString().padStart(2, '0')}${minute.toString().padStart(2, '0')}`;
+        const item = {
+        TableName: tableName,
+        Item: {
+            "time": time,
+            "enabled": 0,
+            "en": 0
+        }
+        };
+
+        // Insert the item into DynamoDB
+        try {
+        await dynamodb.put(item).promise();
+        console.log(`Inserted item with time: ${time}`);
+        
+        } catch (err) {
+        console.error(`Error inserting item with time: ${time}`, err);
+        }
+    }
+    }
+    */
+
+    /*
+    // Today's date
+    const today = moment();
+    // Tomorrow's date
+    const tomorrow = moment().add(1, 'days');
+    // Day of Week for tomorrow, formatted as needed (e.g., "Tu" for Tuesday)
+    const dow = tomorrow.format('dd').toLowerCase();
+    // The GSI name for querying
+    const gsiName = `${dow}Index`;
+    
+    // Unix timestamp for the end of tomorrow (to filter records up to the end of tomorrow)
+    const endOfTomorrowUnix = tomorrow.endOf('day').unix();
+
+    const params = {
+        TableName: "schedules",
+        IndexName: gsiName,
+        KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
+        ExpressionAttributeNames: {
+          "#dow": dow, // Adjust if your GSI partition key is differently named
+          "#sd": "sd"
+        },
+        ExpressionAttributeValues: {
+          ":dowValue": 1, // Assuming '1' represents 'true' for tasks to be fetched
+          ":endOfTomorrow": endOfTomorrowUnix
+        }
+      };
+      
+
+    console.log("params", params)
+    
+    try {
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
+        const data = await dynamodb.query(params).promise();
+        console.log("Query succeeded:", data.Items);
+
+        for (item in data.Items){
+            let stUnix = data.Items[item].sd + data.Items[item].st
+            var momentObj = moment(stUnix * 1000);
+            var hour = momentObj.format('HH');
+            var minute = momentObj.format('mm');
+            console.log("hour", hour, "minute", minute)
+            const hourFormatted = hour.toString().padStart(2, '0');
+            const minuteFormatted = minute.toString().padStart(2, '0');
+            
+            const scheduleName = `${hourFormatted}${minuteFormatted}`;
+            
+            const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+            const input = {
+                Name: scheduleName,
+                GroupName: "runLambda",
+                ScheduleExpression: scheduleExpression,
+                ScheduleExpressionTimezone: "UTC",
+                StartDate: new Date("2024-02-06T00:01:00Z"),
+                EndDate: new Date("2025-02-06T00:01:00Z"),
+                State: "ENABLED",
+                Target: {
+                    Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                    RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                    Input: JSON.stringify({"disable":true}),
+                },
+                FlexibleTimeWindow: { Mode: "OFF" },
+            };
+
+            const command = new UpdateScheduleCommand(input);
+            
+            const createSchedule = async () => {
+                try {
+                    const response = await client.send(command);
+                    console.log("Schedule created successfully:", response.ScheduleArn);
+                } catch (error) {
+                    console.error("Error creating schedule:", error);
+                }
+            };
+            
+            await createSchedule();
+
+        }
+
+        res.json(data.Items)
+        //return { statusCode: 200, body: JSON.stringify(data.Items) };
+    } catch (err) {
+        console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
+        //return { statusCode: 500, body: JSON.stringify(err) };
+    }
+*/
+
+    // This replaces a schedule with the new details provided
+    /*
+        const config = { region: "us-east-1" };
+        
+        const client = new SchedulerClient(config);
+        let hour = "00"
+        let minute = "01"
+        const hourFormatted = hour.toString().padStart(2, '0');
+        const minuteFormatted = minute.toString().padStart(2, '0');
+        
+        // Construct the schedule name based on the time
+        const scheduleName = `${hourFormatted}${minuteFormatted}`;
+        
+        // Update the cron expression for the specific time
+        const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+    
+        const input = {
+            Name: "disable",
+            GroupName: "runLambda",
+            ScheduleExpression: scheduleExpression,
+            ScheduleExpressionTimezone: "UTC",
+            StartDate: new Date("2024-02-06T00:01:00Z"),
+            EndDate: new Date("2025-02-06T00:01:00Z"),
+            State: "ENABLED",
+            Target: {
+                Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                Input: JSON.stringify({"disable":true}),
+            },
+            FlexibleTimeWindow: { Mode: "OFF" },
+        };
+    
+        const command = new CreateScheduleCommand(input);
+        
+        const createSchedule = async () => {
+            try {
+                const response = await client.send(command);
+                console.log("Schedule created successfully:", response.ScheduleArn);
+            } catch (error) {
+                console.error("Error creating schedule:", error);
+            }
+        };
+        
+        await createSchedule();
+    */
+
+    // THIS SETS UP Schedule for every minue of the day
+    /*
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
+    
+        const createSchedule = async () => {
+            for (let hour = 23; hour < 24; hour++) {
+                for (let minute = 0; minute < 60; minute += 1) {
+                    // Format the hour and minute to ensure two digits
+                    const hourFormatted = hour.toString().padStart(2, '0');
+                    const minuteFormatted = minute.toString().padStart(2, '0');
+                    
+                    // Construct the schedule name based on the time
+                    const scheduleName = `${hourFormatted}${minuteFormatted}`;
+                    
+                    // Update the cron expression for the specific time
+                    const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+    
+                    // Create the input object with the updated values
+                    const input = {
+                        Name: scheduleName,
+                        GroupName: "runLambda",
+                        ScheduleExpression: scheduleExpression,
+                        ScheduleExpressionTimezone: "UTC",
+                        StartDate: new Date("2024-02-05T00:00:00Z"),
+                        EndDate: new Date("2025-02-05T00:00:00Z"),
+                        State: "DISABLED",
+                        Target: {
+                            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp", 
+                            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                            Input: JSON.stringify({"automate":true}),
+                        },
+                        FlexibleTimeWindow: { Mode: "OFF" },
+                    };
+    
+                    const command = new CreateScheduleCommand(input);
+                    
+                    try {
+                        const response = await client.send(command);
+                        console.log(`Schedule ${scheduleName} created successfully:`, response.ScheduleArn);
+                    } catch (error) {
+                        console.error(`Error creating schedule ${scheduleName}:`, error);
+                    }
+                }
+            }
+        };
+    
+        await createSchedule().then(() => console.log("Schedules creation process completed."));
+    
+        */
+    //res.send("success")
+})
+
 app.all('/blocks/*',
     async (req, res, next) => {
         //console.log("auth", req)
@@ -321,7 +615,19 @@ async function runApp(req, res, next) {
 
         console.log("req+>>", req)
         console.log("res+>>", res)
-
+        /*res.json = async function (data) {
+            console.log("data", data)
+            let vld = await isValid(req, res, data)
+            console.log("vld",vld)
+            if (vld) {
+                console.log("isValid = true")
+                console.log("resp", response)
+                res.json(response);
+            } else {
+                console.log("isValid = false")
+                res.json({});
+            }
+        };*/
 
 
         if (req.path == "/") {
@@ -483,6 +789,71 @@ async function processConfig(config, initialContext, lib) {
     return context;
 }
 
+/*async function installModule(moduleName, contextKey, context, lib) {
+    console.log("moduleName", contextKey)
+    console.log("contextKey", contextKey)
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
+    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult);
+    lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
+
+    const moduleDirPath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
+    let modulePath;
+
+    try {
+        const packageJsonPath = path.join(moduleDirPath, 'package.json');
+        const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
+        
+        if (packageJson.exports && packageJson.exports.default) {
+            modulePath = path.join(moduleDirPath, packageJson.exports.default);
+        } else if (packageJson.main) {
+            modulePath = path.join(moduleDirPath, packageJson.main);
+        } else {
+            modulePath = path.join(moduleDirPath, 'index.js');
+        }
+    } catch (err) {
+        console.warn(`Could not read package.json for ${moduleName}, defaulting to index.js`);
+        modulePath = path.join(moduleDirPath, 'index.js');
+    }
+
+    let module;
+    try {
+        module = require(modulePath);
+    } catch (error) {
+            module = await import(modulePath);
+
+    }
+
+    // Populate context based on module structure
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            if (module[key]) {
+                context[key] = { "value": module[key], "context": {} };
+            } else if (module.default && module.default[key]) {
+                // Access nested named exports within the default export, if any
+                context[key] = { "value": module.default[key], "context": {} };
+            } else {
+                console.warn(`Key ${key} not found in module ${moduleName}`);
+            }
+        }
+    } else {
+        // If contextKey does not specify specific keys
+        if (module.default) {
+            // Use the default export if available
+            context[contextKey] = { "value": module.default, "context": {} };
+        } else {
+            // Otherwise, use the full module (CommonJS style)
+            context[contextKey] = { "value": module, "context": {} };
+        }
+    }
+
+    console.log("context", JSON.stringify(context));
+}*/
+
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
@@ -552,6 +923,34 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     console.log("context", JSON.stringify(context));
 }
+
+/*
+// THIS IS WORKING AND ONLY USES REQUIRE TO IMPORT MODULES
+async function installModule(moduleName, contextKey, context, lib) {
+    const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
+        .map(([key, value]) => `--${key}=${value}`)
+        .join(' ');
+
+    let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
+    console.log("execResult", execResult)
+    lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
+
+    const modulePath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
+
+    const module = require(modulePath);
+
+    if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
+        const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
+        for (const key of keys) {
+            console.log("INSTALLING TO VALUE MIGHT NOT WORK")
+            context[key] = { "value": module[key], "context": {} };
+        }
+    } else {
+        context[contextKey] = { "value": module, "context": {} };
+    }
+    console.log("context", JSON.stringify(context))
+}
+*/
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
@@ -637,7 +1036,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("req.blocks", req.blocks)
             
             if (req.blocks) {
-                console.log("results >>>", results)
+                console.log("results", results)
                 return results
             } else {
                 const arrayOfJSON = [];

@@ -4,8 +4,6 @@ var router = express.Router();
 const AWS = require('aws-sdk');
 var router = express.Router();
 const moment = require('moment-timezone')
-const { promisify } = require('util');
-const getSignedUrlAsync = promisify(s3.getSignedUrl.bind(s3));   // v2 SDK -> promise
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
 const keyPairId = 'K2LZRHRSYZRU3Y';
 let convertCounter = 0
@@ -2235,68 +2233,63 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             mainObj["file"] = actionFile + ""
             response = mainObj
             if (action === "file") {
-                const expires = 90_000;
-                const url = `https://${fileLocation(isPublic)}.1var.com/${actionFile}`;
-            
-                const policy = JSON.stringify({
-                    Statement: [{
-                        Resource: url,
-                        Condition: {
-                            DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) }
-                        }
-                    }]
-                });
-            
-                if (reqType === 'url') {                          // direct CloudFront URL
-                    const signedUrl = signer.getSignedUrl({ url, policy });
-                    return sendBack(res, "json", { signedUrl }, isShorthand);
-                }
-            
-                /* signed‑cookies branch */
-                const cookies = signer.getSignedCookie({ policy });
-                Object.entries(cookies).forEach(([name, val]) => {
-                    res.cookie(name, val, {
-                        maxAge  : expires,
-                        httpOnly: true,
-                        domain  : '.1var.com',
-                        secure  : true,
-                        sameSite: 'None'
+                const expires = 90000;
+                const url = "https://" + fileLocation(isPublic) + ".1var.com/" + actionFile;
+                const policy = JSON.stringify({ Statement: [{ Resource: url, Condition: { DateLessThan: { 'AWS:EpochTime': Math.floor((Date.now() + expires) / 1000) } } }] });
+                if (reqType === 'url') {
+                    const signedUrl = signer.getSignedUrl({
+                        url: url,
+                        policy: policy
                     });
-                });
-            
-                return sendBack(res, "json", { ok: true, response }, isShorthand);
-            
-            } else if (action === "reqPut") {
-                const bucketName = `${fileLocation(isPublic)}.1var.com`;
-                const fileName   = actionFile;
-                const expires    = 90_000;
-            
-                const params = {
-                    Bucket      : bucketName,
-                    Key         : fileName,
-                    Expires     : expires,
-                    ContentType : `${fileCategory}/${fileType}`
-                };
-            
-                try {
-                    /* v2 SDK wrapped with promisify so we can await it */
-                    const url = await getSignedUrlAsync('putObject', params);
-                    response.putURL = url;
-                    return sendBack(res, "json", { ok: true, response }, isShorthand);
-                } catch (err) {
-                    console.error('getSignedUrl failed:', err);
-                    return sendBack(res, "json", { ok: false, response: {} }, isShorthand);
+
+                    return sendBack(res, "json", { signedUrl: signedUrl }, isShorthand);
+                } else {
+                    const cookies = signer.getSignedCookie({ policy: policy });
+                    for (const cookieName in cookies) {
+                        res.cookie(cookieName, cookies[cookieName], { maxAge: expires, httpOnly: true, domain: '.1var.com', secure: true, sameSite: 'None' });
+                    }
+
+
+                    return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
                 }
-            
+            } else if (action === "reqPut") {
+                const bucketName = fileLocation(isPublic) + '.1var.com';
+                const fileName = actionFile;
+                const expires = 90000;
+                const params = {
+                    Bucket: bucketName,
+                    Key: fileName,
+                    Expires: expires,
+                    ContentType: fileCategory + '/' + fileType
+                };
+                s3.getSignedUrl('putObject', params, (error, url) => {
+                    if (error) {
+                        if (reqHeaderSent == false) {
+
+                            return sendBack(res, "json", { "ok": false, "response": {} }, isShorthand);
+                        }
+                    } else {
+                        response.putURL = url
+                        if (reqHeaderSent == false) {
+
+                            return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
+                        }
+                    }
+                });
             } else {
-                /* fall‑through: always respond */
-                if (response.file !== "" || !response.hasOwnProperty("status")) {
-                    return sendBack(res, "json", { ok: true, response }, isShorthand);
+
+
+                if (response.file != "") {
+
+                    return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
+                } else {
+
+
+                    if (!response.hasOwnProperty("status")) {
+                        return sendBack(res, "json", { "ok": true, "response": response }, isShorthand);
+                    }
                 }
             }
-            
-            /* ── NEW: final catch‑all so the function never resolves to undefined ── */
-            return sendBack(res, "json", { ok: true, response }, isShorthand);
         } else {
             return sendBack(res, "json", {}, isShorthand);
         }
