@@ -1046,17 +1046,20 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function processArray(data) {
+        console.log("processArray", data)
         if (
             Array.isArray(data) &&
             data.length > 0 &&
             typeof data[0] === "object" &&
             (data[0].physical || data[0].virtual)
         ) {
+            console.log("part1")
             for (let segment of data) {
                 const typeKey = Object.keys(segment)[0];
                 const segmentRows = segment[typeKey];
                 const startRowCount = matrix.length;
                 for (let rowData of segmentRows) {
+                    console.log("rowData", rowData)
                     if (
                         typeof rowData === "object" &&
                         !Array.isArray(rowData) &&
@@ -1067,10 +1070,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         console.log("publishedValue!!", publishedValue)
                         await addRow([publishedValue]);
                     } else {
+                        console.log("manageArrowCells1")
                         await manageArrowCells(rowData);
                     }
                 }
 
+                console.log("await run1")
                 await run(skip);
 
                 if (typeKey === "virtual") {
@@ -1084,7 +1089,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         }
         else {
+            console.log("part2")
             for (let i = 0; i < data.length; i++) {
+                console.log("data[i]",i,data[i])
                 const rowData = data[i];
                 if (
                     typeof rowData === "object" &&
@@ -1095,9 +1102,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     console.log("publishedValue", publishedValue)
                     await addRow([publishedValue]);
                 } else {
+                    console.log("manageArrowCells2")
                     await manageArrowCells(rowData);
                 }
             }
+            console.log("run(skip)2")
             await run(skip);
         }
         return rowResult[0];
