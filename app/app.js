@@ -329,11 +329,8 @@ async function runApp(req, res, next) {
         if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
             console.log("runApp1")
             req.blocks = false;
-            let resu =  await initializeMiddleware(req, res, next);
-            console.log("resu }}", resu)
-
-
-            req.lib.middlewareCache = resu
+            console.log("AAAAAA11111")
+            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
             req.lib.isMiddlewareInitialized = true;
         }
 
@@ -351,6 +348,7 @@ async function runApp(req, res, next) {
                 if (index < req.lib.middlewareCache.length) {
                     console.log("res.headersSent", res.headersSent)
                     console.log("res88", res)
+                    console.log("BBBBB22222")
                     await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
 
                 }
@@ -603,65 +601,66 @@ async function initializeMiddleware(req, res, next) {
         console.log("fileArray", fileArray);
 
 
-        if (!fileArray) return [];
+        if (fileArray != undefined) {
+            const promises = fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
+            const results = await Promise.all(promises);
+            console.log("RESULTS87", results)
+            console.log("req.blocks", req.blocks)
 
-    // turn every JSON block into a middleware function
-    const middlewares = await Promise.all(
-        fileArray.map(async fileName => {
-            const userJSON = await retrieveAndParseJSON(
-                fileName,
-                head.Items[0].z,
-                getSub,
-                getWord
-            );
+            if (req.blocks) {
+                console.log("results", results)
+                return results
+            } else {
+                const arrayOfJSON = [];
 
-            // -------------------------------------------
-            //  build the actual middleware
-            // -------------------------------------------
-            return async function entityMiddleware(req, res, next) {
-                /* ----‑‑‑‑‑‑‑  every request  ‑‑‑‑‑‑‑‑‑‑ */
+                console.log("results", results)
+                results.forEach(result => arrayOfJSON.push(result));
+                console.log("arrayOfJSON", arrayOfJSON)
+                let resit = res
+                let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
+                    return async (req, res, next) => {
+                        console.log("req.body", JSON.stringify(req.body))
+                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
+                        console.log("userJSON", userJSON)
+                        userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
+                        req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                        req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
+                        req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
+                        req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
+                        req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
+                        req.lib.root.context.req = { "value": res.req, "context": {} }
+                        req.lib.root.context.res = { "value": resit, "context": {} }
+                        req.lib.root.context.math = { "value": math, "context": {} }
+                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
+                        req.lib.root.context.fs = { "value": fs, "context": {} }
+                        req.lib.root.context.JSON = { "value": JSON, "context": {} }
+                        req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
+                        req.lib.root.context.path = { "value": reqPath, "context": {} }
+                        req.lib.root.context.console = { "value": console, "context": {} }
+                        req.lib.root.context.util = { "value": util, "context": {} }
+                        req.lib.root.context.child_process = { "value": child_process, "context": {} }
+                        req.lib.root.context.moment = { "value": moment, "context": {} }
+                        req.lib.root.context.s3 = { "value": s3, "context": {} }
+                        req.lib.root.context.email = { "value": userJSON.email, "context": {} }
+                        req.lib.root.context.promise = { "value": Promise, "context": {} }
+                        console.log("pre-initializeModules", req.lib.root.context)
+                        console.log("pre-lib", req.lib)
+                        req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
+                        console.log("post-initializeModules", req.lib.root.context)
 
-                // 1. prepare root.context (same as your original code)
-                req.lib.root.context.body      = { value: req.body.body, context: {} };
-                req.lib.root.context.urlpath   = { value: req.dynPath, context: {} };
-                req.lib.root.context.entity    = { value: fileName, context: {} };
-                req.lib.root.context.pageType  = { value: getPageType(req.dynPath), context: {} };
-                req.lib.root.context.sessionID = { value: req.sessionID, context: {} };
-                req.lib.root.context.req       = { value: res.req, context: {} };
-                req.lib.root.context.res       = { value: res,    context: {} };
-                req.lib.root.context.math      = { value: math,   context: {} };
-                req.lib.root.context.axios     = { value: boundAxios, context: {} };
-                req.lib.root.context.fs        = { value: fs,     context: {} };
-                req.lib.root.context.JSON      = { value: JSON,   context: {} };
-                req.lib.root.context.Buffer    = { value: Buffer, context: {} };
-                req.lib.root.context.console   = { value: console,context: {} };
-                req.lib.root.context.util      = { value: util,   context: {} };
-                req.lib.root.context.child_process = { value: child_process, context: {} };
-                req.lib.root.context.moment    = { value: moment, context: {} };
-                req.lib.root.context.s3        = { value: s3,     context: {} };
-                req.lib.root.context.promise   = { value: Promise,context: {} };
+                        console.log("post-lib", req.lib)
+                        console.log("req1", req)
+                        console.log("res.req", res.req.ip)
+                        console.log("userJSON", userJSON)
 
-                // 2. install modules & run actions
-                const bubble = await initializeModules(req.lib, userJSON, req, res, next);
-
-                // 3.  ❱❱❱  SHORT‑CIRCUIT  ❰❰❰
-                if (
-                    bubble &&
-                    typeof bubble === "object" &&
-                    bubble._isFunction !== undefined &&
-                    bubble.chainParams !== undefined
-                ) {
-                    return bubble;         // hand straight back to runMiddleware / runApp
-                }
-
-                // 4. continue down the middleware chain
-                if (typeof next === "function") await next();
-            };
-        })
-    );
-
-    return middlewares;
-}
+                    };
+                });
+                return await Promise.all(resultArrayOfJSON)
+            }
+        } else {
+            return []
+        }
+    }
 }
 
 async function initializeModules(libs, config, req, res, next) {
@@ -671,18 +670,17 @@ async function initializeModules(libs, config, req, res, next) {
         if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
             console.log(dbAction)
-            response = await runAction(dbAction, libs, "root", req, res, next);
+            respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
             response = await runAction(action, libs, "root", req, res, next);
         }
         
-        console.log("bubble chain params in processAction7", response)
-        console.log(typeof response)
-        if (typeof response === "object"){
-            console.log("bubble chain params in processAction8")
-            if (response.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction9")
-                return response
+        console.log("bubble chain params in processAction1")
+        if (typeof respoonse == "object"){
+            console.log("bubble chain params in processAction2")
+            if (respoonse.hasOwnProperty("_isFunction")){
+                console.log("bubble chain params in processAction3")
+                return respoonse
             }
         }
         if (runResponse == "contune") {
@@ -1454,11 +1452,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
                         
-                        console.log("bubble chain params in processAction10")
+                        console.log("bubble chain params in processAction1")
                         if (typeof resu == "object"){
-                            console.log("bubble chain params in processAction11")
+                            console.log("bubble chain params in processAction2")
                             if (resu.hasOwnProperty("_isFunction")){
-                                console.log("bubble chain params in processAction12")
+                                console.log("bubble chain params in processAction3")
                                 return resu
                             }
                         }
@@ -1474,12 +1472,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             if (!action.while) {
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
-                console.log("bubble chain params in processAction13")
+                console.log("bubble chain params in processAction1")
                 if (typeof resu == "object"){
-                    console.log("bubble chain params in processAction14")
+                    console.log("bubble chain params in processAction2")
                     if (resu.hasOwnProperty("_isFunction")){
-                        console.log("bubble chain params in processAction15")
-                        console.log("resu", resu)
+                        console.log("bubble chain params in processAction3")
                         return resu
                     }
                 }
@@ -1809,11 +1806,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
-        console.log("bubble chain params in processAction16")
+        console.log("bubble chain params in processAction1")
         if (typeof result == "object"){
-            console.log("bubble chain params in processAction17")
+            console.log("bubble chain params in processAction2")
             if (result.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction18")
+                console.log("bubble chain params in processAction3")
                 return result
             }
         }
@@ -2182,15 +2179,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 for (const act of action.nestedActions) {
                     let newNestedPath = `${nestedPath}.${assign.key}`;
                     const result = await runAction(act, libs, newNestedPath, req, res, next);
-
-                    console.log("bubble chain params in processAction10")
-                    if (typeof result == "object"){
-                        console.log("bubble chain params in processAction11")
-                        if (result.hasOwnProperty("_isFunction")){
-                            console.log("bubble chain params in processAction12")
-                            return result
-                        }
-                    }
                     nestedResults.push(result);
                 }
                 result = nestedResults[0];
