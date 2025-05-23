@@ -1787,7 +1787,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
 
             let nestedContext = await getNestedContext(libs, assign.path);
-            console.log("nestedContext", nestedContext)
+            console.log("nestedContext", nestedContext)  //<<--- This is coming directly before post-initializeModules in the logs
             if (assignObj && assignExecuted && typeof result == "function") {
                 let tempFunction
                 if (action.chain) {
@@ -1978,7 +1978,22 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("result 1", result),
                                             console.log("accessClean 2", accessClean)
                                         console.log("chainParams 3", chainParams)
-                                        result = await result[accessClean](...chainParams);
+                                        // 
+
+
+                                        console.log("req.body",req.body);
+                                        console.log("req.body._isFunction", req.body._isFunction)
+                                        console.log("accessClean", accessClean)
+                                        // Instead of sending back the chainParams send(''). If it is send(''), we need to simply return it back to the shorthand. CHeck for isShorthand and update the code after dinner. :)
+                                        
+                                        if (isFunction){
+                                            // <<-- send back to route call because it was not an express call.
+                                            // return ...chainParams
+                                        } else {
+                                            result = await result[accessClean](...chainParams);
+                                        }
+
+                                        //
                                         console.log("result 4", result)
                                         try {
                                             re = result();
