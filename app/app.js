@@ -299,71 +299,71 @@ app.all('/auth/*',
 )
 
 async function runApp(req, res, next) {
-    console.log("runApp-runApp")
     try {
-        req.lib = {};
-        req.lib.modules = {};
-        req.lib.middlewareCache = [];
-        req.lib.isMiddlewareInitialized = false;
-        req.lib.whileLimit = 100;
-        req.lib.root = {};
-        req.lib.root.context = {};
-        req.lib.root.context.session = session;
-        const response = { ok: true, response: { status: 'authenticated', file: '' } };
+        // -------- initialise lib once per request -----------
+        req.lib = {
+            modules: {},
+            middlewareCache: [],
+            isMiddlewareInitialized: false,
+            whileLimit: 100,
+            root: { context: { session } }
+        };
 
-        console.log("req+>>", req)
-        console.log("res+>>", res)
+        // figuring out dynPath (same as before)
+        req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
 
+        // -------- initialise *all* middlewares exactly once --
+        if (
+            !req.lib.isMiddlewareInitialized &&
+            (req.dynPath.startsWith("/auth") || req.dynPath.startsWith("/cookies/"))
+        ) {
+            const maybe = await initializeMiddleware(req, res, next);
 
-
-        if (req.path == "/") {
-            req.dynPath = "/cookies/runEntity"
-        } else {
-            req.dynPath = req.path
-        }
-
-
-
-        console.log("req.path000", req.dynPath)
-        console.log("req.lib.isMiddlewareInitialized", req.lib.isMiddlewareInitialized)
-        if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
-            console.log("runApp1")
-            req.blocks = false;
-            let resu =  await initializeMiddleware(req, res, next);
-            console.log("resu }}", resu)
-            console.log("resu }}", resu[0])
-            if (resu[0].req.body._isFunction){
-                return resu[0].req.body.chainParams
+            //  ❱❱❱  bubble found before any middleware ran  ❰❰❰
+            if (
+                maybe &&
+                typeof maybe === "object" &&
+                maybe._isFunction !== undefined &&
+                maybe.chainParams !== undefined
+            ) {
+                return maybe;          // propagate straight back to caller
             }
 
-            req.lib.middlewareCache = resu
+            req.lib.middlewareCache       = Array.isArray(maybe) ? maybe : [];
             req.lib.isMiddlewareInitialized = true;
         }
 
-        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
-        console.log("req.lib", req.lib)
         if (req.lib.middlewareCache.length === 0) {
-            if (req._headerSent == false) {
-                res.send("no access");
+            if (!res.headersSent) res.send("no access");
+            return;
+        }
+
+        // ---------- helper to execute the chain --------------
+        const runMiddleware = async index => {
+            if (index >= req.lib.middlewareCache.length) return;
+
+            const bubble = await req.lib.middlewareCache[index](
+                req,
+                res,
+                () => runMiddleware(index + 1)   // next()
+            );
+
+            if (
+                bubble &&
+                typeof bubble === "object" &&
+                bubble._isFunction !== undefined &&
+                bubble.chainParams !== undefined
+            ) {
+                return bubble;   // propagate upwards
             }
-            return
-        }
+        };
 
-        if (req.lib.middlewareCache.length > 0) {
-            const runMiddleware = async (index) => {
-                if (index < req.lib.middlewareCache.length) {
-                    console.log("res.headersSent", res.headersSent)
-                    console.log("res88", res)
-                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
+        // run the chain & capture potential bubble
+        const bubble = await runMiddleware(0);
+        if (bubble) return bubble;       // back to Router / caller
 
-                }
-            };
-            await runMiddleware(0);
-        }
-
-
-    } catch (error) {
-        next(error);
+    } catch (err) {
+        return next(err);
     }
 }
 
@@ -606,79 +606,65 @@ async function initializeMiddleware(req, res, next) {
         console.log("fileArray", fileArray);
 
 
-        if (fileArray != undefined) {
-            const promises = fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
-            const results = await Promise.all(promises);
-            console.log("RESULTS87", results)
-            console.log("req.blocks", req.blocks)
+        if (!fileArray) return [];
 
-            if (req.blocks) {
-                console.log("results", results)
-                return results
-            } else {
-                const arrayOfJSON = [];
+    // turn every JSON block into a middleware function
+    const middlewares = await Promise.all(
+        fileArray.map(async fileName => {
+            const userJSON = await retrieveAndParseJSON(
+                fileName,
+                head.Items[0].z,
+                getSub,
+                getWord
+            );
 
-                console.log("results", results)
-                results.forEach(result => arrayOfJSON.push(result));
-                console.log("arrayOfJSON", arrayOfJSON)
-                let resit = res
-                let resu = {}
-                let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
-                    return async (req, res, next) => {
-                        console.log("req.body", JSON.stringify(req.body))
-                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
-                        console.log("userJSON", userJSON)
-                        userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
-                        req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-                        req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
-                        req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
-                        req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
-                        req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
-                        req.lib.root.context.req = { "value": res.req, "context": {} }
-                        req.lib.root.context.res = { "value": resit, "context": {} }
-                        req.lib.root.context.math = { "value": math, "context": {} }
-                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
-                        req.lib.root.context.fs = { "value": fs, "context": {} }
-                        req.lib.root.context.JSON = { "value": JSON, "context": {} }
-                        req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
-                        req.lib.root.context.path = { "value": reqPath, "context": {} }
-                        req.lib.root.context.console = { "value": console, "context": {} }
-                        req.lib.root.context.util = { "value": util, "context": {} }
-                        req.lib.root.context.child_process = { "value": child_process, "context": {} }
-                        req.lib.root.context.moment = { "value": moment, "context": {} }
-                        req.lib.root.context.s3 = { "value": s3, "context": {} }
-                        req.lib.root.context.email = { "value": userJSON.email, "context": {} }
-                        req.lib.root.context.promise = { "value": Promise, "context": {} }
-                        console.log("pre-initializeModules", req.lib.root.context)
-                        console.log("pre-lib", req.lib)
-                        let resu = await initializeModules(req.lib, userJSON, req, res, next);
-                        
-                        console.log("bubble chain params in processAction7", bubbled)
-                        console.log(typeof bubbled)
-                        if (typeof bubbled === "object"){
-                            console.log("bubble chain params in processAction8")
-                            if (bubbled.hasOwnProperty("_isFunction")){
-                                console.log("bubble chain params in processAction9")
-                                console.log("bubbled", bubbled)
-                                req.body["chainParams"] = resu.chainParams
-                                req.body["_isFunction"] = resu._isFunction
-                            }
-                        }
-                        console.log("post-initializeModules", req.lib.root.context)
+            // -------------------------------------------
+            //  build the actual middleware
+            // -------------------------------------------
+            return async function entityMiddleware(req, res, next) {
+                /* ----‑‑‑‑‑‑‑  every request  ‑‑‑‑‑‑‑‑‑‑ */
 
-                        console.log("post-lib", req.lib)
-                        console.log("req1", req)
-                        console.log("res.req", res.req.ip)
-                        console.log("userJSON", userJSON)
+                // 1. prepare root.context (same as your original code)
+                req.lib.root.context.body      = { value: req.body.body, context: {} };
+                req.lib.root.context.urlpath   = { value: req.dynPath, context: {} };
+                req.lib.root.context.entity    = { value: fileName, context: {} };
+                req.lib.root.context.pageType  = { value: getPageType(req.dynPath), context: {} };
+                req.lib.root.context.sessionID = { value: req.sessionID, context: {} };
+                req.lib.root.context.req       = { value: res.req, context: {} };
+                req.lib.root.context.res       = { value: res,    context: {} };
+                req.lib.root.context.math      = { value: math,   context: {} };
+                req.lib.root.context.axios     = { value: boundAxios, context: {} };
+                req.lib.root.context.fs        = { value: fs,     context: {} };
+                req.lib.root.context.JSON      = { value: JSON,   context: {} };
+                req.lib.root.context.Buffer    = { value: Buffer, context: {} };
+                req.lib.root.context.console   = { value: console,context: {} };
+                req.lib.root.context.util      = { value: util,   context: {} };
+                req.lib.root.context.child_process = { value: child_process, context: {} };
+                req.lib.root.context.moment    = { value: moment, context: {} };
+                req.lib.root.context.s3        = { value: s3,     context: {} };
+                req.lib.root.context.promise   = { value: Promise,context: {} };
 
-                    };
-                });
-                return await Promise.all(resultArrayOfJSON)
-            }
-        } else {
-            return []
-        }
-    }
+                // 2. install modules & run actions
+                const bubble = await initializeModules(req.lib, userJSON, req, res, next);
+
+                // 3.  ❱❱❱  SHORT‑CIRCUIT  ❰❰❰
+                if (
+                    bubble &&
+                    typeof bubble === "object" &&
+                    bubble._isFunction !== undefined &&
+                    bubble.chainParams !== undefined
+                ) {
+                    return bubble;         // hand straight back to runMiddleware / runApp
+                }
+
+                // 4. continue down the middleware chain
+                if (typeof next === "function") await next();
+            };
+        })
+    );
+
+    return middlewares;
+}
 }
 
 async function initializeModules(libs, config, req, res, next) {
