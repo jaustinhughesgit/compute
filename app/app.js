@@ -329,15 +329,12 @@ async function runApp(req, res, next) {
         if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
             console.log("runApp1")
             req.blocks = false;
-            let resu = await initializeMiddleware(req, res, next);
-            console.log("bubble chain params in processAction1")
-            if (typeof resu == "object"){
-                console.log("bubble chain params in processAction2")
-                if (resu.hasOwnProperty("_isFunction")){
-                    console.log("bubble chain params in processAction3")
-                    return resu
-                }
+            let resu =  await initializeMiddleware(req, res, next);
+
+            if (resu[0].body._isFunction){
+                return resu[0].body.chainParams
             }
+
             req.lib.middlewareCache = resu
             req.lib.isMiddlewareInitialized = true;
         }
@@ -653,8 +650,8 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
-                        const bubbled = await initializeModules(req.lib, userJSON, req, res, next);
-
+                        let resu = await initializeModules(req.lib, userJSON, req, res, next);
+                        
                         console.log("bubble chain params in processAction7", bubbled)
                         console.log(typeof bubbled)
                         if (typeof bubbled === "object"){
@@ -662,7 +659,8 @@ async function initializeMiddleware(req, res, next) {
                             if (bubbled.hasOwnProperty("_isFunction")){
                                 console.log("bubble chain params in processAction9")
                                 console.log("bubbled", bubbled)
-                                return bubbled
+                                req.body["chainParams"] = resu.chainParams
+                                req.body["_isFunction"] = resu._isFunction
                             }
                         }
                         console.log("post-initializeModules", req.lib.root.context)
