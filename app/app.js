@@ -654,6 +654,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
                         resu = await initializeModules(req.lib, userJSON, req, res, next);
+                        console.log("in resu", resu)
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -663,10 +664,11 @@ async function initializeMiddleware(req, res, next) {
 
                     };
                 });
-                console.log("resu", resu)
+                console.log("out resu", resu)
                 let resp = await Promise.all(resultArrayOfJSON)
 console.log("resp", resp)
                 let jointRes = deepMerge(resp, resu)
+                console.log("jointRes", jointRes)
                 return jointRes
             }
         } else {
