@@ -665,7 +665,6 @@ async function initializeMiddleware(req, res, next) {
                                 return bubbled
                             }
                         }
-                        console.log("resu", resu)
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
