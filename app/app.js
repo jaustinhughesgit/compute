@@ -664,21 +664,24 @@ async function initializeMiddleware(req, res, next) {
     }
 }
 
+
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
     for (const action of config.actions) {
         let runResponse
-        if (typeof action === "string") {
-                const dbAction = await getValFromDB(action, req, res, next);
-                return await runAction(dbAction, libs, "root", req, res, next);  // <‑‑
+        if (typeof action == "string") {
+            dbAction = await getValFromDB(action, req, res, next)
+            console.log(dbAction)
+            respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
-            return await runAction(action, libs, "root", req, res, next);     // <‑‑
+            response = await runAction(action, libs, "root", req, res, next);
         }
         if (runResponse == "contune") {
             continue
         }
     }
 }
+
 
 async function getValFromDB(id, req, res, next) {
     if (id.startsWith("{|")) {
