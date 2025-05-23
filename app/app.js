@@ -675,11 +675,11 @@ async function initializeModules(libs, config, req, res, next) {
             response = await runAction(action, libs, "root", req, res, next);
         }
         
-        console.log("bubble chain params in processAction1")
+        console.log("bubble chain params in processAction7")
         if (typeof respoonse == "object"){
-            console.log("bubble chain params in processAction2")
+            console.log("bubble chain params in processAction8")
             if (respoonse.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction3")
+                console.log("bubble chain params in processAction9")
                 return respoonse
             }
         }
@@ -1452,11 +1452,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
                         
-                        console.log("bubble chain params in processAction1")
+                        console.log("bubble chain params in processAction4.1")
                         if (typeof resu == "object"){
-                            console.log("bubble chain params in processAction2")
+                            console.log("bubble chain params in processAction4.2")
                             if (resu.hasOwnProperty("_isFunction")){
-                                console.log("bubble chain params in processAction3")
+                                console.log("bubble chain params in processAction4.3")
                                 return resu
                             }
                         }
@@ -1472,11 +1472,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             if (!action.while) {
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
-                console.log("bubble chain params in processAction1")
+                console.log("bubble chain params in processAction4")
                 if (typeof resu == "object"){
-                    console.log("bubble chain params in processAction2")
+                    console.log("bubble chain params in processAction5")
                     if (resu.hasOwnProperty("_isFunction")){
-                        console.log("bubble chain params in processAction3")
+                        console.log("bubble chain params in processAction6")
                         return resu
                     }
                 }
