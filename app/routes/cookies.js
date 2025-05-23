@@ -2209,8 +2209,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "shorthand") {
                 actionFile = reqPath.split("/")[3];
                 let { shorthand } = require('../routes/shorthand');
-                const arrayLogic = reqBody.body;
+                const arrayLogic = reqBody.body.arrayLogic;
+                const emitType = reqBody.body.emit
                 console.log("arrayLogic", arrayLogic)
+                console.log("emitType", emitType)
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
