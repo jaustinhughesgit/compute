@@ -686,18 +686,18 @@ async function initializeModules(libs, config, req, res, next) {
         if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
             console.log(dbAction)
-            respoonse = await runAction(dbAction, libs, "root", req, res, next);
+            response = await runAction(dbAction, libs, "root", req, res, next);
         } else {
             response = await runAction(action, libs, "root", req, res, next);
         }
         
         console.log("bubble chain params in processAction7", response)
         console.log(typeof response)
-        if (typeof respoonse === "object"){
+        if (typeof response === "object"){
             console.log("bubble chain params in processAction8")
-            if (respoonse.hasOwnProperty("_isFunction")){
+            if (response.hasOwnProperty("_isFunction")){
                 console.log("bubble chain params in processAction9")
-                return respoonse
+                return response
             }
         }
         if (runResponse == "contune") {
