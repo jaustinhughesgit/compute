@@ -674,7 +674,7 @@ async function initializeMiddleware(req, res, next) {
 
                     };
                 });
-                await Promise.all(resultArrayOfJSON)
+                return await Promise.all(resultArrayOfJSON)
             }
         } else {
             return []
