@@ -624,6 +624,7 @@ async function initializeMiddleware(req, res, next) {
                 results.forEach(result => arrayOfJSON.push(result));
                 console.log("arrayOfJSON", arrayOfJSON)
                 let resit = res
+                let resu = {}
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
                         console.log("req.body", JSON.stringify(req.body))
@@ -652,7 +653,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
-                        let resu = await initializeModules(req.lib, userJSON, req, res, next);
+                        resu = await initializeModules(req.lib, userJSON, req, res, next);
                         
         console.log("bubble chain params in processAction4")
         console.log("resut", resu)
@@ -672,7 +673,7 @@ async function initializeMiddleware(req, res, next) {
 
                     };
                 });
-                return await Promise.all(resultArrayOfJSON)
+                return deepMerge(await Promise.all(resultArrayOfJSON), resu)
             }
         } else {
             return []
