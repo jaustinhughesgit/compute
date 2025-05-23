@@ -299,71 +299,68 @@ app.all('/auth/*',
 )
 
 async function runApp(req, res, next) {
+    console.log("runApp-runApp")
     try {
-        // -------- initialise lib once per request -----------
-        req.lib = {
-            modules: {},
-            middlewareCache: [],
-            isMiddlewareInitialized: false,
-            whileLimit: 100,
-            root: { context: { session } }
-        };
+        req.lib = {};
+        req.lib.modules = {};
+        req.lib.middlewareCache = [];
+        req.lib.isMiddlewareInitialized = false;
+        req.lib.whileLimit = 100;
+        req.lib.root = {};
+        req.lib.root.context = {};
+        req.lib.root.context.session = session;
+        const response = { ok: true, response: { status: 'authenticated', file: '' } };
 
-        // figuring out dynPath (same as before)
-        req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
+        console.log("req+>>", req)
+        console.log("res+>>", res)
 
-        // -------- initialise *all* middlewares exactly once --
-        if (
-            !req.lib.isMiddlewareInitialized &&
-            (req.dynPath.startsWith("/auth") || req.dynPath.startsWith("/cookies/"))
-        ) {
-            const maybe = await initializeMiddleware(req, res, next);
 
-            //  ❱❱❱  bubble found before any middleware ran  ❰❰❰
-            if (
-                maybe &&
-                typeof maybe === "object" &&
-                maybe._isFunction !== undefined &&
-                maybe.chainParams !== undefined
-            ) {
-                return maybe;          // propagate straight back to caller
-            }
 
-            req.lib.middlewareCache       = Array.isArray(maybe) ? maybe : [];
+        if (req.path == "/") {
+            req.dynPath = "/cookies/runEntity"
+        } else {
+            req.dynPath = req.path
+        }
+
+
+
+        console.log("req.path000", req.dynPath)
+        console.log("req.lib.isMiddlewareInitialized", req.lib.isMiddlewareInitialized)
+        if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
+            console.log("runApp1")
+            req.blocks = false;
+            let resu =  await initializeMiddleware(req, res, next);
+            console.log("resu }}", resu)
+
+
+            req.lib.middlewareCache = resu
             req.lib.isMiddlewareInitialized = true;
         }
 
+        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        console.log("req.lib", req.lib)
         if (req.lib.middlewareCache.length === 0) {
-            if (!res.headersSent) res.send("no access");
-            return;
+            if (req._headerSent == false) {
+                res.send("no access");
+            }
+            return
         }
 
-        // ---------- helper to execute the chain --------------
-        const runMiddleware = async index => {
-            if (index >= req.lib.middlewareCache.length) return;
+        if (req.lib.middlewareCache.length > 0) {
+            const runMiddleware = async (index) => {
+                if (index < req.lib.middlewareCache.length) {
+                    console.log("res.headersSent", res.headersSent)
+                    console.log("res88", res)
+                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
 
-            const bubble = await req.lib.middlewareCache[index](
-                req,
-                res,
-                () => runMiddleware(index + 1)   // next()
-            );
+                }
+            };
+            await runMiddleware(0);
+        }
 
-            if (
-                bubble &&
-                typeof bubble === "object" &&
-                bubble._isFunction !== undefined &&
-                bubble.chainParams !== undefined
-            ) {
-                return bubble;   // propagate upwards
-            }
-        };
 
-        // run the chain & capture potential bubble
-        const bubble = await runMiddleware(0);
-        if (bubble) return bubble;       // back to Router / caller
-
-    } catch (err) {
-        return next(err);
+    } catch (error) {
+        next(error);
     }
 }
 
