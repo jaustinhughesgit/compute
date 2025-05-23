@@ -676,11 +676,11 @@ async function initializeModules(libs, config, req, res, next) {
         }
         
         console.log("bubble chain params in processAction7")
-        if (typeof respoonse == "object"){
+        if (typeof response == "object"){
             console.log("bubble chain params in processAction8")
-            if (respoonse.hasOwnProperty("_isFunction")){
+            if (response.hasOwnProperty("_isFunction")){
                 console.log("bubble chain params in processAction9")
-                return respoonse
+                return response
             }
         }
         if (runResponse == "contune") {
