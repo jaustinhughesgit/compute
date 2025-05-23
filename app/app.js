@@ -654,11 +654,11 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         let resu = await initializeModules(req.lib, userJSON, req, res, next);
                         
-        console.log("bubble chain params in processAction1")
+        console.log("bubble chain params in processAction4")
         if (typeof resu == "object"){
-            console.log("bubble chain params in processAction2")
+            console.log("bubble chain params in processAction5")
             if (resu.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction3")
+                console.log("bubble chain params in processAction6")
                 return resu
             }
         }
@@ -691,11 +691,11 @@ async function initializeModules(libs, config, req, res, next) {
             response = await runAction(action, libs, "root", req, res, next);
         }
         
-        console.log("bubble chain params in processAction1")
+        console.log("bubble chain params in processAction7")
         if (typeof respoonse == "object"){
-            console.log("bubble chain params in processAction2")
+            console.log("bubble chain params in processAction8")
             if (respoonse.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction3")
+                console.log("bubble chain params in processAction9")
                 return respoonse
             }
         }
@@ -1468,11 +1468,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
                         
-                        console.log("bubble chain params in processAction1")
+                        console.log("bubble chain params in processAction10")
                         if (typeof resu == "object"){
-                            console.log("bubble chain params in processAction2")
+                            console.log("bubble chain params in processAction11")
                             if (resu.hasOwnProperty("_isFunction")){
-                                console.log("bubble chain params in processAction3")
+                                console.log("bubble chain params in processAction12")
                                 return resu
                             }
                         }
@@ -1488,11 +1488,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             if (!action.while) {
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
-                console.log("bubble chain params in processAction1")
+                console.log("bubble chain params in processAction13")
                 if (typeof resu == "object"){
-                    console.log("bubble chain params in processAction2")
+                    console.log("bubble chain params in processAction14")
                     if (resu.hasOwnProperty("_isFunction")){
-                        console.log("bubble chain params in processAction3")
+                        console.log("bubble chain params in processAction15")
                         return resu
                     }
                 }
@@ -1822,11 +1822,11 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
-        console.log("bubble chain params in processAction1")
+        console.log("bubble chain params in processAction16")
         if (typeof result == "object"){
-            console.log("bubble chain params in processAction2")
+            console.log("bubble chain params in processAction17")
             if (result.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction3")
+                console.log("bubble chain params in processAction18")
                 return result
             }
         }
