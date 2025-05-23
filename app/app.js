@@ -284,7 +284,15 @@ app.all('/blocks/*',
     async (req, res, next) => {
         req.blocks = true;
         let blocksData = await initializeMiddleware(req, res, next);
-
+        console.log("resu", blocksData)
+        console.log("bubble chain params in processAction1")
+        if (typeof blocksData == "object"){
+            console.log("bubble chain params in processAction2")
+            if (blocksData.hasOwnProperty("_isFunction")){
+                console.log("bubble chain params in processAction3")
+                return blocksData
+            }
+        }
         if (req._headerSent == false) {
             res.json({ "data": blocksData });
         }
@@ -330,6 +338,7 @@ async function runApp(req, res, next) {
             console.log("runApp1")
             req.blocks = false;
             let resu = await initializeMiddleware(req, res, next);
+            console.log("resu", resu)
             console.log("bubble chain params in processAction1")
             if (typeof resu == "object"){
                 console.log("bubble chain params in processAction2")
@@ -615,7 +624,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("req.blocks", req.blocks)
 
             if (req.blocks) {
-                console.log("results", results)
+                console.log("results1234567890", results)
                 return results
             } else {
                 const arrayOfJSON = [];
@@ -654,24 +663,26 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         let resu = await initializeModules(req.lib, userJSON, req, res, next);
                         
-        console.log("bubble chain params in processAction4")
-        if (typeof resu == "object"){
-            console.log("bubble chain params in processAction5")
-            if (resu.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction6")
-                return resu
-            }
-        }
-                        console.log("post-initializeModules", req.lib.root.context)
 
-                        console.log("post-lib", req.lib)
-                        console.log("req1", req)
-                        console.log("res.req", res.req.ip)
-                        console.log("userJSON", userJSON)
-
-                    };
-                });
-                return await Promise.all(resultArrayOfJSON)
+                 await Promise.all(resultArrayOfJSON)
+                 console.log("bubble chain params in processAction4")
+                 console.log("resu", resu)
+                 if (typeof resu === "object"){
+                     console.log("bubble chain params in processAction5")
+                     if (resu.hasOwnProperty("_isFunction")){
+                         console.log("bubble chain params in processAction6")
+                         return resu
+                     }
+                 }
+                                 console.log("post-initializeModules", req.lib.root.context)
+         
+                                 console.log("post-lib", req.lib)
+                                 console.log("req1", req)
+                                 console.log("res.req", res.req.ip)
+                                 console.log("userJSON", userJSON)
+         
+                             };
+                         });
             }
         } else {
             return []
