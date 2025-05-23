@@ -691,7 +691,7 @@ async function initializeModules(libs, config, req, res, next) {
             response = await runAction(action, libs, "root", req, res, next);
         }
         
-        console.log("bubble chain params in processAction7")
+        console.log("bubble chain params in processAction7", response)
         if (typeof respoonse == "object"){
             console.log("bubble chain params in processAction8")
             if (respoonse.hasOwnProperty("_isFunction")){
@@ -1493,6 +1493,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                     console.log("bubble chain params in processAction14")
                     if (resu.hasOwnProperty("_isFunction")){
                         console.log("bubble chain params in processAction15")
+                        console.log("resu", resu)
                         return resu
                     }
                 }
@@ -2195,6 +2196,15 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                 for (const act of action.nestedActions) {
                     let newNestedPath = `${nestedPath}.${assign.key}`;
                     const result = await runAction(act, libs, newNestedPath, req, res, next);
+
+                    console.log("bubble chain params in processAction10")
+                    if (typeof result == "object"){
+                        console.log("bubble chain params in processAction11")
+                        if (result.hasOwnProperty("_isFunction")){
+                            console.log("bubble chain params in processAction12")
+                            return result
+                        }
+                    }
                     nestedResults.push(result);
                 }
                 result = nestedResults[0];
