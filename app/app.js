@@ -1986,9 +1986,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("accessClean", accessClean)
                                         // Instead of sending back the chainParams send(''). If it is send(''), we need to simply return it back to the shorthand. CHeck for isShorthand and update the code after dinner. :)
                                         
-                                        if (isFunction){
+                                        if (req.body._isFunction){
                                             // <<-- send back to route call because it was not an express call.
                                             // return ...chainParams
+                                            result = await result[accessClean](...chainParams);
                                         } else {
                                             result = await result[accessClean](...chainParams);
                                         }
