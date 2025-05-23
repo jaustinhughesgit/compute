@@ -665,7 +665,7 @@ async function initializeMiddleware(req, res, next) {
                 });
                 console.log("resu", resu)
                 let resp = await Promise.all(resultArrayOfJSON)
-
+console.log("resp", resp)
                 let jointRes = deepMerge(resp, resu)
                 return jointRes
             }
