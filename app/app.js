@@ -654,16 +654,6 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
                         resu = await initializeModules(req.lib, userJSON, req, res, next);
-                        
-        console.log("bubble chain params in processAction4")
-        console.log("resut", resu)
-        if (typeof resu == "object"){
-            console.log("bubble chain params in processAction5")
-            if (resu.hasOwnProperty("_isFunction")){
-                console.log("bubble chain params in processAction6")
-                return resu
-            }
-        }
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -673,7 +663,11 @@ async function initializeMiddleware(req, res, next) {
 
                     };
                 });
-                return deepMerge(await Promise.all(resultArrayOfJSON), resu)
+                console.log("resu", resu)
+                let resp = await Promise.all(resultArrayOfJSON)
+
+                let jointRes = deepMerge(resp, resu)
+                return jointRes
             }
         } else {
             return []
