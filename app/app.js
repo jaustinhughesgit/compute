@@ -668,12 +668,11 @@ async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
     for (const action of config.actions) {
         let runResponse
-        if (typeof action == "string") {
-            dbAction = await getValFromDB(action, req, res, next)
-            console.log(dbAction)
-            respoonse = await runAction(dbAction, libs, "root", req, res, next);
+        if (typeof action === "string") {
+                const dbAction = await getValFromDB(action, req, res, next);
+                return await runAction(dbAction, libs, "root", req, res, next);  // <‑‑
         } else {
-            response = await runAction(action, libs, "root", req, res, next);
+            return await runAction(action, libs, "root", req, res, next);     // <‑‑
         }
         if (runResponse == "contune") {
             continue
@@ -1452,7 +1451,8 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             }
 
             if (!action.while) {
-                await processAction(action, libs, nestedPath, req, res, next);
+                    const maybe = await processAction(action, libs, nestedPath, req, res, next);
+                    if (maybe !== undefined) return maybe;   // bubble up
             }
 
             if (action.assign && action.params) {
@@ -1779,6 +1779,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
+
+        // run the chain and immediately propagate anything it returns
+        const maybe = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
+        if (maybe !== undefined) return maybe;
+
+
         if (action.assign) {
             const assignObj = await isOnePlaceholder(action.assign);
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
