@@ -297,61 +297,77 @@ app.all('/auth/*',
         await runApp(req, res, next)
     }
 )
+
 async function runApp(req, res, next) {
+    console.log("runApp-runApp")
     try {
-      /* ── one‑time set‑up for this request ────────────────────────────── */
-      req.lib = {
-        modules              : {},
-        middlewareCache      : [],
-        isMiddlewareInitialized : false,
-        whileLimit           : 100,
-        root: { context: { session } }
-      };
-  
-      req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
-  
-      /* ── build the page middleware list (once) ───────────────────────── */
-      if (
-        !req.lib.isMiddlewareInitialized &&
-        (req.dynPath.startsWith("/auth") || req.dynPath.startsWith("/cookies/"))
-      ) {
-        const maybe = await initializeMiddleware(req, res, next);
-  
-        // 1) if initializeMiddleware already produced the special object …
-        if (maybe !== undefined) return maybe;
-  
-        // 2) otherwise we got an array of middlewares to cache
-        req.lib.middlewareCache   = maybe;
-        req.lib.isMiddlewareInitialized = true;
-      }
-  
-      /* ── no middleware? bail out ─────────────────────────────────────── */
-      if (req.lib.middlewareCache.length === 0) {
-        if (!res.headersSent) res.send("no access");
-        return;
-      }
-  
-      /* ── execute middleware array, 
-            but bubble any returned value straight up ──────────────────── */
-      const runMiddleware = async (index = 0) => {
-        if (index >= req.lib.middlewareCache.length) return;
-  
-        const maybe = await req.lib.middlewareCache[index](
-          req,
-          res,
-          async () => await runMiddleware(index + 1)
-        );
-  
-        if (maybe !== undefined) return maybe;     // stop chain & bubble up
-      };
-  
-      const bubbled = await runMiddleware();
-      if (bubbled !== undefined) return bubbled;   // hand to caller/Lambda
-    } catch (err) {
-      next(err);
+        req.lib = {};
+        req.lib.modules = {};
+        req.lib.middlewareCache = [];
+        req.lib.isMiddlewareInitialized = false;
+        req.lib.whileLimit = 100;
+        req.lib.root = {};
+        req.lib.root.context = {};
+        req.lib.root.context.session = session;
+        const response = { ok: true, response: { status: 'authenticated', file: '' } };
+
+        console.log("req+>>", req)
+        console.log("res+>>", res)
+
+
+
+        if (req.path == "/") {
+            req.dynPath = "/cookies/runEntity"
+        } else {
+            req.dynPath = req.path
+        }
+
+
+
+        console.log("req.path000", req.dynPath)
+        console.log("req.lib.isMiddlewareInitialized", req.lib.isMiddlewareInitialized)
+        if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
+            console.log("runApp1")
+            req.blocks = false;
+            let resu = await initializeMiddleware(req, res, next);
+            console.log("bubble chain params in processAction1")
+            if (typeof resu == "object"){
+                console.log("bubble chain params in processAction2")
+                if (resu.hasOwnProperty("_isFunction")){
+                    console.log("bubble chain params in processAction3")
+                    return resu
+                }
+            }
+            req.lib.middlewareCache = resu
+            req.lib.isMiddlewareInitialized = true;
+        }
+
+        console.log("req.lib.middlewareCache", req.lib.middlewareCache)
+        console.log("req.lib", req.lib)
+        if (req.lib.middlewareCache.length === 0) {
+            if (req._headerSent == false) {
+                res.send("no access");
+            }
+            return
+        }
+
+        if (req.lib.middlewareCache.length > 0) {
+            const runMiddleware = async (index) => {
+                if (index < req.lib.middlewareCache.length) {
+                    console.log("res.headersSent", res.headersSent)
+                    console.log("res88", res)
+                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
+
+                }
+            };
+            await runMiddleware(0);
+        }
+
+
+    } catch (error) {
+        next(error);
     }
-  }
-  
+}
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
