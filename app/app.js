@@ -330,7 +330,7 @@ async function runApp(req, res, next) {
             console.log("runApp1")
             req.blocks = false;
             let resu = await initializeMiddleware(req, res, next);
-            console.log("bubble chain params in processAction1", resu)
+            console.log("bubble chain params in processAction1")
             if (typeof resu == "object"){
                 console.log("bubble chain params in processAction2")
                 if (resu.hasOwnProperty("_isFunction")){
@@ -555,116 +555,133 @@ function getPageType(urlPath) {
     }
 }
 
-/**
- * Build the list of per‑page middleware or bubble the {chainParams,_isFunction} object
- */
 async function initializeMiddleware(req, res, next) {
-    console.log("runApp3");
-  
-    req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
-    console.log("req.dynPath", req.dynPath);
-  
-    if (
-      req.dynPath.startsWith("/auth") ||
-      req.dynPath.startsWith("/blocks") ||
-      req.dynPath.startsWith("/cookies/runEntity")
-    ) {
-      // ── locate entity / files ───────────────────────────────────────────
-      const originalHost  = req.body.headers["X-Original-Host"];
-      const splitHostPath = originalHost.split("1var.com")[1].split("?")[0];
-      const reqPath       = splitHostPath.replace("/cookies/runEntity", "");
-      req.dynPath         = reqPath;
-  
-      const xAccessToken  = req.body.headers["X-accessToken"];
-      let head, cookie, parent, fileArray;
-  
-      if (reqPath.split("/")[1] === "api") {
-        head      = await getHead("su", reqPath.split("/")[2], dynamodb);
-        cookie    = await manageCookie({}, req, xAccessToken, dynamodb, uuidv4);
-        parent    = await convertToJSON(
-          head.Items[0].su, [], null, null, cookie,
-          dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body
-        );
-        fileArray = parent.paths[reqPath.split("/")[2]];
-      } else {
-        head      = await getHead("su", reqPath.split("/")[1], dynamodb);
-        cookie    = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4);
-        parent    = await convertToJSON(
-          head.Items[0].su, [], null, null, cookie,
-          dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body
-        );
-        fileArray = parent.paths[reqPath.split("/")[1]];
-      }
-  
-      if (!fileArray) return [];
-  
-      // ── load every JSON block for the page ──────────────────────────────
-      const isPublic = head.Items[0].z;
-      const blocks   = await Promise.all(
-        fileArray.map(fn => retrieveAndParseJSON(fn, isPublic, getSub, getWord))
-      );
-  
-      /*  If we are in “/blocks” mode simply return data for res.json()
-          -------------------------------------------------------------   */
-      if (req.blocks) return blocks;
-  
-      // ── build one Express‑style middleware per JSON config ─────────────
-      const middlewares = blocks.map(userJSON => {
-        return async (req, res, next) => {
-          // put request body into context
-          req.lib.root.context.body = { value: req.body.body, context: {} };
-  
-          // replace {|…|} placeholders coming from DB
-          userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next);
-  
-          // wire up modules + primitives
-          req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
-          Object.assign(req.lib.root.context, {
-            urlpath   : { value: reqPath,                    context: {} },
-            entity    : { value: fileArray[fileArray.length - 1], context: {} },
-            pageType  : { value: getPageType(reqPath),       context: {} },
-            sessionID : { value: req.sessionID,              context: {} },
-            req       : { value: res.req,                    context: {} },
-            res       : { value: res,                        context: {} },
-            math      : { value: math,                       context: {} },
-            axios     : { value: boundAxios,                 context: {} },
-            fs        : { value: fs,                         context: {} },
-            JSON      : { value: JSON,                       context: {} },
-            Buffer    : { value: Buffer,                     context: {} },
-            path      : { value: reqPath,                    context: {} },
-            console   : { value: console,                    context: {} },
-            util      : { value: util,                       context: {} },
-            child_process: { value: child_process,           context: {} },
-            moment    : { value: moment,                     context: {} },
-            s3        : { value: s3,                         context: {} },
-            email     : { value: userJSON.email,             context: {} },
-            promise   : { value: Promise,                    context: {} },
-          });
-  
-          /*  run the user’s root‑level actions
-              -------------------------------- */
-          const bubbled = await initializeModules(req.lib, userJSON, req, res, next);
+    console.log("runApp3")
 
-          console.log("bubble chain params in processAction7", bubbled)
-          console.log(typeof bubbled)
-          if (typeof bubbled === "object"){
-              console.log("bubble chain params in processAction8")
-              if (bubbled.hasOwnProperty("_isFunction")){
-                  console.log("bubble chain params in processAction9")
-                  console.log("bubbled", bubbled)
-                  return bubbled
-              }
-          }
-
-          // otherwise just call next middleware in chain
-          if (next) return next();
-        };
-      });
-  
-      return middlewares;                     // hand back array of middlewares
+    if (req.path == "/") {
+        req.dynPath = "/cookies/runEntity"
+    } else {
+        req.dynPath = req.path
     }
-  }
-  
+
+    console.log("req.dynPath", req.dynPath)
+
+    if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
+        console.log("runApp4")
+        let originalHost = req.body.headers["X-Original-Host"];
+        let splitOriginalHost = originalHost.split("1var.com")[1]
+        let reqPath = splitOriginalHost.split("?")[0]
+        reqPath = reqPath.replace("/cookies/runEntity", "")
+        console.log("reqPath", reqPath)
+        req.dynPath = reqPath
+        let head
+        let cookie
+        let parent
+        let fileArray
+        let xAccessToken = req.body.headers["X-accessToken"]
+        if (reqPath.split("/")[1] == "api") {
+            console.log("runApp5")
+            head = await getHead("su", reqPath.split("/")[2], dynamodb)
+            cookie = await manageCookie({}, req, xAccessToken, dynamodb, uuidv4)
+            console.log("req.body", req.body)
+            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
+            fileArray = parent.paths[reqPath.split("/")[2]];
+        } else {
+
+            console.log("runApp6")
+            head = await getHead("su", reqPath.split("/")[1], dynamodb)
+            console.log("runApp6.1")
+            cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
+            console.log("runApp6.2")
+            console.log("head.Items[0].su", head.Items[0].su)
+            console.log("req.body", req.body)
+            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
+            console.log("runApp6.3")
+            console.log("parent")
+            fileArray = parent.paths[reqPath.split("/")[1]];
+        }
+        console.log("runApp6.4")
+        let isPublic = head.Items[0].z
+        console.log("#1cookie", cookie)
+        console.log("#1parent", parent)
+        console.log("head", head);
+        console.log("fileArray", fileArray);
+
+
+        if (fileArray != undefined) {
+            const promises = fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
+            const results = await Promise.all(promises);
+            console.log("RESULTS87", results)
+            console.log("req.blocks", req.blocks)
+
+            if (req.blocks) {
+                console.log("results", results)
+                return results
+            } else {
+                const arrayOfJSON = [];
+
+                console.log("results", results)
+                results.forEach(result => arrayOfJSON.push(result));
+                console.log("arrayOfJSON", arrayOfJSON)
+                let resit = res
+                let resu = {}
+                let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
+                    return async (req, res, next) => {
+                        console.log("req.body", JSON.stringify(req.body))
+                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
+                        console.log("userJSON", userJSON)
+                        userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
+                        req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
+                        req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
+                        req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
+                        req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
+                        req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
+                        req.lib.root.context.req = { "value": res.req, "context": {} }
+                        req.lib.root.context.res = { "value": resit, "context": {} }
+                        req.lib.root.context.math = { "value": math, "context": {} }
+                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
+                        req.lib.root.context.fs = { "value": fs, "context": {} }
+                        req.lib.root.context.JSON = { "value": JSON, "context": {} }
+                        req.lib.root.context.Buffer = { "value": Buffer, "context": {} }
+                        req.lib.root.context.path = { "value": reqPath, "context": {} }
+                        req.lib.root.context.console = { "value": console, "context": {} }
+                        req.lib.root.context.util = { "value": util, "context": {} }
+                        req.lib.root.context.child_process = { "value": child_process, "context": {} }
+                        req.lib.root.context.moment = { "value": moment, "context": {} }
+                        req.lib.root.context.s3 = { "value": s3, "context": {} }
+                        req.lib.root.context.email = { "value": userJSON.email, "context": {} }
+                        req.lib.root.context.promise = { "value": Promise, "context": {} }
+                        console.log("pre-initializeModules", req.lib.root.context)
+                        console.log("pre-lib", req.lib)
+                        const bubbled = await initializeModules(req.lib, userJSON, req, res, next);
+
+                        console.log("bubble chain params in processAction7", bubbled)
+                        console.log(typeof bubbled)
+                        if (typeof bubbled === "object"){
+                            console.log("bubble chain params in processAction8")
+                            if (bubbled.hasOwnProperty("_isFunction")){
+                                console.log("bubble chain params in processAction9")
+                                console.log("bubbled", bubbled)
+                                return bubbled
+                            }
+                        }
+                        console.log("resu", resu)
+                        console.log("post-initializeModules", req.lib.root.context)
+
+                        console.log("post-lib", req.lib)
+                        console.log("req1", req)
+                        console.log("res.req", res.req.ip)
+                        console.log("userJSON", userJSON)
+
+                    };
+                });
+                await Promise.all(resultArrayOfJSON)
+            }
+        } else {
+            return []
+        }
+    }
+}
 
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
