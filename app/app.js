@@ -349,8 +349,8 @@ async function runApp(req, res, next) {
                     console.log("res.headersSent", res.headersSent)
                     console.log("res88", res)
                     console.log("BBBBB22222")
-                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
-
+                    let resp = await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
+                    console.log("resp88888", resp)
                 }
             };
             await runMiddleware(0);
