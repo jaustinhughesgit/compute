@@ -330,9 +330,10 @@ async function runApp(req, res, next) {
             console.log("runApp1")
             req.blocks = false;
             let resu =  await initializeMiddleware(req, res, next);
-
-            if (resu[0].body._isFunction){
-                return resu[0].body.chainParams
+            console.log("resu }}", resu)
+            console.log("resu }}", resu[0])
+            if (resu[0].req.body._isFunction){
+                return resu[0].req.body.chainParams
             }
 
             req.lib.middlewareCache = resu
