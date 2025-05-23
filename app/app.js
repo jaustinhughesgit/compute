@@ -329,7 +329,16 @@ async function runApp(req, res, next) {
         if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
             console.log("runApp1")
             req.blocks = false;
-            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
+            let resu = await initializeMiddleware(req, res, next);
+            console.log("bubble chain params in processAction1")
+            if (typeof resu == "object"){
+                console.log("bubble chain params in processAction2")
+                if (resu.hasOwnProperty("_isFunction")){
+                    console.log("bubble chain params in processAction3")
+                    return resu
+                }
+            }
+            req.lib.middlewareCache = resu
             req.lib.isMiddlewareInitialized = true;
         }
 
@@ -345,16 +354,13 @@ async function runApp(req, res, next) {
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
-                    const maybe = await req.lib.middlewareCache[index](
-                        req, res, async () => await runMiddleware(index + 1)
-                    );
-                    if (maybe !== undefined) return maybe;   // <-- propagate up
+                    console.log("res.headersSent", res.headersSent)
+                    console.log("res88", res)
+                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
+
                 }
             };
-            
-            // the value produced inside applyMethodChain surfaces here
-            const resultFromMw = await runMiddleware(0);
-            return resultFromMw;          // <-- runApp now *returns* it
+            await runMiddleware(0);
         }
 
 
@@ -646,7 +652,16 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
-                        await initializeModules(req.lib, userJSON, req, res, next);
+                        let resu = await initializeModules(req.lib, userJSON, req, res, next);
+                        
+        console.log("bubble chain params in processAction1")
+        if (typeof resu == "object"){
+            console.log("bubble chain params in processAction2")
+            if (resu.hasOwnProperty("_isFunction")){
+                console.log("bubble chain params in processAction3")
+                return resu
+            }
+        }
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -664,7 +679,6 @@ async function initializeMiddleware(req, res, next) {
     }
 }
 
-
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
     for (const action of config.actions) {
@@ -676,12 +690,20 @@ async function initializeModules(libs, config, req, res, next) {
         } else {
             response = await runAction(action, libs, "root", req, res, next);
         }
+        
+        console.log("bubble chain params in processAction1")
+        if (typeof respoonse == "object"){
+            console.log("bubble chain params in processAction2")
+            if (respoonse.hasOwnProperty("_isFunction")){
+                console.log("bubble chain params in processAction3")
+                return respoonse
+            }
+        }
         if (runResponse == "contune") {
             continue
         }
     }
 }
-
 
 async function getValFromDB(id, req, res, next) {
     if (id.startsWith("{|")) {
@@ -1444,8 +1466,17 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                         let conditionMiddle = whileCondition[1]
                         let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed)
 
-                        const maybe = await processAction(action, libs, nestedPath, req, res, next);
-                        if (maybe !== undefined) return maybe;   // bubble up
+                        let resu = await processAction(action, libs, nestedPath, req, res, next);
+                        
+                        console.log("bubble chain params in processAction1")
+                        if (typeof resu == "object"){
+                            console.log("bubble chain params in processAction2")
+                            if (resu.hasOwnProperty("_isFunction")){
+                                console.log("bubble chain params in processAction3")
+                                return resu
+                            }
+                        }
+
                         whileCounter++;
                         if (whileCounter >= req.lib.whileLimit) {
                             break;
@@ -1455,8 +1486,16 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             }
 
             if (!action.while) {
-                    const maybe = await processAction(action, libs, nestedPath, req, res, next);
-                    if (maybe !== undefined) return maybe;   // bubble up
+                let resu = await processAction(action, libs, nestedPath, req, res, next);
+
+                console.log("bubble chain params in processAction1")
+                if (typeof resu == "object"){
+                    console.log("bubble chain params in processAction2")
+                    if (resu.hasOwnProperty("_isFunction")){
+                        console.log("bubble chain params in processAction3")
+                        return resu
+                    }
+                }
             }
 
             if (action.assign && action.params) {
@@ -1783,12 +1822,15 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         }
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
-
-        // run the chain and immediately propagate anything it returns
-        const maybe = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
-        if (maybe !== undefined) return maybe;
-
-
+        console.log("bubble chain params in processAction1")
+        if (typeof result == "object"){
+            console.log("bubble chain params in processAction2")
+            if (result.hasOwnProperty("_isFunction")){
+                console.log("bubble chain params in processAction3")
+                return result
+            }
+        }
+        console.log("applyMethodChain result", result)
         if (action.assign) {
             const assignObj = await isOnePlaceholder(action.assign);
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -2002,7 +2044,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             // ⤴ cookies.js called runApp as a function – do **not** touch Express
                                             if (req.body && req.body._isFunction) {
                                                 // Bubble the would‑be response back to runApp / cookies.js
-                                                return chainParams.length === 1 ? chainParams[0] : chainParams;
+                                                console.log("return chainParams", chainParams)
+                                                return chainParams.length === 1 ? {"chainParams":chainParams[0], "_isFunction":req.body._isFunction} : {"chainParams":chainParams, "_isFunction":req.body._isFunction};
                                             }
                                         }
                                         /* fallback to the original behaviour */
