@@ -663,8 +663,7 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         let resu = await initializeModules(req.lib, userJSON, req, res, next);
                         
-                 return deepMerge(await Promise.all(resultArrayOfJSON), resu)
-                 
+                 return await Promise.all(resultArrayOfJSON)
                                  console.log("post-initializeModules", req.lib.root.context)
          
                                  console.log("post-lib", req.lib)
@@ -682,6 +681,7 @@ async function initializeMiddleware(req, res, next) {
 }
 
 async function initializeModules(libs, config, req, res, next) {
+    console.log("initializeModules")
     await require('module').Module._initPaths();
     for (const action of config.actions) {
         let runResponse
