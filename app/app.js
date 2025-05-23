@@ -346,13 +346,13 @@ async function runApp(req, res, next) {
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async index => {
                 if (index >= req.lib.middlewareCache.length) return;
-            
+
                 const maybe = await req.lib.middlewareCache[index](
                     req,
                     res,
                     () => runMiddleware(index + 1)      // next()
                 );
-            
+
                 /*  ←–– bubble detected? then stop and pass it up ––→ */
                 if (
                     maybe &&
@@ -362,15 +362,15 @@ async function runApp(req, res, next) {
                 ) {
                     return maybe;        // propagate to whoever called runMiddleware
                 }
-            
+
                 // otherwise just keep unwinding the promise stack
                 return maybe;
             };
             const bubble = await runMiddleware(0);   // <––‑ keep it!
-if (bubble) {                            // we DO have a response
-    req.body.params = bubble.chainParams;   // <‑‑ what you wanted
-    return bubble;                        // let runApp's own caller decide
-}
+            if (bubble) {                            // we DO have a response
+                req.body.params = bubble.chainParams;   // <‑‑ what you wanted
+                return bubble;                        // let runApp's own caller decide
+            }
         }
 
 
@@ -476,7 +476,6 @@ async function processConfig(config, initialContext, lib) {
     return context;
 }
 
-
 async function installModule(moduleName, contextKey, context, lib) {
     const npmConfigArgs = Object.entries({ cache: '/tmp/.npm-cache', prefix: '/tmp' })
         .map(([key, value]) => `--${key}=${value}`)
@@ -546,8 +545,6 @@ async function installModule(moduleName, contextKey, context, lib) {
 
     console.log("context", JSON.stringify(context));
 }
-
-
 
 function getPageType(urlPath) {
     if (urlPath.toLowerCase().includes("sc")) {
@@ -664,17 +661,17 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-lib", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
 
-if (
-    req.body.params &&
-    typeof req.body.params === "object" &&
-    req.body.params._isFunction !== undefined
-) {
-    /* bubble straight back to runMiddleware */
-    return req.body.params;
-}
+                        if (
+                            req.body.params &&
+                            typeof req.body.params === "object" &&
+                            req.body.params._isFunction !== undefined
+                        ) {
+                            /* bubble straight back to runMiddleware */
+                            return req.body.params;
+                        }
 
-/* otherwise fall through and call next() */
-if (typeof next === "function") await next();
+                        /* otherwise fall through and call next() */
+                        if (typeof next === "function") await next();
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -703,11 +700,11 @@ async function initializeModules(libs, config, req, res, next) {
         } else {
             response = await runAction(action, libs, "root", req, res, next);
         }
-        
+
         console.log("bubble chain params in processAction7")
-        if (typeof response == "object"){
+        if (typeof response == "object") {
             console.log("bubble chain params in processAction8")
-            if (response.hasOwnProperty("_isFunction")){
+            if (response.hasOwnProperty("_isFunction")) {
                 console.log("bubble chain params in processAction9")
                 return response
             }
@@ -1363,6 +1360,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 }
 
 const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";
+
 const json88 = {
     "context": {
         "first": {
@@ -1384,7 +1382,6 @@ const json88 = {
     },
     "value": ""
 };
-
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
     console.log("~1")
@@ -1480,11 +1477,11 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                         let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed)
 
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
-                        
+
                         console.log("bubble chain params in processAction4.1")
-                        if (typeof resu == "object"){
+                        if (typeof resu == "object") {
                             console.log("bubble chain params in processAction4.2")
-                            if (resu.hasOwnProperty("_isFunction")){
+                            if (resu.hasOwnProperty("_isFunction")) {
                                 console.log("bubble chain params in processAction4.3")
                                 return resu
                             }
@@ -1502,9 +1499,9 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
                 console.log("bubble chain params in processAction4")
-                if (typeof resu == "object"){
+                if (typeof resu == "object") {
                     console.log("bubble chain params in processAction5")
-                    if (resu.hasOwnProperty("_isFunction")){
+                    if (resu.hasOwnProperty("_isFunction")) {
                         console.log("bubble chain params in processAction6")
                         return resu
                     }
@@ -1836,9 +1833,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
         console.log("bubble chain params in processAction1")
-        if (typeof result == "object"){
+        if (typeof result == "object") {
             console.log("bubble chain params in processAction2")
-            if (result.hasOwnProperty("_isFunction")){
+            if (result.hasOwnProperty("_isFunction")) {
                 console.log("bubble chain params in processAction3")
                 return result
             }
@@ -2049,16 +2046,16 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         // 
 
 
-                                        console.log("req.body",req.body);
+                                        console.log("req.body", req.body);
                                         console.log("req.body._isFunction", req.body._isFunction)
                                         console.log("accessClean", accessClean)
-                                        
+
                                         if (accessClean === 'send') {
                                             // ⤴ cookies.js called runApp as a function – do **not** touch Express
                                             if (req.body && req.body._isFunction) {
                                                 // Bubble the would‑be response back to runApp / cookies.js
                                                 console.log("return chainParams", chainParams)
-                                                return chainParams.length === 1 ? {"chainParams":chainParams[0], "_isFunction":req.body._isFunction} : {"chainParams":chainParams, "_isFunction":req.body._isFunction};
+                                                return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
                                             }
                                         }
                                         /* fallback to the original behaviour */
@@ -2167,348 +2164,344 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                         nestedParamCtx1[param1.key] = await arg();
                     }
                 }
-                }
+            }
 
 
 
-                let indexP = 0;
-                for (par in action.params) {
-                    console.log("par", par)
-                    let param2 = action.params[par]
-                    console.log("22: param2", param2)
-                    if (param2 != null && param2 != "") {
-                        const paramExecuted2 = param2.endsWith('|}!');
-                        console.log("22: paramExecuted2", paramExecuted2)
-                        const paramObj2 = await isOnePlaceholder(param2);
-                        console.log("22: paramObj2", paramObj2)
-                        let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                        console.log("22: paramClean2", paramClean2)
-                        let newNestedPath2 = nestedPath + "." + assign.key
-                        console.log("22: newNestedPath2", newNestedPath2)
-                        let p
-                        const isObj = await isOnePlaceholder(paramClean2)
-                        if (isObj) {
-                            p = await getKeyAndPath(paramClean2, newNestedPath2)
-                        } else {
-                            p = { "key": paramClean2, "path": newNestedPath2 }
-                        }
-                        console.log("22: p", p)
-                        let nestedParamContext2 = await getNestedContext(libs, p.path);
-                        console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
-                        await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
-                        console.log("22: lib.root.context", libs.root.context);
+            let indexP = 0;
+            for (par in action.params) {
+                console.log("par", par)
+                let param2 = action.params[par]
+                console.log("22: param2", param2)
+                if (param2 != null && param2 != "") {
+                    const paramExecuted2 = param2.endsWith('|}!');
+                    console.log("22: paramExecuted2", paramExecuted2)
+                    const paramObj2 = await isOnePlaceholder(param2);
+                    console.log("22: paramObj2", paramObj2)
+                    let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
+                    console.log("22: paramClean2", paramClean2)
+                    let newNestedPath2 = nestedPath + "." + assign.key
+                    console.log("22: newNestedPath2", newNestedPath2)
+                    let p
+                    const isObj = await isOnePlaceholder(paramClean2)
+                    if (isObj) {
+                        p = await getKeyAndPath(paramClean2, newNestedPath2)
+                    } else {
+                        p = { "key": paramClean2, "path": newNestedPath2 }
                     }
-                    indexP++
+                    console.log("22: p", p)
+                    let nestedParamContext2 = await getNestedContext(libs, p.path);
+                    console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
+                    await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
+                    console.log("22: lib.root.context", libs.root.context);
                 }
+                indexP++
             }
-
-
-            if (action.nestedActions) {
-                const nestedResults = [];
-                for (const act of action.nestedActions) {
-                    let newNestedPath = `${nestedPath}.${assign.key}`;
-                    const result = await runAction(act, libs, newNestedPath, req, res, next);
-                    nestedResults.push(result);
-                }
-                result = nestedResults[0];
-            }
-            console.log("YY return result", result)
-            return result;
-
-        };
-    }
-
-    const automate = async (url) => {
-        try {
-            const response = await axios.get(url);
-            ////////console.log('URL called successfully:', response.data);
-        } catch (error) {
-            //console.error('Error calling URL:', error);
         }
+
+
+        if (action.nestedActions) {
+            const nestedResults = [];
+            for (const act of action.nestedActions) {
+                let newNestedPath = `${nestedPath}.${assign.key}`;
+                const result = await runAction(act, libs, newNestedPath, req, res, next);
+                nestedResults.push(result);
+            }
+            result = nestedResults[0];
+        }
+        console.log("YY return result", result)
+        return result;
+
     };
+}
 
-    const serverlessHandler = serverless(app);
+const automate = async (url) => {
+    try {
+        const response = await axios.get(url);
+        ////////console.log('URL called successfully:', response.data);
+    } catch (error) {
+        //console.error('Error calling URL:', error);
+    }
+};
 
-    const lambdaHandler = async (event, context) => {
+const serverlessHandler = serverless(app);
 
-        if (event.Records && event.Records[0].eventSource === "aws:ses") {
+const lambdaHandler = async (event, context) => {
 
-            let emailId = event.Records[0].ses.mail.messageId
-            let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
-            let emailDate = event.Records[0].ses.mail.commonHeaders.date
-            let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
-            let emailTo = event.Records[0].ses.mail.commonHeaders.to
-            let emailTarget = ""
-            for (let to in emailTo) {
-                if (emailTo[to].endsWith("email.1var.com")) {
-                    emailTarget = emailTo[to].split("@")[0]
-                }
+    if (event.Records && event.Records[0].eventSource === "aws:ses") {
+
+        let emailId = event.Records[0].ses.mail.messageId
+        let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
+        let emailDate = event.Records[0].ses.mail.commonHeaders.date
+        let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
+        let emailTo = event.Records[0].ses.mail.commonHeaders.to
+        let emailTarget = ""
+        for (let to in emailTo) {
+            if (emailTo[to].endsWith("email.1var.com")) {
+                emailTarget = emailTo[to].split("@")[0]
             }
-            let subEmail = await getSub(emailTarget, "su", dynamodb)
-
-            let isPublic = subEmail.Items[0].z.toString()
-
-            let fileLocation = "private"
-            if (isPublic == "true" || isPublic == true) {
-                fileLocation = "public"
-            }
-            const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
-            const data = await s3.getObject(params).promise();
-            if (data.ContentType == "application/json") {
-                let s3JSON = await JSON.parse(data.Body.toString());
-                s3JSON.email.unshift({ "from": returnPath, "to": emailTarget, "subject": emailSubject, "date": emailDate, "emailID": emailId })
-
-                const params = {
-                    Bucket: fileLocation + ".1var.com",
-                    Key: emailTarget,
-                    Body: JSON.stringify(s3JSON),
-                    ContentType: "application/json"
-                };
-                await s3.putObject(params).promise();
-            }
-
-
-
-            return { statusCode: 200, body: JSON.stringify('Email processed') };
         }
+        let subEmail = await getSub(emailTarget, "su", dynamodb)
 
-        if (event.automate) {
+        let isPublic = subEmail.Items[0].z.toString()
 
-            function isTimeInInterval(timeInDay, st, itInMinutes) {
-                const timeInDayMinutes = Math.floor(timeInDay / 60);
-                const stMinutes = Math.floor(st / 60);
-                const diffMinutes = timeInDayMinutes - stMinutes;
-                return diffMinutes >= 0 && diffMinutes % itInMinutes === 0;
-            }
-
-
-            var now = moment.utc();
-
-
-            var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
-
-            var now = moment.utc();
-            var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
-
-            var todayDow = now.format('dd').toLowerCase();
-            var currentDateInSeconds = now.unix();
-            const gsiName = `${todayDow}Index`;
-
-
-            const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-            const queryParams = {
-                TableName: 'tasks',
-                IndexName: gsiName,
-                KeyConditionExpression: `#${todayDow} = :dowVal and sd < :currentDate`,
-                ExpressionAttributeNames: {
-                    [`#${todayDow}`]: todayDow,
-                },
-                ExpressionAttributeValues: {
-                    ':dowVal': 1,
-                    ':currentDate': currentDateInSeconds,
-                },
-            };
-
-            const data = await dynamodb.query(queryParams).promise();
-
-            let urls = [];
-            let check
-            let interval
-            for (const rec of data.Items) {
-                check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it);
-                interval = rec.it
-                if (check) {
-                    urls.push(rec.url);
-                }
-            }
-            for (const url of urls) {
-                await automate("https://1var.com/" + url);
-                await delay(500);
-            }
-            return { "automate": "done" }
+        let fileLocation = "private"
+        if (isPublic == "true" || isPublic == true) {
+            fileLocation = "public"
         }
-        if (event.enable) {
-
-
-            const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
-
-            const today = moment();
-            const tomorrow = moment().add(1, 'days');
-            const dow = tomorrow.format('dd').toLowerCase();
-            const gsiName = `${dow}Index`;
-
-            const endOfTomorrowUnix = tomorrow.endOf('day').unix();
+        const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
+        const data = await s3.getObject(params).promise();
+        if (data.ContentType == "application/json") {
+            let s3JSON = await JSON.parse(data.Body.toString());
+            s3JSON.email.unshift({ "from": returnPath, "to": emailTarget, "subject": emailSubject, "date": emailDate, "emailID": emailId })
 
             const params = {
-                TableName: "schedules",
-                IndexName: gsiName,
-                KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
-                ExpressionAttributeNames: {
-                    "#dow": dow,
-                    "#sd": "sd"
-                },
-                ExpressionAttributeValues: {
-                    ":dowValue": 1,
-                    ":endOfTomorrow": endOfTomorrowUnix
-                }
+                Bucket: fileLocation + ".1var.com",
+                Key: emailTarget,
+                Body: JSON.stringify(s3JSON),
+                ContentType: "application/json"
             };
-
-
-            try {
-                const config = { region: "us-east-1" };
-                const client = new SchedulerClient(config);
-                const data = await dynamodb.query(params).promise();
-
-                for (const itm of data.Items) {
-                    const stUnix = itm.sd + itm.st;   // ✓ use fields directly
-                    const etUnix = itm.sd + itm.et;
-                  
-                    const startTime = moment(stUnix * 1000);
-                    const endTime   = moment(etUnix * 1000);
-
-                    while (startTime <= endTime) {
-
-                        var hour = startTime.format('HH');
-                        var minute = startTime.format('mm');
-                        const hourFormatted = hour.toString().padStart(2, '0');
-                        const minuteFormatted = minute.toString().padStart(2, '0');
-
-                        const scheduleName = `${hourFormatted}${minuteFormatted}`;
-
-                        const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
-
-                        const input = {
-                            Name: scheduleName,
-                            GroupName: "runLambda",
-                            ScheduleExpression: scheduleExpression,
-                            ScheduleExpressionTimezone: "UTC",
-                            StartDate: new Date(moment.utc().format()),
-                            EndDate: new Date("2030-01-01T00:00:00Z"),
-                            State: "ENABLED",
-                            Target: {
-                                Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp",
-                                RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
-                                Input: JSON.stringify({ "disable": true, "automate": true }),
-                            },
-                            FlexibleTimeWindow: { Mode: "OFF" },
-                        };
-                        const command = new UpdateScheduleCommand(input);
-
-                        const createSchedule = async () => {
-                            try {
-                                const response = await client.send(command);
-
-                                const params = {
-                                    TableName: "enabled",
-                                    Key: {
-                                        "time": scheduleName,
-                                    },
-                                    UpdateExpression: "set #enabled = :enabled, #en = :en",
-                                    ExpressionAttributeNames: {
-                                        "#enabled": "enabled",
-                                        "#en": "en"
-                                    },
-                                    ExpressionAttributeValues: {
-                                        ":enabled": 1,
-                                        ":en": en
-                                    },
-                                    ReturnValues: "UPDATED_NEW"
-                                };
-
-                                try {
-                                    const result = await dynamodb.update(params).promise();
-                                } catch (err) {
-                                    //console.error(`Error updating item with time: ${scheduleName}`, err);
-                                }
-
-                            } catch (error) {
-                                console.error("Error creating schedule:", error);
-                            }
-                        };
-
-                        await createSchedule();
-                        startTime.add(data.Items[item].it, 'minutes');
-                    }
-                }
-
-            } catch (err) {
-                console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
-            }
-
+            await s3.putObject(params).promise();
         }
-        if (event.disable) {
-            let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: { ':pk': "enCounter" } };
-            let en = await dynamodb.query(enParams).promise()
-            let params = { TableName: 'enabled', IndexName: 'enabledindex', KeyConditionExpression: 'enabled = :enabled AND en = :en', ExpressionAttributeValues: { ':en': en.Items[0].x - 1, ':enabled': 1 } }
+
+
+
+        return { statusCode: 200, body: JSON.stringify('Email processed') };
+    }
+
+    if (event.automate) {
+
+        function isTimeInInterval(timeInDay, st, itInMinutes) {
+            const timeInDayMinutes = Math.floor(timeInDay / 60);
+            const stMinutes = Math.floor(st / 60);
+            const diffMinutes = timeInDayMinutes - stMinutes;
+            return diffMinutes >= 0 && diffMinutes % itInMinutes === 0;
+        }
+
+
+        var now = moment.utc();
+
+
+        var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
+
+        var now = moment.utc();
+        var timeInDay = now.hour() * 3600 + now.minute() * 60 + now.second();
+
+        var todayDow = now.format('dd').toLowerCase();
+        var currentDateInSeconds = now.unix();
+        const gsiName = `${todayDow}Index`;
+
+
+        const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
+
+        const queryParams = {
+            TableName: 'tasks',
+            IndexName: gsiName,
+            KeyConditionExpression: `#${todayDow} = :dowVal and sd < :currentDate`,
+            ExpressionAttributeNames: {
+                [`#${todayDow}`]: todayDow,
+            },
+            ExpressionAttributeValues: {
+                ':dowVal': 1,
+                ':currentDate': currentDateInSeconds,
+            },
+        };
+
+        const data = await dynamodb.query(queryParams).promise();
+
+        let urls = [];
+        let check
+        let interval
+        for (const rec of data.Items) {
+            check = isTimeInInterval(timeInDay.toString(), rec.st, rec.it);
+            interval = rec.it
+            if (check) {
+                urls.push(rec.url);
+            }
+        }
+        for (const url of urls) {
+            await automate("https://1var.com/" + url);
+            await delay(500);
+        }
+        return { "automate": "done" }
+    }
+    if (event.enable) {
+
+
+        const en = await incrementCounterAndGetNewValue('enCounter', dynamodb);
+
+        const today = moment();
+        const tomorrow = moment().add(1, 'days');
+        const dow = tomorrow.format('dd').toLowerCase();
+        const gsiName = `${dow}Index`;
+
+        const endOfTomorrowUnix = tomorrow.endOf('day').unix();
+
+        const params = {
+            TableName: "schedules",
+            IndexName: gsiName,
+            KeyConditionExpression: "#dow = :dowValue AND #sd < :endOfTomorrow",
+            ExpressionAttributeNames: {
+                "#dow": dow,
+                "#sd": "sd"
+            },
+            ExpressionAttributeValues: {
+                ":dowValue": 1,
+                ":endOfTomorrow": endOfTomorrowUnix
+            }
+        };
+
+
+        try {
             const config = { region: "us-east-1" };
             const client = new SchedulerClient(config);
+            const data = await dynamodb.query(params).promise();
 
-            await dynamodb.query(params).promise()
-                .then(async data => {
-                    let updatePromises = data.Items.map(async item => {
-                        const time = item.time
-                        let updateParams = {
-                            TableName: 'enabled',
-                            Key: {
-                                "time": item.time
-                            },
-                            UpdateExpression: 'SET enabled = :newEnabled, en = :en',
-                            ExpressionAttributeValues: {
-                                ':newEnabled': 0,
-                                ':en': item.en
+            for (const itm of data.Items) {
+                const stUnix = itm.sd + itm.st;   // ✓ use fields directly
+                const etUnix = itm.sd + itm.et;
+
+                const startTime = moment(stUnix * 1000);
+                const endTime = moment(etUnix * 1000);
+
+                while (startTime <= endTime) {
+
+                    var hour = startTime.format('HH');
+                    var minute = startTime.format('mm');
+                    const hourFormatted = hour.toString().padStart(2, '0');
+                    const minuteFormatted = minute.toString().padStart(2, '0');
+
+                    const scheduleName = `${hourFormatted}${minuteFormatted}`;
+
+                    const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+                    const input = {
+                        Name: scheduleName,
+                        GroupName: "runLambda",
+                        ScheduleExpression: scheduleExpression,
+                        ScheduleExpressionTimezone: "UTC",
+                        StartDate: new Date(moment.utc().format()),
+                        EndDate: new Date("2030-01-01T00:00:00Z"),
+                        State: "ENABLED",
+                        Target: {
+                            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp",
+                            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                            Input: JSON.stringify({ "disable": true, "automate": true }),
+                        },
+                        FlexibleTimeWindow: { Mode: "OFF" },
+                    };
+                    const command = new UpdateScheduleCommand(input);
+
+                    const createSchedule = async () => {
+                        try {
+                            const response = await client.send(command);
+
+                            const params = {
+                                TableName: "enabled",
+                                Key: {
+                                    "time": scheduleName,
+                                },
+                                UpdateExpression: "set #enabled = :enabled, #en = :en",
+                                ExpressionAttributeNames: {
+                                    "#enabled": "enabled",
+                                    "#en": "en"
+                                },
+                                ExpressionAttributeValues: {
+                                    ":enabled": 1,
+                                    ":en": en
+                                },
+                                ReturnValues: "UPDATED_NEW"
+                            };
+
+                            try {
+                                const result = await dynamodb.update(params).promise();
+                            } catch (err) {
+                                //console.error(`Error updating item with time: ${scheduleName}`, err);
                             }
-                        };
 
-                        await dynamodb.update(updateParams).promise();
-                        var hour = time.substring(0, 2);
-                        var minute = time.substring(2, 4);
-                        const hourFormatted = hour.toString().padStart(2, '0');
-                        const minuteFormatted = minute.toString().padStart(2, '0');
+                        } catch (error) {
+                            console.error("Error creating schedule:", error);
+                        }
+                    };
 
-                        const scheduleName = `${hourFormatted}${minuteFormatted}`;
+                    await createSchedule();
+                    startTime.add(data.Items[item].it, 'minutes');
+                }
+            }
 
-                        const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
-
-                        const input = {
-                            Name: scheduleName,
-                            GroupName: "runLambda",
-                            ScheduleExpression: scheduleExpression,
-                            ScheduleExpressionTimezone: "UTC",
-                            StartDate: new Date(moment.utc().format()),
-                            EndDate: new Date("2030-01-01T00:00:00Z"),
-                            State: "DISABLED",
-                            Target: {
-                                Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp",
-                                RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
-                                Input: JSON.stringify({ "automate": true }),
-                            },
-                            FlexibleTimeWindow: { Mode: "OFF" },
-                        };
-
-                        const command = new UpdateScheduleCommand(input);
-                        const response = await client.send(command);
-                        return "done"
-                    });
-
-                    return await Promise.all(updatePromises);
-                })
-                .then(updateResults => {
-                    console.log('Update completed', updateResults);
-                })
-                .catch(error => {
-                    console.error('Error updating items', error);
-                });
-        } else {
-            return serverlessHandler(event, context);
+        } catch (err) {
+            console.error("Unable to query. Error:", JSON.stringify(err, null, 2));
         }
-    };
 
-    module.exports = {
-        lambdaHandler,
-        runApp
-    };
+    }
+    if (event.disable) {
+        let enParams = { TableName: 'enCounter', KeyConditionExpression: 'pk = :pk', ExpressionAttributeValues: { ':pk': "enCounter" } };
+        let en = await dynamodb.query(enParams).promise()
+        let params = { TableName: 'enabled', IndexName: 'enabledindex', KeyConditionExpression: 'enabled = :enabled AND en = :en', ExpressionAttributeValues: { ':en': en.Items[0].x - 1, ':enabled': 1 } }
+        const config = { region: "us-east-1" };
+        const client = new SchedulerClient(config);
 
+        await dynamodb.query(params).promise()
+            .then(async data => {
+                let updatePromises = data.Items.map(async item => {
+                    const time = item.time
+                    let updateParams = {
+                        TableName: 'enabled',
+                        Key: {
+                            "time": item.time
+                        },
+                        UpdateExpression: 'SET enabled = :newEnabled, en = :en',
+                        ExpressionAttributeValues: {
+                            ':newEnabled': 0,
+                            ':en': item.en
+                        }
+                    };
 
+                    await dynamodb.update(updateParams).promise();
+                    var hour = time.substring(0, 2);
+                    var minute = time.substring(2, 4);
+                    const hourFormatted = hour.toString().padStart(2, '0');
+                    const minuteFormatted = minute.toString().padStart(2, '0');
 
+                    const scheduleName = `${hourFormatted}${minuteFormatted}`;
 
+                    const scheduleExpression = `cron(${minuteFormatted} ${hourFormatted} * * ? *)`;
+
+                    const input = {
+                        Name: scheduleName,
+                        GroupName: "runLambda",
+                        ScheduleExpression: scheduleExpression,
+                        ScheduleExpressionTimezone: "UTC",
+                        StartDate: new Date(moment.utc().format()),
+                        EndDate: new Date("2030-01-01T00:00:00Z"),
+                        State: "DISABLED",
+                        Target: {
+                            Arn: "arn:aws:lambda:us-east-1:536814921035:function:compute-ComputeFunction-o6ASOYachTSp",
+                            RoleArn: "arn:aws:iam::536814921035:role/service-role/Amazon_EventBridge_Scheduler_LAMBDA_306508827d",
+                            Input: JSON.stringify({ "automate": true }),
+                        },
+                        FlexibleTimeWindow: { Mode: "OFF" },
+                    };
+
+                    const command = new UpdateScheduleCommand(input);
+                    const response = await client.send(command);
+                    return "done"
+                });
+
+                return await Promise.all(updatePromises);
+            })
+            .then(updateResults => {
+                console.log('Update completed', updateResults);
+            })
+            .catch(error => {
+                console.error('Error updating items', error);
+            });
+    } else {
+        return serverlessHandler(event, context);
+    }
+};
+
+module.exports = {
+    lambdaHandler,
+    runApp
+};

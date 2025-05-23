@@ -300,14 +300,14 @@ async function convertToJSON(
     dynamodbLL,
     body
 ) {
-    console.log("fileID",fileID)
-    console.log("cookie",cookie)
-    console.log("body",body)
+    console.log("fileID", fileID)
+    console.log("cookie", cookie)
+    console.log("body", body)
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-    console.log("verified",verified)
-    console.log("subBySU",subBySU)
-    console.log("entity",entity)
-    console.log("isPublic",isPublic)
+    console.log("verified", verified)
+    console.log("subBySU", subBySU)
+    console.log("entity", entity)
+    console.log("isPublic", isPublic)
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
@@ -535,7 +535,7 @@ const getHead = async (by, value, dynamodb) => {
     const subBySU = await getSub(value, by, dynamodb);
     console.log("getEntity", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("getSub",entity)
+    console.log("getSub", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     return headSub
 }
@@ -1470,7 +1470,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     var response = {}
     var actionFile = ""
     var mainObj = {}
-    console.log("reqMethod",reqMethod)
+    console.log("reqMethod", reqMethod)
     if (reqMethod === 'GET' || reqMethod === 'POST') {
 
 
@@ -1486,7 +1486,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
         let allV = allVerified(verified);
         console.log("allV", allV)
         if (allV) {
-console.log("action",action)
+            console.log("action", action)
             if (action === "get") {
 
                 const fileID = reqPath.split("/")[3]
@@ -2216,8 +2216,8 @@ console.log("action",action)
                 const blocks = shorthandLogic.published.blocks
                 shorthandLogic.input = arrayLogic;
                 shorthandLogic.input.unshift({
-                        "physical": [[shorthandLogic.published]]
-                    })
+                    "physical": [[shorthandLogic.published]]
+                })
                 console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 console.log("newShorthand", newShorthand)
@@ -2240,7 +2240,7 @@ console.log("action",action)
                 let { runApp } = require('../app');
                 console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
-                console.log("ot",ot)
+                console.log("ot", ot)
                 return ot.chainParams
             }
             /* else if (action == "transcribe"){
@@ -2248,11 +2248,11 @@ console.log("action",action)
             } */
             mainObj["file"] = actionFile + ""
             response = mainObj
-            
+
             if (action === "file") {
                 const expires = 90_000;
                 const url = `https://${fileLocation(isPublic)}.1var.com/${actionFile}`;
-            
+
                 const policy = JSON.stringify({
                     Statement: [{
                         Resource: url,
@@ -2261,38 +2261,38 @@ console.log("action",action)
                         }
                     }]
                 });
-            
+
                 if (reqType === 'url') {                          // direct CloudFront URL
                     const signedUrl = signer.getSignedUrl({ url, policy });
                     return sendBack(res, "json", { signedUrl }, isShorthand);
                 }
-            
+
                 /* signed‑cookies branch */
                 const cookies = signer.getSignedCookie({ policy });
                 Object.entries(cookies).forEach(([name, val]) => {
                     res.cookie(name, val, {
-                        maxAge  : expires,
+                        maxAge: expires,
                         httpOnly: true,
-                        domain  : '.1var.com',
-                        secure  : true,
+                        domain: '.1var.com',
+                        secure: true,
                         sameSite: 'None'
                     });
                 });
-            
+
                 return sendBack(res, "json", { ok: true, response }, isShorthand);
-            
+
             } else if (action === "reqPut") {
                 const bucketName = `${fileLocation(isPublic)}.1var.com`;
-                const fileName   = actionFile;
-                const expires    = 90_000;
-            
+                const fileName = actionFile;
+                const expires = 90_000;
+
                 const params = {
-                    Bucket      : bucketName,
-                    Key         : fileName,
-                    Expires     : expires,
-                    ContentType : `${fileCategory}/${fileType}`
+                    Bucket: bucketName,
+                    Key: fileName,
+                    Expires: expires,
+                    ContentType: `${fileCategory}/${fileType}`
                 };
-            
+
                 try {
                     /* v2 SDK wrapped with promisify so we can await it */
                     const url = await getSignedUrlAsync('putObject', params);
@@ -2302,26 +2302,26 @@ console.log("action",action)
                     console.error('getSignedUrl failed:', err);
                     return sendBack(res, "json", { ok: false, response: {} }, isShorthand);
                 }
-            
+
             } else {
                 /* fall‑through: always respond */
-                console.log("isShorthand",isShorthand)
+                console.log("isShorthand", isShorthand)
                 console.log("!!!RESPONSE!!!", response)
                 console.log(reqBody.headers['X-Original-Host'])
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file"))
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/runEntity"))
                 console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/get"))
-                if (response.hasOwnProperty("ot")){
+                if (response.hasOwnProperty("ot")) {
 
-                } else if (isShorthand){
+                } else if (isShorthand) {
 
                 } else {
-                //if (response.file !== "" || !response.hasOwnProperty("status")) {
+                    //if (response.file !== "" || !response.hasOwnProperty("status")) {
                     return sendBack(res, "json", { ok: true, response }, isShorthand);
-                //}
+                    //}
                 }
             }
-            
+
             /* ── NEW: final catch‑all so the function never resolves to undefined ── */
             //return sendBack(res, "json", { ok: true, response }, isShorthand);
 
