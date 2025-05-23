@@ -692,7 +692,8 @@ async function initializeModules(libs, config, req, res, next) {
         }
         
         console.log("bubble chain params in processAction7", response)
-        if (typeof respoonse == "object"){
+        console.log(typeof response)
+        if (typeof respoonse === "object"){
             console.log("bubble chain params in processAction8")
             if (respoonse.hasOwnProperty("_isFunction")){
                 console.log("bubble chain params in processAction9")
