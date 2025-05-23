@@ -345,13 +345,16 @@ async function runApp(req, res, next) {
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async (index) => {
                 if (index < req.lib.middlewareCache.length) {
-                    console.log("res.headersSent", res.headersSent)
-                    console.log("res88", res)
-                    await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
-
+                    const maybe = await req.lib.middlewareCache[index](
+                        req, res, async () => await runMiddleware(index + 1)
+                    );
+                    if (maybe !== undefined) return maybe;   // <-- propagate up
                 }
             };
-            await runMiddleware(0);
+            
+            // the value produced inside applyMethodChain surfaces here
+            const resultFromMw = await runMiddleware(0);
+            return resultFromMw;          // <-- runApp now *returns* it
         }
 
 
@@ -1984,15 +1987,16 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("req.body",req.body);
                                         console.log("req.body._isFunction", req.body._isFunction)
                                         console.log("accessClean", accessClean)
-                                        // Instead of sending back the chainParams send(''). If it is send(''), we need to simply return it back to the shorthand. CHeck for isShorthand and update the code after dinner. :)
                                         
-                                        if (req.body._isFunction){
-                                            // <<-- send back to route call because it was not an express call.
-                                            // return ...chainParams
-                                            result = await result[accessClean](...chainParams);
-                                        } else {
-                                            result = await result[accessClean](...chainParams);
+                                        if (accessClean === 'send') {
+                                            // ⤴ cookies.js called runApp as a function – do **not** touch Express
+                                            if (req.body && req.body._isFunction) {
+                                                // Bubble the would‑be response back to runApp / cookies.js
+                                                return chainParams.length === 1 ? chainParams[0] : chainParams;
+                                            }
                                         }
+                                        /* fallback to the original behaviour */
+                                        result = await result[accessClean](...chainParams);
 
                                         //
                                         console.log("result 4", result)
@@ -2000,9 +2004,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             re = result();
                                         } catch (err) {
                                             console.log("err (Attempting result() in Try/Catch, It's OK if it fails.)", err)
-                                            //result('microsoft')
                                         }
-                                        //console.log("re 5", re)
                                     }
                                 } else {
                                     console.log("else just return value")
