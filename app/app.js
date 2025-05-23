@@ -344,16 +344,33 @@ async function runApp(req, res, next) {
         }
 
         if (req.lib.middlewareCache.length > 0) {
-            const runMiddleware = async (index) => {
-                if (index < req.lib.middlewareCache.length) {
-                    console.log("res.headersSent", res.headersSent)
-                    console.log("res88", res)
-                    console.log("BBBBB22222")
-                    let resp = await req.lib.middlewareCache[index](req, res, async () => await runMiddleware(index + 1));
-                    console.log("resp88888", resp)
+            const runMiddleware = async index => {
+                if (index >= req.lib.middlewareCache.length) return;
+            
+                const maybe = await req.lib.middlewareCache[index](
+                    req,
+                    res,
+                    () => runMiddleware(index + 1)      // next()
+                );
+            
+                /*  ←–– bubble detected? then stop and pass it up ––→ */
+                if (
+                    maybe &&
+                    typeof maybe === "object" &&
+                    maybe._isFunction !== undefined &&
+                    maybe.chainParams !== undefined
+                ) {
+                    return maybe;        // propagate to whoever called runMiddleware
                 }
+            
+                // otherwise just keep unwinding the promise stack
+                return maybe;
             };
-            await runMiddleware(0);
+            const bubble = await runMiddleware(0);   // <––‑ keep it!
+if (bubble) {                            // we DO have a response
+    req.body.params = bubble.chainParams;   // <‑‑ what you wanted
+    return bubble;                        // let runApp's own caller decide
+}
         }
 
 
@@ -646,6 +663,18 @@ async function initializeMiddleware(req, res, next) {
                         console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-lib", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
+
+if (
+    req.body.params &&
+    typeof req.body.params === "object" &&
+    req.body.params._isFunction !== undefined
+) {
+    /* bubble straight back to runMiddleware */
+    return req.body.params;
+}
+
+/* otherwise fall through and call next() */
+if (typeof next === "function") await next();
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
