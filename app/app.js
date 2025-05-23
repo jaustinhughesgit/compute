@@ -330,7 +330,7 @@ async function runApp(req, res, next) {
             console.log("runApp1")
             req.blocks = false;
             let resu = await initializeMiddleware(req, res, next);
-            console.log("bubble chain params in processAction1")
+            console.log("bubble chain params in processAction1", resu)
             if (typeof resu == "object"){
                 console.log("bubble chain params in processAction2")
                 if (resu.hasOwnProperty("_isFunction")){
@@ -644,7 +644,18 @@ async function initializeMiddleware(req, res, next) {
           /*  run the user’s root‑level actions
               -------------------------------- */
           const bubbled = await initializeModules(req.lib, userJSON, req, res, next);
-          if (bubbled !== undefined) return bubbled;           // <‑‑ bubble up!
+
+          console.log("bubble chain params in processAction7", bubbled)
+          console.log(typeof bubbled)
+          if (typeof bubbled === "object"){
+              console.log("bubble chain params in processAction8")
+              if (bubbled.hasOwnProperty("_isFunction")){
+                  console.log("bubble chain params in processAction9")
+                  console.log("bubbled", bubbled)
+                  return bubbled
+              }
+          }
+
           // otherwise just call next middleware in chain
           if (next) return next();
         };
