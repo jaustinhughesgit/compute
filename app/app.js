@@ -1441,7 +1441,8 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                         let conditionMiddle = whileCondition[1]
                         let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed)
 
-                        await processAction(action, libs, nestedPath, req, res, next);
+                        const maybe = await processAction(action, libs, nestedPath, req, res, next);
+                        if (maybe !== undefined) return maybe;   // bubble up
                         whileCounter++;
                         if (whileCounter >= req.lib.whileLimit) {
                             break;
