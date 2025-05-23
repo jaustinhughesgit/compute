@@ -664,14 +664,16 @@ async function initializeMiddleware(req, res, next) {
                         let resu = await initializeModules(req.lib, userJSON, req, res, next);
                         
 
-                 await Promise.all(resultArrayOfJSON)
+                 let resp = await Promise.all(resultArrayOfJSON)
                  console.log("bubble chain params in processAction4")
                  console.log("resu", resu)
+
                  if (typeof resu === "object"){
                      console.log("bubble chain params in processAction5")
                      if (resu.hasOwnProperty("_isFunction")){
                          console.log("bubble chain params in processAction6")
-                         return resu
+                         respon = await deepMerge(resp, resu)
+                         return respon
                      }
                  }
                                  console.log("post-initializeModules", req.lib.root.context)
