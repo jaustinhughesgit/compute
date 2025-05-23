@@ -2240,8 +2240,8 @@ console.log("action",action)
                 let { runApp } = require('../app');
                 console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
-                mainObj["ot"] =  ot
                 console.log("ot",ot)
+                return ot.chainParams
             }
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
