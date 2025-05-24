@@ -1264,7 +1264,11 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                 console.log("value is string or number")
                 console.log("typeof value", typeof value)
                 if (typeof value === "string"){
+                    try{
                     modifiedStr = modifiedStr.replace(match[0], value.toString());
+                    } catch (err){
+                        console.log(err)
+                    }
                 }
                 if (value === undefined){
                     console.log("UNDEFINED!!!!!!!!!")
