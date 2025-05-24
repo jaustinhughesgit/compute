@@ -2061,7 +2061,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         /* fallback to the original behaviour */
                                         console.log("fallback", chainParams)
                                         result = await result[accessClean](...chainParams);
-
+                                        console.log("after completed result")
                                         //
                                         console.log("result 4", result)
                                         try {
