@@ -1188,8 +1188,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("ROUTE")
             let rA = await rowArray
             let act = rA[1];
-            let param1 = rA[2];
-            let param2 = rA[3];
+            let bod = rA[2];
+            let expt = rA[3]
+            let param1 = rA[4];
+            let param2 = rA[5];
             let xAccessToken = req.body.headers["X-accessToken"]
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
@@ -1201,6 +1203,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.body = req.body
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
+            newReq.body = deepMerge(newReq.body, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
