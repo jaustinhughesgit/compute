@@ -1267,7 +1267,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                     try{
                     modifiedStr = modifiedStr.replace(match[0], value.toString());
                     } catch (err){
-                        console.log(err)
+                        console.log("err33",err)
                     }
                 }
                 if (value === undefined){
@@ -1346,11 +1346,15 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
             }
         }
-
+        console.log("modifiedStr >>>", modifiedStr)
+        try{
         if (modifiedStr.match(regex)) {
             console.log("modifiedStr.match", modifiedStr)
             return await replace2(modifiedStr, nestedPath);
         }
+    } catch (err){
+        console.log("err44", err)
+    }
         console.log("after modified", modifiedStr)
         return modifiedStr;
     }
