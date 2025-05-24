@@ -1182,6 +1182,20 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
+    function routeAsync(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken) {
+        return new Promise((resolve, reject) => {
+          route(req, res, async (err) => {
+            if (err) return reject(err);
+            try {
+              // put whatever you stashed on res.locals or elsewhere
+              resolve(res.locals.payload);
+            } catch (e) {
+              reject(e);
+            }
+          });
+        });
+      }
+
     var keywords = {
         ROUTE: async (rowArray) => {
             console.log("rowArray",rowArray)
@@ -1210,7 +1224,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.path = req.path
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await routeAsync(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
