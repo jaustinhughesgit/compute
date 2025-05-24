@@ -671,7 +671,7 @@ async function initializeMiddleware(req, res, next) {
                         }
 
                         /* otherwise fall through and call next() */
-                       // if (typeof next === "function") await next();
+                        if (typeof next === "function") await next();
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
@@ -2059,6 +2059,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             }
                                         }
                                         /* fallback to the original behaviour */
+                                        console.log("fallback", chainParams)
                                         result = await result[accessClean](...chainParams);
 
                                         //
