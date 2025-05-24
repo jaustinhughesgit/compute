@@ -2201,7 +2201,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
 
             } else if (action == "addIndex") {
-
             } else if (action == "getFile") {
                 actionFile = reqPath.split("/")[3];
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);

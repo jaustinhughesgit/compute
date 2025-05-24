@@ -1340,7 +1340,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
         if (modifiedStr.match(regex)) {
             console.log("modifiedStr.match", modifiedStr)
-            return await replace2(modifiedStr, nestedPath);
+            return replace2(modifiedStr, nestedPath);
         }
         console.log("after modified", modifiedStr)
         return modifiedStr;
