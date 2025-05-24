@@ -2245,6 +2245,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("ot", ot)
                 if (ot){
                     return ot.chainParams
+                } else {
+                    return
                 }
             }
             /* else if (action == "transcribe"){
