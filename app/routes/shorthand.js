@@ -1220,11 +1220,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         EMPTY: (rowArray) => {
             return "";
         },
-        JOIN: (rowArray) => {
+        JOIN: async (rowArray) => {
             const updatedArray = rowArray.map(str =>
                 typeof str === "string" ? str.replace(/¡¡/g, "!!") : str
             );
-            const resolved = resolveRow(updatedArray);
+            const resolved = await resolveRow(updatedArray);
             const flattenDeep = (arr) => {
                 return arr.reduce((acc, item) => {
                     if (Array.isArray(item)) {
