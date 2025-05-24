@@ -1181,23 +1181,39 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return resp.published;
         }
     }
-
-    function routeAsync (...args) {
-        // args = [req, res, next, privateKey, dynamodb, uuidv4, s3, …]
+    function routeAsync(...args) {
         return new Promise((resolve, reject) => {
-          // Replace the original `next` with our own callback that
-          // resolves or rejects the promise.
-          const [req, res] = args;
-          const forwardArgs = [...args];
       
-          forwardArgs[2] = (err, payload) => {        // index 2 === `next`
+          const [req] = args;
+      
+          /* -------- stub a response object that just captures the payload ------- */
+          const res = {
+            locals: {},
+            statusCode: 200,
+            status(code) { this.statusCode = code; return this; },
+            json(data)   { resolve(data); },          // ← resolve when handler sends
+            send(data)   { resolve(data); },
+            end(data)    { resolve(data); }
+          };
+      
+          /* ------------ our replacement for `next` ------------------------------ */
+          const next = (err, payload) => {
             if (err) return reject(err);
-            // Express code usually stashes the real answer somewhere on res.*
             resolve(payload ?? res.locals.payload);
           };
       
-          // Call the real function with *all* the original params
-          route(...forwardArgs);
+          /* ------------- forward every other argument exactly as received ------- */
+          const forwardArgs = [req, res, next, ...args.slice(3)];
+      
+          try {
+            // If `route()` returns a promise itself, wait for it too
+            const maybePromise = route(...forwardArgs);
+            if (maybePromise && typeof maybePromise.then === 'function') {
+              maybePromise.then(resolve, reject);
+            }
+          } catch (e) {
+            reject(e);
+          }
         });
       }
 
