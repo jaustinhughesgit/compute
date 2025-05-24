@@ -1263,12 +1263,9 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             if (typeof value === "string" || typeof value === "number") {
                 console.log("value is string or number")
                 console.log("typeof value", typeof value)
+                console.log("modifiedStr", modifiedStr)
                 if (typeof value === "string"){
-                    try{
                     modifiedStr = modifiedStr.replace(match[0], value.toString());
-                    } catch (err){
-                        console.log("err33",err)
-                    }
                 }
                 if (value === undefined){
                     console.log("UNDEFINED!!!!!!!!!")
@@ -1346,15 +1343,11 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
             }
         }
-        console.log("modifiedStr >>>", modifiedStr)
-        try{
+
         if (modifiedStr.match(regex)) {
             console.log("modifiedStr.match", modifiedStr)
             return await replace2(modifiedStr, nestedPath);
         }
-    } catch (err){
-        console.log("err44", err)
-    }
         console.log("after modified", modifiedStr)
         return modifiedStr;
     }
