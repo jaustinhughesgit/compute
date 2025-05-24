@@ -1182,17 +1182,22 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function routeAsync(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, trueVal, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken) {
+    function routeAsync (...args) {
+        // args = [req, res, next, privateKey, dynamodb, uuidv4, s3, …]
         return new Promise((resolve, reject) => {
-          route(req, res, async (err) => {
+          // Replace the original `next` with our own callback that
+          // resolves or rejects the promise.
+          const [req, res] = args;
+          const forwardArgs = [...args];
+      
+          forwardArgs[2] = (err, payload) => {        // index 2 === `next`
             if (err) return reject(err);
-            try {
-              // put whatever you stashed on res.locals or elsewhere
-              resolve(res.locals.payload);
-            } catch (e) {
-              reject(e);
-            }
-          });
+            // Express code usually stashes the real answer somewhere on res.*
+            resolve(payload ?? res.locals.payload);
+          };
+      
+          // Call the real function with *all* the original params
+          route(...forwardArgs);
         });
       }
 
@@ -1224,7 +1229,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.path = req.path
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await routeAsync(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let trueVal = true;
+            let resp = await routeAsync(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, trueVal, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
