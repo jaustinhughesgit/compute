@@ -350,26 +350,26 @@ async function runApp(req, res, next) {
                 const maybe = await req.lib.middlewareCache[index](
                     req,
                     res,
-                    () => runMiddleware(index + 1)      // next()
+                    () => runMiddleware(index + 1) 
                 );
 
-                /*  ←–– bubble detected? then stop and pass it up ––→ */
+               
                 if (
                     maybe &&
                     typeof maybe === "object" &&
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
-                    return maybe;        // propagate to whoever called runMiddleware
+                    return maybe; 
                 }
 
-                // otherwise just keep unwinding the promise stack
+              
                 return maybe;
             };
-            const bubble = await runMiddleware(0);   // <––‑ keep it!
-            if (bubble) {                            // we DO have a response
-                req.body.params = bubble.chainParams;   // <‑‑ what you wanted
-                return bubble;                        // let runApp's own caller decide
+            const bubble = await runMiddleware(0); 
+            if (bubble) {                         
+                req.body.params = bubble.chainParams;  
+                return bubble;                       
             }
         }
 
@@ -508,34 +508,26 @@ async function installModule(moduleName, contextKey, context, lib) {
     try {
         module = require(modulePath);
     } catch (error) {
-        //if (error.code === 'ERR_REQUIRE_ESM') {
         try {
             module = await import(modulePath);
         } catch (importError) {
             console.error(`Failed to import ES module at ${modulePath}:`, importError);
             throw importError;
         }
-        //} else {
-        //    throw error;
-        //}
     }
 
-    // Check if contextKey specifies individual keys within {}
     if (contextKey.startsWith('{') && contextKey.endsWith('}')) {
         const keys = contextKey.slice(1, -1).split(',').map(key => key.trim());
         for (const key of keys) {
             if (module[key]) {
-                // Named export directly on the module
                 context[key] = { "value": module[key], "context": {} };
             } else if (module.default && module.default[key]) {
-                // Nested named export within default export, if default is an object
                 context[key] = { "value": module.default[key], "context": {} };
             } else {
                 console.warn(`Key ${key} not found in module ${moduleName}`);
             }
         }
     } else {
-        // If contextKey does not specify specific keys, assign the default or full module
         if (module.default) {
             context[contextKey] = { "value": module.default, "context": {} };
         } else {
@@ -1348,7 +1340,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
         if (modifiedStr.match(regex)) {
             console.log("modifiedStr.match", modifiedStr)
-            return replace2(modifiedStr, nestedPath);
+            return await replace2(modifiedStr, nestedPath);
         }
         console.log("after modified", modifiedStr)
         return modifiedStr;
