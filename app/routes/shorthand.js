@@ -1182,7 +1182,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
-    function routeAsync(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken) {
+    function routeAsync(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, trueVal, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken) {
         return new Promise((resolve, reject) => {
           route(req, res, async (err) => {
             if (err) return reject(err);
