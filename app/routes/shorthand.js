@@ -910,6 +910,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 sweep++;
             }
         }
+        console.log("rowResult", rowResult)
     }
 
     function expandRowToMultiple(rowData) {
