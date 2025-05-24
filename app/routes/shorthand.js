@@ -1,5 +1,4 @@
 // shorthand.js
-let { route } = require('./cookies')
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
     let matrix = [];
@@ -596,13 +595,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (maybeFnName in keywords) {
                     const nestedParse = await parseFunction(row, i);
                     argIndex++;
-                    const argKey = getColumnLabel(argIndex);
+                    const argKey = await getColumnLabel(argIndex);
                     funcObj[argKey] = nestedParse.nestedObj;
                     i = nestedParse.newIndex;
                 } else {
                     argIndex++;
-                    const argKey = getColumnLabel(argIndex);
-                    funcObj[argKey] = isCellRefString(row[i]) ? row[i].toUpperCase() : await resolveCell(row[i]);
+                    const argKey = await getColumnLabel(argIndex);
+                    funcObj[argKey] = await isCellRefString(row[i]) ? row[i].toUpperCase() : await resolveCell(row[i]);
                     i++;
                 }
             }
@@ -635,7 +634,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (keywords[functionName]) {
                     console.log("true")
                     const resolvedArgs = await awaitAll(functionArray);
-                    //                       ↑ resolves the promises
                     result = await keywords[functionName](resolvedArgs);
                     console.log("result", result)
                 } else {
@@ -1138,6 +1136,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function getVAR(data) {
+
+        let { route } = require('./cookies')
         let entity = Object.keys(data).find(k => k !== "add");
         let xAccessToken = req.body.headers["X-accessToken"]
         let originalHost = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
@@ -1181,44 +1181,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return resp.published;
         }
     }
-    function routeAsync(...args) {
-        return new Promise((resolve, reject) => {
-      
-          const [req] = args;
-      
-          /* -------- stub a response object that just captures the payload ------- */
-          const res = {
-            locals: {},
-            statusCode: 200,
-            status(code) { this.statusCode = code; return this; },
-            json(data)   { resolve(data); },          // ← resolve when handler sends
-            send(data)   { resolve(data); },
-            end(data)    { resolve(data); }
-          };
-      
-          /* ------------ our replacement for `next` ------------------------------ */
-          const next = (err, payload) => {
-            if (err) return reject(err);
-            resolve(payload ?? res.locals.payload);
-          };
-      
-          /* ------------- forward every other argument exactly as received ------- */
-          const forwardArgs = [req, res, next, ...args.slice(3)];
-      
-          try {
-            // If `route()` returns a promise itself, wait for it too
-            const maybePromise = route(...forwardArgs);
-            if (maybePromise && typeof maybePromise.then === 'function') {
-              maybePromise.then(resolve, reject);
-            }
-          } catch (e) {
-            reject(e);
-          }
-        });
-      }
 
     var keywords = {
         ROUTE: async (rowArray) => {
+             
+            let { route } = require('./cookies')
             console.log("rowArray",rowArray)
             console.log("ROUTE")
             let rA = await rowArray
@@ -1245,8 +1212,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.path = req.path
             console.log("STARTING route(...)")
             console.log("act", act)
-            let trueVal = true;
-            let resp = await routeAsync(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, trueVal, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
