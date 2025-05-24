@@ -1187,9 +1187,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("rowArray",rowArray)
             console.log("ROUTE")
             let rA = await rowArray
-            let act = rA[1];
-            let bod = rA[2];
-            let expt = rA[3]
+            let bod = rA[1];
+            let expt = rA[2]
+            let act = rA[3];
             let param1 = rA[4];
             let param2 = rA[5];
             let xAccessToken = req.body.headers["X-accessToken"]
