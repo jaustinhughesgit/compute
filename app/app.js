@@ -1211,139 +1211,114 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        console.log("BBBBBBBB")
-        console.log("str", str)
-        console.log("nestedPath", nestedPath)
-        let regex = /{\|(~\/)?([^{}]+)\|}/g;
-        let match;
-        let modifiedStr = str;
-
-        while ((match = regex.exec(str)) !== null) {
-            console.log("CCCCCCCCCC")
-            let forceRoot = match[1] === "~/";
-            let innerStr = match[2];
-            if (/{\|.*\|}/.test(innerStr)) {
-                innerStr = await replace2(innerStr, nestedPath);
-            }
-
+        console.log("BBBBBBBB");
+        console.log("str", str);
+        console.log("nestedPath", nestedPath);
+    
+        const regex           = /{\|(~\/)?([^{}]+)\|}/g;
+        const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
+        const jsonPathRegex   = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
+    
+        /** collect all placeholders in one pass */
+        const matches = [ ...str.matchAll(regex) ];
+    
+        /** resolve every placeholder concurrently */
+        const replacements = await Promise.all(matches.map(async match => {
+            console.log("CCCCCCCCCC");
+            const [placeholder, rootFlag, rawInner] = match;
+            let   innerStr   = rawInner;
+            const forceRoot  = rootFlag === "~/";
+    
+            /* ── handle nested placeholders first ─────────────────────────────── */
+            if (/{\|.*\|}/.test(innerStr))
+                innerStr = await replace2(innerStr, nestedPath);   // recursion
+    
+            /* ── work out the replacement value (exactly as before) ───────────── */
             let value;
-            console.log("innerStr", innerStr)
+            console.log("innerStr", innerStr);
+    
             if (innerStr.startsWith("=")) {
-                let expression = innerStr.slice(1);
-                value = await evaluateMathExpression2(expression);
+                value = await evaluateMathExpression2(innerStr.slice(1));
+    
             } else if (innerStr.endsWith(">")) {
-                console.log("INSIDE > ")
-
-                let getEntityID = innerStr.replace(">", "")
-                if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a") {
-                    getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3"
-                }
-
-                let subRes = await getSub(getEntityID, "su", dynamodb)
-                console.log("subRes", subRes)
-                console.log("subRes.Items[0].a", subRes.Items[0].a)
-                let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                console.log("subWord", subWord)
-                value = subWord.Items[0].s
+                console.log("INSIDE > ");
+                let getEntityID = innerStr.slice(0, -1);
+                if (getEntityID === "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a")
+                    getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3";
+    
+                const subRes  = await getSub(getEntityID, "su", dynamodb);
+                console.log("subRes", subRes);
+                const subWord = await getWord(subRes.Items[0].a, dynamodb);
+                console.log("subWord", subWord);
+                value         = subWord.Items[0].s;
+    
             } else {
-                console.log("DDDDDDDDDDD")
-                console.log("forceRoot", forceRoot)
-                console.log("nestedPath", nestedPath)
+                console.log("DDDDDDDDDDD");
+                console.log("forceRoot", forceRoot);
+                console.log("nestedPath", nestedPath);
                 value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
-                console.log("value from json 2", value)
-                console.log("typeof from json 2", typeof value)
+                console.log("value from json 2", value);
             }
-
-
-            const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
-            const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
-
-
-
+    
+            /* ── keep early‑return semantics from original loop ──────────────── */
+            if (await isOnePlaceholder(str) && typeof value === "object") {
+                return { early: true, replacement: value };
+            }
+    
+            /* stringify primitives & objects exactly like before */
+            let replacement;
             if (typeof value === "string" || typeof value === "number") {
-                console.log("value is string or number")
-                modifiedStr = modifiedStr.replace(match[0], value.toString());
-
-
-
-
-
+                replacement = value.toString();
             } else {
-                console.log("str2", str);
-                console.log("modifiedStr", modifiedStr);
-                const isObj = await isOnePlaceholder(str)
-                console.log("isObj", isObj);
-                if (isObj && typeof value == "object") {
-                    console.log("object", value)
-                    return value;
-                } else {
-                    console.log("stringify", value)
-                    try {
-                        if (typeof value != "function") {
-                            modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
-                        } else {
-                            return value
-                        }
-                    } catch (err) {
-                        console.log("err", err);
-                        modifiedStr = value;
-                    }
-                }
+                try { replacement = JSON.stringify(value); }
+                catch { replacement = value; }
             }
-
+    
+            /* secondary regex transforms (unchanged) */
             if (arrayIndexRegex.test(str)) {
-                console.log("arrayIndexRegex.test", str)
-                let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
-                    console.log("match", match, p1, p2)
-                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
-                    let index = parseInt(p2);
-                    return strArray[index] ?? "";
+                const updated = str.replace(arrayIndexRegex, (_, a, b) => {
+                    const arr = a.split(',').map(s => s.trim().replace(/^['"]|['"]$/g,''));
+                    return arr[parseInt(b, 10)] ?? "";
                 });
-                console.log("updatedStr", updatedStr)
-                return updatedStr
-            } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-                console.log("jsonPathRegex", jsonPathRegex)
-                let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    console.log("modifiedStr", modifiedStr)
-                    console.log("match", match),
-                        console.log("jsonString", jsonString)
-                    console.log("jsonPath", jsonPath)
-                    jsonPath = jsonPath.replace("{|", "").replace("|}!", "").replace("|}", "")
-                    try {
-                        const jsonObj = JSON.parse(jsonString);
-                        const pathParts = jsonPath.split('.');
-                        let currentValue = jsonObj;
-                        console.log("JSON PATH B1", jsonObj)
-                        console.log("JSON PATH B2", pathParts)
-                        console.log("JSON PATH B3", currentValue)
-                        for (const part of pathParts) {
-                            if (currentValue.hasOwnProperty(part)) {
-                                currentValue = currentValue[part];
-                            } else {
-                                break;
-                            }
-                        }
-                        console.log("JSON PATH B4", currentValue)
-                        return JSON.stringify(currentValue) ?? "";
-                    } catch (e) {
-                        console.log(`Error parsing JSON: ${e}`);
-                    }
-                });
-                console.log("JSON PATH B5", updatedStr)
-                console.log("JSON PATH B6", JSON.stringify(updatedStr))
-                if (updatedStr != "") {
-                    return updatedStr;
-                }
-
+                return { early: true, replacement: updated };
             }
+    
+            if (
+                jsonPathRegex.test(replacement) &&
+                !replacement.includes("[") &&
+                !replacement.includes("=>")
+            ) {
+                replacement = replacement.replace(jsonPathRegex, (_, js, path) => {
+                    console.log("jsonPathRegex", jsonPathRegex);
+                    path = path.replace("{|", "").replace("|}!", "").replace("|}", "");
+                    try {
+                        let cur = JSON.parse(js);
+                        for (const part of path.split('.')) cur = cur?.[part];
+                        return JSON.stringify(cur) ?? "";
+                    } catch (e) { console.log(`Error parsing JSON: ${e}`); }
+                });
+            }
+    
+            return { placeholder, replacement };
+        }));
+    
+        /* respect the original “early return” behaviour */
+        const early = replacements.find(r => r.early);
+        if (early) return early.replacement;
+    
+        /* stitch the final string back together */
+        let out = str;
+        for (const r of replacements)
+            out = out.replace(r.placeholder, r.replacement);
+    
+        /* recurse again if new placeholders were injected */
+        if (regex.test(out)) {
+            console.log("modifiedStr.match", out);
+            return await replace2(out, nestedPath);
         }
-
-        if (modifiedStr.match(regex)) {
-            console.log("modifiedStr.match", modifiedStr)
-            return await replace2(modifiedStr, nestedPath);
-        }
-        console.log("after modified", modifiedStr)
-        return modifiedStr;
+    
+        console.log("after modified", out);
+        return out;
     }
 
     let response = await replace2(str, nestedPath);
