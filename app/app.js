@@ -671,7 +671,7 @@ async function initializeMiddleware(req, res, next) {
                         }
 
                         /* otherwise fall through and call next() */
-                        if (typeof next === "function") await next();
+                       // if (typeof next === "function") await next();
                         console.log("post-initializeModules", req.lib.root.context)
 
                         console.log("post-lib", req.lib)
