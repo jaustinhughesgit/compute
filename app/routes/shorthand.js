@@ -677,7 +677,7 @@ async function shorthand(
     async function parseRow(rowIndex) {
         console.log("parseRow", rowIndex)
         const rowArray = matrix[rowIndex] || [];
-        if (await isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
+        if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
             rowResult[rowIndex] = rowArray[0];
             return rowArray[0];
         }
@@ -753,7 +753,7 @@ async function shorthand(
                     rowResult[functionRowIndex] = resultToInsert;
 
                     let retIndex = callArgs[0].replace("¡¡", "!!");
-                    if (await isCellRef(retIndex) && !retIndex.includes("!!")) {
+                    if (isCellRef(retIndex) && !retIndex.includes("!!")) {
                         const cellInfo = getCellID(retIndex.toUpperCase());
                         if (!cellInfo) {
                             console.warn("Invalid cell reference, skipping:", retIndex);
@@ -802,7 +802,7 @@ async function shorthand(
             if (
                 rowResult[rowIndex] == null ||
                 isFullRowRef(rowResult[rowIndex]) ||
-                await isCellRef(rowResult[rowIndex]) ||
+                isCellRef(rowResult[rowIndex]) ||
                 (rowArray[0].includes("!!") || rowArray[0].includes("<<"))
             ) {
                 if (parsed && parsed.AA === "FIND") {
@@ -879,7 +879,7 @@ async function shorthand(
         function chunkIfFirst5isRef(str) {
             if (str.length >= 5) {
                 const firstFive = str.slice(0, 5);
-                if (await isCellRef(firstFive)) {
+                if (isCellRef(firstFive)) {
                     let pieces = [];
                     for (let i = 0; i < str.length; i += 5) {
                         pieces.push(str.slice(i, i + 5));
@@ -952,7 +952,7 @@ async function shorthand(
             if (/^\d{3}<<$/.test(rowData[0])) {
                 const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
                 const newValues = rowData.slice(1).map((val) => {
-                    if (await isCellRefString(val)) {
+                    if (isCellRefString(val)) {
                         return val.toUpperCase();
                     }
                     return val;
@@ -982,7 +982,7 @@ async function shorthand(
             else if (/^\d{3}>>$/.test(rowData[0])) {
                 const rowIndex = parseInt(rowData[0].slice(0, 3), 10);
                 const newValues = rowData.slice(1).map((val) => {
-                    if (await isCellRefString(val)) {
+                    if (isCellRefString(val)) {
                         return val.toUpperCase();
                     }
                     return val;
