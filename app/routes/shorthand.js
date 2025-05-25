@@ -1,28 +1,5 @@
 // shorthand.js
-
-async function shorthand(
-    shorthandObj,
-    req,
-    res,
-    next,
-    privateKey,
-    dynamodb,
-    uuidv4,
-    s3,
-    ses,
-    openai,
-    Anthropic,
-    dynamodbLL,
-    isShorthand,
-    reqPath,
-    reqBody,
-    reqMethod,
-    reqType,
-    reqHeaderSent,
-    signer,
-    action,
-    xAccessToken
-  ) {
+async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
     let matrix = [];
     let colID = [];
@@ -35,380 +12,451 @@ async function shorthand(
     let skip = shorthandObj.skip;
     let maxSweeps = shorthandObj.sweeps;
     let processing = 0;
-  
+
     const comparisonOperators = {
-      "==": (a, b) => a === b,
-      "!=": (a, b) => a != b,
-      ">": (a, b) => a > b,
-      ">=": (a, b) => a >= b,
-      "<": (a, b) => a < b,
-      "<=": (a, b) => a <= b
+        "==": (a, b) => a === b,
+        "!=": (a, b) => a != b,
+        ">": (a, b) => a > b,
+        ">=": (a, b) => a >= b,
+        "<": (a, b) => a < b,
+        "<=": (a, b) => a <= b
     };
-  
+
     async function deepMerge(target, source) {
-      if (source && typeof source === 'object' && !Array.isArray(source)) {
-        if (!target || typeof target !== 'object' || Array.isArray(target)) {
-          target = {};
-        }
-        const merged = { ...target };
-        for (const key of Object.keys(source)) {
-          merged[key] = await deepMerge(target[key], source[key]);
-        }
-        return merged;
-      } else if (Array.isArray(source)) {
-        if (!Array.isArray(target)) {
-          target = [];
-        }
-        const merged = [...target];
-        for (let i = 0; i < source.length; i++) {
-          merged[i] = await deepMerge(target[i], source[i]);
-        }
-        return merged;
-      } else {
-        return source;
-      }
-    }
-  
-    async function safelyParseJSON(str) {
-      try {
-        return JSON.parse(str);
-      } catch (e) {
-        console.warn('Failed to parse JSON. Returning string as-is.');
-        return str;
-      }
-    }
-  
-    async function getNested(obj, path) {
-      let current = obj;
-      for (const segment of path) {
-        if (current == null || !(segment in current)) {
-          return undefined;
-        }
-        current = current[segment];
-      }
-      return current;
-    }
-  
-    async function isJSON(value) {
-      try {
-        if (typeof value === 'string') {
-          JSON.parse(value);
-          return true;
-        } else if (typeof value === 'object') {
-          return true;
+        if (source && typeof source === "object" && !Array.isArray(source)) {
+            if (!target || typeof target !== "object" || Array.isArray(target)) {
+                target = {};
+            }
+            const merged = { ...target };
+            for (const key of Object.keys(source)) {
+                merged[key] = await deepMerge(target[key], source[key]);
+            }
+            return merged;
+        } else if (Array.isArray(source)) {
+            if (!Array.isArray(target)) {
+                target = [];
+            }
+            const merged = [...target];
+            for (let i = 0; i < source.length; i++) {
+                merged[i] = await deepMerge(target[i], source[i]);
+            }
+            return merged;
         } else {
-          return false;
+            return source;
         }
-      } catch (e) {
-        return false;
-      }
     }
-  
-    async function parsePathToken(token) {
-      try {
-        const match = token.match(/^\[(\d+)\]$/);
-        if (match) {
-          return parseInt(match[1], 10);
+
+    function safelyParseJSON(str) {
+        try {
+            return JSON.parse(str);
+        } catch (e) {
+            console.warn("Failed to parse JSON. Returning string as-is.");
+            return str;
         }
-      } catch {}
-      return token;
     }
-  
-    async function deleteNestedValue(obj, pathTokens) {
-      if (!pathTokens || pathTokens.length === 0) return obj;
-      const lastToken = await parsePathToken(pathTokens[pathTokens.length - 1]);
-      let current = obj;
-      for (let i = 0; i < pathTokens.length - 1; i++) {
-        const token = await parsePathToken(pathTokens[i]);
-        if (typeof token === 'number') {
-          if (!Array.isArray(current[token])) {
-            return obj;
-          }
-          current[token] = [...current[token]];
-          current = current[token];
+
+    function getNested(obj, path) {
+        let current = obj;
+        for (const segment of path) {
+            if (current == null || !(segment in current)) {
+                return undefined;
+            }
+            current = current[segment];
+        }
+        return current;
+    }
+
+    function isJSON(value) {
+        try {
+            if (typeof value === "string") {
+                JSON.parse(value);
+                return true;
+            } else if (typeof value === "object") {
+                return true;
+            } else {
+                return false;
+            }
+        } catch (e) {
+            return false;
+        }
+    }
+
+    function parsePathToken(token) {
+        try {
+            const match = token.match(/^\[(\d+)\]$/);
+            if (match) {
+                return parseInt(match[1], 10);
+            }
+        } catch {}
+        return token;
+    }
+
+    function deleteNestedValue(obj, pathTokens) {
+        if (!pathTokens || pathTokens.length === 0) return obj;
+        const lastToken = parsePathToken(pathTokens[pathTokens.length - 1]);
+        let current = obj;
+        for (let i = 0; i < pathTokens.length - 1; i++) {
+            const token = parsePathToken(pathTokens[i]);
+            if (typeof token === "number") {
+                if (!Array.isArray(current[token])) {
+                    return obj;
+                }
+                current[token] = [...current[token]];
+                current = current[token];
+            } else {
+                if (typeof current[token] !== "object" || current[token] === null) {
+                    return obj;
+                }
+                current[token] = Array.isArray(current[token])
+                    ? [...current[token]]
+                    : { ...current[token] };
+                current = current[token];
+            }
+        }
+        if (typeof lastToken === "number") {
+            if (Array.isArray(current) && lastToken < current.length) {
+                current.splice(lastToken, 1);
+            }
         } else {
-          if (typeof current[token] !== 'object' || current[token] === null) {
-            return obj;
-          }
-          current[token] = Array.isArray(current[token])
-            ? [...current[token]]
-            : { ...current[token] };
-          current = current[token];
+            if (typeof current === "object" && current !== null) {
+                delete current[lastToken];
+            }
         }
-      }
-      if (typeof lastToken === 'number') {
-        if (Array.isArray(current) && lastToken < current.length) {
-          current.splice(lastToken, 1);
-        }
-      } else {
-        if (typeof current === 'object' && current !== null) {
-          delete current[lastToken];
-        }
-      }
-      return obj;
+        return obj;
     }
-  
-    async function setNestedValue(obj, pathTokens, newValue) {
-      let current = obj;
-      for (let i = 0; i < pathTokens.length; i++) {
-        const isLast = i === pathTokens.length - 1;
-        const token = await parsePathToken(pathTokens[i]);
-        if (!isLast) {
-          if (typeof token === 'number') {
-            if (!Array.isArray(current)) current = [];
-            if (!current[token] || typeof current[token] !== 'object') current[token] = {};
-            current = current[token];
-          } else {
-            if (typeof current[token] !== 'object' || current[token] === null) current[token] = {};
-            current = current[token];
-          }
+
+    function setNestedValue(obj, pathTokens, newValue) {
+        let current = obj;
+        for (let i = 0; i < pathTokens.length; i++) {
+            const isLast = i === pathTokens.length - 1;
+            const token = parsePathToken(pathTokens[i]);
+            if (!isLast) {
+                if (typeof token === "number") {
+                    if (!Array.isArray(current)) {
+                        current = [];
+                    }
+                    if (!current[token] || typeof current[token] !== "object") {
+                        current[token] = {};
+                    }
+                    current = current[token];
+                } else {
+                    if (typeof current[token] !== "object" || current[token] === null) {
+                        current[token] = {};
+                    }
+                    current = current[token];
+                }
+            } else {
+                if (typeof token === "number") {
+                    if (!Array.isArray(current)) {
+                        current = [];
+                    }
+                    current[token] = newValue;
+                } else {
+                    current[token] = newValue;
+                }
+            }
+        }
+        return obj;
+    }
+
+    function isCellRefPlusPlus(txt) {
+        return /^\d{3}\+\+$/.test(txt);
+    }
+
+    function isRowReplace(txt) {
+        return /^\d{3}%!$/.test(txt);
+    }
+
+    function isRowSplice(txt) {
+        return /^\d{3}%%$/.test(txt);
+    }
+
+    function isRowResultRef(txt) {
+        return /^\d{3}!!$/.test(txt);
+    }
+
+    function isFullRowRef(txt) {
+        return /^\d{3}~~$/.test(txt);
+    }
+
+    function isRunRef(txt) {
+        return /^\d{3}@@$/.test(txt);
+    }
+
+    function isCellRefString(txt) {
+        return /^\d{3}[a-z]{2}$/.test(txt.toString());
+    }
+
+    function isCellRef(txt) {
+        if (typeof txt !== "string") return false;
+        return (
+            isRowResultRef(txt) ||
+            isFullRowRef(txt) ||
+            isRunRef(txt) ||
+            isCellRefPlusPlus(txt) ||
+            isRowReplace(txt) ||
+            isRowSplice(txt) ||
+            /^\d{3}([A-Za-z]{2}|\d{2})$/.test(txt.toString())
+        );
+    }
+
+    function getRow(cellTxt) {
+        if (getCellID(cellTxt)) {
+            return cellTxt.slice(0, 3);
         } else {
-          if (typeof token === 'number') {
-            if (!Array.isArray(current)) current = [];
-            current[token] = newValue;
-          } else {
-            current[token] = newValue;
-          }
+            return undefined;
         }
-      }
-      return obj;
     }
-  
-    async function isCellRefPlusPlus(txt) { return /^\d{3}\+\+$/.test(txt); }
-    async function isRowReplace(txt) { return /^\d{3}%!$/.test(txt); }
-    async function isRowSplice(txt) { return /^\d{3}%%$/.test(txt); }
-    async function isRowResultRef(txt) { return /^\d{3}!!$/.test(txt); }
-    async function isFullRowRef(txt) { return /^\d{3}~~$/.test(txt); }
-    async function isRunRef(txt) { return /^\d{3}@@$/.test(txt); }
-    async function isCellRefString(txt) { return /^\d{3}[a-z]{2}$/.test(txt.toString()); }
-  
-    async function isCellRef(txt) {
-      if (typeof txt !== 'string') return false;
-      return (
-        (await isRowResultRef(txt)) ||
-        (await isFullRowRef(txt)) ||
-        (await isRunRef(txt)) ||
-        (await isCellRefPlusPlus(txt)) ||
-        (await isRowReplace(txt)) ||
-        (await isRowSplice(txt)) ||
-        /^\d{3}([A-Za-z]{2}|\d{2})$/.test(txt)
-      );
-    }
-  
-    async function getRow(cellTxt) {
-      return (await getCellID(cellTxt)) ? cellTxt.slice(0, 3) : undefined;
-    }
-  
-    async function getColumnLabel(index) {
-      let label = '';
-      while (index >= 0) {
-        label = String.fromCharCode((index % 26) + 65) + label;
-        index = Math.floor(index / 26) - 1;
-      }
-      return label;
-    }
-  
-    async function getCellID(txt) {
-      if (!(await isCellRef(txt))) return null;
-      const str = txt.toString();
-      if (await isCellRefPlusPlus(str)) {
-        const rowIndex = parseInt(str.slice(0, 3), 10);
-        let colIndex = highestCol + 1;
-        if (colIndex > highestCol) {
-          highestCol = colIndex;
-          await generateColIDs();
+
+    function getColumnLabel(index) {
+        let label = "";
+        while (index >= 0) {
+            label = String.fromCharCode((index % 26) + 65) + label;
+            index = Math.floor(index / 26) - 1;
         }
-        return { row: rowIndex, col: colIndex };
-      }
-      const rowPart = str.slice(0, 3);
-      const rowIndex = parseInt(rowPart, 10);
-      if (isNaN(rowIndex)) return null;
-      const colPart = str.slice(3);
-      if (!colPart) return null;
-      const upperCol = colPart.toUpperCase();
-      if (/^[A-Z]+$/.test(upperCol)) {
-        let colIndex = colID.indexOf(upperCol);
-        if (colIndex === -1) {
-          colID.push(upperCol);
-          colIndex = colID.length - 1;
-          if (colIndex > highestCol) {
-            highestCol = colIndex;
-            await generateColIDs();
-          }
+        return label;
+    }
+
+    function getCellID(txt) {
+        if (!isCellRef(txt)) return null;
+        if (!txt) return null;
+        const str = txt.toString();
+
+        if (isCellRefPlusPlus(str)) {
+            const rowIndex = parseInt(str.slice(0, 3), 10);
+            let colIndex = highestCol + 1;
+            if (colIndex > highestCol) {
+                highestCol = colIndex;
+                generateColIDs();
+            }
+            return { row: rowIndex, col: colIndex };
         }
-        return { row: rowIndex, col: colIndex };
-      } else if (/^\d+$/.test(colPart)) {
-        const colIndex = parseInt(colPart, 10);
-        if (!isNaN(colIndex)) {
-          if (colIndex > highestCol) {
-            highestCol = colIndex;
-            await generateColIDs();
-          }
-          return { row: rowIndex, col: colIndex };
+
+        const rowPart = str.slice(0, 3);
+        const rowIndex = parseInt(rowPart, 10);
+        if (isNaN(rowIndex)) return null;
+
+        const colPart = str.slice(3);
+        if (!colPart) return null;
+
+        const upperCol = colPart.toUpperCase();
+        if (/^[A-Z]+$/.test(upperCol)) {
+            let colIndex = colID.indexOf(upperCol);
+            if (colIndex === -1) {
+                colID.push(upperCol);
+                colIndex = colID.length - 1;
+                if (colIndex > highestCol) {
+                    highestCol = colIndex;
+                    generateColIDs();
+                }
+            }
+            return { row: rowIndex, col: colIndex };
         }
-      }
-      return null;
+        else if (/^\d+$/.test(colPart)) {
+            const colIndex = parseInt(colPart, 10);
+            if (!isNaN(colIndex)) {
+                if (colIndex > highestCol) {
+                    highestCol = colIndex;
+                    generateColIDs();
+                }
+                return { row: rowIndex, col: colIndex };
+            }
+        }
+        return null;
     }
-  
-    async function generateColIDs() {
-      colID = [];
-      for (let index = 0; index <= highestCol; index++) {
-        let num = index + 26;
-        let label = '';
-        do {
-          label = String.fromCharCode(65 + (num % 26)) + label;
-          num = Math.floor(num / 26) - 1;
-        } while (num >= 0);
-        colID.push(label);
-      }
+
+    function generateColIDs() {
+        colID = [];
+        let label = "";
+        for (let index = 0; index <= highestCol; index++) {
+            let num = index + 26;
+            label = "";
+            do {
+                label = String.fromCharCode(65 + (num % 26)) + label;
+                num = Math.floor(num / 26) - 1;
+            } while (num >= 0);
+            colID.push(label);
+        }
     }
-  
-    async function generateRowID() {
-      const newID = rowID.length.toString().padStart(3, '0');
-      rowID.push(newID);
-      return newID;
+
+    function generateRowID() {
+        let newID = rowID.length.toString().padStart(3, "0");
+        rowID.push(newID);
+        return newID;
     }
-  
+
     async function addRow(n, position, rowData) {
-      if (Array.isArray(n)) {
-        rowData = n;
-        n = undefined;
-        position = undefined;
-      }
-      const newRow = Array.isArray(rowData) ? [...rowData] : [];
-      if (n === undefined) {
-        matrix.push(newRow);
-        await generateRowID();
-        if (newRow.length - 1 > highestCol) {
-          highestCol = newRow.length - 1;
-          await generateColIDs();
+        if (Array.isArray(n)) {
+            rowData = n;
+            n = undefined;
+            position = undefined;
         }
-      } else if (Number.isInteger(n)) {
-        let insertIndex = n - 1;
-        if (position === 'below') insertIndex = n;
-        if (insertIndex < 0) insertIndex = 0;
-        matrix.splice(insertIndex, 0, newRow);
-        rowID.splice(insertIndex, 0, await generateRowID());
-        if (newRow.length - 1 > highestCol) {
-          highestCol = newRow.length - 1;
-          await generateColIDs();
+        let newRow = Array.isArray(rowData) ? [...rowData] : [];
+        if (n === undefined) {
+            matrix.push(newRow);
+            generateRowID();
+            if (newRow.length - 1 > highestCol) {
+                highestCol = newRow.length - 1;
+                generateColIDs();
+            }
+        } else if (Number.isInteger(n)) {
+            let insertIndex;
+            if (position === "above") {
+                insertIndex = n - 1;
+            } else if (position === "below") {
+                insertIndex = n;
+            } else {
+                insertIndex = n - 1;
+            }
+            if (insertIndex < 0) insertIndex = 0;
+            matrix.splice(insertIndex, 0, newRow);
+            rowID.splice(insertIndex, 0, generateRowID());
+            if (newRow.length - 1 > highestCol) {
+                highestCol = newRow.length - 1;
+                generateColIDs();
+            }
+        } else {
+            console.error("Invalid arguments passed to addRow.");
         }
-      } else {
-        console.error('Invalid arguments passed to addRow.');
-      }
     }
-  
+
     async function displayTable() {
-      for (let r = 0; r < matrix.length; r++) {
-        let rowLog = 'RowID: ' + rowID[r] + ' [';
-        for (let c = 0; c < matrix[r].length; c++) {
-          rowLog += (c === 0 ? '"' : ', "') + matrix[r][c] + '"';
-        }
-        rowLog += ']';
-        console.log(rowLog);
-      }
-    }
-  
-    async function getRowReferences(rowIndex) {
-      if (!matrix[rowIndex]) return [];
-      const result = new Set();
-      for (let cell of matrix[rowIndex]) {
-        if (typeof cell === 'string' && (await isCellRef(cell))) {
-          const refRow = parseInt(cell.slice(0, 3), 10);
-          if (!isNaN(refRow)) result.add(refRow);
-        }
-      }
-      return Array.from(result);
-    }
-  
-    async function getRowsReferencing(targetRowIndex) {
-      const result = new Set();
-      for (let r = 0; r < matrix.length; r++) {
-        for (let cell of matrix[r] || []) {
-          if (typeof cell === 'string' && (await isCellRef(cell))) {
-            const refRow = parseInt(cell.slice(0, 3), 10);
-            if (!isNaN(refRow) && refRow === targetRowIndex) {
-              result.add(r);
-              break;
+        for (let row = 0; row < matrix.length; row++) {
+            let rowLog = "RowID: " + rowID[row] + " [";
+            for (let col = 0; col < matrix[row].length; col++) {
+                if (col == 0) {
+                    rowLog += '"' + matrix[row][col] + '"';
+                } else {
+                    rowLog += ', "' + matrix[row][col] + '"';
+                }
             }
-          }
+            rowLog += ']';
+            console.log(rowLog);
         }
-      }
-      return Array.from(result);
     }
-  
-    async function gatherDown(startRow, maxLevels) {
-      const visited = new Set([startRow]);
-      const queue = [{ row: startRow, level: 0 }];
-      while (queue.length > 0) {
-        const { row, level } = queue.shift();
-        if (level < maxLevels) {
-          const refs = await getRowReferences(row);
-          for (let ref of refs) {
-            if (!visited.has(ref)) {
-              visited.add(ref);
-              queue.push({ row: ref, level: level + 1 });
+
+    function getRowReferences(rowIndex) {
+        if (!matrix[rowIndex]) return [];
+        const rowData = matrix[rowIndex];
+        const result = new Set();
+
+        for (let cell of rowData) {
+            if (typeof cell === "string" && isCellRef(cell)) {
+                let refRow = parseInt(cell.slice(0, 3), 10);
+                if (!isNaN(refRow)) {
+                    result.add(refRow);
+                }
             }
-          }
         }
-      }
-      return visited;
+        return Array.from(result);
     }
-  
-    async function gatherUp(startRow, maxLevels) {
-      const visited = new Set([startRow]);
-      const queue = [{ row: startRow, level: 0 }];
-      while (queue.length > 0) {
-        const { row, level } = queue.shift();
-        if (level < maxLevels) {
-          const refs = await getRowsReferencing(row);
-          for (let ref of refs) {
-            if (!visited.has(ref)) {
-              visited.add(ref);
-              queue.push({ row: ref, level: level + 1 });
+
+    function getRowsReferencing(targetRowIndex) {
+        const result = new Set();
+        for (let r = 0; r < matrix.length; r++) {
+            if (!matrix[r]) continue;
+            for (let cell of matrix[r]) {
+                if (typeof cell === "string" && isCellRef(cell)) {
+                    let refRow = parseInt(cell.slice(0, 3), 10);
+                    if (!isNaN(refRow) && refRow === targetRowIndex) {
+                        result.add(r);
+                        break;
+                    }
+                }
             }
-          }
         }
-      }
-      return visited;
+        return Array.from(result);
     }
-  
+
+    function gatherDown(startRow, maxLevels) {
+        let visited = new Set();
+        let queue = [{ row: startRow, level: 0 }];
+        visited.add(startRow);
+
+        while (queue.length > 0) {
+            const { row, level } = queue.shift();
+            if (level < maxLevels) {
+                const refs = getRowReferences(row);
+                for (let ref of refs) {
+                    if (!visited.has(ref)) {
+                        visited.add(ref);
+                        queue.push({ row: ref, level: level + 1 });
+                    }
+                }
+            }
+        }
+        return visited;
+    }
+
+    function gatherUp(startRow, maxLevels) {
+        let visited = new Set();
+        let queue = [{ row: startRow, level: 0 }];
+        visited.add(startRow);
+
+        while (queue.length > 0) {
+            const { row, level } = queue.shift();
+            if (level < maxLevels) {
+                const refs = getRowsReferencing(row);
+                for (let ref of refs) {
+                    if (!visited.has(ref)) {
+                        visited.add(ref);
+                        queue.push({ row: ref, level: level + 1 });
+                    }
+                }
+            }
+        }
+        return visited;
+    }
+
     async function resolveRow(row) {
-      const arr = [];
-      for (let x = 0; x < row.length; x++) arr.push(await resolveCell(row[x]));
-      return arr;
-    }
-  
-    async function resolveCell(cellTxt) {
-      if (await isRowResultRef(cellTxt)) {
-        const idx = parseInt(cellTxt.slice(0, 3), 10);
-        return rowResult[idx] !== undefined ? rowResult[idx] : 'Undefined Reference';
-      }
-      if (await isFullRowRef(cellTxt)) {
-        const idx = parseInt(cellTxt.slice(0, 3), 10);
-        const rowData = matrix[idx];
-        if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
-          const parsed = await parseNestedKeywords(rowData);
-          if (parsed.type === 'MULTIPLE_FUNCTIONS') return parsed.list.map(fn => fn.RESULTS);
-          if (parsed.RESULTS !== undefined) return parsed.RESULTS;
-          return rowData;
+        let arr = [];
+        for (let x = 0; x < row.length; x++) {
+            let el = await resolveCell(row[x]);
+            arr.push(el);
         }
-        return rowData;
-      }
-      const cell = await getCellID(cellTxt);
-      if (cell && typeof cellTxt === 'string') {
-        const ref = matrix[cell.row][cell.col];
-        return (await isCellRef(ref) || await isRowResultRef(ref) || await isFullRowRef(ref))
-          ? await resolveCell(ref)
-          : ref;
-      }
-      return cellTxt;
+        return arr;
     }
-  
+
+    async function resolveCell(cellTxt) {
+        if (isRowResultRef(cellTxt)) {
+            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
+            return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
+        }
+        if (isFullRowRef(cellTxt)) {
+            let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
+            let rowData = matrix[rowIndex];
+            if (Array.isArray(rowData) && rowData.length > 0 && rowData[0] in keywords) {
+                let parsed = await parseNestedKeywords(rowData);
+                if (parsed.type === "MULTIPLE_FUNCTIONS") {
+                    const allResults = parsed.list.map(fn => fn.RESULTS);
+                    return allResults;
+                }
+                else if (parsed && parsed.RESULTS !== undefined) {
+                    return parsed.RESULTS;
+                }
+                else {
+                    return rowData;
+                }
+            } else {
+                return rowData;
+            }
+        }
+        let cell = getCellID(cellTxt);
+        if (cell && typeof cellTxt === "string") {
+            let ref = matrix[cell.row][cell.col];
+            if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
+                return resolveCell(ref);
+            } else {
+                return ref;
+            }
+        } else {
+            return cellTxt;
+        }
+    }
+
     async function awaitAll(arr) {
-      return Promise.all(arr.map(v => Promise.resolve(v)));
-    }
-  
+        return Promise.all(arr.map(v => Promise.resolve(v)));
+      }
 
     async function parseFunction(row, startIndex) {
 
