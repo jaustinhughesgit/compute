@@ -565,7 +565,7 @@ async function installModule(moduleName, contextKey, context, lib) {
 
 
 async function initializeMiddleware(req, res, next) {
-
+    console.log("initializeMiddleware")
     if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
     } else {
