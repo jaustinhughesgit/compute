@@ -1,3 +1,5 @@
+// app.js
+
 process.env.PATH = process.env.PATH + ":/opt/gm/bin:/opt/gm/lib:/opt/gs/bin:/opt/gs/lib";
 
 var express = require('express');
@@ -208,33 +210,23 @@ function isSubset(jsonA, jsonB) {
 }
 
 async function isValid(req, res, data) {
-    //console.log("isValid", req)
 
-    //console.log("req.path::", req.path)
 
 
     let originalHost = req.body.headers["X-Original-Host"];
-    //console.log("originalHost", originalHost)
     let splitOriginalHost = originalHost.split("1var.com")[1]
-    //console.log("splitOriginalHost", splitOriginalHost)
     let reqPath = splitOriginalHost.split("?")[0]
     reqPath = reqPath.replace("/cookies/runEntity", "").replace("/auth/", "").replace("/blocks/", "").replace("/cookies/runEntity/", "").replace("/", "").replace("api", "").replace("/", "")
-    //console.log("reqPath", reqPath)
     req.dynPath = reqPath
 
 
     let sub = await getSub(req.dynPath, "su", dynamodb)
-    //console.log("sub", sub)
     let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
-    //console.log("params", params)
     let accessItem = await dynamodb.query(params).promise()
-    //console.log("accessItem", accessItem)
     let isDataPresent = false
     if (accessItem.Items.length > 0) {
-        //console.log("accessItem.Items[0].va", accessItem.Items[0].va)
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
-    //console.log("isDataPresent", isDataPresent)
     if (isDataPresent) {
         let xAccessToken = req.body.headers["X-accessToken"]
         let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
@@ -243,7 +235,6 @@ async function isValid(req, res, data) {
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createVerified(vi.toString(), cookie.gi.toString(), "0", sub.Items[0].e.toString(), accessItem.Items[0].ai, "0", ex, true, 0, 0)
     }
-    //console.log("validating data", data)
     return data
 }
 
@@ -293,96 +284,86 @@ app.all('/blocks/*',
 
 app.all('/auth/*',
     async (req, res, next) => {
-        //console.log("running middleware")
         await runApp(req, res, next)
     }
 )
-
+// app.js  (replace the old version completely)
 async function runApp(req, res, next) {
-    console.log("runApp-runApp")
-    try {
-        req.lib = {};
-        req.lib.modules = {};
-        req.lib.middlewareCache = [];
-        req.lib.isMiddlewareInitialized = false;
-        req.lib.whileLimit = 100;
-        req.lib.root = {};
-        req.lib.root.context = {};
-        req.lib.root.context.session = session;
-        const response = { ok: true, response: { status: 'authenticated', file: '' } };
+    console.log("runApp‑runApp");
 
-        console.log("req.body+>>", req.body)
-        console.log("res+>>", res)
+    return new Promise(async (resolve, reject) => {
+        try {
+            /* ---------- 1 · bootstrap the per‑request sandbox ---------- */
+            req.lib = {
+                modules:           {},
+                middlewareCache:   [],
+                isMiddlewareInitialized: false,
+                whileLimit:        100,
+                root: { context: { session } }
+            };
 
+            /* ---------- 2 · normalise the dynamic path ---------------- */
+            req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
+            console.log("req.dynPath", req.dynPath);
 
-
-        if (req.path == "/") {
-            req.dynPath = "/cookies/runEntity"
-        } else {
-            req.dynPath = req.path
-        }
-
-
-
-        console.log("req.path000", req.dynPath)
-        console.log("req.lib.isMiddlewareInitialized", req.lib.isMiddlewareInitialized)
-        if (!req.lib.isMiddlewareInitialized && (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/cookies/'))) {
-            //console.log("runApp1")
-            req.blocks = false;
-            //console.log("AAAAAA11111")
-            req.lib.middlewareCache = await initializeMiddleware(req, res, next);
-            req.lib.isMiddlewareInitialized = true;
-        }
-
-        //console.log("req.lib.middlewareCache", req.lib.middlewareCache)
-        //console.log("req.lib", req.lib)
-        if (req.lib.middlewareCache.length === 0) {
-            if (req._headerSent == false) {
-                res.send("no access");
+            /* ---------- 3 · build the middleware cache on first call -- */
+            if (
+                !req.lib.isMiddlewareInitialized &&
+                (req.dynPath.startsWith("/auth") ||
+                 req.dynPath.startsWith("/cookies/"))
+            ) {
+                req.blocks = false;
+                req.lib.middlewareCache =
+                    await initializeMiddleware(req, res, next);
+                req.lib.isMiddlewareInitialized = true;
             }
-            return
-        }
 
-        if (req.lib.middlewareCache.length > 0) {
-            const runMiddleware = async index => {
-                console.log("runMiddleware2")
+            /* ---------- 4 · no access? Send & resolve ----------------- */
+            if (req.lib.middlewareCache.length === 0) {
+                if (!req._headerSent) res.send("no access");
+                return resolve({ chainParams: undefined });
+            }
+
+            /* ---------- 5 · run the chain ----------------------------- */
+            const runMiddleware = async (index) => {
                 if (index >= req.lib.middlewareCache.length) return;
 
                 const maybe = await req.lib.middlewareCache[index](
                     req,
                     res,
-                    async () => await runMiddleware(index + 1) 
+                    async () => runMiddleware(index + 1)
                 );
-                console.log("runMiddleware3")
-               
+
                 if (
                     maybe &&
                     typeof maybe === "object" &&
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
-                    console.log("runMiddleware4", maybe)
-                    return maybe; 
+                    return maybe;               // bubble up
                 }
-
-                console.log("runMiddleware5")
                 return maybe;
             };
-            console.log("runMiddleware1")
-            const bubble = await runMiddleware(0); 
-            console.log("runMiddleware6")
-            if (bubble) {                
-                console.log("runMiddleware7")         
-                req.body.params = bubble.chainParams;  
-                return bubble;                       
+
+            const bubble = await runMiddleware(0);
+
+            /* ---------- 6 · finished; resolve what we got ------------- */
+            if (bubble) {
+                req.body.params = bubble.chainParams;
+                return resolve(bubble);
             }
+
+            // nothing special came back – resolve with default shape
+            resolve({ chainParams: undefined });
+
+        } catch (err) {
+            /* ---------- 7 · propagate errors correctly ---------------- */
+            if (typeof next === "function") next(err);
+            reject(err);
         }
-
-
-    } catch (error) {
-        next(error);
-    }
+    });
 }
+
 
 async function getPrivateKey() {
     const secretName = "public/1var/s3";
@@ -493,7 +474,6 @@ async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
     if (config.modules) {
         for (const [key, value] of Object.entries(config.modules)) {
-            // installModule now returns the modulePath on success
             const installedAt = await installModule(value, key, context, lib);
             console.log(`✅  Module "${value}" installed for context key "${key}" at: ${installedAt}`);
             
@@ -560,7 +540,6 @@ async function installModule(moduleName, contextKey, context, lib) {
             context[contextKey] = { "value": module, "context": {} };
         }
     }
-    // Everything succeeded, return the resolved path (or module) so caller can log it
     console.log("return modulePath", modulePath)
     return modulePath;
 }
@@ -703,25 +682,16 @@ async function getValFromDB(id, req, res, next) {
         const keyExecuted = id.endsWith('|}!');
         const keyObj = await isOnePlaceholder(id);
         let keyClean = await removeBrackets(id, keyObj, keyExecuted);
-        //console.log("keyClean:before", keyClean)
         keyClean = keyClean.replace(">", "")
         keyClean = keyClean.replace("<", "")
-        //console.log("keyClean:after", keyClean)
         let subRes = await getSub(keyClean, "su", dynamodb)
-        //console.log("subRes", subRes)
         let xAccessToken = req.body.headers["X-accessToken"]
         let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
-        //console.log("cookie33", cookie)
         let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
-        //console.log("verified33", verified)
         if (verified) {
             let subRes = await getSub(keyClean, "su", dynamodb)
-            //console.log("subRes", subRes)
-            //console.log("subRes.Items[0].a", subRes.Items[0].a)
             let subWord = await getWord(subRes.Items[0].a, dynamodb)
-            //console.log("subWord", subWord)
             value = subWord.Items[0].r
-            //console.log(value)
             return JSON.parse(value)
         } else {
             return {}
@@ -770,7 +740,6 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
         if (typeof value === 'object' && value !== null && !key.startsWith("{|")) {
             await replaceSpecialKeysAndValues(obj[key], time, req, res, next)
         } else if (typeof value == "string") {
-            //console.log("ifDB1", ifDB(key, time), key, time)
             if (ifDB(value, time)) {
                 replacer = await getValFromDB(value, req, res, next)
                 obj[key] = replacer
@@ -780,23 +749,19 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
                     }
                 }
             }
-            //console.log("ifDB2", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 const dbValue = await getValFromDB(key, req, res, next);
                 obj = await updateLevel(obj, dbValue);
             }
-            //console.log("ifDB3", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 delete obj[key]
             }
         } else if (typeof value === 'object' && value !== null && key.startsWith("{|")) {
-            //console.log("ifDB4", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 replacer = JSON.parse(JSON.stringify(obj[key]))
                 let deep = await deepMerge(obj[key], await getValFromDB(key, req, res, next));
                 obj = await updateLevel(obj, deep)
             }
-            //console.log("ifDB5", ifDB(key, time), key, time)
             if (ifDB(key, time)) {
                 delete obj[key]
             }
@@ -806,13 +771,8 @@ async function replaceSpecialKeysAndValues(obj, time, req, res, next) {
 }
 
 async function getNestedContext(libs, nestedPath, key = "") {
-    //console.log("getNestedContext")
-    //console.log("libs", libs)
-    //console.log("nestedPath", nestedPath)
-    //console.log("key", key)
     if (key.startsWith("~/")) {
         nestedPath = key.replace("~/", "root.").split(".")
-        //console.log("333: nestedPath", nestedPath)
         nestedPath = nestedPath.slice(0, -1).join('.')
     }
 
@@ -820,26 +780,17 @@ async function getNestedContext(libs, nestedPath, key = "") {
     if (nestedPath.includes("=>")) {
         nestedPath = arrowJson[0]
     }
-    //console.log("444: nestedPath", nestedPath)
     const parts = nestedPath.split('.');
 
-    //console.log("parts", parts)
     if (nestedPath && nestedPath != "") {
         let tempContext = libs;
         let partCounter = 0
         for (let part of parts) {
-            //console.log("part", part)
-            //console.log("parts[part]", parts[part])
-            //console.log("tempContext", tempContext)
-            //console.log("tempContext", tempContext[part])
-            //console.log("tempContext", tempContext[part].context)
             tempContext = tempContext[part].context;
         }
 
-        //console.log("tempContext", tempContext)
         return tempContext;
     }
-    //console.log("libs", libs)
     return libs
 }
 
@@ -1077,12 +1028,9 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
-    //console.log("AAAAAAAA")
-    //console.log("libs", libs)
 
     let json = libs.root.context
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        //console.log("getValueFromJson2", path, json, nestedPath, forceRoot)
         let current = json;
         if (!forceRoot && nestedPath) {
             const nestedKeys = nestedPath.split('.');
@@ -1117,31 +1065,18 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         }
         for (let key of keys) {
 
-            //console.log("LL2", key)
-            //console.log("LL3", current);
-            //console.log("LL4", current[key]);
-            //console.log("LL5", keys.length - 1, curCounter);
             if (keys.length - 1 > curCounter) {
-                //console.log("LL6")
                 try { current = current[key].context } catch (err) { console.log(err) }
             } else {
-                //console.log("LL7")
                 try {
                     if (current[key].hasOwnProperty("value")) {
-                        //console.log("LL8")
                         current = current[key].value
                     } else {
-                        //console.log("LL9")
                         current = current[key]
                     }
                 } catch (err) {
-                    //console.log("LL10")
-                    //console.log(err)
-                    //console.log("current", current)
-                    //console.log("current[key]", current[key])
                     current = current[key]
                     if (!current) {
-                        //console.log("returning key", key)
                         return key
                     }
 
@@ -1161,33 +1096,20 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         }
 
         if (isValidJSON(current)) {
-            //console.log("isValidJSON", true)
             current = JSON.parse(current)
         }
-        //console.log("current = ", current)
         for (let key of keys2) {
-            //console.log("k2.07: key", key)
-            //console.log("k2.08: typeof", typeof current)
-            //console.log("k2.09: curent", current)
-            //console.log("k2.1:", current.hasOwnProperty(key))
-            //console.log("k2.3:", current.hasOwnProperty("value"))
             if (current.hasOwnProperty(key)) {
                 current = current[key];
-                //console.log("k2.4", current)
                 if (current && typeof current === 'object' && current.hasOwnProperty('value')) {
                     current = current.value;
                 }
             } else if (current.hasOwnProperty("value")) {
                 current = current[key];
-                //console.log("k2.5", current)
-                //return '';
             }
             curCounter++;
         }
 
-        //console.log("index", index)
-        //console.log("current", current)
-        //console.log("Array.isArray(current)", Array.isArray(current))
         if (index !== null && Array.isArray(current)) {
             if (index >= 0 && index < current.length) {
                 current = current[index];
@@ -1201,15 +1123,11 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
-        //console.log("BBBBBBBB")
-        //console.log("str", str)
-        //console.log("nestedPath", nestedPath)
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
 
         while ((match = regex.exec(str)) !== null) {
-            //console.log("CCCCCCCCCC")
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
@@ -1217,12 +1135,10 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             }
 
             let value;
-            //console.log("innerStr", innerStr)
             if (innerStr.startsWith("=")) {
                 let expression = innerStr.slice(1);
                 value = await evaluateMathExpression2(expression);
             } else if (innerStr.endsWith(">")) {
-                //console.log("INSIDE > ")
 
                 let getEntityID = innerStr.replace(">", "")
                 if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a") {
@@ -1230,18 +1146,10 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                 }
 
                 let subRes = await getSub(getEntityID, "su", dynamodb)
-                //console.log("subRes", subRes)
-                //console.log("subRes.Items[0].a", subRes.Items[0].a)
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
-                //console.log("subWord", subWord)
                 value = subWord.Items[0].s
             } else {
-                //console.log("DDDDDDDDDDD")
-                //console.log("forceRoot", forceRoot)
-                //console.log("nestedPath", nestedPath)
                 value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
-                //console.log("value from json 2", value)
-                //console.log("typeof from json 2", typeof value)
             }
 
 
@@ -1251,7 +1159,6 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
 
             if (typeof value === "string" || typeof value === "number") {
-                //console.log("value is string or number")
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
 
 
@@ -1259,15 +1166,10 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
 
             } else {
-                //console.log("str2", str);
-                //console.log("modifiedStr", modifiedStr);
                 const isObj = await isOnePlaceholder(str)
-                //console.log("isObj", isObj);
                 if (isObj && typeof value == "object") {
-                    //console.log("object", value)
                     return value;
                 } else {
-                    //console.log("stringify", value)
                     try {
                         if (typeof value != "function") {
                             modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
@@ -1275,37 +1177,25 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                             return value
                         }
                     } catch (err) {
-                        //console.log("err", err);
                         modifiedStr = value;
                     }
                 }
             }
 
             if (arrayIndexRegex.test(str)) {
-                //console.log("arrayIndexRegex.test", str)
                 let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
-                    //console.log("match", match, p1, p2)
                     let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
                     let index = parseInt(p2);
                     return strArray[index] ?? "";
                 });
-                //console.log("updatedStr", updatedStr)
                 return updatedStr
             } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
-                //console.log("jsonPathRegex", jsonPathRegex)
                 let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
-                    //console.log("modifiedStr", modifiedStr)
-                    //console.log("match", match),
-                        //console.log("jsonString", jsonString)
-                    //console.log("jsonPath", jsonPath)
                     jsonPath = jsonPath.replace("{|", "").replace("|}!", "").replace("|}", "")
                     try {
                         const jsonObj = JSON.parse(jsonString);
                         const pathParts = jsonPath.split('.');
                         let currentValue = jsonObj;
-                        //console.log("JSON PATH B1", jsonObj)
-                        //console.log("JSON PATH B2", pathParts)
-                        //console.log("JSON PATH B3", currentValue)
                         for (const part of pathParts) {
                             if (currentValue.hasOwnProperty(part)) {
                                 currentValue = currentValue[part];
@@ -1313,14 +1203,10 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                                 break;
                             }
                         }
-                        //console.log("JSON PATH B4", currentValue)
                         return JSON.stringify(currentValue) ?? "";
                     } catch (e) {
-                        //console.log(`Error parsing JSON: ${e}`);
                     }
                 });
-                //console.log("JSON PATH B5", updatedStr)
-                //console.log("JSON PATH B6", JSON.stringify(updatedStr))
                 if (updatedStr != "") {
                     return updatedStr;
                 }
@@ -1329,15 +1215,12 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         }
 
         if (modifiedStr.match(regex)) {
-            //console.log("modifiedStr.match", modifiedStr)
             return await replace2(modifiedStr, nestedPath);
         }
-        //console.log("after modified", modifiedStr)
         return modifiedStr;
     }
 
     let response = await replace2(str, nestedPath);
-    //console.log("response", response)
     return response
 }
 
@@ -1366,68 +1249,39 @@ const json88 = {
 };
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
-    //console.log("~1")
-    //console.log("str", str)
-    //console.log("nestedPath")
-    //console.log("isExecuted", isExecuted)
-
-    //console.log("libs.root.context", libs.root.context)
-
 
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
-        //console.log("~4")
         newNestedPath = newNestedPath.replace("root.", "")
     } else if (nestedPath.startsWith("root")) {
-        //console.log("~5")
         newNestedPath = newNestedPath.replace("root", "")
     }
 
-    //console.log("----------------",)
-    //console.log("str", str)
-    //console.log("newNestedPath", newNestedPath)
-
     let mmm = await replacePlaceholders2(str, libs, newNestedPath)
-    //console.log("typeof", typeof mmm)
-    //console.log("MMM2", mmm)
 
 
     const isObj = await isOnePlaceholder(str)
-    //console.log("isObj", isObj)
     if ((isObj || typeof libs.root.context[str] === "object") && !str.includes(">|}")) {
-        //console.log("~6")
         let strClean
         target = await getKeyAndPath(str.replace("{|", "").replace("|}!", "").replace("|}", ""), nestedPath)
-        //console.log("target", target)
         let nestedValue = await getNestedValue(libs, target.path)
-        //console.log("nestedValue", nestedValue)
-        //console.log("nestedValue[target.key]", nestedValue[target.key])
         try {
-            //console.log("nestedValue[target.key].value", nestedValue[target.key].value)
             mmm = nestedValue[target.key].value
         } catch (e) {
-            //console.log("nestedValue[target.key]", nestedValue[target.key])
-            //console.log("error", e)
             mmm = nestedValue[target.key]
         }
     } else {
-        //console.log("~7")
 
     }
 
 
-    //console.log("TYPEOF", typeof mmm)
-    //console.log("MMM3", mmm)
     if (isExecuted && typeof mmm == "function" && returnEx) {
         mmm = await mmm();
         return mmm
-        //console.log("executed", mmm)
     } else if (isExecuted && typeof mmm == "function" && !returnEx) {
         await mmm();
         return mmm
-        //console.log("executed but did not return response", mmm)
     } else {
-        //console.log("return", mmm)
         return mmm;
     }
 
@@ -1461,11 +1315,8 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                         console.log("process1")
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
 
-                        //console.log("bubble chain params in processAction4.1")
                         if (typeof resu == "object") {
-                            //console.log("bubble chain params in processAction4.2")
                             if (resu.hasOwnProperty("_isFunction")) {
-                                //console.log("bubble chain params in processAction4.3")
                                 return resu
                             }
                         }
@@ -1482,11 +1333,8 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                 console.log("process2")
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
-                //console.log("bubble chain params in processAction4")
                 if (typeof resu == "object") {
-                    //console.log("bubble chain params in processAction5")
                     if (resu.hasOwnProperty("_isFunction")) {
-                        //console.log("bubble chain params in processAction6")
                         return resu
                     }
                 }
@@ -1506,7 +1354,6 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
 async function addValueToNestedKey(key, nestedContext, value) {
     if (value == undefined || key == undefined) {
-        ////console.log("key/value undefined")
     } else {
         key = key.replace("~/", "");
         if (!nestedContext.hasOwnProperty(key)) {
@@ -1519,51 +1366,32 @@ async function addValueToNestedKey(key, nestedContext, value) {
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
 
     let pathHolder = libs
-    //console.log("###contextPath2.00", contextPath.slice(0, -1))
     for (const part of contextPath.slice(0, -1)) {
-        //console.log("pathHolder", pathHolder)
-        //console.log("part", part)
         if (pathHolder.hasOwnProperty(part)) {
-            //console.log("pathHolder has part")
             if (pathHolder[part].hasOwnProperty("context")) {
-                //console.log("part has context")
                 pathHolder = pathHolder[part].context;
             } else {
-                //console.log("part does noot have context")
                 pathHolder = pathHolder[part];
             }
         }
     }
-    //console.log("###pathHolder2.01", pathHolder)
-    //console.log("###contextPath2.02", contextPath.length - 1)
-    //console.log("###contextPath2.03", contextPath[contextPath.length - 1])
     if (pathHolder.hasOwnProperty(contextPath[contextPath.length - 1])) {
-        //console.log("ggg1")
         if (pathHolder[contextPath[contextPath.length - 1]].hasOwnProperty("value")) {
-            //console.log("ggg2")
             pathHolder = pathHolder[contextPath[contextPath.length - 1]].value;
         } else {
-            //console.log("ggg3")
             pathHolder = pathHolder[contextPath[contextPath.length - 1]];
         }
     }
-    //console.log("###pathHolder2.1", pathHolder)
-    //console.log("###objectPath2.12", objectPath.slice(0, -1))
     for (const part of objectPath.slice(0, -1)) {
         if (pathHolder.hasOwnProperty(part)) {
             pathHolder = pathHolder[part];
         }
     }
-    //console.log("###pathHolder2.22", pathHolder)
-    //console.log("###objectPath2.22", objectPath[objectPath.length - 1])
-    //console.log("value", value)
-    //console.log("index", index)
     if (index != undefined) {
         pathHolder[objectPath[objectPath.length - 1]][index] = value
     } else {
         pathHolder[objectPath[objectPath.length - 1]] = value
     }
-    //console.log("###pathHolder2.3", pathHolder)
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
@@ -1588,23 +1416,14 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const keyExecuted = key.endsWith('|}!');
             const keyObj = await isOnePlaceholder(key);
             let keyClean = await removeBrackets(key, keyObj, keyExecuted);
-            //console.log("keyClean", keyClean)
-            //console.log(key, nestedPath);
             let set
             if (keyObj) {
-                //console.log("keyObj", keyObj)
                 set = await getKeyAndPath(keyClean, nestedPath)
             } else {
                 set = { "key": keyClean, "path": nestedPath }
             }
-            //console.log("66: set", set);
             let nestedContext = await getNestedContext(libs, set.path, set.key);
-            //console.log("66: nestedContext", nestedContext)
-            try {
-                //////////console.log("66:2 nestedContext", nestedContext.originalFunction)
-            } catch (err) { }
-            //console.log("66: action", action)
-            //console.log("66: action.set[key]", action.set[key])
+
             function isValidJSON(string) {
                 try {
                     JSON.parse(string);
@@ -1617,65 +1436,40 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             let sending = action.set[key]
             if (typeof action.set[key] === "object") {
                 isJ = true
-                //sending = JSON.stringify(sending)
             }
-            //console.log("sending", sending)
-            //console.log("libs", libs)
-            //console.log("nestedPath", nestedPath)
             let isEx = false
             if (typeof sending == "string") {
                 isEx = sending.endsWith('|}!')
             }
             let value = await replacePlaceholders(sending, libs, nestedPath, isEx)
-            //console.log("isJ", isJ)
             if (isJ) {
-                //console.log("value before", value)
                 try {
                     if (Buffer.isBuffer(value)) {
-                        //console.log("pdfData is a buffer");
-                        //value = value
                     } else if (typeof value === 'object' && value !== null) {
-                        //value = JSON.parse(value)
-                        //console.log("pdfData is likely a JSON object");
                     } else {
-                        //console.log("pdfData is neither a buffer nor a JSON object");
                     }
 
                 } catch (err) {
-                    //console.log("err61111", err)
                 }
-                //console.log("value after", value)
             }
-            //console.log("66: value", value)
 
-            //console.log("key startsWith <|} ", key)
             if (key.endsWith("<|}")) {
 
-                //console.log("keyClean", keyClean)
                 keyClean = keyClean.replace("<", "")
-                //console.log("keyClean", keyClean)
                 set.key = keyClean
                 let subRes = await getSub(keyClean, "su", dynamodb)
-                //console.log("subRes", subRes)
                 let xAccessToken = req.body.headers["X-accessToken"]
                 let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
-                //console.log("cookie33", cookie)
                 let { verified } = await verifyThis(keyClean, cookie, dynamodb, req.body)
-                //console.log("verified33", verified)
                 if (verified) {
-                    //console.log("verified!!!!!!!")
                     const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
-                    //console.log("aNew", aNew)
                     let nonObj = ""
-                    //console.log("isJ", isJ)
                     if (isJ) {
                         nonObj = JSON.stringify(value)
                     } else {
                         nonObj = value
                     }
-                    //console.log("nonObj", nonObj)
                     const a = await createWord(aNew.toString(), nonObj, dynamodb);
-                    //console.log("a", a)
                     params1 = {
                         "TableName": 'subdomains',
                         "Key": { "su": keyClean },
@@ -1685,7 +1479,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         }
                     };
                     let resRes = await dynamodb.update(params1).promise();
-                    //console.log("resRes", resRes)
 
 
 
@@ -1700,17 +1493,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         }
                     };
                     let resPres = await dynamodb.update(params2).promise();
-                    //console.log("resPres", resPres)
 
                     const details2 = await addVersion(subRes.Items[0].e.toString(), "a", a.toString(), "1", dynamodb);
-                    //console.log("details2", details2)
                     const updateParent = await updateEntity(subRes.Items[0].e.toString(), "a", a.toString(), details2.v, details2.c, dynamodb);
-                    //console.log("updateParent", updateParent)
                 }
             }
 
             let arrowJson = keyClean.split("=>")
-            //console.log("66: arrowJson", arrowJson)
             if (arrowJson.length > 1) {
                 let index
                 if (arrowJson[1].includes("[")) {
@@ -1718,12 +1507,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                     arrowJson[1] = arrowJson[1].slice(0, -1).split("[")[0]
                 }
                 const pathParts = arrowJson[1].split('.');
-                //console.log("66: pathParts", pathParts)
                 let firstParts = arrowJson[0].replace("~/", "root.").split('.')
-                //console.log("###firstParts", firstParts)
-                //console.log("###pathParts", pathParts)
-                //console.log("###value", value)
-                //console.log("###libs", libs)
                 if (index != undefined) {
                     if (index.includes("{|")) {
                         index = index.replace("{|", "").replace("|}!", "").replace("|}", "")
@@ -1731,18 +1515,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         index = parseInt(index.value.toString())
                     }
                 }
-                //console.log("putValueIntoContext")
                 await putValueIntoContext(firstParts, pathParts, value, libs, index);
-                //console.log("###libs3", libs)
-                //console.log("###libs3", libs.root.context)
-                //console.log("###libs3", libs.root.context.uploadParams)
             } else {
-                //console.log("addValueToNestedKey")
-                //console.log("set.key", set.key.replace("~/", ""))
-                //console.log("nestedContext", nestedContext)
-                //console.log("value", value)
                 await addValueToNestedKey(set.key.replace("~/", ""), nestedContext, value);
-                //console.log("libs.root.context", libs.root.context)
             }
         }
     }
@@ -1782,10 +1557,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
         if (value) {
             if (action.params) {
-                //console.log("action.params", action.params)
                 let promises = action.params.map(async item => {
-                    //console.log("item", item);
-                    //console.log("typeof item", typeof item)
                     try {
                         const fromExecuted = item.endsWith('|}!');
                         const fromObj = await isOnePlaceholder(item);
@@ -1801,31 +1573,23 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                         let value = await replacePlaceholders(item, libs, nestedPath, fromExecuted);
                         return value;
                     } catch (err) {
-                        //console.log("err43", err)
                         return item
                     }
                 });
                 args = await Promise.all(promises)
-                //console.log("args", args)
             }
             console.log("value", value)
-            //console.log(typeof nestedContext[target.key].value)
-            //console.log("args.length", args.length)
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
                 nestedContext[target.key].value = value(...args);
             }
         }
         let newNestedPath = nestedPath
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
-        //console.log("bubble chain params in processAction1")
         if (typeof result == "object") {
-            //console.log("bubble chain params in processAction2")
             if (result.hasOwnProperty("_isFunction")) {
-                //console.log("bubble chain params in processAction3")
                 return result
             }
         }
-        //console.log("applyMethodChain result", result)
         if (action.assign) {
             const assignObj = await isOnePlaceholder(action.assign);
             let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
@@ -1837,16 +1601,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
 
             let nestedContext = await getNestedContext(libs, assign.path);
-            //console.log("nestedContext", nestedContext)  //<<--- This is coming directly before post-initializeModules in the logs
             if (assignObj && assignExecuted && typeof result == "function") {
                 let tempFunction
                 if (action.chain) {
                     if (action.chain.express) {
                         tempFunction = () => result()(req, res, next);
                     } else {
-                        //console.log("action", action)
-                        //console.log("action.chain", action.chain)
-                        //console.log("result", result)
                         tempFunction = () => result()
                     }
                 } else {
@@ -1875,8 +1635,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             if (assignExecuted && typeof result === 'function') {
                 result = await result()
             } else if (typeof result === 'function') {
-                //result = result;
-                //console.log("do nothing")
             } else {
                 result = JSON.stringify(result);
             }
@@ -1907,7 +1665,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
             } else {
                 async function executeValue() {
-                    //console.log("value.value()")
                     try {
                         const data = await value.value();
                         return data;
@@ -1919,7 +1676,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 }
                 await executeValue()
                     .then(data => {
-                        ////console.log('Fetched data:', data);
                     })
                     .catch(error => {
                         console.error('Error:', error.message);
@@ -1927,7 +1683,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
             }
         } else {
-            //console.error(`No function named ${strClean} found in context`);
         }
     }
 
@@ -1959,55 +1714,39 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (chainAction.params) {
 
-                //console.log("chainAction.params", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
-                //console.log("chainParams", chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
-            //console.log("000")
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
-                //console.log("111")
                 if (chainAction.express) {
                     if (chainAction.next || chainAction.next == undefined) {
-                        //console.log("chainAction.next")
                         result = await result[accessClean]()(req, res, next);
-                        //console.log("req2", req)
                     } else {
                         result = await result[accessClean]()(req, res);
-                        //console.log("req3", req)
                     }
                 } else {
                     result = await result[accessClean]()
                 }
             } else if (accessClean && chainAction.new && chainAction.params.length > 0) {
-                //console.log("222")
                 result = await new result[accessClean](...chainParams);
             } else if ((!accessClean || accessClean == "") && chainAction.new && (!chainAction.params || chainAction.params.length == 0)) {
-                //console.log("333")
                 result = await new result();
             } else if ((!accessClean || accessClean == "") && chainAction.new && chainAction.params.length > 0) {
-                //console.log("444")
-                //console.log("result", result)
 
                 result = await new result(...chainParams);
             } else if (typeof result[accessClean] === 'function') {
-                //console.log("555")
                 if (chainAction.new) {
                     result = new result[accessClean](...chainParams);
                 } else {
-                    //console.log("666")
                     if (chainAction.access && accessClean.length != 0) {
-                        //console.log("777")
                         if (chainAction.express) {
                             if (chainAction.next || chainAction.next == undefined) {
-                                //console.log("chainAction.next")
                                 result = await result[accessClean](...chainParams)(req, res, next);
-                                //console.log(req)
                             } else {
                                 result = await result[accessClean](...chainParams)(req, res);
                             }
@@ -2019,16 +1758,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     }
                                 }
                                 if (assignExecuted) {
-                                    //console.log("assignExecuted")
                                     if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                         chainParams[0] = JSON.stringify(chainParams[0])
-                                        //console.log("returning", accessClean, "99999")
                                         result = await result[accessClean](...chainParams);
                                     } else {
                                         console.log("result 1", result),
-                                            //console.log("accessClean 2", accessClean)
-                                        //console.log("chainParams 3", chainParams)
-                                        // 
 
 
                                         console.log("req.body", req.body);
@@ -2036,14 +1770,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         console.log("accessClean", accessClean)
 
                                         if (accessClean === 'send') {
-                                            // ⤴ cookies.js called runApp as a function – do **not** touch Express
                                             if (req.body && req.body._isFunction) {
-                                                // Bubble the would‑be response back to runApp / cookies.js
                                                 console.log("return chainParams", chainParams)
                                                 return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
                                             }
                                         }
-                                        /* fallback to the original behaviour */
                                         console.log("fallback", chainParams)
                                         result = await result[accessClean](...chainParams);
                                         console.log("after completed result")
@@ -2106,32 +1837,21 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 }
 
 async function createFunctionFromAction(action, libs, nestedPath, req, res, next) {
-    //console.log("11111111")
-    //console.log("action", action)
-    //console.log("libs", libs)
-    //console.log("nestedPath", nestedPath)
     return async function (...args) {
         const assignExecuted = action.assign.endsWith('|}!');
-        //console.log("55: assignExecuted", assignExecuted)
         const assignObj = await isOnePlaceholder(action.assign);
-        //console.log("55: assignObj", assignObj)
         let strClean = await removeBrackets(action.assign, assignObj, assignExecuted);
-        //console.log("55: strClean", strClean)
         let assign
         if (assignObj) {
             assign = await getKeyAndPath(strClean, nestedPath)
         } else {
             assign = { "key": strClean, "path": nestedPath }
         }
-        //console.log("55: assign", assign)
         let nestedContext = await getNestedContext(libs, assign.path);
-        //console.log("createFunctionFromAction", assign.key, nestedContext)
         let result;
-        //console.log("args", args)
 
         if (action.params && args.length) {
             for (const [idx, arg] of args.entries()) {
-                //console.log("11: arg", arg);
 
                 if (!arg) continue;
 
@@ -2156,18 +1876,12 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
             let indexP = 0;
             for (par in action.params) {
-                //console.log("par", par)
                 let param2 = action.params[par]
-                //console.log("22: param2", param2)
                 if (param2 != null && param2 != "") {
                     const paramExecuted2 = param2.endsWith('|}!');
-                    //console.log("22: paramExecuted2", paramExecuted2)
                     const paramObj2 = await isOnePlaceholder(param2);
-                    //console.log("22: paramObj2", paramObj2)
                     let paramClean2 = await removeBrackets(param2, paramObj2, paramExecuted2);
-                    //console.log("22: paramClean2", paramClean2)
                     let newNestedPath2 = nestedPath + "." + assign.key
-                    //console.log("22: newNestedPath2", newNestedPath2)
                     let p
                     const isObj = await isOnePlaceholder(paramClean2)
                     if (isObj) {
@@ -2175,11 +1889,8 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
                     } else {
                         p = { "key": paramClean2, "path": newNestedPath2 }
                     }
-                    //console.log("22: p", p)
                     let nestedParamContext2 = await getNestedContext(libs, p.path);
-                    //console.log("22: addValue:", paramClean2, nestedParamContext2, args[indexP])
                     await addValueToNestedKey(paramClean2, nestedParamContext2, args[indexP])
-                    //console.log("22: lib.root.context", libs.root.context);
                 }
                 indexP++
             }
@@ -2195,7 +1906,6 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
             }
             result = nestedResults[0];
         }
-        //console.log("YY return result", result)
         return result;
 
     };
@@ -2204,9 +1914,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 const automate = async (url) => {
     try {
         const response = await axios.get(url);
-        ////////console.log('URL called successfully:', response.data);
     } catch (error) {
-        //console.error('Error calling URL:', error);
     }
 };
 
@@ -2344,7 +2052,7 @@ const lambdaHandler = async (event, context) => {
             const data = await dynamodb.query(params).promise();
 
             for (const itm of data.Items) {
-                const stUnix = itm.sd + itm.st;   // ✓ use fields directly
+                const stUnix = itm.sd + itm.st;  
                 const etUnix = itm.sd + itm.et;
 
                 const startTime = moment(stUnix * 1000);
