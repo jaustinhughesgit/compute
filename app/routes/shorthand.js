@@ -1210,6 +1210,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
+            console.log("bod rA[1]", bod);
+
             let expt = rA[2]
             let act = rA[3];
             let param1 = rA[4];
