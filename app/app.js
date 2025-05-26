@@ -466,11 +466,32 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     }
 }
 
+function getPageType(urlPath) {
+    if (urlPath.toLowerCase().includes("sc")) {
+        return "sc"
+    } else if (urlPath.toLowerCase().includes("mc")) {
+        return "mc"
+    } else if (urlPath.toLowerCase().includes("sa")) {
+        return "sa"
+    } else if (urlPath.toLowerCase().includes("ma")) {
+        return "ma"
+    } else if (urlPath.toLowerCase().includes("blank")) {
+        return "blank"
+    } else {
+        return "1var"
+    }
+}
+
+
+
 async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
     if (config.modules) {
-        for (const [key, value] of Object.entries(config.modules, context)) {
-            let newPath = await installModule(value, key, context, lib);
+        for (const [key, value] of Object.entries(config.modules)) {
+            // installModule now returns the modulePath on success
+            const installedAt = await installModule(value, key, context, lib);
+            console.log(`✅  Module "${value}" installed for context key "${key}" at: ${installedAt}`);
+            
         }
     }
     return context;
@@ -482,7 +503,6 @@ async function installModule(moduleName, contextKey, context, lib) {
         .join(' ');
 
     let execResult = await exec(`npm install ${moduleName} --save ${npmConfigArgs}`);
-    //console.log("execResult", execResult);
     lib.modules[moduleName.split("@")[0]] = { "value": moduleName.split("@")[0], "context": {} };
 
     const moduleDirPath = path.join('/tmp/node_modules/', moduleName.split("@")[0]);
@@ -534,28 +554,12 @@ async function installModule(moduleName, contextKey, context, lib) {
             context[contextKey] = { "value": module, "context": {} };
         }
     }
-
-    //console.log("context", JSON.stringify(context));
+    // Everything succeeded, return the resolved path (or module) so caller can log it
+    return modulePath;
 }
 
-function getPageType(urlPath) {
-    if (urlPath.toLowerCase().includes("sc")) {
-        return "sc"
-    } else if (urlPath.toLowerCase().includes("mc")) {
-        return "mc"
-    } else if (urlPath.toLowerCase().includes("sa")) {
-        return "sa"
-    } else if (urlPath.toLowerCase().includes("ma")) {
-        return "ma"
-    } else if (urlPath.toLowerCase().includes("blank")) {
-        return "blank"
-    } else {
-        return "1var"
-    }
-}
 
 async function initializeMiddleware(req, res, next) {
-    //console.log("runApp3")
 
     if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
@@ -563,15 +567,12 @@ async function initializeMiddleware(req, res, next) {
         req.dynPath = req.path
     }
 
-    //console.log("req.dynPath", req.dynPath)
 
     if (req.dynPath.startsWith('/auth') || req.dynPath.startsWith('/blocks') || req.dynPath.startsWith('/cookies/runEntity')) {
-        //console.log("runApp4")
         let originalHost = req.body.headers["X-Original-Host"];
         let splitOriginalHost = originalHost.split("1var.com")[1]
         let reqPath = splitOriginalHost.split("?")[0]
         reqPath = reqPath.replace("/cookies/runEntity", "")
-        //console.log("reqPath", reqPath)
         req.dynPath = reqPath
         let head
         let cookie
@@ -579,55 +580,34 @@ async function initializeMiddleware(req, res, next) {
         let fileArray
         let xAccessToken = req.body.headers["X-accessToken"]
         if (reqPath.split("/")[1] == "api") {
-            //console.log("runApp5")
             head = await getHead("su", reqPath.split("/")[2], dynamodb)
             cookie = await manageCookie({}, req, xAccessToken, dynamodb, uuidv4)
-            //console.log("req.body", req.body)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
 
-            //console.log("runApp6")
             head = await getHead("su", reqPath.split("/")[1], dynamodb)
-            //console.log("runApp6.1")
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
-            //console.log("runApp6.2")
-            //console.log("head.Items[0].su", head.Items[0].su)
-            //console.log("req.body", req.body)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
-            //console.log("runApp6.3")
-            //console.log("parent")
             fileArray = parent.paths[reqPath.split("/")[1]];
         }
-        //console.log("runApp6.4")
         let isPublic = head.Items[0].z
-        //console.log("#1cookie", cookie)
-        //console.log("#1parent", parent)
-        //console.log("head", head);
-        //console.log("fileArray", fileArray);
 
 
         if (fileArray != undefined) {
             const promises = fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
             const results = await Promise.all(promises);
-            //console.log("RESULTS87", results)
-            //console.log("req.blocks", req.blocks)
 
             if (req.blocks) {
-                //console.log("results", results)
                 return results
             } else {
                 const arrayOfJSON = [];
 
-                //console.log("results", results)
                 results.forEach(result => arrayOfJSON.push(result));
-                //console.log("arrayOfJSON", arrayOfJSON)
                 let resit = res
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        //console.log("req.body", JSON.stringify(req.body))
                         req.lib.root.context.body = { "value": req.body.body, "context": {} }
-                        //console.log("userJSON", userJSON)
                         userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
@@ -649,31 +629,21 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
-                        //console.log("pre-initializeModules", req.lib.root.context)
                         console.log("pre-initializeModules1", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("post-initializeModules2",req.body)
-                        console.log("req.body.params", req.body.params);
-                        console.log("typeof req.body.params", typeof req.body.params)
-                        console.log("req.body.params._isFunction", req.body.params._isFunction)
+
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
 
-                            /* bubble straight back to runMiddleware */
                             return req.body.params;
                         }
 
-                        /* otherwise fall through and call next() */
-                        if (typeof next === "function") await next();
-                        //console.log("post-initializeModules", req.lib.root.context)
 
-                        //console.log("post-lib", req.lib)
-                        //console.log("req1", req)
-                        //console.log("res.req", res.req.ip)
-                        //console.log("userJSON", userJSON)
+                        if (typeof next === "function") await next();
+
 
                     };
                 });
@@ -701,11 +671,8 @@ async function initializeModules(libs, config, req, res, next) {
             response = await runAction(action, libs, "root", req, res, next);
         }
 
-        //console.log("bubble chain params in processAction7")
         if (typeof response == "object") {
-            //console.log("bubble chain params in processAction8")
             if (response.hasOwnProperty("_isFunction")) {
-                //console.log("bubble chain params in processAction9")
                 return response
             }
         }
