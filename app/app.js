@@ -1123,6 +1123,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
     }
 
     async function replace2(str, nestedPath) {
+        console.log("replsce2", str)
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
         let match;
         let modifiedStr = str;
@@ -1131,6 +1132,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
             if (/{\|.*\|}/.test(innerStr)) {
+                console.log("replace2 innserStr", innerStr)
                 innerStr = await replace2(innerStr, nestedPath);
             }
 
@@ -1157,7 +1159,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
 
 
-
+            console.log("modifiedStr", modifiedStr)
             if (typeof value === "string" || typeof value === "number") {
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
 
@@ -1215,12 +1217,15 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         }
 
         if (modifiedStr.match(regex)) {
+            console.log("modifiedStr.match(regex", modifiedStr, regex)
             return await replace2(modifiedStr, nestedPath);
         }
+        console.log("return modifiedStr", modifiedStr)
         return modifiedStr;
     }
-
+    console.log("await replace2", str, nestedPath)
     let response = await replace2(str, nestedPath);
+    console.log("return response end", response)
     return response
 }
 
