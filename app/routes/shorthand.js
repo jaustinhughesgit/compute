@@ -750,12 +750,15 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         console.log("parsed", parsed)
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
+            console.log("parsed.list", parsed.list)
             topLevelFns = parsed.list;
         } else if (parsed) {
+            console.log("[parsed]", [parsed])
             topLevelFns = [parsed];
         }
         let finalResults = [];
 
+        console.log("topLevelFns", topLevelFns)
         for (let fnObj of topLevelFns) {
             if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
                 finalResults.push(rowArray[0]);
@@ -772,6 +775,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     finalResults.push(fnObj.RESULTS);
                     console.log("finalResults3", finalResults)
                 } else {
+                    console.log("fnObj", fnObj)
+                    console.log("fnObj.RESULTS", fnObj.RESULTS)
                     finalResults.push(fnObj.RESULTS);
                     console.log("finalResults4", finalResults)
                 }
@@ -1213,7 +1218,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
-            let reqBody = req.body;
+            let reqBody = {"body":req.body};
             //const action = reqPath.split("/")[2];
 
             let newReq = {};
@@ -1230,7 +1235,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
