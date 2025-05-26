@@ -650,14 +650,18 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         //console.log("pre-initializeModules", req.lib.root.context)
-                        //console.log("pre-lib", req.lib)
+                        console.log("pre-initializeModules1", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
-
+                        console.log("post-initializeModules2",req.body)
+                        console.log("req.body.params", req.body.params);
+                        console.log("typeof req.body.params", typeof req.body.params)
+                        console.log("req.body.params._isFunction", req.body.params._isFunction)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
+
                             /* bubble straight back to runMiddleware */
                             return req.body.params;
                         }
@@ -682,14 +686,18 @@ async function initializeMiddleware(req, res, next) {
 }
 
 async function initializeModules(libs, config, req, res, next) {
+    console.log("requre modules1")
     await require('module').Module._initPaths();
+    console.log("require modules2")
+    console.log("actions", actions)
     for (const action of config.actions) {
         let runResponse
         if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
-            //console.log(dbAction)
+            console.log("rumAction1",dbAction)
             respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
+            console.log("runAction2")
             response = await runAction(action, libs, "root", req, res, next);
         }
 
@@ -1444,6 +1452,7 @@ async function processString(str, libs, nestedPath, isExecuted, returnEx) {
 }
 
 async function runAction(action, libs, nestedPath, req, res, next) {
+    console.log("runAction", runAction)
     if (action != undefined) {
         let runAction = true;
         if (action.if) {
@@ -1467,7 +1476,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
                         let leftSide1 = await replacePlaceholders(whileCondition[0], libs, nestedPath, while0Executed)
                         let conditionMiddle = whileCondition[1]
                         let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed)
-
+                        console.log("process1")
                         let resu = await processAction(action, libs, nestedPath, req, res, next);
 
                         //console.log("bubble chain params in processAction4.1")
@@ -1488,6 +1497,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
             }
 
             if (!action.while) {
+                console.log("process2")
                 let resu = await processAction(action, libs, nestedPath, req, res, next);
 
                 //console.log("bubble chain params in processAction4")
@@ -1575,6 +1585,7 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
+    console.log("processAction", action)
     let timeoutLength = 0
 
     if (action.timeout) {
