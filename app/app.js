@@ -1170,7 +1170,14 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             if (typeof value === "string" || typeof value === "number") {
                 try{
                     console.log("typeof value of modifiedStr", typeof value)
-                modifiedStr = modifiedStr.replace(match[0], value.toString());
+                    if (typeof modifiedStr === "object"){
+                        console.log("match[0]", match[0])
+                        modifiedStr = JSON.stringify(modifiedStr)
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                        modifiedStr = JSON.parse(modifiedStr);
+                    } else {
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                    }
                 } catch (err){
                     if (typeof value === "object"){
                         modifiedStr = JSON.stringify(modifiedStr)
