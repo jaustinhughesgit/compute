@@ -747,6 +747,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         //console.log("parseNestedKeywords")
         const parsed = await parseNestedKeywords(rowArray);
+        console.log("parsed", parsed)
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
             topLevelFns = parsed.list;
@@ -758,6 +759,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         for (let fnObj of topLevelFns) {
             if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
                 finalResults.push(rowArray[0]);
+                console.log("finalResult2", finalResult)
                 continue;
             }
 
@@ -768,8 +770,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
+                    console.log("finalResult3", finalResult)
                 } else {
                     finalResults.push(fnObj.RESULTS);
+                    console.log("finalResult4", finalResult)
                 }
             }
             else {
@@ -801,6 +805,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     rowResult[functionRowIndex] = resultToInsert;
 
                     let retIndex = callArgs[0].replace("¡¡", "!!");
+                    console.log("isCellRef", retIndex, isCellRef(retIndex))
+                    console.log("isRowResultRef", retIndex, isRowResultRef(retIndex))
                     if (isCellRef(retIndex) && !retIndex.includes("!!")) {
                         const cellInfo = getCellID(retIndex.toUpperCase());
                         if (!cellInfo) {
@@ -830,14 +836,21 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     }
                     else if (isRowResultRef(retIndex)) {
                         const rowRef = await parseInt(retIndex.slice(0, 3), 10);
+                        console.log("rowRef5", rowRef)
+                        console.log("resultToInsert5", resultToInsert)
                         rowResult[rowRef] = resultToInsert;
+                        console.log("rowResult[rowRef]5",rowResult[rowRef])
                         finalResults.push(rowResult[rowRef]);
+                        console.log("finalResults5", finalResults)
                         rowResult[functionRowIndex] = resultToInsert;
+                        console.log("rowResults5")
                     }
                     else {
+                        console.log("finalResult6", finalResult)
                         finalResults.push(resultToInsert);
                     }
                 } else {
+                    console.log("finalResult7", finalResult)
                     finalResults.push(fnDef);
                 }
             }
