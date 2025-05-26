@@ -1218,7 +1218,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
-            let reqBody = {"body":req.body};
+            let reqBody = req.body;
             //const action = reqPath.split("/")[2];
 
             let newReq = {};
@@ -1235,7 +1235,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },

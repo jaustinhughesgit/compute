@@ -2244,7 +2244,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let { runApp } = require('../app');
                 //console.log("running app runApp 12345")
                 let newReq = req
-                newReq.body = reqBody
+                newReq.body = {"body":reqBody}
                 let ot = await runApp(newReq, res, next)
                 console.log("ot", ot)
                 //if (ot){
