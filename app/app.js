@@ -639,7 +639,9 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
                         console.log("pre-initializeModules1", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
-
+                        console.log("req.body.params", req.body.params)
+                        console.log("typeof req.body.params",typeof req.body.params)
+                        console.log("req.body.params._isFunction",req.body.params._isFunction)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
@@ -648,12 +650,13 @@ async function initializeMiddleware(req, res, next) {
                             console.log("return req.body.params", req.body.params)
                             return req.body.params;
                         }
-
+                        console.log("typeof next", typeof next)
 
                         if (typeof next === "function") await next();
 
-
+                        console.log("end")
                     };
+                    console.log("mapEnd")
                 });
                 console.log("return await Promise.all(resultArrayOfJSON")
                 return await Promise.all(resultArrayOfJSON)
