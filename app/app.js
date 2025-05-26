@@ -386,8 +386,10 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     if (isPublic == "true" || isPublic == true) {
         fileLocation = "public"
     }
-    const params = { Bucket: fileLocation + '.1var.com', Key: fileName };
+    const params = { Bucket: fileLocation + '.1var.com', Key: fileName,  };
     const data = await s3.getObject(params).promise();
+    console.log("data data data data data data")
+    console.log(data)
     if (data.ContentType == "application/json") {
         let s3JSON = await JSON.parse(data.Body.toString());
 
@@ -1250,10 +1252,11 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             }
             modifiedStr = JSON.parse(modifiedStr)
         } else {
-            if (modifiedStr.match(regex)) {
+
+            /*if (modifiedStr.match(regex)) {
                 console.log("modifiedStr.match(regex", modifiedStr, regex)
                 return await replace2(modifiedStr, nestedPath);
-            }
+            }*/
         }
         console.log("return modifiedStr", modifiedStr)
         return modifiedStr;
