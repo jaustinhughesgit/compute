@@ -1163,7 +1163,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         let originalHost = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         let splitOriginalHost = originalHost.split("1var.com")[1];
         let reqPath = splitOriginalHost.split("?")[0];
-        let reqBody = req.body;
+        let reqBody2 = req.body;
         const action = reqPath.split("/")[2];
         let newReq = {};
         newReq.body = req.body
@@ -1172,7 +1172,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         newReq.type = req.type
         newReq._headerSent = req._headerSent
         newReq.path = req.path
-        let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+        let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody2, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
         resp = resp.response
         //console.log("get=>", resp);
         //console.log("resp", resp)
@@ -1220,7 +1220,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
-            let reqBody = req.body;
+            let reqBody2 = req.body;
             //const action = reqPath.split("/")[2];
 
             let newReq = {};
@@ -1238,7 +1238,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq2, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
