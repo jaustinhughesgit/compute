@@ -2245,11 +2245,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
                 console.log("ot", ot)
-                if (ot){
+                //if (ot){
                     return ot?.chainParams
-                } else {
-                    return
-                }
+                //} else {
+                //    return
+                //}
             }
             /* else if (action == "transcribe"){
                 mainObj["presign"] = await getPresignedUrl();
