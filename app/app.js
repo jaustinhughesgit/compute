@@ -1031,6 +1031,7 @@ function evaluateMathExpression2(expression) {
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     console.log("replacePlaceholders2 ==", str)
+    console.log("let json = libs.root.context",libs.root.context)
     let json = libs.root.context
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         let current = json;
@@ -1130,9 +1131,12 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         let match;
         let modifiedStr = str;
 
+        
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
+            console.log("forceRoot", forceRoot);
+            console.log("innerStr", innerStr)
             if (/{\|.*\|}/.test(innerStr)) {
                 console.log("replace2 innserStr", innerStr)
                 innerStr = await replace2(innerStr, nestedPath);
@@ -1153,6 +1157,8 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                 let subWord = await getWord(subRes.Items[0].a, dynamodb)
                 value = subWord.Items[0].s
             } else {
+                console.log("getValueFromJson2 innerStr", innerStr)
+                console.log("getValueFromJson2 json", json)
                 value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
             }
 
