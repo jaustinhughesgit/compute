@@ -2224,6 +2224,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 console.log("newShorthand", newShorthand)
                 newShorthand.published.blocks = blocks;
+                console.log("newShorthand", newShorthand)
                 delete newShorthand.input
                 const params = {
                     Bucket: "public.1var.com",
@@ -2233,6 +2234,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 };
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+                mainObj["newShorthand"] = newShorthand
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
