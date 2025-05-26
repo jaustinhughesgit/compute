@@ -868,7 +868,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath, actionExecution, returnEx = true) {
     let processedItem = item;
-    console.log("replacePlaceholders", itme)
+    console.log("replacePlaceholders", item)
     if (typeof processedItem === 'string') {
 
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution, returnEx);
