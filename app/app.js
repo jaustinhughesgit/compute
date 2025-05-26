@@ -345,14 +345,15 @@ async function runApp(req, res, next) {
 
         if (req.lib.middlewareCache.length > 0) {
             const runMiddleware = async index => {
+                console.log("runMiddleware2")
                 if (index >= req.lib.middlewareCache.length) return;
 
                 const maybe = await req.lib.middlewareCache[index](
                     req,
                     res,
-                    () => runMiddleware(index + 1) 
+                    async () => await runMiddleware(index + 1) 
                 );
-
+                console.log("runMiddleware3")
                
                 if (
                     maybe &&
@@ -360,14 +361,18 @@ async function runApp(req, res, next) {
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
+                    console.log("runMiddleware4", maybe)
                     return maybe; 
                 }
 
-              
+                console.log("runMiddleware5")
                 return maybe;
             };
+            console.log("runMiddleware1")
             const bubble = await runMiddleware(0); 
-            if (bubble) {                         
+            console.log("runMiddleware6")
+            if (bubble) {                
+                console.log("runMiddleware7")         
                 req.body.params = bubble.chainParams;  
                 return bubble;                       
             }
