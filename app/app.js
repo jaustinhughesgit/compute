@@ -1241,9 +1241,19 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             }
         }
 
-        if (modifiedStr.match(regex)) {
-            console.log("modifiedStr.match(regex", modifiedStr, regex)
-            return await replace2(modifiedStr, nestedPath);
+        console.log("typeof modifiedStr.mathch", typeof modifiedStr)
+        if (typeof modifiedStr === "object"){
+            modifiedStr = JSON.stringify(modifiedStr);
+            if (modifiedStr.match(regex)) {
+                console.log("modifiedStr.match(regex", modifiedStr, regex)
+                return await replace2(modifiedStr, nestedPath);
+            }
+            modifiedStr = JSON.parse(modifiedStr)
+        } else {
+            if (modifiedStr.match(regex)) {
+                console.log("modifiedStr.match(regex", modifiedStr, regex)
+                return await replace2(modifiedStr, nestedPath);
+            }
         }
         console.log("return modifiedStr", modifiedStr)
         return modifiedStr;
