@@ -868,7 +868,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 
 async function replacePlaceholders(item, libs, nestedPath, actionExecution, returnEx = true) {
     let processedItem = item;
-
+    console.log("replacePlaceholders", itme)
     if (typeof processedItem === 'string') {
 
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution, returnEx);
@@ -1030,7 +1030,7 @@ function evaluateMathExpression2(expression) {
 }
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
-
+    console.log("replacePlaceholders2 ==", str)
     let json = libs.root.context
     function getValueFromJson2(path, json, nestedPath, forceRoot) {
         let current = json;
@@ -1292,7 +1292,7 @@ const json88 = {
 };
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
-
+    console.log("processString", str)
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
         newNestedPath = newNestedPath.replace("root.", "")
