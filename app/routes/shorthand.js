@@ -759,7 +759,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         for (let fnObj of topLevelFns) {
             if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
                 finalResults.push(rowArray[0]);
-                console.log("finalResult2", finalResult)
+                console.log("finalResults2", finalResults)
                 continue;
             }
 
@@ -770,10 +770,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
-                    console.log("finalResult3", finalResult)
+                    console.log("finalResults3", finalResults)
                 } else {
                     finalResults.push(fnObj.RESULTS);
-                    console.log("finalResult4", finalResult)
+                    console.log("finalResults4", finalResults)
                 }
             }
             else {
