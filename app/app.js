@@ -1158,11 +1158,29 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
             const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
 
+            function safeParseJSON(str) {
+                try {
+                  return JSON.parse(str);
+                } catch {
+                  return str; // or null
+                }
+              }
 
             console.log("modifiedStr", modifiedStr)
             if (typeof value === "string" || typeof value === "number") {
+                try{
+                    console.log("typeof value of modifiedStr", typeof value)
                 modifiedStr = modifiedStr.replace(match[0], value.toString());
-
+                } catch (err){
+                    if (typeof value === "object"){
+                        modifiedStr = JSON.stringify(modifiedStr)
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                        modifiedStr = JSON.parse(modifiedStr)
+                    }
+                    else {
+                        console.log("is not JSON object just return modifiedStr")
+                    }
+                }
 
 
 
