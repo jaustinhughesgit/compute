@@ -331,7 +331,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
             }
             rowLog += ']';
-            console.log(rowLog);
+            //console.log(rowLog);
         }
     }
 
@@ -630,12 +630,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             functionArray = expanded;
             let result;
             try {
-                console.log("keywores[functionName]")
+                //console.log("keywores[functionName]")
                 if (keywords[functionName]) {
-                    console.log("true")
+                    //console.log("true")
                     const resolvedArgs = await awaitAll(functionArray);
                     result = await keywords[functionName](resolvedArgs);
-                    console.log("result", result)
+                    //console.log("result", result)
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -644,9 +644,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 console.error("Error executing function:", functionName, err);
                 result = "";
             }
-            console.log("funcObj['results'] = results", result)
+            //console.log("funcObj['results'] = results", result)
             funcObj["RESULTS"] = result;
-            console.log("return", {
+            //console.log("return", {
                 nestedObj: funcObj,
                 newIndex: i
             })
@@ -723,7 +723,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseRow(rowIndex) {
-        console.log("parseRow", rowIndex)
+        //console.log("parseRow", rowIndex)
         const rowArray = matrix[rowIndex] || [];
         if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
             rowResult[rowIndex] = rowArray[0];
@@ -735,7 +735,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
 
         if (rowArray[0] === "FUNCTION") {
-            console.log("FUNCTION")
+            //console.log("FUNCTION")
             const paramNames = Array.isArray(rowArray[1]) ? rowArray[1] : [];
             const body = rowArray.slice(2);
             rowResult[rowIndex] = {
@@ -745,7 +745,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             };
             return rowResult[rowIndex];
         }
-        console.log("parseNestedKeywords")
+        //console.log("parseNestedKeywords")
         const parsed = await parseNestedKeywords(rowArray);
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
@@ -846,7 +846,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
 
         if (typeof rowArray[0] === "string") {
-        console.log("string")
+        //console.log("string")
             if (
                 rowResult[rowIndex] == null ||
                 isFullRowRef(rowResult[rowIndex]) ||
@@ -855,23 +855,23 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             ) {
                 if (parsed && parsed.AA === "FIND") {
                 } else {
-                    console.log("resolveCell")
+                    //console.log("resolveCell")
                     rowResult[rowIndex] = await resolveCell(rowArray[0]) || null;
                 }
             }
         }
-        console.log("return rowResult[rowIndex]", rowResult[rowIndex])
+        //console.log("return rowResult[rowIndex]", rowResult[rowIndex])
         return rowResult[rowIndex];
     }
 
     async function run(skipArray) {
-        console.log("run running")
+        //console.log("run running")
         rowResult = [];
         resRow = 0;
         sweep = 0;
 
         async function checkLoopSkip(r) {
-            console.log("checkLoopSkip r", r)
+            //console.log("checkLoopSkip r", r)
             if (matrix[r] && matrix[r][0] === "LOOP") {
                 let currentVal = 0;
                 if (Array.isArray(rowResult[r])) {
@@ -896,12 +896,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
-                console.log("parseRow")
+                //console.log("parseRow")
                 await parseRow(resRow);
             }
-            console.log("skipBump")
+            //console.log("skipBump")
             const skipBump = await checkLoopSkip(resRow);
-            console.log("skipBump", skipBump)
+            //console.log("skipBump", skipBump)
             if (!skipBump) {
                 resRow++;
             }
@@ -910,7 +910,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 sweep++;
             }
         }
-        console.log("rowResult", rowResult)
+        //console.log("rowResult", rowResult)
     }
 
     function expandRowToMultiple(rowData) {
@@ -1070,36 +1070,36 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function processArray(data) {
-        console.log("processArray", data)
+        //console.log("processArray", data)
         if (
             Array.isArray(data) &&
             data.length > 0 &&
             typeof data[0] === "object" &&
             (data[0].physical || data[0].virtual)
         ) {
-            console.log("part1")
+            //console.log("part1")
             for (let segment of data) {
                 const typeKey = Object.keys(segment)[0];
                 const segmentRows = segment[typeKey];
                 const startRowCount = matrix.length;
                 for (let rowData of segmentRows) {
-                    console.log("rowData", rowData)
+                    //console.log("rowData", rowData)
                     if (
                         typeof rowData === "object" &&
                         !Array.isArray(rowData) &&
                         !("physical" in rowData || "virtual" in rowData)
                     ) {
-                        console.log("importMatrix", rowData)
+                        //console.log("importMatrix", rowData)
                         let publishedValue = await getVAR(rowData);
-                        console.log("publishedValue!!", publishedValue)
+                        //console.log("publishedValue!!", publishedValue)
                         await addRow([publishedValue]);
                     } else {
-                        console.log("manageArrowCells1")
+                        //console.log("manageArrowCells1")
                         await manageArrowCells(rowData);
                     }
                 }
 
-                console.log("await run1")
+                //console.log("await run1")
                 await run(skip);
 
                 if (typeKey === "virtual") {
@@ -1113,9 +1113,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         }
         else {
-            console.log("part2")
+            //console.log("part2")
             for (let i = 0; i < data.length; i++) {
-                console.log("data[i]",i,data[i])
+                //console.log("data[i]",i,data[i])
                 const rowData = data[i];
                 if (
                     typeof rowData === "object" &&
@@ -1123,14 +1123,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     !("physical" in rowData || "virtual" in rowData)
                 ) {
                     let publishedValue = await getVAR(rowData);
-                    console.log("publishedValue", publishedValue)
+                    //console.log("publishedValue", publishedValue)
                     await addRow([publishedValue]);
                 } else {
-                    console.log("manageArrowCells2")
+                    //console.log("manageArrowCells2")
                     await manageArrowCells(rowData);
                 }
             }
-            console.log("run(skip)2")
+            //console.log("run(skip)2")
             await run(skip);
         }
         return rowResult[0];
@@ -1155,8 +1155,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         newReq.path = req.path
         let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
         resp = resp.response
-        console.log("get=>", resp);
-        console.log("resp", resp)
+        //console.log("get=>", resp);
+        //console.log("resp", resp)
         if (data["++"]) {
             if (!Array.isArray(resp.input)) {
                 resp.input = [];
@@ -1168,17 +1168,17 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 resp.published.blocks
             }
             let published = await shorthand(resp);
-            console.log("resp>>", resp)
+            //console.log("resp>>", resp)
             return published;
         } else {
-            console.log("data => ", data)
+            //console.log("data => ", data)
             let overrides = data[entity];
             if (overrides) {
-                console.log("overrides", overrides)
+                //console.log("overrides", overrides)
                 const fixBlocks = resp.published.blocks
                 resp = await deepMerge(resp, overrides);
             }
-            console.log("resp>>", resp)
+            //console.log("resp>>", resp)
             return resp.published;
         }
     }
@@ -1211,6 +1211,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
+            console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
             console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
