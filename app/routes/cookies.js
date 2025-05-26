@@ -815,9 +815,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let { runApp } = require('../app');
                 let ot = await runApp(req, res, next)
                 console.log("ot", ot)
-               
+                if (ot){
                     return ot?.chainParams
-               
+                } else {
+                    return
+                }
             }
             mainObj["file"] = actionFile + ""
             response = mainObj
