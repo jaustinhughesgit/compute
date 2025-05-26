@@ -651,7 +651,7 @@ async function initializeModules(libs, config, req, res, next) {
     console.log("requre modules1")
     await require('module').Module._initPaths();
     console.log("require modules2")
-    console.log("actions", actions)
+    console.log("config.actions", config.actions)
     for (const action of config.actions) {
         let runResponse
         if (typeof action == "string") {
