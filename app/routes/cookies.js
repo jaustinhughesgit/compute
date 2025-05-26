@@ -11,7 +11,7 @@ const keyPairId = 'K2LZRHRSYZRU3Y';
 let convertCounter = 0
 let isPublic = true
 async function getSub(val, key, dynamodb) {
-    console.log("getSub", val, key)
+    //console.log("getSub", val, key)
     let params
     if (key == "su") {
         params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: { ':su': val } };
@@ -300,14 +300,14 @@ async function convertToJSON(
     dynamodbLL,
     body
 ) {
-    console.log("fileID", fileID)
-    console.log("cookie", cookie)
-    console.log("body", body)
+    //console.log("fileID", fileID)
+    //console.log("cookie", cookie)
+    //console.log("body", body)
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-    console.log("verified", verified)
-    console.log("subBySU", subBySU)
-    console.log("entity", entity)
-    console.log("isPublic", isPublic)
+    //console.log("verified", verified)
+    //console.log("subBySU", subBySU)
+    //console.log("entity", entity)
+    //console.log("isPublic", isPublic)
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
@@ -412,9 +412,9 @@ async function convertToJSON(
             Object.assign(paths2, linkedResponse.paths2);
         }
     }
-    console.log("getGroups")
+    //console.log("getGroups")
     const groupList = await getGroups(dynamodb);
-    console.log("returning ----", groupList)
+    //console.log("returning ----", groupList)
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
@@ -2234,13 +2234,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
             } else if (action == "runEntity") {
-                console.log("reqPath", reqPath);
-                console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
-                console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
+                //console.log("reqPath", reqPath);
+                //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
+                //console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
                 actionFile = reqPath.split("?")[0].split("/")[3];
                 console.log("runEntity inside", actionFile)
                 let { runApp } = require('../app');
-                console.log("running app runApp 12345")
+                //console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
                 console.log("ot", ot)
                 if (ot){
