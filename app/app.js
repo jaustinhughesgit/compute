@@ -1762,8 +1762,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
-
+                console.log("chainAction.paramas", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
+                console.log("chainParams", chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
