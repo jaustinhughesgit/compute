@@ -1225,7 +1225,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
             let newReq = {};
             
-            newReq.body = bod
+            newReq.body = req.body
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
