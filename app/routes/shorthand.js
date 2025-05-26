@@ -1218,6 +1218,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
+            console.log("rowResult",rowResult)
             return resp
         },
         EMPTY: (rowArray) => {
