@@ -499,6 +499,7 @@ async function processConfig(config, initialContext, lib) {
             
         }
     }
+    console.log("return context", context)
     return context;
 }
 
@@ -560,6 +561,7 @@ async function installModule(moduleName, contextKey, context, lib) {
         }
     }
     // Everything succeeded, return the resolved path (or module) so caller can log it
+    console.log("return modulePath", modulePath)
     return modulePath;
 }
 
@@ -604,6 +606,7 @@ async function initializeMiddleware(req, res, next) {
             const results = await Promise.all(promises);
 
             if (req.blocks) {
+                console.log("return results", results)
                 return results
             } else {
                 const arrayOfJSON = [];
@@ -642,7 +645,7 @@ async function initializeMiddleware(req, res, next) {
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
-
+                            console.log("return req.body.params", req.body.params)
                             return req.body.params;
                         }
 
@@ -652,9 +655,11 @@ async function initializeMiddleware(req, res, next) {
 
                     };
                 });
+                console.log("return await Promise.all(resultArrayOfJSON")
                 return await Promise.all(resultArrayOfJSON)
             }
         } else {
+            console.log("return []")
             return []
         }
     }
@@ -678,6 +683,7 @@ async function initializeModules(libs, config, req, res, next) {
 
         if (typeof response == "object") {
             if (response.hasOwnProperty("_isFunction")) {
+                console.log("return response", response)
                 return response
             }
         }
@@ -685,6 +691,7 @@ async function initializeModules(libs, config, req, res, next) {
             continue
         }
     }
+    console.log("no return")
 }
 
 async function getValFromDB(id, req, res, next) {
