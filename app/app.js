@@ -1756,7 +1756,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
 
     if (action.target) {
-        //console.log("action.target", action.target);
+        console.log("action.target", action.target);
         const isObj = await isOnePlaceholder(action.target)
         let actionExecution = false
         if (action.target.endsWith('|}!')) {
@@ -1815,7 +1815,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 args = await Promise.all(promises)
                 //console.log("args", args)
             }
-            //console.log("value", value)
+            console.log("value", value)
             //console.log(typeof nestedContext[target.key].value)
             //console.log("args.length", args.length)
             if (typeof nestedContext[target.key].value === 'function' && args.length > 0) {
@@ -1945,7 +1945,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
-    //console.log("applyMethodChain target", target)
+    console.log("applyMethodChain target", target)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -2032,7 +2032,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         //console.log("returning", accessClean, "99999")
                                         result = await result[accessClean](...chainParams);
                                     } else {
-                                        //console.log("result 1", result),
+                                        console.log("result 1", result),
                                             //console.log("accessClean 2", accessClean)
                                         //console.log("chainParams 3", chainParams)
                                         // 
