@@ -361,7 +361,7 @@ async function convertToJSON(
         const childPromises = children.map(async (child) => {
             const subByE = await getSub(child, "e", dynamodb);
             const uuid = subByE.Items[0].su;
-            console.log("returning children")
+            //console.log("returning children")
             return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
         });
         const childResponses = await Promise.all(childPromises);
@@ -402,7 +402,7 @@ async function convertToJSON(
         const linkedPromises = linked.map(async (link) => {
             const subByE = await getSub(link, "e", dynamodb);
             const uuid = subByE.Items[0].su;
-            console.log("performing convertToJSON LINKED")
+            //console.log("performing convertToJSON LINKED")
             return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
         });
         const linkedResponses = await Promise.all(linkedPromises);
@@ -1455,7 +1455,7 @@ async function searchSubdomains(
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
 
-    console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
+    //console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
     //console.log("route indise")
     cache = {
         getSub: {},
@@ -2059,7 +2059,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
             } else if (action == "updateEntityByAI") {
-                console.log("updateEntityByAI", reqPath)
+                //console.log("updateEntityByAI", reqPath)
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
                 const prompt = reqBody.body;
@@ -2073,9 +2073,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 };
 
                 await s3.putObject(params).promise();
-                console.log("Making oai")
+                //console.log("Making oai")
                 mainObj["oai"] = JSON.parse(oai.response);
-                console.log("mainObj", mainObj)
+                //console.log("mainObj", mainObj)
             } else if (action == "position") {
 
                 const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
@@ -2220,7 +2220,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 shorthandLogic.input.unshift({
                     "physical": [[shorthandLogic.published]]
                 })
-                console.log("shorthandLogic", shorthandLogic)
+                //console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
                 //console.log("newShorthand", newShorthand)
                 newShorthand.published.blocks = blocks;
@@ -2313,12 +2313,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
             } else {
                 /* fall‑through: always respond */
-                console.log("isShorthand", isShorthand)
-                console.log("!!!RESPONSE!!!", response)
-                console.log(reqBody.headers['X-Original-Host'])
-                console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/file"))
-                console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/runEntity"))
-                console.log(reqBody.headers['X-Original-Host'].includes("https://abc.api.1var.com/cookies/get"))
                 if (response.hasOwnProperty("ot")) {
 
                 } else if (isShorthand) {
