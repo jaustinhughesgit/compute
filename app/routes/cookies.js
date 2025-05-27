@@ -2211,8 +2211,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let { shorthand } = require('../routes/shorthand');
                 const arrayLogic = reqBody.body.arrayLogic;
                 const emitType = reqBody.body.emit
-                console.log("arrayLogic", arrayLogic)
-                console.log("emitType", emitType)
+                //console.log("arrayLogic", arrayLogic)
+                //console.log("emitType", emitType)
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
@@ -2222,9 +2222,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 })
                 console.log("shorthandLogic", shorthandLogic)
                 let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
-                console.log("newShorthand", newShorthand)
+                //console.log("newShorthand", newShorthand)
                 newShorthand.published.blocks = blocks;
-                console.log("newShorthand", newShorthand)
+                //console.log("newShorthand", newShorthand)
                 delete newShorthand.input
                 const params = {
                     Bucket: "public.1var.com",
@@ -2240,7 +2240,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
                 //console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
                 actionFile = reqPath.split("?")[0].split("/")[3];
-                console.log("runEntity inside", actionFile)
+                //console.log("runEntity inside", actionFile)
                 let { runApp } = require('../app');
                 //console.log("running app runApp 12345")
                 let ot = await runApp(req, res, next)
