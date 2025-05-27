@@ -646,10 +646,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             //console.log("funcObj['results'] = results", result)
             funcObj["RESULTS"] = result;
-            console.log("return", {
+            /*console.log("return", {
                 nestedObj: funcObj,
                 newIndex: i
-            })
+            })*/
             return {
                 nestedObj: funcObj,
                 newIndex: i
@@ -747,22 +747,22 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         //console.log("parseNestedKeywords")
         const parsed = await parseNestedKeywords(rowArray);
-        console.log("parsed", parsed)
+        //console.log("parsed", parsed)
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
-            console.log("parsed.list", parsed.list)
+            //console.log("parsed.list", parsed.list)
             topLevelFns = parsed.list;
         } else if (parsed) {
-            console.log("[parsed]", [parsed])
+            //console.log("[parsed]", [parsed])
             topLevelFns = [parsed];
         }
         let finalResults = [];
 
-        console.log("topLevelFns", topLevelFns)
+        //console.log("topLevelFns", topLevelFns)
         for (let fnObj of topLevelFns) {
             if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
                 finalResults.push(rowArray[0]);
-                console.log("finalResults2", finalResults)
+                //console.log("finalResults2", finalResults)
                 continue;
             }
 
@@ -773,12 +773,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
-                    console.log("finalResults3", finalResults)
+                    //console.log("finalResults3", finalResults)
                 } else {
-                    console.log("fnObj", fnObj)
-                    console.log("fnObj.RESULTS", fnObj.RESULTS)
+                    //console.log("fnObj", fnObj)
+                    //console.log("fnObj.RESULTS", fnObj.RESULTS)
                     finalResults.push(fnObj.RESULTS);
-                    console.log("finalResults4", finalResults)
+                    //console.log("finalResults4", finalResults)
                 }
             }
             else {
@@ -810,8 +810,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     rowResult[functionRowIndex] = resultToInsert;
 
                     let retIndex = callArgs[0].replace("¡¡", "!!");
-                    console.log("isCellRef", retIndex, isCellRef(retIndex))
-                    console.log("isRowResultRef", retIndex, isRowResultRef(retIndex))
+                    //console.log("isCellRef", retIndex, isCellRef(retIndex))
+                    //console.log("isRowResultRef", retIndex, isRowResultRef(retIndex))
                     if (isCellRef(retIndex) && !retIndex.includes("!!")) {
                         const cellInfo = getCellID(retIndex.toUpperCase());
                         if (!cellInfo) {
@@ -841,21 +841,21 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     }
                     else if (isRowResultRef(retIndex)) {
                         const rowRef = await parseInt(retIndex.slice(0, 3), 10);
-                        console.log("rowRef5", rowRef)
-                        console.log("resultToInsert5", resultToInsert)
+                        //console.log("rowRef5", rowRef)
+                        //console.log("resultToInsert5", resultToInsert)
                         rowResult[rowRef] = resultToInsert;
-                        console.log("rowResult[rowRef]5",rowResult[rowRef])
+                        //console.log("rowResult[rowRef]5",rowResult[rowRef])
                         finalResults.push(rowResult[rowRef]);
-                        console.log("finalResults5", finalResults)
+                        //console.log("finalResults5", finalResults)
                         rowResult[functionRowIndex] = resultToInsert;
-                        console.log("rowResults5")
+                        //console.log("rowResults5")
                     }
                     else {
-                        console.log("finalResult6", finalResult)
+                        //console.log("finalResult6", finalResult)
                         finalResults.push(resultToInsert);
                     }
                 } else {
-                    console.log("finalResult7", finalResult)
+                    //console.log("finalResult7", finalResult)
                     finalResults.push(fnDef);
                 }
             }
@@ -1206,11 +1206,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         ROUTE: async (rowArray) => {
              
             let { route } = require('./cookies')
-            console.log("rowArray",rowArray)
-            console.log("ROUTE")
+            //console.log("rowArray",rowArray)
+            //console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
-            console.log("bod rA[1]", bod);
+            //console.log("bod rA[1]", bod);
 
             let expt = rA[2]
             let act = rA[3];
@@ -1228,18 +1228,18 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.body = req.body
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
-            console.log("deepMerge newReq.body", newReq.body)
-            console.log("deepMerge bod", bod)
+            //console.log("deepMerge newReq.body", newReq.body)
+            //console.log("deepMerge bod", bod)
             newReq.body.body = await deepMerge(newReq.body.body, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
-            console.log("newReq.body", newReq.body)
-            console.log("STARTING route(...)")
-            console.log("act", act)
+            //console.log("newReq.body", newReq.body)
+            //console.log("STARTING route(...)")
+            //console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
-            console.log("ROUTE resp=>", resp);
+            //console.log("ROUTE resp=>", resp);
             return resp
         },
         EMPTY: (rowArray) => {
@@ -1801,7 +1801,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
-    console.log("shorthandArray", shorthandArray)
+    //console.log("shorthandArray", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
     return shorthandObj
