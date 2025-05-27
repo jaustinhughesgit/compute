@@ -1230,7 +1230,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
             console.log("deepMerge bod", bod)
-            newReq.body.body = await deepMerge(newReq.body.body, bod);
+            newReq.body = await deepMerge(newReq.body.body, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
