@@ -25,7 +25,7 @@ async function getSub(val, key, dynamodb) {
     return await dynamodb.query(params).promise()
 }
 async function getEntity(e, dynamodb) {
-    console.log("inside getEntity", e)
+    //console.log("inside getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': e } };
     return await dynamodb.query(params).promise()
 }
@@ -531,11 +531,11 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
     return response.Attributes.x;
 };
 const getHead = async (by, value, dynamodb) => {
-    console.log("getHead", by, value)
+    //console.log("getHead", by, value)
     const subBySU = await getSub(value, by, dynamodb);
-    console.log("getEntity", subBySU)
+    //console.log("getEntity", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
-    console.log("getSub", entity)
+    //console.log("getSub", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     return headSub
 }
@@ -1456,7 +1456,7 @@ async function searchSubdomains(
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
 
     console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
-    console.log("route indise")
+    //console.log("route indise")
     cache = {
         getSub: {},
         getEntity: {},
@@ -1470,7 +1470,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     var response = {}
     var actionFile = ""
     var mainObj = {}
-    console.log("reqMethod", reqMethod)
+    //console.log("reqMethod", reqMethod)
     if (reqMethod === 'GET' || reqMethod === 'POST') {
 
 
@@ -1484,9 +1484,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 
         let allV = allVerified(verified);
-        console.log("allV", allV)
+        //console.log("allV", allV)
         if (allV) {
-            console.log("action", action)
+            //console.log("action", action)
             if (action === "get") {
 
                 const fileID = reqPath.split("/")[3]
