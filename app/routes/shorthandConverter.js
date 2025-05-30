@@ -59,6 +59,7 @@ async function bestSubRoot(root, bcEmbed, s3, openai) {
 
 /* ─────────────── normalise a breadcrumb key ─────────────── */
 async function normaliseBreadcrumb(key, s3, openai) {
+    console.log("normaliseBreadcrumb")
   if (!key.includes("/")) return key;
   const parts = key.split("/");
   if (parts.length < 2) return key;
@@ -72,6 +73,7 @@ async function normaliseBreadcrumb(key, s3, openai) {
 
 /* ─────────────── recursive walk / key rewrite ─────────────── */
 async function walkAndNormalise(val, s3, openai) {
+    console.log("val", val)
   if (Array.isArray(val)) {
     return Promise.all(val.map((v) => walkAndNormalise(v, s3, openai)));
   }
@@ -158,7 +160,7 @@ function parseArrayLogicString(str) {
       .replace(PRIMITIVE_RX, '"$1"')
       .replace(REF_RX_ALL, (m) => `"${m}"`);
   }).join("");
-
+  console.log("rebuilt", rebuilt)
   return JSON.parse(rebuilt);
 }
 
@@ -181,7 +183,7 @@ async function convertToShorthand(params = {}) {
   if (typeof logic === "string") {
     logic = parseArrayLogicString(logic);
   }
-
+  console.log("logic")
   if (!Array.isArray(logic)) {
     throw new Error("convertToShorthand: arrayLogic must resolve to an array after parsing");
   }
