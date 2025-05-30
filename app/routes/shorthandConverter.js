@@ -29,11 +29,22 @@ async function loadSubIndex(root, s3) {
   if (subIndexCache.has(root)) return subIndexCache.get(root);
 
   const params = { Bucket: "public.1var.com", Key: `subIndexs/${root}.json` };
-  const { Body } = await s3.getObject(params).promise();
-  const json    = JSON.parse(Body.toString("utf8"));    // { subRoot: [1536] }
-
-  subIndexCache.set(root, json);
-  return json;
+  try {
+    const { Body } = await s3.getObject(params).promise();
+    const json = JSON.parse(Body.toString("utf8")); // { subRoot: [1536] }
+    subIndexCache.set(root, json);
+    return json;
+  } catch (err) {
+    // Gracefully degrade when a sub‑index file isn’t present – keep going with
+    // an empty index instead of throwing and killing the whole conversion.
+    if (err.code === "NoSuchKey" || err.code === "NotFound") {
+      const empty = {};
+      subIndexCache.set(root, empty);
+      return empty; // caller will detect empty map and skip normalisation
+    }
+    // Bubble up anything unexpected (permissions, network, etc.)
+    throw err;
+  }
 }
 
 /* ─────────────── embed a text string ─────────────── */
@@ -48,8 +59,11 @@ async function embed(text, openai) {
 /* ─────────────── pick best sub‑root for root ─────────────── */
 async function bestSubRoot(root, bcEmbed, s3, openai) {
   const index = await loadSubIndex(root, s3);
-  let best = { key: null, score: -Infinity };
 
+  // short‑circuit: if the index is empty (file missing), just skip normalisation
+  if (!index || Object.keys(index).length === 0) return null;
+
+  let best = { key: null, score: -Infinity };
   for (const [subRoot, vec] of Object.entries(index)) {
     const score = cosine(bcEmbed, vec);
     if (score > best.score) best = { key: subRoot, score };
@@ -59,7 +73,6 @@ async function bestSubRoot(root, bcEmbed, s3, openai) {
 
 /* ─────────────── normalise a breadcrumb key ─────────────── */
 async function normaliseBreadcrumb(key, s3, openai) {
-    console.log("normaliseBreadcrumb")
   if (!key.includes("/")) return key;
   const parts = key.split("/");
   if (parts.length < 2) return key;
@@ -68,12 +81,14 @@ async function normaliseBreadcrumb(key, s3, openai) {
   const bcEmbed = await embed(key, openai);
   const subRoot = await bestSubRoot(root, bcEmbed, s3, openai);
 
+  // If we couldn’t find a sub‑index (or it’s empty) just leave the key as‑is.
+  if (!subRoot) return key;
+
   return [root, subRoot, ...rest].join("/");
 }
 
 /* ─────────────── recursive walk / key rewrite ─────────────── */
 async function walkAndNormalise(val, s3, openai) {
-    console.log("val", val)
   if (Array.isArray(val)) {
     return Promise.all(val.map((v) => walkAndNormalise(v, s3, openai)));
   }
@@ -86,7 +101,6 @@ async function walkAndNormalise(val, s3, openai) {
     );
     return Object.fromEntries(entries);
   }
-  console.log("returning val ", val)
   return val;
 }
 
@@ -161,7 +175,7 @@ function parseArrayLogicString(str) {
       .replace(PRIMITIVE_RX, '"$1"')
       .replace(REF_RX_ALL, (m) => `"${m}"`);
   }).join("");
-  console.log("rebuilt", rebuilt)
+
   return JSON.parse(rebuilt);
 }
 
@@ -184,19 +198,16 @@ async function convertToShorthand(params = {}) {
   if (typeof logic === "string") {
     logic = parseArrayLogicString(logic);
   }
-  console.log("logic")
+
   if (!Array.isArray(logic)) {
     throw new Error("convertToShorthand: arrayLogic must resolve to an array after parsing");
   }
 
   /* 2️⃣  Normalise breadcrumb keys */
   const normalised = await walkAndNormalise(logic, s3, openai);
-  console.log("normalised", normalised)
 
   /* 3️⃣  ref substitution → 2‑D shorthand matrix */
-  let mapped = normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
-  console.log("mapped", mapped)
-  return mapped
+  return normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
 }
 
 module.exports = { convertToShorthand };
