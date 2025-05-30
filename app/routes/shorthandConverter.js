@@ -59,15 +59,17 @@ async function embed(text, openai) {
 /* ─────────────── pick best sub‑root for root ─────────────── */
 async function bestSubRoot(root, bcEmbed, s3, openai) {
   const index = await loadSubIndex(root, s3);
-
+  console.log("index", index)
   // short‑circuit: if the index is empty (file missing), just skip normalisation
   if (!index || Object.keys(index).length === 0) return null;
 
   let best = { key: null, score: -Infinity };
   for (const [subRoot, vec] of Object.entries(index)) {
     const score = cosine(bcEmbed, vec);
+    console.log("score", subRoot, score)
     if (score > best.score) best = { key: subRoot, score };
   }
+  console.log("best.key", best.key)
   return best.key;
 }
 
