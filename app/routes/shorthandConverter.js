@@ -147,6 +147,7 @@ function parseArrayLogicString(str) {
   const TOKEN_RX = /(?<=[:\[,\{]\s*)(hidden|string|number|boolean|object|array|ref\(\d+\)(?:\.[A-Za-z0-9_]+)*)\b/g;
 
   const jsonReady = trimmed.replace(TOKEN_RX, '"$1"');
+  console.log("jsonReady",jsonReady)
   return JSON.parse(jsonReady);
 }
 
