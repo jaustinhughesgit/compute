@@ -187,6 +187,7 @@ function parseArrayLogicString(str) {
 
 /* ─────────────── MAIN EXPORT ─────────────── */
 async function convertToShorthand(params = {}) {
+    console.log("params", params)
   const { openai, s3, prompt, arrayLogic } = params;
 
   if (!openai || !s3)
