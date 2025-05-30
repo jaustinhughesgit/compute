@@ -126,29 +126,40 @@ async function llmArrayLogic(prompt, openai) {
 /* ─────────────── helper: arrayLogic string → parsed object[] ─────────────── */
 /**
  * Accepts a pseudo‑JSON string used in prompts/configs (may contain bare‑word
- * tokens such as `hidden`, `number`, `object`, `ref(3).path`, etc.) and turns
- * it into real JSON that can be parsed by `JSON.parse`.
+ * tokens such as `hidden`, `number`, `boolean`, `object`, `array`, or complex
+ * `ref(3).path` expressions) and converts it into real JSON that can be parsed
+ * by `JSON.parse`.
  *
- * Rules applied:
- *   • any occurrence of the known sentinel literals       → quoted string
- *   • any `ref(n)` expression with optional trailing path → quoted string
+ * Algorithm:
+ *   1. Strip template‑literal back‑ticks (if present).
+ *   2. Split the string on double‑quoted substrings to preserve existing quotes.
+ *   3. On *unquoted* segments, wrap sentinel literals and any `ref(...)` tokens
+ *      in double‑quotes.
  */
 function parseArrayLogicString(str) {
   if (typeof str !== "string") return str;
 
-  // remove wrapping back‑ticks (common when copied from JS template literals)
   const trimmed = str.trim().replace(/^`|`$/g, "");
   if (!trimmed.startsWith("[")) {
     throw new Error("convertToShorthand: arrayLogic string must start with [ … ] JSON‑array syntax");
   }
 
-  // Regex that matches *unquoted* tokens that should become strings.                
-  // We rely on a look‑behind so already‑quoted instances are ignored.
-  const TOKEN_RX = /(?<=[:\[,\{]\s*)(hidden|string|number|boolean|object|array|ref\(\d+\)(?:\.[A-Za-z0-9_]+)*)\b/g;
+  // Regexes for replacements on unquoted segments only.
+  const PRIMITIVE_RX = /\b(hidden|string|number|boolean|object|array)\b/g;
+  const REF_RX_ALL   = /ref\(\d+\)(?:\.[A-Za-z0-9_]+)*/g;
 
-  const jsonReady = trimmed.replace(TOKEN_RX, '"$1"');
-  console.log("jsonReady",jsonReady)
-  return JSON.parse(jsonReady);
+  const segments = trimmed.split(/("(?:[^"\\]|\\.)*")/); // keep quoted parts
+
+  const rebuilt = segments.map((seg, idx) => {
+    // odd indexes are quoted substrings – leave untouched
+    if (idx % 2 === 1) return seg;
+    // even indexes are outside quotes – safe to transform
+    return seg
+      .replace(PRIMITIVE_RX, '"$1"')
+      .replace(REF_RX_ALL, (m) => `"${m}"`);
+  }).join("");
+
+  return JSON.parse(rebuilt);
 }
 
 /* ─────────────── MAIN EXPORT ─────────────── */
