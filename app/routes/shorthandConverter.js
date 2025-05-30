@@ -1,16 +1,16 @@
 /* --------------------------------------------------------------------
- *  routes/shorthandConverter.js
+ *  routes/shorthandConverter.js   (updated 2025‑05‑30)
  *  ------------------------------------------------------------------
  *  convertToShorthand(params)
  *
  *      params = {
  *        // choose ONE of the next two:
- *        prompt?      : string,     // natural‑language prompt → GPT‑4o
- *        arrayLogic?  : object[],   // pre‑built arrayLogic
+ *        prompt?      : string,         // natural‑language prompt → GPT‑4o
+ *        arrayLogic?  : string|object[],// pre‑built arrayLogic (string or parsed array)
  *
  *        // required clients – pass the SAME ones used in app.js
- *        openai       : OpenAI,     // already initialised
- *        s3           : AWS.S3,     // already initialised
+ *        openai       : OpenAI,         // already initialised
+ *        s3           : AWS.S3,         // already initialised
  *      }
  *
  *  Returns: shorthand 2‑D matrix  →  [["JSON","{…}"], …]
@@ -123,9 +123,35 @@ async function llmArrayLogic(prompt, openai) {
   return JSON.parse(chat.choices[0].message.content);
 }
 
+/* ─────────────── helper: arrayLogic string → parsed object[] ─────────────── */
+/**
+ * Accepts a pseudo‑JSON string used in prompts/configs (may contain bare‑word
+ * tokens such as `hidden`, `number`, `object`, `ref(3).path`, etc.) and turns
+ * it into real JSON that can be parsed by `JSON.parse`.
+ *
+ * Rules applied:
+ *   • any occurrence of the known sentinel literals       → quoted string
+ *   • any `ref(n)` expression with optional trailing path → quoted string
+ */
+function parseArrayLogicString(str) {
+  if (typeof str !== "string") return str;
+
+  // remove wrapping back‑ticks (common when copied from JS template literals)
+  const trimmed = str.trim().replace(/^`|`$/g, "");
+  if (!trimmed.startsWith("[")) {
+    throw new Error("convertToShorthand: arrayLogic string must start with [ … ] JSON‑array syntax");
+  }
+
+  // Regex that matches *unquoted* tokens that should become strings.                
+  // We rely on a look‑behind so already‑quoted instances are ignored.
+  const TOKEN_RX = /(?<=[:\[,\{]\s*)(hidden|string|number|boolean|object|array|ref\(\d+\)(?:\.[A-Za-z0-9_]+)*)\b/g;
+
+  const jsonReady = trimmed.replace(TOKEN_RX, '"$1"');
+  return JSON.parse(jsonReady);
+}
+
 /* ─────────────── MAIN EXPORT ─────────────── */
 async function convertToShorthand(params = {}) {
-    console.log("params", params)
   const { openai, s3, prompt, arrayLogic } = params;
 
   if (!openai || !s3)
@@ -135,18 +161,22 @@ async function convertToShorthand(params = {}) {
 
   /* 1️⃣  Obtain arrayLogic */
   let logic = arrayLogic;
-  console.log("logic", logic)
-  console.log("typeof logic", typeof logic)
   if (prompt) {
-    logic = await llmArrayLogic(prompt, openai);
-    console.log("logic llm", logic)
+    logic = await llmArrayLogic(prompt, openai);  // always an array
   }
-  if (!Array.isArray(logic))
-    throw new Error("convertToShorthand: arrayLogic must be an array");
+
+  // If logic is delivered as a string, sanitise & parse it into an object[]
+  if (typeof logic === "string") {
+    logic = parseArrayLogicString(logic);
+  }
+
+  if (!Array.isArray(logic)) {
+    throw new Error("convertToShorthand: arrayLogic must resolve to an array after parsing");
+  }
 
   /* 2️⃣  Normalise breadcrumb keys */
   const normalised = await walkAndNormalise(logic, s3, openai);
-    console.log("normalised", normalised)
+
   /* 3️⃣  ref substitution → 2‑D shorthand matrix */
   return normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
 }
