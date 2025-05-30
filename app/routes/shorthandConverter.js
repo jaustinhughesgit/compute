@@ -86,6 +86,7 @@ async function walkAndNormalise(val, s3, openai) {
     );
     return Object.fromEntries(entries);
   }
+  console.log("returning val ", val)
   return val;
 }
 
@@ -190,9 +191,12 @@ async function convertToShorthand(params = {}) {
 
   /* 2️⃣  Normalise breadcrumb keys */
   const normalised = await walkAndNormalise(logic, s3, openai);
+  console.log("normalised", normalised)
 
   /* 3️⃣  ref substitution → 2‑D shorthand matrix */
-  return normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
+  let mapped = normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
+  console.log("mapped", mapped)
+  return mapped
 }
 
 module.exports = { convertToShorthand };
