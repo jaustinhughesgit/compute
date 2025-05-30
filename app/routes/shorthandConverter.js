@@ -28,7 +28,7 @@ const cosine    = (a, b) => dot(a, b) / (magnitude(a) * magnitude(b));
 async function loadSubIndex(root, s3) {
   if (subIndexCache.has(root)) return subIndexCache.get(root);
 
-  const params = { Bucket: "public.1var.com", Key: `subIndexs/${root}.json` };
+  const params = { Bucket: "public.1var.com", Key: `subIndexes/${root}.json` };
   console.log("s3 params", params)
   try {
     const { Body } = await s3.getObject(params).promise();
