@@ -29,9 +29,12 @@ async function loadSubIndex(root, s3) {
   if (subIndexCache.has(root)) return subIndexCache.get(root);
 
   const params = { Bucket: "public.1var.com", Key: `subIndexs/${root}.json` };
+  console.log("s3 params", params)
   try {
     const { Body } = await s3.getObject(params).promise();
+    console.log("Body", Body)
     const json = JSON.parse(Body.toString("utf8")); // { subRoot: [1536] }
+    console.log("json", json)
     subIndexCache.set(root, json);
     return json;
   } catch (err) {
@@ -58,6 +61,7 @@ async function embed(text, openai) {
 
 /* ─────────────── pick best sub‑root for root ─────────────── */
 async function bestSubRoot(root, bcEmbed, s3, openai) {
+    console.log("root", root)
   const index = await loadSubIndex(root, s3);
   console.log("index", index)
   // short‑circuit: if the index is empty (file missing), just skip normalisation
