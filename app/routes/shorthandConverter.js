@@ -125,6 +125,7 @@ async function llmArrayLogic(prompt, openai) {
 
 /* ─────────────── MAIN EXPORT ─────────────── */
 async function convertToShorthand(params = {}) {
+    console.log("params", params)
   const { openai, s3, prompt, arrayLogic } = params;
 
   if (!openai || !s3)
@@ -134,15 +135,18 @@ async function convertToShorthand(params = {}) {
 
   /* 1️⃣  Obtain arrayLogic */
   let logic = arrayLogic;
+  console.log("logic", logic)
+  console.log("typeof logic", typeof logic)
   if (prompt) {
     logic = await llmArrayLogic(prompt, openai);
+    console.log("logic llm", logic)
   }
   if (!Array.isArray(logic))
     throw new Error("convertToShorthand: arrayLogic must be an array");
 
   /* 2️⃣  Normalise breadcrumb keys */
   const normalised = await walkAndNormalise(logic, s3, openai);
-
+    console.log("normalised", normalised)
   /* 3️⃣  ref substitution → 2‑D shorthand matrix */
   return normalised.map((obj) => ["JSON", JSON.stringify(convertRefs(obj))]);
 }

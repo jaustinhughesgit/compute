@@ -1455,8 +1455,8 @@ async function searchSubdomains(
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
 
-    //console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
-    //console.log("route indise")
+    console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
+    console.log("route indise")
     cache = {
         getSub: {},
         getEntity: {},
@@ -1484,9 +1484,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 
         let allV = allVerified(verified);
-        //console.log("allV", allV)
+        console.log("allV", allV)
         if (allV) {
-            //console.log("action", action)
+            console.log("action", action)
             if (action === "get") {
 
                 const fileID = reqPath.split("/")[3]
@@ -2241,8 +2241,15 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  *     – If the client sent `prompt`, GPT‑4o first creates arrayLogic.
                  *     – If the client sent `arrayLogic`, we skip the LLM call.
                  *     – Breadcrumb keys are normalised, ref(n) handles are rewritten. */
+                console.log("getting shorthandConverter")
                 const { convertToShorthand } = require("../routes/shorthandConverter");
               
+                console.log("reqBody", reqBody)
+                console.log("reqBody", reqBody.body.prompt)
+                console.log("reqBody", reqBody.body.arrayLogic)
+
+
+                
                 const shorthandArray = await convertToShorthand({
                   prompt     : reqBody.body.prompt,      // string | undefined
                   arrayLogic : reqBody.body.arrayLogic,  // object[] | undefined
