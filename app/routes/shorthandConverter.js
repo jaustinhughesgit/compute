@@ -53,10 +53,13 @@ async function loadSubIndex(root, s3) {
 /* ─────────────── embed a text string ─────────────── */
 async function embed(text, openai) {
   console.log("embed",text)
-  const { data } = await openai.embeddings.create({
-    model: "text-embedding-3-small",
-    input: text,
-  });
+  let split = text.split("/")
+  if (split.length > 1){
+    const { data } = await openai.embeddings.create({
+        model: "text-embedding-3-small",
+        input: split[1],
+    });
+  }
   return data[0].embedding;
 }
 
