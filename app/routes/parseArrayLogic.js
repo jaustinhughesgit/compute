@@ -1,15 +1,18 @@
 async function parseArrayLogic (params = {}) {
     const { arrayLogic = [], dynamodb, openai } = params;
     const results = [];
+    console.log("arrayLogic!!", arrayLogic)
   
     for (const element of arrayLogic) {
+        console.log("element", element)
       // Each element is expected to be { "<breadcrumb>": { input, schema } }
       const [breadcrumb] = Object.keys(element);
       const body         = element[breadcrumb] ?? {};
   
+      console.log("body", body)
       // Only continue if the element has both “input” and “schema” keys
       if (!body.input || !body.schema) continue;
-  
+        console.log("after continue")
       /* ── 2 · 1 — Create an embedding of the entire object ─────────────── */
       const embeddingResp = await openai.embeddings.create({
         model : 'text-embedding-3-large',     // or whatever model you standardise on
@@ -38,6 +41,7 @@ async function parseArrayLogic (params = {}) {
         Key       : { root }                  // add `subroot` if you have one
       });
   
+      console.log("command", command)
       let dynamoRecord;
       try {
         const { Item } = await dynamodb.send(command);
@@ -58,7 +62,7 @@ async function parseArrayLogic (params = {}) {
         dynamoRecord
       });
     }
-  
+    console.log("result!!", result)
     return results;
   }
 
