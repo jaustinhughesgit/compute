@@ -1809,7 +1809,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                 }
                                 if (assignExecuted) {
                                     if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
+                                        console.log("inside json", chainParams[0])
                                         chainParams[0] = JSON.stringify(chainParams[0])
+                                        
+                                            if (req.body && req.body._isFunction) {
+                                                //console.log("return chainParams", chainParams)
+                                                return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
+                                            }
+                                        
                                         result = await result[accessClean](...chainParams);
                                     } else {
                                         console.log("result 1", result);
