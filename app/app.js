@@ -289,7 +289,7 @@ app.all('/auth/*',
 )
 // app.js  (replace the old version completely)
 async function runApp(req, res, next) {
-    //console.log("runApp‑runApp");
+    console.log("runApp‑runApp");
 
     return new Promise(async (resolve, reject) => {
         try {
@@ -650,24 +650,24 @@ async function initializeMiddleware(req, res, next) {
 }
 
 async function initializeModules(libs, config, req, res, next) {
-    //console.log("requre modules1")
+    console.log("requre modules1")
     await require('module').Module._initPaths();
-    //console.log("require modules2")
-    //console.log("config.actions", config.actions)
+    console.log("require modules2")
+    console.log("config.actions", config.actions)
     for (const action of config.actions) {
         let runResponse
         if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
-            //console.log("rumAction1",dbAction)
+            console.log("rumAction1",dbAction)
             respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
-            //console.log("runAction2")
+            console.log("runAction2")
             response = await runAction(action, libs, "root", req, res, next);
         }
 
         if (typeof response == "object") {
             if (response.hasOwnProperty("_isFunction")) {
-                //console.log("return response", response)
+                console.log("return response", response)
                 return response
             }
         }
@@ -1742,7 +1742,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
-    //console.log("applyMethodChain target", target)
+    console.log("applyMethodChain target", target)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -1762,9 +1762,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
-                //console.log("chainAction.paramas", chainAction.params)
+                console.log("chainAction.paramas", chainAction.params)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
-                //console.log("chainParams", chainParams)
+                console.log("chainParams", chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
@@ -1812,12 +1812,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         chainParams[0] = JSON.stringify(chainParams[0])
                                         result = await result[accessClean](...chainParams);
                                     } else {
-                                        //console.log("result 1", result),
+                                        console.log("result 1", result);
 
 
-                                        //console.log("req.body", req.body);
-                                        //console.log("req.body._isFunction", req.body._isFunction)
-                                        //console.log("accessClean", accessClean)
+                                        console.log("req.body", req.body);
+                                        console.log("req.body._isFunction", req.body._isFunction);
+                                        console.log("accessClean", accessClean);
 
                                         if (accessClean === 'send') {
                                             if (req.body && req.body._isFunction) {
@@ -1825,11 +1825,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                                 return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
                                             }
                                         }
-                                        //console.log("fallback", chainParams)
+                                        console.log("fallback", chainParams)
                                         result = await result[accessClean](...chainParams);
-                                        //console.log("after completed result")
+                                        console.log("after completed result")
                                         //
-                                        //console.log("result 4", result)
+                                        console.log("result 4", result)
                                         try {
                                             re = result();
                                         } catch (err) {
@@ -1837,7 +1837,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         }
                                     }
                                 } else {
-                                    //console.log("else just return value")
+                                    console.log("else just return value")
                                     result = result[accessClean];
                                 }
                             } catch (err) {
