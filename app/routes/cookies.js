@@ -2237,23 +2237,35 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["newShorthand"] = newShorthand
             } else if (action === "convert") {
 
-                console.log("getting shorthandConverter")
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
               
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
 
 
-                const parseResults = await parseArrayLogic({
-                    arrayLogic: reqBody.body.arrayLogic,
-                    dynamodb,
-                    uuidv4,
-                    s3,
-                    ses,
-                    openai,
-                    Anthropic,
-                    dynamodbLL
-                  });
+// app.js (inside the "convert" branch)
+let arrayLogic = reqBody.body.arrayLogic;
+
+// If the client sent a JSON string, turn it into a JS value
+if (typeof arrayLogic === 'string') {
+  try {
+    arrayLogic = JSON.parse(arrayLogic);
+  } catch (err) {
+    console.error('arrayLogic is not valid JSON:', err);
+    throw new Error('Bad arrayLogic payload');   // or return 400
+  }
+}
+
+const parseResults = await parseArrayLogic({
+  arrayLogic,          // now an array, not a string
+  dynamodb,
+  uuidv4,
+  s3,
+  ses,
+  openai,
+  Anthropic,
+  dynamodbLL
+});
                
               
                 /* 4️⃣  Return the evaluated structure to the caller */
