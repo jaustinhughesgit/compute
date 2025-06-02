@@ -5,7 +5,9 @@ async function parseArrayLogic ({
   } = {}) {
     const results = [];
   
+    console.log("inside arrayLogic", arrayLogic)
     for (const element of arrayLogic) {
+        console.log("element", element)
       const [breadcrumb] = Object.keys(element);
       const body = element[breadcrumb] ?? {};
   

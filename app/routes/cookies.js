@@ -2255,7 +2255,7 @@ if (typeof arrayLogic === 'string') {
     throw new Error('Bad arrayLogic payload');   // or return 400
   }
 }
-
+console.log("arrayLogic", arrayLogic)
 const parseResults = await parseArrayLogic({
   arrayLogic,          // now an array, not a string
   dynamodb,
