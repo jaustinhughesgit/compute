@@ -14,7 +14,7 @@ async function parseArrayLogic ({
   
       console.log("body", body)
       // Guard: need *both* keys and non-empty input
-      if (!body.input || !Object.keys(body.input).length || !body.schema) continue;
+      if (!body.input || !body.schema) continue;
   
       /* 1. ─ Create embedding */
       const {
