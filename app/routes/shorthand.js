@@ -1242,6 +1242,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             //console.log("ROUTE resp=>", resp);
             return resp
         },
+        FINDORCREATE: async (rowArray) => {
+            let rA = await rowArray
+            return {"url":"http://abc.api.1var.com/cookies/find"+rA[0]}
+        },
         EMPTY: (rowArray) => {
             return "";
         },

@@ -2237,48 +2237,28 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj["newShorthand"] = newShorthand
             } else if (action === "convert") {
 
-                /* 1️⃣  Build the shorthand matrix
-                 *     – If the client sent `prompt`, GPT‑4o first creates arrayLogic.
-                 *     – If the client sent `arrayLogic`, we skip the LLM call.
-                 *     – Breadcrumb keys are normalised, ref(n) handles are rewritten. */
                 console.log("getting shorthandConverter")
-                const { convertToShorthand } = require("../routes/shorthandConverter");
+                const { parseArrayLogic } = require("../routes/parseArrayLogic");
               
                 console.log("reqBody", reqBody)
-                console.log("reqBody", reqBody.body.prompt)
-                console.log("reqBody", reqBody.body.arrayLogic)
+                console.log("reqBody.body", reqBody.body)
 
 
-                
-                const shorthandArray = await convertToShorthand({
-                  prompt     : reqBody.body.prompt,      // string | undefined
-                  arrayLogic : reqBody.body.arrayLogic,  // object[] | undefined
-                  openai,                                // reuse existing clients
-                  s3,
-                });
-              
-                /* 2️⃣  Wrap the matrix in the lightweight object shorthand.js expects */
-                const shorthandObj = {
-                  input : shorthandArray,
-                  skip  : [],
-                  sweeps: 1,
-                };
-              
-                /* 3️⃣  Run shorthand.js on the matrix */
-                const { shorthand } = require("../routes/shorthand");
-                const result = await shorthand(
-                  shorthandObj,
-                  req, res, next,
-                  privateKey, dynamodb, uuidv4, s3, ses,
-                  openai, Anthropic, dynamodbLL,
-                  true, reqPath, reqBody, reqMethod,
-                  reqType, reqHeaderSent, signer,
-                  action, xAccessToken
-                );
+                const parseResults = await parseArrayLogic({
+                    arrayLogic: reqBody.body.arrayLogic,
+                    dynamodb,
+                    uuidv4,
+                    s3,
+                    ses,
+                    openai,
+                    Anthropic,
+                    dynamodbLL
+                  });
+               
               
                 /* 4️⃣  Return the evaluated structure to the caller */
-                mainObj = { shorthandResult: result };
-              } else if (action == "runEntity") {
+                mainObj = { "parseResults":parseResults };
+            } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
                 //console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
