@@ -8,9 +8,11 @@ async function parseArrayLogic ({
     console.log("inside arrayLogic", arrayLogic)
     for (const element of arrayLogic) {
         console.log("element", element)
+
       const [breadcrumb] = Object.keys(element);
       const body = element[breadcrumb] ?? {};
   
+      console.log("body", body)
       // Guard: need *both* keys and non-empty input
       if (!body.input || !Object.keys(body.input).length || !body.schema) continue;
   
@@ -21,6 +23,7 @@ async function parseArrayLogic ({
         model : 'text-embedding-3-small',   // swap if you have “large” access
         input : JSON.stringify(body)
       });
+
   
       /* 2. ─ Break out domain / root / subroot */
       const [domain, root, subroot] = breadcrumb.replace(/^\/+/, '').split('/');
@@ -28,6 +31,10 @@ async function parseArrayLogic ({
         console.warn('Breadcrumb missing domain or root:', breadcrumb);
         continue;
       }
+
+      console.log("domain", domain)
+      console.log("root", root)
+      console.log("subroot", subroot)
   
       /* 3. ─ Fetch from DynamoDB (DocumentClient style) */
       let dynamoRecord = null;
