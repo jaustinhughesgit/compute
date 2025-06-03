@@ -156,24 +156,36 @@ async function parseArrayLogic({
         console.log("root", root)
         console.log("subroot", subroot)
 
-        let dynamoRecord = null;
-        try {
-            const { Item } =
-                typeof dynamodb.get === 'function'
-                    ? await dynamodb.get({
-                        TableName: `i_${domain}`,
-                        Key: { root }
-                    }).promise?.() ?? await dynamodb.get({
-                        TableName: `i_${domain}`,
-                        Key: { root }
-                    })
-                    : {}; 
+        //table "i_government"
+        //partition key "root" = "housing-and-urban-development"
+        //sort key "id" = 1747148573952
+        //"emb1" = [-0.02554481,...]   //embedding 1
+        //"emb2" = [-0.043630313,...]  //embedding 2
+        //"emb3" = [-0.022157108,...]  //embedding 3
+        //"emb4" = [-0.04161819,...]   //embedding 4
+        //"emb5" = [-0.0004759276,...] //embedding 5
+        //"path1" = "affordable-housing/projects/funding-applications/state/illinois/development-id/3209/status/approved" //breadcrumb 1
+        //"path2" = "public-housing/waitlists/city/philadelphia/unit-type/2-bedroom/average-wait-time/months/18" //breadcrumb 2
+        //"path3" = "zoning-laws/changes/residential-density/ordinance-update/city/denver/public-hearing/date/2025-06-14" //breadcrumb 3
+        //"path4" = "interdepartmental-collaboration/task-groups/climate-planning/lead-agency/epa/task-id/17/assigned-staff/5" //breadcrumb 4
+        //"path5" = "urban-renewal/programs/community-input-sessions/neighborhood/westside-round-3/attendance-count/64" //breadcrumb 5
 
-            dynamoRecord = Item ?? null;
-            console.log("dynamoRecord",dynamoRecord)
-        } catch (err) {
-            console.error('DynamoDB error:', err);
-        }
+        let dynamoRecord = null;
+
+try {
+  const { Items } = await dynamodb.query({
+    TableName: `i_${domain}`,
+    KeyConditionExpression: '#r = :pk',
+    ExpressionAttributeNames:  { '#r': 'root' },
+    ExpressionAttributeValues: { ':pk': root },
+    Limit: 1
+  }).promise();
+
+  dynamoRecord = Items?.[0] ?? null;
+  console.log('dynamoRecord', dynamoRecord);
+} catch (err) {
+  console.error('DynamoDB error:', err);
+}
 
         results.push({ breadcrumb, domain, root, subroot, embedding, dynamoRecord });
     }
