@@ -60,7 +60,7 @@ const toVector = v => {
   
       /* ── 2) use path-index GSI to fetch nearby sub-domains ────────────── */
       const pathKey = `${domain}/${root}`;           // ← "government/housing-and-urban-development"
-      const delta   = 0.05;                          // ± range for dist1 match
+      const delta   = 0.03;                          // ± range for dist1 match
       let subdomainMatches = [];
   
       if (dist1 != null) {
@@ -99,7 +99,15 @@ const toVector = v => {
   module.exports = { parseArrayLogic };
   
 
+  dist1: 0.6489446243324009
 
+  dist2: 0.656507456056785
+  
+  dist3: 0.6491281990852866
+  
+  dist4: 0.6587096673385807
+  
+  dist5: 0.6515440174627098
   
 
 
