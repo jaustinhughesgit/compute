@@ -4,13 +4,14 @@ const toVector = v => {
     const arr = Array.isArray(v) ? v : JSON.parse(v);
     if (!Array.isArray(arr)) return null;
   
-    // ① normalise to unit length (just like OpenAI returns)
+    // unit-normalise (guards against rounding drift in stored strings)
     const len = Math.hypot(...arr);
     return len ? arr.map(x => x / len) : null;
   };
   
-  const euclidean = (a, b) =>
-    Math.hypot(...a.map((v, i) => v - b[i]));     // ② Euclidean distance
+  // Euclidean distance → rescale into 0-1 by dividing by 2
+  const scaledEuclidean = (a, b) =>
+    Math.hypot(...a.map((v, i) => v - b[i])) / 2;   // 0 ⇢ same, 1 ⇢ opposite
   
   // ─── main ───────────────────────────────────────────────────────────────
   async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
@@ -21,19 +22,19 @@ const toVector = v => {
       const body = element[breadcrumb] ?? {};
       if (!body.input || !body.schema) continue;
   
-      /* fresh, normalised embedding for this breadcrumb’s JSON */
+      /* fresh, unit-normalised embedding for this breadcrumb’s JSON */
       const {
         data: [{ embedding: rawEmb }]
       } = await openai.embeddings.create({
         model: 'text-embedding-3-small',
         input: JSON.stringify(body)
       });
-      const embedding = toVector(rawEmb);         // ensure unit length
+      const embedding = toVector(rawEmb);
   
       const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
       if (!domain || !root) continue;
   
-      /* pull the DynamoDB item with emb1 … emb5 */
+      /* grab the DynamoDB row that holds emb1 … emb5 */
       let dynamoRecord = null;
       try {
         const { Items } = await dynamodb.query({
@@ -48,14 +49,14 @@ const toVector = v => {
         console.error('DynamoDB query failed:', err);
       }
   
-      /* compute Euclidean distances */
+      /* measure scaled distances (0 ⇢ identical, 1 ⇢ opposite) */
       let dist1, dist2, dist3, dist4, dist5;
       if (dynamoRecord) {
         const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
         const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
   
         [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
-          vec ? euclidean(embedding, vec) : null
+          vec ? scaledEuclidean(embedding, vec) : null
         );
       }
   
@@ -71,6 +72,7 @@ const toVector = v => {
   }
   
   module.exports = { parseArrayLogic };
+  
   
 
     // arrayLogic Example
