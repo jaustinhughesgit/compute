@@ -13,7 +13,6 @@ const toVector = v => {
   const scaledEuclidean = (a, b) =>
     Math.hypot(...a.map((v, i) => v - b[i])) / 2;   // 0 ⇢ same, 1 ⇢ opposite
   
-  // ─── main ───────────────────────────────────────────────────────────────
   async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     const results = [];
   
@@ -34,7 +33,7 @@ const toVector = v => {
       const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
       if (!domain || !root) continue;
   
-      /* grab the DynamoDB row that holds emb1 … emb5 */
+      /* ── 1) look up the root-level embedding row ──────────────────────── */
       let dynamoRecord = null;
       try {
         const { Items } = await dynamodb.query({
@@ -54,17 +53,43 @@ const toVector = v => {
       if (dynamoRecord) {
         const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
         const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
-  
         [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
           vec ? scaledEuclidean(embedding, vec) : null
         );
       }
   
+      /* ── 2) use path-index GSI to fetch nearby sub-domains ────────────── */
+      const pathKey = `${domain}/${root}`;           // ← "government/housing-and-urban-development"
+      const delta   = 0.05;                          // ± range for dist1 match
+      let subdomainMatches = [];
+  
+      if (dist1 != null) {
+        try {
+          const { Items } = await dynamodb.query({
+            TableName: 'subdomains',
+            IndexName: 'path-index',
+            KeyConditionExpression: '#p = :path AND #d BETWEEN :lo AND :hi',
+            ExpressionAttributeNames:  { '#p': 'path', '#d': 'dist1' },
+            ExpressionAttributeValues: {
+              ':path': pathKey,
+              ':lo'  : dist1 - delta,
+              ':hi'  : dist1 + delta
+            },
+            ScanIndexForward: true          // ascending dist1
+          }).promise();
+          subdomainMatches = Items ?? [];
+        } catch (err) {
+          console.error('subdomains GSI query failed:', err);
+        }
+      }
+  
+      /* ── 3) aggregate output ──────────────────────────────────────────── */
       results.push({
         breadcrumb,
         embedding,
         dist1, dist2, dist3, dist4, dist5,
-        dynamoRecord
+        dynamoRecord,
+        subdomainMatches        // ← array of GSI hits within ±0.05 of dist1
       });
     }
   
@@ -73,7 +98,10 @@ const toVector = v => {
   
   module.exports = { parseArrayLogic };
   
+
+
   
+
 
     // arrayLogic Example
     /*
