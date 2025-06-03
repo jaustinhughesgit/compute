@@ -1,69 +1,9 @@
-async function parseArrayLogic ({
+async function parseArrayLogic({
     arrayLogic = [],
-    dynamodb,        // v2 DocumentClient  *or*  v3 DynamoDBDocumentClient
+    dynamodb,
     openai
-  } = {}) {
+} = {}) {
     const results = [];
-  
-    console.log("inside arrayLogic", arrayLogic)
-    for (const element of arrayLogic) {
-        console.log("element", element)
-
-      const [breadcrumb] = Object.keys(element);
-      const body = element[breadcrumb] ?? {};
-  
-      console.log("body", body)
-      // Guard: need *both* keys and non-empty input
-      if (!body.input || !body.schema) continue;
-  
-      /* 1. ─ Create embedding */
-      const {
-        data: [{ embedding }]
-      } = await openai.embeddings.create({
-        model : 'text-embedding-3-small',   // swap if you have “large” access
-        input : JSON.stringify(body)
-      });
-
-  
-      /* 2. ─ Break out domain / root / subroot */
-      const [domain, root, subroot] = breadcrumb.replace(/^\/+/, '').split('/');
-      if (!domain || !root) {
-        console.warn('Breadcrumb missing domain or root:', breadcrumb);
-        continue;
-      }
-
-      console.log("domain", domain)
-      console.log("root", root)
-      console.log("subroot", subroot)
-  
-      /* 3. ─ Fetch from DynamoDB (DocumentClient style) */
-      let dynamoRecord = null;
-      try {
-        const { Item } =
-          typeof dynamodb.get === 'function'
-            ? await dynamodb.get({                // v2 or v3 doc client
-                TableName : `i_${domain}`,
-                Key       : { root }
-              }).promise?.() ?? await dynamodb.get({
-                TableName : `i_${domain}`,
-                Key       : { root }
-              })
-            : {}; // fallback for wrong client type
-  
-        dynamoRecord = Item ?? null;
-      } catch (err) {
-        console.error('DynamoDB error:', err);
-      }
-  
-      /* 4. ─ Collect response */
-      results.push({ breadcrumb, domain, root, subroot, embedding, dynamoRecord });
-    }
-  
-    console.log('results!!', results);
-    return results;
-  }
-  
-  module.exports = { parseArrayLogic };
 
     // arrayLogic Example
     /*
@@ -188,3 +128,58 @@ async function parseArrayLogic ({
     }
 }
 ]*/
+
+    console.log("inside arrayLogic", arrayLogic)
+    for (const element of arrayLogic) {
+        console.log("element", element)
+
+        const [breadcrumb] = Object.keys(element);
+        const body = element[breadcrumb] ?? {};
+
+        console.log("body", body)
+        if (!body.input || !body.schema) continue;
+
+        const {
+            data: [{ embedding }]
+        } = await openai.embeddings.create({
+            model: 'text-embedding-3-small', 
+            input: JSON.stringify(body)
+        });
+
+        const [domain, root, subroot] = breadcrumb.replace(/^\/+/, '').split('/');
+        if (!domain || !root) {
+            console.warn('Breadcrumb missing domain or root:', breadcrumb);
+            continue;
+        }
+
+        console.log("domain", domain)
+        console.log("root", root)
+        console.log("subroot", subroot)
+
+        let dynamoRecord = null;
+        try {
+            const { Item } =
+                typeof dynamodb.get === 'function'
+                    ? await dynamodb.get({
+                        TableName: `i_${domain}`,
+                        Key: { root }
+                    }).promise?.() ?? await dynamodb.get({
+                        TableName: `i_${domain}`,
+                        Key: { root }
+                    })
+                    : {}; 
+
+            dynamoRecord = Item ?? null;
+            console.log("dynamoRecord",dynamoRecord)
+        } catch (err) {
+            console.error('DynamoDB error:', err);
+        }
+
+        results.push({ breadcrumb, domain, root, subroot, embedding, dynamoRecord });
+    }
+
+    console.log('results!!', results);
+    return results;
+}
+
+module.exports = { parseArrayLogic };
