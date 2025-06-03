@@ -1,17 +1,14 @@
-// ─── helpers ────────────────────────────────────────────────────────────
 const toVector = v => {
     if (!v) return null;
     const arr = Array.isArray(v) ? v : JSON.parse(v);
     if (!Array.isArray(arr)) return null;
   
-    // unit-normalise (guards against rounding drift in stored strings)
     const len = Math.hypot(...arr);
     return len ? arr.map(x => x / len) : null;
   };
   
-  // Euclidean distance → rescale into 0-1 by dividing by 2
   const scaledEuclidean = (a, b) =>
-    Math.hypot(...a.map((v, i) => v - b[i])) / 2;   // 0 ⇢ same, 1 ⇢ opposite
+    Math.hypot(...a.map((v, i) => v - b[i])) / 2; 
   
   async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     const results = [];
@@ -21,7 +18,6 @@ const toVector = v => {
       const body = element[breadcrumb] ?? {};
       if (!body.input || !body.schema) continue;
   
-      /* fresh, unit-normalised embedding for this breadcrumb’s JSON */
       const {
         data: [{ embedding: rawEmb }]
       } = await openai.embeddings.create({
@@ -33,7 +29,6 @@ const toVector = v => {
       const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
       if (!domain || !root) continue;
   
-      /* ── 1) look up the root-level embedding row ──────────────────────── */
       let dynamoRecord = null;
       try {
         const { Items } = await dynamodb.query({
@@ -48,7 +43,6 @@ const toVector = v => {
         console.error('DynamoDB query failed:', err);
       }
   
-      /* measure scaled distances (0 ⇢ identical, 1 ⇢ opposite) */
       let dist1, dist2, dist3, dist4, dist5;
       if (dynamoRecord) {
         const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
@@ -58,38 +52,62 @@ const toVector = v => {
         );
       }
   
-      /* ── 2) use path-index GSI to fetch nearby sub-domains ────────────── */
-      const pathKey = `${domain}/${root}`;           // ← "government/housing-and-urban-development"
-      const delta   = 0.03;                          // ± range for dist1 match
+
+      const pathKey = `${domain}/${root}`; 
+      const delta   = 0.03; 
       let subdomainMatches = [];
-  
-      if (dist1 != null) {
+
+      if (dist1 != null) {         // still need dist1 for the GSI range query
         try {
-          const { Items } = await dynamodb.query({
+          // Build the query once we know which distances we actually calculated
+          const params = {
             TableName: 'subdomains',
             IndexName: 'path-index',
-            KeyConditionExpression: '#p = :path AND #d BETWEEN :lo AND :hi',
-            ExpressionAttributeNames:  { '#p': 'path', '#d': 'dist1' },
+            KeyConditionExpression: '#p = :path AND #d1 BETWEEN :d1lo AND :d1hi',
+            ExpressionAttributeNames: {
+              '#p' : 'path',
+              '#d1': 'dist1',
+              '#d2': 'dist2',
+              '#d3': 'dist3',
+              '#d4': 'dist4',
+              '#d5': 'dist5'
+            },
             ExpressionAttributeValues: {
               ':path': pathKey,
-              ':lo'  : dist1 - delta,
-              ':hi'  : dist1 + delta
+              ':d1lo': dist1 - delta,
+              ':d1hi': dist1 + delta,
+              ':d2lo': dist2 - delta,
+              ':d2hi': dist2 + delta,
+              ':d3lo': dist3 - delta,
+              ':d3hi': dist3 + delta,
+              ':d4lo': dist4 - delta,
+              ':d4hi': dist4 + delta,
+              ':d5lo': dist5 - delta,
+              ':d5hi': dist5 + delta
             },
-            ScanIndexForward: true          // ascending dist1
-          }).promise();
+            // All four other dists must fall in-range as well
+            FilterExpression:
+              '#d2 BETWEEN :d2lo AND :d2hi AND ' +
+              '#d3 BETWEEN :d3lo AND :d3hi AND ' +
+              '#d4 BETWEEN :d4lo AND :d4hi AND ' +
+              '#d5 BETWEEN :d5lo AND :d5hi',
+            ScanIndexForward: true
+          };
+      
+          const { Items } = await dynamodb.query(params).promise();
           subdomainMatches = Items ?? [];
         } catch (err) {
           console.error('subdomains GSI query failed:', err);
         }
       }
   
-      /* ── 3) aggregate output ──────────────────────────────────────────── */
+
       results.push({
         breadcrumb,
         embedding,
         dist1, dist2, dist3, dist4, dist5,
         dynamoRecord,
-        subdomainMatches        // ← array of GSI hits within ±0.05 of dist1
+        subdomainMatches
       });
     }
   
@@ -98,17 +116,16 @@ const toVector = v => {
   
   module.exports = { parseArrayLogic };
   
-
+/*
+  //subdomains
+  path: government/housing-and-urban-development
   dist1: 0.6489446243324009
-
   dist2: 0.656507456056785
-  
   dist3: 0.6491281990852866
-  
   dist4: 0.6587096673385807
-  
   dist5: 0.6515440174627098
-  
+  su: 1v4r365440a9-9282-445e-87c8-454s17169bb2
+*/
 
 
     // arrayLogic Example
