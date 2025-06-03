@@ -1,26 +1,20 @@
-// ─── 1.  Helper ─────────────────────────────────────────────────────────
-function cosineDistance(a, b) {
-    // 1 – (cosine-similarity)
+const cosineDistance = (a, b) => {
     const dot   = a.reduce((s, v, i) => s + v * b[i], 0);
-    const normA = Math.hypot(...a);   // √Σa²
+    const normA = Math.hypot(...a);
     const normB = Math.hypot(...b);
-    return 1 - dot / (normA * normB);
-  }
+    return 1 - dot / (normA * normB);          // 0 ⇒ identical, 1 ⇒ orthogonal
+  };
   
-  // ─── 2.  Main worker ────────────────────────────────────────────────────
-  async function parseArrayLogic({
-    arrayLogic = [],
-    dynamodb,
-    openai
-  } = {}) {
+  // ─── main ───────────────────────────────────────────────────────────────
+  async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     const results = [];
   
     for (const element of arrayLogic) {
       const [breadcrumb] = Object.keys(element);
       const body = element[breadcrumb] ?? {};
-      if (!body.input || !body.schema) continue;
+      if (!body.input || !body.schema) continue;          // nothing to embed
   
-      // ▸ 2 a. fresh embedding for the doc we’re validating
+      // 1) embed the JSON value found at that breadcrumb
       const {
         data: [{ embedding }]
       } = await openai.embeddings.create({
@@ -28,10 +22,10 @@ function cosineDistance(a, b) {
         input: JSON.stringify(body)
       });
   
-      const [domain, root, subroot] = breadcrumb.replace(/^\/+/, '').split('/');
+      const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
       if (!domain || !root) continue;
   
-      // ▸ 2 b. fetch the row that has emb1…emb5
+      // 2) fetch the row that holds emb1 … emb5
       let dynamoRecord = null;
       try {
         const { Items } = await dynamodb.query({
@@ -43,35 +37,25 @@ function cosineDistance(a, b) {
         }).promise();
         dynamoRecord = Items?.[0] ?? null;
       } catch (err) {
-        console.error('DynamoDB error:', err);
+        console.error('DynamoDB query failed:', err);
       }
   
-      // ▸ 2 c. compute distances if we found a row
+      // 3) turn those five stored vectors into distances
       let dist1, dist2, dist3, dist4, dist5;
       if (dynamoRecord) {
+        // if your table stores lists, DocumentClient already gives JS arrays
         const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
-        const stored  = embKeys.map(k => dynamoRecord[k]).filter(Boolean);
-  
-        // DynamoDB DocumentClient already unmarshals number-lists → JS arrays.
-        // If your table is using string sets or something else, coerce here:
-        //   stored = stored.map(arr => arr.map(Number));
+        const stored  = embKeys.map(k => dynamoRecord[k]);
   
         [dist1, dist2, dist3, dist4, dist5] =
-          stored.map(storedEmb => cosineDistance(embedding, storedEmb));
+          stored.map(arr => cosineDistance(embedding, arr));
       }
   
       results.push({
         breadcrumb,
-        domain,
-        root,
-        subroot,
-        embedding,          // the new embedding you just generated
-        dynamoRecord,       // the whole row you fetched (optional)
-        dist1,
-        dist2,
-        dist3,
-        dist4,
-        dist5
+        embedding,          // fresh embedding of the JSON value
+        dist1, dist2, dist3, dist4, dist5,
+        dynamoRecord        // keep it if you still need path1 … path5, etc.
       });
     }
   
