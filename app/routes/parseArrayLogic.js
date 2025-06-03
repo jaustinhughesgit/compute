@@ -1,8 +1,20 @@
+// ─── helpers ────────────────────────────────────────────────────────────
 const cosineDistance = (a, b) => {
     const dot   = a.reduce((s, v, i) => s + v * b[i], 0);
     const normA = Math.hypot(...a);
     const normB = Math.hypot(...b);
-    return 1 - dot / (normA * normB);          // 0 ⇒ identical, 1 ⇒ orthogonal
+    return 1 - dot / (normA * normB);          // 0 → identical, 1 → orthogonal
+  };
+  
+  const toVector = v => {
+    if (!v) return null;                       // empty field → null
+    if (Array.isArray(v)) return v;            // already a list? great
+    try {                                      // otherwise parse the string
+      const arr = JSON.parse(v);
+      return Array.isArray(arr) ? arr.map(Number) : null;
+    } catch {                                  // bad JSON → null
+      return null;
+    }
   };
   
   // ─── main ───────────────────────────────────────────────────────────────
@@ -12,9 +24,9 @@ const cosineDistance = (a, b) => {
     for (const element of arrayLogic) {
       const [breadcrumb] = Object.keys(element);
       const body = element[breadcrumb] ?? {};
-      if (!body.input || !body.schema) continue;          // nothing to embed
+      if (!body.input || !body.schema) continue;
   
-      // 1) embed the JSON value found at that breadcrumb
+      /* 1) fresh embedding for this breadcrumb’s JSON value */
       const {
         data: [{ embedding }]
       } = await openai.embeddings.create({
@@ -25,7 +37,7 @@ const cosineDistance = (a, b) => {
       const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
       if (!domain || !root) continue;
   
-      // 2) fetch the row that holds emb1 … emb5
+      /* 2) fetch the row that stores emb1 … emb5 */
       let dynamoRecord = null;
       try {
         const { Items } = await dynamodb.query({
@@ -40,22 +52,22 @@ const cosineDistance = (a, b) => {
         console.error('DynamoDB query failed:', err);
       }
   
-      // 3) turn those five stored vectors into distances
+      /* 3) convert the five strings → arrays and measure distance */
       let dist1, dist2, dist3, dist4, dist5;
       if (dynamoRecord) {
-        // if your table stores lists, DocumentClient already gives JS arrays
         const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
-        const stored  = embKeys.map(k => dynamoRecord[k]);
+        const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
   
-        [dist1, dist2, dist3, dist4, dist5] =
-          stored.map(arr => cosineDistance(embedding, arr));
+        [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
+          vec ? cosineDistance(embedding, vec) : null
+        );
       }
   
       results.push({
         breadcrumb,
-        embedding,          // fresh embedding of the JSON value
+        embedding,
         dist1, dist2, dist3, dist4, dist5,
-        dynamoRecord        // keep it if you still need path1 … path5, etc.
+        dynamoRecord          // keep if you still need path1 … path5, etc.
       });
     }
   
@@ -63,6 +75,8 @@ const cosineDistance = (a, b) => {
   }
   
   module.exports = { parseArrayLogic };
+  
+
     // arrayLogic Example
     /*
     [
