@@ -546,6 +546,11 @@ async function installModule(moduleName, contextKey, context, lib) {
     return modulePath;
 }
 
+async function searchEntities (){
+    console.log("searchEntities");
+    return {}
+}
+
 
 async function initializeMiddleware(req, res, next) {
     //console.log("initializeMiddleware")
@@ -618,6 +623,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
+                        req.lib.root.context.searchEntities = { "value":searchEntities, "context":{}}
                         //console.log("pre-initializeModules1", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
                         //console.log("req.body.params", req.body.params)
