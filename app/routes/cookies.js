@@ -2278,6 +2278,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("data[0]",data[0]);
                 console.log("data[0].embedding",data[0].embedding);
                 mainObj["embedding"] = data[0].embedding;
+                mainObj["requestId"] = reqBody.body.requestId;
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
