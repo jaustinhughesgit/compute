@@ -2062,6 +2062,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
 
+                console.log("description", description);
+                console.log("domain", domain);
+                console.log("subdomain", subdomain);
+                console.log("embedding", embedding);
+                console.log("entity", entity);
                 if (!embedding || !domain || !subdomain || !entity) {
                     return res.status(400).json({ error: 'embedding, domain & subdomain required' });
                 }
@@ -2260,6 +2265,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     model: 'text-embedding-3-large',
                     input: text
                 });
+                console.log("data",data);
+                console.log("data[0]",data[0]);
+                console.log("data[0].embedding",data[0].embedding);
                 mainObj["embedding"] = data[0].embedding;
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
