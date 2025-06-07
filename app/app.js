@@ -547,6 +547,11 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 async function searchEntities (){
+
+    function nested(){
+        console.log("searchEntities nested");
+        return {}
+    }
     console.log("searchEntities");
     return {}
 }
