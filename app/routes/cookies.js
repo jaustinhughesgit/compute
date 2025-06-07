@@ -1365,8 +1365,17 @@ async function searchSubdomains(
     embedding, domain, subdomain, entity, query, limit, action
 ) {
 
+    console.log("searchSubdomains ----------------");
+    console.log("embedding",embedding);
+    console.log("domain",domain);
+    console.log("subdomain",subdomain);
+    console.log("entity",entity);
+    console.log("query",query);
+    console.log("limit",limit);
+    console.log("action",action);
     if (!embedding || !domain || !subdomain || !entity) {
-        return res.status(400).json({ error: "embedding, domain & subdomain required" });
+        console.log("returning early because of a falsy")
+        return 
     }
 
 
