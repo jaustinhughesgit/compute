@@ -571,7 +571,10 @@ const entities = {
       model: 'text-embedding-3-small',
       input: JSON.stringify(body)
     });
-    console.log("4")
+    console.log("3.1", data)
+    console.log("3.2", data[0])
+    console.log("3.3",data[0].embedding)
+    console.log("4", rawEmb)
     const embedding = toVector(rawEmb);
     console.log("5", embedding)
     // ── Parse “/domain/root” from breadcrumb ─────────────────
