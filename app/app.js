@@ -567,7 +567,7 @@ const entities = {
     console.log("3.2", data[0])
     console.log("3.3",data[0].embedding)
     console.log("4", rawEmb)
-    const embedding = toVector(rawEmb);
+    const embedding = data[0].embedding;
     console.log("5", embedding)
     // ── Parse “/domain/root” from breadcrumb ─────────────────
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
