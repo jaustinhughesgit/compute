@@ -651,8 +651,7 @@ const entities = {
       }
     }
 
-    // ── Return the same structure parseArrayLogic pushes ─────
-    return {
+    let results = {
       breadcrumb,
       embedding,
       dist1,
@@ -662,7 +661,11 @@ const entities = {
       dist5,
       dynamoRecord,
       subdomainMatches
-    };
+    }
+    console.log("results", results)
+
+    // ── Return the same structure parseArrayLogic pushes ─────
+    return results;
   }
 };
 
