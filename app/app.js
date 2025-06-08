@@ -295,10 +295,10 @@ async function runApp(req, res, next) {
         try {
             /* ---------- 1 · bootstrap the per‑request sandbox ---------- */
             req.lib = {
-                modules:           {},
-                middlewareCache:   [],
+                modules: {},
+                middlewareCache: [],
                 isMiddlewareInitialized: false,
-                whileLimit:        100,
+                whileLimit: 100,
                 root: { context: { session } }
             };
 
@@ -310,7 +310,7 @@ async function runApp(req, res, next) {
             if (
                 !req.lib.isMiddlewareInitialized &&
                 (req.dynPath.startsWith("/auth") ||
-                 req.dynPath.startsWith("/cookies/"))
+                    req.dynPath.startsWith("/cookies/"))
             ) {
                 req.blocks = false;
                 req.lib.middlewareCache =
@@ -386,7 +386,7 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     if (isPublic == "true" || isPublic == true) {
         fileLocation = "public"
     }
-    const params = { Bucket: fileLocation + '.1var.com', Key: fileName,  };
+    const params = { Bucket: fileLocation + '.1var.com', Key: fileName, };
     const data = await s3.getObject(params).promise();
     //console.log("data data data data data data")
     //console.log(data)
@@ -478,7 +478,7 @@ async function processConfig(config, initialContext, lib) {
         for (const [key, value] of Object.entries(config.modules)) {
             const installedAt = await installModule(value, key, context, lib);
             //console.log(`✅  Module "${value}" installed for context key "${key}" at: ${installedAt}`);
-            
+
         }
     }
     //console.log("return context", context)
@@ -547,11 +547,125 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 const entities = {
-        search: () => {
-            console.log("searchEntities nested");
-        return {}
+  /**
+   * Run “arrayLogic”-style matching for a single breadcrumb object.
+   *
+   * @param {Object}  singleObject              e.g. { "/agriculture/crops": { input:{…}, schema:{…} } }
+   * @param {Object}  deps
+   * @returns {Promise<Object|null>}            Same structure returned by one loop of parseArrayLogic
+   */
+  search: async (singleObject) => {
+    if (!singleObject || typeof singleObject !== 'object')
+      throw new Error('entities.search expects a breadcrumb object');
+
+    // ── Extract breadcrumb and body ───────────────────────────
+    const [breadcrumb] = Object.keys(singleObject);
+    const body = singleObject[breadcrumb] ?? {};
+    if (!body.input || !body.schema) return null;   // nothing to do
+
+    // ── Create embedding for the body ─────────────────────────
+    const {
+      data: [{ embedding: rawEmb }]
+    } = await openai.embeddings.create({
+      model: 'text-embedding-3-small',
+      input: JSON.stringify(body)
+    });
+    const embedding = toVector(rawEmb);
+
+    // ── Parse “/domain/root” from breadcrumb ─────────────────
+    const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
+    if (!domain || !root) return null;
+
+    // ── Pull existing root record from DynamoDB ──────────────
+    let dynamoRecord = null;
+    try {
+      const { Items } = await dynamodb
+        .query({
+          TableName: `i_${domain}`,
+          KeyConditionExpression: '#r = :pk',
+          ExpressionAttributeNames: { '#r': 'root' },
+          ExpressionAttributeValues: { ':pk': root },
+          Limit: 1
+        })
+        .promise();
+      dynamoRecord = Items?.[0] ?? null;
+    } catch (err) {
+      console.error('DynamoDB query failed:', err);
     }
-}
+
+    // ── Compute scaled-Euclidean distances to saved vectors ──
+    let dist1, dist2, dist3, dist4, dist5;
+    if (dynamoRecord) {
+      const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
+      const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
+      [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
+        vec ? scaledEuclidean(embedding, vec) : null
+      );
+    }
+
+    // ── Optional: find sub-domain matches by GSI ──────────────
+    const pathKey = `${domain}/${root}`;
+    const delta = 0.03;
+    let subdomainMatches = [];
+
+    if (dist1 != null) {
+      try {
+        const params = {
+          TableName: 'subdomains',
+          IndexName: 'path-index',
+          KeyConditionExpression:
+            '#p = :path AND #d1 BETWEEN :d1lo AND :d1hi',
+          ExpressionAttributeNames: {
+            '#p': 'path',
+            '#d1': 'dist1',
+            '#d2': 'dist2',
+            '#d3': 'dist3',
+            '#d4': 'dist4',
+            '#d5': 'dist5'
+          },
+          ExpressionAttributeValues: {
+            ':path': pathKey,
+            ':d1lo': dist1 - delta,
+            ':d1hi': dist1 + delta,
+            ':d2lo': dist2 - delta,
+            ':d2hi': dist2 + delta,
+            ':d3lo': dist3 - delta,
+            ':d3hi': dist3 + delta,
+            ':d4lo': dist4 - delta,
+            ':d4hi': dist4 + delta,
+            ':d5lo': dist5 - delta,
+            ':d5hi': dist5 + delta
+          },
+          FilterExpression:
+            '#d2 BETWEEN :d2lo AND :d2hi AND ' +
+            '#d3 BETWEEN :d3lo AND :d3hi AND ' +
+            '#d4 BETWEEN :d4lo AND :d4hi AND ' +
+            '#d5 BETWEEN :d5lo AND :d5hi',
+          ScanIndexForward: true
+        };
+
+        const { Items } = await dynamodb.query(params).promise();
+        subdomainMatches = Items ?? [];
+      } catch (err) {
+        console.error('subdomains GSI query failed:', err);
+      }
+    }
+
+    // ── Return the same structure parseArrayLogic pushes ─────
+    return {
+      breadcrumb,
+      embedding,
+      dist1,
+      dist2,
+      dist3,
+      dist4,
+      dist5,
+      dynamoRecord,
+      subdomainMatches
+    };
+  }
+};
+
 
 
 async function initializeMiddleware(req, res, next) {
@@ -625,7 +739,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.s3 = { "value": s3, "context": {} }
                         req.lib.root.context.email = { "value": userJSON.email, "context": {} }
                         req.lib.root.context.promise = { "value": Promise, "context": {} }
-                        req.lib.root.context.entities = { "value":entities, "context":{}}
+                        req.lib.root.context.entities = { "value": entities, "context": {} }
                         //console.log("pre-initializeModules1", req.lib)
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
                         //console.log("req.body.params", req.body.params)
@@ -666,7 +780,7 @@ async function initializeModules(libs, config, req, res, next) {
         let runResponse
         if (typeof action == "string") {
             dbAction = await getValFromDB(action, req, res, next)
-            console.log("rumAction1",dbAction)
+            console.log("rumAction1", dbAction)
             respoonse = await runAction(dbAction, libs, "root", req, res, next);
         } else {
             console.log("runAction2")
@@ -1139,7 +1253,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         let match;
         let modifiedStr = str;
 
-        
+
         while ((match = regex.exec(str)) !== null) {
             let forceRoot = match[1] === "~/";
             let innerStr = match[2];
@@ -1176,17 +1290,17 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 
             function safeParseJSON(str) {
                 try {
-                  return JSON.parse(str);
+                    return JSON.parse(str);
                 } catch {
-                  return str; // or null
+                    return str; // or null
                 }
-              }
+            }
 
             //console.log("modifiedStr", modifiedStr)
             if (typeof value === "string" || typeof value === "number") {
-                try{
+                try {
                     //console.log("typeof value of modifiedStr", typeof value)
-                    if (typeof modifiedStr === "object"){
+                    if (typeof modifiedStr === "object") {
                         //console.log("match[0]", match[0])
                         modifiedStr = JSON.stringify(modifiedStr)
                         modifiedStr = modifiedStr.replace(match[0], value.toString());
@@ -1194,8 +1308,8 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
                     } else {
                         modifiedStr = modifiedStr.replace(match[0], value.toString());
                     }
-                } catch (err){
-                    if (typeof value === "object"){
+                } catch (err) {
+                    if (typeof value === "object") {
                         modifiedStr = JSON.stringify(modifiedStr)
                         modifiedStr = modifiedStr.replace(match[0], value.toString());
                         modifiedStr = JSON.parse(modifiedStr)
@@ -1258,7 +1372,7 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         }
 
         //console.log("typeof modifiedStr.mathch", typeof modifiedStr)
-        if (typeof modifiedStr === "object"){
+        if (typeof modifiedStr === "object") {
             modifiedStr = JSON.stringify(modifiedStr);
             if (modifiedStr.match(regex)) {
                 //console.log("modifiedStr.match(regex", modifiedStr, regex)
@@ -1819,12 +1933,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
                                         console.log("inside json", chainParams[0])
                                         chainParams[0] = JSON.stringify(chainParams[0])
-                                        
-                                            if (req.body && req.body._isFunction) {
-                                                //console.log("return chainParams", chainParams)
-                                                return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
-                                            }
-                                        
+
+                                        if (req.body && req.body._isFunction) {
+                                            //console.log("return chainParams", chainParams)
+                                            return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
+                                        }
+
                                         result = await result[accessClean](...chainParams);
                                     } else {
                                         console.log("result 1", result);
@@ -2117,7 +2231,7 @@ const lambdaHandler = async (event, context) => {
             const data = await dynamodb.query(params).promise();
 
             for (const itm of data.Items) {
-                const stUnix = itm.sd + itm.st;  
+                const stUnix = itm.sd + itm.st;
                 const etUnix = itm.sd + itm.et;
 
                 const startTime = moment(stUnix * 1000);
