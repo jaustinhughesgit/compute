@@ -555,14 +555,15 @@ const entities = {
    * @returns {Promise<Object|null>}            Same structure returned by one loop of parseArrayLogic
    */
   search: async (singleObject) => {
+    console.log("1")
     if (!singleObject || typeof singleObject !== 'object')
       throw new Error('entities.search expects a breadcrumb object');
 
+    console.log("2")
     // ── Extract breadcrumb and body ───────────────────────────
     const [breadcrumb] = Object.keys(singleObject);
-    const body = singleObject[breadcrumb] ?? {};
-    if (!body.input || !body.schema) return null;   // nothing to do
-
+    const body = singleObject
+    console.log("3")
     // ── Create embedding for the body ─────────────────────────
     const {
       data: [{ embedding: rawEmb }]
@@ -570,15 +571,18 @@ const entities = {
       model: 'text-embedding-3-small',
       input: JSON.stringify(body)
     });
+    console.log("4")
     const embedding = toVector(rawEmb);
-
+    console.log("5", embedding)
     // ── Parse “/domain/root” from breadcrumb ─────────────────
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
+    console.log("6", domain, root)
     if (!domain || !root) return null;
 
     // ── Pull existing root record from DynamoDB ──────────────
     let dynamoRecord = null;
     try {
+        console.log("7")
       const { Items } = await dynamodb
         .query({
           TableName: `i_${domain}`,
@@ -588,7 +592,9 @@ const entities = {
           Limit: 1
         })
         .promise();
+        console.log("8", Items)
       dynamoRecord = Items?.[0] ?? null;
+      console.log("9", dynamoRecord)
     } catch (err) {
       console.error('DynamoDB query failed:', err);
     }
@@ -596,13 +602,15 @@ const entities = {
     // ── Compute scaled-Euclidean distances to saved vectors ──
     let dist1, dist2, dist3, dist4, dist5;
     if (dynamoRecord) {
+        console.log("10")
       const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
       const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
+      console.log("11")
       [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
         vec ? scaledEuclidean(embedding, vec) : null
       );
     }
-
+    console.log("12")
     // ── Optional: find sub-domain matches by GSI ──────────────
     const pathKey = `${domain}/${root}`;
     const delta = 0.03;
@@ -610,6 +618,7 @@ const entities = {
 
     if (dist1 != null) {
       try {
+        console.log("13")
         const params = {
           TableName: 'subdomains',
           IndexName: 'path-index',
@@ -643,14 +652,16 @@ const entities = {
             '#d5 BETWEEN :d5lo AND :d5hi',
           ScanIndexForward: true
         };
-
+        console.log("14")
         const { Items } = await dynamodb.query(params).promise();
+        console.log("15", Items)
         subdomainMatches = Items ?? [];
+        console.log("16", subdomainMatches)
       } catch (err) {
         console.error('subdomains GSI query failed:', err);
       }
     }
-
+    console.log("17")
     let results = {
       breadcrumb,
       embedding,
