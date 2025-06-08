@@ -547,13 +547,6 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 const entities = {
-  /**
-   * Run “arrayLogic”-style matching for a single breadcrumb object.
-   *
-   * @param {Object}  singleObject              e.g. { "/agriculture/crops": { input:{…}, schema:{…} } }
-   * @param {Object}  deps
-   * @returns {Promise<Object|null>}            Same structure returned by one loop of parseArrayLogic
-   */
   search: async (singleObject) => {
     console.log("1")
     if (!singleObject || typeof singleObject !== 'object')
@@ -562,15 +555,14 @@ const entities = {
     console.log("2")
     // ── Extract breadcrumb and body ───────────────────────────
     const [breadcrumb] = Object.keys(singleObject);
-    const body = singleObject
     console.log("3")
     // ── Create embedding for the body ─────────────────────────
-    const {
-      data: [{ embedding: rawEmb }]
-    } = await openai.embeddings.create({
-      model: 'text-embedding-3-small',
-      input: JSON.stringify(body)
+    const { data } = await openai.embeddings.create({
+        model: 'text-embedding-3-small',
+        input: JSON.stringify(singleObject)
     });
+    console.log("3.1", data);            // now legal
+    const rawEmb   = data[0].embedding;
     console.log("3.1", data)
     console.log("3.2", data[0])
     console.log("3.3",data[0].embedding)
