@@ -547,12 +547,37 @@ async function installModule(moduleName, contextKey, context, lib) {
 }
 
 const toVector = v => {
+  try {
     if (!v) return null;
-    const arr = Array.isArray(v) ? v : JSON.parse(v);
-    if (!Array.isArray(arr)) return null;
+
+    // Accept: real array, JSON stringified array, comma-separated string,
+    //         or a Float32Array stored via Buffer.from(..).toString('base64')
+    let arr;
+
+    if (Array.isArray(v)) {
+      arr = v;
+    } else if (typeof v === 'string') {
+      // Quick check: looks like JSON?
+      if (v.trim().startsWith('[')) {
+        arr = JSON.parse(v);
+      } else if (v.includes(',')) {
+        arr = v.split(',').map(Number);
+      } else {
+        // Not JSON & no commas – probably base-64 or something unknown
+        return null;
+      }
+    } else {
+      return null; // unsupported type
+    }
+
+    if (!Array.isArray(arr) || arr.some(x => typeof x !== 'number')) return null;
 
     const len = Math.hypot(...arr);
     return len ? arr.map(x => x / len) : null;
+  } catch (_) {
+    // swallow errors and treat the vector as "missing"
+    return null;
+  }
 };
 
 const scaledEuclidean = (a, b) =>
