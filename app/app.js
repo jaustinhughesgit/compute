@@ -636,8 +636,12 @@ const entities = {
     if (dynamoRecord) {
         console.log("10")
       const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
-      const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
-      console.log("11")
+      const vectors = embKeys.map(k => {
+        console.log("k", k);
+        console.log("dynamoRecord",dynamoRecord)
+        toVector(dynamoRecord[k])
+    });
+      console.log("11",vectors);
       [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
         vec ? scaledEuclidean(embedding, vec) : null
       );
