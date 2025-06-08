@@ -546,6 +546,15 @@ async function installModule(moduleName, contextKey, context, lib) {
     return modulePath;
 }
 
+const toVector = v => {
+    if (!v) return null;
+    const arr = Array.isArray(v) ? v : JSON.parse(v);
+    if (!Array.isArray(arr)) return null;
+
+    const len = Math.hypot(...arr);
+    return len ? arr.map(x => x / len) : null;
+};
+
 const entities = {
   search: async (singleObject) => {
     console.log("1")
@@ -567,7 +576,7 @@ const entities = {
     console.log("3.2", data[0])
     console.log("3.3",data[0].embedding)
     console.log("4", rawEmb)
-    const embedding = data[0].embedding;
+    const embedding = toVector(rawEmb);
     console.log("5", embedding)
     // ── Parse “/domain/root” from breadcrumb ─────────────────
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
