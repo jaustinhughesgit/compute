@@ -555,6 +555,9 @@ const toVector = v => {
     return len ? arr.map(x => x / len) : null;
 };
 
+const scaledEuclidean = (a, b) =>
+    Math.hypot(...a.map((v, i) => v - b[i])) / 2;
+
 const entities = {
   search: async (singleObject) => {
     console.log("1")
