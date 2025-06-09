@@ -691,7 +691,10 @@ const entities = {
           ScanIndexForward: true
         };
 
+        console.log("params", params)
+
         const { Items } = await dynamodb.query(params).promise();
+        console.log("Items", items)
         subdomainMatches = Items ?? [];
       } catch (err) {
         console.error('subdomains GSI query failed:', err);
