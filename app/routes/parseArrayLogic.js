@@ -21,7 +21,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
         const {
             data: [{ embedding: rawEmb }]
         } = await openai.embeddings.create({
-            model: 'text-embedding-3-small',
+            model: 'text-embedding-3-large',
             input: JSON.stringify(body)
         });
         const embedding = toVector(rawEmb);

@@ -595,7 +595,7 @@ const entities = {
     console.log("3", breadcrumb)
     // ── Create embedding for the body ─────────────────────────
     const { data } = await openai.embeddings.create({
-        model: 'text-embedding-3-small',
+        model: 'text-embedding-3-large',
         input: JSON.stringify(singleObject)
     });
     console.log("3.1", data);            // now legal
@@ -633,8 +633,7 @@ const entities = {
     if (dynamoRecord) {
         console.log("10")
       const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
-      const vectors = embKeys.map(k => 
-        toVector(dynamoRecord[k]));
+      const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
       console.log("11",vectors);
       [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
         vec ? scaledEuclidean(embedding, vec) : null
