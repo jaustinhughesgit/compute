@@ -593,6 +593,7 @@ const entities = {
     // ── Extract breadcrumb and body ───────────────────────────
     const [breadcrumb] = Object.keys(singleObject);
     console.log("3", breadcrumb)
+    console.log("3.1", JSON.stringify(singleObject))
     // ── Create embedding for the body ─────────────────────────
     const { data } = await openai.embeddings.create({
         model: 'text-embedding-3-large',
