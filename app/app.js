@@ -651,7 +651,7 @@ const entities = {
     console.log(distances)
     /* ── 5. optional sub-domain match (unchanged) ─────────── */
     const { dist1, dist2, dist3, dist4, dist5 } = distances;
-    const pathKey = `${domain}/${root}`;
+    const pathKey = `/${domain}/${root}`;
     const delta   = 0.03;
     let subdomainMatches = [];
 
