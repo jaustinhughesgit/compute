@@ -345,7 +345,7 @@ async function runApp(req, res, next) {
                     return maybe;               // bubble up
                 }
                 
-                console.log("return result <<<<< 348")
+                console.log("return result <<<<< 348", maybe)
                 return maybe;
             };
 
