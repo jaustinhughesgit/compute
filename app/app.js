@@ -594,7 +594,7 @@ const entities = {
     /* ── 1. create embedding exactly once ─────────────────── */
     const { data } = await openai.embeddings.create({
       model: 'text-embedding-3-large',
-      input: 
+      input: obj
     });
     const embedding = data[0].embedding;   // ← keep raw array (no toVector)
 
