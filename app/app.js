@@ -2016,9 +2016,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         }
                                         console.log("fallback", chainParams)
                                         if (chainParams.length == 1){
-                                            result = await result[accessClean](chainParams[0]);
+                                            result = await result[accessClean](JSON.stringify(chainParams[0]));
                                         } else {
                                             result = await result[accessClean](...chainParams);
+                                        }
                                         }
                                         console.log("after completed result")
                                         //
