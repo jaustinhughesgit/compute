@@ -585,77 +585,83 @@ const scaledEuclidean = (a, b) =>
 
 const entities = {
   search: async (singleObject) => {
-    console.log("1")
-    if (!singleObject || typeof singleObject !== 'object')
+    if (!singleObject || typeof singleObject !== 'object') {
       throw new Error('entities.search expects a breadcrumb object');
+    }
 
-    console.log("2")
-    // ── Extract breadcrumb and body ───────────────────────────
-    const [breadcrumb] = Object.keys(singleObject);
-    console.log("3", breadcrumb)
-    console.log("3.1", JSON.stringify(singleObject))
-    // ── Create embedding for the body ─────────────────────────
+    /* ── 1. create embedding exactly once ─────────────────── */
     const { data } = await openai.embeddings.create({
-        model: 'text-embedding-3-large',
-        input: JSON.stringify(singleObject)
+      model: 'text-embedding-3-large',
+      input: JSON.stringify(singleObject)
     });
-    console.log("3.1", data);            // now legal
-    const rawEmb   = data[0].embedding;
-    console.log("4", rawEmb)
-    const embedding = toVector(rawEmb);
-    console.log("5", embedding)
-    // ── Parse “/domain/root” from breadcrumb ─────────────────
+    const embedding = data[0].embedding;   // ← keep raw array (no toVector)
+
+    /* ── 2. pull “/domain/root” record ────────────────────── */
+    const [breadcrumb] = Object.keys(singleObject);
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
-    console.log("6", domain, root)
     if (!domain || !root) return null;
 
-    // ── Pull existing root record from DynamoDB ──────────────
     let dynamoRecord = null;
     try {
-        console.log("7")
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: '#r = :pk',
-          ExpressionAttributeNames: { '#r': 'root' },
-          ExpressionAttributeValues: { ':pk': root },
-          Limit: 1
-        })
-        .promise();
-        console.log("8", Items)
+      const { Items } = await dynamodb.query({
+        TableName: `i_${domain}`,
+        KeyConditionExpression: '#r = :pk',
+        ExpressionAttributeNames: { '#r': 'root' },
+        ExpressionAttributeValues: { ':pk': root },
+        Limit: 1
+      }).promise();
       dynamoRecord = Items?.[0] ?? null;
-      console.log("9", dynamoRecord)
     } catch (err) {
       console.error('DynamoDB query failed:', err);
     }
 
-    // ── Compute scaled-Euclidean distances to saved vectors ──
-    let dist1, dist2, dist3, dist4, dist5;
+    /* ── 3. cosine distance helper (same as Method 1) ─────── */
+    const cosineDist = (a, b) => {
+      let dot = 0, na = 0, nb = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        na  += a[i] * a[i];
+        nb  += b[i] * b[i];
+      }
+      return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+    };
+
+    /* ── 4. compute dist1…dist5 exactly as Method 1 ───────── */
+    const distances = {};
     if (dynamoRecord) {
-        console.log("10")
-      const embKeys = ['emb1', 'emb2', 'emb3', 'emb4', 'emb5'];
-      const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
-      console.log("11",vectors);
-      [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
-        vec ? scaledEuclidean(embedding, vec) : null
-      );
+      for (let i = 1; i <= 5; i++) {
+        const raw = dynamoRecord[`emb${i}`];
+        let ref = null;
+
+        if (typeof raw === 'string') {
+          try { ref = JSON.parse(raw); } catch { /* ignore */ }
+        } else if (Array.isArray(raw)) {
+          ref = raw;
+        }
+
+        if (Array.isArray(ref) && ref.length === embedding.length) {
+          distances[`dist${i}`] = cosineDist(embedding, ref);
+        } else {
+          distances[`dist${i}`] = null;
+        }
+      }
     }
-    console.log("12")
-    // ── Optional: find sub-domain matches by GSI ──────────────
+
+    /* ── 5. optional sub-domain match (unchanged) ─────────── */
+    const { dist1, dist2, dist3, dist4, dist5 } = distances;
     const pathKey = `${domain}/${root}`;
-    const delta = 0.03;
+    const delta   = 0.03;
     let subdomainMatches = [];
 
     if (dist1 != null) {
       try {
-        console.log("13")
         const params = {
           TableName: 'subdomains',
           IndexName: 'path-index',
           KeyConditionExpression:
             '#p = :path AND #d1 BETWEEN :d1lo AND :d1hi',
           ExpressionAttributeNames: {
-            '#p': 'path',
+            '#p':  'path',
             '#d1': 'dist1',
             '#d2': 'dist2',
             '#d3': 'dist3',
@@ -682,33 +688,25 @@ const entities = {
             '#d5 BETWEEN :d5lo AND :d5hi',
           ScanIndexForward: true
         };
-        console.log("14")
+
         const { Items } = await dynamodb.query(params).promise();
-        console.log("15", Items)
         subdomainMatches = Items ?? [];
-        console.log("16", subdomainMatches)
       } catch (err) {
         console.error('subdomains GSI query failed:', err);
       }
     }
-    console.log("17")
-    let results = {
+
+    /* ── 6. return same structure your pipeline expects ───── */
+    return {
       breadcrumb,
       embedding,
-      dist1,
-      dist2,
-      dist3,
-      dist4,
-      dist5,
+      ...distances,
       dynamoRecord,
       subdomainMatches
-    }
-    console.log("results", results)
-
-    // ── Return the same structure parseArrayLogic pushes ─────
-    return results;
+    };
   }
 };
+
 
 
 
