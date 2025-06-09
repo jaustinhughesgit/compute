@@ -340,8 +340,12 @@ async function runApp(req, res, next) {
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
+
+                console.log("return maybe <<<<< 344")
                     return maybe;               // bubble up
                 }
+                
+                console.log("return result <<<<< 348")
                 return maybe;
             };
 
@@ -799,6 +803,8 @@ async function initializeMiddleware(req, res, next) {
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
+
+                            console.log("return req.body.params <<<<< 803")
                             //console.log("return req.body.params", req.body.params)
                             return req.body.params;
                         }
@@ -838,6 +844,7 @@ async function initializeModules(libs, config, req, res, next) {
 
         if (typeof response == "object") {
             if (response.hasOwnProperty("_isFunction")) {
+                console.log("return result <<<<< 841")
                 console.log("return response", response)
                 return response
             }
@@ -1537,6 +1544,8 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
                         if (typeof resu == "object") {
                             if (resu.hasOwnProperty("_isFunction")) {
+
+                                console.log("return result <<<<< 1541")
                                 return resu
                             }
                         }
@@ -1555,6 +1564,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
                 if (typeof resu == "object") {
                     if (resu.hasOwnProperty("_isFunction")) {
+                        console.log("return result <<<<< 1559")
                         return resu
                     }
                 }
@@ -1807,6 +1817,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         result = await applyMethodChain(value, action, libs, newNestedPath, actionExecution, res, req, next);
         if (typeof result == "object") {
             if (result.hasOwnProperty("_isFunction")) {
+                console.log("return result <<<<< 1810")
                 return result
             }
         }
@@ -2002,11 +2013,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                                 // console.log("return chainParams", chainParams)
 
                                                 if (chainParams.length === 1) {
+                console.log("return obj <<<<< 2016")
                                                     return {
                                                         chainParams: chainParams[0],
                                                         _isFunction: req.body._isFunction
                                                     };
                                                 } else {
+
+                console.log("return obj <<<<< 2023")
                                                     return {
                                                         chainParams: chainParams,
                                                         _isFunction: req.body._isFunction
@@ -2016,8 +2030,10 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         }
                                         console.log("fallback", chainParams)
                                         if (chainParams.length == 1){
+                                            console.log("typeof", typeof chainParams[0])
                                             result = await result[accessClean](JSON.stringify(chainParams[0]));
                                         } else {
+                                            console.log("other")
                                             result = await result[accessClean](...chainParams);
                                         }
                                         
