@@ -596,6 +596,7 @@ const entities = {
     });
     const embedding = data[0].embedding;   // ← keep raw array (no toVector)
 
+    console.log("embedding", embedding)
     /* ── 2. pull “/domain/root” record ────────────────────── */
     const [breadcrumb] = Object.keys(singleObject);
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
@@ -611,6 +612,7 @@ const entities = {
         Limit: 1
       }).promise();
       dynamoRecord = Items?.[0] ?? null;
+      console.log("dynamoRecord",dynamoRecord)
     } catch (err) {
       console.error('DynamoDB query failed:', err);
     }
@@ -646,7 +648,7 @@ const entities = {
         }
       }
     }
-
+    console.log(distances)
     /* ── 5. optional sub-domain match (unchanged) ─────────── */
     const { dist1, dist2, dist3, dist4, dist5 } = distances;
     const pathKey = `${domain}/${root}`;
@@ -695,15 +697,17 @@ const entities = {
         console.error('subdomains GSI query failed:', err);
       }
     }
-
+    console.log("subdomainMatches", subdomainMatches)
     /* ── 6. return same structure your pipeline expects ───── */
-    return {
+    let result = {
       breadcrumb,
       embedding,
       ...distances,
       dynamoRecord,
       subdomainMatches
-    };
+    }
+
+    return result;
   }
 };
 
