@@ -694,7 +694,7 @@ const entities = {
         console.log("params", params)
 
         const { Items } = await dynamodb.query(params).promise();
-        console.log("Items", items)
+        console.log("Items", Items)
         subdomainMatches = Items ?? [];
       } catch (err) {
         console.error('subdomains GSI query failed:', err);
