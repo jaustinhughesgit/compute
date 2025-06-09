@@ -589,10 +589,12 @@ const entities = {
       throw new Error('entities.search expects a breadcrumb object');
     }
 
+    let obj = JSON.stringify(singleObject);
+    console.log("obj", obj)
     /* ── 1. create embedding exactly once ─────────────────── */
     const { data } = await openai.embeddings.create({
       model: 'text-embedding-3-large',
-      input: JSON.stringify(singleObject)
+      input: 
     });
     const embedding = data[0].embedding;   // ← keep raw array (no toVector)
 
