@@ -2270,9 +2270,12 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
                 let text = reqBody.body.text
+                let parsedText = JSON.parse(text)
+                let stringifyText = JSON.stringify(parsedText)
+                console.log("stringifyText", stringifyText)
                 const { data } = await openai.embeddings.create({
                     model: 'text-embedding-3-large',
-                    input: text
+                    input:stringifyText
                 });
                 console.log("data",data);
                 console.log("data[0]",data[0]);
