@@ -1999,12 +1999,27 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                         if (accessClean === 'send') {
                                             if (req.body && req.body._isFunction) {
-                                                //console.log("return chainParams", chainParams)
-                                                return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
+                                                // console.log("return chainParams", chainParams)
+
+                                                if (chainParams.length === 1) {
+                                                    return {
+                                                        chainParams: chainParams[0],
+                                                        _isFunction: req.body._isFunction
+                                                    };
+                                                } else {
+                                                    return {
+                                                        chainParams: chainParams,
+                                                        _isFunction: req.body._isFunction
+                                                    };
+                                                }
                                             }
                                         }
                                         console.log("fallback", chainParams)
-                                        result = await result[accessClean](...chainParams);
+                                        if (chainParams.length == 1){
+                                            result = await result[accessClean](chainParams[0]);
+                                        } else {
+                                            result = await result[accessClean](...chainParams);
+                                        }
                                         console.log("after completed result")
                                         //
                                         console.log("result 4", result)
