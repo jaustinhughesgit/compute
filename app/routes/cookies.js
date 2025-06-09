@@ -2071,7 +2071,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
 
-                console.log("description", description);
+                console.log("description-----------", description);
                 console.log("domain", domain);
                 console.log("subdomain", subdomain);
                 console.log("embedding", embedding);
