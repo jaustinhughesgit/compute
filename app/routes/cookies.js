@@ -914,7 +914,7 @@ async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
             secure: true,
             sameSite: 'None'
         });
-        return { "ak": ak, "gi": gi, "ex": ex, "ci": ci }
+        return { "ak": ak, "gi": gi, "ex": ex, "ci": ci, "existing": mainObj["existing"] }
     }
 }
 async function createAccess(ai, g, e, ex, at, to, va, ac) {
@@ -2310,7 +2310,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 
 
-                
+            mainObj["existing"] = cookie.existing;
             mainObj["file"] = actionFile + ""
             response = mainObj
 
