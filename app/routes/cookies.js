@@ -1464,7 +1464,7 @@ async function searchSubdomains(
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
 
-    console.log("PROMISE CHECK )))", req, res, privateKey, reqBody, reqMethod, reqType, reqHeaderSent, action)
+    console.log("PROMISE CHECK )))", req, res, reqBody, reqMethod, reqType, reqHeaderSent, action)
     console.log("route indise")
     cache = {
         getSub: {},
