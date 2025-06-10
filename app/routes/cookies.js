@@ -889,12 +889,16 @@ async function getCookie(val, key) {
     return await dynamodb.query(params).promise()
 }
 async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
+    console.log("xAccessToken",xAccessToken)
     if (xAccessToken) {
+        console.log("existing user")
         mainObj["status"] = "authenticated";
+        mainObj["existing"] = true;
         let val = xAccessToken;
         let cookie = await getCookie(val, "ak")
         return cookie.Items[0]
     } else {
+        console.log("else generate Cookie!")
         const ak = await getUUID(uuidv4)
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
@@ -902,6 +906,7 @@ async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
+        mainObj["existing"] = false;
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
             maxAge: ttlDurationInSeconds * 1000,
