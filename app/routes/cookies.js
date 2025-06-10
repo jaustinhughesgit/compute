@@ -890,10 +890,11 @@ async function getCookie(val, key) {
 }
 async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
     console.log("xAccessToken",xAccessToken)
+    let existing = false
     if (xAccessToken) {
         console.log("existing user")
         mainObj["status"] = "authenticated";
-        mainObj["existing"] = true;
+        existing = true;
         let val = xAccessToken;
         let cookie = await getCookie(val, "ak")
         return cookie.Items[0]
@@ -906,7 +907,7 @@ async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
         const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
         await createCookie(ci.toString(), gi.toString(), ex, ak)
         mainObj["accessToken"] = ak;
-        mainObj["existing"] = false;
+        existing = true;
         res.cookie('accessToken', ak, {
             domain: '.1var.com',
             maxAge: ttlDurationInSeconds * 1000,
@@ -914,7 +915,7 @@ async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
             secure: true,
             sameSite: 'None'
         });
-        return { "ak": ak, "gi": gi, "ex": ex, "ci": ci, "existing": mainObj["existing"] }
+        return { "ak": ak, "gi": gi, "ex": ex, "ci": ci, "existing": existing }
     }
 }
 async function createAccess(ai, g, e, ex, at, to, va, ac) {
@@ -2299,6 +2300,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let ot = await runApp(req, res, next)
                 console.log("ot", ot)
                 //if (ot){
+                ot.existing = true;
                 return ot?.chainParams
                 //} else {
                 //    return
