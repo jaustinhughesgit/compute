@@ -1078,21 +1078,27 @@ const DOMAIN_SUBS = {
   ]
 };
 
+const { DOMAIN_SUBS } = require("./constants");
 const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 /* ------------------------------------------------------------------ */
 /* Helpers                                                            */
 /* ------------------------------------------------------------------ */
-const toVector = v => {
+const parseVector = v => {
   if (!v) return null;
-  const arr = Array.isArray(v) ? v : JSON.parse(v);
-  if (!Array.isArray(arr)) return null;
-  const len = Math.hypot(...arr);
-  return len ? arr.map(x => x / len) : null;
+  if (Array.isArray(v)) return v;
+  try { return JSON.parse(v); } catch { return null; }
 };
 
-const scaledEuclidean = (a, b) =>
-  Math.hypot(...a.map((v, i) => v - b[i])) / 2;
+const cosineDist = (a, b) => {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na  += a[i] * a[i];
+    nb  += b[i] * b[i];
+  }
+  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+};
 
 /**
  * Re-usable OpenAI helper (quick prompt or strict schema fall-back)
@@ -1186,28 +1192,21 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     const body = element[breadcrumb] ?? {};
     if (!body.input || !body.schema) continue;
 
-    /* -------------------------------------------------------------- */
-    /* 0️⃣  Classify domain & sub-domain from the incoming text       */
-    /* -------------------------------------------------------------- */
+    /* 0️⃣ classify domain / sub-domain (unchanged) */
     const { domain, subdomain } = await classifyDomains({
       openai,
-      text: element
+      text: body.input
     });
 
-    /* -------------------------------------------------------------- */
-    /* 1️⃣  Generate embedding of the whole element                   */
-    /* -------------------------------------------------------------- */
+    /* 1️⃣ embedding of the element (no normalisation) */
     const {
-      data: [{ embedding: rawEmb }]
+      data: [{ embedding }]
     } = await openai.embeddings.create({
       model: "text-embedding-3-large",
       input: JSON.stringify(element)
     });
-    const embedding = toVector(rawEmb);
 
-    /* -------------------------------------------------------------- */
-    /* 2️⃣  DynamoDB look-up for the classified domain/sub-domain     */
-    /* -------------------------------------------------------------- */
+    /* 2️⃣ fetch reference record from DynamoDB (unchanged) */
     let dynamoRecord = null;
     try {
       const { Items } = await dynamodb
@@ -1224,24 +1223,21 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       console.error("DynamoDB query failed:", err);
     }
 
-    /* -------------------------------------------------------------- */
-    /* 3️⃣  Distance calculations (unchanged)                         */
-    /* -------------------------------------------------------------- */
+    /* 3️⃣ cosine distances — NOW IDENTICAL TO searchSubdomains */
     let dist1, dist2, dist3, dist4, dist5;
     if (dynamoRecord) {
       const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-      const vectors = embKeys.map(k => toVector(dynamoRecord[k]));
-      [dist1, dist2, dist3, dist4, dist5] = vectors.map(vec =>
-        vec ? scaledEuclidean(embedding, vec) : null
-      );
+      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+        const ref = parseVector(dynamoRecord[k]);
+        return Array.isArray(ref) && ref.length === embedding.length
+          ? cosineDist(embedding, ref)
+          : null;
+      });
     }
 
-    /* -------------------------------------------------------------- */
-    /* 4️⃣  Sub-domain match search (uses the same path-key shape)    */
-    /* -------------------------------------------------------------- */
+    /* 4️⃣ sub-domain match search (unchanged, still uses dist1±0.03) */
     const pathKey = `${domain}/${subdomain}`;
-    console.log("pathKey")
-    const delta = 0.03;
+    const delta   = 0.03;
     let subdomainMatches = [];
 
     if (dist1 != null) {
@@ -1249,7 +1245,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
         const params = {
           TableName: "subdomains",
           IndexName: "path-index",
-          KeyConditionExpression: "#p = :path AND #d1 BETWEEN :d1lo AND :d1hi",
           ExpressionAttributeNames: {
             "#p": "path",
             "#d1": "dist1",
@@ -1260,17 +1255,19 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
           },
           ExpressionAttributeValues: {
             ":path": pathKey,
-            ":d1lo": dist1 - delta,
-            ":d1hi": dist1 + delta,
-            ":d2lo": dist2 - delta,
-            ":d2hi": dist2 + delta,
-            ":d3lo": dist3 - delta,
-            ":d3hi": dist3 + delta,
-            ":d4lo": dist4 - delta,
-            ":d4hi": dist4 + delta,
-            ":d5lo": dist5 - delta,
-            ":d5hi": dist5 + delta
+            ":d1lo": Math.max(0, dist1 - delta),
+            ":d1hi": Math.min(1, dist1 + delta),
+            ":d2lo": Math.max(0, dist2 - delta),
+            ":d2hi": Math.min(1, dist2 + delta),
+            ":d3lo": Math.max(0, dist3 - delta),
+            ":d3hi": Math.min(1, dist3 + delta),
+            ":d4lo": Math.max(0, dist4 - delta),
+            ":d4hi": Math.min(1, dist4 + delta),
+            ":d5lo": Math.max(0, dist5 - delta),
+            ":d5hi": Math.min(1, dist5 + delta)
           },
+          KeyConditionExpression:
+            "#p = :path AND #d1 BETWEEN :d1lo AND :d1hi",
           FilterExpression:
             "#d2 BETWEEN :d2lo AND :d2hi AND " +
             "#d3 BETWEEN :d3lo AND :d3hi AND " +
@@ -1278,7 +1275,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
             "#d5 BETWEEN :d5lo AND :d5hi",
           ScanIndexForward: true
         };
-        console.log("params", params)
+
         const { Items } = await dynamodb.query(params).promise();
         subdomainMatches = Items ?? [];
       } catch (err) {
@@ -1286,19 +1283,13 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       }
     }
 
-    /* -------------------------------------------------------------- */
-    /* 5️⃣  Aggregate                                                  */
-    /* -------------------------------------------------------------- */
+    /* 5️⃣ aggregate & push */
     results.push({
-      breadcrumb,           // original breadcrumb (still useful for tracing)
+      breadcrumb,
       domain,
       subdomain,
       embedding,
-      dist1,
-      dist2,
-      dist3,
-      dist4,
-      dist5,
+      dist1, dist2, dist3, dist4, dist5,
       dynamoRecord,
       subdomainMatches
     });
