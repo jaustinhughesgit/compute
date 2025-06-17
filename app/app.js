@@ -340,13 +340,15 @@ async function runApp(req, res, next) {
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
+                    console.log("maybe && isFunction && chainParams", maybe)
                     return maybe;               // bubble up
                 }
+                console.log("else maybe", maybe)
                 return maybe;
             };
 
             const bubble = await runMiddleware(0);
-
+            console.log("bubble", bubble)
             /* ---------- 6 · finished; resolve what we got ------------- */
             if (bubble) {
                 req.body.params = bubble.chainParams;

@@ -2395,7 +2395,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     }
 }
 function sendBack(res, type, val, isShorthand) {
-
+    console.log("sendBack", val, type, isShorthand)
 
     if (!isShorthand) {
         res.json(val)
@@ -2404,6 +2404,7 @@ function sendBack(res, type, val, isShorthand) {
     }
 }
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
+    console.log("setupRouter!!!!!!!!!!!!!!!")
     router.all('/*', async function (req, res, next) {
         let xAccessToken = req.body.headers["X-accessToken"]
         let originalHost = req.body.headers["X-Original-Host"];
