@@ -18,12 +18,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
         const body = element[breadcrumb] ?? {};
         if (!body.input || !body.schema) continue;
 
+        console.log("body==>>", body)
+        console.log("body==>>", JSON.stringify(body))
         const {
             data: [{ embedding: rawEmb }]
         } = await openai.embeddings.create({
             model: 'text-embedding-3-large',
             input: JSON.stringify(body)
         });
+
+
         const embedding = toVector(rawEmb);
 
         const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
