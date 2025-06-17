@@ -1163,6 +1163,8 @@ const classifyDomains = async ({ openai, text }) => {
       schemaName: "subdomain_classification"
     });
   }
+  console.log("domain", domain);
+  console.log("subdomain", subdomain)
   return { domain, subdomain };
 };
 
