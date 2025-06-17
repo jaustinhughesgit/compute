@@ -1256,7 +1256,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     /* -------------------------------------------------------------- */
     /* 4️⃣  Sub-domain match search (uses the same path-key shape)    */
     /* -------------------------------------------------------------- */
-    const pathKey = `${domain}/${subdomain}`;
+    const pathKey = `/${domain}/${subdomain}`;
     console.log("pathKey")
     const delta = 0.03;
     let subdomainMatches = [];
