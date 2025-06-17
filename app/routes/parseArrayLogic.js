@@ -20,11 +20,12 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
 
         console.log("body==>>", body)
         console.log("body==>>", JSON.stringify(body))
+        console.log("element==>>", element)
         const {
             data: [{ embedding: rawEmb }]
         } = await openai.embeddings.create({
             model: 'text-embedding-3-large',
-            input: JSON.stringify(body)
+            input: JSON.stringify(element)
         });
 
 
