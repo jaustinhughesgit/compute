@@ -1100,7 +1100,13 @@ const cosineDist = (a, b) => {
   return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
 };
 
-
+const toVector = v => {
+  if (!v) return null;
+  const arr = Array.isArray(v) ? v : JSON.parse(v);
+  if (!Array.isArray(arr)) return null;
+  const len = Math.hypot(...arr);
+  return len ? arr.map(x => x / len) : null;
+};
 
 /**
  * Re-usable OpenAI helper (quick prompt or strict schema fall-back)
