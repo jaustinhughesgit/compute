@@ -1101,7 +1101,9 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   /* ⚡ quick */
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
+    temperature: 0,   // “off”  
+    top_p: 0,         // disable nucleus sampling (or leave at 1)  
+    seed: 42,          // same seed ⇒ same output every time
     messages: [
       {
         role: "user",
@@ -1117,7 +1119,9 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   /* strict fall-back */
   const strictRsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
+    temperature: 0,   // “off”  
+    top_p: 0,         // disable nucleus sampling (or leave at 1)  
+    seed: 42,          // same seed ⇒ same output every time
     response_format: {
       type: "json_schema",
       json_schema: {
