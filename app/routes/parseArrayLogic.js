@@ -1191,7 +1191,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     /* -------------------------------------------------------------- */
     const { domain, subdomain } = await classifyDomains({
       openai,
-      text: body.input
+      text: element
     });
 
     /* -------------------------------------------------------------- */
