@@ -803,7 +803,7 @@ async function initializeMiddleware(req, res, next) {
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
-                            //console.log("return req.body.params", req.body.params)
+                            console.log("return req.body.params", req.body.params)
                             return req.body.params;
                         }
                         //console.log("typeof next", typeof next)
@@ -2026,7 +2026,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         try {
                                             re = result();
                                         } catch (err) {
-                                            //console.log("err (Attempting result() in Try/Catch, It's OK if it fails.)", err)
+                                            console.log("err (Attempting result() in Try/Catch, It's OK if it fails.)", err)
                                         }
                                     }
                                 } else {
@@ -2034,7 +2034,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     result = result[accessClean];
                                 }
                             } catch (err) {
-                                //console.log("err", err)
+                                console.log("err", err)
                             }
                         }
                     }
