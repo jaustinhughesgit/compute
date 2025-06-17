@@ -1153,7 +1153,7 @@ const classifyDomains = async ({ openai, text }) => {
     console.log("text stringify", JSON.stringify(text));
   const domain = await callOpenAI({
     openai,
-    str: text,
+    str: JSON.stringify(text),
     list: DOMAINS,
     promptLabel: "domain",
     schemaName: "domain_classification"
@@ -1164,7 +1164,7 @@ const classifyDomains = async ({ openai, text }) => {
   if (subList.length) {
     subdomain = await callOpenAI({
       openai,
-      str: text,
+      str: JSON.stringify(text),
       list: subList,
       promptLabel: "subdomain",
       schemaName: "subdomain_classification"
