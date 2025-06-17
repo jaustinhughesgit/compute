@@ -1148,6 +1148,9 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
  * logic as the `/classify-domain` route.
  */
 const classifyDomains = async ({ openai, text }) => {
+
+    console.log("text raw", text);
+    console.log("text stringify", JSON.stringify(text));
   const domain = await callOpenAI({
     openai,
     str: text,
