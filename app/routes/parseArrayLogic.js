@@ -1240,6 +1240,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     /* 4️⃣  Sub-domain match search (uses the same path-key shape)    */
     /* -------------------------------------------------------------- */
     const pathKey = `${domain}/${subdomain}`;
+    console.log("pathKey")
     const delta = 0.03;
     let subdomainMatches = [];
 
@@ -1277,7 +1278,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
             "#d5 BETWEEN :d5lo AND :d5hi",
           ScanIndexForward: true
         };
-
+        console.log("params", params)
         const { Items } = await dynamodb.query(params).promise();
         subdomainMatches = Items ?? [];
       } catch (err) {
