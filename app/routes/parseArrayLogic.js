@@ -1077,8 +1077,6 @@ const DOMAIN_SUBS = {
     "warehousing"
   ]
 };
-
-const { DOMAIN_SUBS } = require("./constants");
 const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 /* ------------------------------------------------------------------ */
@@ -1087,7 +1085,8 @@ const DOMAINS = Object.keys(DOMAIN_SUBS);
 const parseVector = v => {
   if (!v) return null;
   if (Array.isArray(v)) return v;
-  try { return JSON.parse(v); } catch { return null; }
+  try { return JSON.parse(v); }
+  catch { return null; }
 };
 
 const cosineDist = (a, b) => {
@@ -1101,33 +1100,32 @@ const cosineDist = (a, b) => {
 };
 
 /**
- * Re-usable OpenAI helper (quick prompt or strict schema fall-back)
+ * Reusable OpenAI helper (greedy prompt + strict-schema fallback)
  */
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-  /* ⚡ quick */
-  const rsp = await openai.chat.completions.create({
+  // 1️⃣ Quick greedy guess
+  const quick = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,   // “off”  
-    top_p: 0,         // disable nucleus sampling (or leave at 1)  
-    seed: 42,          // same seed ⇒ same output every time
+    temperature: 0,
     messages: [
       {
         role: "user",
-        content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(
-          " "
-        )}`
+        content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
       }
     ]
   });
-  const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
+
+  const guess = quick.choices[0].message.content
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase();
+
   if (list.includes(guess)) return guess;
 
-  /* strict fall-back */
-  const strictRsp = await openai.chat.completions.create({
+  // 2️⃣ Strict-schema fallback
+  const strict = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,   // “off”  
-    top_p: 0,         // disable nucleus sampling (or leave at 1)  
-    seed: 42,          // same seed ⇒ same output every time
+    temperature: 0,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -1146,38 +1144,34 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
       { role: "user",   content: `Which ${promptLabel} best fits: "${str}"?` }
     ]
   });
-  return JSON.parse(strictRsp.choices[0].message.content)[promptLabel];
+
+  return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
 /**
- * Turn **any text** into { domain, subdomain } using the same
- * logic as the `/classify-domain` route.
+ * Exactly mirror /classify-domain for domain + subdomain
  */
 const classifyDomains = async ({ openai, text }) => {
-
-    console.log("text raw", text);
-    console.log("text stringify", JSON.stringify(text));
   const domain = await callOpenAI({
     openai,
-    str: JSON.stringify(text),
+    str: text,                    // <-- raw text
     list: DOMAINS,
     promptLabel: "domain",
     schemaName: "domain_classification"
   });
 
-  const subList = DOMAIN_SUBS[domain] ?? [];
+  const subList = DOMAIN_SUBS[domain] || [];
   let subdomain = "";
   if (subList.length) {
     subdomain = await callOpenAI({
       openai,
-      str: JSON.stringify(text),
+      str: text,
       list: subList,
       promptLabel: "subdomain",
       schemaName: "subdomain_classification"
     });
   }
-  console.log("domain", domain);
-  console.log("subdomain", subdomain)
+
   return { domain, subdomain };
 };
 
@@ -1189,16 +1183,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
 
   for (const element of arrayLogic) {
     const [breadcrumb] = Object.keys(element);
-    const body = element[breadcrumb] ?? {};
+    const body = element[breadcrumb] || {};
     if (!body.input || !body.schema) continue;
 
-    /* 0️⃣ classify domain / sub-domain (unchanged) */
+    // 0️⃣ Classify
     const { domain, subdomain } = await classifyDomains({
       openai,
       text: body.input
     });
 
-    /* 1️⃣ embedding of the element (no normalisation) */
+    // 1️⃣ Embed
     const {
       data: [{ embedding }]
     } = await openai.embeddings.create({
@@ -1206,28 +1200,26 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       input: JSON.stringify(element)
     });
 
-    /* 2️⃣ fetch reference record from DynamoDB (unchanged) */
+    // 2️⃣ Fetch reference record
     let dynamoRecord = null;
     try {
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: "#r = :pk",
-          ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomain },
-          Limit: 1
-        })
-        .promise();
-      dynamoRecord = Items?.[0] ?? null;
+      const { Items } = await dynamodb.query({
+        TableName: `i_${domain}`,
+        KeyConditionExpression: "#r = :pk",
+        ExpressionAttributeNames: { "#r": "root" },
+        ExpressionAttributeValues: { ":pk": subdomain },
+        Limit: 1
+      }).promise();
+      dynamoRecord = Items?.[0] || null;
     } catch (err) {
       console.error("DynamoDB query failed:", err);
     }
 
-    /* 3️⃣ cosine distances — NOW IDENTICAL TO searchSubdomains */
+    // 3️⃣ Compute cosine distances
     let dist1, dist2, dist3, dist4, dist5;
     if (dynamoRecord) {
-      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+      const keys = ["emb1","emb2","emb3","emb4","emb5"];
+      [dist1, dist2, dist3, dist4, dist5] = keys.map(k => {
         const ref = parseVector(dynamoRecord[k]);
         return Array.isArray(ref) && ref.length === embedding.length
           ? cosineDist(embedding, ref)
@@ -1235,18 +1227,18 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       });
     }
 
-    /* 4️⃣ sub-domain match search (unchanged, still uses dist1±0.03) */
-    const pathKey = `${domain}/${subdomain}`;
-    const delta   = 0.03;
+    // 4️⃣ Query matching subdomains
+    const delta = 0.03;
     let subdomainMatches = [];
-
     if (dist1 != null) {
       try {
         const params = {
-          TableName: "subdomains",
-          IndexName: "path-index",
+          TableName:      "subdomains",
+          IndexName:      "path-index",
+          KeyConditionExpression:
+            "#p = :path AND #d1 BETWEEN :lo AND :hi",
           ExpressionAttributeNames: {
-            "#p": "path",
+            "#p":  "path",
             "#d1": "dist1",
             "#d2": "dist2",
             "#d3": "dist3",
@@ -1254,9 +1246,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
             "#d5": "dist5"
           },
           ExpressionAttributeValues: {
-            ":path": pathKey,
-            ":d1lo": Math.max(0, dist1 - delta),
-            ":d1hi": Math.min(1, dist1 + delta),
+            ":path": `${domain}/${subdomain}`,
+            ":lo":   Math.max(0, dist1 - delta),
+            ":hi":   Math.min(1, dist1 + delta),
             ":d2lo": Math.max(0, dist2 - delta),
             ":d2hi": Math.min(1, dist2 + delta),
             ":d3lo": Math.max(0, dist3 - delta),
@@ -1266,8 +1258,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
             ":d5lo": Math.max(0, dist5 - delta),
             ":d5hi": Math.min(1, dist5 + delta)
           },
-          KeyConditionExpression:
-            "#p = :path AND #d1 BETWEEN :d1lo AND :d1hi",
           FilterExpression:
             "#d2 BETWEEN :d2lo AND :d2hi AND " +
             "#d3 BETWEEN :d3lo AND :d3hi AND " +
@@ -1277,13 +1267,13 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
         };
 
         const { Items } = await dynamodb.query(params).promise();
-        subdomainMatches = Items ?? [];
+        subdomainMatches = Items || [];
       } catch (err) {
         console.error("subdomains GSI query failed:", err);
       }
     }
 
-    /* 5️⃣ aggregate & push */
+    // 5️⃣ Collect
     results.push({
       breadcrumb,
       domain,
