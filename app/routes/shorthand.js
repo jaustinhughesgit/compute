@@ -1206,11 +1206,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         ROUTE: async (rowArray) => {
              
             let { route } = require('./cookies')
-            //console.log("rowArray",rowArray)
-            //console.log("ROUTE")
+            console.log("rowArray",rowArray)
+            console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
-            //console.log("bod rA[1]", bod);
+            console.log("bod rA[1]", bod);
 
             let expt = rA[2]
             let act = rA[3];
@@ -1221,25 +1221,25 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
-            //const action = reqPath.split("/")[2];
+            const action = reqPath.split("/")[2];
 
             let newReq = {};
             
             newReq.body = req.body
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
-            //console.log("deepMerge newReq.body", newReq.body)
-            //console.log("deepMerge bod", bod)
+            console.log("deepMerge newReq.body", newReq.body)
+            console.log("deepMerge bod", bod)
             newReq.body.body = await deepMerge(newReq.body.body, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
-            //console.log("newReq.body", newReq.body)
-            //console.log("STARTING route(...)")
-            //console.log("act", act)
+            console.log("newReq.body", newReq.body)
+            console.log("STARTING route(...)")
+            console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
-            //console.log("ROUTE resp=>", resp);
+            console.log("ROUTE resp=>", resp);
             return resp
         },
         FINDORCREATE: async (rowArray) => {
