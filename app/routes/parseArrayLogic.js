@@ -1400,7 +1400,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       subdomainMatches
     });
   }
-
+  console.log("shorthand>>", shorthand)
   return results;
 }
 
