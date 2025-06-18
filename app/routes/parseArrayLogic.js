@@ -1164,10 +1164,10 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
 const classifyDomains = async ({ openai, text }) => {
 
     console.log("text raw", text);
-    console.log("text stringify", JSON.stringify(text));
+    console.log("text stringify", JSON.stringify(JSON.parse(JSON.stringify(text))));
   const domain = await callOpenAI({
     openai,
-    str: JSON.stringify(text),
+    str: JSON.stringify(JSON.parse(JSON.stringify(text))),
     list: DOMAINS,
     promptLabel: "domain",
     schemaName: "domain_classification"
@@ -1178,7 +1178,7 @@ const classifyDomains = async ({ openai, text }) => {
   if (subList.length) {
     subdomain = await callOpenAI({
       openai,
-      str: JSON.stringify(text),
+      str: JSON.stringify(JSON.parse(JSON.stringify(text))),
       list: subList,
       promptLabel: "subdomain",
       schemaName: "subdomain_classification"
@@ -1215,7 +1215,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       data: [{ embedding: rawEmb }]
     } = await openai.embeddings.create({
       model: "text-embedding-3-large",
-      input: JSON.stringify(element)
+      input: JSON.stringify(JSON.parse(JSON.stringify(element)))
     });
     const embedding = toVector(rawEmb);
 
