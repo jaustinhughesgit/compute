@@ -1082,17 +1082,25 @@ const DOMAIN_SUBS = {
 
 const DOMAINS      = Object.keys(DOMAIN_SUBS);
 
-// ===== small generic helpers (unchanged) =========================
+
 const parseVector = v => {
   if (!v) return null;
   if (Array.isArray(v)) return v;
-  try { return JSON.parse(v); } catch { return null; }
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
 };
 
 const cosineDist = (a, b) => {
-  let dot = 0, na = 0, nb = 0;
+  let dot = 0,
+    na = 0,
+    nb = 0;
   for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];  na += a[i] ** 2;  nb += b[i] ** 2;
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
   }
   return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
 };
@@ -1105,10 +1113,30 @@ const toVector = v => {
   return len ? arr.map(x => x / len) : null;
 };
 
-const createArrayOfRootKeys = schema =>
-  schema && schema.properties && typeof schema.properties === "object"
-    ? Object.keys(schema.properties)
+const createArrayOfRootKeys = schema => {
+  if (!schema || typeof schema !== "object") return [];
+  const { properties } = schema;
+  return properties && typeof properties === "object"
+    ? Object.keys(properties)
     : [];
+};
+
+const calcMatchScore = (elementDists, item) => {
+  let sum = 0,
+    count = 0;
+  for (let i = 1; i <= 5; i++) {
+    const e = elementDists[`dist${i}`];
+    const t = item[`dist${i}`];
+    if (typeof e === "number" && typeof t === "number") {
+      sum += Math.abs(e - t);
+      count++;
+    }
+  }
+  return count ? sum / count : Number.POSITIVE_INFINITY;
+};
+
+
+
 
 // ===== reference resolver  (unchanged from previous drop-in) =====
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
