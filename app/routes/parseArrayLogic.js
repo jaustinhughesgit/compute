@@ -1082,8 +1082,7 @@ const DOMAIN_SUBS = {
 
 const DOMAINS = Object.keys(DOMAIN_SUBS);
 
-/* --------------------------------- HELPERS -------------------------------- */
-
+// ===== your existing helpers, unchanged =====
 const parseVector = v => {
   if (!v) return null;
   if (Array.isArray(v)) return v;
@@ -1114,21 +1113,14 @@ const toVector = v => {
   return len ? arr.map(x => x / len) : null;
 };
 
-/**
- * Extract an array of root‐level property names from a JSON schema object.
- * @param {object} schema – JSON‑schema snippet.
- * @returns {string[]}
- */
 const createArrayOfRootKeys = schema => {
   if (!schema || typeof schema !== "object") return [];
   const { properties } = schema;
-  return properties && typeof properties === "object" ? Object.keys(properties) : [];
+  return properties && typeof properties === "object"
+    ? Object.keys(properties)
+    : [];
 };
 
-/**
- * Calculate an aggregate distance between the element's dist1..dist5 values and a
- * candidate subdomainMatch item. Uses mean absolute difference.
- */
 const calcMatchScore = (elementDists, item) => {
   let sum = 0,
     count = 0;
@@ -1143,8 +1135,6 @@ const calcMatchScore = (elementDists, item) => {
   return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
-/* -------------------------- OPENAI CLASSIFICATION -------------------------- */
-
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1154,14 +1144,18 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
     messages: [
       {
         role: "user",
-        content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
+        content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(
+          " "
+        )}`
       }
     ]
   });
-  const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
+  const guess = rsp.choices[0].message.content
+    .trim()
+    .split(/\s+/)[0]
+    .toLowerCase();
   if (list.includes(guess)) return guess;
 
-  // Strict fallback to guarantee a valid label
   const strictRsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1181,11 +1175,19 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
       }
     },
     messages: [
-      { role: "system", content: `You are a classifier that picks the best ${promptLabel}.` },
-      { role: "user", content: `Which ${promptLabel} best fits: \"${str}\"?` }
+      {
+        role: "system",
+        content: `You are a classifier that picks the best ${promptLabel}.`
+      },
+      {
+        role: "user",
+        content: `Which ${promptLabel} best fits: \"${str}\"?`
+      }
     ]
   });
-  return JSON.parse(strictRsp.choices[0].message.content)[promptLabel];
+  return JSON.parse(
+    strictRsp.choices[0].message.content
+  )[promptLabel];
 };
 
 const classifyDomains = async ({ openai, text }) => {
@@ -1212,30 +1214,69 @@ const classifyDomains = async ({ openai, text }) => {
   return { domain, subdomain };
 };
 
-/* ------------------------------- MAIN LOGIC ------------------------------- */
+// ===== NEW: reference resolver =====
+const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
-/**
- * Parse an arrayLogic document, classify each element, query DynamoDB for close
- * subdomain matches, then build a shorthand descriptor that can be used to call
- * the Express route. Returns both diagnostic results and the shorthand array.
- */
+function resolveArrayLogic(arrayLogic) {
+  const cache = new Array(arrayLogic.length);
+  const resolving = new Set();
+
+  const deepResolve = val => {
+    if (typeof val === "string") {
+      const m = val.match(REF_REGEX);
+      if (m) {
+        const [, idxStr, restPath] = m;
+        const idx = Number(idxStr);
+        const target = resolveElement(idx);
+        if (!restPath) return target;
+        const segs = restPath.replace(/^\./, "").split(".");
+        let out = target;
+        for (const s of segs) {
+          if (out == null) break;
+          out = out[s];
+        }
+        return deepResolve(out);
+      }
+    }
+    if (Array.isArray(val)) return val.map(deepResolve);
+    if (val && typeof val === "object")
+      return Object.fromEntries(
+        Object.entries(val).map(([k, v]) => [k, deepResolve(v)])
+      );
+    return val;
+  };
+
+  const resolveElement = i => {
+    if (cache[i] !== undefined) return cache[i];
+    if (resolving.has(i))
+      throw new Error(`Circular __$ref detected at index ${i}`);
+    resolving.add(i);
+    const resolved = deepResolve(arrayLogic[i]);
+    cache[i] = resolved;
+    resolving.delete(i);
+    return resolved;
+  };
+
+  return arrayLogic.map((_, i) => resolveElement(i));
+}
+
+// ===== UPDATED parseArrayLogic =====
 async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
+  // resolve all "__$ref()" tokens first
+  const resolvedLogic = resolveArrayLogic(arrayLogic);
+
   const results = [];
   const shorthand = [];
 
-  for (const element of arrayLogic) {
+  for (const element of resolvedLogic) {
     const [breadcrumb] = Object.keys(element);
     const body = element[breadcrumb] ?? {};
-    if (!body.input || !body.schema) continue; // Skip malformed entries
-
-    /* --------------------------- Domain inference -------------------------- */
+    if (!body.input || !body.schema) continue;
 
     const { domain, subdomain } = await classifyDomains({
       openai,
       text: element
     });
-
-    /* ------------------------- Element embedding -------------------------- */
 
     const {
       data: [{ embedding: rawEmb }]
@@ -1244,8 +1285,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       input: JSON.stringify(element)
     });
     const embedding = toVector(rawEmb);
-
-    /* ------------ Retrieve distances versus canonical record -------------- */
 
     let dynamoRecord = null;
     const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
@@ -1275,10 +1314,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       });
     }
 
-    /* ---------------------- Fetch close subdomain rows --------------------- */
-
     const pathKey = `/${domain}/${subdomain}`;
-    const delta = 0.03; // search window around each distN
+    const delta = 0.03;
     let subdomainMatches = [];
 
     if (dist1 != null) {
@@ -1322,27 +1359,32 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       }
     }
 
-    /* --------------------------- Build shorthand -------------------------- */
-
-    // Pick the closest match, if any
     let bestMatch = null;
     if (subdomainMatches.length) {
       bestMatch = subdomainMatches.reduce(
         (best, item) => {
-          const score = calcMatchScore({ dist1, dist2, dist3, dist4, dist5 }, item);
+          const score = calcMatchScore(
+            { dist1, dist2, dist3, dist4, dist5 },
+            item
+          );
           return score < best.score ? { item, score } : best;
         },
         { item: null, score: Number.POSITIVE_INFINITY }
       ).item;
     }
 
-    const expected = createArrayOfRootKeys(body.schema); // e.g. ["greeting"]
-    // Conform to requested shorthand format
-    shorthand.push(["ROUTE", body.input, expected, "runEntity", bestMatch?.su ?? null, ""]);
+    const expected = createArrayOfRootKeys(body.schema);
 
+    shorthand.push([
+      "ROUTE",
+      body.input,
+      expected,
+      "runEntity",
+      bestMatch?.su ?? null,
+      ""
+    ]);
 
-    console.log("shorthand", shorthand)
-    /* ----------------------- Collect diagnostics -------------------------- */
+    console.log("shorthand", shorthand);
 
     results.push({
       breadcrumb,
@@ -1359,7 +1401,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     });
   }
 
-  // Return both for flexibility
   return results;
 }
 
