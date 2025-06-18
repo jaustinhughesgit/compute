@@ -1214,7 +1214,7 @@ const classifyDomains = async ({ openai, text }) => {
   return { domain, subdomain };
 };
 
-// ===== NEW: reference resolver =====
+// ===== NEW: reference resolver (unchanged) =====
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
@@ -1260,36 +1260,89 @@ function resolveArrayLogic(arrayLogic) {
   return arrayLogic.map((_, i) => resolveElement(i));
 }
 
+// ===== NEW: helpers for shorthand-building =====
+const OP_REGEX         = /^__\$(?:ref)?\((\d+)\)$/;   // matches "__$(n)" or "__$ref(n)"
+const padRef           = n => String(n).padStart(3, "0") + "!!";
+
+const isOperationElem = orig =>
+  orig &&
+  typeof orig === "object" &&
+  !Array.isArray(orig) &&
+  Object.keys(orig).length === 1 &&
+  (() => {
+    const v = orig[Object.keys(orig)[0]];
+    return v && typeof v === "object" && "input" in v && "schema" in v;
+  })();
+
+const isSchemaElem = orig =>
+  orig &&
+  typeof orig === "object" &&
+  !Array.isArray(orig) &&
+  "properties" in orig &&
+  typeof orig.properties === "object";
+
+const convertShorthandRefs = val => {
+  if (typeof val === "string") {
+    const m = val.match(OP_REGEX);
+    if (m) return padRef(Number(m[1]));
+    return val;
+  }
+  if (Array.isArray(val)) return val.map(convertShorthandRefs);
+  if (val && typeof val === "object")
+    return Object.fromEntries(
+      Object.entries(val).map(([k, v]) => [k, convertShorthandRefs(v)])
+    );
+  return val;
+};
+
 // ===== UPDATED parseArrayLogic =====
 async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
-  // resolve all "__$ref()" tokens first
+  // 1) resolve all "__$ref()" tokens first (leave "__$(n)" intact)
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
-  const results = [];
+  const results   = [];
   const shorthand = [];
 
-  for (const element of resolvedLogic) {
-    const [breadcrumb] = Object.keys(element);
-    const body = element[breadcrumb] ?? {};
-    if (!body.input || !body.schema) continue;
+  // 2) build shorthand entry *for every* element, in order
+  for (let i = 0; i < arrayLogic.length; i++) {
+    const origElem = arrayLogic[i];
+    const elem     = resolvedLogic[i];
 
+    // --- non‐operation elements ---
+    if (!isOperationElem(origElem)) {
+      // a) JSON Schema object → an array of its root keys
+      if (isSchemaElem(origElem)) {
+        shorthand.push(createArrayOfRootKeys(elem));
+      }
+      // b) any other object → an array with that single object
+      else if (origElem && typeof origElem === "object") {
+        shorthand.push([origElem]);
+      }
+      // c) fallback (primitives, arrays) → wrap as‐is
+      else {
+        shorthand.push([origElem]);
+      }
+      continue;
+    }
+
+    // --- operation elements (the old ROUTE entries) ---
+    const [breadcrumb] = Object.keys(elem);
+    const body = elem[breadcrumb];
+    // classify / embed / Dynamo / bestMatch as before…
     const { domain, subdomain } = await classifyDomains({
       openai,
-      text: element
+      text: elem
     });
-
     const {
       data: [{ embedding: rawEmb }]
     } = await openai.embeddings.create({
       model: "text-embedding-3-large",
-      input: JSON.stringify(element)
+      input: JSON.stringify(elem)
     });
     const embedding = toVector(rawEmb);
 
     let dynamoRecord = null;
-    const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
     let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
-
     try {
       const { Items } = await dynamodb
         .query({
@@ -1304,20 +1357,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     } catch (err) {
       console.error("DynamoDB query failed:", err);
     }
-
     if (dynamoRecord) {
-      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+      const embKeys = ["emb1","emb2","emb3","emb4","emb5"];
+      [dist1,dist2,dist3,dist4,dist5] = embKeys.map(k => {
         const ref = parseVector(dynamoRecord[k]);
         return Array.isArray(ref) && ref.length === embedding.length
           ? cosineDist(embedding, ref)
           : null;
       });
     }
-
-    const pathKey = `/${domain}/${subdomain}`;
-    const delta = 0.03;
     let subdomainMatches = [];
-
     if (dist1 != null) {
       try {
         const params = {
@@ -1325,25 +1374,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
           IndexName: "path-index",
           KeyConditionExpression: "#p = :path AND #d1 BETWEEN :d1lo AND :d1hi",
           ExpressionAttributeNames: {
-            "#p": "path",
-            "#d1": "dist1",
-            "#d2": "dist2",
-            "#d3": "dist3",
-            "#d4": "dist4",
-            "#d5": "dist5"
+            "#p":"path","#d1":"dist1","#d2":"dist2",
+            "#d3":"dist3","#d4":"dist4","#d5":"dist5"
           },
           ExpressionAttributeValues: {
-            ":path": pathKey,
-            ":d1lo": dist1 - delta,
-            ":d1hi": dist1 + delta,
-            ":d2lo": dist2 - delta,
-            ":d2hi": dist2 + delta,
-            ":d3lo": dist3 - delta,
-            ":d3hi": dist3 + delta,
-            ":d4lo": dist4 - delta,
-            ":d4hi": dist4 + delta,
-            ":d5lo": dist5 - delta,
-            ":d5hi": dist5 + delta
+            ":path":`/${domain}/${subdomain}`,
+            ":d1lo":dist1-0.03,":d1hi":dist1+0.03,
+            ":d2lo":dist2-0.03,":d2hi":dist2+0.03,
+            ":d3lo":dist3-0.03,":d3hi":dist3+0.03,
+            ":d4lo":dist4-0.03,":d4hi":dist4+0.03,
+            ":d5lo":dist5-0.03,":d5hi":dist5+0.03
           },
           FilterExpression:
             "#d2 BETWEEN :d2lo AND :d2hi AND " +
@@ -1358,7 +1398,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
         console.error("subdomains GSI query failed:", err);
       }
     }
-
     let bestMatch = null;
     if (subdomainMatches.length) {
       bestMatch = subdomainMatches.reduce(
@@ -1373,34 +1412,39 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       ).item;
     }
 
-    const expected = createArrayOfRootKeys(body.schema);
+    // build the ROUTE shorthand, but leave "__$(n)" or "__$ref(n)" in orig for now
+    const rawInput  = origElem[breadcrumb].input;
+    const rawSchema = origElem[breadcrumb].schema;
+    const inM = String(rawInput).match(OP_REGEX);
+    const scM = String(rawSchema).match(OP_REGEX);
+    const inputRef  = inM  ? padRef(Number(inM[1]))   : rawInput;
+    const schemaRef = scM  ? padRef(Number(scM[1]))   : rawSchema;
 
     shorthand.push([
       "ROUTE",
-      body.input,
-      expected,
+      inputRef,
+      schemaRef,
       "runEntity",
       bestMatch?.su ?? null,
       ""
     ]);
-
-    console.log("shorthand", shorthand);
 
     results.push({
       breadcrumb,
       domain,
       subdomain,
       embedding,
-      dist1,
-      dist2,
-      dist3,
-      dist4,
-      dist5,
+      dist1, dist2, dist3, dist4, dist5,
       dynamoRecord,
       subdomainMatches
     });
   }
-  console.log("shorthand>>", shorthand)
+
+  // 3) convert any "__$(n)" or "__$ref(n)" left in shorthand into "nnn!!"
+  const finalShorthand = shorthand.map(entry => convertShorthandRefs(entry));
+
+  console.log("shorthand", finalShorthand);
+
   return results;
 }
 
