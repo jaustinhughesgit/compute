@@ -408,6 +408,37 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         return visited;
     }
 
+    async function resolveRefString(str) {
+        if (typeof str === "string" &&
+            (isRowResultRef(str) || isFullRowRef(str) || isCellRef(str))) {
+            return await resolveCell(str);          // use the existing resolver
+        }
+        return str;
+    }
+
+    async function deepResolve(value) {
+        // Arrays  ────────────────────────────────
+        if (Array.isArray(value)) {
+            const out = [];
+            for (const item of value) out.push(await deepResolve(item));
+            return out;
+        }
+
+        // Objects (recursively resolve *keys* and *values*) ─────────
+        if (value && typeof value === "object") {
+            const out = {};
+            for (const [rawKey, rawVal] of Object.entries(value)) {
+                let key = await resolveRefString(rawKey);
+                if (typeof key !== "string") key = String(key);   // object keys must be strings
+                out[key] = await deepResolve(rawVal);
+            }
+            return out;
+        }
+
+        // Primitives  ────────────────────────────
+        return await resolveRefString(value);
+    }
+
     async function resolveRow(row) {
         let arr = [];
         for (let x = 0; x < row.length; x++) {
@@ -418,6 +449,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function resolveCell(cellTxt) {
+        if (cellTxt && typeof cellTxt === "object") {
+            return await deepResolve(cellTxt);
+        }
         if (isRowResultRef(cellTxt)) {
             let rowIndex = parseInt(cellTxt.slice(0, 3), 10);
             return rowResult[rowIndex] !== undefined ? rowResult[rowIndex] : "Undefined Reference";
@@ -725,10 +759,20 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     async function parseRow(rowIndex) {
         //console.log("parseRow", rowIndex)
         const rowArray = matrix[rowIndex] || [];
-        if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
-            rowResult[rowIndex] = rowArray[0];
-            return rowArray[0];
+        
+        //OLD early exit
+        //if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
+        //    rowResult[rowIndex] = rowArray[0];
+        //    return rowArray[0];
+        //}
+
+        //NEW early exit
+        if (!isCellRef(rowArray[0]) && !(rowArray[0] in keywords)) {
+            const resolvedFirst = await resolveCell(rowArray[0]); // <-- now handles objects
+            rowResult[rowIndex] = resolvedFirst;
+            return resolvedFirst;
         }
+
         if (!Array.isArray(rowArray) || rowArray.length === 0) {
             rowResult[rowIndex] = "";
             return "";
