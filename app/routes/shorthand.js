@@ -1805,7 +1805,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
-    //console.log("shorthandArray", shorthandArray)
+    console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
     return shorthandObj
