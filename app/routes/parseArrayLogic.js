@@ -1291,8 +1291,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     }
 
     // ---------- OPERATION (ROUTE) row -----------------------------
-    const [breadcrumb] = Object.keys(elem);
-    const body         = elem[breadcrumb];
+ const [breadcrumb] = Object.keys(elem);        // same
+ const body         = elem[breadcrumb];
+ const origBody     = origElem[breadcrumb];     // UNRESOLVED version
 
     // --- domain / embedding / best-match  (original logic) -------
     const { domain, subdomain } = await classifyDomains({ openai, text: elem });
@@ -1377,7 +1378,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     }
 
     // ---- build ROUTE shorthand row ------------------------------
-    const inputParam   = convertShorthandRefs(body.input);
+ const inputParam   = convertShorthandRefs(
+   origBody?.input ?? body.input        // preserve "__$(n)" / "__$ref(n)"
+ );
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam  = convertShorthandRefs(expectedKeys);
 
