@@ -1271,6 +1271,11 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
   // --- 2. walk each original element ------------------------------
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
+
+  if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
+    continue;          // <- ignore original conclusion row
+  }
+
     const elem     = resolvedLogic[i];
 
     // ---------- SCHEMA / JSON-object rows -------------------------
