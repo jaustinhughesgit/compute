@@ -897,13 +897,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function run(skipArray) {
-        //console.log("run running")
+        console.log("run running")
         rowResult = [];
         resRow = 0;
         sweep = 0;
 
         async function checkLoopSkip(r) {
-            //console.log("checkLoopSkip r", r)
+            console.log("checkLoopSkip r", r)
             if (matrix[r] && matrix[r][0] === "LOOP") {
                 let currentVal = 0;
                 if (Array.isArray(rowResult[r])) {
@@ -928,12 +928,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
-                //console.log("parseRow")
+                console.log("parseRow")
                 await parseRow(resRow);
             }
-            //console.log("skipBump")
+            console.log("skipBump")
             const skipBump = await checkLoopSkip(resRow);
-            //console.log("skipBump", skipBump)
+            console.log("skipBump", skipBump)
             if (!skipBump) {
                 resRow++;
             }
@@ -942,7 +942,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 sweep++;
             }
         }
-        //console.log("rowResult", rowResult)
+        console.log("rowResult333#", rowResult)
     }
 
     function expandRowToMultiple(rowData) {
@@ -1154,7 +1154,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             await run(skip);
         }
         console.log("rowResult",rowResult)
-        return rowResult;
+        return rowResult[0];
     }
 
     async function getVAR(data) {
@@ -1810,13 +1810,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
+    console.log("rowResult", rowResult)
+     console.log("rowResult stringify", JSON.stringify(rowResult))
     console.log("shorthandArray << ^^ >>", shorthandArray)
-    let rr = await processArray(shorthandArray)
-    shorthandObj.published = rr[0]
-    shorthandObj.resp = rr[rr.length - 1]
-    console.log("rowResult", rr)
-     console.log("rowResult stringify", JSON.stringify(rr))
-    console.log("shorthandObj", shorthandObj)
+    let rr0 = await processArray(shorthandArray)
+    shorthandObj.published = rr0
     return shorthandObj
 }
 
