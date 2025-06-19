@@ -2368,9 +2368,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
     // Restore untouched blocks & clean temp props
     newShorthand.published.blocks = blocks;
-    content = JSON.parse(JSON.stringify(newShorthand.content));
+    console.log("newShorthand", newShorthand)
+    conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
     delete newShorthand.input;
-    delete newShorthand.content;
+    delete newShorthand.conclusion;
 
     // Quick checksum for callers (optional)
     parseResults.isPublishedEqual =
