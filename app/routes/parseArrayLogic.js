@@ -1414,7 +1414,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
     shorthand.push([
       "ROWRESULT",
       "000",
-      { conclusion: padRef(getRowIndex) }
+      { conclusion: padRef(getRowIndex+1) }
     ]);
   }
 
