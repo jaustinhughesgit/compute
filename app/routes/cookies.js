@@ -2318,8 +2318,21 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
   let newShorthand = null;
   let content = null;
   if (parseResults?.shorthand) {
+
+    const arrayLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
+ console.log("SHORTHAND !!!!!!!!!!")
+                actionFile = reqPath.split("/")[3];
+                let { shorthand } = require('../routes/shorthand');
+                const emitType = reqBody.body.emit
+                console.log("arrayLogic", arrayLogic)
+                console.log("emitType", emitType)
+                let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
+
+
+
+
     // Deep‑clone so we can mutate safely
-    const shorthandLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
 
     const blocks = shorthandLogic.published.blocks; // keep original blocks safe
     const originalPublished = shorthandLogic.published;
