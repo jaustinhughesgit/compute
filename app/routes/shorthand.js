@@ -757,18 +757,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseRow(rowIndex) {
-        //console.log("parseRow", rowIndex)
         const rowArray = matrix[rowIndex] || [];
         
-        //OLD early exit
-        //if (isCellRef(rowArray[0]) === false && !(rowArray[0] in keywords)) {
-        //    rowResult[rowIndex] = rowArray[0];
-        //    return rowArray[0];
-        //}
-
-        //NEW early exit
         if (!isCellRef(rowArray[0]) && !(rowArray[0] in keywords)) {
-            const resolvedFirst = await resolveCell(rowArray[0]); // <-- now handles objects
+            const resolvedFirst = await resolveCell(rowArray[0]); 
             rowResult[rowIndex] = resolvedFirst;
             return resolvedFirst;
         }
@@ -779,7 +771,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
 
         if (rowArray[0] === "FUNCTION") {
-            //console.log("FUNCTION")
+
             const paramNames = Array.isArray(rowArray[1]) ? rowArray[1] : [];
             const body = rowArray.slice(2);
             rowResult[rowIndex] = {
@@ -789,24 +781,18 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             };
             return rowResult[rowIndex];
         }
-        //console.log("parseNestedKeywords")
         const parsed = await parseNestedKeywords(rowArray);
-        //console.log("parsed", parsed)
         let topLevelFns = [];
         if (parsed && parsed.type === "MULTIPLE_FUNCTIONS") {
-            //console.log("parsed.list", parsed.list)
             topLevelFns = parsed.list;
         } else if (parsed) {
-            //console.log("[parsed]", [parsed])
             topLevelFns = [parsed];
         }
         let finalResults = [];
 
-        //console.log("topLevelFns", topLevelFns)
         for (let fnObj of topLevelFns) {
             if (!fnObj || typeof fnObj !== "object" || !fnObj.AA) {
                 finalResults.push(rowArray[0]);
-                //console.log("finalResults2", finalResults)
                 continue;
             }
 
@@ -817,12 +803,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                         await parseRow(subRow);
                     }
                     finalResults.push(fnObj.RESULTS);
-                    //console.log("finalResults3", finalResults)
                 } else {
-                    //console.log("fnObj", fnObj)
-                    //console.log("fnObj.RESULTS", fnObj.RESULTS)
                     finalResults.push(fnObj.RESULTS);
-                    //console.log("finalResults4", finalResults)
                 }
             }
             else {
@@ -854,8 +836,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     rowResult[functionRowIndex] = resultToInsert;
 
                     let retIndex = callArgs[0].replace("¡¡", "!!");
-                    //console.log("isCellRef", retIndex, isCellRef(retIndex))
-                    //console.log("isRowResultRef", retIndex, isRowResultRef(retIndex))
                     if (isCellRef(retIndex) && !retIndex.includes("!!")) {
                         const cellInfo = getCellID(retIndex.toUpperCase());
                         if (!cellInfo) {
@@ -885,21 +865,14 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     }
                     else if (isRowResultRef(retIndex)) {
                         const rowRef = await parseInt(retIndex.slice(0, 3), 10);
-                        //console.log("rowRef5", rowRef)
-                        //console.log("resultToInsert5", resultToInsert)
                         rowResult[rowRef] = resultToInsert;
-                        //console.log("rowResult[rowRef]5",rowResult[rowRef])
                         finalResults.push(rowResult[rowRef]);
-                        //console.log("finalResults5", finalResults)
                         rowResult[functionRowIndex] = resultToInsert;
-                        //console.log("rowResults5")
                     }
                     else {
-                        //console.log("finalResult6", finalResult)
                         finalResults.push(resultToInsert);
                     }
                 } else {
-                    //console.log("finalResult7", finalResult)
                     finalResults.push(fnDef);
                 }
             }
@@ -908,7 +881,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
 
         if (typeof rowArray[0] === "string") {
-        //console.log("string")
             if (
                 rowResult[rowIndex] == null ||
                 isFullRowRef(rowResult[rowIndex]) ||
@@ -917,12 +889,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             ) {
                 if (parsed && parsed.AA === "FIND") {
                 } else {
-                    //console.log("resolveCell")
                     rowResult[rowIndex] = await resolveCell(rowArray[0]) || null;
                 }
             }
         }
-        //console.log("return rowResult[rowIndex]", rowResult[rowIndex])
         return rowResult[rowIndex];
     }
 
@@ -1132,36 +1102,29 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function processArray(data) {
-        //console.log("processArray", data)
         if (
             Array.isArray(data) &&
             data.length > 0 &&
             typeof data[0] === "object" &&
             (data[0].physical || data[0].virtual)
         ) {
-            //console.log("part1")
             for (let segment of data) {
                 const typeKey = Object.keys(segment)[0];
                 const segmentRows = segment[typeKey];
                 const startRowCount = matrix.length;
                 for (let rowData of segmentRows) {
-                    //console.log("rowData", rowData)
                     if (
                         typeof rowData === "object" &&
                         !Array.isArray(rowData) &&
                         !("physical" in rowData || "virtual" in rowData)
                     ) {
-                        //console.log("importMatrix", rowData)
                         let publishedValue = await getVAR(rowData);
-                        //console.log("publishedValue!!", publishedValue)
                         await addRow([publishedValue]);
                     } else {
-                        //console.log("manageArrowCells1")
                         await manageArrowCells(rowData);
                     }
                 }
 
-                //console.log("await run1")
                 await run(skip);
 
                 if (typeKey === "virtual") {
@@ -1175,9 +1138,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         }
         else {
-            //console.log("part2")
             for (let i = 0; i < data.length; i++) {
-                //console.log("data[i]",i,data[i])
                 const rowData = data[i];
                 if (
                     typeof rowData === "object" &&
@@ -1185,14 +1146,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                     !("physical" in rowData || "virtual" in rowData)
                 ) {
                     let publishedValue = await getVAR(rowData);
-                    //console.log("publishedValue", publishedValue)
                     await addRow([publishedValue]);
                 } else {
-                    //console.log("manageArrowCells2")
                     await manageArrowCells(rowData);
                 }
             }
-            //console.log("run(skip)2")
             await run(skip);
         }
         console.log("rowResult",rowResult)
@@ -1218,8 +1176,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         newReq.path = req.path
         let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody2, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
         resp = resp.response
-        //console.log("get=>", resp);
-        //console.log("resp", resp)
         if (data["++"]) {
             if (!Array.isArray(resp.input)) {
                 resp.input = [];
@@ -1231,17 +1187,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 resp.published.blocks
             }
             let published = await shorthand(resp);
-            //console.log("resp>>", resp)
             return published;
         } else {
-            //console.log("data => ", data)
             let overrides = data[entity];
             if (overrides) {
-                //console.log("overrides", overrides)
                 const fixBlocks = resp.published.blocks
                 resp = await deepMerge(resp, overrides);
             }
-            //console.log("resp>>", resp)
             return resp.published;
         }
     }
@@ -1517,27 +1469,36 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let baseRef = rowArray[1];
             let key = await resolveCell(rowArray[2]);
             let valueRef = rowArray[3];
+            console.log("ADDPROPERTY")
             if (isRowResultRef(baseRef) || isJSON(baseRef)) {
                 let baseObj;
+                console.log("1", baseObj)
                 if (isRowResultRef(baseRef)) {
+                    console.log("2")
                     let baseIndex = parseInt(baseRef.slice(0, 3), 10);
                     baseObj = rowResult[baseIndex];
                 } else {
+                    console.log("3")
                     baseObj = baseRef;
                 }
                 if (typeof baseObj !== "object" || baseObj === null) {
+                    console.log("4")
                     baseObj = {};
                 } else {
+                    console.log("5")
                     baseObj = Array.isArray(baseObj) ? [...baseObj] : { ...baseObj };
                 }
                 let finalVal;
                 if (isRowResultRef(valueRef)) {
+                    console.log("6")
                     let valIndex = parseInt(valueRef.slice(0, 3), 10);
                     finalVal = rowResult[valIndex];
                 } else {
+                    console.log("7")
                     finalVal = await resolveCell(valueRef);
                 }
                 baseObj[key] = finalVal;
+                console.log("baseObj", baseObj)
                 return baseObj;
             } else {
                 console.error("ADDPROPERTY: The base reference is not a rowResult reference:", baseRef);
