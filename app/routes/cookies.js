@@ -2329,7 +2329,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
 
-
+console.log("shorthandLogic", shorthandLogic)
 
 
     // Deep‑clone so we can mutate safely
