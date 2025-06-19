@@ -2329,7 +2329,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
 
-console.log("shorthandLogic", shorthandLogic)
+console.log("shorthandLogic1", shorthandLogic)
 
 
     // Deep‑clone so we can mutate safely
@@ -2341,6 +2341,8 @@ console.log("shorthandLogic", shorthandLogic)
     shorthandLogic.input = [{"virtual":arrayLogic}];
     shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
+
+    console.log("shorthandLogic2",shorthandLogic)
     // 🪄  Run the shorthand pipeline
     newShorthand = await shorthand(
       shorthandLogic,
