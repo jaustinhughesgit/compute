@@ -2243,7 +2243,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
                 mainObj["newShorthand"] = newShorthand
-                mainObj["content_new"] = content
+                mainObj["content"] = content
             } else if (action === "convert") {
 
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
