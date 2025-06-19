@@ -1263,7 +1263,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   // --- 1. shorthand starts with the empty placeholder row ---------
-  const shorthand = [ [{}] ];          // row 000
+  const shorthand = [];          // row 000
   const results   = [];                // diagnostics (unchanged)
 
   let routeRowNewIndex = null;         // remember for conclusion wiring
