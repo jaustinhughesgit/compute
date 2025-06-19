@@ -2365,10 +2365,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
       "shorthand",      // treat this sub‑phase as a shorthand op
       xAccessToken
     );
-
+    console.log("newShorthand4",newShorthand)
     // Restore untouched blocks & clean temp props
     newShorthand.published.blocks = blocks;
-    console.log("newShorthand", newShorthand)
+    console.log("newShorthand5", newShorthand)
     let conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
     delete newShorthand.input;
     delete newShorthand.conclusion;
@@ -2376,8 +2376,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     // Quick checksum for callers (optional)
     parseResults.isPublishedEqual =
       JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
-
+    console.log("originalPublished",originalPublished);
+    console.log("newShorthand.published",newShorthand.published)
     // Persist the freshly‑generated shorthand back to S3 (mirrors the original route)
+    console.log("newShorthand6", newShorthand)
     if (reqPath) {
       const actionFile = reqPath.split("/")[3];
       await s3
