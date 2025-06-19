@@ -2219,6 +2219,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
                 let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
                 const blocks = shorthandLogic.published.blocks
+                let originalPublished = shorthandLogic.published
                 shorthandLogic.input = arrayLogic;
                 shorthandLogic.input.unshift({
                     "physical": [[shorthandLogic.published]]
@@ -2228,7 +2229,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("newShorthand", newShorthand)
                 newShorthand.published.blocks = blocks;
                 console.log("newShorthand", newShorthand)
+                let content = JSON.parse(JSON.stringify(newShorthand.content));
                 delete newShorthand.input
+                delete newShorthand.content
+                let isPublishedEqual = JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+                console.log("isPublishedEqual", isPublishedEqual)
                 const params = {
                     Bucket: "public.1var.com",
                     Key: actionFile,
@@ -2238,6 +2243,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 await s3.putObject(params).promise();
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
                 mainObj["newShorthand"] = newShorthand
+                mainObj["content_new"] = content
             } else if (action === "convert") {
 
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
