@@ -2316,7 +2316,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
   // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine
   let newShorthand = null;
-  let content = null;
+  let conclusion = null;
   if (parseResults?.shorthand) {
 
     const arrayLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
@@ -2371,7 +2371,7 @@ console.log("shorthandLogic1", shorthandLogic)
     // Restore untouched blocks & clean temp props
     newShorthand.published.blocks = blocks;
     console.log("newShorthand5", newShorthand)
-    let conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
+    conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
     delete newShorthand.input;
     delete newShorthand.conclusion;
 
