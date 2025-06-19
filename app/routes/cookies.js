@@ -2338,7 +2338,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     const originalPublished = shorthandLogic.published;
 
     // Re‑inject the client arrayLogic exactly as the standalone /shorthand route does
-    shorthandLogic.input = arrayLogic;
+    shorthandLogic.input = [{"virtual":arrayLogic}];
     shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
     // 🪄  Run the shorthand pipeline
