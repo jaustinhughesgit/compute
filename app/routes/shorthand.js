@@ -897,13 +897,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function run(skipArray) {
-        console.log("run running")
+        //console.log("run running")
         rowResult = [];
         resRow = 0;
         sweep = 0;
 
         async function checkLoopSkip(r) {
-            console.log("checkLoopSkip r", r)
+            //console.log("checkLoopSkip r", r)
             if (matrix[r] && matrix[r][0] === "LOOP") {
                 let currentVal = 0;
                 if (Array.isArray(rowResult[r])) {
@@ -928,12 +928,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         while (resRow < matrix.length) {
             if (!skipArray.includes(resRow)) {
-                console.log("parseRow")
+                //console.log("parseRow")
                 await parseRow(resRow);
             }
-            console.log("skipBump")
+            //console.log("skipBump")
             const skipBump = await checkLoopSkip(resRow);
-            console.log("skipBump", skipBump)
+            //console.log("skipBump", skipBump)
             if (!skipBump) {
                 resRow++;
             }
@@ -942,7 +942,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 sweep++;
             }
         }
-        console.log("rowResult333#", rowResult)
+        //console.log("rowResult", rowResult)
     }
 
     function expandRowToMultiple(rowData) {
@@ -1810,10 +1810,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
-    console.log("rowResult", rowResult)
-     console.log("rowResult stringify", JSON.stringify(rowResult))
     console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
+    shorthandObj.conclusion = JSON.parse(JSON.stringify(rr0.published.conclusion))
+    delete rr0.conclusion;
     shorthandObj.published = rr0
     return shorthandObj
 }
