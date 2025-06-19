@@ -1407,7 +1407,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
     // (a) GET  row to extract  <routeRow!!.output>
     const getRowIndex = shorthand.push(
-      ["GET", padRef(routeRowNewIndex), "output"]
+      ["GET", padRef(routeRowNewIndex)]//, "output"]
     ) - 1;
 
     // (b) ROWRESULT row – places the conclusion object into 000!!
