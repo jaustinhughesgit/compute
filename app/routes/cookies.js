@@ -2244,7 +2244,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
                 mainObj["newShorthand"] = newShorthand
                 mainObj["content"] = content
-            } else if (action === "convert") {
+            
+            
+            /*} else if (action === "convert") {
 
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
 
@@ -2277,9 +2279,110 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 });
 
 
-                /* 4️⃣  Return the evaluated structure to the caller */
                 mainObj = { "parseResults": parseResults };
-            } else if (action === "embed") {
+            
+                }
+            */
+           } else if (action === "convert") {
+  const { parseArrayLogic } = require("../routes/parseArrayLogic");
+  const { shorthand } = require("../routes/shorthand");
+
+  console.log("reqBody", reqBody);
+  console.log("reqBody.body", reqBody.body);
+
+  // 1️⃣  Grab & normalise arrayLogic from the client
+  let arrayLogic = reqBody.body.arrayLogic;
+  if (typeof arrayLogic === "string") {
+    try {
+      arrayLogic = JSON.parse(arrayLogic);
+    } catch (err) {
+      console.error("arrayLogic is not valid JSON:", err);
+      throw new Error("Bad arrayLogic payload");
+    }
+  }
+  console.log("arrayLogic", arrayLogic);
+
+  // 2️⃣  First pass – evaluate the array logic
+  const parseResults = await parseArrayLogic({
+    arrayLogic,
+    dynamodb,
+    uuidv4,
+    s3,
+    ses,
+    openai,
+    Anthropic,
+    dynamodbLL,
+  });
+
+  // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine
+  let newShorthand = null;
+  let content = null;
+  if (parseResults?.shorthand) {
+    // Deep‑clone so we can mutate safely
+    const shorthandLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
+
+    const blocks = shorthandLogic.published.blocks; // keep original blocks safe
+    const originalPublished = shorthandLogic.published;
+
+    // Re‑inject the client arrayLogic exactly as the standalone /shorthand route does
+    shorthandLogic.input = arrayLogic;
+    shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+
+    // 🪄  Run the shorthand pipeline
+    newShorthand = await shorthand(
+      shorthandLogic,
+      req,
+      res,
+      next,
+      privateKey,
+      dynamodb,
+      uuidv4,
+      s3,
+      ses,
+      openai,
+      Anthropic,
+      dynamodbLL,
+      true,              // keep the original "isPublished" flag
+      reqPath,
+      reqBody,
+      reqMethod,
+      reqType,
+      reqHeaderSent,
+      signer,
+      "shorthand",      // treat this sub‑phase as a shorthand op
+      xAccessToken
+    );
+
+    // Restore untouched blocks & clean temp props
+    newShorthand.published.blocks = blocks;
+    content = JSON.parse(JSON.stringify(newShorthand.content));
+    delete newShorthand.input;
+    delete newShorthand.content;
+
+    // Quick checksum for callers (optional)
+    parseResults.isPublishedEqual =
+      JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+
+    // Persist the freshly‑generated shorthand back to S3 (mirrors the original route)
+    if (reqPath) {
+      const actionFile = reqPath.split("/")[3];
+      await s3
+        .putObject({
+          Bucket: "public.1var.com",
+          Key: actionFile,
+          Body: JSON.stringify(newShorthand),
+          ContentType: "application/json",
+        })
+        .promise();
+    }
+  }
+
+  /* 4️⃣  Return everything to the caller */
+  mainObj = {
+    parseResults,
+    ...(newShorthand ? { newShorthand, content } : {}),
+  };
+} else if (action === "embed") {
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
                 let text = reqBody.body.text
