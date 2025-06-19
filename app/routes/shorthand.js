@@ -1813,7 +1813,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     console.log("rr0", rro)
-    shorthandObj.conclusion = JSON.parse(JSON.stringify(rr0.content))
+    shorthandObj.content = JSON.parse(JSON.stringify(rr0.content))
     delete rr0.content;
     shorthandObj.published = rr0
     return shorthandObj
