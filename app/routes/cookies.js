@@ -2398,7 +2398,8 @@ console.log("shorthandLogic1", shorthandLogic)
   /* 4️⃣  Return everything to the caller */
   mainObj = {
     parseResults,
-    ...(newShorthand ? { newShorthand, conclusion } : {}),
+    newShorthand, 
+    conclusion
   };
 } else if (action === "embed") {
                 console.log("reqBody", reqBody)
