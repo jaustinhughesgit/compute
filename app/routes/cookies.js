@@ -2394,7 +2394,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
   /* 4️⃣  Return everything to the caller */
   mainObj = {
     parseResults,
-    ...(newShorthand ? { newShorthand, content } : {}),
+    ...(newShorthand ? { newShorthand, conclusion } : {}),
   };
 } else if (action === "embed") {
                 console.log("reqBody", reqBody)
