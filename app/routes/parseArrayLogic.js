@@ -1393,7 +1393,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai } = {}) {
       ""
     ]);
 
-    routeRowNewIndex = shorthand.length - 1;   // remember (e.g. 003)
+    routeRowNewIndex = shorthand.length;   // remember (e.g. 003)
   }
 
   // --- 3. add conclusion logic  -----------------------------------
