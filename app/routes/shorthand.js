@@ -1466,8 +1466,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         },
         ADDPROPERTY: async (rowArray) => {
-            console.log("rowResult", rowResult)
-            console.log("rowResult stringify", JSON.stringify(rowResult))
             let baseRef = rowArray[1];
             let key = await resolveCell(rowArray[2]);
             let valueRef = rowArray[3];
@@ -1812,9 +1810,13 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
     };
 
+    console.log("rowResult", rowResult)
+     console.log("rowResult stringify", JSON.stringify(rowResult))
     console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     shorthandObj.published = rr0
+    shorthandObj.resp = rowResult[rowResult.length - 1]
+    console.log("shorthandObj", shorthandObj)
     return shorthandObj
 }
 
