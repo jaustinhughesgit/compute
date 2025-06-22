@@ -778,6 +778,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
                         req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
                         req.lib.root.context.req = { "value": res.req, "context": {} }
+                        req.lib.root.context.URL = { "value": URL, "context": {} }
                         req.lib.root.context.res = { "value": resit, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
                         req.lib.root.context.axios = { "value": boundAxios, "context": {} }
