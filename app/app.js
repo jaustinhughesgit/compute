@@ -1997,7 +1997,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     } else {
                                         console.log("result 1", result);
 
-
+                                        console.log("context", libs.root.context)
                                         console.log("req.body", req.body);
                                         console.log("req.body._isFunction", req.body._isFunction);
                                         console.log("accessClean", accessClean);
