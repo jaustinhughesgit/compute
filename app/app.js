@@ -1749,60 +1749,64 @@ async function processString(str, libs, nestedPath, isExecuted, returnEx) {
 }
 
 async function runAction(action, libs, nestedPath, req, res, next) {
-    if (action != undefined) {
-        let runAction = true;
-        if (action.if) {
-            for (const ifObject of action.if) {
-                runAction = await condition(ifObject[0], ifObject[1], ifObject[2], ifObject[3], libs, nestedPath);
-                if (!runAction) {
-                    break;
-                }
-            }
-        }
+  if (!action) return "";
 
-        if (runAction) {
-            if (action.while) {
-                let whileCounter = 0
-                for (const whileCondition of action.while) {
-                    const while0Executed = whileCondition[0].endsWith('|}!');
-                    const while2Executed = whileCondition[2].endsWith('|}!');
-                    while (await condition(await replacePlaceholders(whileCondition[0], libs, nestedPath, while0Executed), [{ condition: whileCondition[1], right: await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed) }], null, "&&", libs, nestedPath)) {
-                        let leftSide1 = await replacePlaceholders(whileCondition[0], libs, nestedPath, while0Executed)
-                        let conditionMiddle = whileCondition[1]
-                        let rightSide2 = await replacePlaceholders(whileCondition[2], libs, nestedPath, while2Executed)
-                        let resu = await processAction(action, libs, nestedPath, req, res, next);
-                        if (typeof resu == "object") {
-                            if (resu.hasOwnProperty("_isFunction")) {
-                                return resu
-                            }
-                        }
-                        whileCounter++;
-                        if (whileCounter >= req.lib.whileLimit) {
-                            break;
-                        }
-                    }
-                }
-            }
-
-            if (!action.while) {
-                let resu = await processAction(action, libs, nestedPath, req, res, next);
-                if (typeof resu == "object") {
-                    if (resu.hasOwnProperty("_isFunction")) {
-                        return resu
-                    }
-                }
-            }
-
-            if (action.assign && action.params) {
-                return "continue";
-            }
-
-            if (action.execute) {
-                return "continue";
-            }
-        }
+  /* ---------- 1) IF-conditions ----------------------------------- */
+  if (Array.isArray(action.if)) {
+    for (const ifObj of action.if) {
+      const pass = await condition(
+        ifObj[0], ifObj[1], ifObj[2], ifObj[3], libs, nestedPath
+      );
+      if (!pass) return "";                     // “if” failed → skip action
     }
-    return ""
+  }
+
+  /* ---------- 2) WHILE ------------------------------------------- */
+  let output;                                   // ← final result to propagate
+
+  if (action.while) {
+    let whileCounter = 0;
+
+    for (const whileCond of action.while) {
+      const lExec = whileCond[0].endsWith("|}!");
+      const rExec = whileCond[2].endsWith("|}!");
+
+      while (await condition(
+               await replacePlaceholders(whileCond[0], libs, nestedPath, lExec),
+               [{ condition: whileCond[1],
+                  right: await replacePlaceholders(
+                           whileCond[2], libs, nestedPath, rExec) }],
+               null, "&&", libs, nestedPath
+             )) {
+
+        output = await processAction(action, libs, nestedPath, req, res, next);
+
+        /* special wrapper → bubble up immediately */
+        if (output && typeof output === "object" && output._isFunction !== undefined) {
+          return output;
+        }
+
+        if (++whileCounter >= req.lib.whileLimit) break;
+      }
+    }
+  }
+  else {
+    /* ---------- 3) single execution ------------------------------ */
+    output = await processAction(action, libs, nestedPath, req, res, next);
+
+    if (output && typeof output === "object" && output._isFunction !== undefined) {
+      return output;                            // propagate special wrapper
+    }
+  }
+
+  /* ---------- 4) task-type short-cuts ----------------------------- */
+  if (action.assign && action.params) return "continue";
+  if (action.execute)                    return "continue";
+
+  /* ---------- 5) normal return ----------------------------------- */
+  if (output !== undefined) return output;      // ← keep primitive/array/object
+
+  return "";
 }
 
 async function addValueToNestedKey(key, nestedContext, value) {
