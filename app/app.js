@@ -824,6 +824,7 @@ app.all('/auth/*',
     }
 )
 
+
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1544,11 +1545,17 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         const [base, rhs] = path.split('=>');
 
         /* walk the LHS (“foo.bar”) ---------------------------------- */
-        for (const part of splitObjectPath(base)) {
-            if (current && current.hasOwnProperty(part)) {
-                current = current[part].value !== undefined ? current[part].value : current[part];
+        const segs = splitObjectPath(base);
+        for (let i = 0; i < segs.length; i++) {
+            const part  = segs[i];
+            const slot  = current && current.hasOwnProperty(part) ? current[part] : null;
+            if (!slot) return '';
+
+            const isLast = i === segs.length - 1;
+            if (!isLast && slot.context !== undefined) {
+                current = slot.context;               // ⬅️ descend into `.context`
             } else {
-                return '';
+                current = slot.value !== undefined ? slot.value : slot;
             }
         }
 
