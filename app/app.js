@@ -1441,6 +1441,7 @@ async function replacePlaceholders(item, libs, nestedPath, actionExecution, retu
 }
 
 async function isOnePlaceholder(str) {
+    console.log("str", str)
     if (str.startsWith("{|") && (str.endsWith("|}") || str.endsWith("|}!")) && !str.includes("=>") && !str.includes("[") && !str.includes("{|=")) {
         return str.indexOf("{|", 2) === -1;
     }
