@@ -824,6 +824,7 @@ app.all('/auth/*',
     }
 )
 
+
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1858,6 +1859,16 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     if (timeoutLength > 0) {
         await new Promise(r => setTimeout(r, timeoutLength));
     }
+
+   /* ----- NEW: explicit return support -------------------- */
+  if (action.hasOwnProperty('return')) {
+      const isExec = typeof action.return === 'string'
+                     && action.return.endsWith('|}!');
+      const value = await replacePlaceholders(
+          action.return, libs, nestedPath, isExec);
+      return value;
+  }
+
 
     if (action.set) {
         for (const key of Object.keys(action.set)) {
