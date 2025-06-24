@@ -824,7 +824,6 @@ app.all('/auth/*',
     }
 )
 
-
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1906,6 +1905,8 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 nestedCtx[target.key].value = fn(...args);
             }
         }
+
+        if (execKey) chainResult = await chainResult;
 
         const chainResult = action.promise === 'raw'
             ? applyMethodChain(fn, action, libs, nestedPath, execKey, res, req, next)
