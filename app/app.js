@@ -1886,58 +1886,67 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
 
     if (action.target) {
-        const isObj = await isOnePlaceholder(action.target);
-        const execKey = action.target.endsWith('|}!');
-        const strClean = await removeBrackets(action.target, isObj, execKey);
-        const target = isObj
-            ? await getKeyAndPath(strClean, nestedPath)
-            : { key: strClean, path: nestedPath };
+    const isObj   = await isOnePlaceholder(action.target);
+    const execKey = action.target.endsWith('|}!');        // {|foo|}!  ⇒ true
+    const strClean = await removeBrackets(action.target, isObj, execKey);
 
-        const nestedCtx = await getNestedContext(libs, target.path);
-        if (!nestedCtx[target.key]) nestedCtx[target.key] = { value: {}, context: {} };
+    const target  = isObj
+        ? await getKeyAndPath(strClean, nestedPath)
+        : { key: strClean, path: nestedPath };
 
-        const fn = await replacePlaceholders(target.key, libs, target.path, execKey, false);
-        if (action.params) {
-            const args = await Promise.all(
-                action.params.map(p => replacePlaceholders(p, libs, nestedPath, p.endsWith('|}!')))
-            );
-            if (typeof fn === 'function' && args.length) {
-                nestedCtx[target.key].value = fn(...args);
-            }
-        }
+    const nestedCtx = await getNestedContext(libs, target.path);
+    if (!nestedCtx[target.key]) nestedCtx[target.key] = { value: {}, context: {} };
 
-        if (execKey) chainResult = await chainResult;
+    const fn = await replacePlaceholders(
+        target.key, libs, target.path, execKey, /*returnEx=*/false);
 
-        const chainResult = action.promise === 'raw'
-            ? applyMethodChain(fn, action, libs, nestedPath, execKey, res, req, next)
-            : await applyMethodChain(fn, action, libs, nestedPath, execKey, res, req, next);
-
-        if (chainResult && chainResult._isFunction) return chainResult;
-        if (action.promise === 'raw') return chainResult;
-
-        if (action.assign) {
-            const assignExecuted = action.assign.endsWith('|}!');
-            const assignObj = await isOnePlaceholder(action.assign);
-            const cleanKey = await removeBrackets(action.assign, assignObj, assignExecuted);
-            const assignMeta = assignObj
-                ? await getKeyAndPath(cleanKey, nestedPath)
-                : { key: cleanKey, path: nestedPath };
-
-            const arrow2 = _parseArrowKey(assignMeta.key, libs);
-            if (arrow2) {
-                await putValueIntoContext(
-                    arrow2.contextParts,
-                    arrow2.objectParts,
-                    chainResult,
-                    libs,
-                    arrow2.index
-                );
-            } else {
-                const ctx2 = await getNestedContext(libs, assignMeta.path);
-                await addValueToNestedKey(assignMeta.key, ctx2, chainResult);
-            }
-        }
+    /* inject params (unchanged) ------------------------------------------------ */
+    if (action.params) {
+      const args = await Promise.all(
+          action.params.map(p => replacePlaceholders(
+              p, libs, nestedPath, p.endsWith('|}!'))));
+      if (typeof fn === 'function' && args.length) {
+        nestedCtx[target.key].value = fn(...args);
+      }
     }
+
+    /* ──────── apply the chain, then (optionally) await once more ──────────── */
+    let chainResult;
+    if (action.promise === 'raw') {
+      /* caller wants the *raw* promise (do NOT await here) */
+      const tmp = applyMethodChain(fn, action, libs, nestedPath,
+                                   execKey, res, req, next);
+      chainResult = execKey ? await tmp : tmp;   // ← extra await only if “! ”
+    } else {
+      /* normal mode – already awaited */
+      chainResult = await applyMethodChain(fn, action, libs, nestedPath,
+                                           execKey, res, req, next);
+    }
+
+    /* ----------------------------------------------------------------------- */
+    if (chainResult && chainResult._isFunction) return chainResult;
+    if (action.promise === 'raw')               return chainResult;
+
+    /* assign-to-context part is unchanged … */
+    if (action.assign) {
+      const assignExecuted = action.assign.endsWith('|}!');
+      const assignObj      = await isOnePlaceholder(action.assign);
+      const cleanKey       = await removeBrackets(action.assign, assignObj, assignExecuted);
+      const assignMeta     = assignObj
+            ? await getKeyAndPath(cleanKey, nestedPath)
+            : { key: cleanKey, path: nestedPath };
+
+      const arrow2 = _parseArrowKey(assignMeta.key, libs);
+      if (arrow2) {
+        await putValueIntoContext(
+            arrow2.contextParts, arrow2.objectParts,
+            chainResult, libs, arrow2.index);
+      } else {
+        const ctx2 = await getNestedContext(libs, assignMeta.path);
+        await addValueToNestedKey(assignMeta.key, ctx2, chainResult);
+      }
+    }
+  }
 
     else if (action.assign) {
         const assignExecuted = action.assign.endsWith('|}!');
