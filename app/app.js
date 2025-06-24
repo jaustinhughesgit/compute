@@ -1548,8 +1548,15 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
         const segs = splitObjectPath(base);
         for (let i = 0; i < segs.length; i++) {
             const part  = segs[i];
-            const slot  = current && current.hasOwnProperty(part) ? current[part] : null;
-            if (!slot) return '';
+            /* 1️⃣ normal lookup        2️⃣ NEW: fallback into .context */
+            let slot;
+            if (current && current.hasOwnProperty(part)) {
+                slot = current[part];
+            } else if (current && current.context && current.context.hasOwnProperty(part)) {
+                slot = current.context[part];          // ← look inside local context
+            } else {
+                return '';                             // still not found
+            }
 
             const isLast = i === segs.length - 1;
             if (!isLast && slot.context !== undefined) {
