@@ -973,52 +973,52 @@ function getPageType(urlPath) {
 }
 
 function splitObjectPath(str = '') {
-    const tokens = [];
-    const re = /(\[['"][^'"\]]+['"]\]|\[[0-9]+\]|[^.[\]]+)/g;
-    let m;
-    while ((m = re.exec(str)) !== null) {
-        let t = m[1];
-        if (t.startsWith('[')) {          // strip [  ] and optional quotes
-            t = t.slice(1, -1).replace(/^['"]|['"]$/g, '');
-        }
-        if (t !== '') tokens.push(t);
+  const tokens = [];
+  const re = /(\[['"][^'"\]]+['"]\]|\[[0-9]+\]|[^.[\]]+)/g;
+  let m;
+  while ((m = re.exec(str)) !== null) {
+    let t = m[1];
+    if (t.startsWith('[')) {          // strip [  ] and optional quotes
+      t = t.slice(1, -1).replace(/^['"]|['"]$/g, '');
     }
-    return tokens;
+    if (t !== '') tokens.push(t);
+  }
+  return tokens;
 }
 
 function _parseArrowKey(rawKey, libs) {
-    const [lhs, rhs] = rawKey.split('=>');
-    if (!rhs) return null;                      // no arrow ⇒ treat as normal key
+  const [lhs, rhs] = rawKey.split('=>');
+  if (!rhs) return null;                      // no arrow ⇒ treat as normal key
 
-    const contextParts = splitObjectPath(lhs.replace('~/', 'root.'));
+  const contextParts = splitObjectPath(lhs.replace('~/', 'root.'));
 
-    /* bare “=>[n]” ------------------------------------------------ */
-    const bareIdx = rhs.match(/^\[(.+?)\]$/);
-    if (bareIdx) {
-        return {
-            contextParts,
-            objectParts: [],
-            index: _resolveIdx(bareIdx[1], libs),
-        };
-    }
-
-    /* “…path[ idx ]” --------------------------------------------- */
-    const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
-    if (indexed) {
-        const objectPath = indexed[1];            // may be ""
-        return {
-            contextParts,
-            objectParts: objectPath ? splitObjectPath(objectPath) : [],
-            index: _resolveIdx(indexed[2], libs),
-        };
-    }
-
-    /* plain RHS --------------------------------------------------- */
+  /* bare “=>[n]” ------------------------------------------------ */
+  const bareIdx = rhs.match(/^\[(.+?)\]$/);
+  if (bareIdx) {
     return {
-        contextParts,
-        objectParts: splitObjectPath(rhs),
-        index: undefined,
+      contextParts,
+      objectParts: [],
+      index: _resolveIdx(bareIdx[1], libs),
     };
+  }
+
+  /* “…path[ idx ]” --------------------------------------------- */
+  const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
+  if (indexed) {
+    const objectPath = indexed[1];            // may be ""
+    return {
+      contextParts,
+      objectParts: objectPath ? splitObjectPath(objectPath) : [],
+      index: _resolveIdx(indexed[2], libs),
+    };
+  }
+
+  /* plain RHS --------------------------------------------------- */
+  return {
+    contextParts,
+    objectParts: splitObjectPath(rhs),
+    index: undefined,
+  };
 }
 
 async function processConfig(config, initialContext, lib) {
@@ -1032,18 +1032,18 @@ async function processConfig(config, initialContext, lib) {
 }
 
 function _resolveIdx(token, libs) {
-    if (/^\d+$/.test(token)) return parseInt(token, 10);
+  if (/^\d+$/.test(token)) return parseInt(token, 10);
 
-    if (token.startsWith('{|')) {
-        const key = token
-            .replace('{|', '').replace('|}!', '').replace('|}', '')
-            .replace('~/', '');
-        const slot = libs.root.context[key];
-        if (!slot || slot.value === undefined)
-            throw new Error(`_parseArrowKey: context value for '${token}' not found`);
-        return parseInt(slot.value.toString(), 10);
-    }
-    throw new Error(`_parseArrowKey: invalid index token “[${token}]”`);
+  if (token.startsWith('{|')) {
+    const key  = token
+      .replace('{|', '').replace('|}!', '').replace('|}', '')
+      .replace('~/', '');
+    const slot = libs.root.context[key];
+    if (!slot || slot.value === undefined)
+      throw new Error(`_parseArrowKey: context value for '${token}' not found`);
+    return parseInt(slot.value.toString(), 10);
+  }
+  throw new Error(`_parseArrowKey: invalid index token “[${token}]”`);
 }
 
 async function installModule(moduleName, contextKey, context, lib) {
@@ -1525,66 +1525,66 @@ function isNestedArrayPlaceholder(str) {
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     let json = libs.root.context
-    function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        let current = json;
+function getValueFromJson2(path, json, nestedPath, forceRoot) {
+  let current = json;
 
-        /* walk the “nestedPath” subtree first ------------------------ */
-        if (!forceRoot && nestedPath) {
-            for (const part of splitObjectPath(nestedPath)) {
-                if (current && current.hasOwnProperty(part)) {
-                    current = current[part];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
-            }
-        }
-
-        /* split the incoming “foo.bar=>baz[1]” ----------------------- */
-        const [base, rhs] = path.split('=>');
-
-        /* walk the LHS (“foo.bar”) ---------------------------------- */
-        for (const part of splitObjectPath(base)) {
-            if (current && current.hasOwnProperty(part)) {
-                current = current[part].value !== undefined ? current[part].value : current[part];
-            } else {
-                return '';
-            }
-        }
-
-        /* optional RHS ---------------------------------------------- */
-        if (rhs !== undefined) {
-            let postKeys = [];
-            let idx = null;
-
-            const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
-            if (indexed) {
-                postKeys = indexed[1] ? splitObjectPath(indexed[1]) : [];
-                if (/^\d+$/.test(indexed[2])) idx = parseInt(indexed[2], 10);
-            } else {
-                postKeys = splitObjectPath(rhs);
-            }
-
-            for (const part of postKeys) {
-                if (current && current.hasOwnProperty(part)) {
-                    current = current[part].value !== undefined ? current[part].value : current[part];
-                } else {
-                    return '';
-                }
-            }
-
-            if (idx !== null) {
-                if (Array.isArray(current) && idx >= 0 && idx < current.length) {
-                    current = current[idx];
-                } else {
-                    console.error(`Index ${idx} out of bounds for array.`);
-                    return '';
-                }
-            }
-        }
-
-        return current;
+  /* walk the “nestedPath” subtree first ------------------------ */
+  if (!forceRoot && nestedPath) {
+    for (const part of splitObjectPath(nestedPath)) {
+      if (current && current.hasOwnProperty(part)) {
+        current = current[part];
+      } else {
+        console.error(`Nested path ${nestedPath} not found in JSON.`);
+        return '';
+      }
     }
+  }
+
+  /* split the incoming “foo.bar=>baz[1]” ----------------------- */
+  const [base, rhs] = path.split('=>');
+
+  /* walk the LHS (“foo.bar”) ---------------------------------- */
+  for (const part of splitObjectPath(base)) {
+    if (current && current.hasOwnProperty(part)) {
+      current = current[part].value !== undefined ? current[part].value : current[part];
+    } else {
+      return '';
+    }
+  }
+
+  /* optional RHS ---------------------------------------------- */
+  if (rhs !== undefined) {
+    let postKeys = [];
+    let idx      = null;
+
+    const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
+    if (indexed) {
+      postKeys = indexed[1] ? splitObjectPath(indexed[1]) : [];
+      if (/^\d+$/.test(indexed[2])) idx = parseInt(indexed[2], 10);
+    } else {
+      postKeys = splitObjectPath(rhs);
+    }
+
+    for (const part of postKeys) {
+      if (current && current.hasOwnProperty(part)) {
+        current = current[part].value !== undefined ? current[part].value : current[part];
+      } else {
+        return '';
+      }
+    }
+
+    if (idx !== null) {
+      if (Array.isArray(current) && idx >= 0 && idx < current.length) {
+        current = current[idx];
+      } else {
+        console.error(`Index ${idx} out of bounds for array.`);
+        return '';
+      }
+    }
+  }
+
+  return current;
+}
 
     async function replace2(str, nestedPath) {
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
@@ -1810,137 +1810,126 @@ async function addValueToNestedKey(key, nestedContext, value) {
 }
 
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
-    let pathHolder = libs.root.context;
+  let pathHolder = libs.root.context;
 
-    for (let i = 0; i < contextPath.length; i++) {
-        const part = contextPath[i];
+  for (let i = 0; i < contextPath.length; i++) {
+    const part = contextPath[i];
 
-        if (!pathHolder.hasOwnProperty(part)) {
-            pathHolder[part] = { value: {}, context: {} };
-        }
-
-        if (i < contextPath.length - 1) {
-            pathHolder = pathHolder[part].context;
-        } else {
-            pathHolder = pathHolder[part].value;
-        }
+    if (!pathHolder.hasOwnProperty(part)) {
+      pathHolder[part] = { value: {}, context: {} };
     }
 
-    if (objectPath.length === 0) {
-        if (!Array.isArray(pathHolder)) {
-            throw new Error('Target for bare "=>[n]" assignment is not an array');
-        }
-        pathHolder[index] = value;
-        return;
-    }
-
-    for (const part of objectPath.slice(0, -1)) {
-        if (!pathHolder.hasOwnProperty(part)) {
-            pathHolder[part] = {};
-        }
-        pathHolder = pathHolder[part];
-    }
-
-    const leaf = objectPath[objectPath.length - 1];
-
-    if (index !== undefined) {
-        if (!Array.isArray(pathHolder[leaf])) {
-            pathHolder[leaf] = [];
-        }
-        pathHolder[leaf][index] = value;
+    if (i < contextPath.length - 1) {
+      pathHolder = pathHolder[part].context;
     } else {
-        pathHolder[leaf] = value;
+      pathHolder = pathHolder[part].value;
     }
+  }
+
+  if (objectPath.length === 0) {
+    if (!Array.isArray(pathHolder)) {
+      throw new Error('Target for bare "=>[n]" assignment is not an array');
+    }
+    pathHolder[index] = value;
+    return;
+  }
+
+  for (const part of objectPath.slice(0, -1)) {
+    if (!pathHolder.hasOwnProperty(part)) {
+      pathHolder[part] = {};
+    }
+    pathHolder = pathHolder[part];
+  }
+
+  const leaf = objectPath[objectPath.length - 1];
+
+  if (index !== undefined) {
+    if (!Array.isArray(pathHolder[leaf])) {
+      pathHolder[leaf] = [];
+    }
+    pathHolder[leaf][index] = value;
+  } else {
+    pathHolder[leaf] = value;
+  }
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
-    let timeoutLength = action.timeout || 0;
-    if (timeoutLength > 0) {
-        await new Promise(r => setTimeout(r, timeoutLength));
+  let timeoutLength = action.timeout || 0;
+  if (timeoutLength > 0) {
+    await new Promise(r => setTimeout(r, timeoutLength));
+  }
+
+  if (action.set) {
+    for (const key of Object.keys(action.set)) {
+      const keyExecuted = key.endsWith('|}!');
+      const keyObj      = await isOnePlaceholder(key);
+      const keyClean    = await removeBrackets(key, keyObj, keyExecuted);
+
+      const arrow = _parseArrowKey(keyClean, libs);
+      if (arrow) {
+        const value = await replacePlaceholders(action.set[key], libs, nestedPath, keyExecuted);
+        await putValueIntoContext(
+          arrow.contextParts,
+          arrow.objectParts,
+          value,
+          libs,
+          arrow.index
+        );
+        continue;
+      }
+      const setKey = keyClean.replace('~/', '');
+      const nestedContext = await getNestedContext(libs, nestedPath, setKey);
+      const isEx = typeof action.set[key] === 'string' && action.set[key].endsWith('|}!');
+      const value = await replacePlaceholders(action.set[key], libs, nestedPath, isEx);
+      await addValueToNestedKey(setKey, nestedContext, value);
     }
+  }
 
-    if (action.set) {
-        for (const key of Object.keys(action.set)) {
-            const keyExecuted = key.endsWith('|}!');
-            const keyObj = await isOnePlaceholder(key);
-            const keyClean = await removeBrackets(key, keyObj, keyExecuted);
-
-            const arrow = _parseArrowKey(keyClean, libs);
-            if (arrow) {
-                const value = await replacePlaceholders(action.set[key], libs, nestedPath, keyExecuted);
-                await putValueIntoContext(
-                    arrow.contextParts,
-                    arrow.objectParts,
-                    value,
-                    libs,
-                    arrow.index
-                );
-                continue;
-            }
-            const setKey = keyClean.replace('~/', '');
-            const nestedContext = await getNestedContext(libs, nestedPath, setKey);
-            const isEx = typeof action.set[key] === 'string' && action.set[key].endsWith('|}!');
-            const value = await replacePlaceholders(action.set[key], libs, nestedPath, isEx);
-            await addValueToNestedKey(setKey, nestedContext, value);
-        }
-    }
-
-    if (action.target) {
-    const isObj   = await isOnePlaceholder(action.target);
-    const execKey = action.target.endsWith('|}!');        // {|foo|}!  ⇒ true
+  if (action.target) {
+    const isObj = await isOnePlaceholder(action.target);
+    const execKey = action.target.endsWith('|}!');
     const strClean = await removeBrackets(action.target, isObj, execKey);
-
-    const target  = isObj
-        ? await getKeyAndPath(strClean, nestedPath)
-        : { key: strClean, path: nestedPath };
+    const target   = isObj
+      ? await getKeyAndPath(strClean, nestedPath)
+      : { key: strClean, path: nestedPath };
 
     const nestedCtx = await getNestedContext(libs, target.path);
     if (!nestedCtx[target.key]) nestedCtx[target.key] = { value: {}, context: {} };
 
-    const fn = await replacePlaceholders(
-        target.key, libs, target.path, execKey, /*returnEx=*/false);
-
-    /* inject params (unchanged) ------------------------------------------------ */
+    const fn = await replacePlaceholders(target.key, libs, target.path, execKey, false);
     if (action.params) {
       const args = await Promise.all(
-          action.params.map(p => replacePlaceholders(
-              p, libs, nestedPath, p.endsWith('|}!'))));
+        action.params.map(p => replacePlaceholders(p, libs, nestedPath, p.endsWith('|}!')))
+      );
       if (typeof fn === 'function' && args.length) {
         nestedCtx[target.key].value = fn(...args);
       }
     }
 
-    /* ──────── apply the chain, then (optionally) await once more ──────────── */
-    let chainResult;
-    if (action.promise === 'raw') {
-      /* caller wants the *raw* promise (do NOT await here) */
-      const tmp = applyMethodChain(fn, action, libs, nestedPath,
-                                   execKey, res, req, next);
-      chainResult = execKey ? await tmp : tmp;   // ← extra await only if “! ”
-    } else {
-      /* normal mode – already awaited */
-      chainResult = await applyMethodChain(fn, action, libs, nestedPath,
-                                           execKey, res, req, next);
-    }
+    const chainResult = action.promise === 'raw'
+      ? applyMethodChain(fn, action, libs, nestedPath, execKey, res, req, next)
+      : await applyMethodChain(fn, action, libs, nestedPath, execKey, res, req, next);
 
-    /* ----------------------------------------------------------------------- */
     if (chainResult && chainResult._isFunction) return chainResult;
-    if (action.promise === 'raw')               return chainResult;
+    if (action.promise === 'raw') return chainResult;
 
-    /* assign-to-context part is unchanged … */
     if (action.assign) {
       const assignExecuted = action.assign.endsWith('|}!');
       const assignObj      = await isOnePlaceholder(action.assign);
       const cleanKey       = await removeBrackets(action.assign, assignObj, assignExecuted);
       const assignMeta     = assignObj
-            ? await getKeyAndPath(cleanKey, nestedPath)
-            : { key: cleanKey, path: nestedPath };
+        ? await getKeyAndPath(cleanKey, nestedPath)
+        : { key: cleanKey, path: nestedPath };
 
       const arrow2 = _parseArrowKey(assignMeta.key, libs);
       if (arrow2) {
         await putValueIntoContext(
-            arrow2.contextParts, arrow2.objectParts,
-            chainResult, libs, arrow2.index);
+          arrow2.contextParts,
+          arrow2.objectParts,
+          chainResult,
+          libs,
+          arrow2.index
+        );
       } else {
         const ctx2 = await getNestedContext(libs, assignMeta.path);
         await addValueToNestedKey(assignMeta.key, ctx2, chainResult);
@@ -1948,56 +1937,56 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     }
   }
 
-    else if (action.assign) {
-        const assignExecuted = action.assign.endsWith('|}!');
-        const assignObj = await isOnePlaceholder(action.assign);
-        const cleanKey = await removeBrackets(action.assign, assignObj, assignExecuted);
-        const assignMeta = assignObj
-            ? await getKeyAndPath(cleanKey, nestedPath)
-            : { key: cleanKey, path: nestedPath };
+  else if (action.assign) {
+    const assignExecuted = action.assign.endsWith('|}!');
+    const assignObj      = await isOnePlaceholder(action.assign);
+    const cleanKey       = await removeBrackets(action.assign, assignObj, assignExecuted);
+    const assignMeta     = assignObj
+      ? await getKeyAndPath(cleanKey, nestedPath)
+      : { key: cleanKey, path: nestedPath };
 
-        const fn = await createFunctionFromAction(action, libs, assignMeta.path, req, res, next);
-        const result = assignExecuted && typeof fn === 'function'
-            ? await fn()
-            : fn;
+    const fn = await createFunctionFromAction(action, libs, assignMeta.path, req, res, next);
+    const result = assignExecuted && typeof fn === 'function'
+      ? await fn()
+      : fn;
 
-        const arrow3 = _parseArrowKey(assignMeta.key, libs);
-        if (arrow3) {
-            await putValueIntoContext(
-                arrow3.contextParts,
-                arrow3.objectParts,
-                result,
-                libs,
-                arrow3.index
-            );
-        } else {
-            const ctx3 = await getNestedContext(libs, assignMeta.path);
-            await addValueToNestedKey(assignMeta.key, ctx3, result);
-        }
+    const arrow3 = _parseArrowKey(assignMeta.key, libs);
+    if (arrow3) {
+      await putValueIntoContext(
+        arrow3.contextParts,
+        arrow3.objectParts,
+        result,
+        libs,
+        arrow3.index
+      );
+    } else {
+      const ctx3 = await getNestedContext(libs, assignMeta.path);
+      await addValueToNestedKey(assignMeta.key, ctx3, result);
     }
+  }
 
-    if (action.execute) {
-        const isObj = await isOnePlaceholder(action.execute);
-        const strClean = await removeBrackets(action.execute, isObj, false);
-        const execMeta = isObj
-            ? await getKeyAndPath(strClean, nestedPath)
-            : { key: strClean, path: nestedPath };
+  if (action.execute) {
+    const isObj    = await isOnePlaceholder(action.execute);
+    const strClean = await removeBrackets(action.execute, isObj, false);
+    const execMeta = isObj
+      ? await getKeyAndPath(strClean, nestedPath)
+      : { key: strClean, path: nestedPath };
 
-        const ctx4 = await getNestedContext(libs, execMeta.path);
-        const fn4 = ctx4[execMeta.key].value;
-        if (typeof fn4 === 'function') {
-            if (action.express) {
-                action.next
-                    ? await fn4(req, res, next)
-                    : await fn4(req, res);
-            } else {
-                await fn4();
-            }
-        }
+    const ctx4 = await getNestedContext(libs, execMeta.path);
+    const fn4  = ctx4[execMeta.key].value;
+    if (typeof fn4 === 'function') {
+      if (action.express) {
+        action.next
+          ? await fn4(req, res, next)
+          : await fn4(req, res);
+      } else {
+        await fn4();
+      }
     }
-    if (action.next) next();
+  }
+  if (action.next) next();
 
-    return '';
+  return '';
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
@@ -2049,82 +2038,58 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 if (chainAction.new) {
                     result = new result[accessClean](...chainParams);
                 } else {
-                    if (chainAction.access && accessClean.length !== 0) {
-
-                        /* ──────────── Express branch (unchanged) ──────────── */
+                    if (chainAction.access && accessClean.length != 0) {
                         if (chainAction.express) {
-                            if (chainAction.next || chainAction.next === undefined) {
+                            if (chainAction.next || chainAction.next == undefined) {
                                 result = await result[accessClean](...chainParams)(req, res, next);
                             } else {
                                 result = await result[accessClean](...chainParams)(req, res);
                             }
-                        }
-
-                        /* ───────────── Non-Express branch (patched) ────────── */
-                        else {
-                            console.log(target, req.lib.root.context);
+                        } else {
+                            console.log(target, req.lib.root.context)
                             try {
-                                /* tidy numeric arg → string */
-                                if (chainParams && chainParams.length > 0 &&
-                                    typeof chainParams[0] === 'number') {
-                                    chainParams[0] = chainParams[0].toString();
+                                if (chainParams.length > 0) {
+                                    if (typeof chainParams[0] == "number") {
+                                        chainParams[0] = chainParams[0].toString();
+                                    }
                                 }
-
                                 if (assignExecuted) {
-                                    /* special JSON/PDF case */
-                                    if ((accessClean === 'json' || accessClean === 'pdf') &&
-                                        action.target.replace('{|', '').replace('|}!', '').replace('|}', '') === 'res') {
-
-                                        chainParams[0] = JSON.stringify(chainParams[0]);
+                                    if ((accessClean == "json" || accessClean == "pdf") && action.target.replace("{|", "").replace("|}!", "").replace("|}", "") == "res") {
+                                        chainParams[0] = JSON.stringify(chainParams[0])
 
                                         if (req.body && req.body._isFunction) {
-                                            return chainParams.length === 1
-                                                ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
-                                                : { chainParams, _isFunction: req.body._isFunction };
+                                            return chainParams.length === 1 ? { "chainParams": chainParams[0], "_isFunction": req.body._isFunction } : { "chainParams": chainParams, "_isFunction": req.body._isFunction };
                                         }
 
-                                        /* ↓↓↓ PATCH ↓↓↓ */
-                                        if (action.promise === 'raw') {
-                                            result = result[accessClean](...chainParams);
-                                        } else {
-                                            result = await result[accessClean](...chainParams);
-                                        }
-                                    }
-
-                                    /* all other calls inside assignExecuted === true */
-                                    else {
-                                        if (accessClean === 'send' &&
-                                            req.body && req.body._isFunction) {
-
-                                            return chainParams.length === 1
-                                                ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
-                                                : { chainParams, _isFunction: req.body._isFunction };
-                                        }
-
-                                        /* ↓↓↓ PATCH ↓↓↓ */
-                                        if (action.promise === 'raw') {
-                                            result = result[accessClean](...chainParams);
-                                        } else {
-                                            result = await result[accessClean](...chainParams);
-                                        }
-
-                                        try { void result(); } catch (err) {
-                                            console.log('err (Attempting result() in Try/Catch, it’s OK if it fails.)', err);
-                                        }
-                                    }
-                                }
-
-                                /* assignExecuted === false  → we still need to call the fn */
-                                else {
-                                    /* ↓↓↓ PATCH ↓↓↓ */
-                                    if (action.promise === 'raw') {
-                                        result = result[accessClean](...(chainParams || []));
+                                        result = await result[accessClean](...chainParams);
                                     } else {
-                                        result = await result[accessClean](...(chainParams || []));
+                                        if (accessClean === 'send') {
+                                            if (req.body && req.body._isFunction) {
+                                                if (chainParams.length === 1) {
+                                                    return {
+                                                        chainParams: chainParams[0],
+                                                        _isFunction: req.body._isFunction
+                                                    };
+                                                } else {
+                                                    return {
+                                                        chainParams: chainParams,
+                                                        _isFunction: req.body._isFunction
+                                                    };
+                                                }
+                                            }
+                                        }
+                                        result = await result[accessClean](...chainParams);
+                                        try {
+                                            re = result();
+                                        } catch (err) {
+                                            console.log("err (Attempting result() in Try/Catch, It's OK if it fails.)", err)
+                                        }
                                     }
+                                } else {
+                                    result = result[accessClean];
                                 }
                             } catch (err) {
-                                console.log('err', err);
+                                console.log("err", err)
                             }
                         }
                     }
