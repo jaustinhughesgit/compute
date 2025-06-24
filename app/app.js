@@ -1330,6 +1330,7 @@ async function getNestedContext(libs, nestedPath, key = "") {
     if (nestedPath && nestedPath != "") {
         let tempContext = libs;
         let partCounter = 0
+        console.log("parts", parts)
         for (let part of parts) {
             tempContext = tempContext[part].context;
         }
