@@ -824,7 +824,6 @@ app.all('/auth/*',
     }
 )
 
-
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -2233,13 +2232,27 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }
 
         if (action.nestedActions) {
-            const nestedResults = [];
-            for (const act of action.nestedActions) {
-                let newNestedPath = `${nestedPath}.${assign.key}`;
-                const result = await runAction(act, libs, newNestedPath, req, res, next);
-                nestedResults.push(result);
-            }
-            result = nestedResults[0];
+           let finalResult = undefined;
+           for (const act of action.nestedActions) {
+               const newNestedPath = `${nestedPath}.${assign.key}`;
+
+               // run the current nested action
+               const out = await runAction(act, libs, newNestedPath, req, res, next);
+
+               /* 1)  If this nested action itself contains `"return": …`
+                *     OR
+                * 2)  runAction gave us back a non-empty value,
+                * then we have reached the terminating action.
+                */
+               if (Object.prototype.hasOwnProperty.call(act, 'return') ||
+                   (out !== undefined && out !== '')) {
+                   finalResult = out;
+                   break;          // ← stop processing further nestedActions
+               }
+           }
+
+           // Whatever we captured (may be undefined if no "return" found)
+           result = finalResult;
         }
         return result;
 
