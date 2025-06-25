@@ -2000,10 +2000,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 execKey, res, req, next);
         }
 
-        /* ----------------------------------------------------------------------- */
-        if (chainResult && chainResult._isFunction) return chainResult;
-        if (action.promise === 'raw') return chainResult;
-
         /* assign-to-context part is unchanged … */
         if (action.assign) {
             const assignExecuted = action.assign.endsWith('|}!');
@@ -2023,6 +2019,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
                 await addValueToNestedKey(assignMeta.key, ctx2, chainResult);
             }
         }
+
+        /* ----------------------------------------------------------------------- */
+        if (chainResult && chainResult._isFunction) return chainResult;
+        if (action.promise === 'raw') return chainResult;
+
+        
     }
 
     else if (action.assign) {
