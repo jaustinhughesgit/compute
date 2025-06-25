@@ -827,6 +827,8 @@ app.all('/auth/*',
 //-------------------------------------/////////////////////////////////////////////////////////
 
 
+
+
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1821,18 +1823,24 @@ async function runAction(action, libs, nestedPath, req, res, next) {
   return "";
 }
 
+function isPureNumberString(str) {
+  return /^-?\d+(\.\d+)?$/.test(str.trim());
+}
+
 async function addValueToNestedKey(key, nestedContext, value) {
-    if (typeof value === "string" && !isNaN(value)) {
-        value = Number(value);          // turn "42" → 42
-    }
-    if (value == undefined || key == undefined) {
-    } else {
-        key = key.replace("~/", "");
-        if (!nestedContext.hasOwnProperty(key)) {
-            nestedContext[key] = { "value": {}, "context": {} }
-        }
-        nestedContext[key].value = value;
-    }
+  // 1) coerce "42"  "3.14"  "-8"  but **not** "" / "  " / "foo"
+  if (typeof value === "string" && isPureNumberString(value)) {
+    value = Number(value);
+  }
+
+  // 2) original logic unchanged
+  if (value === undefined || key === undefined) return;
+
+  key = key.replace("~/", "");
+  if (!nestedContext.hasOwnProperty(key)) {
+    nestedContext[key] = { value: {}, context: {} };
+  }
+  nestedContext[key].value = value;
 }
 
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
