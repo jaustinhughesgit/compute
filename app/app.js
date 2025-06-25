@@ -991,6 +991,33 @@ function splitObjectPath(str = '') {
     return tokens;
 }
 
+
+/**
+ * Walk any combination of “.prop”, “[number]”, and “['str-key']”.
+ * Returns the resolved value or '' if the walk fails midway.
+ */
+function walkPath(root, tokens) {
+  let cur = root;
+  for (const t of tokens) {
+    if (cur == null) return '';
+
+    // numeric token → array index
+    if (/^\d+$/.test(t)) {
+      if (!Array.isArray(cur)) return '';
+      cur = cur[Number(t)];
+      continue;
+    }
+
+    // normal object key
+    if (Object.prototype.hasOwnProperty.call(cur, t)) {
+      cur = cur[t].value !== undefined ? cur[t].value : cur[t];
+    } else {
+      return '';
+    }
+  }
+  return cur;
+}
+
 function _parseArrowKey(rawKey, libs) {
     const [lhs, rhs] = rawKey.split('=>');
     if (!rhs) return null;                      // no arrow ⇒ treat as normal key
@@ -1007,16 +1034,18 @@ function _parseArrowKey(rawKey, libs) {
         };
     }
 
-    /* “…path[ idx ]” --------------------------------------------- */
-    const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
-    if (indexed) {
-        const objectPath = indexed[1];            // may be ""
-        return {
-            contextParts,
-            objectParts: objectPath ? splitObjectPath(objectPath) : [],
-            index: _resolveIdx(indexed[2], libs),
-        };
-    }
+  /* “…path[ idx ].rest.of.path” (new, relaxed) ------------------ */
+  const indexed = rhs.match(/^(.*?)\[(.*?)\](?:\.(.*))?$/);
+  if (indexed) {
+      const before = indexed[1];                // may be ""
+      const after  = indexed[3] || "";          // may be ""
+      const full   = (before ? before + '.' : '') + after;
+      return {
+          contextParts,
+          objectParts: full ? splitObjectPath(full) : [],
+          index: _resolveIdx(indexed[2], libs),
+      };
+  }
 
     /* plain RHS --------------------------------------------------- */
     return {
@@ -1530,79 +1559,72 @@ function isNestedArrayPlaceholder(str) {
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     let json = libs.root.context
-    function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        let current = json;
+function getValueFromJson2(path, json, nestedPath, forceRoot) {
+    let current = json;
 
-        /* walk the “nestedPath” subtree first ------------------------ */
-        if (!forceRoot && nestedPath) {
-            for (const part of splitObjectPath(nestedPath)) {
-                if (current && current.hasOwnProperty(part)) {
-                    current = current[part];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
+    /* ────────────────────── 1. optional “nestedPath” walk ─────────────────── */
+    if (!forceRoot && nestedPath) {
+        for (const part of splitObjectPath(nestedPath)) {
+            if (current && Object.prototype.hasOwnProperty.call(current, part)) {
+                current = current[part];
+            } else {
+                console.error(`Nested path ${nestedPath} not found in JSON.`);
+                return '';
             }
         }
+    }
 
-        /* split the incoming “foo.bar=>baz[1]” ----------------------- */
-        const [base, rhs] = path.split('=>');
+    /* ────────────────────── 2. split “lhs=>rhs” ───────────────────────────── */
+    const [base, rhs] = path.split('=>');
 
-        /* walk the LHS (“foo.bar”) ---------------------------------- */
-        const segs = splitObjectPath(base);
-        for (let i = 0; i < segs.length; i++) {
-            const part  = segs[i];
-            /* 1️⃣ normal lookup        2️⃣ NEW: fallback into .context */
-            let slot;
-            if (current && current.hasOwnProperty(part)) {
-                slot = current[part];
-            } else if (current && current.context && current.context.hasOwnProperty(part)) {
-                slot = current.context[part];          // ← look inside local context
-            } else {
-                return '';                             // still not found
-            }
-
-            const isLast = i === segs.length - 1;
-            if (!isLast && slot.context !== undefined) {
-                current = slot.context;               // ⬅️ descend into `.context`
-            } else {
-                current = slot.value !== undefined ? slot.value : slot;
-            }
+    /* ---------- walk the LHS (“foo.bar”) – keep old .context fallback ------- */
+    for (const part of splitObjectPath(base)) {
+        let slot;
+        if (current && Object.prototype.hasOwnProperty.call(current, part)) {
+            slot = current[part];
+        } else if (current && current.context &&
+                   Object.prototype.hasOwnProperty.call(current.context, part)) {
+            slot = current.context[part];
+        } else {
+            return '';
         }
 
-        /* optional RHS ---------------------------------------------- */
-        if (rhs !== undefined) {
-            let postKeys = [];
-            let idx = null;
+        current = slot.value !== undefined ? slot.value : slot;
+    }
 
-            const indexed = rhs.match(/^(.*?)\[(.*?)\]$/);
-            if (indexed) {
-                postKeys = indexed[1] ? splitObjectPath(indexed[1]) : [];
-                if (/^\d+$/.test(indexed[2])) idx = parseInt(indexed[2], 10);
-            } else {
-                postKeys = splitObjectPath(rhs);
-            }
-
-            for (const part of postKeys) {
-                if (current && current.hasOwnProperty(part)) {
-                    current = current[part].value !== undefined ? current[part].value : current[part];
-                } else {
-                    return '';
-                }
-            }
-
-            if (idx !== null) {
-                if (Array.isArray(current) && idx >= 0 && idx < current.length) {
-                    current = current[idx];
-                } else {
+    /* ────────────────────── 3. walk the RHS (if any) ──────────────────────── */
+    if (rhs !== undefined) {
+        for (const token of splitObjectPath(rhs)) {
+            /* array index ---------------------------------------------------- */
+            if (/^\d+$/.test(token)) {
+                const idx = Number(token);
+                if (!Array.isArray(current) || idx < 0 || idx >= current.length) {
                     console.error(`Index ${idx} out of bounds for array.`);
                     return '';
                 }
+                current = current[idx];
+                continue;
+            }
+
+            /* object key  (with .context fallback, mirroring LHS) ------------ */
+            if (current && Object.prototype.hasOwnProperty.call(current, token)) {
+                current = current[token].value !== undefined
+                        ? current[token].value
+                        : current[token];
+            } else if (current && current.context &&
+                       Object.prototype.hasOwnProperty.call(current.context, token)) {
+                current = current.context[token].value !== undefined
+                        ? current.context[token].value
+                        : current.context[token];
+            } else {
+                return '';
             }
         }
-
-        return current;
     }
+
+    return current;
+}
+
 
     async function replace2(str, nestedPath) {
         let regex = /{\|(~\/)?([^{}]+)\|}/g;
