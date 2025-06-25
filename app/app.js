@@ -1891,6 +1891,14 @@ async function putValueIntoContext(contextPath, objectPath, value, libs, index) 
 }
 
 async function processAction(action, libs, nestedPath, req, res, next) {
+    /* ----------------------------------------------------------------
+    * RUN `nestedActions` FIRST (if present)
+    * ---------------------------------------------------------------- */
+    if (Array.isArray(action.nestedActions)) {
+      for (const sub of action.nestedActions) {
+       await runAction(sub, libs, nestedPath, req, res, next);
+      }
+    }
     let timeoutLength = action.timeout || 0;
     if (timeoutLength > 0) {
         await new Promise(r => setTimeout(r, timeoutLength));
