@@ -824,6 +824,7 @@ app.all('/auth/*',
     }
 )
 
+//-------------------------------------/////////////////////////////////////////////////////////
 
 
 async function runApp(req, res, next) {
@@ -1718,6 +1719,8 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             while (regex.test(modifiedStr)) {
                 modifiedStr = await replace2(modifiedStr, nestedPath);
             }
+            console.log("modifiedStr", modifiedStr);
+
             return modifiedStr;
         }
         return modifiedStr;
@@ -1819,6 +1822,9 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function addValueToNestedKey(key, nestedContext, value) {
+    if (typeof value === "string" && !isNaN(value)) {
+        value = Number(value);          // turn "42" → 42
+    }
     if (value == undefined || key == undefined) {
     } else {
         key = key.replace("~/", "");
