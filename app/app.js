@@ -1019,7 +1019,13 @@ function walkPath(root, tokens) {
 }
 
 function _parseArrowKey(rawKey, libs) {
-    const [lhs, rhs] = rawKey.split('=>');
+    // normalise "{|foo=>[0]|}"  → "foo=>[0]"
+    const normalised = rawKey
+        .replace(/^\{\|/, '')        // leading "{|"
+        .replace(/\|\}!$/, '')       // trailing "|}!"
+        .replace(/\|\}$/,  '');      // trailing "|}"
+
+    const [lhs, rhs] = normalised.split('=>');
     if (!rhs) return null;                      // no arrow ⇒ treat as normal key
 
     const contextParts = splitObjectPath(lhs.replace('~/', 'root.'));
