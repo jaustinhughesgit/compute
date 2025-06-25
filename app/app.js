@@ -825,6 +825,7 @@ app.all('/auth/*',
 )
 
 
+
 async function runApp(req, res, next) {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1714,9 +1715,10 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
             }
             modifiedStr = JSON.parse(modifiedStr)
         } else {
-            /*if (modifiedStr.match(regex)) {
-                return await replace2(modifiedStr, nestedPath);
-            }*/
+            while (regex.test(modifiedStr)) {
+                modifiedStr = await replace2(modifiedStr, nestedPath);
+            }
+            return modifiedStr;
         }
         return modifiedStr;
     }
@@ -2282,6 +2284,7 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
 
     return fnBody;
 }
+
 
 module.exports = {
     lambdaHandler,
