@@ -2,22 +2,22 @@
 
 process.env.PATH = process.env.PATH + ":/opt/gm/bin:/opt/gm/lib:/opt/gs/bin:/opt/gs/lib";
 
+const AWS = require('aws-sdk');
 var express = require('express');
 const serverless = require('serverless-http');
-const AWS = require('aws-sdk');
 const app = express();
 const cookieParser = require('cookie-parser');
-const path = require('path');
 const session = require('express-session');
+const path = require('path');
+const moment = require('moment-timezone')
+const math = require('mathjs');
+const axios = require('axios');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const util = require('util');
 const child_process = require('child_process')
 const exec = util.promisify(child_process.exec);
-const axios = require('axios');
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
-const moment = require('moment-timezone')
-const math = require('mathjs');
 
 const boundAxios = {
     constructor: axios.constructor.bind(axios),
@@ -1828,12 +1828,10 @@ function isPureNumberString(str) {
 }
 
 async function addValueToNestedKey(key, nestedContext, value) {
-  // 1) coerce "42"  "3.14"  "-8"  but **not** "" / "  " / "foo"
   if (typeof value === "string" && isPureNumberString(value)) {
     value = Number(value);
   }
 
-  // 2) original logic unchanged
   if (value === undefined || key === undefined) return;
 
   key = key.replace("~/", "");
@@ -1841,6 +1839,11 @@ async function addValueToNestedKey(key, nestedContext, value) {
     nestedContext[key] = { value: {}, context: {} };
   }
   nestedContext[key].value = value;
+
+  /* DEBUG — remove when happy */
+  if (key === "counter") {
+    console.log("counter now =", value);
+  }
 }
 
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
