@@ -897,13 +897,16 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName, };
     console.log("params", params)
-    const data = await s3.getObject(params).promise();
+    var data = await s3.getObject(params).promise();
     console.log("data",data);
+
+    data = await JSON.parse(data.toString('utf-8'));
+    
     if (data.ContentType == "application/json") {
         console.log(data.Body.toString())
         
-        let s3JSON = await JSON.parse(data.Body.toString());
-
+        let s3JSON = await JSON.parse(data.Body.toString('utf-8'));
+        
         const promises = s3JSON.published.blocks.map(async (obj, index) => {
             let subRes = await getSub(obj.entity, "su", dynamodb)
             let name = await getWord(subRes.Items[0].a, dynamodb)
