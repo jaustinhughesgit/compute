@@ -1406,8 +1406,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
                     {},
                     {},
                     "newGroup",
-                    "a1",
-                    "a1"
+                    "a2",
+                    "a2"
                 ]
             )
             console.log("???", ["NESTED", padRef(routeRowNewIndex - 1), "response", "oai", "html", "response", "file"])
