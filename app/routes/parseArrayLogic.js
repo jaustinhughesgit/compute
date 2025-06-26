@@ -1394,7 +1394,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
-        if (!bestMatch.su) {
+        if (!bestMatch?.su) {
             // create a entity
             // get the entityID
             // reference the entityid from the rowresult as the bestMatch
