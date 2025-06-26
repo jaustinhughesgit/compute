@@ -663,6 +663,7 @@ async function addVersion(newE, col, val, forceC, dynamodb) {
 const createFile = async (su, fileData, s3) => {
 
     const jsonString = JSON.stringify(fileData);
+    console.log("!!! jsonString", jsonString)
     const bucketParams = {
         Bucket: fileLocation(isPublic) + '.1var.com',
         Key: su,
@@ -670,7 +671,7 @@ const createFile = async (su, fileData, s3) => {
         ContentType: 'application/json'
     };
     const data = await s3.putObject(bucketParams).promise();
-
+    console.log("data", data)
     return true;
 }
 const updateJSONL = async (newLine, keys, s3) => {
@@ -1824,8 +1825,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action === "saveFile") {
 
                 actionFile = reqPath.split("/")[3]
+                console.log("!!! actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
-
+                console.log("createFile reqBody.body", reqBody.body)
                 const fileResult = await createFile(actionFile, reqBody.body, s3)
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
