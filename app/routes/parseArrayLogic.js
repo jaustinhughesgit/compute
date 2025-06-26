@@ -1422,7 +1422,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
                 {"runEntity":true},
                 {},
                 "runEntity",
-                padRef(routeRowNewIndex),
+                padRef(routeRowNewIndex + 1),
                 ""
             ]);
         } else {
