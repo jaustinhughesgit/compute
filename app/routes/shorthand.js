@@ -1568,7 +1568,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 finalVal = await resolveCell(valueRef);
             }
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
-            console.log("return updateObj", JSON.stringify(uppdateObj))
+            console.log("return updatedObj", JSON.stringify(updatedObj))
             return updatedObj;
         },
         GET: (rowArray) => {
