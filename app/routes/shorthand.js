@@ -1540,6 +1540,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         },
         NESTED: async (rowArray) => {
+            console.log("rowArray nested", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
