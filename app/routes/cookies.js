@@ -1544,20 +1544,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", parent.Items[0].z, dynamodb)
                 const fileResult = await createFile(uniqueId,
                     {
-                        "input": [{
-                            "physical": [
-                                [{}],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
-                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
-                            ]
-                        }, { "virtual": [] }], "published": {
+                        "input": [], "published": {
                             "blocks": [{ "entity": uniqueId, "name": "Primary" }],
                             "modules": {},
                             "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
@@ -1640,6 +1627,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     let emailer = await email(from, to, subject, emailText, emailHTML, ses)
 
                     mainObj = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+                    console.log("mainObj=.", mainObj)
                 }
             } else if (action === "useGroup") {
                 actionFile = reqPath.split("/")[3]
@@ -2283,7 +2271,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             
                 }
             */
-           } else if (action === "convert") {
+            } else if (action === "convert") {
   const { parseArrayLogic } = require("../routes/parseArrayLogic");
   const { shorthand } = require("../routes/shorthand");
 
@@ -2401,7 +2389,7 @@ console.log("shorthandLogic1", shorthandLogic)
     newShorthand, 
     conclusion
   };
-} else if (action === "embed") {
+            } else if (action === "embed") {
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
                 let text = reqBody.body.text
@@ -2444,6 +2432,8 @@ console.log("shorthandLogic1", shorthandLogic)
             mainObj["existing"] = cookie.existing;
             mainObj["file"] = actionFile + ""
             response = mainObj
+
+            console.log("response 007=>", response)
 
             if (action === "file") {
                 const expires = 90_000;
@@ -2500,12 +2490,17 @@ console.log("shorthandLogic1", shorthandLogic)
                 }
 
             } else {
+                console.log("007 => 1")
                 /* fall‑through: always respond */
                 if (response.hasOwnProperty("ot")) {
+                    console.log("007 => 0")
 
                 } else if (isShorthand) {
+                    console.log("007 => 1")
 
                 } else {
+                    console.log("007 => 2")
+                    console.log("sendBack", { ok: true, response })
                     //if (response.file !== "" || !response.hasOwnProperty("status")) {
                     return sendBack(res, "json", { ok: true, response }, isShorthand);
                     //}
