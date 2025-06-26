@@ -1454,7 +1454,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
 
             shorthand.push(
                 [
-                    "SLEEP"
+                    "SLEEP", 3000
                 ]
             ) 
 
