@@ -1823,7 +1823,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
-
+                console.log("reqBody",reqBody)
+                console.log("req.body", req.body)
                 actionFile = reqPath.split("/")[3]
                 console.log("!!! actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
