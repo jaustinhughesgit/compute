@@ -1568,6 +1568,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 finalVal = await resolveCell(valueRef);
             }
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
+            console.log("return updateObj", JSON.stringify(uppdateObj))
             return updatedObj;
         },
         GET: (rowArray) => {
@@ -1578,6 +1579,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             const pathTokens = rowArray.slice(2);
             let nested = getNested(baseRef, pathTokens);
+            console.log("return nested", nested)
             return nested;
         },
         DELETEPROPERTY: (rowArray) => {
