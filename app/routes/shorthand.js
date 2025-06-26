@@ -1198,6 +1198,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
     }
 
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
     var keywords = {
         ROUTE: async (rowArray) => {
              
@@ -1244,6 +1246,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         },
         EMPTY: (rowArray) => {
             return "";
+        },
+        SLEEP: async (rowArray) => {
+            await sleep(3000);    
         },
         JOIN: async (rowArray) => {
             const updatedArray = rowArray.map(str =>

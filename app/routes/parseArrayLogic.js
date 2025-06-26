@@ -1450,6 +1450,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
                 ]
             ) 
 
+
+
+            shorthand.push(
+                [
+                    "SLEEP"
+                ]
+            ) 
+
             shorthand.push([
                 "ROUTE",
                 {"runEntity":true},
