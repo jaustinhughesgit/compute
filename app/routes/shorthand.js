@@ -1202,7 +1202,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         ROUTE: async (rowArray) => {
              
             let { route } = require('./cookies')
-            console.log("rowArray",rowArray)
+            console.log("ROUTE rowArray",rowArray)
             console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
@@ -1539,6 +1539,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         },
         NESTED: async (rowArray) => {
+            console.log("NESTED rowArray", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
@@ -1570,6 +1571,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return updatedObj;
         },
         GET: (rowArray) => {
+            console.log("GET rowArray", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 return {};
