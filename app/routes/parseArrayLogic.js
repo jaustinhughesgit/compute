@@ -1432,8 +1432,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
             shorthand.push(
                     ["GET", padRef(routeRowNewIndex + 2), "response"]
             )
-
-            const breadcrumbObject = elem;
+            console.log("elem", elem)
+            const breadcrumbObject = JSON.stringify(elem);
 
             let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not give placeholder/example URLs! This is real data!", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created." ];`; 
             newJPL = newJPL + ` let desiredApp = {}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = ${breadcrumbObject}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`; 
