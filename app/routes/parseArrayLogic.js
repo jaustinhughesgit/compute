@@ -1460,7 +1460,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
 
             shorthand.push([
                 "ROUTE",
-                {"runEntity":true},
+                {},
                 {},
                 "runEntity",
                 padRef(routeRowNewIndex + 1),

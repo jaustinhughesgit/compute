@@ -1248,7 +1248,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             return "";
         },
         SLEEP: async (rowArray) => {
-            await sleep(3000);    
+            console.log("SLEEP rowArray", rowArray)
+            await sleep(rowArray[1]);    
+            return "";
         },
         JOIN: async (rowArray) => {
             const updatedArray = rowArray.map(str =>
