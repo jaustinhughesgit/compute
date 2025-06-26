@@ -1412,16 +1412,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
             )
 
             routeRowNewIndex = shorthand.length;   // remember (e.g. 003)
-            console.log("???", ["NESTED", padRef(routeRowNewIndex - 1), "response", "file"])
+            console.log("???", ["NESTED", padRef(routeRowNewIndex), "response", "file"])
             shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex - 1), "response", "file"]
+                    ["NESTED", padRef(routeRowNewIndex), "response", "file"]
             )
             shorthand.push([
                 "ROUTE",
-                {},
+                {"runEntity":true},
                 {},
                 "runEntity",
-                padRef(routeRowNewIndex) ?? null,
+                padRef(routeRowNewIndex + 1) ?? null,
                 ""
             ]);
         } else {
