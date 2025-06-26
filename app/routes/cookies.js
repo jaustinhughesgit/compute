@@ -1825,11 +1825,16 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action === "saveFile") {
                 console.log("reqBody",reqBody)
                 console.log("req.body", req.body)
+            
                 actionFile = reqPath.split("/")[3]
                 console.log("!!! actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
                 console.log("createFile reqBody.body", reqBody.body)
+                if (!reqBody.body){
+                const fileResult = await createFile(actionFile, reqBody, s3)
+                } else {
                 const fileResult = await createFile(actionFile, reqBody.body, s3)
+                }
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
                 let permission = reqPath.split("/")[4]
