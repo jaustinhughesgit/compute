@@ -2493,13 +2493,14 @@ console.log("shorthandLogic1", shorthandLogic)
                 console.log("007 => 1")
                 /* fall‑through: always respond */
                 if (response.hasOwnProperty("ot")) {
-                    console.log("007 => 0")
-
-                } else if (isShorthand) {
                     console.log("007 => 1")
 
-                } else {
+                } else if (isShorthand) {
                     console.log("007 => 2")
+                    return sendBack(res, "json", { ok: true, response }, isShorthand);
+
+                } else {
+                    console.log("007 => 3")
                     console.log("sendBack", { ok: true, response })
                     //if (response.file !== "" || !response.hasOwnProperty("status")) {
                     return sendBack(res, "json", { ok: true, response }, isShorthand);
