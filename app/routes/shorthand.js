@@ -893,6 +893,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
             }
         }
+        console.log("rowResult", rowIndex, rowResult[rowIndex])
         return rowResult[rowIndex];
     }
 
