@@ -1438,7 +1438,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
                     "ROUTE",
                     padRef(routeRowNewIndex + 3),
                     {},
-                    "getFile",
+                    "saveFile",
                     padRef(routeRowNewIndex + 1),
                     ""
                 ]

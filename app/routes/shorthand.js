@@ -893,7 +893,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 }
             }
         }
-        console.log("rowResult", rowIndex, rowResult[rowIndex])
         return rowResult[rowIndex];
     }
 
@@ -1540,7 +1539,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
         },
         NESTED: async (rowArray) => {
-            console.log("rowArray nested", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
@@ -1569,7 +1567,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 finalVal = await resolveCell(valueRef);
             }
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
-            console.log("NESTED RESTURN>>", updatedObj)
             return updatedObj;
         },
         GET: (rowArray) => {
