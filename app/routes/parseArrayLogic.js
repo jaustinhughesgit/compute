@@ -1430,13 +1430,19 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
             )
 
             shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex + 2), "response", "published", "actions", [ {"target": "{|res|}!","chain": [{"access": "send","params": ["HELLO to {|entity|}"]}],"assign": "{|send|}"}]]
+                    ["GET", padRef(routeRowNewIndex + 2), "response"]
             )
+
+            shorthand.push(
+                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", [ {"target": "{|res|}!","chain": [{"access": "send","params": ["HELLO to {|entity|}"]}],"assign": "{|send|}"}]]
+            )
+
+            
 
             shorthand.push(
                 [
                     "ROUTE",
-                    padRef(routeRowNewIndex + 3),
+                    padRef(routeRowNewIndex + 4),
                     {},
                     "saveFile",
                     padRef(routeRowNewIndex + 1),
