@@ -1391,6 +1391,11 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
   });
   return rsp.choices[0].message.function_call;
 
+    const fc = rsp.choices[0].message.function_call;
+  const args = JSON.parse(fc.arguments); 
+
+  return args;
+
 };
 
 const classifyDomains = async ({ openai, text }) => {
