@@ -1590,7 +1590,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
             console.log("openai 3", openai)
             let objectJPL = await buildBreadcrumbApp({openai, str:newJPL})
-            console.log("obj", obj)
             console.log("objectJPL", objectJPL)
 
             console.log("objectJPL.actions", objectJPL.actions)
