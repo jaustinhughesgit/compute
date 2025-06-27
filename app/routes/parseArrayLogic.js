@@ -1135,10 +1135,6 @@ const calcMatchScore = (elementDists, item) => {
     return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
-
-
-
-// ===== reference resolver  (unchanged from previous drop-in) =====
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
@@ -1178,10 +1174,9 @@ function resolveArrayLogic(arrayLogic) {
     return arrayLogic.map((_, i) => resolveElement(i));
 }
 
-// ===== utilities for shorthand conversion ========================
-const OFFSET = 1;                                  // because of the [{}] row
-const padRef = n => String(n).padStart(3, "0") + "!!"; // 003 → "003!!"
-const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;          // "__$(n)"  or "__$ref(n)"
+const OFFSET = 1;
+const padRef = n => String(n).padStart(3, "0") + "!!";
+const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
 
 const convertShorthandRefs = v => {
     if (typeof v === "string") {
@@ -1197,7 +1192,6 @@ const convertShorthandRefs = v => {
     return v;
 };
 
-// recognise element kinds -----------------------------------------
 const isOperationElem = obj =>
     obj && typeof obj === "object" && !Array.isArray(obj) &&
     Object.keys(obj).length === 1 &&
@@ -1206,7 +1200,6 @@ const isOperationElem = obj =>
 const isSchemaElem = obj =>
     obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
-// ===== OpenAI domain helpers (unchanged) =========================
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
     const rsp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -1249,7 +1242,6 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
     console.log("openai 4", openai)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-2024-08-06",
-    // hard-constraint the output to valid JSON
     response_format: { type: "json_object" },
     messages: [
       {
@@ -1261,7 +1253,7 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
     ]
   });
 
-  return rsp.choices[0].message.content; // already JSON-parsable
+  return rsp.choices[0].message.content;
 };
 
 const classifyDomains = async ({ openai, text }) => {
@@ -1279,53 +1271,44 @@ const classifyDomains = async ({ openai, text }) => {
     return { domain, subdomain };
 };
 
-// =======   UPDATED parseArrayLogic   =============================
 async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL } = {}) {
 
     console.log("openai1", openai)
-    // --- 0. resolve __$ref() within incoming arrayLogic -------------
     const resolvedLogic = resolveArrayLogic(arrayLogic);
 
-    // --- 1. shorthand starts with the empty placeholder row ---------
-    const shorthand = [];          // row 000
-    const results = [];                // diagnostics (unchanged)
+    const shorthand = [];
+    const results = []; 
 
-    let routeRowNewIndex = null;         // remember for conclusion wiring
+    let routeRowNewIndex = null;
 
-    // --- 2. walk each original element ------------------------------
     for (let i = 0; i < arrayLogic.length; i++) {
         const origElem = arrayLogic[i];
 
         if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
-            continue;          // <- ignore original conclusion row
+            continue;
         }
 
         const elem = resolvedLogic[i];
 
-        // ---------- SCHEMA / JSON-object rows -------------------------
         if (!isOperationElem(origElem)) {
 
-            // (a) JSON-Schema  → list of root keys
             if (isSchemaElem(origElem)) {
                 shorthand.push(createArrayOfRootKeys(elem));
             }
-            // (b) plain object (incl. timeOfDay etc.)  → wrap in array
             else if (origElem && typeof origElem === "object") {
                 shorthand.push([convertShorthandRefs(elem)]);
             }
-            else {                               // primitives / arrays
+            else { 
                 shorthand.push([convertShorthandRefs(elem)]);
             }
             continue;
         }
 
-        // ---------- OPERATION (ROUTE) row -----------------------------
-        const [breadcrumb] = Object.keys(elem);        // same
+        const [breadcrumb] = Object.keys(elem);
         const body = elem[breadcrumb];
-        const origBody = origElem[breadcrumb];     // UNRESOLVED version
+        const origBody = origElem[breadcrumb];
 
         console.log("openai 2", openai)
-        // --- domain / embedding / best-match  (original logic) -------
         const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
         const {
@@ -1407,18 +1390,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ).item;
         }
 
-        // ---- build ROUTE shorthand row ------------------------------
         const inputParam = convertShorthandRefs(
-            origBody?.input ?? body.input        // preserve "__$(n)" / "__$ref(n)"
+            origBody?.input ?? body.input
         );
         const expectedKeys = createArrayOfRootKeys(body.schema);
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
         if (!bestMatch?.su) {
-            // create a entity
-            // get the entityID
-            // reference the entityid from the rowresult as the bestMatch
 
             console.log("bestMatch.su is null")
             shorthand.push(
@@ -1432,7 +1411,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]
             )
 
-            routeRowNewIndex = shorthand.length;   // remember (e.g. 003)
+            routeRowNewIndex = shorthand.length;
             console.log("shorthand", shorthand)
             console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
             shorthand.push(
@@ -1456,13 +1435,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log("elem", elem)
             const breadcrumbObject = JSON.stringify(elem);
 
-            let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not give placeholder/example URLs! This is real data!", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "always target '{|res|}!' to give your response back in the last item in the actions array!" ];`; 
-            newJPL = newJPL + ` let desiredApp = ${breadcrumbObject}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`; 
-            newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `; 
-            newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`; 
-            newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra)*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`; 
-            newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}`;
-
+            let newJPL = breadcrumbObject
             console.log(newJPL);
 
             console.log("openai 3", openai)
@@ -1506,11 +1479,20 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 padRef(routeRowNewIndex + 1),
                 ""
             ]);
+
+
+            shorthand.push([
+                "ROUTE",
+                { description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1) } ,
+                {},
+                "position",
+                padRef(routeRowNewIndex + 1),
+                ""
+            ]);
+
+            // we need to store the distances and domain and sub doomain paths so the next visit is faster.
+            
         } else {
-
-
-
-
             shorthand.push([
                 "ROUTE",
                 inputParam,
@@ -1519,23 +1501,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 bestMatch?.su ?? null,
                 ""
             ]);
-
-
         }
-
-        routeRowNewIndex = shorthand.length;   // remember (e.g. 003)
+        routeRowNewIndex = shorthand.length;
     }
 
-    // --- 3. add conclusion logic  -----------------------------------
-    // original conclusion element is always the last in arrayLogic
     const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
     if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-        // (a) GET  row to extract  <routeRow!!.output>
         const getRowIndex = shorthand.push(
-            ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]//, "output"]
+            ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
         ) - 1;
 
-        // (b) ROWRESULT row – places the conclusion object into 000!!
         shorthand.push([
             "ROWRESULT",
             "000",
@@ -1543,12 +1518,10 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         ]);
     }
 
-    // --- 4. shift & convert any remaining "__$(n)" tokens ----------
     const finalShorthand = shorthand.map(convertShorthandRefs);
 
     console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
-    // ------ return the finished shorthand (plus diagnostics) -------
     return { shorthand: finalShorthand, details: results };
 }
 
