@@ -1246,6 +1246,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
 };
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
+    console.log("openai", openai)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-2024-08-06",
     // hard-constraint the output to valid JSON
