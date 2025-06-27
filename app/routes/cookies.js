@@ -2073,10 +2073,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 let b = reqBody.body;
 
-                if (b.domain){
-                    b = reqBody;
-                }
-
                 const { description, domain, subdomain, embedding, entity } = b || {};
 
                 console.log("b",b)
