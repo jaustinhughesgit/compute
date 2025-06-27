@@ -1466,7 +1466,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log(newJPL);
 
             console.log("openai 3", openai)
-            let objectJPL = await buildBreadcrumbApp(openai, newJPL)
+            let objectJPL = await buildBreadcrumbApp({openai, str:newJPL})
             console.log("objectJPL", objectJPL)
             // we have the breadcrumb object into the prompt. We need to send it to openAI for it to create the new app. 
             // then we need to use in the nested array.
