@@ -1389,8 +1389,8 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
     functions: [buildLogicSchema],      // ⇦ register the schema
     function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
   });
+  return rsp.choices[0].message.function_call;
 
-  return rsp.choices[0].message.content;
 };
 
 const classifyDomains = async ({ openai, text }) => {
