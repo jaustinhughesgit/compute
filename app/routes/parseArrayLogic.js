@@ -1482,14 +1482,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]
             ) 
 
-            shorthand.push([
-                "ROUTE",
-                inputParam,
-                {},
-                "runEntity",
-                padRef(routeRowNewIndex + 1),
-                ""
-            ]);
 
 
             console.log(domain); //undefined
@@ -1500,6 +1492,16 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 {"body":{ description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1) }} ,
                 {},
                 "position",
+                padRef(routeRowNewIndex + 1),
+                ""
+            ]);
+
+
+            shorthand.push([
+                "ROUTE",
+                inputParam,
+                {},
+                "runEntity",
                 padRef(routeRowNewIndex + 1),
                 ""
             ]);
