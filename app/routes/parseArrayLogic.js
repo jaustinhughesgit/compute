@@ -1482,7 +1482,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 )
             } else {
                 shorthand.push(
-                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", [ {} ]]
+                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {} ]
                 )
             }
             
