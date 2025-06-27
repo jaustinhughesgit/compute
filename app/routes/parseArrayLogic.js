@@ -1260,18 +1260,18 @@ const buildLogicSchema = {
     },
 
     "$defs": {
-      /* ──────────────── reusable value union ──────────────── */
+      /* ─────────────── Value union ─────────────── */
       "jsonVal": {
         "oneOf": [
           { "type": "string" },
           { "type": "number" },
           { "type": "boolean" },
           { "type": "object" },
-          { "type": "array", "items": {} }   /* ← added items */
+          { "type": "array", "items": {} }
         ]
       },
 
-      /* ───────────── Global action decorators ─────────────── */
+      /* ───────────── Global decorators ─────────── */
       "decorators": {
         "type": "object",
         "properties": {
@@ -1284,7 +1284,7 @@ const buildLogicSchema = {
         "additionalProperties": false
       },
 
-      /* ───────────────────── Chain support ────────────────── */
+      /* ───────────────── Chain support ─────────── */
       "chainItem": {
         "type": "object",
         "required": ["access"],
@@ -1303,7 +1303,7 @@ const buildLogicSchema = {
         "items": { "$ref": "#/$defs/chainItem" }
       },
 
-      /* ─────────────── Condition helpers ──────────────────── */
+      /* ───────────── Condition helpers ─────────── */
       "conditionTuple": {
         "type": "array",
         "minItems": 3,
@@ -1313,20 +1313,20 @@ const buildLogicSchema = {
           { "enum": ["==","!=","<",">","<=",">=","===","!==","in","includes"] },
           { "$ref": "#/$defs/jsonVal" }
         ],
-        "items": false
+        "items": {}               /* ← boolean removed */
       },
       "conditionArray": {
         "type": "array",
         "items": { "$ref": "#/$defs/conditionTuple" }
       },
 
-      /* ───────────────── Action list helper ───────────────── */
+      /* ───────────── Action list helper ────────── */
       "actionList": {
         "type": "array",
         "items": { "$ref": "#/$defs/actionObject" }
       },
 
-      /* ───────────────────── Action object ────────────────── */
+      /* ───────────────── Action object ─────────── */
       "actionObject": {
         "type": "object",
         "allOf": [
@@ -1334,63 +1334,33 @@ const buildLogicSchema = {
           {
             "additionalProperties": false,
             "oneOf": [
-              /* SET ------------------------------------------------- */
-              {
-                "required": ["set"],
-                "properties": {
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
+              { /* SET */          "required": ["set"],
+                "properties": { "set": { "type": "object" },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } },
 
-              /* TARGET / CHAIN ------------------------------------- */
-              {
-                "required": ["target", "chain"],
-                "properties": {
-                  "target": { "type": "string" },
-                  "chain":  { "$ref": "#/$defs/chainArray" },
-                  "assign": { "type": "string" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
+              { /* TARGET */       "required": ["target","chain"],
+                "properties": { "target": { "type": "string" },
+                                "chain": { "$ref": "#/$defs/chainArray" },
+                                "assign": { "type": "string" },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } },
 
-              /* IF -------------------------------------------------- */
-              {
-                "required": ["if", "set"],
-                "properties": {
-                  "if":  { "$ref": "#/$defs/conditionArray" },
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
+              { /* IF */           "required": ["if","set"],
+                "properties": { "if": { "$ref": "#/$defs/conditionArray" },
+                                "set": { "type": "object" },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } },
 
-              /* WHILE ---------------------------------------------- */
-              {
-                "required": ["while", "nestedActions"],
-                "properties": {
-                  "while":         { "$ref": "#/$defs/conditionArray" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
+              { /* WHILE */        "required": ["while","nestedActions"],
+                "properties": { "while": { "$ref": "#/$defs/conditionArray" },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } },
 
-              /* ASSIGN (function wrapper) -------------------------- */
-              {
-                "required": ["assign", "params", "nestedActions"],
-                "properties": {
-                  "assign":        { "type": "string" },
-                  "params":        { "type": "array", "items": { "type": "string" } },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
+              { /* ASSIGN FUNC */  "required": ["assign","params","nestedActions"],
+                "properties": { "assign": { "type": "string" },
+                                "params": { "type": "array", "items": { "type": "string" } },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } },
 
-              /* RETURN --------------------------------------------- */
-              {
-                "required": ["return"],
-                "properties": {
-                  "return":        { "$ref": "#/$defs/jsonVal" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              }
+              { /* RETURN */       "required": ["return"],
+                "properties": { "return": { "$ref": "#/$defs/jsonVal" },
+                                "nestedActions": { "$ref": "#/$defs/actionList" } } }
             ]
           }
         ]
@@ -1398,6 +1368,7 @@ const buildLogicSchema = {
     }
   }
 }
+
 
 
 
