@@ -478,6 +478,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         let cell = getCellID(cellTxt);
         if (cell && typeof cellTxt === "string") {
+            console.log("matrix",matrix);
+            console.log("cell.row",cell.row);
+            console.log("matrix[cell.row]",matrix[cell.row]);
             let ref = matrix[cell.row][cell.col];
             if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
                 return resolveCell(ref);
