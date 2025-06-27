@@ -2071,7 +2071,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("mainObj", mainObj)
             } else if (action == "position") {
 
-                const { description, domain, subdomain, embedding, entity } = reqBody.body || {};
+                let b = reqBody.body;
+
+                if (b){
+                    b = reqBody;
+                }
+
+                const { description, domain, subdomain, embedding, entity } = b || {};
 
                 console.log("reqBody",reqBody)
                 console.log("reqBody.body",reqBody.body)
