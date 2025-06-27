@@ -1498,14 +1498,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]
             ) 
 
-
-
-            shorthand.push(
-                [
-                    "SLEEP", 3000
-                ]
-            ) 
-
             shorthand.push([
                 "ROUTE",
                 inputParam,
