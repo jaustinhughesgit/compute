@@ -1472,13 +1472,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             // then we need to use in the nested array.
             // we'll need to do two nested. One for actions and the other for modules.
 
+            console.log("objectJPL.actions", objectJPL.actions)
             shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", [ objectJPL.actions]]
+                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
             )
 
             if (objectJPL.modules){
                 shorthand.push(
-                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "actions", [ objectJPL.actions]]
+                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
                 )
             } else {
                 shorthand.push(
