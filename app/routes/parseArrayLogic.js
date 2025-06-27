@@ -1406,8 +1406,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     {},
                     {},
                     "newGroup",
-                    "a5",
-                    "a5"
+                    "a6",
+                    "a6"
                 ]
             )
 
