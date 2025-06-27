@@ -184,6 +184,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     function isCellRefString(txt) {
+        console.log("shorthand txt",txt)
         return /^\d{3}[a-z]{2}$/.test(txt.toString());
     }
 
