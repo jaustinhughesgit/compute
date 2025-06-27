@@ -1427,8 +1427,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     {},
                     {},
                     "newGroup",
-                    "a4",
-                    "a4"
+                    "a5",
+                    "a5"
                 ]
             )
 
@@ -1473,15 +1473,24 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             // we'll need to do two nested. One for actions and the other for modules.
 
             shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", [ {"target": "{|res|}!","chain": [{"access": "send","params": ["HELLO to {|entity|}"]}],"assign": "{|send|}"}]]
+                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", [ objectJPL.actions]]
             )
 
+            if (objectJPL.modules){
+                shorthand.push(
+                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "actions", [ objectJPL.actions]]
+                )
+            } else {
+                shorthand.push(
+                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", [ {} ]]
+                )
+            }
             
 
             shorthand.push(
                 [
                     "ROUTE",
-                    padRef(routeRowNewIndex + 4),
+                    padRef(routeRowNewIndex + 5),
                     {},
                     "saveFile",
                     padRef(routeRowNewIndex + 1),
