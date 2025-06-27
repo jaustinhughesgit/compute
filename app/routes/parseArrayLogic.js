@@ -1422,8 +1422,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     ["GET", padRef(routeRowNewIndex), "response", "file"]
             )
 
-            shorthand.push(["SLEEP", 3000])
-
             shorthand.push(
                 [
                     "ROUTE",
