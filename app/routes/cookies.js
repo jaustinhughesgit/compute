@@ -2307,7 +2307,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     ses,
     openai,
     Anthropic,
-    dynamodbLL,
+    dynamodbLL
   });
 
   // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine

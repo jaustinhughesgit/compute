@@ -1246,7 +1246,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
 };
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
-    console.log("openai", openai)
+    console.log("openai 4", openai)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-2024-08-06",
     // hard-constraint the output to valid JSON
@@ -1280,8 +1280,9 @@ const classifyDomains = async ({ openai, text }) => {
 };
 
 // =======   UPDATED parseArrayLogic   =============================
-async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, next, reqPath } = {}) {
+async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL } = {}) {
 
+    console.log("openai1", openai)
     // --- 0. resolve __$ref() within incoming arrayLogic -------------
     const resolvedLogic = resolveArrayLogic(arrayLogic);
 
@@ -1323,6 +1324,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
         const body = elem[breadcrumb];
         const origBody = origElem[breadcrumb];     // UNRESOLVED version
 
+        console.log("openai 2", openai)
         // --- domain / embedding / best-match  (original logic) -------
         const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
@@ -1463,6 +1465,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, openai, req, res, ne
 
             console.log(newJPL);
 
+            console.log("openai 3", openai)
             let objectJPL = await buildBreadcrumbApp(openai, newJPL)
             console.log("objectJPL", objectJPL)
             // we have the breadcrumb object into the prompt. We need to send it to openAI for it to create the new app. 
