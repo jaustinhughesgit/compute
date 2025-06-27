@@ -1240,6 +1240,168 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
     return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
+const buildLogicSchema = {
+  "name": "build_logic",
+  "description": "Create a structured modules/actions JSON payload for the logic runner.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["modules", "actions"],
+    "properties": {
+      "modules": {
+        "type": "object",
+        "description": "Map from local alias → npm-package name.",
+        "additionalProperties": {
+          "type": "string",
+          "description": "Exact name of the npm package to `require`."
+        }
+      },
+
+      "actions": {
+        "type": "array",
+        "description": "Ordered list of actions executed by the logic runner.",
+        "items": { "$ref": "#/$defs/actionObject" }
+      }
+    },
+
+    "$defs": {
+      /* ───────────────────────── Value union ───────────────────────── */
+      "jsonVal": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "object" },
+          { "type": "array" }
+        ]
+      },
+
+      /* ─────────────────────── Global decorators ───────────────────── */
+      "decorators": {
+        "type": "object",
+        "properties": {
+          "if":       { "$ref": "#/$defs/conditionArray" },
+          "while":    { "$ref": "#/$defs/conditionArray" },
+          "timeout":  { "type": "integer", "minimum": 0 },
+          "next":     { "type": "boolean" },
+          "promise":  { "enum": ["raw", "await"] }
+        },
+        "additionalProperties": false
+      },
+
+      /* ───────────────────────── Chain item ────────────────────────── */
+      "chainItem": {
+        "type": "object",
+        "required": ["access"],
+        "additionalProperties": false,
+        "properties": {
+          "access":  { "type": "string", "description": "Property name or method to call." },
+          "params":  { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
+          "new":     { "type": "boolean", "description": "Use `new` operator." },
+          "express": { "type": "boolean", "description": "Treat as Express middleware." },
+          "next":    { "type": "boolean", "description": "Pass `next` down the chain." },
+          "return":  { "$ref": "#/$defs/jsonVal", "description": "Early return value inside chain." }
+        }
+      },
+
+      "chainArray": {
+        "type": "array",
+        "description": "Sequence of property/function accesses to perform on the target.",
+        "items": { "$ref": "#/$defs/chainItem" }
+      },
+
+      /* ───────────────────── Condition tuple arr ───────────────────── */
+      "conditionArray": {
+        "type": "array",
+        "description": "AND-ed comparison clauses: [LHS, operator, RHS].",
+        "items": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": [
+            { "type": "string", "description": "Left-hand operand." },
+            { "enum": ["==", "!=", ">", ">=", "<", "<=", "===", "!==", "in", "includes"], "description": "Comparator." },
+            { "$ref": "#/$defs/jsonVal" }
+          ]
+        }
+      },
+
+      /* ─────────────────────── Action object ──────────────────────── */
+      "actionObject": {
+        "type": "object",
+        "allOf": [
+          { "$ref": "#/$defs/decorators" },
+          {
+            "additionalProperties": false,
+            "oneOf": [
+              /* ---------- SET ---------- */
+              {
+                "required": ["set"],
+                "properties": {
+                  "set": {
+                    "type": "object",
+                    "description": "Variable assignments; keys are l-value paths and values are JSON literals or template strings."
+                  },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              },
+
+              /* ---- TARGET / CHAIN ----- */
+              {
+                "required": ["target", "chain"],
+                "properties": {
+                  "target": { "type": "string", "description": "Variable or module reference to start the call chain." },
+                  "chain":  { "$ref": "#/$defs/chainArray" },
+                  "assign": { "type": "string", "description": "Destination l-value for the chain result." },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              },
+
+              /* --------- IF ------------ */
+              {
+                "required": ["if", "set"],
+                "properties": {
+                  "if":  { "$ref": "#/$defs/conditionArray" },
+                  "set": { "type": "object", "description": "Assignments executed when the condition is truthy." },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              },
+
+              /* -------- WHILE ---------- */
+              {
+                "required": ["while", "nestedActions"],
+                "properties": {
+                  "while":         { "$ref": "#/$defs/conditionArray" },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              },
+
+              /* ---- ASSIGN (FUNC) ------ */
+              {
+                "required": ["assign", "params", "nestedActions"],
+                "properties": {
+                  "assign":        { "type": "string", "description": "Name of the function that will be defined." },
+                  "params":        { "type": "array", "items": { "type": "string" }, "description": "Formal parameter names." },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              },
+
+              /* -------- RETURN --------- */
+              {
+                "required": ["return"],
+                "properties": {
+                  "return": { "$ref": "#/$defs/jsonVal", "description": "Value to return from the enclosing function." },
+                  "nestedActions": { "$ref": "#/parameters/properties/actions" }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    }
+  }
+}
+
 const buildBreadcrumbApp = async ({ openai, str }) => {
     console.log("openai 4", openai)
   const rsp = await openai.chat.completions.create({
@@ -1252,7 +1414,10 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
           "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else."
       },
       { role: "user", content: str }
-    ]
+    ],
+    temperature: 0.3,
+    functions: [buildLogicSchema],      // ⇦ register the schema
+    function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
   });
 
   return rsp.choices[0].message.content;
