@@ -1686,7 +1686,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
         routeRowNewIndex = shorthand.length;
     }
-    coonsole.log(JSON.stringify(shorthand));
+    console.log(JSON.stringify(shorthand));
     const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
     if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
         const getRowIndex = shorthand.push(
