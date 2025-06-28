@@ -1578,13 +1578,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]
             )
 
-            shorthand.push(
-                [
-                    "SLEEP",
-                    1000
-                ]
-            )
-
             routeRowNewIndex = shorthand.length;
             console.log("shorthand", shorthand)
             console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
@@ -1686,7 +1679,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
         routeRowNewIndex = shorthand.length;
     }
-    console.log(JSON.stringify(shorthand));
+    
     const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
     if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
         const getRowIndex = shorthand.push(
