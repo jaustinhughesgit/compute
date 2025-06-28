@@ -896,14 +896,9 @@ async function retrieveAndParseJSON(fileName, isPublic, getSub, getWord) {
         fileLocation = "public"
     }
     const params = { Bucket: fileLocation + '.1var.com', Key: fileName, };
-    console.log("params", params)
     const data = await s3.getObject(params).promise();
-    console.log("data",data);
     if (data.ContentType == "application/json") {
-        console.log(data.Body.toString())
-        
-        let s3JSON = await JSON.parse(data.Body.toString('utf-8'));
-        console.log("s3JSON", s3JSON)
+        let s3JSON = await JSON.parse(data.Body.toString());
 
         const promises = s3JSON.published.blocks.map(async (obj, index) => {
             let subRes = await getSub(obj.entity, "su", dynamodb)
@@ -1245,14 +1240,38 @@ async function initializeMiddleware(req, res, next) {
 
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
-    for (const action of config.actions) {
-        let runResponse
-        if (typeof action == "string") {
-            dbAction = await getValFromDB(action, req, res, next)
-            respoonse = await runAction(dbAction, libs, "root", req, res, next);
-        } else {
-            response = await runAction(action, libs, "root", req, res, next);
-        }
+  let pendingElse = null;        // ← remember last if status
+  for (const action of config.actions) {
+    /* ----------------------------------------------------------
+     *  1) Stand-alone ELSE wrapper?
+     * -------------------------------------------------------- */
+    if (action.hasOwnProperty("else")) {
+      if (pendingElse === false) {                // ↙ previous IF failed
+        await runAction(
+          action.else, libs, "root", req, res, next
+        );
+      }
+      pendingElse = null;           // reset and continue to next action
+      continue;
+    }
+
+    /* ----------------------------------------------------------
+     *  2) Normal or IF action
+     * -------------------------------------------------------- */
+    const runResponse = await runAction(
+      typeof action === "string"
+        ? await getValFromDB(action, req, res, next)
+        : action,
+      libs, "root", req, res, next
+    );
+
+    /* special “IF skipped” marker? */
+    if (runResponse && runResponse.__kind === "if") {
+      pendingElse = runResponse.executed;    // true or false
+      continue;                              // no further checks needed
+    } else {
+      pendingElse = null;                    // not an IF → clear flag
+    }
 
         if (typeof response == "object") {
             if (response.hasOwnProperty("_isFunction")) {
@@ -1800,12 +1819,19 @@ async function runAction(action, libs, nestedPath, req, res, next) {
 
   /* ---------- 1) IF-conditions ----------------------------------- */
   if (Array.isArray(action.if)) {
+    let allPass = true;
     for (const ifObj of action.if) {
       const pass = await condition(
         ifObj[0], ifObj[1], ifObj[2], ifObj[3], libs, nestedPath
       );
-      if (!pass) return "";                     // “if” failed → skip action
+      if (!pass) { allPass = false; break; }
     }
+
+    /*  NEW  – tell caller what happened  */
+    if (!allPass) {
+      return { __kind: "if", executed: false };
+    }
+    
   }
 
   /* ---------- 2) WHILE ------------------------------------------- */
