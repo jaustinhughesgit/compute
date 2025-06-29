@@ -1873,6 +1873,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
              )) {
 
         output = await processAction(action, libs, nestedPath, req, res, next);
+    console.log("output 01", output)
 
         /* special wrapper → bubble up immediately */
         if (output && typeof output === "object" && output._isFunction !== undefined) {
@@ -1886,7 +1887,7 @@ async function runAction(action, libs, nestedPath, req, res, next) {
   else {
     /* ---------- 3) single execution ------------------------------ */
     output = await processAction(action, libs, nestedPath, req, res, next);
-
+    console.log("output 02", output)
     if (output && typeof output === "object" && output._isFunction !== undefined) {
       return output;                            // propagate special wrapper
     }
@@ -2055,11 +2056,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             /* caller wants the *raw* promise (do NOT await here) */
             const tmp = applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
+            console.log("tmp",tmp)
             chainResult = execKey ? await tmp : tmp;   // ← extra await only if “! ”
         } else {
             /* normal mode – already awaited */
             chainResult = await applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
+                console.log("chainResult",chainResult)
         }
 
         /* assign-to-context part is unchanged … */
@@ -2082,6 +2085,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
 
+        console.log("chainResult99",chainResult)
         /* ----------------------------------------------------------------------- */
         if (chainResult && chainResult._isFunction) return chainResult;
         if (action.promise === 'raw') return chainResult;
