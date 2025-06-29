@@ -833,6 +833,8 @@ async function runApp(req, res, next) {
     console.log("runApp req", req)
     console.log("runApp req.path;", req.path)
     return new Promise(async (resolve, reject) => {
+
+            console.log("1")
         try {
             req.lib = {
                 modules: {},
@@ -847,16 +849,23 @@ async function runApp(req, res, next) {
                 (req.dynPath.startsWith("/auth") ||
                     req.dynPath.startsWith("/cookies/"))
             ) {
+
+            console.log("2")
                 req.blocks = false;
                 req.lib.middlewareCache =
                     await initializeMiddleware(req, res, next);
                 req.lib.isMiddlewareInitialized = true;
             }
+            console.log("3")
             if (req.lib.middlewareCache.length === 0) {
+
+            console.log("4", req._headerSent);
                 if (!req._headerSent) res.send("no access");
+                console.log("4.1", req.lib.middlewareCache.length)
                 return resolve({ chainParams: undefined });
             }
             const runMiddleware = async (index) => {
+            console.log("5")
                 if (index >= req.lib.middlewareCache.length) return;
 
                 const maybe = await req.lib.middlewareCache[index](
@@ -864,6 +873,7 @@ async function runApp(req, res, next) {
                     res,
                     async () => runMiddleware(index + 1)
                 );
+            console.log("6", maybe)
 
                 if (
                     maybe &&
@@ -871,9 +881,11 @@ async function runApp(req, res, next) {
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
+            console.log("7")
                     console.log("maybe && isFunction && chainParams", maybe)
                     return maybe;
                 }
+            console.log("8")
                 return maybe;
             };
 
@@ -2154,7 +2166,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (chainAction.params) {
                 console.log("req.body", req.body)
-                console.log("req.body.state", req.body.state)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
                 console.log("chainParams",chainParams)
             }
