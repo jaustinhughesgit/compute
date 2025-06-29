@@ -1164,7 +1164,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function getVAR(data) {
-
+        console.log.apply("getVAR", )
         let { route } = require('./cookies')
         let entity = Object.keys(data).find(k => k !== "add");
         let xAccessToken = req.body.headers["X-accessToken"]
@@ -1239,8 +1239,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
-            console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
+            console.log("post deepMerge", newReq)
+            console.log("post deepMerge", newReq.body)
             console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
