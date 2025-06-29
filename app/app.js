@@ -1789,7 +1789,7 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
     console.log("processString",processString)
     console.log("str",str)
-    console.log("newNestedPath",newNestedPath)
+    console.log("nestedPath",nestedPath)
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
         newNestedPath = newNestedPath.replace("root.", "")
