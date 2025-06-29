@@ -672,8 +672,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (keywords[functionName]) {
                     //console.log("true")
                     const resolvedArgs = await awaitAll(functionArray);
+                    console.log("resolvedArgs44",resolvedArgs)
                     result = await keywords[functionName](resolvedArgs);
-                    //console.log("result", result)
+                    console.log("result44", result)
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -696,6 +697,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseNestedKeywords(rowArray) {
+        console.log("parseNestedKeywords",rowArray)
         let i = 0;
         let topLevelFunctions = [];
         while (i < rowArray.length) {
@@ -1164,6 +1166,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function getVAR(data) {
+            console.log("getVAR matrix",matrix);
 
         let { route } = require('./cookies')
         let entity = Object.keys(data).find(k => k !== "add");
@@ -1208,6 +1211,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     var keywords = {
         ROUTE: async (rowArray) => {
+            console.log("keywords ROUTE matrix",matrix);
              
             let { route } = require('./cookies')
             console.log("ROUTE rowArray",rowArray)
