@@ -830,6 +830,8 @@ app.all('/auth/*',
 
 
 async function runApp(req, res, next) {
+    console.log("runApp req", req)
+    console.log("runApp req.path;", req.path;)
     return new Promise(async (resolve, reject) => {
         try {
             req.lib = {
