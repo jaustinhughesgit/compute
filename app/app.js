@@ -1290,11 +1290,22 @@ async function initializeModules(libs, config, req, res, next) {
       pendingElse = null;                    // not an IF → clear flag
     }
 
+        //OLD
+        /*
         if (typeof response == "object") {
             if (response.hasOwnProperty("_isFunction")) {
                 return response
             }
-        }
+        }*/
+
+        //NEW
+        if (
+    runResponse &&
+    typeof runResponse === "object" &&
+    runResponse._isFunction !== undefined
+) {
+    return runResponse;
+}
         if (runResponse == "contune") {
             continue
         }
