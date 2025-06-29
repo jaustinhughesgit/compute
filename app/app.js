@@ -2179,6 +2179,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                         /* ───────────── Non-Express branch (patched) ────────── */
                         else {
                             console.log(target, req.lib.root.context);
+                            console.log("chainParams",chainParams)
                             try {
                                 /* tidy numeric arg → string */
                                 if (chainParams && chainParams.length > 0 &&
@@ -2191,19 +2192,25 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if ((accessClean === 'json' || accessClean === 'pdf') &&
                                         action.target.replace('{|', '').replace('|}!', '').replace('|}', '') === 'res') {
 
+                                            console.log("accessClean", accessClean)
                                         chainParams[0] = JSON.stringify(chainParams[0]);
 
+                                            console.log("req.body", req.body)
+                                        console.log("req.body._isFunction",req.body._isFunction)
                                         if (req.body && req.body._isFunction) {
                                             return chainParams.length === 1
                                                 ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
                                                 : { chainParams, _isFunction: req.body._isFunction };
                                         }
 
+                                        console.log("action.promise",action.promise )
                                         /* ↓↓↓ PATCH ↓↓↓ */
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
+                                            console.log("result",result)
                                         } else {
                                             result = await result[accessClean](...chainParams);
+                                            console.log("result",result)
                                         }
                                     }
 
