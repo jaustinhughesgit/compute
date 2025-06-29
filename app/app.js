@@ -2220,6 +2220,12 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                                 : { chainParams, _isFunction: req.body._isFunction };
                                         }
 
+                                        //req.body is actually req.body.body and it needs to be merged and avvailable via shorthand and cookies correctly. 
+                                        // make sure that body is in req, not body 
+                                        // fix the lines that use req.body.body
+                                        // thinnk about the reason body.body exist.
+                                        // rework the logic in areas so they all just use body, not body.body
+
                                         console.log("action.promise",action.promise )
                                         /* ↓↓↓ PATCH ↓↓↓ */
                                         if (action.promise === 'raw') {

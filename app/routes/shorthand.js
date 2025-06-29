@@ -761,6 +761,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseRow(rowIndex) {
+        console.log("matrix", matrix);
+        console.log("matrix[rowIndex]",rowIndex, matrix[rowIndex])
         const rowArray = matrix[rowIndex] || [];
         
         if (!isCellRef(rowArray[0]) && !(rowArray[0] in keywords)) {
@@ -1232,7 +1234,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
             console.log("deepMerge bod", bod)
-            newReq.body.body = await deepMerge(newReq.body.body, bod);
+            newReq.body = await deepMerge(newReq.body.body, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
@@ -1240,7 +1242,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("newReq.body", newReq.body)
             console.log("STARTING route(...)")
             console.log("act", act)
-            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
+            let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
             return resp
         },
