@@ -1440,6 +1440,9 @@ async function condition(left, conditions, right, operator = "&&", libs, nestedP
 }
 
 async function checkCondition(left, condition, right, libs, nestedPath) {
+    console.log("left",left)
+    console.log("condition",condition)
+    console.log("right",right)
     const leftExecuted = false;
     if (typeof left == "string") {
         left.endsWith('|}!');
