@@ -2128,6 +2128,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
+    console.log("libs.root.cntext 1 =",libs.root.context)
     console.log("target36",target)
     console.log("action36",action)
     console.log("assignExecuted36",assignExecuted)
@@ -2214,6 +2215,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                             console.log("req.body", req.body)
                                         console.log("req.body._isFunction",req.body._isFunction)
+
+    console.log("libs.root.cntext 2 =",libs.root.context)
                                         if (req.body && req.body._isFunction) {
                                             return chainParams.length === 1
                                                 ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
