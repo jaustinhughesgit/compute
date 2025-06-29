@@ -1440,9 +1440,6 @@ async function condition(left, conditions, right, operator = "&&", libs, nestedP
 }
 
 async function checkCondition(left, condition, right, libs, nestedPath) {
-    console.log("left",left)
-    console.log("condition",condition)
-    console.log("right",right)
     const leftExecuted = false;
     if (typeof left == "string") {
         left.endsWith('|}!');
@@ -1453,6 +1450,9 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
     left = await replacePlaceholders(left, libs, nestedPath, leftExecuted)
     right = await replacePlaceholders(right, libs, nestedPath, rightExecuted)
+    console.log("left",left)
+    console.log("condition",condition)
+    console.log("right",right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
