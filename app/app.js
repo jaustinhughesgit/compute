@@ -1477,7 +1477,7 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
 async function replacePlaceholders(item, libs, nestedPath, actionExecution, returnEx = true) {
     let processedItem = item;
     if (typeof processedItem === 'string') {
-
+        console.log("processItem string")
         let stringResponse = await processString(processedItem, libs, nestedPath, actionExecution, returnEx);
         return stringResponse;
     } else if (Array.isArray(processedItem)) {
@@ -1787,6 +1787,9 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
 }
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
+    console.log("processString",processString)
+    console.log("str",str)
+    console.log("newNestedPath",newNestedPath)
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
         newNestedPath = newNestedPath.replace("root.", "")
@@ -1984,7 +1987,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const keyClean = await removeBrackets(key, keyObj, keyExecuted);
 
             const arrow = _parseArrowKey(keyClean, libs);
+            console.log("arrow", arrow)
             if (arrow) {
+                console.log("action.set[key]",action.set[key])
                 const value = await replacePlaceholders(action.set[key], libs, nestedPath, keyExecuted);
                 await putValueIntoContext(
                     arrow.contextParts,
@@ -2000,6 +2005,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const isEx = typeof action.set[key] === 'string' && action.set[key].endsWith('|}!');
             const value = await replacePlaceholders(action.set[key], libs, nestedPath, isEx);
             console.log("value", value)
+
             await addValueToNestedKey(setKey, nestedContext, value);
         }
     }
@@ -2144,6 +2150,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
+                console.log("req.body", req.body)
+                console.log("req.body.state", req.body.state)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
                 console.log("chainParams",chainParams)
             }
