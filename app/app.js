@@ -1193,7 +1193,7 @@ async function initializeMiddleware(req, res, next) {
                 let resit = res
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
+                        req.lib.root.context.body = { "value": req.body, "context": {} }
                         userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
