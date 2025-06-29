@@ -2231,6 +2231,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
     console.log("libs.root.cntext 2 =",libs.root.context)
                                         if (req.body && req.body._isFunction) {
+
+                                            console.log("chainParams55.0",chainParams)
                                             return chainParams.length === 1
                                                 ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
                                                 : { chainParams, _isFunction: req.body._isFunction };
@@ -2248,6 +2250,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             result = result[accessClean](...chainParams);
                                             console.log("result",result)
                                         } else {
+                                            console.log("chainParams55.1",chainParams)
                                             result = await result[accessClean](...chainParams);
                                             console.log("result",result)
                                         }
@@ -2270,6 +2273,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
                                         } else {
+                                            console.log("chainParams55.2",chainParams)
                                             result = await result[accessClean](...chainParams);
                                         }
 
