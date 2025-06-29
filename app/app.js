@@ -1978,6 +1978,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 
     if (action.set) {
         for (const key of Object.keys(action.set)) {
+            console.log("key", key)
             const keyExecuted = key.endsWith('|}!');
             const keyObj = await isOnePlaceholder(key);
             const keyClean = await removeBrackets(key, keyObj, keyExecuted);
@@ -1998,6 +1999,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const nestedContext = await getNestedContext(libs, nestedPath, setKey);
             const isEx = typeof action.set[key] === 'string' && action.set[key].endsWith('|}!');
             const value = await replacePlaceholders(action.set[key], libs, nestedPath, isEx);
+            console.log("value", value)
             await addValueToNestedKey(setKey, nestedContext, value);
         }
     }
@@ -2120,6 +2122,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
+    console.log("target36",target)
+    console.log("action36",action)
+    console.log("assignExecuted36",assignExecuted)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -2140,6 +2145,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
             if (chainAction.params) {
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
+                console.log("chainParams",chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
