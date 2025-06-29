@@ -2216,6 +2216,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                     /* all other calls inside assignExecuted === true */
                                     else {
+                                            console.log("accessClean", accessClean)
+                                            console.log("req.body", req.body)
+                                        console.log("req.body._isFunction",req.body._isFunction)
                                         if (accessClean === 'send' &&
                                             req.body && req.body._isFunction) {
 
@@ -2239,6 +2242,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                 /* assignExecuted === false  → we still need to call the fn */
                                 else {
+                                    console.log("else result 00",action.promise)
                                     /* ↓↓↓ PATCH ↓↓↓ */
                                     if (action.promise === 'raw') {
                                         result = result[accessClean](...(chainParams || []));
