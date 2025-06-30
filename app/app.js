@@ -1060,22 +1060,19 @@ function _parseArrowKey(rawKey, libs) {
       const before = indexed[1];                // may be ""
       const after  = indexed[3] || "";          // may be ""
       const full   = (before ? before + '.' : '') + after;
-     return {
-         contextParts,
-         objectParts: _fixReqBodyPath(
-             contextParts,
-             splitObjectPath(full ? full : rhs /* … */)
-         ),
-         index: _resolveIdx(indexed[2], libs),
-     };
+      return {
+          contextParts,
+          objectParts: full ? splitObjectPath(full) : [],
+          index: _resolveIdx(indexed[2], libs),
+      };
   }
 
     /* plain RHS --------------------------------------------------- */
-     return {
-         contextParts,
-         objectParts: _fixReqBodyPath(contextParts, splitObjectPath(rhs)),
-         index: undefined,
-     };
+    return {
+        contextParts,
+        objectParts: splitObjectPath(rhs),
+        index: undefined,
+    };
 }
 
 async function processConfig(config, initialContext, lib) {
@@ -1163,20 +1160,6 @@ async function installModule(moduleName, contextKey, context, lib) {
     return modulePath;
 }
 
-function _fixReqBodyPath(contextParts, objectParts) {
-  if (
-    contextParts.length === 1 &&
-    contextParts[0] === 'req' &&
-    objectParts.length > 0 &&
-    objectParts[0] === 'body' &&
-    // don’t triple-up if it’s already been patched once:
-    !(objectParts.length > 1 && objectParts[1] === 'body')
-  ) {
-    return ['body', ...objectParts];   // insert second “body”
-  }
-  return objectParts;
-}
-
 async function initializeMiddleware(req, res, next) {
     if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
@@ -1224,7 +1207,7 @@ async function initializeMiddleware(req, res, next) {
                 let resit = res
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        req.lib.root.context.body = { "value": req.body, "context": {} }
+                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
@@ -1251,6 +1234,7 @@ async function initializeMiddleware(req, res, next) {
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("3.1",req.body)
                         console.log("3.2",req.body.params)
+                        console.log("3.3",req.body.params._isFunction)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
