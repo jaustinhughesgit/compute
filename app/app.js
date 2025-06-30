@@ -1160,34 +1160,6 @@ async function installModule(moduleName, contextKey, context, lib) {
     return modulePath;
 }
 
-function buildReqFacade (realReq) {
-  return new Proxy({}, {
-    /* ───────── getters ───────── */
-    get (_t, prop) {
-      if (prop === 'body') return realReq.body?.body;   // ← the illusion
-      const val = realReq[prop];
-      /* keep method-calls working (`this` must be the original req) */
-      return (typeof val === 'function') ? val.bind(realReq) : val;
-    },
-
-    /* ───────── setters ─────────
-       Swallow writes to `.body`; pass everything else through.          */
-    set (_t, prop, value) {
-      if (prop === 'body') return true;
-      realReq[prop] = value;
-      return true;
-    },
-
-    /* make `body` show up in:  "body" in reqFacade   /   Object.keys() */
-    has (_t, prop)             { return prop === 'body' || prop in realReq; },
-    ownKeys ()                 { return [...Reflect.ownKeys(realReq), 'body']; },
-    getOwnPropertyDescriptor (_t, prop) {
-      if (prop === 'body') return { enumerable: true, configurable: false };
-      return Object.getOwnPropertyDescriptor(realReq, prop);
-    }
-  });
-}
-
 async function initializeMiddleware(req, res, next) {
     if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
@@ -1242,8 +1214,8 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
                         req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
                         req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
-                        const reqFacade = buildReqFacade(req);
-                        req.lib.root.context.req = { value: reqFacade, context: {} };
+                        req.lib.root.context.req = { "value": JSON.parse(JSON.stringify(res.req)), "context": {} }
+                        req.lib.root.context.req.body = req.lib.root.context.req.body.body
                         req.lib.root.context.URL = { "value": URL, "context": {} }
                         req.lib.root.context.res = { "value": resit, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
