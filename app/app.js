@@ -827,9 +827,34 @@ app.all('/auth/*',
 //-------------------------------------/////////////////////////////////////////////////////////
 
 
+    async function deepMerge(target, source) {
+        if (source && typeof source === "object" && !Array.isArray(source)) {
+            if (!target || typeof target !== "object" || Array.isArray(target)) {
+                target = {};
+            }
+            const merged = { ...target };
+            for (const key of Object.keys(source)) {
+                merged[key] = await deepMerge(target[key], source[key]);
+            }
+            return merged;
+        } else if (Array.isArray(source)) {
+            if (!Array.isArray(target)) {
+                target = [];
+            }
+            const merged = [...target];
+            for (let i = 0; i < source.length; i++) {
+                merged[i] = await deepMerge(target[i], source[i]);
+            }
+            return merged;
+        } else {
+            return source;
+        }
+    }
 
 
 async function runApp(req, res, next) {
+
+    req.body = await deepMerge(newReq.body.body, req.body);
     console.log("runApp req", req)
     console.log("runApp req.path;", req.path)
     return new Promise(async (resolve, reject) => {
@@ -1207,7 +1232,7 @@ async function initializeMiddleware(req, res, next) {
                 let resit = res
                 let resultArrayOfJSON = arrayOfJSON.map(async userJSON => {
                     return async (req, res, next) => {
-                        req.lib.root.context.body = { "value": req.body, "context": {} }
+                        req.lib.root.context.body = { "value": req.body.body, "context": {} }
                         userJSON = await replaceSpecialKeysAndValues(userJSON, "first", req, res, next)
                         req.lib.root.context = await processConfig(userJSON, req.lib.root.context, req.lib);
                         req.lib.root.context["urlpath"] = { "value": reqPath, "context": {} }
