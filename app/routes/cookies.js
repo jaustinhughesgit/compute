@@ -2426,6 +2426,31 @@ console.log("shorthandLogic1", shorthandLogic)
                 //console.log("runEntity inside", actionFile)
                 let { runApp } = require('../app');
                 //console.log("running app runApp 12345")
+                    async function deepMerge(target, source) {
+        if (source && typeof source === "object" && !Array.isArray(source)) {
+            if (!target || typeof target !== "object" || Array.isArray(target)) {
+                target = {};
+            }
+            const merged = { ...target };
+            for (const key of Object.keys(source)) {
+                merged[key] = await deepMerge(target[key], source[key]);
+            }
+            return merged;
+        } else if (Array.isArray(source)) {
+            if (!Array.isArray(target)) {
+                target = [];
+            }
+            const merged = [...target];
+            for (let i = 0; i < source.length; i++) {
+                merged[i] = await deepMerge(target[i], source[i]);
+            }
+            return merged;
+        } else {
+            return source;
+        }
+    }
+                let newReq = JSON.parse(JSON.stringify(req));
+                newReq.body = await deepMerge(newReq.body.body, newReq.body);
                 let ot = await runApp(req, res, next)
                 console.log("ot", ot)
                 //if (ot){
