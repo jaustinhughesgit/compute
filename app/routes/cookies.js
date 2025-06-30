@@ -2451,6 +2451,7 @@ console.log("shorthandLogic1", shorthandLogic)
     }
                 let newReq = JSON.parse(JSON.stringify(req));
                 newReq.body = await deepMerge(newReq.body.body, newReq.body);
+                delete newReq.body.body;
                 let ot = await runApp(newReq, res, next)
                 console.log("ot", ot)
                 //if (ot){
