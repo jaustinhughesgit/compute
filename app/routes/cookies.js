@@ -2292,6 +2292,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
   // 1️⃣  Grab & normalise arrayLogic from the client
   let arrayLogic = reqBody.body.arrayLogic;
+  let prompt = reqBody.body.prompt;
   if (typeof arrayLogic === "string") {
     try {
       arrayLogic = JSON.parse(arrayLogic);
@@ -2299,6 +2300,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
       console.error("arrayLogic is not valid JSON:", err);
       throw new Error("Bad arrayLogic payload");
     }
+    sourceType = "arrayLogic"
+  } else if (typeof prompt === "string") {
+    sourceType = "prompt"
   }
   console.log("arrayLogic", arrayLogic);
 
@@ -2311,7 +2315,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     ses,
     openai,
     Anthropic,
-    dynamodbLL
+    dynamodbLL,
+    sourceType
   });
 
   // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine

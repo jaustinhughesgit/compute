@@ -1439,7 +1439,40 @@ const classifyDomains = async ({ openai, text }) => {
     return { domain, subdomain };
 };
 
-async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL } = {}) {
+async function buildArrayLogicFromPrompt({ openai, prompt }) {
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    top_p: 0,
+    seed: 42,
+    messages: [
+      { role: "user", content: prompt }
+    ]
+  });
+
+  // Extract the first slice that looks like a JSON array
+  let text = rsp.choices[0].message.content.trim();
+  const start = text.indexOf("[");
+  const end   = text.lastIndexOf("]");
+  if (start === -1 || end === -1) {
+    throw new Error("Model response did not contain a JSON array.");
+  }
+  text = text.slice(start, end + 1);
+
+  return JSON.parse(text);
+}
+
+async function parseArrayLogic({ arrayLogic, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, sourceType } = {}) {
+
+  if (sourceType === "prompt") {
+    if (typeof arrayLogic !== "string") {
+      throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
+    }
+    arrayLogic = await buildArrayLogicFromPrompt({
+      openai,
+      prompt: arrayLogic
+    });
+  }
 
     console.log("openai1", openai)
     const resolvedLogic = resolveArrayLogic(arrayLogic);
