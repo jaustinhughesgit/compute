@@ -852,9 +852,9 @@ app.all('/auth/*',
     }
 
 
-async function runApp(req, res, next) {
-
-    req.body = await deepMerge(newReq.body.body, req.body);
+async function runApp(oldReq, res, next) {
+    let req = JSON.parse(JSON.stringify(oldReq));
+    req.body = await deepMerge(oldReq.body.body, oldReq.body);
     console.log("runApp req", req)
     console.log("runApp req.path;", req.path)
     return new Promise(async (resolve, reject) => {
