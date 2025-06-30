@@ -2317,7 +2317,7 @@ const user_requests = ${promptInjection.userRequest};
 
 const persistent_knowledge = [];
 
-const relevant_items = []
+const relevant_items = ${promptInjection.relevantItems}
 
 const previous_request = [];
 
