@@ -1462,8 +1462,9 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
   return JSON.parse(text);
 }
 
-async function parseArrayLogic({ arrayLogic, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, sourceType } = {}) {
+async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, sourceType } = {}) {
 
+    console.log("arrayLogic from prompt", arrayLogic)
   if (sourceType === "prompt") {
     if (typeof arrayLogic !== "string") {
       throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
@@ -1473,6 +1474,8 @@ async function parseArrayLogic({ arrayLogic, dynamodb, uuidv4, s3, ses, openai, 
       prompt: arrayLogic
     });
   }
+
+    console.log("arrayLogic from openai", arrayLogic)
 
     console.log("openai1", openai)
     const resolvedLogic = resolveArrayLogic(arrayLogic);
