@@ -2303,7 +2303,6 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     sourceType = "arrayLogic"
   } else if (typeof prompt === "string") {
     sourceType = "prompt"
-    prompt = JSON.parse(prompt)
     console.log("prompt JSON", prompt)
     let fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
@@ -2325,12 +2324,12 @@ const previous_response = [];
 
 const previous_processed_conclusion = [];
 
-const REF_RE = /^__\$ref\((\d+)\)(?:\.(.+))?$/;
+const REF_RE = /^__\\$ref\((\d+)\)(?:\.(.+))?$/;
 
 const isBreadcrumb = key => /^[\w-]+\/.+/.test(key);
 
 async function fetchCrumb(key, payload) {
-  const res = await fetch(\`https://1var.com/getCrumbOuput/${encodeURIComponent(key)}\`, {
+  const res = await fetch(\`https://1var.com/getCrumbOuput/\${encodeURIComponent(key)}\`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
