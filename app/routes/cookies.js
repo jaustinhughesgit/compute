@@ -215,11 +215,6 @@ async function verifyThis(fileID, cookie, dynamodb, body) {
             if (body) {
                 bb = JSON.parse(JSON.stringify(body));
             }
-            if (bb.hasOwnProperty("body")) {
-
-                bb = JSON.parse(JSON.stringify(body.body));
-            }
-
             for (x = 0; x < entityAi.length; x++) {
                 let access = await getAccess(entityAi[x], dynamodb);
 
@@ -1785,7 +1780,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action === "addFineTune") {
                 let sections = reqPath.split("/")
 
-                const fileResult = await updateJSONL(reqBody.body, sections, s3)
+                const fileResult = await updateJSONL(reqBody, sections, s3)
                 mainObj = { "alert": "success" }
             } else if (action === "createFineTune") {
                 let sections = reqPath.split("/")
@@ -1829,11 +1824,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 actionFile = reqPath.split("/")[3]
                 console.log("!!! actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
-                console.log("createFile reqBody.body", reqBody.body)
-                if (!reqBody.body){
+                console.log("createFile reqBody", reqBody)
+                if (!reqBody){
                 const fileResult = await createFile(actionFile, reqBody, s3)
                 } else {
-                const fileResult = await createFile(actionFile, reqBody.body, s3)
+                const fileResult = await createFile(actionFile, reqBody, s3)
                 }
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
@@ -1846,8 +1841,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 actionFile = reqPath.split("/")[3]
                 const sub = await getSub(subUuid, "su", dynamodb);
                 let buffer = false
-                if (reqBody.body.hasOwnProperty("type")) {
-                    if (reqBody.body.type == "Buffer") {
+                if (reqBody.hasOwnProperty("type")) {
+                    if (reqBody.type == "Buffer") {
                         buffer = true
                     }
                 }
@@ -1857,18 +1852,18 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let to = false
                 let ac = false
                 if (!buffer) {
-                    ex = reqBody.body.expires
-                    at = reqBody.body.attempts
-                    va = reqBody.body.value
-                    to = reqBody.body.timeout
+                    ex = reqBody.expires
+                    at = reqBody.attempts
+                    va = reqBody.value
+                    to = reqBody.timeout
                     let permissions = ""
-                    if (reqBody.body.execute == true) { permissions += "e" }
-                    if (reqBody.body.read == true) { permissions += "r" }
-                    if (reqBody.body.write == true) { permissions += "w" }
-                    if (reqBody.body.add == true) { permissions += "a" }
-                    if (reqBody.body.delete == true) { permissions += "d" }
-                    if (reqBody.body.permit == true) { permissions += "p" }
-                    if (reqBody.body.own == true) { permissions += "o" }
+                    if (reqBody.execute == true) { permissions += "e" }
+                    if (reqBody.read == true) { permissions += "r" }
+                    if (reqBody.write == true) { permissions += "w" }
+                    if (reqBody.add == true) { permissions += "a" }
+                    if (reqBody.delete == true) { permissions += "d" }
+                    if (reqBody.permit == true) { permissions += "p" }
+                    if (reqBody.own == true) { permissions += "o" }
                     ac = permissions
                 }
                 if (ex && at && va && to && ac && !buffer) {
@@ -1906,13 +1901,13 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let params1 = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
                 let access = await dynamodb.query(params1).promise()
                 let permissions = ""
-                if (reqBody.body.execute == true) { permissions += "e" }
-                if (reqBody.body.read == true) { permissions += "r" }
-                if (reqBody.body.write == true) { permissions += "w" }
-                if (reqBody.body.add == true) { permissions += "a" }
-                if (reqBody.body.delete == true) { permissions += "d" }
-                if (reqBody.body.permit == true) { permissions += "p" }
-                if (reqBody.body.own == true) { permissions += "o" }
+                if (reqBody.execute == true) { permissions += "e" }
+                if (reqBody.read == true) { permissions += "r" }
+                if (reqBody.write == true) { permissions += "w" }
+                if (reqBody.add == true) { permissions += "a" }
+                if (reqBody.delete == true) { permissions += "d" }
+                if (reqBody.permit == true) { permissions += "p" }
+                if (reqBody.own == true) { permissions += "o" }
                 let params2 = {
                     "TableName": 'access',
                     "Key": {
@@ -1920,7 +1915,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     },
                     "UpdateExpression": `set va = :va, ac = :ac`,
                     "ExpressionAttributeValues": {
-                        ':va': reqBody.body.value,
+                        ':va': reqBody.value,
                         ':ac': permissions
                     }
                 };
@@ -1956,7 +1951,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "createTask") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                const task = reqBody.body;
+                const task = reqBody;
                 let sDate = new Date(task.startDate + 'T00:00:00Z')
                 let sDateSeconds = sDate.getTime() / 1000;
                 let eDate = new Date(task.endDate + 'T00:00:00Z')
@@ -2046,7 +2041,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
             } else if (action == "deleteTask") {
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                const task = reqBody.body;
+                const task = reqBody;
                 await removeSchedule(task.taskID);
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
@@ -2055,7 +2050,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("updateEntityByAI", reqPath)
                 const fileID = reqPath.split("/")[3]
                 actionFile = fileID
-                const prompt = reqBody.body;
+                const prompt = reqBody;
 
                 let oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
                 const params = {
@@ -2071,7 +2066,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //console.log("mainObj", mainObj)
             } else if (action == "position") {
 
-                let b = reqBody.body;
+                let b = reqBody;
 
                 const { description, domain, subdomain, embedding, entity } = b || {};
 
@@ -2199,7 +2194,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                  ************************************************************/
             } else if (action === 'search') {
 
-                const { domain, subdomain, query = '', entity = null, embedding, limit } = reqBody.body || {};
+                const { domain, subdomain, query = '', entity = null, embedding, limit } = reqBody || {};
                 mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
 
             } else if (action == "addIndex") {
@@ -2212,8 +2207,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 console.log("SHORTHAND !!!!!!!!!!")
                 actionFile = reqPath.split("/")[3];
                 let { shorthand } = require('../routes/shorthand');
-                const arrayLogic = reqBody.body.arrayLogic;
-                const emitType = reqBody.body.emit
+                const arrayLogic = reqBody.arrayLogic;
+                const emitType = reqBody.emit
                 console.log("arrayLogic", arrayLogic)
                 console.log("emitType", emitType)
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
@@ -2251,11 +2246,11 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
 
                 console.log("reqBody", reqBody)
-                console.log("reqBody.body", reqBody.body)
+                console.log("reqBody", reqBody)
 
 
                 // app.js (inside the "convert" branch)
-                let arrayLogic = reqBody.body.arrayLogic;
+                let arrayLogic = reqBody.arrayLogic;
 
                 // If the client sent a JSON string, turn it into a JS value
                 if (typeof arrayLogic === 'string') {
@@ -2288,10 +2283,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
   const { shorthand } = require("../routes/shorthand");
 
   console.log("reqBody", reqBody);
-  console.log("reqBody.body", reqBody.body);
+  console.log("reqBody", reqBody);
 
   // 1️⃣  Grab & normalise arrayLogic from the client
-  let arrayLogic = reqBody.body.arrayLogic;
+  let arrayLogic = reqBody.arrayLogic;
   if (typeof arrayLogic === "string") {
     try {
       arrayLogic = JSON.parse(arrayLogic);
@@ -2323,7 +2318,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
  console.log("SHORTHAND !!!!!!!!!!")
                 actionFile = reqPath.split("/")[3];
                 let { shorthand } = require('../routes/shorthand');
-                const emitType = reqBody.body.emit
+                const emitType = reqBody.emit
                 console.log("arrayLogic", arrayLogic)
                 console.log("emitType", emitType)
                 let jsonpl = await retrieveAndParseJSON(actionFile, true);
@@ -2403,8 +2398,8 @@ console.log("shorthandLogic1", shorthandLogic)
   };
             } else if (action === "embed") {
                 console.log("reqBody", reqBody)
-                console.log("reqBody.body", reqBody.body)
-                let text = reqBody.body.text
+                console.log("reqBody", reqBody)
+                let text = reqBody.text
                 let parsedText = JSON.parse(text)
                 let stringifyText = JSON.stringify(parsedText)
                 console.log("stringifyText", stringifyText)
@@ -2415,9 +2410,9 @@ console.log("shorthandLogic1", shorthandLogic)
                 console.log("data",data);
                 console.log("data[0]",data[0]);
                 console.log("data[0].embedding",data[0].embedding);
-                console.log(" reqBody.body.requestId", reqBody.body.requestId);
+                console.log(" reqBody.requestId", reqBody.requestId);
                 mainObj["embedding"] = data[0].embedding;
-                mainObj["requestId"] = reqBody.body.requestId;
+                mainObj["requestId"] = reqBody.requestId;
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
