@@ -1617,33 +1617,6 @@ function isNestedArrayPlaceholder(str) {
     return str.toString().startsWith("||") && str.toString().endsWith("||");
 }
 
-/**
- * ONE pass: resolve only the *outermost* placeholders.
- * (body is exactly your old `replace2`, minus the /g flag).
- */
-async function replaceOnce(str, libs, nestedPath = "") {
-  let regex = /{\|(~\/)?([^{}]+)\|}/;          //  ← NO global flag
-  //  …body of old replace2, unchanged except: use the *local* regex variable …
-}
-
-/**
- * Keep calling replaceOnce until the string has no placeholders left.
- * `maxPasses` is a safety fuse against infinite recursion.
- */
-async function resolveAllPlaceholders(raw, libs, nestedPath = "", maxPasses = 20) {
-  let current = raw;
-  let pass = 0;
-  const PLACE_RE = /{\|[^{}]+?\|}/;            // fresh regex each test
-
-  while (PLACE_RE.test(current)) {
-    current = await replaceOnce(current, libs, nestedPath);
-    if (++pass > maxPasses) {
-      throw new Error("Placeholder recursion limit exceeded – circular reference?");
-    }
-  }
-  return current;
-}
-
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     let json = libs.root.context
 function getValueFromJson2(path, json, nestedPath, forceRoot) {
@@ -1713,9 +1686,131 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
 }
 
 
+    async function replace2(str, nestedPath) {
+        let regex = /{\|(~\/)?([^{}]+)\|}/g;
+        let match;
+        let modifiedStr = str;
+        while ((match = regex.exec(str)) !== null) {
+            let forceRoot = match[1] === "~/";
+            let innerStr = match[2];
+            if (/{\|.*\|}/.test(innerStr)) {
+                innerStr = await replace2(innerStr, nestedPath);
+            }
 
-    let response = await resolveAllPlaceholders(str, libs, nestedPath);
-    return response;
+            let value;
+            if (innerStr.startsWith("=")) {
+                let expression = innerStr.slice(1);
+                value = await evaluateMathExpression(expression);
+            } else if (innerStr.endsWith(">")) {
+
+                let getEntityID = innerStr.replace(">", "")
+                if (innerStr.replace(">", "") == "1v4rcf97c2ca-9e4f-4bed-b245-c141e37bcc8a") {
+                    getEntityID = "1v4r55cb7706-5efe-4e0d-8a40-f63b90a991d3"
+                }
+
+                let subRes = await getSub(getEntityID, "su", dynamodb)
+                let subWord = await getWord(subRes.Items[0].a, dynamodb)
+                value = subWord.Items[0].s
+            } else {
+                value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
+            }
+
+            const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
+            const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
+
+            function safeParseJSON(str) {
+                try {
+                    return JSON.parse(str);
+                } catch {
+                    return str;
+                }
+            }
+
+            if (typeof value === "string" || typeof value === "number") {
+                try {
+                    if (typeof modifiedStr === "object") {
+                        modifiedStr = JSON.stringify(modifiedStr)
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                        modifiedStr = JSON.parse(modifiedStr);
+                    } else {
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                    }
+                } catch (err) {
+                    if (typeof value === "object") {
+                        modifiedStr = JSON.stringify(modifiedStr)
+                        modifiedStr = modifiedStr.replace(match[0], value.toString());
+                        modifiedStr = JSON.parse(modifiedStr)
+                    }
+                    else {
+                        //is not JSON object
+                    }
+                }
+            } else {
+                const isObj = await isOnePlaceholder(str)
+                if (isObj && typeof value == "object") {
+                    return value;
+                } else {
+                    try {
+                        if (typeof value != "function") {
+                            modifiedStr = modifiedStr.replace(match[0], JSON.stringify(value));
+                        } else {
+                            return value
+                        }
+                    } catch (err) {
+                        modifiedStr = value;
+                    }
+                }
+            }
+
+            if (arrayIndexRegex.test(str)) {
+                let updatedStr = str.replace(arrayIndexRegex, (match, p1, p2) => {
+                    let strArray = p1.split(',').map(element => element.trim().replace(/^['"]|['"]$/g, ""));
+                    let index = parseInt(p2);
+                    return strArray[index] ?? "";
+                });
+                return updatedStr
+            } else if (jsonPathRegex.test(modifiedStr) && !modifiedStr.includes("[") && !modifiedStr.includes("=>")) {
+                let updatedStr = modifiedStr.replace(jsonPathRegex, (match, jsonString, jsonPath) => {
+                    jsonPath = jsonPath.replace("{|", "").replace("|}!", "").replace("|}", "")
+                    try {
+                        const jsonObj = JSON.parse(jsonString);
+                        const pathParts = jsonPath.split('.');
+                        let currentValue = jsonObj;
+                        for (const part of pathParts) {
+                            if (currentValue.hasOwnProperty(part)) {
+                                currentValue = currentValue[part];
+                            } else {
+                                break;
+                            }
+                        }
+                        return JSON.stringify(currentValue) ?? "";
+                    } catch (e) {
+                    }
+                });
+                if (updatedStr != "") {
+                    return updatedStr;
+                }
+            }
+        }
+
+        if (typeof modifiedStr === "object") {
+            modifiedStr = JSON.stringify(modifiedStr);
+            if (modifiedStr.match(regex)) {
+                return await replace2(modifiedStr, nestedPath);
+            }
+            modifiedStr = JSON.parse(modifiedStr)
+        } else {
+            while (regex.test(modifiedStr)) {
+                modifiedStr = await replace2(modifiedStr, nestedPath);
+            }
+            console.log("modifiedStr", modifiedStr);
+
+            return modifiedStr;
+        }
+        return modifiedStr;
+    }
+    let response = await replace2(str, nestedPath);
+    return response
 }
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
