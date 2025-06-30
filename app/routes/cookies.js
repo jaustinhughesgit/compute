@@ -2303,6 +2303,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     sourceType = "arrayLogic"
   } else if (typeof prompt === "string") {
     sourceType = "prompt"
+    arrayLogic = prompt
   }
   console.log("arrayLogic", arrayLogic);
 
