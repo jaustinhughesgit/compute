@@ -1415,7 +1415,7 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
   });
 
   const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replace("{|req=>body", "{|req=>body.body").replace("{|req=>body", "{|req=>body.body").replace("{|req=>body", "{|req=>body.body")
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
   console.log("fc.arguments", fc.arguments)
   const args = JSON.parse(fc.arguments); 
 
