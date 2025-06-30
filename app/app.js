@@ -1234,7 +1234,6 @@ async function initializeMiddleware(req, res, next) {
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
                         console.log("3.1",req.body)
                         console.log("3.2",req.body.params)
-                        console.log("3.3",req.body.params._isFunction)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
