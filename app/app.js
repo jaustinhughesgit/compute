@@ -1060,19 +1060,22 @@ function _parseArrowKey(rawKey, libs) {
       const before = indexed[1];                // may be ""
       const after  = indexed[3] || "";          // may be ""
       const full   = (before ? before + '.' : '') + after;
-      return {
-          contextParts,
-          objectParts: full ? splitObjectPath(full) : [],
-          index: _resolveIdx(indexed[2], libs),
-      };
+     return {
+         contextParts,
+         objectParts: _fixReqBodyPath(
+             contextParts,
+             splitObjectPath(full ? full : rhs /* … */)
+         ),
+         index: _resolveIdx(indexed[2], libs),
+     };
   }
 
     /* plain RHS --------------------------------------------------- */
-    return {
-        contextParts,
-        objectParts: splitObjectPath(rhs),
-        index: undefined,
-    };
+     return {
+         contextParts,
+         objectParts: _fixReqBodyPath(contextParts, splitObjectPath(rhs)),
+         index: undefined,
+     };
 }
 
 async function processConfig(config, initialContext, lib) {
@@ -1160,6 +1163,20 @@ async function installModule(moduleName, contextKey, context, lib) {
     return modulePath;
 }
 
+function _fixReqBodyPath(contextParts, objectParts) {
+  if (
+    contextParts.length === 1 &&
+    contextParts[0] === 'req' &&
+    objectParts.length > 0 &&
+    objectParts[0] === 'body' &&
+    // don’t triple-up if it’s already been patched once:
+    !(objectParts.length > 1 && objectParts[1] === 'body')
+  ) {
+    return ['body', ...objectParts];   // insert second “body”
+  }
+  return objectParts;
+}
+
 async function initializeMiddleware(req, res, next) {
     if (req.path == "/") {
         req.dynPath = "/cookies/runEntity"
@@ -1214,8 +1231,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context["entity"] = { "value": fileArray[fileArray.length - 1], "context": {} };
                         req.lib.root.context["pageType"] = { "value": getPageType(reqPath), "context": {} };
                         req.lib.root.context["sessionID"] = { "value": req.sessionID, "context": {} }
-                        req.lib.root.context.req = { "value": JSON.parse(JSON.stringify(res.req)), "context": {} }
-                        req.lib.root.context.req.body = req.lib.root.context.req.body.body
+                        req.lib.root.context.req = { "value": res.req, "context": {} }
                         req.lib.root.context.URL = { "value": URL, "context": {} }
                         req.lib.root.context.res = { "value": resit, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
