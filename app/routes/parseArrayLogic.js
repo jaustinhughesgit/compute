@@ -1440,6 +1440,7 @@ const classifyDomains = async ({ openai, text }) => {
 };
 
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
+    console.log("prompt77",prompt)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1449,16 +1450,19 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
       { role: "user", content: prompt }
     ]
   });
-
+  console.log("rsp77",rsp);
   // Extract the first slice that looks like a JSON array
   let text = rsp.choices[0].message.content.trim();
+  
+  console.log("text",text)
   const start = text.indexOf("[");
   const end   = text.lastIndexOf("]");
   if (start === -1 || end === -1) {
     throw new Error("Model response did not contain a JSON array.");
   }
-  text = text.slice(start, end + 1);
 
+  text = text.slice(start, end + 1);
+  console.log("removes brackets")
   return JSON.parse(text);
 }
 
