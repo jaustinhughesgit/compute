@@ -2304,6 +2304,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
   } else if (typeof prompt === "string") {
     sourceType = "prompt"
     console.log("prompt JSON", prompt)
+    let promptInjection = JSON.parse(prompt);
     let fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot referebce (ref) future rows because it has not been processed yet.\`,
@@ -2312,7 +2313,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 var response = [];
 
-const user_requests = ${prompt.userRequest};
+const user_requests = ${promptInjection.userRequest};
 
 const persistent_knowledge = [];
 
