@@ -2313,7 +2313,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
 var response = [];
 
-const user_requests = [${promptInjection.userRequest}];
+const user_requests = [${JSON.stringify(promptInjection.userRequest)}];
 
 const persistent_knowledge = [];
 
