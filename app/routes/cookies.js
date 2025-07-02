@@ -3665,7 +3665,7 @@ root_and_sub_roots = {
                 mainObj = {
                     parseResults,
                     newShorthand,
-                    arrayLogic,
+                    arrayLogic:parseResults?.arrayLogic,
                     conclusion
                 };
             } else if (action === "embed") {

@@ -1745,7 +1745,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
     console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
-    return { shorthand: finalShorthand, details: results };
+    return { shorthand: finalShorthand, details: results, arrayLogic  };
 }
 
 module.exports = { parseArrayLogic };
