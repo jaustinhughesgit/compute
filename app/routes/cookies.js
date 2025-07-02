@@ -890,7 +890,7 @@ async function getCookie(val, key) {
     return await dynamodb.query(params).promise()
 }
 async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
-    console.log("xAccessToken",xAccessToken)
+    console.log("xAccessToken", xAccessToken)
     let existing = false
     if (xAccessToken) {
         console.log("existing user")
@@ -1373,16 +1373,16 @@ async function searchSubdomains(
 ) {
 
     console.log("searchSubdomains ----------------");
-    console.log("embedding",embedding);
-    console.log("domain",domain);
-    console.log("subdomain",subdomain);
-    console.log("entity",entity);
-    console.log("query",query);
-    console.log("limit",limit);
-    console.log("action",action);
+    console.log("embedding", embedding);
+    console.log("domain", domain);
+    console.log("subdomain", subdomain);
+    console.log("entity", entity);
+    console.log("query", query);
+    console.log("limit", limit);
+    console.log("action", action);
     if (!embedding || !domain || !subdomain || !entity) {
         console.log("returning early because of a falsy")
-        return 
+        return
     }
 
 
@@ -1823,17 +1823,17 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
                 mainObj = { "alert": JSON.stringify(fineTuneResponse) }
             } else if (action === "saveFile") {
-                console.log("reqBody",reqBody)
+                console.log("reqBody", reqBody)
                 console.log("req.body", req.body)
-            
+
                 actionFile = reqPath.split("/")[3]
                 console.log("!!! actionFile", actionFile)
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
                 console.log("createFile reqBody.body", reqBody.body)
-                if (!reqBody.body){
-                const fileResult = await createFile(actionFile, reqBody, s3)
+                if (!reqBody.body) {
+                    const fileResult = await createFile(actionFile, reqBody, s3)
                 } else {
-                const fileResult = await createFile(actionFile, reqBody.body, s3)
+                    const fileResult = await createFile(actionFile, reqBody.body, s3)
                 }
             } else if (action === "makePublic") {
                 actionFile = reqPath.split("/")[3]
@@ -2075,8 +2075,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 const { description, domain, subdomain, embedding, entity } = b || {};
 
-                console.log("b",b)
-                console.log("b.body",b.body)
+                console.log("b", b)
+                console.log("b.body", b.body)
                 console.log("description-----------", description);
                 console.log("domain", domain);
                 console.log("subdomain", subdomain);
@@ -2244,68 +2244,68 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
                 mainObj["newShorthand"] = newShorthand
                 mainObj["content"] = content
-            
-            
-            /*} else if (action === "convert") {
 
+
+                /*} else if (action === "convert") {
+    
+                    const { parseArrayLogic } = require("../routes/parseArrayLogic");
+    
+                    console.log("reqBody", reqBody)
+                    console.log("reqBody.body", reqBody.body)
+    
+    
+                    // app.js (inside the "convert" branch)
+                    let arrayLogic = reqBody.body.arrayLogic;
+    
+                    // If the client sent a JSON string, turn it into a JS value
+                    if (typeof arrayLogic === 'string') {
+                        try {
+                            arrayLogic = JSON.parse(arrayLogic);
+                        } catch (err) {
+                            console.error('arrayLogic is not valid JSON:', err);
+                            throw new Error('Bad arrayLogic payload');   // or return 400
+                        }
+                    }
+                    console.log("arrayLogic", arrayLogic)
+                    const parseResults = await parseArrayLogic({
+                        arrayLogic,          // now an array, not a string
+                        dynamodb,
+                        uuidv4,
+                        s3,
+                        ses,
+                        openai,
+                        Anthropic,
+                        dynamodbLL
+                    });
+    
+    
+                    mainObj = { "parseResults": parseResults };
+                
+                    }
+                */
+            } else if (action === "convert") {
                 const { parseArrayLogic } = require("../routes/parseArrayLogic");
+                const { shorthand } = require("../routes/shorthand");
 
-                console.log("reqBody", reqBody)
-                console.log("reqBody.body", reqBody.body)
+                console.log("reqBody", reqBody);
+                console.log("reqBody.body", reqBody.body);
 
-
-                // app.js (inside the "convert" branch)
+                // 1️⃣  Grab & normalise arrayLogic from the client
                 let arrayLogic = reqBody.body.arrayLogic;
-
-                // If the client sent a JSON string, turn it into a JS value
-                if (typeof arrayLogic === 'string') {
+                let prompt = reqBody.body.prompt;
+                if (typeof arrayLogic === "string") {
                     try {
                         arrayLogic = JSON.parse(arrayLogic);
                     } catch (err) {
-                        console.error('arrayLogic is not valid JSON:', err);
-                        throw new Error('Bad arrayLogic payload');   // or return 400
+                        console.error("arrayLogic is not valid JSON:", err);
+                        throw new Error("Bad arrayLogic payload");
                     }
-                }
-                console.log("arrayLogic", arrayLogic)
-                const parseResults = await parseArrayLogic({
-                    arrayLogic,          // now an array, not a string
-                    dynamodb,
-                    uuidv4,
-                    s3,
-                    ses,
-                    openai,
-                    Anthropic,
-                    dynamodbLL
-                });
-
-
-                mainObj = { "parseResults": parseResults };
-            
-                }
-            */
-            } else if (action === "convert") {
-  const { parseArrayLogic } = require("../routes/parseArrayLogic");
-  const { shorthand } = require("../routes/shorthand");
-
-  console.log("reqBody", reqBody);
-  console.log("reqBody.body", reqBody.body);
-
-  // 1️⃣  Grab & normalise arrayLogic from the client
-  let arrayLogic = reqBody.body.arrayLogic;
-  let prompt = reqBody.body.prompt;
-  if (typeof arrayLogic === "string") {
-    try {
-      arrayLogic = JSON.parse(arrayLogic);
-    } catch (err) {
-      console.error("arrayLogic is not valid JSON:", err);
-      throw new Error("Bad arrayLogic payload");
-    }
-    sourceType = "arrayLogic"
-  } else if (typeof prompt === "string") {
-    sourceType = "prompt"
-    console.log("prompt JSON", prompt)
-    let promptInjection = JSON.parse(prompt);
-    let fixedPrompt = `directive = [
+                    sourceType = "arrayLogic"
+                } else if (typeof prompt === "string") {
+                    sourceType = "prompt"
+                    console.log("prompt JSON", prompt)
+                    let promptInjection = JSON.parse(prompt);
+                    let fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot referebce (ref) future rows because it has not been processed yet.\`,
   \`You accept {user_requests}, leverage {persistant_knowledge, previous_response, previous_processed_conclusion, relevant_items}, mimic {examples}, follow the below {rules}, and organize it into the {response}, an array processed in sequence, where the last item is the result conclusion.\`
@@ -3563,110 +3563,111 @@ root_and_sub_roots = {
 `
 
 
-    arrayLogic = fixedPrompt
-  }
-  console.log("arrayLogic", arrayLogic);
+                    arrayLogic = fixedPrompt
+                }
+                console.log("arrayLogic", arrayLogic);
 
-  // 2️⃣  First pass – evaluate the array logic
-  const parseResults = await parseArrayLogic({
-    arrayLogic,
-    dynamodb,
-    uuidv4,
-    s3,
-    ses,
-    openai,
-    Anthropic,
-    dynamodbLL,
-    sourceType
-  });
+                // 2️⃣  First pass – evaluate the array logic
+                const parseResults = await parseArrayLogic({
+                    arrayLogic,
+                    dynamodb,
+                    uuidv4,
+                    s3,
+                    ses,
+                    openai,
+                    Anthropic,
+                    dynamodbLL,
+                    sourceType
+                });
 
-  // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine
-  let newShorthand = null;
-  let conclusion = null;
-  if (parseResults?.shorthand) {
+                // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine
+                let newShorthand = null;
+                let conclusion = null;
+                if (parseResults?.shorthand) {
 
-    const arrayLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
- console.log("SHORTHAND !!!!!!!!!!")
-                actionFile = reqPath.split("/")[3];
-                let { shorthand } = require('../routes/shorthand');
-                const emitType = reqBody.body.emit
-                console.log("arrayLogic", arrayLogic)
-                console.log("emitType", emitType)
-                let jsonpl = await retrieveAndParseJSON(actionFile, true);
-                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
+                    const arrayLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
+                    console.log("SHORTHAND !!!!!!!!!!")
+                    actionFile = reqPath.split("/")[3];
+                    let { shorthand } = require('../routes/shorthand');
+                    const emitType = reqBody.body.emit
+                    console.log("arrayLogic", arrayLogic)
+                    console.log("emitType", emitType)
+                    let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                    let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
 
-console.log("shorthandLogic1", shorthandLogic)
-
-
-    // Deep‑clone so we can mutate safely
-
-    const blocks = shorthandLogic.published.blocks; // keep original blocks safe
-    const originalPublished = shorthandLogic.published;
-
-    // Re‑inject the client arrayLogic exactly as the standalone /shorthand route does
-    shorthandLogic.input = [{"virtual":arrayLogic}];
-    shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+                    console.log("shorthandLogic1", shorthandLogic)
 
 
-    console.log("shorthandLogic2",shorthandLogic)
-    // 🪄  Run the shorthand pipeline
-    newShorthand = await shorthand(
-      shorthandLogic,
-      req,
-      res,
-      next,
-      privateKey,
-      dynamodb,
-      uuidv4,
-      s3,
-      ses,
-      openai,
-      Anthropic,
-      dynamodbLL,
-      true,              // keep the original "isPublished" flag
-      reqPath,
-      reqBody,
-      reqMethod,
-      reqType,
-      reqHeaderSent,
-      signer,
-      "shorthand",      // treat this sub‑phase as a shorthand op
-      xAccessToken
-    );
-    console.log("newShorthand4",newShorthand)
-    // Restore untouched blocks & clean temp props
-    newShorthand.published.blocks = blocks;
-    console.log("newShorthand5", newShorthand)
-    conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
-    delete newShorthand.input;
-    delete newShorthand.conclusion;
+                    // Deep‑clone so we can mutate safely
 
-    // Quick checksum for callers (optional)
-    parseResults.isPublishedEqual =
-      JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
-    console.log("originalPublished",originalPublished);
-    console.log("newShorthand.published",newShorthand.published)
-    // Persist the freshly‑generated shorthand back to S3 (mirrors the original route)
-    console.log("newShorthand6", newShorthand)
-    if (reqPath) {
-      const actionFile = reqPath.split("/")[3];
-      await s3
-        .putObject({
-          Bucket: "public.1var.com",
-          Key: actionFile,
-          Body: JSON.stringify(newShorthand),
-          ContentType: "application/json",
-        })
-        .promise();
-    }
-  }
+                    const blocks = shorthandLogic.published.blocks; // keep original blocks safe
+                    const originalPublished = shorthandLogic.published;
 
-  /* 4️⃣  Return everything to the caller */
-  mainObj = {
-    parseResults,
-    newShorthand, 
-    conclusion
-  };
+                    // Re‑inject the client arrayLogic exactly as the standalone /shorthand route does
+                    shorthandLogic.input = [{ "virtual": arrayLogic }];
+                    shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+
+
+                    console.log("shorthandLogic2", shorthandLogic)
+                    // 🪄  Run the shorthand pipeline
+                    newShorthand = await shorthand(
+                        shorthandLogic,
+                        req,
+                        res,
+                        next,
+                        privateKey,
+                        dynamodb,
+                        uuidv4,
+                        s3,
+                        ses,
+                        openai,
+                        Anthropic,
+                        dynamodbLL,
+                        true,              // keep the original "isPublished" flag
+                        reqPath,
+                        reqBody,
+                        reqMethod,
+                        reqType,
+                        reqHeaderSent,
+                        signer,
+                        "shorthand",      // treat this sub‑phase as a shorthand op
+                        xAccessToken
+                    );
+                    console.log("newShorthand4", newShorthand)
+                    // Restore untouched blocks & clean temp props
+                    newShorthand.published.blocks = blocks;
+                    console.log("newShorthand5", newShorthand)
+                    conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
+                    delete newShorthand.input;
+                    delete newShorthand.conclusion;
+
+                    // Quick checksum for callers (optional)
+                    parseResults.isPublishedEqual =
+                        JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+                    console.log("originalPublished", originalPublished);
+                    console.log("newShorthand.published", newShorthand.published)
+                    // Persist the freshly‑generated shorthand back to S3 (mirrors the original route)
+                    console.log("newShorthand6", newShorthand)
+                    if (reqPath) {
+                        const actionFile = reqPath.split("/")[3];
+                        await s3
+                            .putObject({
+                                Bucket: "public.1var.com",
+                                Key: actionFile,
+                                Body: JSON.stringify(newShorthand),
+                                ContentType: "application/json",
+                            })
+                            .promise();
+                    }
+                }
+
+                /* 4️⃣  Return everything to the caller */
+                mainObj = {
+                    parseResults,
+                    newShorthand,
+                    arrayLogic,
+                    conclusion
+                };
             } else if (action === "embed") {
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
@@ -3676,11 +3677,11 @@ console.log("shorthandLogic1", shorthandLogic)
                 console.log("stringifyText", stringifyText)
                 const { data } = await openai.embeddings.create({
                     model: 'text-embedding-3-large',
-                    input:stringifyText
+                    input: stringifyText
                 });
-                console.log("data",data);
-                console.log("data[0]",data[0]);
-                console.log("data[0].embedding",data[0].embedding);
+                console.log("data", data);
+                console.log("data[0]", data[0]);
+                console.log("data[0].embedding", data[0].embedding);
                 console.log(" reqBody.body.requestId", reqBody.body.requestId);
                 mainObj["embedding"] = data[0].embedding;
                 mainObj["requestId"] = reqBody.body.requestId;
