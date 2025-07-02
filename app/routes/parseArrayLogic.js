@@ -1409,7 +1409,9 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
       },
       { role: "user", content: str }
     ],
-    temperature: 0.3,
+        temperature: 0,
+        top_p: 0,
+        seed: 42,
     functions: [buildLogicSchema],      // ⇦ register the schema
     function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
   });
