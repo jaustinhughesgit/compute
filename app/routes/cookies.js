@@ -2395,6 +2395,7 @@ async function processArray(source, context = [], target = []) {
 })();
 
 breadcrumb_rules = [
+  /*breadcrumb app 'key': */
   /* 0 */ \`Breadcrumb Format → root / sub‑root / clarifier(s) / locale? / context? / (method/action pairs)+\`,
 
   /* 1 */ \`No proper nouns anywhere → Never place company, product, or person names (or other unique identifiers) in any breadcrumb segment. All such specifics belong only in the request’s input payload.\`,
@@ -2410,10 +2411,10 @@ breadcrumb_rules = [
   /* 6 */ \`context (optional) → Perspective or use‑case lens (e.g. marketing, alert, payment, availability).\`,
 
   /* 7 */ \`method/action pairs → One or more repetitions of “method‑qualifier / action‑verb” (e.g. by/market‑open/sell, via/api/get). These describe *how* the request should execute. Do not include input values or schema fields here.\`,
+  /*breadcrumb app 'value': */
+  /* 8 */ \`input:{} → The req.body data being sent to the app. Likely sending 'relevant_items' (e.g. { "company_name": "Apple", "product_name": "iPhone 15" }).\`,
 
-  /* 8 */ \`Input payload (outside the breadcrumb) → Carries every proper noun and other concrete value needed to fulfill the request (e.g. { "company_name": "Apple", "product_name": "iPhone 15" }).\`,
-
-  /* 9 */ \`Output schema (outside the breadcrumb) → Defines the shape/type of the data to be returned. The breadcrumb never specifies schema details.\`,
+  /* 9 */ \`schema:{} → Defines the shape/type of the response data being returned. \`,
 
   /*10*/ \`Consistency → Always follow this hierarchy and naming discipline so the system can route requests deterministically across all domains and use‑cases.\`
 ];
