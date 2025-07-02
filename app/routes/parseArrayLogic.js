@@ -1606,7 +1606,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
 
         const inputParam = convertShorthandRefs(
-            origBody?.input ?? body.input
+            body.input
         );
         const expectedKeys = createArrayOfRootKeys(body.schema);
         const schemaParam = convertShorthandRefs(expectedKeys);
