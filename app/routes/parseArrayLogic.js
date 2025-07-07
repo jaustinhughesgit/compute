@@ -1201,6 +1201,7 @@ const isSchemaElem = obj =>
     obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
+
     const rsp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0,
@@ -1211,6 +1212,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
                 `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
         }]
     });
+    console.log(`IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`)
     console.log("callOpenAI rsp", rsp)
     const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
     if (list.includes(guess)) return guess;
