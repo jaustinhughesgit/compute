@@ -1213,7 +1213,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
         }]
     });
     console.log(`IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`)
-    console.log("callOpenAI rsp", rsp)
+    console.log("callOpenAI rsp.choices[0].message", rsp.choices[0].message)
     const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
     if (list.includes(guess)) return guess;
 
