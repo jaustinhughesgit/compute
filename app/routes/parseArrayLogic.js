@@ -1529,21 +1529,22 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
 
         console.log("elem", elem)
-        console.log("elem[0]", elem[0])
+        const bc = Object.keys(elem)[0]
+        console.log("elem[bc]", elem[bc])
 
-        if (elem[0].hasOwnProperty("output")){
-            fixedOutput = elem[0].output
-            delete elem[0].output
+        if (elem[bc].hasOwnProperty("output")){
+            fixedOutput = elem[bc].output
+            delete elem[bc].output
         }
 
-        if (elem[0].hasOwnProperty("users")){
-            fixedUsers = elem[0].users
-            delete elem[0].users
+        if (elem[bc].hasOwnProperty("users")){
+            fixedUsers = elem[bc].users
+            delete elem[bc].users
         }
 
-        if (elem[0].hasOwnProperty("date")){
-            fixedUsers = elem[0].date
-            delete elem[0].date
+        if (elem[bc].hasOwnProperty("date")){
+            fixedUsers = elem[bc].date
+            delete elem[bc].date
         }
 
         const [breadcrumb] = Object.keys(elem);
