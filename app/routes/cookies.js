@@ -2309,6 +2309,10 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     let fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
+  \`When the user supplies a new persistent fact or resource, **create a single breadcrumb whose method/action pair ends in “/get”.**\`,
+  \`• That breadcrumb *simultaneously* stores the data and exposes a standard API for future recall (no separate “/set” or “/store” needed).\`,
+  \`• If the user also wants the value immediately, invoke the same “/get” crumb in the same array and return its output in the conclusion.\`,
+  \`• If the user only wants to recall something that is already exposed, skip the storage step and simply call the existing “/get”.\`,
   \`You accept {user_requests}, leverage {persistant_knowledge, previous_response, previous_processed_conclusion, relevant_items}, mimic {examples}, follow the {rules}, and organize it into {response}. Response is an array processed in sequence, where the last item is the result conclusion.\`
 ]
 
@@ -2316,7 +2320,7 @@ var response = [];
 
 const user_requests = ${JSON.stringify(promptInjection.userRequest)};
 
-const persistent_knowledge = [{"requester":"Austin Hughes", "Austin_Hughes_id":${userPath}},];
+const persistent_knowledge = [{"requester":"Austin Hughes", "Austin_Hughes_id":${userPath}}];
 
 const relevant_items = ${JSON.stringify(promptInjection.relevantItems)}
 
@@ -2423,6 +2427,7 @@ breadcrumb_rules = [
 examples = [
   \`"Compute liquidity and debt ratios for client 4271" => [
       {"client-id":"4271"},
+      
       {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "object",
@@ -2685,7 +2690,7 @@ function subdomains(domain){
                 mainObj = {
                     parseResults,
                     newShorthand,
-                    arrayLogic:parseResults?.arrayLogic,
+                    arrayLogic: parseResults?.arrayLogic,
                     conclusion
                 };
             } else if (action === "embed") {
