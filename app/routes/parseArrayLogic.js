@@ -1507,26 +1507,12 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         console.log("resolvedLogic", i, JSON.stringify(resolvedLogic));
         console.log("elem", JSON.stringify(elem));
 
+
         var fixedOutput
-        if (elem[0].hasOwnProperty("output")){
-            fixedOutput = elem[0].output
-            //createFixedVar(fixedOutput)
-            delete elem[0].output
-        }
-
         var fixedUsers
-        if (elem[0].hasOwnProperty("users")){
-            fixedUsers = elem[0].users
-            //createFixedVar(fixedOutput)
-            delete elem[0].users
-        }
-
         var fixedDate
-        if (elem[0].hasOwnProperty("date")){
-            fixedUsers = elem[0].date
-            //createFixedVar(fixedOutput)
-            delete elem[0].date
-        }
+        
+
 
         if (!isOperationElem(origElem)) {
 
@@ -1540,6 +1526,24 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 shorthand.push([convertShorthandRefs(elem)]);
             }
             continue;
+        }
+
+        console.log("elem", elem)
+        console.log("elem[0]", elem[0])
+
+        if (elem[0].hasOwnProperty("output")){
+            fixedOutput = elem[0].output
+            delete elem[0].output
+        }
+
+        if (elem[0].hasOwnProperty("users")){
+            fixedUsers = elem[0].users
+            delete elem[0].users
+        }
+
+        if (elem[0].hasOwnProperty("date")){
+            fixedUsers = elem[0].date
+            delete elem[0].date
         }
 
         const [breadcrumb] = Object.keys(elem);
