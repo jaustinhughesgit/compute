@@ -2432,14 +2432,13 @@ examples = [
         "type": "string",
         "const": "red"
       },
-      /* One breadcrumb: creation of `/get` stores AND exposes */
       {
         "characteristic/preferences/color/by/user/get": {
           "input": "__$ref(0)",
           "schema": "__$ref(1)"
         }
       },
-      { "conclusion": "__$ref(2).output" }  // => "red"
+      { "conclusion": "__$ref(2).output" }
   ]\`,
 
   \`"What is my favorite color?" => [
@@ -2454,7 +2453,7 @@ examples = [
           "schema": "__$ref(1)"
         }
       },
-      { "conclusion": "__$ref(2).output" }  // => "red"
+      { "conclusion": "__$ref(2).output" } 
   ]\`,
   \`"Compute liquidity and debt ratios for client 4271" => [
       {"client-id":"4271"},
