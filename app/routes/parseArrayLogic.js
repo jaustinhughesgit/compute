@@ -1573,11 +1573,11 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     },
                     ExpressionAttributeValues: {
                         ":path": `/${domain}/${subdomain}`,
-                        ":d1lo": dist1 - 0.03, ":d1hi": dist1 + 0.03,
-                        ":d2lo": dist2 - 0.03, ":d2hi": dist2 + 0.03,
-                        ":d3lo": dist3 - 0.03, ":d3hi": dist3 + 0.03,
-                        ":d4lo": dist4 - 0.03, ":d4hi": dist4 + 0.03,
-                        ":d5lo": dist5 - 0.03, ":d5hi": dist5 + 0.03
+                        ":d1lo": dist1 - 0.02, ":d1hi": dist1 + 0.02,
+                        ":d2lo": dist2 - 0.02, ":d2hi": dist2 + 0.02,
+                        ":d3lo": dist3 - 0.02, ":d3hi": dist3 + 0.02,
+                        ":d4lo": dist4 - 0.02, ":d4hi": dist4 + 0.02,
+                        ":d5lo": dist5 - 0.02, ":d5hi": dist5 + 0.02
                     },
                     FilterExpression:
                         "#d2 BETWEEN :d2lo AND :d2hi AND " +
