@@ -2425,6 +2425,37 @@ breadcrumb_rules = [
 ];
 
 examples = [
+  \`"My favorite color is red" => [
+      { "user-id": "1000000003" },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "const": "red"
+      },
+      /* One breadcrumb: creation of `/get` stores AND exposes */
+      {
+        "characteristic/preferences/color/by/user/get": {
+          "input": "__$ref(0)",
+          "schema": "__$ref(1)"
+        }
+      },
+      { "conclusion": "__$ref(2).output" }  // => "red"
+  ]\`,
+
+  \`"What is my favorite color?" => [
+      { "user-id": "1000000003" },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      },
+      {
+        "characteristic/preferences/color/by/user/get": {
+          "input": "__$ref(0)",
+          "schema": "__$ref(1)"
+        }
+      },
+      { "conclusion": "__$ref(2).output" }  // => "red"
+  ]\`,
   \`"Compute liquidity and debt ratios for client 4271" => [
       {"client-id":"4271"},
       
