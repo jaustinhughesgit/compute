@@ -2426,7 +2426,7 @@ breadcrumb_rules = [
 
 examples = [
   \`"My favorite color is red" => [
-      { "user-id": "1000000003" },
+      { "user": "1000000003" },
       {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
         "type": "string",
@@ -2438,7 +2438,7 @@ examples = [
           "schema": "__$ref(1)"
         }
       },
-      { "conclusion": "__$ref(2).output" }
+      { "conclusion": "__$ref(2).output" } // ==> red
   ]\`,
 
   \`"What is my favorite color?" => [
@@ -2453,86 +2453,9 @@ examples = [
           "schema": "__$ref(1)"
         }
       },
-      { "conclusion": "__$ref(2).output" } 
+      { "conclusion": "__$ref(2).output" } // ==> red
   ]\`,
-  \`"Compute liquidity and debt ratios for client 4271" => [
-      {"client-id":"4271"},
-      
-      {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "current_ratio": {"type": "number"},
-          "debt_equity_ratio": {"type": "number"}
-        },
-        "required": ["current_ratio", "debt_equity_ratio"]
-      },
-      {
-        "business/finance/ratio-calculations/by/analytics/calculate": {
-          "input": "__$ref(0)",
-          "schema": "__$ref(1)"
-        }
-      },
-      {"conclusion": "__$ref(2).output"}
-  ]\`,
-
-  \`"Assess risk tolerance for portfolio #802" => [
-      {"portfolio-id":"802"},
-      {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "risk_score": {"type": "number"}
-        },
-        "required": ["risk_score"]
-      },
-      {
-        "business/finance/risk-assessment/by/analytics/score": {
-          "input": "__$ref(0)",
-          "schema": "__$ref(1)"
-        }
-      },
-      {"conclusion": "__$ref(2).output"}
-  ]\`,
-
-  \`"When is Jefferson King available to complete his MRI scan" =>[
-      {"company":"Johnson & Johnson"},
-      {"team-id": "hidden"},
-      {
-        "patient-id": "hidden",
-        "patent-name": "Jefferson King",
-        "treatment-id": "784312"
-      },
-      {
-        "company": "__$ref(0).company",
-        "department": "__$ref(1).team-id",
-        "data": "__$ref(2)"
-      },
-      {
-        "$schema": "https://json-schema.org/draft/2020-12/schema",
-        "type": "object",
-        "properties": {
-          "verified-id": {"type": "boolean"},
-          "approved-data": {"type": "object"}
-        },
-        "required": ["verified-id", "approved-data"]
-      },
-      {"confirm": true},
-      {
-        "business/compliance/data/governance/approval/by/policy/check/approve-record": {
-          "input": "__$ref(3)",
-          "schema": "__$ref(4)"
-        }
-      },
-      {
-        "health/clinical/diagnostics/scheduling/availability/by/system/check": {
-          "input": "__$ref(6).output.approved-data",
-          "schema": "__$ref(5)"
-        }
-      },
-      {"conclusion": "__$ref(7).output"}
-  ]\`,
-
+ 
   \`"When is the acoustic guitar available for an in-store demo?" =>[
       {
         "store": "Melody Music Emporium",
