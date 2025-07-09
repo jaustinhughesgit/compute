@@ -1504,6 +1504,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
 
         const elem = resolvedLogic[i];
+        console.log("resolvedLogic", i, JSON.stringify(resolvedLogic));
+        console.log("elem", JSON.stringify(elem));
 
         if (!isOperationElem(origElem)) {
 
