@@ -1508,24 +1508,24 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         console.log("elem", JSON.stringify(elem));
 
         var fixedOutput
-        if (elem.hasOwnProperty("output")){
-            fixedOutput = elem.output
+        if (elem[0].hasOwnProperty("output")){
+            fixedOutput = elem[0].output
             //createFixedVar(fixedOutput)
-            delete elem.output
+            delete elem[0].output
         }
 
         var fixedUsers
-        if (elem.hasOwnProperty("users")){
-            fixedUsers = elem.users
+        if (elem[0].hasOwnProperty("users")){
+            fixedUsers = elem[0].users
             //createFixedVar(fixedOutput)
-            delete elem.users
+            delete elem[0].users
         }
 
         var fixedDate
-        if (elem.hasOwnProperty("date")){
-            fixedUsers = elem.date
+        if (elem[0].hasOwnProperty("date")){
+            fixedUsers = elem[0].date
             //createFixedVar(fixedOutput)
-            delete elem.date
+            delete elem[0].date
         }
 
         if (!isOperationElem(origElem)) {
