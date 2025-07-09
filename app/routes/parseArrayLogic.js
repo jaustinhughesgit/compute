@@ -1573,11 +1573,11 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     },
                     ExpressionAttributeValues: {
                         ":path": `/${domain}/${subdomain}`,
-                        ":d1lo": dist1 - 0.02, ":d1hi": dist1 + 0.02,
-                        ":d2lo": dist2 - 0.02, ":d2hi": dist2 + 0.02,
-                        ":d3lo": dist3 - 0.02, ":d3hi": dist3 + 0.02,
-                        ":d4lo": dist4 - 0.02, ":d4hi": dist4 + 0.02,
-                        ":d5lo": dist5 - 0.02, ":d5hi": dist5 + 0.02
+                        ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
+                        ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
+                        ":d3lo": dist3 - 0.01, ":d3hi": dist3 + 0.01,
+                        ":d4lo": dist4 - 0.01, ":d4hi": dist4 + 0.01,
+                        ":d5lo": dist5 - 0.01, ":d5hi": dist5 + 0.01
                     },
                     FilterExpression:
                         "#d2 BETWEEN :d2lo AND :d2hi AND " +
@@ -1593,6 +1593,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             }
         }
         let bestMatch = null;
+        console.log("subdomainMatches",subdomainMatches)
         if (subdomainMatches.length) {
             bestMatch = subdomainMatches.reduce(
                 (best, item) => {
