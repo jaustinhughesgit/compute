@@ -298,8 +298,41 @@ async function convertToJSON(
     id2Path = {},
     usingID = "",
     dynamodbLL,
-    body
+    body,
+    substitutingID = ""
 ) {
+
+// we need to be able to replace the existing entity, not get the child of the substituted
+
+
+// else if (substituting) {
+        //substitutingID = fileID;
+        //const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
+/*        const headSubstitutingObj = await convertToJSON(
+            subOfHead.Items[0].su,
+            newParentPath,
+            true,
+            entity.Items[0].m,
+            cookie,
+            dynamodb,
+            uuidv4,
+            pathUUID,
+            newParentPath2,
+            id2Path,
+            usingID, dynamodbLL, body, substitutingID
+        );
+        const headKey = Object.keys(headSubstitutingObj.obj)[0];
+        Object.assign(obj[fileID].children, headSubstitutingObj.obj[headKey].children);
+        Object.assign(paths, headSubstitutingObj.paths);
+        Object.assign(paths2, headSubstitutingObj.paths2);
+        obj[fileID].meta["substitutingMeta"] = {
+            "name": headSubstitutingObj.obj[headKey].meta.name,
+            "head": headSubstitutingObj.obj[headKey].meta.head,
+            "id": headKey,
+            "pathid": pathUUID
+        };
+    }
+*/
     //console.log("fileID", fileID)
     //console.log("cookie", cookie)
     //console.log("body", body)
@@ -308,6 +341,17 @@ async function convertToJSON(
     //console.log("subBySU", subBySU)
     //console.log("entity", entity)
     //console.log("isPublic", isPublic)
+
+    console.log("entity.Items[0].z",entity.Items[0].z)
+    if (entity.Items[0].z){
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+    }
+
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
@@ -317,6 +361,7 @@ async function convertToJSON(
     const name = head.Items[0].r;
     const pathUUID = await getUUID(uuidv4)
     const using = Boolean(entity.Items[0].u);
+    const substituting = Boolean(entity.Items[0].u);
     const obj = {};
     const paths = {};
     const paths2 = {};
@@ -332,6 +377,9 @@ async function convertToJSON(
     }
     if (usingID == null) {
         usingID = ""
+    }
+    if (substitutingID == null) {
+        substitutingID = ""
     }
     id2Path[fileID] = pathUUID;
     const subH = await getSub(entity.Items[0].h, "e", dynamodb);
@@ -349,6 +397,7 @@ async function convertToJSON(
         linked: {},
         pathid: pathUUID,
         usingID: usingID,
+        substitutingID: substitutingID,
         location: fileLocation(isPublic),
         verified: verified
     };
@@ -362,7 +411,7 @@ async function convertToJSON(
             const subByE = await getSub(child, "e", dynamodb);
             const uuid = subByE.Items[0].su;
             //console.log("returning children")
-            return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
+            return await convertToJSON(uuid, newParentPath, false, mapping, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body, substitutingID);
         });
         const childResponses = await Promise.all(childPromises);
         for (const childResponse of childResponses) {
@@ -403,7 +452,7 @@ async function convertToJSON(
             const subByE = await getSub(link, "e", dynamodb);
             const uuid = subByE.Items[0].su;
             //console.log("performing convertToJSON LINKED")
-            return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body);
+            return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body, substitutingID);
         });
         const linkedResponses = await Promise.all(linkedPromises);
         for (const linkedResponse of linkedResponses) {
