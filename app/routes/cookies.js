@@ -1642,6 +1642,18 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
                 const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
                 mainObj = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "substituteGroup") {
+                actionFile = reqPath.split("/")[3]
+                const newSubstitutingName = reqPath.split("/")[3]
+                const headSubstitutingName = reqPath.split("/")[4]
+                const substituting = await getSub(newSubstitutingName, "su", dynamodb);
+                const sg = await getEntity(substituting.Items[0].e, dynamodb)
+                const substituted = await getSub(headSubstitutingName, "su", dynamodb);
+                const sd = await getEntity(substituted.Items[0].e, dynamodb)
+                const details2 = await addVersion(sg.Items[0].e.toString(), "z", sd.Items[0].e.toString(), sg.Items[0].c, dynamodb);
+                const updateParent = await updateEntity(sg.Items[0].e.toString(), "z", sd.Items[0].e.toString(), details2.v, details2.c, dynamodb);
+                const headSub = await getSub(sg.Items[0].h, "e", dynamodb);
+                mainObj = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
             } else if (action === "map") {
                 const referencedParent = reqPath.split("/")[3]
                 const newEntityName = reqPath.split("/")[4]
