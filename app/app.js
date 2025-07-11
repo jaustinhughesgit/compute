@@ -1198,9 +1198,6 @@ async function initializeMiddleware(req, res, next) {
         let splitOriginalHost = originalHost.split("1var.com")[1]
         let reqPath = splitOriginalHost.split("?")[0]
         reqPath = reqPath.replace("/cookies/runEntity", "")
-
-
-
         req.dynPath = reqPath
         let head
         let cookie
@@ -1215,18 +1212,9 @@ async function initializeMiddleware(req, res, next) {
         } else {
 
             head = await getHead("su", reqPath.split("/")[1], dynamodb)
-
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
-            console.log("parent", parent);
-            let subBySU = await getSub(reqPath.split("/")[2], "su", dynamodb)
-            const entity = await getEntity(subBySU.Items[0].e, dynamodb);
-
-            if (typeof entity.Items[0].z == "string" ){
-                const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
-                console.log("subByE",subByE)
-
-            fileArray = parent.paths[subByE.Items[0].su];
+            fileArray = parent.paths[reqPath.split("/")[1]];
         }
         let isPublic = head.Items[0].z
 
