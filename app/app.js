@@ -1223,6 +1223,7 @@ async function initializeMiddleware(req, res, next) {
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
                 reqPath = "/" + subByE.Items[0].su
+                req.dynPath = reqPath
             } else {
                 fileArray = parent.paths[reqPath.split("/")[1]];
                 reqPath = "/" + reqPath.split("/")[1]
@@ -1232,10 +1233,12 @@ async function initializeMiddleware(req, res, next) {
         let isPublic = head.Items[0].z
 
 
+        console.log("fileArray", fileArray)
         if (fileArray != undefined) {
             const promises = fileArray.map(async fileName => await retrieveAndParseJSON(fileName, isPublic, getSub, getWord));
             const results = await Promise.all(promises);
 
+            console.log("results", results)
             if (req.blocks) {
                 return results
             } else {
