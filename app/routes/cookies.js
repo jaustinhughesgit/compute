@@ -368,6 +368,7 @@ async function convertToJSON(
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
+    console.log("1")
     let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
     const linked = entity.Items[0].l;
     const head = await getWord(entity.Items[0].a, dynamodb);
@@ -378,6 +379,7 @@ async function convertToJSON(
     const obj = {};
     const paths = {};
     const paths2 = {};
+    console.log("2")
 
 
 
@@ -394,11 +396,13 @@ async function convertToJSON(
     if (substitutingID == null) {
         substitutingID = ""
     }
+    console.log("3")
     id2Path[fileID] = pathUUID;
     const subH = await getSub(entity.Items[0].h, "e", dynamodb);
     if (subH.Count === 0) {
         await sleep(2000);
     }
+    console.log("4")
     obj[fileID] = {
         meta: {
             name: name,
@@ -418,6 +422,7 @@ async function convertToJSON(
     const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
     paths[fileID] = newParentPath;
     paths2[pathUUID] = newParentPath2;
+    console.log("5")
     if (children && children.length > 0 && convertCounter < 1000) {
         convertCounter += children.length;
         const childPromises = children.map(async (child) => {
@@ -433,6 +438,7 @@ async function convertToJSON(
             Object.assign(paths2, childResponse.paths2);
         }
     }
+    console.log("6")
     if (using) {
         usingID = fileID;
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
@@ -460,6 +466,7 @@ async function convertToJSON(
             "pathid": pathUUID
         };
     }
+    console.log("7")
     if (linked && linked.length > 0) {
         const linkedPromises = linked.map(async (link) => {
             const subByE = await getSub(link, "e", dynamodb);
@@ -474,9 +481,11 @@ async function convertToJSON(
             Object.assign(paths2, linkedResponse.paths2);
         }
     }
+    console.log("8")
     //console.log("getGroups")
     const groupList = await getGroups(dynamodb);
     //console.log("returning ----", groupList)
+    console.log("9")
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
