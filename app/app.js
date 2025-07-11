@@ -1216,17 +1216,18 @@ async function initializeMiddleware(req, res, next) {
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             console.log("parent", parent)
             console.log("reqPath",reqPath)
-            /*let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
+            let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
             if (typeof entity.Items[0].z == "string" ){
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
+                reqPath = "/" + subByE.Items[0].su
             } else {
-            fileArray = parent.paths[subByE.Items[0].su];
-            reqPath = subByE.Items[0].su;
-            req.dynPath = reqPath
-            }*/
+                fileArray = parent.paths[reqPath.split("/")[1]];
+                reqPath = "/" + reqPath.split("/")[1]
+                req.dynPath = reqPath
+            }
         }
         let isPublic = head.Items[0].z
 
