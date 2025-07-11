@@ -1215,6 +1215,7 @@ async function initializeMiddleware(req, res, next) {
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             console.log("parent", parent)
+            console.log("reqPath",reqPath)
             /*let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
             if (typeof entity.Items[0].z == "string" ){
