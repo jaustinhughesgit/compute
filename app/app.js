@@ -1218,7 +1218,7 @@ async function initializeMiddleware(req, res, next) {
             console.log("reqPath",reqPath)
             let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
-            if (typeof entity.Items[0].z == "string" ){
+            if (typeof entity.Items[0].z == "string" && false){
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
