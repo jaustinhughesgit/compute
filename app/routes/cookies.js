@@ -336,20 +336,28 @@ async function convertToJSON(
     //console.log("fileID", fileID)
     //console.log("cookie", cookie)
     //console.log("body", body)
-    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-    //console.log("verified", verified)
-    //console.log("subBySU", subBySU)
-    //console.log("entity", entity)
-    //console.log("isPublic", isPublic)
+    var { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
+    console.log("verified", verified)
+    console.log("subBySU", subBySU)
+    console.log("entity", entity)
+    console.log("isPublic", isPublic)
 
     console.log("entity.Items[0].z",entity.Items[0].z)
     if (entity.Items[0].z){
+        const subByE = await getSub(entity.Items[0].e, "e", dynamodb);
+        console.log("subByE",subByE)
+
+        ({ verified, subBySU, entity, isPublic } = await verifyThis(subByE.Items[0].su, cookie, dynamodb, body));
+        //NEED TO look into = await verifyThis(fileID, cookie, dynamodb, body);
         console.log("zzzzzzzzzz")
         console.log("zzzzzzzzzz")
         console.log("zzzzzzzzzz")
         console.log("zzzzzzzzzz")
         console.log("zzzzzzzzzz")
-        console.log("zzzzzzzzzz")
+        console.log("verified", verified)
+        console.log("subBySU", subBySU)
+        console.log("entity", entity)
+        console.log("isPublic", isPublic)
     }
 
     if (!verified) {
