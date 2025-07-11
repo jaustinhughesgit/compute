@@ -343,7 +343,7 @@ async function convertToJSON(
     console.log("isPublic", isPublic)
 
     console.log("entity.Items[0].z",entity.Items[0].z)
-    if (entity.Items[0].z){
+    if (typeof entity.Items[0].z == "string" ){
         const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
         console.log("subByE",subByE)
 
