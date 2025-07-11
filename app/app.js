@@ -1222,7 +1222,8 @@ async function initializeMiddleware(req, res, next) {
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
             } else {
-            fileArray = parent.paths[reqPath.split("/")[1]];
+            fileArray = parent.paths[subByE.Items[0].su];
+            reqPath = subByE.Items[0].su;
             }
         }
         let isPublic = head.Items[0].z
