@@ -1211,14 +1211,14 @@ async function initializeMiddleware(req, res, next) {
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
 
-            head = await getHead("su", reqPath.split("/")[1], dynamodb)
+            let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
+            const entity = await getEntity(subBySU.Items[0].e, dynamodb);
+            head = await getHead("su", subByE.Items[0].su, dynamodb)
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             console.log("parent", parent)
             console.log("reqPath",reqPath)
-            let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
-            const entity = await getEntity(subBySU.Items[0].e, dynamodb);
-            if (typeof entity.Items[0].z == "string" && false){
+            if (typeof entity.Items[0].z == "string" ){
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
