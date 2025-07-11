@@ -1214,7 +1214,14 @@ async function initializeMiddleware(req, res, next) {
             head = await getHead("su", reqPath.split("/")[1], dynamodb)
             cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
+
+            if (typeof entity.Items[0].z == "string" ){
+                const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
+                console.log("subByE",subByE)
+                fileArray = parent.paths[subByE.Items[0].su];
+            } else {
             fileArray = parent.paths[reqPath.split("/")[1]];
+            }
         }
         let isPublic = head.Items[0].z
 
