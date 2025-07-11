@@ -1210,21 +1210,24 @@ async function initializeMiddleware(req, res, next) {
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
-
             let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
-            head = await getHead("su", subByE.Items[0].su, dynamodb)
-            cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
-            parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
-            console.log("parent", parent)
-            console.log("reqPath",reqPath)
             if (typeof entity.Items[0].z == "string" ){
+                console.log("parent", parent)
+                console.log("reqPath",reqPath)
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
+                head = await getHead("su", subByE.Items[0].su, dynamodb)
+                cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
+                parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
+                
                 console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
                 reqPath = "/" + subByE.Items[0].su
                 req.dynPath = reqPath
             } else {
+                head = await getHead("su", reqPath.split("/")[1], dynamodb)
+                cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
+                parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
                 fileArray = parent.paths[reqPath.split("/")[1]];
                 reqPath = "/" + reqPath.split("/")[1]
                 req.dynPath = reqPath
