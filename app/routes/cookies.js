@@ -346,8 +346,8 @@ async function convertToJSON(
     if (typeof entity.Items[0].z == "string" ){
         const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
         console.log("subByE",subByE)
-
-        ({ verified, subBySU, entity, isPublic } = await verifyThis(subByE.Items[0].su, cookie, dynamodb, body));
+        var veriThis = await verifyThis(subByE.Items[0].su, cookie, dynamodb, body)
+        ({ verified, subBySU, entity, isPublic } = veriThis);
         //NEED TO look into = await verifyThis(fileID, cookie, dynamodb, body);
         console.log("zzzzzzzzzz")
         console.log("zzzzzzzzzz")
