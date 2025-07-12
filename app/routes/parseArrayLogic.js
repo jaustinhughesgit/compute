@@ -37,7 +37,7 @@ const domains = [
 ]
 
 const DOMAIN_SUBS = {
-     "agriculture": [
+    "agriculture": [
         "agroeconomics",
         "agrochemicals",
         "agronomy",
@@ -1276,155 +1276,163 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
 };
 
 const buildLogicSchema = {
-  "name": "build_logic",
-  "description": "Create a structured modules/actions JSON payload for the logic runner.",
-  "parameters": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": ["modules", "actions"],
-    "properties": {
-      "modules": {
+    "name": "build_logic",
+    "description": "Create a structured modules/actions JSON payload for the logic runner.",
+    "parameters": {
         "type": "object",
-        "description": "Map from local alias → npm-package name.",
-        "additionalProperties": {
-          "type": "string",
-          "description": "Exact name of the npm package to `require`."
-        }
-      },
-      "actions": { "$ref": "#/$defs/actionList" }
-    },
-
-    "$defs": {
-      /* ─────────── any JSON value ─────────── */
-      "jsonVal": {
-        "oneOf": [
-          { "type": "string" },
-          { "type": "number" },
-          { "type": "boolean" },
-          { "type": "object" },
-          { "type": "array", "items": {} }
-        ]
-      },
-
-      /* ────────── decorators (unchanged) ────────── */
-      "decorators": {
-        "type": "object",
-        "properties": {
-          "if":      { "$ref": "#/$defs/conditionArray" },
-          "while":   { "$ref": "#/$defs/conditionArray" },
-          "timeout": { "type": "integer", "minimum": 0 },
-          "next":    { "type": "boolean" },
-          "promise": { "enum": ["raw", "await"] }
-        },
-        "additionalProperties": false
-      },
-
-      /* ───────── chain helpers (unchanged) ───────── */
-      "chainItem": {
-        "type": "object",
-        "required": ["access"],
         "additionalProperties": false,
+        "required": ["modules", "actions"],
         "properties": {
-          "access":  { "type": "string" },
-          "params":  { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
-          "new":     { "type": "boolean" },
-          "express": { "type": "boolean" },
-          "next":    { "type": "boolean" },
-          "return":  { "$ref": "#/$defs/jsonVal" }
+            "modules": {
+                "type": "object",
+                "description": "Map from local alias → npm-package name.",
+                "additionalProperties": {
+                    "type": "string",
+                    "description": "Exact name of the npm package to `require`."
+                }
+            },
+            "actions": { "$ref": "#/$defs/actionList" }
+        },
+
+        "$defs": {
+            /* ─────────── any JSON value ─────────── */
+            "jsonVal": {
+                "oneOf": [
+                    { "type": "string" },
+                    { "type": "number" },
+                    { "type": "boolean" },
+                    { "type": "object" },
+                    { "type": "array", "items": {} }
+                ]
+            },
+
+            /* ────────── decorators (unchanged) ────────── */
+            "decorators": {
+                "type": "object",
+                "properties": {
+                    "if": { "$ref": "#/$defs/conditionArray" },
+                    "while": { "$ref": "#/$defs/conditionArray" },
+                    "timeout": { "type": "integer", "minimum": 0 },
+                    "next": { "type": "boolean" },
+                    "promise": { "enum": ["raw", "await"] }
+                },
+                "additionalProperties": false
+            },
+
+            /* ───────── chain helpers (unchanged) ───────── */
+            "chainItem": {
+                "type": "object",
+                "required": ["access"],
+                "additionalProperties": false,
+                "properties": {
+                    "access": { "type": "string" },
+                    "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
+                    "new": { "type": "boolean" },
+                    "express": { "type": "boolean" },
+                    "next": { "type": "boolean" },
+                    "return": { "$ref": "#/$defs/jsonVal" }
+                }
+            },
+            "chainArray": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/chainItem" }
+            },
+
+            /* ───────── condition helpers (unchanged) ───────── */
+            "conditionTuple": {
+                "type": "array",
+                "minItems": 3,
+                "maxItems": 3,
+                "prefixItems": [
+                    { "type": "string" },
+                    { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
+                    { "$ref": "#/$defs/jsonVal" }
+                ],
+                "items": {}
+            },
+            "conditionArray": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/conditionTuple" }
+            },
+
+            /* ───────── list of actions ───────── */
+            "actionList": {
+                "type": "array",
+                "items": { "$ref": "#/$defs/actionObject" }
+            },
+
+            /* ─────────── ACTION object ─────────── */
+            "actionObject": {
+                "type": "object",
+                "allOf": [
+                    { "$ref": "#/$defs/decorators" },
+                    {
+                        "additionalProperties": false,
+                        "oneOf": [
+
+                            { /* SET */ "required": ["set"],
+                                "properties": {
+                                    "set": { "type": "object" },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            { /* TARGET */ "required": ["target", "chain"],
+                                "properties": {
+                                    "target": { "type": "string" },
+                                    "chain": { "$ref": "#/$defs/chainArray" },
+                                    "assign": { "type": "string" },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            { /* IF */ "required": ["if", "set"],
+                                "properties": {
+                                    "if": { "$ref": "#/$defs/conditionArray" },
+                                    "set": { "type": "object" },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            { /* WHILE */ "required": ["while", "nestedActions"],
+                                "properties": {
+                                    "while": { "$ref": "#/$defs/conditionArray" },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
+                                "properties": {
+                                    "assign": { "type": "string" },
+                                    "params": { "type": "array", "items": { "type": "string" } },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            { /* RETURN */ "required": ["return"],
+                                "properties": {
+                                    "return": { "$ref": "#/$defs/jsonVal" },
+                                    "nestedActions": { "$ref": "#/$defs/actionList" }
+                                }
+                            },
+
+                            /* ★ NEW ─────────── ELSE wrapper ─────────── */
+                            {
+                                "title": "else",
+                                "required": ["else"],
+                                "properties": {
+                                    /* inner payload is ONE action object
+                                       (matches the pattern you showed: {"else":{ "set":{…}}} ) */
+                                    "else": { "$ref": "#/$defs/actionObject" }
+                                }
+                            }
+                            /* ★ END NEW */
+                        ]
+                    }
+                ]
+            }
         }
-      },
-      "chainArray": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/chainItem" }
-      },
-
-      /* ───────── condition helpers (unchanged) ───────── */
-      "conditionTuple": {
-        "type": "array",
-        "minItems": 3,
-        "maxItems": 3,
-        "prefixItems": [
-          { "type": "string" },
-          { "enum": ["==","!=","<",">","<=",">=","===","!==","in","includes"] },
-          { "$ref": "#/$defs/jsonVal" }
-        ],
-        "items": {}
-      },
-      "conditionArray": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/conditionTuple" }
-      },
-
-      /* ───────── list of actions ───────── */
-      "actionList": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/actionObject" }
-      },
-
-      /* ─────────── ACTION object ─────────── */
-      "actionObject": {
-        "type": "object",
-        "allOf": [
-          { "$ref": "#/$defs/decorators" },
-          {
-            "additionalProperties": false,
-            "oneOf": [
-
-              { /* SET */ "required": ["set"],
-                "properties": {
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              { /* TARGET */ "required": ["target","chain"],
-                "properties": {
-                  "target": { "type": "string" },
-                  "chain":  { "$ref": "#/$defs/chainArray" },
-                  "assign": { "type": "string" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              { /* IF */ "required": ["if","set"],
-                "properties": {
-                  "if":  { "$ref": "#/$defs/conditionArray" },
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              { /* WHILE */ "required": ["while","nestedActions"],
-                "properties": {
-                  "while": { "$ref": "#/$defs/conditionArray" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              { /* ASSIGN FUNC */ "required": ["assign","params","nestedActions"],
-                "properties": {
-                  "assign": { "type": "string" },
-                  "params": { "type": "array", "items": { "type": "string" } },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              { /* RETURN */ "required": ["return"],
-                "properties": {
-                  "return": { "$ref": "#/$defs/jsonVal" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                } },
-
-              /* ★ NEW ─────────── ELSE wrapper ─────────── */
-              { "title": "else",
-                "required": ["else"],
-                "properties": {
-                  /* inner payload is ONE action object
-                     (matches the pattern you showed: {"else":{ "set":{…}}} ) */
-                  "else": { "$ref": "#/$defs/actionObject" }
-                } }
-              /* ★ END NEW */
-            ]
-          }
-        ]
-      }
     }
-  }
 }
 
 
@@ -1433,32 +1441,32 @@ const buildLogicSchema = {
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
     console.log("openai 4", openai)
-  const rsp = await openai.chat.completions.create({
-    model: "gpt-4o-2024-08-06",
-    response_format: { type: "json_object" },
-    messages: [
-      {
-        role: "system",
-        content:
-          "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else."
-      },
-      { role: "user", content: str }
-    ],
-    functions: [buildLogicSchema],      // ⇦ register the schema
-    function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
-  });
+    const rsp = await openai.chat.completions.create({
+        model: "gpt-4o-2024-08-06",
+        response_format: { type: "json_object" },
+        messages: [
+            {
+                role: "system",
+                content:
+                    "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else."
+            },
+            { role: "user", content: str }
+        ],
+        functions: [buildLogicSchema],      // ⇦ register the schema
+        function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
+    });
 
-  const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
-  console.log("fc.arguments", fc.arguments)
-  const args = JSON.parse(fc.arguments); 
+    const fc = rsp.choices[0].message.function_call;
+    fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+    console.log("fc.arguments", fc.arguments)
+    const args = JSON.parse(fc.arguments);
 
-  return args;
+    return args;
 
 };
 
 const classifyDomains = async ({ openai, text }) => {
-    console.log("classifyDomains",text)
+    console.log("classifyDomains", text)
     const domain = await callOpenAI({
         openai, str: JSON.stringify(text),
         list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
@@ -1474,50 +1482,50 @@ const classifyDomains = async ({ openai, text }) => {
 };
 
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
-    console.log("prompt77",prompt)
-  const rsp = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
-    messages: [{
-        role: "system",
-        content:
-          "You are a JSON-only assistant. Reply with **only** a valid JSON " +
-          "array—the arrayLogic representation of the user’s request. " +
-          "No prose. No markdown. No code fences."
-      },
-      { role: "user", content: prompt }
-    ]
-  });
-  console.log("rsp77",rsp);
-  // Extract the first slice that looks like a JSON array
-  let text = rsp.choices[0].message.content.trim();
-  
-  console.log("text",text)
-  const start = text.indexOf("[");
-  const end   = text.lastIndexOf("]");
-  if (start === -1 || end === -1) {
-    throw new Error("Model response did not contain a JSON array.");
-  }
+    console.log("prompt77", prompt)
+    const rsp = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        temperature: 0,
+        top_p: 0,
+        seed: 42,
+        messages: [{
+            role: "system",
+            content:
+                "You are a JSON-only assistant. Reply with **only** a valid JSON " +
+                "array—the arrayLogic representation of the user’s request. " +
+                "No prose. No markdown. No code fences."
+        },
+        { role: "user", content: prompt }
+        ]
+    });
+    console.log("rsp77", rsp);
+    // Extract the first slice that looks like a JSON array
+    let text = rsp.choices[0].message.content.trim();
 
-  text = text.slice(start, end + 1);
-  console.log("removes brackets")
-  return JSON.parse(text);
+    console.log("text", text)
+    const start = text.indexOf("[");
+    const end = text.lastIndexOf("]");
+    if (start === -1 || end === -1) {
+        throw new Error("Model response did not contain a JSON array.");
+    }
+
+    text = text.slice(start, end + 1);
+    console.log("removes brackets")
+    return JSON.parse(text);
 }
 
 async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, sourceType } = {}) {
 
     console.log("arrayLogic from prompt", arrayLogic)
-  if (sourceType === "prompt") {
-    if (typeof arrayLogic !== "string") {
-      throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
+    if (sourceType === "prompt") {
+        if (typeof arrayLogic !== "string") {
+            throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
+        }
+        arrayLogic = await buildArrayLogicFromPrompt({
+            openai,
+            prompt: arrayLogic
+        });
     }
-    arrayLogic = await buildArrayLogicFromPrompt({
-      openai,
-      prompt: arrayLogic
-    });
-  }
 
     console.log("arrayLogic from openai", arrayLogic)
 
@@ -1525,7 +1533,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
     const resolvedLogic = resolveArrayLogic(arrayLogic);
 
     const shorthand = [];
-    const results = []; 
+    const results = [];
 
     let routeRowNewIndex = null;
 
@@ -1544,7 +1552,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         var fixedOutput
         var fixedPossessed
         var fixedDate
-        
+
 
 
         if (!isOperationElem(origElem)) {
@@ -1555,7 +1563,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             else if (origElem && typeof origElem === "object") {
                 shorthand.push([convertShorthandRefs(elem)]);
             }
-            else { 
+            else {
                 shorthand.push([convertShorthandRefs(elem)]);
             }
             continue;
@@ -1565,17 +1573,17 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const bc = Object.keys(elem)[0]
         console.log("elem[bc]", elem[bc])
 
-        if (elem[bc].hasOwnProperty("output")){
+        if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
         }
 
-        if (elem[bc].hasOwnProperty("possessedBy")){
+        if (elem[bc].hasOwnProperty("possessedBy")) {
             fixedPossessed = elem[bc].possessedBy
             delete elem[bc].possessedBy
         }
 
-        if (elem[bc].hasOwnProperty("date")){
+        if (elem[bc].hasOwnProperty("date")) {
             fixedDate = elem[bc].date
             delete elem[bc].date
         }
@@ -1589,20 +1597,20 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         console.log("domain1", domain);
         console.log("subdomain1", subdomain);
 
-            console.log("fixedPossessed",fixedPossessed)
-            console.log("typeof fixedPossessed",typeof fixedPossessed)
-            let base = 0
-            console.log("base", base)
-            let converted = fixedPossessed / 1e13;
-            console.log("converted", converted)
-            let possessedBase = base + converted;
-            console.log("possessedBase",possessedBase);
-            let domainIndex = parseInt(domains.indexOf(domain) + "00")
-            console.log("domainIndex",domainIndex);
-            let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain))
-            console.log("subdomainIndex",subdomainIndex);
-            let possessedCombined = possessedBase + domainIndex + subdomainIndex
-            console.log("possessedCombined",possessedCombined);
+        console.log("fixedPossessed", fixedPossessed)
+        console.log("typeof fixedPossessed", typeof fixedPossessed)
+        let base = 0
+        console.log("base", base)
+        let converted = fixedPossessed / 1e13;
+        console.log("converted", converted)
+        let possessedBase = base + converted;
+        console.log("possessedBase", possessedBase);
+        let domainIndex = parseInt(domains.indexOf(domain) + "00")
+        console.log("domainIndex", domainIndex);
+        let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain))
+        console.log("subdomainIndex", subdomainIndex);
+        let possessedCombined = possessedBase + domainIndex + subdomainIndex
+        console.log("possessedCombined", possessedCombined);
 
         const {
             data: [{ embedding: rawEmb }]
@@ -1667,7 +1675,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         "#d5 BETWEEN :d5lo AND :d5hi",
                     ScanIndexForward: true
                 };
-                console.log("params",params)
+                console.log("params", params)
                 const { Items } = await dynamodb.query(params).promise();
                 subdomainMatches = Items ?? [];
             } catch (err) {
@@ -1675,7 +1683,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             }
         }
         let bestMatch = null;
-        console.log("subdomainMatches",subdomainMatches)
+        console.log("subdomainMatches", subdomainMatches)
         if (subdomainMatches.length) {
             bestMatch = subdomainMatches.reduce(
                 (best, item) => {
@@ -1696,14 +1704,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
-        console.log("fixedPossesed",fixedPossessed)
+        console.log("fixedPossesed", fixedPossessed)
         if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
             shorthand.push(
                 [
                     "ROUTE",
-                    {"output":fixedOutput},
+                    { "output": fixedOutput },
                     {},
                     "newGroup",
                     "a6",
@@ -1715,71 +1723,71 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log("shorthand", shorthand)
             console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
             shorthand.push(
-                    ["GET", padRef(routeRowNewIndex), "response", "file"]
+                ["GET", padRef(routeRowNewIndex), "response", "file"]
             )
 
-            if (fixedOutput){
-            shorthand.push(
-                [
-                    "ROUTE",
-                    {},
-                    {},
-                    "getFile",
-                    padRef(routeRowNewIndex + 1),
-                    ""
-                ]
-            )
+            if (fixedOutput) {
+                shorthand.push(
+                    [
+                        "ROUTE",
+                        {},
+                        {},
+                        "getFile",
+                        padRef(routeRowNewIndex + 1),
+                        ""
+                    ]
+                )
 
-            shorthand.push(
+                shorthand.push(
                     ["GET", padRef(routeRowNewIndex + 2), "response"]
-            )
-            console.log("elem", elem)
-            const breadcrumbObject = JSON.stringify(elem);
+                )
+                console.log("elem", elem)
+                const breadcrumbObject = JSON.stringify(elem);
 
-            if (fixedOutput){
-                breadcrumbObject.response = fixedOutput
-            }
-            let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`; 
-            newJPL = newJPL + ` let desiredApp = ${breadcrumbObject}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`; 
-            newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `; 
-            newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`; 
-            newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`; 
-            newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
+                if (fixedOutput) {
+                    breadcrumbObject.response = fixedOutput
+                }
+                let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+                newJPL = newJPL + ` let desiredApp = ${breadcrumbObject}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+                newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
+                newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
+                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
+                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
 
-            console.log(newJPL);
+                console.log(newJPL);
 
-            console.log("openai 3", openai)
-            let objectJPL = await buildBreadcrumbApp({openai, str:newJPL})
-            console.log("objectJPL", objectJPL)
+                console.log("openai 3", openai)
+                let objectJPL = await buildBreadcrumbApp({ openai, str: newJPL })
+                console.log("objectJPL", objectJPL)
 
-            console.log("objectJPL.actions", objectJPL.actions)
-            shorthand.push(
+                console.log("objectJPL.actions", objectJPL.actions)
+                shorthand.push(
                     ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-            )
+                )
 
-            if (objectJPL.modules){
-                shorthand.push(
+                if (objectJPL.modules) {
+                    shorthand.push(
                         ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-                )
-            } else {
+                    )
+                } else {
+                    shorthand.push(
+                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
+                    )
+                }
+
+
                 shorthand.push(
-                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {} ]
+                    [
+                        "ROUTE",
+                        padRef(routeRowNewIndex + 5),
+                        {},
+                        "saveFile",
+                        padRef(routeRowNewIndex + 1),
+                        ""
+                    ]
                 )
+
             }
-            
-
-            shorthand.push(
-                [
-                    "ROUTE",
-                    padRef(routeRowNewIndex + 5),
-                    {},
-                    "saveFile",
-                    padRef(routeRowNewIndex + 1),
-                    ""
-                ]
-            ) 
-
-        }
 
             console.log(domain); //undefined
             console.log(subdomain); //undefined
@@ -1790,23 +1798,28 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
             shorthand.push([
                 "ROUTE",
-                {"body":{ description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1), "pb":possessedCombined }} ,
+                { "body": { description: "auto created entity", domain, subdomain, embedding, entity: padRef(routeRowNewIndex + 1), "pb": possessedCombined, "output":fixedOutput } },
                 {},
                 "position",
                 padRef(routeRowNewIndex + 1),
                 ""
             ]);
 
+            if (fixedOutput) {
+                shorthand.push([
+                    "ROUTE",
+                    inputParam,
+                    {},
+                    "runEntity",
+                    padRef(routeRowNewIndex + 1),
+                    ""
+                ]);
+            } else {
+                shorthand.push([
+                    fixedOutput
+                ]);
+            }
 
-            shorthand.push([
-                "ROUTE",
-                inputParam,
-                {},
-                "runEntity",
-                padRef(routeRowNewIndex + 1),
-                ""
-            ]);
-            
         } else {
             shorthand.push([
                 "ROUTE",
@@ -1819,7 +1832,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
         routeRowNewIndex = shorthand.length;
     }
-    
+
     const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
     if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
         const getRowIndex = shorthand.push(
@@ -1837,7 +1850,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
     console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
-    return { shorthand: finalShorthand, details: results, arrayLogic  };
+    return { shorthand: finalShorthand, details: results, arrayLogic };
 }
 
 module.exports = { parseArrayLogic };

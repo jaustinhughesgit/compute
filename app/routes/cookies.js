@@ -2191,7 +2191,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 let b = reqBody.body;
 
-                const { description, domain, subdomain, embedding, entity, pb } = b || {};
+                const { description, domain, subdomain, embedding, entity, pb, output } = b || {};
 
                 console.log("b", b)
                 console.log("b.body", b.body)
@@ -2271,7 +2271,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             #d4 = :d4,
                             #d5 = :d5,
                             #path = :path,
-                            #pb = :pb
+                            #pb = :pb,
+                            #output = :output
                       `,
                         ExpressionAttributeNames: {
                             '#d1': 'dist1',
@@ -2280,7 +2281,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             '#d4': 'dist4',
                             '#d5': 'dist5',
                             '#path': 'path',
-                            '#pb': 'pb'
+                            '#pb': 'pb',
+                            '#output': 'output'
                         },
                         ExpressionAttributeValues: {
                             ':d1': distances.emb1 ?? null,
@@ -2289,7 +2291,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             ':d4': distances.emb4 ?? null,
                             ':d5': distances.emb5 ?? null,
                             ':path': `/${domain}/${subdomain}`,
-                            ':pb': pb
+                            ':pb': pb,
+                            ':output': output
                         },
                         ReturnValues: 'UPDATED_NEW'
                     };
