@@ -1766,7 +1766,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
             let base = 10000000000000000000 // 10,000,000,000,000,000,000
-            let possessedBase = base + parseInt(reqBody._possessedBy);
+            let possessedBase = base + parseInt(fixedPossessed);
             console.log("possessedBase",possessedBase);
             let domainIndex = parseInt(domainIndex.indexOf(domain) + "00000000000000000")
             console.log("domainIndex",domainIndex);
@@ -1775,7 +1775,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             let possessedCombined = possessedBase + domainIndex + subdomainIndex
             console.log("possessedCombined",possessedCombined);
 
-            
+
             shorthand.push([
                 "ROUTE",
                 {"body":{ description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1), "_possessedBy":fixedPossessed }} ,
