@@ -2795,9 +2795,9 @@ function subdomains(domain){
                 actionFile = reqPath.split("?")[0].split("/")[3];
                 //console.log("runEntity inside", actionFile)
                 let subBySU = getSub(actionFile, "su", dynamodb);
-                console.log("subBySU.output", subBySU.output);
-                console.log("typeof subBySU.output", typeof subBySU.output);
-                if (subBySU.output == undefined || subBySU.output == "") {
+                console.log("subBySU.output", subBySU[0].output);
+                console.log("typeof subBySU.output", typeof subBySU[0].output);
+                if (subBySU[0].output == undefined || subBySU[0].output == "") {
                     let { runApp } = require('../app');
                     //console.log("running app runApp 12345")
                     let ot = await runApp(req, res, next)
@@ -2806,7 +2806,7 @@ function subdomains(domain){
                     ot.existing = true;
                     return ot?.chainParams
                 } else {
-                    return subBySU.output
+                    return subBySU[0].output
                 }
 
                 //} else {
