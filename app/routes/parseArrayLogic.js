@@ -3,8 +3,41 @@
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
+const domainIndex = [
+    "agriculture",
+    "architecture",
+    "biology",
+    "business",
+    "characteristic",
+    "chemistry",
+    "community",
+    "cosmology",
+    "economics",
+    "education",
+    "entertainment",
+    "environment",
+    "event",
+    "food",
+    "geology",
+    "geography",
+    "government",
+    "health",
+    "history",
+    "language",
+    "law",
+    "manufacturing",
+    "mathematics",
+    "people",
+    "psychology",
+    "philosophy",
+    "religion",
+    "sports",
+    "technology",
+    "transportation"
+]
+
 const DOMAIN_SUBS = {
-    "agriculture": [
+     "agriculture": [
         "agroeconomics",
         "agrochemicals",
         "agronomy",
@@ -1649,7 +1682,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             shorthand.push(
                 [
                     "ROUTE",
-                    {"_possessedBy":fixedPossessed},
+                    {},
                     {},
                     "newGroup",
                     "a6",
@@ -1729,9 +1762,23 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log(domain); //undefined
             console.log(subdomain); //undefined
             console.log(embedding); //undefined
+
+
+
+            let base = 10000000000000000000 // 10,000,000,000,000,000,000
+            let possessedBase = base + parseInt(reqBody._possessedBy);
+            console.log("possessedBase",possessedBase);
+            let domainIndex = parseInt(domainIndex.indexOf(domain) + "00000000000000000")
+            console.log("domainIndex",domainIndex);
+            let subdomainIndex = parseInt(DOMAIN_SUBS[domainIndex].indexOf(subdomain) + "000000000000000")
+            console.log("subdomainIndex",subdomainIndex);
+            let possessedCombined = possessedBase + domainIndex + subdomainIndex
+            console.log("possessedCombined",possessedCombined);
+
+            
             shorthand.push([
                 "ROUTE",
-                {"body":{ description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1) }} ,
+                {"body":{ description:"auto created entity", domain, subdomain, embedding, entity:padRef(routeRowNewIndex + 1), "_possessedBy":fixedPossessed }} ,
                 {},
                 "position",
                 padRef(routeRowNewIndex + 1),

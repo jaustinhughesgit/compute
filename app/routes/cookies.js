@@ -1722,6 +1722,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     }
                         , s3)
                     actionFile = uniqueId2
+
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
                     let from = "noreply@email.1var.com"
                     let to = "austin@1var.com"
