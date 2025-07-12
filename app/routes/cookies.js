@@ -2189,7 +2189,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 let b = reqBody.body;
 
-                const { description, domain, subdomain, embedding, entity } = b || {};
+                const { description, domain, subdomain, embedding, entity, pb:_possessedBy } = b || {};
 
                 console.log("b", b)
                 console.log("b.body", b.body)
@@ -2267,7 +2267,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             #d3 = :d3,
                             #d4 = :d4,
                             #d5 = :d5,
-                            #path = :path
+                            #path = :path,
+                            #pb = :pb
                       `,
                         ExpressionAttributeNames: {
                             '#d1': 'dist1',
@@ -2275,7 +2276,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             '#d3': 'dist3',
                             '#d4': 'dist4',
                             '#d5': 'dist5',
-                            '#path': 'path'
+                            '#path': 'path',
+                            '#pb': 'pb'
                         },
                         ExpressionAttributeValues: {
                             ':d1': distances.emb1 ?? null,
@@ -2283,7 +2285,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             ':d3': distances.emb3 ?? null,
                             ':d4': distances.emb4 ?? null,
                             ':d5': distances.emb5 ?? null,
-                            ':path': `/${domain}/${subdomain}`
+                            ':path': `/${domain}/${subdomain}`,
+                            `:pb`: _possessedBy
                         },
                         ReturnValues: 'UPDATED_NEW'
                     };
