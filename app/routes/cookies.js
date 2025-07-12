@@ -2794,7 +2794,7 @@ function subdomains(domain){
                 //console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
                 actionFile = reqPath.split("?")[0].split("/")[3];
                 //console.log("runEntity inside", actionFile)
-                let subBySU = getSub(actionFile, "su", dynamodb);
+                let subBySU = await getSub(actionFile, "su", dynamodb);
                 console.log("actionFile",actionFile)
                 console.log("subBySU",subBySU)
     
