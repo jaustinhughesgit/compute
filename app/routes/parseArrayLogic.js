@@ -1593,7 +1593,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log("typeof fixedPossessed",typeof fixedPossessed)
             let base = 10000
             console.log("base", base)
-            let converted = fixedPossessed / 1e14;
+            let converted = fixedPossessed / 1e13;
             console.log("converted", converted)
             let possessedBase = base + converted;
             console.log("possessedBase",possessedBase);
