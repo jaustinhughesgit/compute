@@ -3,7 +3,7 @@
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const domainIndex = [
+const domains = [
     "agriculture",
     "architecture",
     "biology",
@@ -1764,11 +1764,12 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log(embedding); //undefined
 
 
-
+            console.log("fixedPossessed",fixedPossessed)
             let base = 10000000000000000000 // 10,000,000,000,000,000,000
+            console.log("base", base)
             let possessedBase = base + parseInt(fixedPossessed);
             console.log("possessedBase",possessedBase);
-            let domainIndex = parseInt(domainIndex.indexOf(domain) + "00000000000000000")
+            let domainIndex = parseInt(domains.indexOf(domain) + "00000000000000000")
             console.log("domainIndex",domainIndex);
             let subdomainIndex = parseInt(DOMAIN_SUBS[domainIndex].indexOf(subdomain) + "000000000000000")
             console.log("subdomainIndex",subdomainIndex);
