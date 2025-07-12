@@ -1644,7 +1644,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             try {
                 const params = {
                     TableName: "subdomains",
-                    IndexName: "path-index",
+                    IndexName: "pb-index",
                     KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
                     ExpressionAttributeNames: {
                         "#p": "pb", "#d1": "dist1", "#d2": "dist2",
@@ -1666,6 +1666,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         "#d5 BETWEEN :d5lo AND :d5hi",
                     ScanIndexForward: true
                 };
+                console.log("params",params)
                 const { Items } = await dynamodb.query(params).promise();
                 subdomainMatches = Items ?? [];
             } catch (err) {
