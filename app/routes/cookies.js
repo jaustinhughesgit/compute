@@ -2286,7 +2286,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             ':d4': distances.emb4 ?? null,
                             ':d5': distances.emb5 ?? null,
                             ':path': `/${domain}/${subdomain}`,
-                            `:pb`: _possessedBy
+                            ':pb': pb
                         },
                         ReturnValues: 'UPDATED_NEW'
                     };
