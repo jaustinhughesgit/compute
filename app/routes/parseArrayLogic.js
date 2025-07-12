@@ -1509,7 +1509,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
         var fixedOutput
-        var fixedUsers
+        var fixedPossesed
         var fixedDate
         
 
@@ -1537,13 +1537,13 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             delete elem[bc].output
         }
 
-        if (elem[bc].hasOwnProperty("users")){
-            fixedUsers = elem[bc].users
-            delete elem[bc].users
+        if (elem[bc].hasOwnProperty("possesedBy")){
+            fixedPossesed = elem[bc].possesedBy
+            delete elem[bc].possesedBy
         }
 
         if (elem[bc].hasOwnProperty("date")){
-            fixedUsers = elem[bc].date
+            fixedDate = elem[bc].date
             delete elem[bc].date
         }
 
@@ -1648,7 +1648,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             shorthand.push(
                 [
                     "ROUTE",
-                    {},
+                    {"_possessedBy":fixedPossesed},
                     {},
                     "newGroup",
                     "a6",
