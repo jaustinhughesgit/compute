@@ -1642,6 +1642,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
+        console.log("fixedPossesed",fixedPossesed)
         if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
