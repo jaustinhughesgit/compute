@@ -1718,6 +1718,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     ["GET", padRef(routeRowNewIndex), "response", "file"]
             )
 
+            if (fixedOutput){
             shorthand.push(
                 [
                     "ROUTE",
@@ -1778,7 +1779,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]
             ) 
 
-
+        }
 
             console.log(domain); //undefined
             console.log(subdomain); //undefined
