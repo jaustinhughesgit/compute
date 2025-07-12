@@ -1765,13 +1765,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
             console.log("fixedPossessed",fixedPossessed)
+            console.log("typeof fixedPossessed",typeof fixedPossessed)
             let base = 10000000000000000000 // 10,000,000,000,000,000,000
             console.log("base", base)
-            let possessedBase = base + parseInt(fixedPossessed);
+            let possessedBase = base + fixedPossessed;
             console.log("possessedBase",possessedBase);
             let domainIndex = parseInt(domains.indexOf(domain) + "00000000000000000")
             console.log("domainIndex",domainIndex);
-            let subdomainIndex = parseInt(DOMAIN_SUBS[domainIndex].indexOf(subdomain) + "000000000000000")
+            let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain) + "000000000000000")
             console.log("subdomainIndex",subdomainIndex);
             let possessedCombined = possessedBase + domainIndex + subdomainIndex
             console.log("possessedCombined",possessedCombined);
