@@ -2796,7 +2796,7 @@ function subdomains(domain){
                 //console.log("runEntity inside", actionFile)
                 let subBySU = getSub(actionFile, "su", dynamodb);
                 console.log("subBySU.Items",subBySU.Items)
-                if (subBySU)
+    
                 console.log("subBySU.Items[0].output", subBySU.Items[0].output);
                 console.log("typeof subBySU.Items[0].output", typeof subBySU.Items[0].output);
                 if (subBySU.Items[0].output == undefined || subBySU.Items[0].output == "") {
