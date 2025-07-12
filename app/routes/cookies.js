@@ -1666,8 +1666,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
-                    console.log("reqBody??",reqBody)
-                    console.log("req.body??",req.body)
+                    console.log("reqBody??", reqBody)
+                    console.log("req.body??", req.body)
                     setIsPublic(true)
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
@@ -1691,37 +1691,37 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.log("req.body.output", req.body.output)
                     const fileResult = await createFile(uniqueId2,
                         {
-                        "input": [], "published": {
-                            "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
-                            "modules": {},
-                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": [reqBody.output] }], "assign": "{|send|}" }],
-                            "function": {},
-                            "automation": [],
-                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
-                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
-                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
-                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
-                            "assignments": {
-                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
-                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
-                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
-                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
-                            },
-                            "mindsets": [],
-                            "thoughts": {
-                                "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
-                                    "owners": [],
-                                    "content": "",
-                                    "contentType": "text",
-                                    "moods": {
-                                    },
-                                    "selectedMood": ""
-                                }
-                            },
-                            "moods": [
-                            ],
-                        }, "skip": [], "sweeps": 1, "expected": []
-                    }
+                            "input": [], "published": {
+                                "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
+                                "modules": {},
+                                "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": [reqBody.output] }], "assign": "{|send|}" }],
+                                "function": {},
+                                "automation": [],
+                                "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                                "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                                "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                                "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                                "assignments": {
+                                    "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                    "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                    "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                    "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                                },
+                                "mindsets": [],
+                                "thoughts": {
+                                    "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+                                        "owners": [],
+                                        "content": "",
+                                        "contentType": "text",
+                                        "moods": {
+                                        },
+                                        "selectedMood": ""
+                                    }
+                                },
+                                "moods": [
+                                ],
+                            }, "skip": [], "sweeps": 1, "expected": []
+                        }
                         , s3)
                     actionFile = uniqueId2
 
@@ -2258,7 +2258,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                     distances[attr] = cosineDist(embedding, refArr);
                 }
-                console.log("!!!!pb",pb)
+                console.log("!!!!pb", pb)
 
                 try {
                     const updateParams = {
@@ -2794,13 +2794,21 @@ function subdomains(domain){
                 //console.log('reqPath.split("?")[0].split("/")[3]', reqPath.split("?")[0].split("/")[3])
                 actionFile = reqPath.split("?")[0].split("/")[3];
                 //console.log("runEntity inside", actionFile)
-                let { runApp } = require('../app');
-                //console.log("running app runApp 12345")
-                let ot = await runApp(req, res, next)
-                console.log("ot", ot)
-                //if (ot){
-                ot.existing = true;
-                return ot?.chainParams
+                let subBySU = getSub(actionFile, "su", dynamodb);
+                console.log("subBySU.output", subBySU.output);
+                console.log("typeof subBySU.output", typeof subBySU.output);
+                if (subBySU.output == undefined || subBySU.output == "") {
+                    let { runApp } = require('../app');
+                    //console.log("running app runApp 12345")
+                    let ot = await runApp(req, res, next)
+                    console.log("ot", ot)
+                    //if (ot){
+                    ot.existing = true;
+                    return ot?.chainParams
+                } else {
+                    return subBySU.output
+                }
+
                 //} else {
                 //    return
                 //}
