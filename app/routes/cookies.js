@@ -1667,6 +1667,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
                     console.log("reqBody??",reqBody)
+                    console.log("req.body??",req.body)
                     setIsPublic(true)
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
