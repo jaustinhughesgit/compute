@@ -2189,7 +2189,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                 let b = reqBody.body;
 
-                const { description, domain, subdomain, embedding, entity, pb:_possessedBy } = b || {};
+                const { description, domain, subdomain, embedding, entity, _possessedBy } = b || {};
 
                 console.log("b", b)
                 console.log("b.body", b.body)
@@ -2256,6 +2256,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
 
                     distances[attr] = cosineDist(embedding, refArr);
                 }
+                console.log("!!!!_possessedBy",_possessedBy)
 
                 try {
                     const updateParams = {
@@ -2268,7 +2269,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             #d4 = :d4,
                             #d5 = :d5,
                             #path = :path,
-                            #pb = :pb
+                            #_possessedBy = :_possessedBy
                       `,
                         ExpressionAttributeNames: {
                             '#d1': 'dist1',
@@ -2277,7 +2278,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             '#d4': 'dist4',
                             '#d5': 'dist5',
                             '#path': 'path',
-                            '#pb': 'pb'
+                            '#_possessedBy': '_possessedBy'
                         },
                         ExpressionAttributeValues: {
                             ':d1': distances.emb1 ?? null,
@@ -2286,7 +2287,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                             ':d4': distances.emb4 ?? null,
                             ':d5': distances.emb5 ?? null,
                             ':path': `/${domain}/${subdomain}`,
-                            ':pb': pb
+                            ':_possessedBy': _possessedBy
                         },
                         ReturnValues: 'UPDATED_NEW'
                     };
