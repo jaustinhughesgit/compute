@@ -302,37 +302,37 @@ async function convertToJSON(
     substitutingID = ""
 ) {
 
-// we need to be able to replace the existing entity, not get the child of the substituted
+    // we need to be able to replace the existing entity, not get the child of the substituted
 
 
-// else if (substituting) {
-        //substitutingID = fileID;
-        //const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
-/*        const headSubstitutingObj = await convertToJSON(
-            subOfHead.Items[0].su,
-            newParentPath,
-            true,
-            entity.Items[0].m,
-            cookie,
-            dynamodb,
-            uuidv4,
-            pathUUID,
-            newParentPath2,
-            id2Path,
-            usingID, dynamodbLL, body, substitutingID
-        );
-        const headKey = Object.keys(headSubstitutingObj.obj)[0];
-        Object.assign(obj[fileID].children, headSubstitutingObj.obj[headKey].children);
-        Object.assign(paths, headSubstitutingObj.paths);
-        Object.assign(paths2, headSubstitutingObj.paths2);
-        obj[fileID].meta["substitutingMeta"] = {
-            "name": headSubstitutingObj.obj[headKey].meta.name,
-            "head": headSubstitutingObj.obj[headKey].meta.head,
-            "id": headKey,
-            "pathid": pathUUID
-        };
-    }
-*/
+    // else if (substituting) {
+    //substitutingID = fileID;
+    //const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
+    /*        const headSubstitutingObj = await convertToJSON(
+                subOfHead.Items[0].su,
+                newParentPath,
+                true,
+                entity.Items[0].m,
+                cookie,
+                dynamodb,
+                uuidv4,
+                pathUUID,
+                newParentPath2,
+                id2Path,
+                usingID, dynamodbLL, body, substitutingID
+            );
+            const headKey = Object.keys(headSubstitutingObj.obj)[0];
+            Object.assign(obj[fileID].children, headSubstitutingObj.obj[headKey].children);
+            Object.assign(paths, headSubstitutingObj.paths);
+            Object.assign(paths2, headSubstitutingObj.paths2);
+            obj[fileID].meta["substitutingMeta"] = {
+                "name": headSubstitutingObj.obj[headKey].meta.name,
+                "head": headSubstitutingObj.obj[headKey].meta.head,
+                "id": headKey,
+                "pathid": pathUUID
+            };
+        }
+    */
     //console.log("fileID", fileID)
     //console.log("cookie", cookie)
     //console.log("body", body)
@@ -342,10 +342,10 @@ async function convertToJSON(
     console.log("entity", entity)
     console.log("isPublic", isPublic)
 
-    console.log("entity.Items[0].z",entity.Items[0].z)
-    if (typeof entity.Items[0].z == "string" ){
+    console.log("entity.Items[0].z", entity.Items[0].z)
+    if (typeof entity.Items[0].z == "string") {
         const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
-        console.log("subByE",subByE)
+        console.log("subByE", subByE)
         var veriThis = await verifyThis(subByE.Items[0].su, cookie, dynamodb, body)
 
 
@@ -1631,7 +1631,20 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                                 "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
                                 "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
                                 "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
-                            }
+                            },
+                            "mindsets": [],
+                            "thoughts": {
+                                "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+                                    "owners": [],
+                                    "content": "",
+                                    "contentType": "text",
+                                    "moods": {
+                                    },
+                                    "selectedMood": ""
+                                }
+                            },
+                            "moods": [
+                            ],
                         }, "skip": [], "sweeps": 1, "expected": []
                     }, s3);
                 actionFile = uniqueId;
@@ -1653,7 +1666,8 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const newGroupName = reqPath.split("/")[3]
                     const headEntityName = reqPath.split("/")[4]
                     const parentEntity = reqPath.split("/")[5]
-
+                    console.log("reqBody._possessedBy",reqBody._possessedBy)
+                    console.log("reqBody.body",reqBody.body)
                     setIsPublic(true)
                     const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
                     const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
@@ -1675,19 +1689,37 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const uniqueId2 = await getUUID(uuidv4)
                     const fileResult = await createFile(uniqueId2,
                         {
-                            "input": [], "published": {
-                                "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
-                                "modules": {},
-                                "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
-                                "function": {},
-                                "automation": [],
-                                "menu": {},
-                                "commands": {},
-                                "calls": {},
-                                "templates": {},
-                                "assignments": {}
-                            }, "skip": [], "sweeps": 1, "expected": []
-                        }
+                        "input": [], "published": {
+                            "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            },
+                            "mindsets": [],
+                            "thoughts": {
+                                "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+                                    "owners": [],
+                                    "content": "",
+                                    "contentType": "text",
+                                    "moods": {
+                                    },
+                                    "selectedMood": ""
+                                }
+                            },
+                            "moods": [
+                            ],
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }
                         , s3)
                     actionFile = uniqueId2
                     let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
