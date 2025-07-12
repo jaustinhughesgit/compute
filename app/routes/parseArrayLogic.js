@@ -1653,7 +1653,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
                     },
                     ExpressionAttributeValues: {
-                        //":path": `/${domain}/${subdomain}`,
                         ":pb": possessedCombined,
                         ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
                         ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
@@ -1704,7 +1703,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             shorthand.push(
                 [
                     "ROUTE",
-                    {},
+                    {"output":fixedOutput},
                     {},
                     "newGroup",
                     "a6",

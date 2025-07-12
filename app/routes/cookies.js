@@ -1687,12 +1687,14 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
                     const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), [ai.toString()], dynamodb); //DO I NEED details.c
                     const uniqueId2 = await getUUID(uuidv4)
+                    console.log("reqBody.output", reqBody.output)
+                    console.log("req.body.output", req.body.output)
                     const fileResult = await createFile(uniqueId2,
                         {
                         "input": [], "published": {
                             "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
                             "modules": {},
-                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": [reqBody.output] }], "assign": "{|send|}" }],
                             "function": {},
                             "automation": [],
                             "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
