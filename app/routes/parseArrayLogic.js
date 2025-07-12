@@ -1588,6 +1588,20 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const { domain, subdomain } = await classifyDomains({ openai, text: elem });
         console.log("domain1", domain);
         console.log("subdomain1", subdomain);
+
+            console.log("fixedPossessed",fixedPossessed)
+            console.log("typeof fixedPossessed",typeof fixedPossessed)
+            let base = 10000000000000000
+            console.log("base", base)
+            let possessedBase = base + fixedPossessed;
+            console.log("possessedBase",possessedBase);
+            let domainIndex = parseInt(domains.indexOf(domain) + "00000000000000")
+            console.log("domainIndex",domainIndex);
+            let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain) + "000000000000")
+            console.log("subdomainIndex",subdomainIndex);
+            let possessedCombined = possessedBase + domainIndex + subdomainIndex
+            console.log("possessedCombined",possessedCombined);
+
         const {
             data: [{ embedding: rawEmb }]
         } = await openai.embeddings.create({
@@ -1595,6 +1609,10 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             input: JSON.stringify(elem)
         });
         const embedding = toVector(rawEmb);
+
+
+
+
 
         let dynamoRecord = null;
         let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
@@ -1627,13 +1645,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 const params = {
                     TableName: "subdomains",
                     IndexName: "path-index",
-                    KeyConditionExpression: "#p = :path AND #d1 BETWEEN :d1lo AND :d1hi",
+                    KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
                     ExpressionAttributeNames: {
-                        "#p": "path", "#d1": "dist1", "#d2": "dist2",
+                        "#p": "pb", "#d1": "dist1", "#d2": "dist2",
                         "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
                     },
                     ExpressionAttributeValues: {
-                        ":path": `/${domain}/${subdomain}`,
+                        //":path": `/${domain}/${subdomain}`,
+                        ":pb": possessedCombined,
                         ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
                         ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
                         ":d3lo": dist3 - 0.01, ":d3hi": dist3 + 0.01,
@@ -1764,18 +1783,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             console.log(embedding); //undefined
 
 
-            console.log("fixedPossessed",fixedPossessed)
-            console.log("typeof fixedPossessed",typeof fixedPossessed)
-            let base = 10000000000000000 // 10,000,000,000,000,000
-            console.log("base", base)
-            let possessedBase = base + fixedPossessed;
-            console.log("possessedBase",possessedBase);
-            let domainIndex = parseInt(domains.indexOf(domain) + "00000000000000")
-            console.log("domainIndex",domainIndex);
-            let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain) + "000000000000")
-            console.log("subdomainIndex",subdomainIndex);
-            let possessedCombined = possessedBase + domainIndex + subdomainIndex
-            console.log("possessedCombined",possessedCombined);
 
 
             shorthand.push([
