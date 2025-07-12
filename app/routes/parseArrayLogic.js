@@ -1509,7 +1509,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
         var fixedOutput
-        var fixedPossesed
+        var fixedPossessed
         var fixedDate
         
 
@@ -1537,9 +1537,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             delete elem[bc].output
         }
 
-        if (elem[bc].hasOwnProperty("possesedBy")){
-            fixedPossesed = elem[bc].possesedBy
-            delete elem[bc].possesedBy
+        if (elem[bc].hasOwnProperty("possessedBy")){
+            fixedPossessed = elem[bc].possessedBy
+            delete elem[bc].possessedBy
         }
 
         if (elem[bc].hasOwnProperty("date")){
@@ -1642,14 +1642,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
-        console.log("fixedPossesed",fixedPossesed)
+        console.log("fixedPossesed",fixedPossessed)
         if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
             shorthand.push(
                 [
                     "ROUTE",
-                    {"_possessedBy":fixedPossesed},
+                    {"_possessedBy":fixedPossessed},
                     {},
                     "newGroup",
                     "a6",
