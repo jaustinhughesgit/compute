@@ -2792,15 +2792,37 @@ function subdomains(domain){
                 console.log("createUser!!!!!!!!");
                 console.log("reqBody", reqBody)
                 console.log("reqBody.body", reqBody.body)
-                /*const newUser = {
-                    userID:           userObj.userID,
-                    emailHash:        userObj.emailHash,
-                    pubEnc:           userObj.pubEnc,           // Base64(SPKI) string
-                    pubSig:           userObj.pubSig,           // Base64(SPKI) string
-                    created:          now,
-                    revoked:          !!userObj.revoked,
-                    latestKeyVersion: userObj.latestKeyVersion || 1
-                };*/
+const now = Date.now();           // or new Date().toISOString()
+const newUser = {
+  e:                reqBody.body.userID,          // partition (PK) – assume this is unique
+  emailHash:        reqBody.body.emailHash,
+  pubEnc:           reqBody.body.pubEnc,
+  pubSig:           reqBody.body.pubSig,
+  created:          now,
+  revoked:          !!reqBody.body.revoked,
+  latestKeyVersion: reqBody.body.latestKeyVersion ?? 1
+};
+
+const params = {
+  TableName: "users",
+  Item: newUser,
+
+  // Optional: fail if the PK already exists
+  ConditionExpression: "attribute_not_exists(e)"
+};
+
+try {
+  await dynamodb.put(params).promise();
+  console.log("User created:", params.Item);
+} catch (err) {
+  if (err.code === "ConditionalCheckFailedException") {
+    console.error("User already exists");
+  } else {
+    throw err;
+  }
+}
+
+                    console.log("createUserResult",createUserResult)
 
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
