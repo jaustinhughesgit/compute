@@ -2812,7 +2812,8 @@ const params = {
 };
 
 try {
-  await dynamodb.put(params).promise();
+  const createUserResult = await dynamodb.put(params).promise();
+  console.log("createUserResult",createUserResult)
   console.log("User created:", params.Item);
 } catch (err) {
   if (err.code === "ConditionalCheckFailedException") {
@@ -2822,7 +2823,6 @@ try {
   }
 }
 
-                    console.log("createUserResult",createUserResult)
 
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
