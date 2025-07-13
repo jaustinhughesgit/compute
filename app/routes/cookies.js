@@ -2788,6 +2788,9 @@ function subdomains(domain){
                 console.log(" reqBody.body.requestId", reqBody.body.requestId);
                 mainObj["embedding"] = data[0].embedding;
                 mainObj["requestId"] = reqBody.body.requestId;
+            } else if (action === "createUser") {
+                console.log("createUser!!!!!!!!");
+                
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
