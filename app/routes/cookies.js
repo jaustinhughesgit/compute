@@ -2790,7 +2790,18 @@ function subdomains(domain){
                 mainObj["requestId"] = reqBody.body.requestId;
             } else if (action === "createUser") {
                 console.log("createUser!!!!!!!!");
-                
+                console.log("reqBody", reqBody)
+                console.log("reqBody.body", reqBody.body)
+                /*const newUser = {
+                    userID:           userObj.userID,
+                    emailHash:        userObj.emailHash,
+                    pubEnc:           userObj.pubEnc,           // Base64(SPKI) string
+                    pubSig:           userObj.pubSig,           // Base64(SPKI) string
+                    created:          now,
+                    revoked:          !!userObj.revoked,
+                    latestKeyVersion: userObj.latestKeyVersion || 1
+                };*/
+
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
