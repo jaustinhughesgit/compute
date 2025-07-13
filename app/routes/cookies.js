@@ -2794,7 +2794,7 @@ function subdomains(domain){
                 console.log("reqBody.body", reqBody.body)
 const now = Date.now();           // or new Date().toISOString()
 const newUser = {
-  userID:                reqBody.body.userID,          // partition (PK) – assume this is unique
+  userID:                parseInt(reqBody.body.userID),          // partition (PK) – assume this is unique
   emailHash:        reqBody.body.emailHash,
   pubEnc:           reqBody.body.pubEnc,
   pubSig:           reqBody.body.pubSig,
