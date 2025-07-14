@@ -2841,7 +2841,8 @@ function subdomains(domain){
                 mainObj = {
                         pubEnc: Item.pubEnc,
                         pubSig: Item.pubSig,
-                        latestKeyVersion: Item.latestKeyVersion
+                        latestKeyVersion: Item.latestKeyVersion,
+                        requestId: reqBody.body.requestId
                     }
 
                 /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
