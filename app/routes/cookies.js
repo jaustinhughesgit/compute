@@ -2854,6 +2854,7 @@ function subdomains(domain){
                 console.log("passphraseID",passphraseID)
                 console.log("keyVersion",keyVersion)
                 console.log("wrapped",wrapped)
+                console.log("typeof wrapped",typeof wrapped)
                 // Basic validation
                 if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
                     mainObj = { error: "Invalid payload" };
