@@ -2810,6 +2810,8 @@ function subdomains(domain){
                     }
                 }
             } else if (action === "getUserPubKeys") {
+                console.log("getUserPubKeys555")
+                console.log("reqBody.body", reqBody.body)
                 // 1. Sanitise / validate input
                 const userID = String(reqBody.body.userID ?? "").trim();
                 if (!userID) {
@@ -2847,6 +2849,8 @@ function subdomains(domain){
 
                 /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
             } else if (action === "wrapPassphrase" || action === "addPassphrase") {
+                console.log("wrapPassphrase555 || addPassphrase555")
+                console.log("reqBody.body", reqBody.body)
                 const { passphraseID, keyVersion, wrapped } = reqBody.body || {};
 
                 // Basic validation
@@ -2857,14 +2861,12 @@ function subdomains(domain){
                     };
                 }
 
-                /*  Put *once*; reject duplicate IDs.                                   *
-                 *  We store an ISO date as `created` to ease audits & TTL if desired.  */
                 const params = {
                     TableName: "passphrases",
                     Item: {
                         passphraseID,
                         keyVersion: Number(keyVersion),
-                        wrapped,                       // DynamoDB Map<string,string>
+                        wrapped,  
                         created: new Date().toISOString()
                     },
                     ConditionExpression: "attribute_not_exists(passphraseID)"
@@ -2883,7 +2885,7 @@ function subdomains(domain){
                             body: JSON.stringify({ error: `passphraseID \"${passphraseID}\" already exists` })
                         };
                     }
-                    throw err; // let your top-level error wrapper log & 500
+                    throw err; 
                 }
 
             } else if (action == "runEntity") {
