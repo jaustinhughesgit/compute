@@ -2838,14 +2838,11 @@ function subdomains(domain){
                     };
                 }
 
-                return {
-                    statusCode: 200,
-                    body: JSON.stringify({
+                mainObj = {
                         pubEnc: Item.pubEnc,
                         pubSig: Item.pubSig,
                         latestKeyVersion: Item.latestKeyVersion
-                    })
-                };
+                    }
 
                 /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
             } else if (action === "wrapPassphrase" || action === "addPassphrase") {
@@ -2872,21 +2869,10 @@ function subdomains(domain){
                     ConditionExpression: "attribute_not_exists(passphraseID)"
                 };
 
-                try {
-                    await dynamodb.put(params).promise();
-                    return {
-                        statusCode: 200,
-                        body: JSON.stringify({ success: true })
-                    };
-                } catch (err) {
-                    if (err.code === "ConditionalCheckFailedException") {
-                        return {
-                            statusCode: 409,
-                            body: JSON.stringify({ error: `passphraseID \"${passphraseID}\" already exists` })
-                        };
-                    }
-                    throw err; 
-                }
+                    let dynRes = await dynamodb.put(params).promise();
+                    console.log("dynRes",dynRes)
+                    mainObj = { success: true }
+                   
 
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
