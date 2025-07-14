@@ -2851,28 +2851,29 @@ function subdomains(domain){
                 console.log("reqBody.body", reqBody.body)
                 const { passphraseID, keyVersion, wrapped } = reqBody.body || {};
 
+                console.log("passphraseID",passphraseID)
+                console.log("keyVersion",keyVersion)
+                console.log("wrapped",wrapped)
                 // Basic validation
                 if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
-                    return {
-                        statusCode: 400,
-                        body: JSON.stringify({ error: "Invalid payload" })
+                    mainObj = { error: "Invalid payload" };
+                    } else {
+
+                    const params = {
+                        TableName: "passphrases",
+                        Item: {
+                            passphraseID,
+                            keyVersion: Number(keyVersion),
+                            wrapped,
+                            created: new Date().toISOString()
+                        },
+                        ConditionExpression: "attribute_not_exists(passphraseID)"
                     };
+
+                    let dynRes = await dynamodb.put(params).promise();
+                    console.log("dynRes", dynRes)
+                    mainObj = { success: true }
                 }
-
-                const params = {
-                    TableName: "passphrases",
-                    Item: {
-                        passphraseID,
-                        keyVersion: Number(keyVersion),
-                        wrapped,
-                        created: new Date().toISOString()
-                    },
-                    ConditionExpression: "attribute_not_exists(passphraseID)"
-                };
-
-                let dynRes = await dynamodb.put(params).promise();
-                console.log("dynRes", dynRes)
-                mainObj = { success: true }
 
             } else if (action === "decryptPassphrase") {
                 console.log("decryptPassphrase555");
