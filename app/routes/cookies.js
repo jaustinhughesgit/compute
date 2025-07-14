@@ -2789,40 +2789,102 @@ function subdomains(domain){
                 mainObj["embedding"] = data[0].embedding;
                 mainObj["requestId"] = reqBody.body.requestId;
             } else if (action === "createUser") {
-                console.log("createUser!!!!!!!!");
-                console.log("reqBody", reqBody)
-                console.log("reqBody.body", reqBody.body)
-const now = Date.now();           // or new Date().toISOString()
-const newUser = {
-  userID:                parseInt(reqBody.body.userID),          // partition (PK) – assume this is unique
-  emailHash:        reqBody.body.emailHash,
-  pubEnc:           reqBody.body.pubEnc,
-  pubSig:           reqBody.body.pubSig,
-  created:          now,
-  revoked:          !!reqBody.body.revoked,
-  latestKeyVersion: reqBody.body.latestKeyVersion ?? 1
-};
+                const now = Date.now();
+                const newUser = {
+                    userID: parseInt(reqBody.body.userID),
+                    emailHash: reqBody.body.emailHash,
+                    pubEnc: reqBody.body.pubEnc,
+                    pubSig: reqBody.body.pubSig,
+                    created: now,
+                    revoked: !!reqBody.body.revoked,
+                    latestKeyVersion: reqBody.body.latestKeyVersion ?? 1
+                };
+                const params = { TableName: "users", Item: newUser, ConditionExpression: "attribute_not_exists(e)" };
+                try {
+                    const createUserResult = await dynamodb.put(params).promise();
+                } catch (err) {
+                    if (err.code === "ConditionalCheckFailedException") {
+                        console.error("User already exists");
+                    } else {
+                        throw err;
+                    }
+                }
+            } else if (action === "getUserPubKeys") {
+                // 1. Sanitise / validate input
+                const userID = String(reqBody.body.userID ?? "").trim();
+                if (!userID) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: "userID required" })
+                    };
+                }
 
-const params = {
-  TableName: "users",
-  Item: newUser,
+                /* 2. Fetch just the three columns we need            *
+                 *    (projection keeps RCUs low and hides extras)    */
+                const params = {
+                    TableName: "users",
+                    Key: { userID: parseInt(userID) },
+                    ProjectionExpression: "pubEnc, pubSig, latestKeyVersion"
+                };
 
-  // Optional: fail if the PK already exists
-  ConditionExpression: "attribute_not_exists(e)"
-};
+                const { Item } = await dynamodb.get(params).promise();
 
-try {
-  const createUserResult = await dynamodb.put(params).promise();
-  console.log("createUserResult",createUserResult)
-  console.log("User created:", params.Item);
-} catch (err) {
-  if (err.code === "ConditionalCheckFailedException") {
-    console.error("User already exists");
-  } else {
-    throw err;
-  }
-}
+                if (!Item) {
+                    return {
+                        statusCode: 404,
+                        body: JSON.stringify({ error: "user not found" })
+                    };
+                }
 
+                return {
+                    statusCode: 200,
+                    body: JSON.stringify({
+                        pubEnc: Item.pubEnc,
+                        pubSig: Item.pubSig,
+                        latestKeyVersion: Item.latestKeyVersion
+                    })
+                };
+
+                /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
+            } else if (action === "wrapPassphrase" || action === "addPassphrase") {
+                const { passphraseID, keyVersion, wrapped } = reqBody.body || {};
+
+                // Basic validation
+                if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: "Invalid payload" })
+                    };
+                }
+
+                /*  Put *once*; reject duplicate IDs.                                   *
+                 *  We store an ISO date as `created` to ease audits & TTL if desired.  */
+                const params = {
+                    TableName: "passphrases",
+                    Item: {
+                        passphraseID,
+                        keyVersion: Number(keyVersion),
+                        wrapped,                       // DynamoDB Map<string,string>
+                        created: new Date().toISOString()
+                    },
+                    ConditionExpression: "attribute_not_exists(passphraseID)"
+                };
+
+                try {
+                    await dynamodb.put(params).promise();
+                    return {
+                        statusCode: 200,
+                        body: JSON.stringify({ success: true })
+                    };
+                } catch (err) {
+                    if (err.code === "ConditionalCheckFailedException") {
+                        return {
+                            statusCode: 409,
+                            body: JSON.stringify({ error: `passphraseID \"${passphraseID}\" already exists` })
+                        };
+                    }
+                    throw err; // let your top-level error wrapper log & 500
+                }
 
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
@@ -2831,9 +2893,9 @@ try {
                 actionFile = reqPath.split("?")[0].split("/")[3];
                 //console.log("runEntity inside", actionFile)
                 let subBySU = await getSub(actionFile, "su", dynamodb);
-                console.log("actionFile",actionFile)
-                console.log("subBySU",subBySU)
-    
+                console.log("actionFile", actionFile)
+                console.log("subBySU", subBySU)
+
                 console.log("subBySU.Items[0].output", subBySU.Items[0].output);
                 console.log("typeof subBySU.Items[0].output", typeof subBySU.Items[0].output);
                 if (subBySU.Items[0].output == undefined || subBySU.Items[0].output == "") {
