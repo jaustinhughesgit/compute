@@ -2892,7 +2892,11 @@ function subdomains(domain){
                 const params = {
                     TableName: "passphrases",
                     Key: { passphraseID },
-                    ProjectionExpression: "keyVersion, wrapped"
+                    ProjectionExpression: "#kv, #wr",              // use aliases
+                    ExpressionAttributeNames: {
+                        "#kv": "keyVersion",
+                        "#wr": "wrapped"
+                    }
                 };
 
                 const { Item } = await dynamodb.get(params).promise();
