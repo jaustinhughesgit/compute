@@ -2839,11 +2839,11 @@ function subdomains(domain){
                 }
 
                 mainObj = {
-                        pubEnc: Item.pubEnc,
-                        pubSig: Item.pubSig,
-                        latestKeyVersion: Item.latestKeyVersion,
-                        requestId: reqBody.body.requestId
-                    }
+                    pubEnc: Item.pubEnc,
+                    pubSig: Item.pubSig,
+                    latestKeyVersion: Item.latestKeyVersion,
+                    requestId: reqBody.body.requestId
+                }
 
                 /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
             } else if (action === "wrapPassphrase" || action === "addPassphrase") {
@@ -2864,17 +2864,63 @@ function subdomains(domain){
                     Item: {
                         passphraseID,
                         keyVersion: Number(keyVersion),
-                        wrapped,  
+                        wrapped,
                         created: new Date().toISOString()
                     },
                     ConditionExpression: "attribute_not_exists(passphraseID)"
                 };
 
-                    let dynRes = await dynamodb.put(params).promise();
-                    console.log("dynRes",dynRes)
-                    mainObj = { success: true }
-                   
+                let dynRes = await dynamodb.put(params).promise();
+                console.log("dynRes", dynRes)
+                mainObj = { success: true }
 
+            } else if (action === "decryptPassphrase") {
+                console.log("decryptPassphrase555");
+                console.log("reqBody.body", reqBody.body);
+
+                /* 1. Sanitise / validate input */
+                const { passphraseID, userID, requestId } = reqBody.body || {};
+                if (!passphraseID || !userID) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: "passphraseID and userID required" })
+                    };
+                }
+
+                /* 2. Look up the wrapped blob for this user only
+                 *    (projection keeps RCUs low and avoids sending the whole object)   */
+                const params = {
+                    TableName: "passphrases",
+                    Key: { passphraseID },
+                    ProjectionExpression: "keyVersion, wrapped"
+                };
+
+                const { Item } = await dynamodb.get(params).promise();
+
+                if (!Item) {
+                    return {
+                        statusCode: 404,
+                        body: JSON.stringify({ error: "passphrase not found" })
+                    };
+                }
+
+                const cipherB64 = Item.wrapped?.[userID];
+                if (!cipherB64) {
+                    return {
+                        statusCode: 403,                                // caller is authenticated but not authorised
+                        body: JSON.stringify({ error: "no wrapped data for this user" })
+                    };
+                }
+
+                /* 3. Build response object — echoed back to the browser-side
+                 *    module via worker → PrimaryModule routing.                    */
+                mainObj = {
+                    passphraseID,
+                    userID,
+                    cipherB64,                 // BASE64 string:  [ephemeralPub||IV||ciphertext]
+                    keyVersion: Item.keyVersion,
+                    requestId                  // echoed for caller correlation
+                };
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
