@@ -370,7 +370,8 @@ async function convertToJSON(
     }
     console.log("1")
     let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
-    const linked = entity.Items[0].l;
+    // pull linked children from the links table (was entity.Items[0].l)
+    const linked = await getLinkedChildren(entity.Items[0].e, dynamodb);
     const head = await getWord(entity.Items[0].a, dynamodb);
     const name = head.Items[0].r;
     const pathUUID = await getUUID(uuidv4)
@@ -468,17 +469,31 @@ async function convertToJSON(
     }
     console.log("7")
     if (linked && linked.length > 0) {
-        const linkedPromises = linked.map(async (link) => {
-            const subByE = await getSub(link, "e", dynamodb);
+        const linkedPromises = linked.map(async (childE) => {
+            const subByE = await getSub(childE, "e", dynamodb);
             const uuid = subByE.Items[0].su;
-            //console.log("performing convertToJSON LINKED")
-            return await convertToJSON(uuid, newParentPath, false, null, cookie, dynamodb, uuidv4, pathUUID, newParentPath2, id2Path, usingID, dynamodbLL, body, substitutingID);
+            return await convertToJSON(
+                uuid,
+                newParentPath,
+                false,
+                null,
+                cookie,
+                dynamodb,
+                uuidv4,
+                pathUUID,
+                newParentPath2,
+                id2Path,
+                usingID,
+                dynamodbLL,
+                body,
+                substitutingID
+            );
         });
         const linkedResponses = await Promise.all(linkedPromises);
-        for (const linkedResponse of linkedResponses) {
-            Object.assign(obj[fileID].linked, linkedResponse.obj);
-            Object.assign(paths, linkedResponse.paths);
-            Object.assign(paths2, linkedResponse.paths2);
+        for (const lr of linkedResponses) {
+            Object.assign(obj[fileID].linked, lr.obj);
+            Object.assign(paths, lr.paths);
+            Object.assign(paths2, lr.paths2);
         }
     }
     console.log("8")
@@ -590,6 +605,113 @@ const wordExists = async (word, dynamodb) => {
         return { exists: false };
     }
 };
+
+//new link helpers
+
+/* ───────────────────────────── links table helpers ───────────────────────────── */
+
+function makeLinkId(wholeE, partE) {
+    return `lnk#${wholeE}#${partE}`;            // stable id → mirrors linksById style
+}
+
+function makeCKey(wholeE, partE) {
+    return `${wholeE}|${partE}`;                // collision-free composite key
+}
+
+/** Idempotent: creates a link wholeE → partE if it doesn't already exist */
+async function putLink(wholeE, partE, dynamodb) {
+    const id = makeLinkId(wholeE, partE);
+    const ckey = makeCKey(wholeE, partE);
+    try {
+        await dynamodb.put({
+            TableName: "links",
+            Item: {
+                id, whole: wholeE, part: partE,
+                ckey, type: "link", ts: Date.now()
+            },
+            ConditionExpression: "attribute_not_exists(id)"
+        }).promise();
+    } catch (err) {
+        if (err.code !== "ConditionalCheckFailedException") throw err; // already exists
+    }
+    return { id, ckey };
+}
+
+/** Idempotent delete by pair */
+async function deleteLink(wholeE, partE, dynamodb) {
+    const ckey = makeCKey(wholeE, partE);
+    const q = await dynamodb.query({
+        TableName: "links",
+        IndexName: "ckeyIndex",
+        KeyConditionExpression: "ckey = :ck",
+        ExpressionAttributeValues: { ":ck": ckey },
+        Limit: 1
+    }).promise();
+    if (!q.Items || !q.Items.length) return false;
+    await dynamodb.delete({
+        TableName: "links",
+        Key: { id: q.Items[0].id }
+    }).promise();
+    return true;
+}
+
+/** children of E (was: entity.Items[0].l) */
+async function getLinkedChildren(e, dynamodb) {
+    const res = await dynamodb.query({
+        TableName: "links",
+        IndexName: "wholeIndex",
+        KeyConditionExpression: "whole = :e",
+        ExpressionAttributeValues: { ":e": e }
+    }).promise();
+    return (res.Items || []).map(it => it.part);
+}
+
+/** parents of E (was: entity.Items[0].o) */
+async function getLinkedParents(e, dynamodb) {
+    const res = await dynamodb.query({
+        TableName: "links",
+        IndexName: "partIndex",
+        KeyConditionExpression: "part = :e",
+        ExpressionAttributeValues: { ":e": e }
+    }).promise();
+    return (res.Items || []).map(it => it.whole);
+}
+
+/** one-time migration: copy .l/.o from entities → links (idempotent) */
+async function migrateLinksFromEntities(dynamodb) {
+    let created = 0, scanned = 0, last;
+    do {
+        const batch = await dynamodb.scan({
+            TableName: "entities",
+            ProjectionExpression: "e, #l, #o",
+            ExpressionAttributeNames: { "#l": "l", "#o": "o" },
+            ExclusiveStartKey: last
+        }).promise();
+        for (const item of (batch.Items || [])) {
+            scanned++;
+            const eThis = item.e;
+            if (Array.isArray(item.l)) {
+                for (const childE of item.l) {
+                    await putLink(eThis, childE, dynamodb);
+                    created++;
+                }
+            }
+            if (Array.isArray(item.o)) {
+                for (const parentE of item.o) {
+                    await putLink(parentE, eThis, dynamodb);
+                    created++;
+                }
+            }
+        }
+        last = batch.LastEvaluatedKey;
+    } while (last);
+    return { scanned, created };
+}
+
+
+//end new link helpers
+
+
 const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
     const response = await dynamodb.update({
         TableName: tableName,
@@ -904,17 +1026,20 @@ const updateSubPermission = async (su, val, dynamodb, s3) => {
 
     return { status: 'All versions moved successfully' };
 }
-async function linkEntities(childID, parentID) {
-    var childE = await getSub(childID, "su", dynamodb);
-    var parentE = await getSub(parentID, "su", dynamodb);
-    const eParent = await getEntity(parentE.Items[0].e, dynamodb)
-    const eChild = await getEntity(childE.Items[0].e, dynamodb)
-    var detailsChild = await addVersion(childE.Items[0].e, "o", parentE.Items[0].e, eChild.Items[0].c, dynamodb);
-    var updateEntityC = await updateEntity(childE.Items[0].e, "o", parentE.Items[0].e, detailsChild.v, detailsChild.c, dynamodb)
-    var detailsParent = await addVersion(parentE.Items[0].e, "l", childE.Items[0].e, eParent.Items[0].c, dynamodb);
-    var updateEntityP = await updateEntity(parentE.Items[0].e, "l", childE.Items[0].e, detailsParent.v, detailsParent.c, dynamodb)
-    return "success"
+// OLD linkEntities(...) → REPLACE ENTIRE FUNCTION
+async function linkEntities(childSU, parentSU, dynamodb) {
+    const childSub = await getSub(childSU, "su", dynamodb);
+    const parentSub = await getSub(parentSU, "su", dynamodb);
+    if (!childSub.Items.length || !parentSub.Items.length) return "not-found";
+
+    const childE = childSub.Items[0].e;
+    const parentE = parentSub.Items[0].e;
+
+    // write to links table (no more .l/.o on entities)
+    await putLink(parentE, childE, dynamodb);
+    return "success";
 }
+
 async function email(from, to, subject, emailText, emailHTML, ses) {
     const params = {
         Source: from,
@@ -1583,7 +1708,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
-            } else if (action == "createLinks") {
+            } else if (action == "resetDB") {
                 try {
                     for (const tableName of tablesToClear) {
                         await clearTable(tableName, dynamodb);
@@ -1598,7 +1723,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.error('Error resetting database:', error);
                     mainObj = { "alert": "failed" }
                 }
-            } else if (action === "resetDB") {
+            } else if (action === "createLinks") {
                 // create DynamoDB "links" table (id PK + wholeIndex, partIndex, ckeyIndex)
                 try {
                     const TableName = "links";
@@ -1722,10 +1847,31 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
                 mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
             } else if (action === "link") {
-                const childID = reqPath.split("/")[3]
-                const parentID = reqPath.split("/")[4]
-                await linkEntities(childID, parentID)
-                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+                const childID = reqPath.split("/")[3];   // su of child
+                const parentID = reqPath.split("/")[4];  // su of parent
+                await linkEntities(childID, parentID, dynamodb);
+                // re-emit the child tree after linking
+                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+            } else if (action === "unlink") {
+                const childID = reqPath.split("/")[3];   // su of child
+                const parentID = reqPath.split("/")[4];  // su of parent
+                const childSub = await getSub(childID, "su", dynamodb);
+                const parentSub = await getSub(parentID, "su", dynamodb);
+                if (childSub.Items.length && parentSub.Items.length) {
+                    const childE = childSub.Items[0].e;
+                    const parentE = parentSub.Items[0].e;
+                    await deleteLink(parentE, childE, dynamodb);
+                }
+                // return updated child view
+                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+            } else if (action === "migrateLinks") {
+                try {
+                    const stats = await migrateLinksFromEntities(dynamodb);
+                    mainObj = { alert: "ok", migrated: stats.created, scanned: stats.scanned, table: "links" };
+                } catch (err) {
+                    console.error("migrateLinks failed:", err);
+                    mainObj = { alert: "failed", error: String(err?.message || err) };
+                }
             } else if (action === "newGroup") {
                 if (cookie != undefined) {
                     const newGroupName = reqPath.split("/")[3]
@@ -3162,5 +3308,11 @@ module.exports = {
     addVersion,
     updateEntity,
     getEntity,
-    verifyThis
+    verifyThis,
+
+    // NEW:
+    getLinkedChildren,
+    getLinkedParents,
+    putLink,
+    deleteLink
 }
