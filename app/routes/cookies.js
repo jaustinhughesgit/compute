@@ -1583,7 +1583,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
-            } else if (action == "resetDB") {
+            } else if (action == "createLinks") {
                 try {
                     for (const tableName of tablesToClear) {
                         await clearTable(tableName, dynamodb);
@@ -1598,7 +1598,72 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                     console.error('Error resetting database:', error);
                     mainObj = { "alert": "failed" }
                 }
+            } else if (action === "resetDB") {
+                // create DynamoDB "links" table (id PK + wholeIndex, partIndex, ckeyIndex)
+                try {
+                    const TableName = "links";
+                    // use the low-level client if you passed it in; else make one
+                    const ddbLL = dynamodbLL || new AWS.DynamoDB({ region: "us-east-1" });
 
+                    // 1) check if table exists
+                    let exists = false;
+                    try {
+                        await ddbLL.describeTable({ TableName }).promise();
+                        exists = true;
+                    } catch (err) {
+                        if (err.code !== "ResourceNotFoundException") throw err;
+                    }
+
+                    if (!exists) {
+                        // 2) create with PAY_PER_REQUEST + 3 GSIs
+                        const params = {
+                            TableName,
+                            BillingMode: "PAY_PER_REQUEST",
+                            AttributeDefinitions: [
+                                { AttributeName: "id", AttributeType: "S" },
+                                { AttributeName: "whole", AttributeType: "S" },
+                                { AttributeName: "part", AttributeType: "S" },
+                                { AttributeName: "ckey", AttributeType: "S" },
+                                { AttributeName: "type", AttributeType: "S" }, // GSI sort key
+                            ],
+                            KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+                            GlobalSecondaryIndexes: [
+                                {
+                                    IndexName: "wholeIndex",
+                                    KeySchema: [
+                                        { AttributeName: "whole", KeyType: "HASH" },
+                                        { AttributeName: "type", KeyType: "RANGE" }
+                                    ],
+                                    Projection: { ProjectionType: "ALL" }
+                                },
+                                {
+                                    IndexName: "partIndex",
+                                    KeySchema: [
+                                        { AttributeName: "part", KeyType: "HASH" },
+                                        { AttributeName: "type", KeyType: "RANGE" }
+                                    ],
+                                    Projection: { ProjectionType: "ALL" }
+                                },
+                                {
+                                    IndexName: "ckeyIndex",
+                                    KeySchema: [{ AttributeName: "ckey", KeyType: "HASH" }],
+                                    Projection: { ProjectionType: "ALL" }
+                                }
+                            ]
+                        };
+
+                        await ddbLL.createTable(params).promise();
+                        // wait until active
+                        await ddbLL.waitFor("tableExists", { TableName }).promise();
+
+                        mainObj = { alert: "created", table: TableName };
+                    } else {
+                        mainObj = { alert: "already-exists", table: TableName };
+                    }
+                } catch (error) {
+                    console.error("createLinks failed:", error);
+                    mainObj = { alert: "failed", error: String(error?.message || error) };
+                }
             } else if (action == "add") {
                 const fileID = reqPath.split("/")[3];
                 const newEntityName = reqPath.split("/")[4];
@@ -2851,14 +2916,14 @@ function subdomains(domain){
                 console.log("reqBody.body", reqBody.body)
                 const { passphraseID, keyVersion, wrapped } = reqBody.body || {};
 
-                console.log("passphraseID",passphraseID)
-                console.log("keyVersion",keyVersion)
-                console.log("wrapped",wrapped)
-                console.log("typeof wrapped",typeof wrapped)
+                console.log("passphraseID", passphraseID)
+                console.log("keyVersion", keyVersion)
+                console.log("wrapped", wrapped)
+                console.log("typeof wrapped", typeof wrapped)
                 // Basic validation
                 if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
                     mainObj = { error: "Invalid payload" };
-                    } else {
+                } else {
 
                     const params = {
                         TableName: "passphrases",
