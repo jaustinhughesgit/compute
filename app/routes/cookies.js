@@ -5,7 +5,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   const express = require('express');
   const router = express.Router();
   const AWS = require('aws-sdk');
-  const signer = new AWS.CloudFront.Signer('...', privateKey);
+  const signer = new AWS.CloudFront.Signer('K2LZRHRSYZRU3Y', privateKey);
 
   const shared = createShared({ dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic });
 
