@@ -1,4 +1,4 @@
-// routes/cookies.js (controller)
+// routes/cookies.js
 const { createShared } = require('./shared');
 
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
@@ -9,48 +9,60 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   const shared = createShared({ dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic });
 
-  // ── Core modules
-  require('./modules/get').register({ on: shared.on, use: shared.use });
-  require('./modules/file').register({ on: shared.on, use: shared.use });   // file + reqPut
-  require('./modules/links').register({ on: shared.on, use: shared.use });  // createLinks, migrateLinks, link, unlink
-  require('./modules/tasks').register({ on: shared.on, use: shared.use });  // tasks, createTask, deleteTask
-  require('./modules/groups').register({ on: shared.on, use: shared.use }); // newGroup, useGroup, substituteGroup
+  const regOpts = { on: shared.on, use: shared.use };
+  const registerModule = (p) => {
+    let mod = require(p);
+    const candidate =
+      (mod && typeof mod.register === 'function' && mod) ||
+      (mod && mod.default && typeof mod.default.register === 'function' && mod.default) ||
+      null;
+    if (!candidate) {
+      const keys = mod ? Object.keys(mod) : [];
+      throw new TypeError(`Module "${p}" does not export register(); keys=[${keys.join(', ')}]`);
+    }
+    return candidate.register(regOpts);
+  };
 
-  // ── Newly added modules
-  require('./modules/validation').register({ on: shared.on, use: shared.use });       // validation, saveAuthenticator, makeAuthenticator, useAuthenticator
-  require('./modules/updateEntityByAI').register({ on: shared.on, use: shared.use }); // updateEntityByAI
-  require('./modules/position').register({ on: shared.on, use: shared.use });         // position
-  require('./modules/search').register({ on: shared.on, use: shared.use });           // search
-  require('./modules/getFile').register({ on: shared.on, use: shared.use });          // getFile
+  // Core
+  registerModule('./modules/get');
+  registerModule('./modules/file');
+  registerModule('./modules/links');
+  registerModule('./modules/tasks');
+  registerModule('./modules/groups');
 
-  // ── Added per request
-  require('./modules/shorthand').register({ on: shared.on, use: shared.use });        // shorthand
-  require('./modules/convert').register({ on: shared.on, use: shared.use });          // convert
-  require('./modules/embed').register({ on: shared.on, use: shared.use });            // embed
-  require('./modules/users').register({ on: shared.on, use: shared.use });            // createUser, getUserPubKeys
-  require('./modules/passphrases').register({ on: shared.on, use: shared.use });      // wrapPassphrase, addPassphrase, decryptPassphrase
+  // Newly added
+  registerModule('./modules/validation');
+  registerModule('./modules/updateEntityByAI');
+  registerModule('./modules/position');
+  registerModule('./modules/search');
+  registerModule('./modules/getFile');
 
-  // ── Existing registrations you already had
-  require('./modules/map').register({ on: shared.on, use: shared.use });
-  require('./modules/extend').register({ on: shared.on, use: shared.use });
-  require('./modules/saveFile').register({ on: shared.on, use: shared.use });
-  require('./modules/makePublic').register({ on: shared.on, use: shared.use });
-  require('./modules/fineTune').register({ on: shared.on, use: shared.use }); // add/create/list/delete/events/retrieve/cancel
+  // Extras
+  registerModule('./modules/shorthand');
+  registerModule('./modules/convert');
+  registerModule('./modules/embed');
+  registerModule('./modules/users');
+  registerModule('./modules/passphrases');
 
-
-  require('./modules/runEntity').register({ on: shared.on, use: shared.use });
-  require('./modules/resetDB').register({ on: shared.on, use: shared.use });
-  require('./modules/add').register({ on: shared.on, use: shared.use });
-  require('./modules/addIndex').register({ on: shared.on, use: shared.use });
+  // Existing
+  registerModule('./modules/map');
+  registerModule('./modules/extend');
+  registerModule('./modules/saveFile');
+  registerModule('./modules/makePublic');
+  registerModule('./modules/fineTune');
+  registerModule('./modules/runEntity');
+  registerModule('./modules/resetDB');
+  registerModule('./modules/add');
+  registerModule('./modules/addIndex');
 
   router.all('/*', async (req, res) => {
     const reqPath = (req.path || '').split('?')[0];
-    const action = (reqPath.split('/')[2] || '').trim(); // e.g. "get", "file", "reqPut", etc.
+    const action = (reqPath.split('/')[2] || '').trim();
 
     const ctx = {
       req, res,
       path: reqPath,
-      type: req.query?.type,          // enables file module's "url" branch (signed URL)
+      type: req.query?.type,
       signer,
       deps: { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
     };
