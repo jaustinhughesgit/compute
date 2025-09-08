@@ -227,7 +227,7 @@ async function getPrivateKey() {
     try {
         const data = await SM.getSecretValue({ SecretId: secretName }).promise();
         const secret = JSON.parse(data.SecretString);
-        let pKey = JSON.stringify(secret.privateKey).replace(/###/g, "\n").replace('"', '').replace('"', '');
+        const pKey = (secret.privateKey || '').replace(/###/g, "\n");
         return pKey
     } catch (error) {
         //console.error("Error fetching secret:", error);
@@ -1206,7 +1206,7 @@ async function initializeMiddleware(req, res, next) {
         let xAccessToken = req.body.headers["X-accessToken"]
         if (reqPath.split("/")[1] == "api") {
             head = await getHead("su", reqPath.split("/")[2], dynamodb)
-            cookie = await manageCookie({}, req, xAccessToken, dynamodb, uuidv4)
+            cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
             parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
             fileArray = parent.paths[reqPath.split("/")[2]];
         } else {
