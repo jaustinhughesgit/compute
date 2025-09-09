@@ -9,6 +9,7 @@
  *  • New shared-dispatch ctx: { reqBody, reqPath, ... }
  */
 async function addIndexHandle(ctxOrArgs) {
+  console.log("addIndex")
   // Legacy mode: called directly with args
   if (ctxOrArgs && (ctxOrArgs.target !== undefined || ctxOrArgs.note !== undefined) && !ctxOrArgs.reqBody) {
     const { target, note } = ctxOrArgs || {};
@@ -39,6 +40,7 @@ module.exports.handle = addIndexHandle;
 
 // Required by your loader: wire the action name → handler
 module.exports.register = function register({ on /*, use */ }) {
+  console.log("addIndex")
   on("addIndex", addIndexHandle);
 };
 

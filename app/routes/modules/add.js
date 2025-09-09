@@ -14,6 +14,7 @@
  */
 
 async function addHandle(ctx, use) {
+  console.log("add")
   const { dynamodb, uuidv4 } = (ctx.deps || {});
   const parts = (ctx.path || "").split("?")[0].split("/");
 
@@ -88,6 +89,7 @@ async function addHandle(ctx, use) {
 
 // Back-compat export (if something calls this module directly)
 module.exports.handle = async function handle(ctx) {
+  console.log("add")
   const use = ctx.use || {}; // if the caller injected helpers on ctx
   return addHandle(ctx, use);
 };

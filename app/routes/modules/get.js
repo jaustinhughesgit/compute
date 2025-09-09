@@ -3,6 +3,7 @@
 
 module.exports.register = ({ on, use }) => {
   on("get", async (ctx, { cookie }) => {
+    console.log("get1")
     const { dynamodb, uuidv4, dynamodbLL } = ctx.deps;
 
     const convertToJSON = use("convertToJSON");
@@ -21,6 +22,7 @@ module.exports.register = ({ on, use }) => {
     mainObj.tasks   = await getTasksIOS(tasksUnix);
     mainObj.file    = fileID;
 
+    console.log("get2")
     return { ok: true, response: mainObj };
   });
 };
