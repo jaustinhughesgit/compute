@@ -666,10 +666,12 @@ function createShared(deps = {}) {
   }
 
   /* ───────────────────────────── expose helpers on bus ────────────────────────── */
+    /* ───────────────────────────── expose helpers on bus ────────────────────────── */
   expose("sendBack", sendBack);
   expose("fileLocation", fileLocation);
   expose("setIsPublic", setIsPublic);
 
+  // read/query helpers (modules may pass dynamodb themselves)
   expose("getSub", getSub);
   expose("getEntity", getEntity);
   expose("getWord", getWord);
@@ -695,23 +697,33 @@ function createShared(deps = {}) {
   expose("verifyThis", verifyThis);
   expose("convertToJSON", convertToJSON);
 
-  // counters + create/update suite
-  expose("incrementCounterAndGetNewValue", incrementCounterAndGetNewValue);
-  expose("incrementCounter",               incrementCounterAndGetNewValue); // alias
-  expose("nextCounterValue",               incrementCounterAndGetNewValue); // alias
+  // ── write helpers: bind deps so modules don't need to pass clients ──
+  const ddb   = deps?.dynamodb;
+  const s3    = deps?.s3;
+  const ses   = deps?.ses;
 
-  expose("createWord",      createWord);
-  expose("createGroup",     createGroup);
-  expose("createAccess",    createAccess);
-  expose("createVerified",  createVerified);
-  expose("createSubdomain", createSubdomain);
+  // counters
+  expose("incrementCounterAndGetNewValue", (table) => incrementCounterAndGetNewValue(table, ddb));
+  expose("incrementCounter",               (table) => incrementCounterAndGetNewValue(table, ddb)); // alias
+  expose("nextCounterValue",               (table) => incrementCounterAndGetNewValue(table, ddb)); // alias
 
-  expose("addVersion",   addVersion);
-  expose("updateEntity", updateEntity);
-  expose("createEntity", createEntity);
+  // create/update
+  expose("createWord",      (a, r)                       => createWord(a, r, ddb));
+  expose("createGroup",     (g, a, e, aiArr)             => createGroup(g, a, e, aiArr, ddb));
+  expose("createAccess",    (ai, g, e, dg, rl, dr, va, perms) =>
+                                              createAccess(ai, g, e, dg, rl, dr, va, perms, ddb));
+  expose("createVerified",  (vi, gi, g, e, ai, bo, ex, ok, zx, zy) =>
+                                              createVerified(vi, gi, g, e, ai, bo, ex, ok, zx, zy, ddb));
+  expose("createSubdomain", (su, a, e, g, isPublic)      => createSubdomain(su, a, e, g, isPublic, ddb));
 
-  expose("createFile", createFile);
-  expose("email",      email);
+  expose("addVersion",   (e, code, a, current)           => addVersion(e, code, a, current, ddb));
+  expose("updateEntity", (e, code, value, v, c)          => updateEntity(e, code, value, v, c, ddb));
+  expose("createEntity", (e, a, v, g, h, aiArr)          => createEntity(e, a, v, g, h, aiArr, ddb));
+
+  // storage + email
+  expose("createFile", (su, payload) => createFile(su, payload, s3));
+  expose("email",      (from, to, subject, text, html) => email(from, to, subject, text, html, ses));
+
 
   /* ─────────────────────────────── public API ─────────────────────────────────── */
   return {
