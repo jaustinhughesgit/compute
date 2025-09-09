@@ -8,25 +8,33 @@ module.exports.register = ({ on, use }) => {
   on('newGroup', async (ctx, { cookie }) => {
     const { dynamodb, uuidv4, s3, ses, dynamodbLL } = ctx.deps;
 
-    const increment      = use('incrementCounterAndGetNewValue');
-    const createWord     = use('createWord');
-    const createGroup    = use('createGroup');
-    const createAccess   = use('createAccess');
-    const createVerified = use('createVerified');
-    const createSubdomain= use('createSubdomain');
-    const addVersion     = use('addVersion');
-    const createEntity   = use('createEntity');
-    const createFile     = use('createFile');
-    const getUUID        = use('getUUID');
-    const convertToJSON  = use('convertToJSON');
-    const email          = use('email');
+    const increment       = use('incrementCounterAndGetNewValue');
+    const createWord      = use('createWord');
+    const createGroup     = use('createGroup');
+    const createAccess    = use('createAccess');
+    const createVerified  = use('createVerified');
+    const createSubdomain = use('createSubdomain');
+    const addVersion      = use('addVersion');
+    const createEntity    = use('createEntity');
+    const createFile      = use('createFile');
+    const getUUID         = use('getUUID');
+    const convertToJSON   = use('convertToJSON');
+    const email           = use('email');
+    const manageCookie    = use('manageCookie');
 
-    const parts = ctx.path.split('/'); // e.g. "/newGroup/<name>/<head>/<uuid?>"
-    const [, newGroupName, headEntityName, headUUIDToShow] = parts;
+    // ctx.path is normalized (e.g. "/<name>/<head>/<uuid?>")
+    const segs = ctx.path.split('/').filter(Boolean);
+    const [newGroupName, headEntityName, headUUIDToShow] = segs;
 
     if (!newGroupName || !headEntityName) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
     }
+
+    // Ensure we have a cookie with gi (bootstraps if missing)
+    const ensuredCookie =
+      cookie?.gi
+        ? cookie
+        : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
 
     // Words & ids
     const aNewG = await increment('wCounter', dynamodb);
@@ -40,13 +48,33 @@ module.exports.register = ({ on, use }) => {
     const ai    = await increment('aiCounter', dynamodb);
 
     // Access + verified
-    await createAccess(ai.toString(), gNew.toString(), '0',
-      { count: 1, metric: 'year' }, 10, { count: 1, metric: 'minute' }, {}, 'rwado');
+    await createAccess(
+      ai.toString(),
+      gNew.toString(),
+      '0',
+      { count: 1, metric: 'year' },
+      10,
+      { count: 1, metric: 'minute' },
+      {},
+      'rwado'
+    );
 
     const ttlSeconds = 90_000;
     const exUnix     = Math.floor(Date.now()/1000) + ttlSeconds;
     const vi         = await increment('viCounter', dynamodb);
-    await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), '0', ai.toString(), '0', exUnix, true, 0, 0);
+
+    await createVerified(
+      vi.toString(),
+      ensuredCookie.gi.toString(),
+      gNew.toString(),
+      '0',
+      ai.toString(),
+      true,   // bo: explicitly boolean
+      exUnix,
+      true,
+      0,
+      0
+    );
 
     // Create group + head entity + subs
     await createGroup(gNew.toString(), aG, eNew.toString(), [ai.toString()], dynamodb);
@@ -56,7 +84,15 @@ module.exports.register = ({ on, use }) => {
     await createSubdomain(suRoot, '0', '0', gNew.toString(), true, dynamodb);
 
     const vHead = await addVersion(eNew.toString(), 'a', aE.toString(), null, dynamodb);
-    await createEntity(eNew.toString(), aE.toString(), vHead.v, gNew.toString(), eNew.toString(), [ai.toString()], dynamodb);
+    await createEntity(
+      eNew.toString(),
+      aE.toString(),
+      vHead.v,
+      gNew.toString(),
+      eNew.toString(),
+      [ai.toString()],
+      dynamodb
+    );
 
     const suDoc = await getUUID(); // was: getUUID(uuidv4)
     const payload = {
@@ -109,7 +145,7 @@ module.exports.register = ({ on, use }) => {
     // Fire a verification email (matches original shape)
     const from = 'noreply@email.1var.com';
     const to   = 'austin@1var.com';
-    const subject  = '1 VAR - Email Address Verification Request';
+    const subject   = '1 VAR - Email Address Verification Request';
     const verifyURL = `http://1var.com/verify/${suRoot}`;
     const text  = `Dear 1 Var User,\n\nWe have received a request to create a new group at 1 VAR. If you requested this, please visit:\n\n${verifyURL}`;
     const html  = `Dear 1 Var User,<br><br>We have received a request to create a new group at 1 VAR. If you requested this, please visit:<br><br>${verifyURL}`;
@@ -117,7 +153,7 @@ module.exports.register = ({ on, use }) => {
 
     // Return the new document view
     const mainObj = await convertToJSON(
-      suDoc, [], null, null, cookie, dynamodb, uuidv4,
+      suDoc, [], null, null, ensuredCookie, dynamodb, uuidv4,
       null, [], {}, '', dynamodbLL, ctx.req.body
     );
 
@@ -133,17 +169,38 @@ module.exports.register = ({ on, use }) => {
     const updateEntity  = use('updateEntity');
     const convertToJSON = use('convertToJSON');
 
-    const parts = ctx.path.split('/');
-    const newUsingSU = parts[3];   // entity to mark as "using"
-    const headSU     = parts[4];   // head of the used group
+    // ctx.path is normalized (e.g. "/<newUsingSU>/<headSU>")
+    const segs = ctx.path.split('/').filter(Boolean);
+    const [newUsingSU, headSU] = segs;
+
+    if (!newUsingSU || !headSU) {
+      throw new Error(`useGroup expects "/<newUsingSU>/<headSU>", got "${ctx.path}"`);
+    }
 
     const usingSub = await getSub(newUsingSU, 'su', dynamodb);
+    if (!usingSub.Items?.length) throw new Error(`useGroup: subdomain not found: ${newUsingSU}`);
+
     const usedSub  = await getSub(headSU, 'su', dynamodb);
+    if (!usedSub.Items?.length) throw new Error(`useGroup: head subdomain not found: ${headSU}`);
+
     const ug = await getEntity(usingSub.Items[0].e, dynamodb);
     const ud = await getEntity(usedSub.Items[0].e, dynamodb);
 
-    const v = await addVersion(ug.Items[0].e.toString(), 'u', ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
-    await updateEntity(ug.Items[0].e.toString(), 'u', ud.Items[0].e.toString(), v.v, v.c, dynamodb);
+    const v = await addVersion(
+      ug.Items[0].e.toString(),
+      'u',
+      ud.Items[0].e.toString(),
+      ug.Items[0].c,
+      dynamodb
+    );
+    await updateEntity(
+      ug.Items[0].e.toString(),
+      'u',
+      ud.Items[0].e.toString(),
+      v.v,
+      v.c,
+      dynamodb
+    );
 
     const headOfUsing = await getSub(ug.Items[0].h, 'e', dynamodb);
     const mainObj = await convertToJSON(
@@ -164,17 +221,38 @@ module.exports.register = ({ on, use }) => {
     const updateEntity  = use('updateEntity');
     const convertToJSON = use('convertToJSON');
 
-    const parts = ctx.path.split('/');
-    const newSubstitutingSU  = parts[3];
-    const headSubstitutingSU = parts[4];
+    // ctx.path is normalized (e.g. "/<newSubstitutingSU>/<headSubstitutingSU>")
+    const segs = ctx.path.split('/').filter(Boolean);
+    const [newSubstitutingSU, headSubstitutingSU] = segs;
 
-    const sg  = await getSub(newSubstitutingSU, 'su', dynamodb);
-    const sd  = await getSub(headSubstitutingSU, 'su', dynamodb);
+    if (!newSubstitutingSU || !headSubstitutingSU) {
+      throw new Error(`substituteGroup expects "/<newSubstitutingSU>/<headSubstitutingSU>", got "${ctx.path}"`);
+    }
+
+    const sg = await getSub(newSubstitutingSU, 'su', dynamodb);
+    if (!sg.Items?.length) throw new Error(`substituteGroup: subdomain not found: ${newSubstitutingSU}`);
+
+    const sd = await getSub(headSubstitutingSU, 'su', dynamodb);
+    if (!sd.Items?.length) throw new Error(`substituteGroup: head subdomain not found: ${headSubstitutingSU}`);
+
     const sge = await getEntity(sg.Items[0].e, dynamodb);
     const sde = await getEntity(sd.Items[0].e, dynamodb);
 
-    const v = await addVersion(sge.Items[0].e.toString(), 'z', sde.Items[0].e.toString(), sge.Items[0].c, dynamodb);
-    await updateEntity(sge.Items[0].e.toString(), 'z', sde.Items[0].e.toString(), v.v, v.c, dynamodb);
+    const v = await addVersion(
+      sge.Items[0].e.toString(),
+      'z',
+      sde.Items[0].e.toString(),
+      sge.Items[0].c,
+      dynamodb
+    );
+    await updateEntity(
+      sge.Items[0].e.toString(),
+      'z',
+      sde.Items[0].e.toString(),
+      v.v,
+      v.c,
+      dynamodb
+    );
 
     const headOfSub = await getSub(sge.Items[0].h, 'e', dynamodb);
     const mainObj = await convertToJSON(
