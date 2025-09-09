@@ -44,19 +44,14 @@ function createShared(deps = {}) {
 
   const use = (name) => {
     const fn = registry[name];
-    if (!fn) {
-      throw new Error(`shared.use: "${name}" not found`);
-    }
+    if (!fn) throw new Error(`shared.use: "${name}" not found`);
     return fn;
   };
 
   /* ───────────────────────────────  util: sendBack  ───────────────────────────── */
   function sendBack(res, type, val, isShorthand = false) {
-    if (!isShorthand) {
-      res.json(val);
-    } else {
-      return val;
-    }
+    if (!isShorthand) res.json(val);
+    else return val;
   }
 
   /* ─────────────────────────────  hot path caches  ────────────────────────────── */
@@ -316,7 +311,6 @@ function createShared(deps = {}) {
 
   /* ─────────────────────────────── verification ──────────────────────────────── */
   async function verifyThis(fileID, cookie, dynamodb, body) {
-    // Minimal faithful port of your logic (short-circuits for public)
     let subBySU = await getSub(fileID, "su", dynamodb);
     if (!subBySU.Items?.length) return { verified: false, subBySU, entity: { Items: [] }, isPublic: false };
 
@@ -374,11 +368,8 @@ function createShared(deps = {}) {
     substitutingID = ""
   ) {
     const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
-    if (!verified) {
-      return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
-    }
+    if (!verified) return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
 
-    // choose children (direct t[] or custom mapping)
     const children = (mapping && mapping[subBySU.Items[0].e]) || entity.Items[0].t || [];
     const headWord = await getWord(entity.Items[0].a, dynamodb);
     const name = headWord.Items?.[0]?.r || "";
@@ -398,11 +389,7 @@ function createShared(deps = {}) {
     const paths2 = {};
 
     obj[fileID] = {
-      meta: {
-        name,
-        expanded: false,
-        head: subH.Items?.[0]?.su || ""
-      },
+      meta: { name, expanded: false, head: subH.Items?.[0]?.su || "" },
       children: {},
       linked: {},
       using: Boolean(entity.Items[0].u),
@@ -526,6 +513,7 @@ function createShared(deps = {}) {
     return g;
   }
 
+  // New(er) access shape (duration grant, rate/limit, value auth, perms)
   async function createAccess(ai, g, e, durGrant, limit, durRate, va, perms, dynamodb) {
     const item = {
       ai: String(ai),
@@ -644,9 +632,7 @@ function createShared(deps = {}) {
     const Bucket = process.env.FILES_BUCKET || process.env.PUBLIC_BUCKET || process.env.BUCKET || "1var-files";
     const Key = `${su}.json`;
     const Body = Buffer.from(JSON.stringify(payload));
-    await s3.putObject({
-      Bucket, Key, Body, ContentType: "application/json", ACL: "private"
-    }).promise();
+    await s3.putObject({ Bucket, Key, Body, ContentType: "application/json", ACL: "private" }).promise();
     return { bucket: Bucket, key: Key };
   }
 
@@ -665,8 +651,72 @@ function createShared(deps = {}) {
     return await ses.sendEmail(params).promise();
   }
 
+  /* ─────────────────────────────── cookies (legacy helpers) ──────────────────── */
+  async function createCookie(ci, gi, ex, ak, dynamodb) {
+    await dynamodb.put({
+      TableName: "cookies",
+      Item: { ci: String(ci), gi: String(gi), ex: Number(ex), ak: String(ak) }
+    }).promise();
+    return { ci, gi, ex, ak };
+  }
+  async function getCookie(val, key, dynamodb) {
+    let params;
+    if (key === "ci") {
+      params = { TableName: "cookies", KeyConditionExpression: "ci = :ci", ExpressionAttributeValues: { ":ci": String(val) } };
+    } else if (key === "ak") {
+      params = { TableName: "cookies", IndexName: "akIndex", KeyConditionExpression: "ak = :ak", ExpressionAttributeValues: { ":ak": String(val) } };
+    } else if (key === "gi") {
+      params = { TableName: "cookies", IndexName: "giIndex", KeyConditionExpression: "gi = :gi", ExpressionAttributeValues: { ":gi": String(val) } };
+    } else {
+      throw new Error("getCookie: invalid key");
+    }
+    return await dynamodb.query(params).promise();
+  }
+  async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
+    let existing = false;
+    if (xAccessToken) {
+      mainObj.status = "authenticated";
+      existing = true;
+      const cookie = await getCookie(xAccessToken, "ak", dynamodb);
+      return cookie.Items?.[0];
+    } else {
+      const ak = await getUUID(uuidv4);
+      const ci = await incrementCounterAndGetNewValue("ciCounter", dynamodb);
+      const gi = await incrementCounterAndGetNewValue("giCounter", dynamodb);
+      const ttlSeconds = 86400;
+      const ex = Math.floor(Date.now() / 1000) + ttlSeconds;
+      await createCookie(ci.toString(), gi.toString(), ex, ak, dynamodb);
+      mainObj.accessToken = ak;
+      existing = true;
+      if (res && typeof res.cookie === "function") {
+        res.cookie("accessToken", ak, {
+          domain: ".1var.com",
+          maxAge: ttlSeconds * 1000,
+          httpOnly: true,
+          secure: true,
+          sameSite: "None"
+        });
+      }
+      return { ak, gi, ex, ci, existing };
+    }
+  }
+
+  // Best-effort "getHead": given a subdomain or entity, find the head subdomain
+  async function getHead(val, dynamodb) {
+    // If val looks like a subdomain id, start there; else assume entity id
+    let sub = await getSub(val, "su", dynamodb);
+    if (!sub.Items?.length) {
+      const subByE = await getSub(val, "e", dynamodb);
+      sub = subByE;
+    }
+    if (!sub.Items?.length) return null;
+    const ent = await getEntity(sub.Items[0].e, dynamodb);
+    if (!ent.Items?.length) return null;
+    const headSu = await getSub(ent.Items[0].h, "e", dynamodb);
+    return headSu.Items?.[0]?.su || null;
+  }
+
   /* ───────────────────────────── expose helpers on bus ────────────────────────── */
-    /* ───────────────────────────── expose helpers on bus ────────────────────────── */
   expose("sendBack", sendBack);
   expose("fileLocation", fileLocation);
   expose("setIsPublic", setIsPublic);
@@ -697,42 +747,61 @@ function createShared(deps = {}) {
   expose("verifyThis", verifyThis);
   expose("convertToJSON", convertToJSON);
 
-  // ── write helpers: bind deps so modules don't need to pass clients ──
-  const ddb   = deps?.dynamodb;
-  const s3    = deps?.s3;
-  const ses   = deps?.ses;
+  // ── write helpers: lazily read deps at call-time (avoid stale capture) ──
+  function getDocClient() {
+    const d = deps?.dynamodb;
+    if (!d || typeof d.put !== "function") {
+      throw new Error("shared: deps.dynamodb must be an AWS.DynamoDB.DocumentClient (missing .put).");
+    }
+    return d;
+  }
+  function getS3() {
+    const c = deps?.s3;
+    if (!c || typeof c.putObject !== "function") {
+      throw new Error("shared: deps.s3 must be an S3 client (missing .putObject).");
+    }
+    return c;
+  }
+  function getSES() {
+    const c = deps?.ses;
+    if (!c || typeof c.sendEmail !== "function") {
+      throw new Error("shared: deps.ses must be an SES client (missing .sendEmail).");
+    }
+    return c;
+  }
 
   // counters
-  expose("incrementCounterAndGetNewValue", (table) => incrementCounterAndGetNewValue(table, ddb));
-  expose("incrementCounter",               (table) => incrementCounterAndGetNewValue(table, ddb)); // alias
-  expose("nextCounterValue",               (table) => incrementCounterAndGetNewValue(table, ddb)); // alias
+  expose("incrementCounterAndGetNewValue", (table) => incrementCounterAndGetNewValue(table, getDocClient()));
+  expose("incrementCounter",               (table) => incrementCounterAndGetNewValue(table, getDocClient())); // alias
+  expose("nextCounterValue",               (table) => incrementCounterAndGetNewValue(table, getDocClient())); // alias
 
   // create/update
-  expose("createWord",      (a, r)                       => createWord(a, r, ddb));
-  expose("createGroup",     (g, a, e, aiArr)             => createGroup(g, a, e, aiArr, ddb));
+  expose("createWord",      (a, r)                       => createWord(a, r, getDocClient()));
+  expose("createGroup",     (g, a, e, aiArr)             => createGroup(g, a, e, aiArr, getDocClient()));
   expose("createAccess",    (ai, g, e, dg, rl, dr, va, perms) =>
-                                              createAccess(ai, g, e, dg, rl, dr, va, perms, ddb));
+                                              createAccess(ai, g, e, dg, rl, dr, va, perms, getDocClient()));
   expose("createVerified",  (vi, gi, g, e, ai, bo, ex, ok, zx, zy) =>
-                                              createVerified(vi, gi, g, e, ai, bo, ex, ok, zx, zy, ddb));
-  expose("createSubdomain", (su, a, e, g, isPublic)      => createSubdomain(su, a, e, g, isPublic, ddb));
+                                              createVerified(vi, gi, g, e, ai, bo, ex, ok, zx, zy, getDocClient()));
+  expose("createSubdomain", (su, a, e, g, isPublic)      => createSubdomain(su, a, e, g, isPublic, getDocClient()));
 
-  expose("addVersion",   (e, code, a, current)           => addVersion(e, code, a, current, ddb));
-  expose("updateEntity", (e, code, value, v, c)          => updateEntity(e, code, value, v, c, ddb));
-  expose("createEntity", (e, a, v, g, h, aiArr)          => createEntity(e, a, v, g, h, aiArr, ddb));
+  expose("addVersion",      (e, code, a, current)        => addVersion(e, code, a, current, getDocClient()));
+  expose("updateEntity",    (e, code, value, v, c)       => updateEntity(e, code, value, v, c, getDocClient()));
+  expose("createEntity",    (e, a, v, g, h, aiArr)       => createEntity(e, a, v, g, h, aiArr, getDocClient()));
 
   // storage + email
-  expose("createFile", (su, payload) => createFile(su, payload, s3));
-  expose("email",      (from, to, subject, text, html) => email(from, to, subject, text, html, ses));
+  expose("createFile", (su, payload) => createFile(su, payload, getS3()));
+  expose("email",      (from, to, subject, text, html) => email(from, to, subject, text, html, getSES()));
 
+  // legacy binds expected by cookies.js
+  expose("createCookie", (ci, gi, ex, ak) => createCookie(ci, gi, ex, ak, getDocClient()));
+  expose("getCookie",    (val, key)       => getCookie(val, key, getDocClient()));
+  expose("manageCookie", (mainObj, xAccessToken, res, dynamodb, uuidv4) =>
+    manageCookie(mainObj, xAccessToken, res, dynamodb || getDocClient(), uuidv4 || deps.uuidv4)
+  );
+  expose("getHead", (val) => getHead(val, getDocClient()));
 
   /* ─────────────────────────────── public API ─────────────────────────────────── */
-  return {
-    on,
-    use,
-    dispatch,
-    expose,
-    deps,     // so modules can read ctx.deps
-  };
+  return { on, use, dispatch, expose, deps };
 }
 
 module.exports = { createShared };
