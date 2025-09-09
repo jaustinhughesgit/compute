@@ -6,6 +6,7 @@
  */
 module.exports.register = ({ on, use }) => {
   on('newGroup', async (ctx, { cookie }) => {
+    console.log("ctx",ctx)
     const { dynamodb, uuidv4, s3, ses, dynamodbLL } = ctx.deps;
 
     const increment = use('incrementCounterAndGetNewValue');
@@ -25,6 +26,12 @@ module.exports.register = ({ on, use }) => {
     const newGroupName   = parts[3];
     const headEntityName = parts[4];
     const headUUIDToShow = parts[5];     // original "parentEntity" var was not used in final tree build
+
+
+    console.log("parts",parts)
+    console.log("newGroupName",newGroupName)
+    console.log("headEntityName",headEntityName)
+    console.log("headUUIDToShow",headUUIDToShow)
 
     // Words & ids
     const aNewG = await increment('wCounter', dynamodb);
