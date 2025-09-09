@@ -1,4 +1,6 @@
 // modules/fineTune.js
+"use strict";
+
 /**
  * Fine-tune utilities wrapper. Supports:
  *  - addFineTune      (append a line to training.jsonl with field filtering)
@@ -9,20 +11,18 @@
  *  - retrieveFineTune (job details)
  *  - cancelFineTune   (cancel job)
  */
-module.exports.handle = async function fineTuneHandle(ctx) {
+async function fineTuneHandle(ctx) {
   const {
     openai, s3,
     reqPath, reqBody,
-    updateJSONL, fineTune // pass these helpers from cookies.js
+    updateJSONL, fineTune // helpers injected from cookies.js
   } = ctx;
 
-  const segs = reqPath.split("/");
-  const action = segs[2]; // which fine-tune action endpoint we routed to
+  const segs = String(reqPath || "").split("/");
+  const action = segs[2] || "";
 
-  // Each branch mirrors your original switch
   if (action === "addFineTune") {
-    // Expect: body is a single JSON line and path encodes allowed keys
-    // Path: /<x>/addFineTune/<KEY1>/<KEY2>/...  (your route used split path "sections")
+    // Path: /<x>/addFineTune/<KEY1>/<KEY2>/...
     const keys = segs.slice(3);
     await updateJSONL(reqBody.body, keys, s3);
     return { mainObj: { alert: "success" }, actionFile: "" };
@@ -73,4 +73,23 @@ module.exports.handle = async function fineTuneHandle(ctx) {
   }
 
   return { mainObj: { alert: "noop" }, actionFile: "" };
+}
+
+// Export the handler (for direct calls if needed)
+module.exports.handle = fineTuneHandle;
+
+/**
+ * register() hook so cookies.js can auto-wire this module.
+ * We bind every fine-tune action to the same handler; it inspects reqPath.
+ */
+module.exports.register = function register({ on /*, use */ }) {
+  [
+    "addFineTune",
+    "createFineTune",
+    "listFineTune",
+    "deleteFineTune",
+    "eventsFineTune",
+    "retrieveFineTune",
+    "cancelFineTune",
+  ].forEach((action) => on(action, fineTuneHandle));
 };
