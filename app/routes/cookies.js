@@ -152,6 +152,10 @@ async function route(
   action,
   xAccessToken
 ) {
+    console.log("dynamodb",dynamodb);
+    console.log("dynamodbLL",dynamodbLL);
+
+    
   // Initialize shared deps/signer once
   _deps = _deps || { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _signer = _signer || signer || new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID, privateKey);
