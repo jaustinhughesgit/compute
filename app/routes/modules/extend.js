@@ -1,9 +1,11 @@
 // modules/extend.js
+"use strict";
+
 /**
  * Creates a sibling entity that "extends" the parent entity’s children and wiring,
  * writes a default file to S3, links both ways across siblings, and refreshes head.
  */
-module.exports.handle = async function extendHandle(ctx) {
+async function extendHandle(ctx) {
   const {
     dynamodb, uuidv4, s3, dynamodbLL,
     getSub, getEntity, incrementCounterAndGetNewValue, createWord,
@@ -14,16 +16,16 @@ module.exports.handle = async function extendHandle(ctx) {
 
   // Path: /<anything>/extend/:fileID/:newEntityName/:headUUID
   const segs = reqPath.split("/");
-  const fileID       = segs[3]; // su
-  const newEntity    = segs[4];
-  const headUUID     = segs[5]; // su to re-emit
+  const fileID    = segs[3]; // su
+  const newEntity = segs[4];
+  const headUUID  = segs[5]; // su to re-emit
 
   const parent = await getSub(fileID, "su", dynamodb);
   setIsPublic(parent.Items[0].z);
   const eParent = await getEntity(parent.Items[0].e, dynamodb);
 
-  const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
-  const aId = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+  const e   = await incrementCounterAndGetNewValue("eCounter", dynamodb);
+  const aId = await incrementCounterAndGetNewValue("wCounter", dynamodb);
   const a   = await createWord(aId.toString(), newEntity, dynamodb);
   const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
 
@@ -32,6 +34,7 @@ module.exports.handle = async function extendHandle(ctx) {
     eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai,
     dynamodb
   );
+
   const su = await getUUID(uuidv4);
   await createSubdomain(su, a.toString(), e.toString(), "0", true, dynamodb);
 
@@ -150,6 +153,22 @@ module.exports.handle = async function extendHandle(ctx) {
   const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
   await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
 
-  const mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+  const mainObj = await convertToJSON(
+    headUUID, [], null, null, cookie,
+    dynamodb, uuidv4, null, [], {}, "",
+    dynamodbLL, reqBody
+  );
+
   return { mainObj, actionFile: su };
+}
+
+// Export the handler (backward compatibility)
+module.exports.handle = extendHandle;
+
+/**
+ * NEW: register hook so the loader can auto-wire this module
+ * Expects your shared system to call register({ on, use })
+ */
+module.exports.register = function register({ on /*, use */ }) {
+  on("extend", extendHandle);
 };
