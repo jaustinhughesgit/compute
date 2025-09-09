@@ -9,7 +9,7 @@ const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
-  _signer = new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID, privateKey);
+  _signer = new AWS.CloudFront.Signer("K2LZRHRSYZRU3Y", privateKey);
 
   const regOpts = { on: _shared.on, use: _shared.use };
   const reg = (p) => {
