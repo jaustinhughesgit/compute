@@ -8,11 +8,44 @@ const { createShared } = require("./shared");
 let _deps, _shared, _signer;
 const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));
 
+// Helper: unwrap worker/axios-style bodies `{ method, headers, body: {...} }`
+function unwrapBody(b) {
+  if (!b || typeof b !== "object") return b;
+  if (b.body && typeof b.body === "object") return b.body;
+  return b;
+}
+
+// Helper: normalize path/action/type for router + adapter
+function normalize(rawPath, typeFromParams, queryType) {
+  let rp = String(rawPath || "").split("?")[0]; // drop query
+  const segs = rp.split("/").filter(Boolean);
+
+  let type = typeFromParams || queryType;
+  let action = "";
+  let pathForModules = rp;
+
+  // Mounted at "/cookies/<action>/..." or "/url/<action>/..."
+  if (segs[0] === "cookies" || segs[0] === "url") {
+    type = type || segs[0];
+    action = segs[1] || "";
+    pathForModules = "/" + segs.slice(2).join("/"); // "/<tail>..."
+  } else {
+    // Mounted at "/<action>/..."
+    action = segs[0] || "";
+    pathForModules = "/" + segs.slice(1).join("/"); // "/<tail>..."
+  }
+
+  // Always provide at least "/" as tail
+  if (!pathForModules || pathForModules === "") pathForModules = "/";
+
+  return { action, type, pathForModules };
+}
+
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
-  // Use your fixed key pair ID here; or switch to env via process.env.CF_KEYPAIR_ID
-  _signer = new AWS.CloudFront.Signer("K2LZRHRSYZRU3Y", privateKey);
+  // Prefer env, fall back to hardcoded ID if you still need it
+  _signer = new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
 
   const regOpts = { on: _shared.on, use: _shared.use };
   const reg = (p) => {
@@ -31,39 +64,33 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   const router = express.Router({ mergeParams: true });
 
-  // Normalize incoming paths so modules always get a clean "tail" in ctx.path,
-  // and we consistently derive the action/type.
-  const normalize = (rawPath, typeFromParams, queryType) => {
-    let rp = String(rawPath || "").split("?")[0]; // drop query
-    const segs = rp.split("/").filter(Boolean);
-
-    let type = typeFromParams || queryType;
-    let action = "";
-    let pathForModules = rp;
-
-    // Mounted at "/cookies/<action>/..." or "/url/<action>/..."
-    if (segs[0] === "cookies" || segs[0] === "url") {
-      type = type || segs[0];
-      action = segs[1] || "";
-      pathForModules = "/" + segs.slice(2).join("/"); // "/<tail>..."
-    } else {
-      // Mounted at "/<action>/..."
-      action = segs[0] || "";
-      pathForModules = "/" + segs.slice(1).join("/"); // "/<tail>..."
-    }
-
-    return { action, type, pathForModules };
-  };
-
   // One handler that supports BOTH: /cookies/<action> and legacy POST /cookies with X-Original-Host
   router.all("*", async (req, res) => {
+    // Unwrap legacy worker/axios-style body up front so modules see a flat body
+    if (req.body && typeof req.body === "object") {
+      // Accept either req.body.headers or req.body.body.headers (worker bridge)
+      const maybeHeaders = req.body.headers || (req.body.body && req.body.body.headers);
+      // If shaped like {method, headers, body}, unwrap once:
+      req.body = unwrapBody(req.body);
+      // If we unwrapped away headers, restore them so modules can inspect them if needed
+      if (maybeHeaders && !req.headers["x-original-host"]) {
+        // preserve X-Original-Host if present in forwarded headers
+        const xo = maybeHeaders["X-Original-Host"] || maybeHeaders["x-original-host"];
+        if (xo) req.headers["x-original-host"] = xo;
+      }
+    }
+
     const cookie = req.cookies || {};
     let rawPath = String(req.path || "").split("?")[0]; // e.g. "/get/1v4r..."
     let type = req.params?.type || req.type || req.query?.type;
 
     // Legacy bridge: compute worker posts to "/cookies" and sticks the original URL in X-Original-Host
     if (rawPath === "/" || rawPath === "") {
-      const xoh = req.get("X-Original-Host") || req.body?.headers?.["X-Original-Host"];
+      // Try header first, then body.headers
+      const xoh =
+        req.get?.("X-Original-Host") ||
+        req.headers?.["x-original-host"] ||
+        (req.body && req.body.headers && (req.body.headers["X-Original-Host"] || req.body.headers["x-original-host"]));
       if (xoh) {
         const p = String(xoh).replace(/^https?:\/\/[^/]+/, ""); // strip scheme+host
         rawPath = p.split("?")[0]; // e.g. "/cookies/get/<id>"
@@ -134,27 +161,54 @@ async function route(
   action,
   xAccessToken
 ) {
-    console.log("dynamodb",dynamodb);
-    console.log("dynamodbLL",dynamodbLL);
   // Initialize shared deps/signer once
   _deps = _deps || { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _signer = _signer || signer || new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID, privateKey);
 
-  const raw = String(reqPath || req?.path || "").split("?")[0];
+  // Make sure req exists with minimal shape
+  req = req || {};
+  res = res || {};
 
-  // Determine action if not provided
+  // If the caller provided a raw body separately, unwrap it and graft onto req
+  if (reqBody) {
+    const flat = unwrapBody(reqBody);
+    req.body = req.body && Object.keys(req.body).length ? req.body : flat;
+    // Preserve X-Original-Host if present in provided headers
+    const xoh =
+      (reqBody.headers && (reqBody.headers["X-Original-Host"] || reqBody.headers["x-original-host"])) ||
+      (flat && flat.headers && (flat.headers["X-Original-Host"] || flat.headers["x-original-host"]));
+    if (xoh && !req.headers?.["x-original-host"]) {
+      req.headers = Object.assign({}, req.headers, { "x-original-host": xoh });
+    }
+  }
+
+  // Derive raw path, honoring legacy X-Original-Host when path is root
+  let raw = String(reqPath || req?.path || "").split("?")[0];
+  if (raw === "/" || raw === "") {
+    const xoh =
+      req?.get?.("X-Original-Host") ||
+      req?.headers?.["x-original-host"] ||
+      (req.body && req.body.headers && (req.body.headers["X-Original-Host"] || req.body.headers["x-original-host"]));
+    if (xoh) {
+      const p = String(xoh).replace(/^https?:\/\/[^/]+/, "");
+      raw = p.split("?")[0];
+    }
+  }
+
+  // Determine action if not provided (consistent with normalize)
   let a = action;
   if (!a) {
-    const segs = raw.split("/").filter(Boolean);
+    const segs = String(raw || "").split("/").filter(Boolean);
     a = (segs[0] === "cookies" || segs[0] === "url") ? (segs[1] || "") : (segs[0] || "");
   }
 
   // Normalize tail to what modules expect (same logic as normalize())
   const normalizeTail = (rawPath) => {
     const segs = String(rawPath || "").split("/").filter(Boolean);
-    return (segs[0] === "cookies" || segs[0] === "url")
+    const tail = (segs[0] === "cookies" || segs[0] === "url")
       ? "/" + segs.slice(2).join("/")
       : "/" + segs.slice(1).join("/");
+    return tail || "/";
   };
 
   const ctx = {
@@ -169,11 +223,11 @@ async function route(
   try {
     const result = await ensureShared().dispatch(a, ctx, { cookie: req?.cookies || {} });
     if (!res?.headersSent) {
-      return res.json(result ?? { ok: false, error: `No handler for "${a}"` });
+      return res.json ? res.json(result ?? { ok: false, error: `No handler for "${a}"` }) : result;
     }
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
-    if (!res?.headersSent) {
+    if (!res?.headersSent && res?.status && res?.json) {
       res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
     }
   }
