@@ -39,22 +39,26 @@ function register({ on, use }) {
     }
 
     // Legacy: ensure cookie exists (route used manageCookie up-front)
-    const ensuredCookie =
+    let ensuredCookie =
       cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
+    if (!ensuredCookie?.gi) {
+      // Token was invalid (or some edge-case); create a fresh cookie to preserve legacy behavior.
+      ensuredCookie = await manageCookie({}, null, ctx.res, dynamodb, uuidv4);
+    }
 
     // Legacy: set public toggle before creating resources
     setIsPublic(true);
 
     // Words & ids
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
-    const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
+    const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
 
     const aNewE = await incrementCounterAndGetNewValue("wCounter", dynamodb);
-    const aE    = await createWord(aNewE.toString(), headEntityName, dynamodb);
+    const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
 
-    const gNew  = await incrementCounterAndGetNewValue("gCounter", dynamodb);
-    const e     = await incrementCounterAndGetNewValue("eCounter", dynamodb);
-    const ai    = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
+    const gNew = await incrementCounterAndGetNewValue("gCounter", dynamodb);
+    const e = await incrementCounterAndGetNewValue("eCounter", dynamodb);
+    const ai = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
 
     // Access + verified (preserve exact values & order)
     await createAccess(
@@ -265,7 +269,7 @@ function register({ on, use }) {
     }
 
     const usingSub = await getSub(newUsingSU, "su", dynamodb);
-    const usedSub  = await getSub(headSU, "su", dynamodb);
+    const usedSub = await getSub(headSU, "su", dynamodb);
     if (!usingSub.Items?.length || !usedSub.Items?.length) {
       throw new Error(`useGroup: subdomain not found`);
     }
