@@ -70,12 +70,12 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
 
   const regOpts = { on: _shared.on, use: _shared.use };
-  const reg = (p) => {
-    const m = require(p);
-    const mod = m?.register ? m : m?.default?.register ? m.default : null;
-    if (!mod) throw new TypeError(`Module "${p}" does not export register()`);
-    return mod.register(regOpts);
-  };
+const reg = (p) => {
+  const m = require(p);
+  const mod = m?.register ? m : m?.default?.register ? m.default : null;
+  if (!mod) throw new TypeError(`Module "${p}" does not export register()`);
+  return mod.register(_shared);
+};
 
   // register all modules (unchanged)
   reg("./modules/get");
