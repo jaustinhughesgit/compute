@@ -57,8 +57,26 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   // One handler that supports BOTH: /cookies/<action> and legacy POST /cookies with X-Original-Host
   router.all("*", async (req, res) => {
-    const cookie = req.cookies || {};
-    let rawPath = String(req.path || "").split("?")[0]; // e.g. "/get/1v4r..."
+    let cookie = req.cookies || {};
+
+    // 👇 ensure we have a cookie record with a GI (bootstrap)
+    if (!cookie.gi) {
+      try {
+        const xTok =
+          cookie.accessToken ||
+          req.get("x-access-token") ||
+          req.headers["x-access-token"] ||
+          req.body?.accessToken;
+
+        const manageCookie = ensureShared().use("manageCookie");
+        const record = await manageCookie({}, xTok, res, _deps.dynamodb, _deps.uuidv4);
+        if (record) cookie = { ...cookie, ...record };
+      } catch (e) {
+        console.warn("cookie bootstrap failed", e);
+      }
+    }
+
+    let rawPath = String(req.path || "").split("?")[0];
     let type = req.params?.type || req.type || req.query?.type;
 
     // Legacy bridge: compute worker posts to "/cookies" and sticks the original URL in X-Original-Host
