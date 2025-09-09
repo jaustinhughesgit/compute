@@ -1,11 +1,21 @@
 // modules/get.js
 "use strict";
 
-function register(shared) {
-  const { on, getDocClient, getVerified, getTasks, getTasksIOS,
-          convertToJSON, manageCookie, verifyPath, allVerified, deps } = shared;
+function register({ on, use }) {
+  const {
+    // domain / utils from shared
+    getDocClient,
+    getVerified,
+    getTasks, getTasksIOS,
+    convertToJSON,
+    manageCookie,
+    // NEW: pulled from shared
+    verifyPath, allVerified,
+    // deps bag (unchanged)
+    deps,
+  } = use();
 
-  on("get", async (ctx) => {
+  on("get", async (ctx /*, meta */) => {
     const { req, res, path } = ctx;
     const dynamodb = getDocClient();
 

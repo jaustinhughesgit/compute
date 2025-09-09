@@ -73,8 +73,8 @@ function createShared(deps = {}) {
     return () => actions.delete(action);
   };
 
-  const useFunc = (mw) => {
-    if (typeof mw !== "function") throw new TypeError("useFunc(mw): mw must be a function");
+  const use = (mw) => {
+    if (typeof mw !== "function") throw new TypeError("use(mw): mw must be a function");
     middlewares.push(mw);
     return () => {
       const i = middlewares.indexOf(mw);
@@ -902,7 +902,7 @@ function getTasksIOS(tasks) {
 
   return {
     // registry
-    actions, registry, cache, on, useFunc, dispatch, expose,
+    actions, registry, cache, on, use, dispatch, expose,
 
     // toggles
     _isPublic,
