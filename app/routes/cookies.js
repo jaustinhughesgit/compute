@@ -10,7 +10,7 @@ const { createShared } = require("./shared"); /* shared exposes:
   Domain (Dynamo): getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks
   Links: makeLinkId, makeCKey, putLink, deleteLink, getLinkedChildren, getLinkedParents, migrateLinksFromEntities
   Versions/Entities/Words/Groups: incrementCounterAndGetNewValue, addVersion, updateEntity, createWord, createGroup, createEntity, createSubdomain
-  Access/Cookies/Auth: createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth
+  Access/Cookies/Auth: createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth, useFunc
   S3/Files: createFile, retrieveAndParseJSON
   Tree: convertToJSON
   Misc: getHead, sendBack, getDocClient, getS3, getSES
