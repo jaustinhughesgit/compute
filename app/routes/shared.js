@@ -503,166 +503,167 @@ function createShared(deps = {}) {
 
   async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
     if (xAccessToken) {
+      mainObj.status = "authenticated";
       const cookie = await getCookie(xAccessToken, "ak", ddb);
-      if (cookie.Items?.[0]) {
-        mainObj.status = "authenticated";
-        // include existing flag for parity with callers that read it later
-        return { ...cookie.Items[0], existing: true };
-      }
-      // fall through to “no token” path if provided token is invalid
+      return cookie.Items?.[0];
+    } else {
+      const ak = await getUUID(uuid);
+      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+      const ttl = 86400;
+      const ex = Math.floor(Date.now() / 1000) + ttl;
+      await createCookie(String(ci), String(gi), ex, ak, ddb);
+      mainObj.accessToken = ak;
+      // set browser cookie for *.1var.com
+      res?.cookie?.("accessToken", ak, {
+        domain: ".1var.com",
+        maxAge: ttl * 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: "None"
+      });
+      return { ak, gi, ex, ci, existing: true };
     }
-    const ak = await getUUID(uuid);
-    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-    const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
-    const ttl = 86400;
-    const ex = Math.floor(Date.now() / 1000) + ttl;
-    await createCookie(String(ci), String(gi), ex, ak, ddb);
-    mainObj.accessToken = ak;
-    res?.cookie?.("accessToken", ak, {
-      domain: ".1var.com", maxAge: ttl * 1000, httpOnly: true, secure: true, sameSite: "None"
-    });
-    return { ak, gi, ex, ci, existing: true };
   }
-}
 
-async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
-  await ddb.put({
-    TableName: "access",
-    Item: { ai, g, e, ex, at, to, va, ac }
-  }).promise();
-  return ai;
-}
+  async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
+    await ddb.put({
+      TableName: "access",
+      Item: { ai, g, e, ex, at, to, va, ac }
+    }).promise();
+    return ai;
+  }
 
-async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti, ddb = dynamodb) {
-  await ddb.put({
-    TableName: "verified",
-    Item: { vi, gi, g, e, ai, va, ex, bo, at, ti }
-  }).promise();
-  return vi;
-}
+  async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti, ddb = dynamodb) {
+    await ddb.put({
+      TableName: "verified",
+      Item: { vi, gi, g, e, ai, va, ex, bo, at, ti }
+    }).promise();
+    return vi;
+  }
 
-async function useAuth(fileID, Entity, access, cookie, ddb = dynamodb) {
-  // create a new verified token for this cookie against the entity/access pair
-  const ttl = 90000;
-  const ex = Math.floor(Date.now() / 1000) + ttl;
-  const vi = await incrementCounterAndGetNewValue("viCounter", ddb);
-  await createVerified(
-    String(vi),
-    String(cookie.gi),
-    "0",
-    String(Entity.Items[0].e),
-    String(access.Items[0].ai),
-    "0",
-    ex,
-    true,
-    0,
-    0,
-    ddb
-  );
-  const details = await addVersion(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), String(Entity.Items[0].c || "1"), ddb);
-  await updateEntity(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), details.v, details.c, ddb);
-  return true;
-}
+  async function useAuth(fileID, Entity, access, cookie, ddb = dynamodb) {
+    // create a new verified token for this cookie against the entity/access pair
+    const ttl = 90000;
+    const ex = Math.floor(Date.now() / 1000) + ttl;
+    const vi = await incrementCounterAndGetNewValue("viCounter", ddb);
+    await createVerified(
+      String(vi),
+      String(cookie.gi),
+      "0",
+      String(Entity.Items[0].e),
+      String(access.Items[0].ai),
+      "0",
+      ex,
+      true,
+      0,
+      0,
+      ddb
+    );
+    const details = await addVersion(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), String(Entity.Items[0].c || "1"), ddb);
+    await updateEntity(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), details.v, details.c, ddb);
+    return true;
+  }
 
-async function verifyThis(fileID, cookie, ddb = dynamodb, body) {
-  // permissions: public → auto true; else look for matching verified/access
-  let subBySU = await getSub(fileID, "su", ddb);
-  if (!subBySU.Items?.length) return { verified: false, subBySU, entity: null, isPublic: false };
+  async function verifyThis(fileID, cookie, ddb = dynamodb, body) {
+    // permissions: public → auto true; else look for matching verified/access
+    let subBySU = await getSub(fileID, "su", ddb);
+    if (!subBySU.Items?.length) return { verified: false, subBySU, entity: null, isPublic: false };
 
-  setIsPublic(subBySU.Items[0].z);
-  let entity = await getEntity(subBySU.Items[0].e, ddb);
-  let group = await getGroup(entity.Items[0].g, ddb);
-  const groupAi = group.Items[0].ai || [];
-  const entityAi = entity.Items[0].ai || [];
+    setIsPublic(subBySU.Items[0].z);
+    let entity = await getEntity(subBySU.Items[0].e, ddb);
+    let group = await getGroup(entity.Items[0].g, ddb);
+    const groupAi = group.Items[0].ai || [];
+    const entityAi = entity.Items[0].ai || [];
 
-  let verified = false;
-  if (_isPublic) {
-    verified = true;
-  } else {
-    const verif = await getVerified("gi", String(cookie.gi), ddb, body);
-    // #1: any granted AI present & boolean true?
-    verified = verif.Items.some((v) => groupAi.includes(v.ai) && v.bo)
-      || verif.Items.some((v) => entityAi.includes(v.ai) && v.bo);
+    let verified = false;
+    if (_isPublic) {
+      verified = true;
+    } else {
+      const verif = await getVerified("gi", String(cookie.gi), ddb, body);
+      // #1: any granted AI present & boolean true?
+      verified = verif.Items.some((v) => groupAi.includes(v.ai) && v.bo)
+        || verif.Items.some((v) => entityAi.includes(v.ai) && v.bo);
 
-    // #2: deepEqual body validation path against 'access.va'
-    if (!verified) {
-      const bb = isObject(body) ? (isObject(body.body) ? body.body : body) : {};
-      for (const ai of entityAi) {
-        const acc = await getAccess(ai, ddb);
-        const ok = deepEqual(acc.Items?.[0]?.va, bb);
-        if (ok) {
-          await useAuth(fileID, entity, acc, cookie, ddb);
-          verified = true;
-          break;
+      // #2: deepEqual body validation path against 'access.va'
+      if (!verified) {
+        const bb = isObject(body) ? (isObject(body.body) ? body.body : body) : {};
+        for (const ai of entityAi) {
+          const acc = await getAccess(ai, ddb);
+          const ok = deepEqual(acc.Items?.[0]?.va, bb);
+          if (ok) {
+            await useAuth(fileID, entity, acc, cookie, ddb);
+            verified = true;
+            break;
+          }
         }
       }
     }
+
+    // handle entity.z indirection (string → another entity)
+    if (entity.Items[0].z && typeof entity.Items[0].z === "string") {
+      const subByE = await getSub(entity.Items[0].z, "e", ddb);
+      const v2 = await verifyThis(subByE.Items[0].su, cookie, ddb, body);
+      verified = v2.verified; subBySU = v2.subBySU; entity = v2.entity; setIsPublic(v2.isPublic);
+    }
+
+    return { verified, subBySU, entity, isPublic: _isPublic };
   }
 
-  // handle entity.z indirection (string → another entity)
-  if (entity.Items[0].z && typeof entity.Items[0].z === "string") {
-    const subByE = await getSub(entity.Items[0].z, "e", ddb);
-    const v2 = await verifyThis(subByE.Items[0].su, cookie, ddb, body);
-    verified = v2.verified; subBySU = v2.subBySU; entity = v2.entity; setIsPublic(v2.isPublic);
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* S3 helpers                                                               */
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  async function createFile(su, fileData, s3cli = s3) {
+    const jsonString = JSON.stringify(fileData);
+    const bucket = `${fileLocation(_isPublic)}.1var.com`;
+    await s3cli.putObject({
+      Bucket: bucket,
+      Key: su,
+      Body: jsonString,
+      ContentType: "application/json"
+    }).promise();
+    return true;
   }
 
-  return { verified, subBySU, entity, isPublic: _isPublic };
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/* S3 helpers                                                               */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-async function createFile(su, fileData, s3cli = s3) {
-  const jsonString = JSON.stringify(fileData);
-  const bucket = `${fileLocation(_isPublic)}.1var.com`;
-  await s3cli.putObject({
-    Bucket: bucket,
-    Key: su,
-    Body: jsonString,
-    ContentType: "application/json"
-  }).promise();
-  return true;
-}
-
-async function retrieveAndParseJSON(fileName, isPub, s3cli = s3) {
-  const bucket = `${fileLocation(isPub)}.1var.com`;
-  const data = await s3cli.getObject({ Bucket: bucket, Key: fileName }).promise();
-  return JSON.parse(data.Body.toString("utf-8"));
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/* getHead                                                                  */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-async function getHead(by, value, ddb = dynamodb) {
-  const sub = await getSub(value, by, ddb);
-  const ent = await getEntity(sub.Items[0].e, ddb);
-  const headSub = await getSub(ent.Items[0].h, "e", ddb);
-  return headSub;
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/* Tasks (read API used by UI)                                              */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-async function getTasks(val, col, ddb = dynamodb) {
-  if (col === "e") {
-    const subByE = await getSub(String(val), "e", ddb);
-    const params = { TableName: "tasks", IndexName: "urlIndex", KeyConditionExpression: "url = :u", ExpressionAttributeValues: { ":u": subByE.Items?.[0]?.su } };
-    return await ddb.query(params).promise();
-  } else if (col === "su") {
-    const params = {
-      TableName: "tasks",
-      IndexName: "urlIndex",
-      KeyConditionExpression: "#url = :u",
-      ExpressionAttributeNames: { "#url": "url" },
-      ExpressionAttributeValues: { ":u": val }
-    };
-    return await ddb.query(params).promise();
+  async function retrieveAndParseJSON(fileName, isPub, s3cli = s3) {
+    const bucket = `${fileLocation(isPub)}.1var.com`;
+    const data = await s3cli.getObject({ Bucket: bucket, Key: fileName }).promise();
+    return JSON.parse(data.Body.toString("utf-8"));
   }
-  throw new Error("getTasks: invalid column");
-}
+
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* getHead                                                                  */
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  async function getHead(by, value, ddb = dynamodb) {
+    const sub = await getSub(value, by, ddb);
+    const ent = await getEntity(sub.Items[0].e, ddb);
+    const headSub = await getSub(ent.Items[0].h, "e", ddb);
+    return headSub;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* Tasks (read API used by UI)                                              */
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  async function getTasks(val, col, ddb = dynamodb) {
+    if (col === "e") {
+      const subByE = await getSub(String(val), "e", ddb);
+      const params = { TableName: "tasks", IndexName: "urlIndex", KeyConditionExpression: "url = :u", ExpressionAttributeValues: { ":u": subByE.Items?.[0]?.su } };
+      return await ddb.query(params).promise();
+    } else if (col === "su") {
+      const params = {
+        TableName: "tasks",
+        IndexName: "urlIndex",
+        KeyConditionExpression: "#url = :u",
+        ExpressionAttributeNames: { "#url": "url" },
+        ExpressionAttributeValues: { ":u": val }
+      };
+      return await ddb.query(params).promise();
+    }
+    throw new Error("getTasks: invalid column");
+  }
 
 function getTasksIOS(tasks) {
   tasks = tasks.Items;
@@ -683,259 +684,259 @@ function getTasksIOS(tasks) {
     const momentET = moment.unix(tasks[task].sd + tasks[task].et).utc();
     converted[task].endTime = momentET.format("HH:mm");
 
-    converted[task].monday = tasks[task].mo === 1;
-    converted[task].tuesday = tasks[task].tu === 1;
+    converted[task].monday    = tasks[task].mo === 1;
+    converted[task].tuesday   = tasks[task].tu === 1;
     converted[task].wednesday = tasks[task].we === 1;
-    converted[task].thursday = tasks[task].th === 1;
-    converted[task].friday = tasks[task].fr === 1;
-    converted[task].saturday = tasks[task].sa === 1;
-    converted[task].sunday = tasks[task].su === 1;
+    converted[task].thursday  = tasks[task].th === 1;
+    converted[task].friday    = tasks[task].fr === 1;
+    converted[task].saturday  = tasks[task].sa === 1;
+    converted[task].sunday    = tasks[task].su === 1;
 
-    converted[task].zone = tasks[task].zo;
+    converted[task].zone     = tasks[task].zo;
     converted[task].interval = tasks[task].it;
-    converted[task].taskID = tasks[task].ti;
+    converted[task].taskID   = tasks[task].ti;
   }
   return converted;
 }
 
 
-function allVerified(list) {
-  let v = true
-  for (l in list) {               // legacy loop style, preserved
-    if (list[l] != true) {
-      v = false
-    }
-  }
-  return v
-}
-
-async function verifyPath(splitPath, verifications, ddb = dynamodb) {
-  let verified = [];
-  let verCounter = 0;
-  for (ver in splitPath) {
-    if (splitPath[ver].startsWith("1v4r")) {
-      let verValue = false
-      verified.push(false)
-      const sub = await getSub(splitPath[ver], "su", ddb);
-
-      let groupID = sub.Items[0].g
-      let entityID = sub.Items[0].e
-      if (sub.Items[0].z) {
-        verValue = true
+  function allVerified(list) {
+    let v = true
+    for (l in list) {               // legacy loop style, preserved
+      if (list[l] != true) {
+        v = false
       }
-      for (veri in verifications.Items) {
-        if (entityID != "0") {
-          let eSub = await getEntity(sub.Items[0].e, ddb)
-          groupID = eSub.Items[0].g
-          if (eSub.Items[0].ai.toString() == "0") {
-            verValue = true
-          }
+    }
+    return v
+  }
+
+  async function verifyPath(splitPath, verifications, ddb = dynamodb) {
+    let verified = [];
+    let verCounter = 0;
+    for (ver in splitPath) {
+      if (splitPath[ver].startsWith("1v4r")) {
+        let verValue = false
+        verified.push(false)
+        const sub = await getSub(splitPath[ver], "su", ddb);
+
+        let groupID = sub.Items[0].g
+        let entityID = sub.Items[0].e
+        if (sub.Items[0].z) {
+          verValue = true
         }
-        if (sub.Items.length > 0) {
-          if (sub.Items[0].z == true) {
-            verValue = true
-          } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
-            const ex = Math.floor(Date.now() / 1000);
-            if (ex < verifications.Items[veri].ex) {
+        for (veri in verifications.Items) {
+          if (entityID != "0") {
+            let eSub = await getEntity(sub.Items[0].e, ddb)
+            groupID = eSub.Items[0].g
+            if (eSub.Items[0].ai.toString() == "0") {
               verValue = true
             }
-          } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo) {
-            const ex = Math.floor(Date.now() / 1000);
-            if (ex < verifications.Items[veri].ex) {
+          }
+          if (sub.Items.length > 0) {
+            if (sub.Items[0].z == true) {
               verValue = true
+            } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
+              const ex = Math.floor(Date.now() / 1000);
+              if (ex < verifications.Items[veri].ex) {
+                verValue = true
+              }
+            } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo) {
+              const ex = Math.floor(Date.now() / 1000);
+              if (ex < verifications.Items[veri].ex) {
+                verValue = true
+              }
+            } else if (entityID == "0" && groupID == "0") {
+              verValue = true;
             }
-          } else if (entityID == "0" && groupID == "0") {
-            verValue = true;
           }
         }
+        verified[verCounter] = verValue
+        verCounter++;
       }
-      verified[verCounter] = verValue
-      verCounter++;
     }
-  }
-  return verified
-}
-
-/* ──────────────────────────────────────────────────────────────────────── */
-/* convertToJSON (tree builder)                                            */
-/* ──────────────────────────────────────────────────────────────────────── */
-
-function makeIdMaps() {
-  return { convertCounter: 0 };
-}
-const state = makeIdMaps();
-
-async function convertToJSON(
-  fileID,
-  parentPath = [],
-  isUsing,
-  mapping,
-  cookie,
-  ddb = dynamodb,
-  uuid = uuidv4,
-  pathID,
-  parentPath2 = [],
-  id2Path = {},
-  usingID = "",
-  ddbLL = dynamodbLL,
-  body,
-  substitutingID = ""
-) {
-  const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, ddb, body);
-  if (!verified) return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
-
-  let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
-  const linked = await getLinkedChildren(entity.Items[0].e, ddb);
-  const head = await getWord(entity.Items[0].a, ddb);
-  const name = head.Items[0].r;
-  const pathUUID = await getUUID(uuid);
-  const using = Boolean(entity.Items[0].u);
-
-  if (!id2Path) id2Path = {};
-  if (!parentPath2) parentPath2 = [];
-  if (!usingID) usingID = "";
-  if (!substitutingID) substitutingID = "";
-
-  id2Path[fileID] = pathUUID;
-
-  const subH = await getSub(entity.Items[0].h, "e", ddb);
-  if (subH.Count === 0) await sleep(250);
-
-  const obj = {};
-  const paths = {};
-  const paths2 = {};
-
-  obj[fileID] = {
-    meta: { name, expanded: false, head: subH.Items[0].su },
-    children: {},
-    using,
-    linked: {},
-    pathid: pathUUID,
-    usingID,
-    substitutingID,
-    location: fileLocation(isPublic),
-    verified: true
-  };
-
-  const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
-  const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
-  paths[fileID] = newParentPath;
-  paths2[pathUUID] = newParentPath2;
-
-  // children
-  if (children && children.length > 0 && state.convertCounter < 1200) {
-    state.convertCounter += children.length;
-    const childRes = await Promise.all(children.map(async (childE) => {
-      const subByE = await getSub(childE, "e", ddb);
-      const uuidSu = subByE.Items[0].su;
-      return await convertToJSON(uuidSu, newParentPath, false, mapping, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
-    }));
-    for (const r of childRes) {
-      Object.assign(obj[fileID].children, r.obj);
-      Object.assign(paths, r.paths);
-      Object.assign(paths2, r.paths2);
-    }
+    return verified
   }
 
-  // using (inline)
-  if (using) {
-    const subOfHead = await getSub(entity.Items[0].u, "e", ddb);
-    const headUsingObj = await convertToJSON(
-      subOfHead.Items[0].su, newParentPath, true, entity.Items[0].m, cookie, ddb, uuid,
-      pathUUID, newParentPath2, id2Path, fileID, ddbLL, body, substitutingID
-    );
-    const headKey = Object.keys(headUsingObj.obj)[0];
-    Object.assign(obj[fileID].children, headUsingObj.obj[headKey].children);
-    Object.assign(paths, headUsingObj.paths);
-    Object.assign(paths2, headUsingObj.paths2);
-    obj[fileID].meta["usingMeta"] = {
-      name: headUsingObj.obj[headKey].meta.name,
-      head: headUsingObj.obj[headKey].meta.head,
-      id: headKey,
-      pathid: pathUUID
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* convertToJSON (tree builder)                                            */
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  function makeIdMaps() {
+    return { convertCounter: 0 };
+  }
+  const state = makeIdMaps();
+
+  async function convertToJSON(
+    fileID,
+    parentPath = [],
+    isUsing,
+    mapping,
+    cookie,
+    ddb = dynamodb,
+    uuid = uuidv4,
+    pathID,
+    parentPath2 = [],
+    id2Path = {},
+    usingID = "",
+    ddbLL = dynamodbLL,
+    body,
+    substitutingID = ""
+  ) {
+    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, ddb, body);
+    if (!verified) return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
+
+    let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
+    const linked = await getLinkedChildren(entity.Items[0].e, ddb);
+    const head = await getWord(entity.Items[0].a, ddb);
+    const name = head.Items[0].r;
+    const pathUUID = await getUUID(uuid);
+    const using = Boolean(entity.Items[0].u);
+
+    if (!id2Path) id2Path = {};
+    if (!parentPath2) parentPath2 = [];
+    if (!usingID) usingID = "";
+    if (!substitutingID) substitutingID = "";
+
+    id2Path[fileID] = pathUUID;
+
+    const subH = await getSub(entity.Items[0].h, "e", ddb);
+    if (subH.Count === 0) await sleep(250);
+
+    const obj = {};
+    const paths = {};
+    const paths2 = {};
+
+    obj[fileID] = {
+      meta: { name, expanded: false, head: subH.Items[0].su },
+      children: {},
+      using,
+      linked: {},
+      pathid: pathUUID,
+      usingID,
+      substitutingID,
+      location: fileLocation(isPublic),
+      verified: true
     };
+
+    const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
+    const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
+    paths[fileID] = newParentPath;
+    paths2[pathUUID] = newParentPath2;
+
+    // children
+    if (children && children.length > 0 && state.convertCounter < 1200) {
+      state.convertCounter += children.length;
+      const childRes = await Promise.all(children.map(async (childE) => {
+        const subByE = await getSub(childE, "e", ddb);
+        const uuidSu = subByE.Items[0].su;
+        return await convertToJSON(uuidSu, newParentPath, false, mapping, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
+      }));
+      for (const r of childRes) {
+        Object.assign(obj[fileID].children, r.obj);
+        Object.assign(paths, r.paths);
+        Object.assign(paths2, r.paths2);
+      }
+    }
+
+    // using (inline)
+    if (using) {
+      const subOfHead = await getSub(entity.Items[0].u, "e", ddb);
+      const headUsingObj = await convertToJSON(
+        subOfHead.Items[0].su, newParentPath, true, entity.Items[0].m, cookie, ddb, uuid,
+        pathUUID, newParentPath2, id2Path, fileID, ddbLL, body, substitutingID
+      );
+      const headKey = Object.keys(headUsingObj.obj)[0];
+      Object.assign(obj[fileID].children, headUsingObj.obj[headKey].children);
+      Object.assign(paths, headUsingObj.paths);
+      Object.assign(paths2, headUsingObj.paths2);
+      obj[fileID].meta["usingMeta"] = {
+        name: headUsingObj.obj[headKey].meta.name,
+        head: headUsingObj.obj[headKey].meta.head,
+        id: headKey,
+        pathid: pathUUID
+      };
+    }
+
+    // linked
+    if (linked && linked.length > 0) {
+      const linkedRes = await Promise.all(linked.map(async (childE) => {
+        const subByE = await getSub(childE, "e", ddb);
+        const uuidSu = subByE.Items[0].su;
+        return await convertToJSON(uuidSu, newParentPath, false, null, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
+      }));
+      for (const r of linkedRes) {
+        Object.assign(obj[fileID].linked, r.obj);
+        Object.assign(paths, r.paths);
+        Object.assign(paths2, r.paths2);
+      }
+    }
+
+    const groupList = await getGroups(ddb);
+
+    return { obj, paths, paths2, id2Path, groups: groupList };
   }
 
-  // linked
-  if (linked && linked.length > 0) {
-    const linkedRes = await Promise.all(linked.map(async (childE) => {
-      const subByE = await getSub(childE, "e", ddb);
-      const uuidSu = subByE.Items[0].su;
-      return await convertToJSON(uuidSu, newParentPath, false, null, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
-    }));
-    for (const r of linkedRes) {
-      Object.assign(obj[fileID].linked, r.obj);
-      Object.assign(paths, r.paths);
-      Object.assign(paths2, r.paths2);
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* Small response helper (legacy parity)                                    */
+  /* ──────────────────────────────────────────────────────────────────────── */
+
+  function sendBack(res, type, val, isShorthand) {
+    if (!isShorthand) {
+      return res?.json?.(val);
+    } else {
+      return val;
     }
   }
 
-  const groupList = await getGroups(ddb);
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* Service getters                                                          */
+  /* ──────────────────────────────────────────────────────────────────────── */
 
-  return { obj, paths, paths2, id2Path, groups: groupList };
-}
+  const getDocClient = () => dynamodb;
+  const getS3 = () => s3;
+  const getSES = () => ses;
 
-/* ──────────────────────────────────────────────────────────────────────── */
-/* Small response helper (legacy parity)                                    */
-/* ──────────────────────────────────────────────────────────────────────── */
+  /* ──────────────────────────────────────────────────────────────────────── */
+  /* Export shared surface                                                    */
+  /* ──────────────────────────────────────────────────────────────────────── */
 
-function sendBack(res, type, val, isShorthand) {
-  if (!isShorthand) {
-    return res?.json?.(val);
-  } else {
-    return val;
-  }
-}
+  return {
+    // registry
+    actions, registry, cache, on, use, dispatch, expose,
 
-/* ──────────────────────────────────────────────────────────────────────── */
-/* Service getters                                                          */
-/* ──────────────────────────────────────────────────────────────────────── */
+    // toggles
+    _isPublic,
+    setIsPublic,
+    fileLocation,
 
-const getDocClient = () => dynamodb;
-const getS3 = () => s3;
-const getSES = () => ses;
+    // utils
+    isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment,
 
-/* ──────────────────────────────────────────────────────────────────────── */
-/* Export shared surface                                                    */
-/* ──────────────────────────────────────────────────────────────────────── */
+    // data access / domain
+    getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks, getTasksIOS,
+    makeLinkId, makeCKey, putLink, deleteLink, getLinkedChildren, getLinkedParents, migrateLinksFromEntities,
 
-return {
-  // registry
-  actions, registry, cache, on, use, dispatch, expose,
+    // versions/entities/groups/words
+    incrementCounterAndGetNewValue, addVersion, updateEntity,
+    createWord, createGroup, createEntity, createSubdomain,
 
-  // toggles
-  _isPublic,
-  setIsPublic,
-  fileLocation,
+    // access / cookies / verification
+    createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth,
 
-  // utils
-  isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment,
+     verifyPath, allVerified,
 
-  // data access / domain
-  getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks, getTasksIOS,
-  makeLinkId, makeCKey, putLink, deleteLink, getLinkedChildren, getLinkedParents, migrateLinksFromEntities,
+    // files
+    createFile, retrieveAndParseJSON, convertToJSON,
 
-  // versions/entities/groups/words
-  incrementCounterAndGetNewValue, addVersion, updateEntity,
-  createWord, createGroup, createEntity, createSubdomain,
+    // misc
+    getHead, sendBack,
 
-  // access / cookies / verification
-  createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth,
+    // deps exposure
+    getDocClient, getS3, getSES,
 
-  verifyPath, allVerified,
-
-  // files
-  createFile, retrieveAndParseJSON, convertToJSON,
-
-  // misc
-  getHead, sendBack,
-
-  // deps exposure
-  getDocClient, getS3, getSES,
-
-  // also surface LLM/AWS if modules want them
-  deps: { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
-};
+    // also surface LLM/AWS if modules want them
+    deps: { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  };
 }
 
 module.exports = { createShared };
