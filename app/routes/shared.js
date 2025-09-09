@@ -9,10 +9,12 @@
 // {
 //   req, res,
 //   path,                  // e.g. "/cookies/file/1v4r..."
-//   type,                  // "cookies" | "url" (your existing value)
+//   type,                  // "cookies" | "url"
 //   signer,                // CloudFront signer
 //   deps: { dynamodb, s3, ses, dynamodbLL, uuidv4, AWS }
 // }
+
+"use strict";
 
 function createShared(deps = {}) {
   /* ─────────────────────────────────  tiny bus  ───────────────────────────────── */
@@ -486,6 +488,183 @@ function createShared(deps = {}) {
     return { obj, paths, paths2, id2Path, groups: groupList, verified: true };
   }
 
+  /* ─────────────────────────────── counters helper ───────────────────────────── */
+  async function incrementCounterAndGetNewValue(tableName, dynamodb) {
+    const response = await dynamodb.update({
+      TableName: tableName,
+      Key: { pk: tableName },
+      UpdateExpression: "ADD #cnt :val",
+      ExpressionAttributeNames: { "#cnt": "x" },
+      ExpressionAttributeValues: { ":val": 1 },
+      ReturnValues: "UPDATED_NEW"
+    }).promise();
+    return response.Attributes.x;
+  }
+
+  /* ─────────────────────────────── create/update helpers ─────────────────────── */
+  async function createWord(a, r, dynamodb) {
+    const item = { a: String(a), r: String(r), ts: Date.now() };
+    await dynamodb.put({
+      TableName: "words",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(a)"
+    }).promise();
+    return a;
+  }
+
+  async function createGroup(g, a, e, aiArr, dynamodb) {
+    const item = {
+      g: String(g), a: String(a), e: String(e),
+      ai: (aiArr || []).map(String),
+      ts: Date.now()
+    };
+    await dynamodb.put({
+      TableName: "groups",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(g)"
+    }).promise();
+    return g;
+  }
+
+  async function createAccess(ai, g, e, durGrant, limit, durRate, va, perms, dynamodb) {
+    const item = {
+      ai: String(ai),
+      g:  String(g),
+      e:  String(e),
+      dg: durGrant || null,     // {count, metric}
+      rl: limit ?? null,        // numeric rate/limit
+      dr: durRate || null,      // {count, metric}
+      va: va || {},             // value-based access payload
+      perms: perms || "rwado",
+      ts: Date.now()
+    };
+    await dynamodb.put({
+      TableName: "access",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(ai)"
+    }).promise();
+    return ai;
+  }
+
+  async function createVerified(vi, gi, g, e, ai, bo, ex, ok, zx, zy, dynamodb) {
+    const item = {
+      vi: String(vi),
+      gi: String(gi),
+      g:  String(g),
+      e:  String(e),
+      ai: String(ai),
+      bo: Boolean(bo),
+      ex: Number(ex),           // unix seconds
+      ok: Boolean(ok),
+      zx: Number(zx) || 0,
+      zy: Number(zy) || 0,
+      ts: Date.now()
+    };
+    await dynamodb.put({
+      TableName: "verified",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(vi)"
+    }).promise();
+    return vi;
+  }
+
+  async function createSubdomain(su, a, e, g, isPublic, dynamodb) {
+    const item = {
+      su: String(su),
+      a:  String(a),
+      e:  String(e),
+      g:  String(g),
+      z:  Boolean(isPublic),  // public flag
+      ts: Date.now()
+    };
+    await dynamodb.put({
+      TableName: "subdomains",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(su)"
+    }).promise();
+    return su;
+  }
+
+  async function addVersion(e, code, a, current, dynamodb) {
+    // returns { v, c } as modules expect
+    const c = Date.now();
+    const v = `v${c}`;
+    await dynamodb.put({
+      TableName: "versions",
+      Item: {
+        id: `${e}#${v}`,
+        e: String(e),
+        v: String(v),
+        a: String(a),
+        code: String(code),
+        c
+      },
+      ConditionExpression: "attribute_not_exists(id)"
+    }).promise();
+    return { v, c };
+  }
+
+  async function updateEntity(e, code, value, v, c, dynamodb) {
+    // Set 'u' or 'z' field depending on code, plus version metadata.
+    let attr = "x";
+    if (code === "u") attr = "u";
+    else if (code === "z") attr = "z";
+
+    await dynamodb.update({
+      TableName: "entities",
+      Key: { e: String(e) },
+      UpdateExpression: "SET #attr = :val, #v = :v, #c = :c",
+      ExpressionAttributeNames: { "#attr": attr, "#v": "v", "#c": "c" },
+      ExpressionAttributeValues: { ":val": value, ":v": v, ":c": c }
+    }).promise();
+
+    return true;
+  }
+
+  async function createEntity(e, a, v, g, h, aiArr, dynamodb) {
+    const item = {
+      e: String(e),
+      a: String(a),
+      v: String(v),
+      g: String(g),
+      h: String(h),                 // head entity id
+      ai: (aiArr || []).map(String),
+      t: [],                        // children
+      ts: Date.now()
+    };
+    await dynamodb.put({
+      TableName: "entities",
+      Item: item,
+      ConditionExpression: "attribute_not_exists(e)"
+    }).promise();
+    return e;
+  }
+
+  async function createFile(su, payload, s3) {
+    const Bucket = process.env.FILES_BUCKET || process.env.PUBLIC_BUCKET || process.env.BUCKET || "1var-files";
+    const Key = `${su}.json`;
+    const Body = Buffer.from(JSON.stringify(payload));
+    await s3.putObject({
+      Bucket, Key, Body, ContentType: "application/json", ACL: "private"
+    }).promise();
+    return { bucket: Bucket, key: Key };
+  }
+
+  async function email(from, to, subject, text, html, ses) {
+    const params = {
+      Source: from,
+      Destination: { ToAddresses: Array.isArray(to) ? to : [to] },
+      Message: {
+        Subject: { Data: subject, Charset: "UTF-8" },
+        Body: {
+          Text: text ? { Data: text, Charset: "UTF-8" } : undefined,
+          Html: html ? { Data: html, Charset: "UTF-8" } : undefined
+        }
+      }
+    };
+    return await ses.sendEmail(params).promise();
+  }
+
   /* ───────────────────────────── expose helpers on bus ────────────────────────── */
   expose("sendBack", sendBack);
   expose("fileLocation", fileLocation);
@@ -515,6 +694,24 @@ function createShared(deps = {}) {
 
   expose("verifyThis", verifyThis);
   expose("convertToJSON", convertToJSON);
+
+  // counters + create/update suite
+  expose("incrementCounterAndGetNewValue", incrementCounterAndGetNewValue);
+  expose("incrementCounter",               incrementCounterAndGetNewValue); // alias
+  expose("nextCounterValue",               incrementCounterAndGetNewValue); // alias
+
+  expose("createWord",      createWord);
+  expose("createGroup",     createGroup);
+  expose("createAccess",    createAccess);
+  expose("createVerified",  createVerified);
+  expose("createSubdomain", createSubdomain);
+
+  expose("addVersion",   addVersion);
+  expose("updateEntity", updateEntity);
+  expose("createEntity", createEntity);
+
+  expose("createFile", createFile);
+  expose("email",      email);
 
   /* ─────────────────────────────── public API ─────────────────────────────────── */
   return {

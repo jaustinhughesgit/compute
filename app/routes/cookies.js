@@ -11,6 +11,7 @@ const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
+  // Use your fixed key pair ID here; or switch to env via process.env.CF_KEYPAIR_ID
   _signer = new AWS.CloudFront.Signer("K2LZRHRSYZRU3Y", privateKey);
 
   const regOpts = { on: _shared.on, use: _shared.use };
@@ -21,7 +22,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     return c.register(regOpts);
   };
 
-  // register all modules (same as you listed)
+  // register all modules
   reg("./modules/get"); reg("./modules/file"); reg("./modules/links"); reg("./modules/tasks"); reg("./modules/groups");
   reg("./modules/validation"); reg("./modules/updateEntityByAI"); reg("./modules/position"); reg("./modules/search"); reg("./modules/getFile");
   reg("./modules/shorthand"); reg("./modules/convert"); reg("./modules/embed"); reg("./modules/users"); reg("./modules/passphrases");
@@ -40,15 +41,15 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     let action = "";
     let pathForModules = rp;
 
-    // If mounted at "/cookies/<action>/..." or "/url/<action>/..."
+    // Mounted at "/cookies/<action>/..." or "/url/<action>/..."
     if (segs[0] === "cookies" || segs[0] === "url") {
       type = type || segs[0];
       action = segs[1] || "";
-      pathForModules = "/" + segs.slice(2).join("/"); // "/<id>..."
+      pathForModules = "/" + segs.slice(2).join("/"); // "/<tail>..."
     } else {
       // Mounted at "/<action>/..."
       action = segs[0] || "";
-      pathForModules = "/" + segs.slice(1).join("/"); // "/<id>..."
+      pathForModules = "/" + segs.slice(1).join("/"); // "/<tail>..."
     }
 
     return { action, type, pathForModules };
