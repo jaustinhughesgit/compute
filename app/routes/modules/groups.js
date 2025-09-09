@@ -22,10 +22,12 @@ module.exports.register = ({ on, use }) => {
     const convertToJSON = use('convertToJSON');
     const email = use('email');
 
-    const parts = ctx.path.split('/');
-    const newGroupName   = parts[3];
-    const headEntityName = parts[4];
-    const headUUIDToShow = parts[5];     // original "parentEntity" var was not used in final tree build
+const parts = ctx.path.split('/'); // e.g. "/module2/module2/abc"
+const [, newGroupName, headEntityName, headUUIDToShow] = parts;
+
+if (!newGroupName || !headEntityName) {
+  throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
+}
 
 
     console.log("parts",parts)
