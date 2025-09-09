@@ -1,4 +1,6 @@
 // routes/modules/convert.js
+"use strict";
+
 /**
  * Action:  /cookies/convert/:su
  * Body:    {
@@ -23,22 +25,22 @@ module.exports.register = ({ on, use }) => {
 
     if (!su) return { ok: false, error: "Missing entity id (su) in path." };
 
-    // Normalise input
+    // ── Normalise input
     let arrayLogic = b.arrayLogic;
     let sourceType = "arrayLogic";
 
     if (typeof arrayLogic === "string") {
       try { arrayLogic = JSON.parse(arrayLogic); }
-      catch (e) { return { ok: false, error: "arrayLogic is not valid JSON string." }; }
+      catch { return { ok: false, error: "arrayLogic is not valid JSON string." }; }
     }
 
-    // If prompt supplied, embed it into the same style "fixed prompt" program the legacy used
+    // ── If prompt supplied, embed it into the legacy fixed-prompt program
     if (!arrayLogic && typeof b.prompt === "string") {
       sourceType = "prompt";
       let promptObj;
-      try { promptObj = JSON.parse(b.prompt); } catch {
-        return { ok: false, error: "prompt must be a JSON string." };
-      }
+      try { promptObj = JSON.parse(b.prompt); }
+      catch { return { ok: false, error: "prompt must be a JSON string." }; }
+
       const userPath = 1000000000000128; // legacy default path
 
       const fixedPrompt = `directive = [
@@ -98,7 +100,6 @@ async function processArray(source, context = [], target = []) {
   const result = [];
   for (const raw of source) {
     let item = walk(raw, [...context, ...result]);
-
     if (item && typeof item === "object" && Object.keys(item).length === 1) {
       const [key] = Object.keys(item);
       if (isBreadcrumb(key)) {
@@ -119,15 +120,14 @@ async function processArray(source, context = [], target = []) {
   await processArray(previous_response, [], previous_processed_conclusion);
   console.log(previous_processed_conclusion)
 })();`;
-
-      arrayLogic = fixedPrompt; // this is what the legacy parser expects
+      arrayLogic = fixedPrompt; // what the legacy parser expects
     }
 
     if (!arrayLogic) return { ok: false, error: "Provide body.arrayLogic or body.prompt." };
 
-    const { parseArrayLogic } = require("../parseArrayLogic"); // existing helper
+    const { parseArrayLogic } = require("../parseArrayLogic"); // routes/parseArrayLogic.js
 
-    // First pass
+    // ── First pass
     const parseResults = await parseArrayLogic({
       arrayLogic,
       dynamodb,
@@ -143,7 +143,7 @@ async function processArray(source, context = [], target = []) {
     let newShorthand = null;
     let conclusion = null;
 
-    // If the parser returned a shorthand payload, immediately execute it
+    // ── If the parser returned a shorthand payload, immediately execute it
     if (parseResults?.shorthand) {
       const s3GetJSON = async (bucket, key) => {
         const obj = await s3.getObject({ Bucket: bucket, Key: key }).promise();
@@ -158,23 +158,30 @@ async function processArray(source, context = [], target = []) {
         }).promise();
 
       const doc = await s3GetJSON("public.1var.com", su);
+
       const blocksBackup = Array.isArray(doc?.published?.blocks)
         ? JSON.parse(JSON.stringify(doc.published.blocks))
         : [];
 
       const engineInput = JSON.parse(JSON.stringify(doc));
-      // Convert route wraps the shorthand as a "virtual" block per legacy
+      // Convert wraps shorthand as a "virtual" block per legacy
       engineInput.input = [{ virtual: JSON.parse(JSON.stringify(parseResults.shorthand)) }];
       engineInput.input.unshift({ physical: [[engineInput.published]] });
 
       const { shorthand } = require("../shorthand");
 
+      // Match your router’s token extraction (token lives under req.body.headers)
+      const xAccessToken =
+        ctx.req?.body?.headers?.["X-accessToken"] ??
+        ctx.req?.body?.headers?.["x-accesstoken"] ??
+        null;
+
       const out = await shorthand(
         engineInput,
         ctx.req,
         ctx.res,
-        null,
-        null,
+        null,          // next
+        null,          // privateKey (unused by shorthand)
         dynamodb,
         uuidv4,
         s3,
@@ -182,15 +189,15 @@ async function processArray(source, context = [], target = []) {
         openai,
         Anthropic,
         dynamodbLL,
-        true,
+        true,          // isPublished
         ctx.path,
-        body,
+        body,          // reqBody
         ctx.req?.method,
         ctx.req?.type,
         ctx.res?.headersSent,
         ctx.signer,
         "shorthand",
-        ctx.req?.headers?.["x-accesstoken"] || ctx.req?.headers?.["X-accessToken"]
+        xAccessToken
       );
 
       out.published.blocks = blocksBackup;
@@ -211,12 +218,12 @@ async function processArray(source, context = [], target = []) {
       conclusion,
     };
 
-    // Best-effort tree (if available via shared.use)
+    // Optional best-effort tree view if shared exposes it
     if (use && typeof use.convertToJSON === "function") {
       try {
         result.view = await use.convertToJSON(su, ctx, { body });
       } catch {
-        // ignore
+        /* ignore */
       }
     }
 
