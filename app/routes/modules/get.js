@@ -1,9 +1,6 @@
 // routes/modules/get.js
 "use strict";
 
-/** Capability: action === "get"
- *  Loads the tree via convertToJSON and attaches tasks.
- */
 module.exports.register = ({ on, use }) => {
   on("get", async (ctx, { cookie }) => {
     const { dynamodb, uuidv4, dynamodbLL } = ctx.deps;

@@ -1,4 +1,6 @@
 // routes/modules/validation.js
+"use strict";
+
 /**
  * Actions:
  *  - validation         → GET perms + validation value for an entity by sub-uuid
@@ -136,7 +138,9 @@ module.exports.register = ({ on /*, use */ }) => {
       ExpressionAttributeValues: { ":e": String(sub.Items[0].e) }
     };
     const access = await dynamodb.query(params).promise();
-    if (!access.Items?.length) return { validation: {}, read: false, write: false, add: false, delete: false, permit: false, own: false };
+    if (!access.Items?.length) {
+      return { validation: {}, read: false, write: false, add: false, delete: false, permit: false, own: false };
+    }
 
     const permission = access.Items[0].ac || "";
     const has = (ch) => permission.includes(ch);
