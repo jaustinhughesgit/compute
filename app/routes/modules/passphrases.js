@@ -1,101 +1,84 @@
-// routes/modules/passphrases.js
-/**
- * Actions:
- *  - /cookies/wrapPassphrase
- *  - /cookies/addPassphrase     (alias of wrapPassphrase)
- *  - /cookies/decryptPassphrase
- *
- * Table: passphrases
- * PK:    passphraseID (String)
- * Item:  { passphraseID, keyVersion: Number, wrapped: { [userID]: base64 }, created: ISO }
- */
-module.exports.register = ({ on /*, use */ }) => {
-  const putWrapped = async (dynamodb, { passphraseID, keyVersion, wrapped }) => {
-    await dynamodb.put({
+// modules/passphrases.js
+"use strict";
+
+function register({ on, use }) {
+  const { getDocClient } = use();
+  const dynamodb = getDocClient();
+
+  // Support both flattened req.body and legacy body.body
+  const pickBody = (req) => {
+    const b = req?.body;
+    if (!b || typeof b !== "object") return b || {};
+    if (b.body && typeof b.body === "object") return b.body; // legacy
+    return b; // flattened
+  };
+
+  // addPassphrase / wrapPassphrase
+  const upsertWrappedPassphrase = async (ctx) => {
+    const { req } = ctx;
+    const body = pickBody(req);
+    const { passphraseID, keyVersion, wrapped } = body || {};
+
+    // Legacy validation + response shape
+    if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
+      return { error: "Invalid payload" };
+    }
+
+    const params = {
       TableName: "passphrases",
       Item: {
-        passphraseID: String(passphraseID),
+        passphraseID,
         keyVersion: Number(keyVersion),
-        wrapped: wrapped,                // object: { [userID]: base64 }
+        wrapped,
         created: new Date().toISOString(),
       },
       ConditionExpression: "attribute_not_exists(passphraseID)",
-    }).promise();
-    return { ok: true };
+    };
+
+    await dynamodb.put(params).promise(); // errors bubble to router (legacy behavior)
+    return { success: true };
   };
 
-  on("wrapPassphrase", async (ctx) => {
-    const { dynamodb } = ctx.deps || {};
-    const b = (ctx.req?.body || {}).body || {};
-    const { passphraseID, keyVersion, wrapped } = b || {};
+  on("addPassphrase", upsertWrappedPassphrase);
+  on("wrapPassphrase", upsertWrappedPassphrase);
 
-    if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
-      return { ok: false, error: "Invalid payload. Require passphraseID, keyVersion, wrapped(object)." };
-    }
-    try {
-      await putWrapped(dynamodb, { passphraseID, keyVersion, wrapped });
-      return { ok: true };
-    } catch (err) {
-      if (err && err.code === "ConditionalCheckFailedException") {
-        return { ok: false, error: "Passphrase already exists." };
-      }
-      throw err;
-    }
-  });
-
-  // alias
-  on("addPassphrase", async (ctx) => {
-    const { dynamodb } = ctx.deps || {};
-    const b = (ctx.req?.body || {}).body || {};
-    const { passphraseID, keyVersion, wrapped } = b || {};
-
-    if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
-      return { ok: false, error: "Invalid payload. Require passphraseID, keyVersion, wrapped(object)." };
-    }
-    try {
-      await putWrapped(dynamodb, { passphraseID, keyVersion, wrapped });
-      return { ok: true };
-    } catch (err) {
-      if (err && err.code === "ConditionalCheckFailedException") {
-        return { ok: false, error: "Passphrase already exists." };
-      }
-      throw err;
-    }
-  });
-
+  // decryptPassphrase
   on("decryptPassphrase", async (ctx) => {
-    const { dynamodb } = ctx.deps || {};
-    const b = (ctx.req?.body || {}).body || {};
-    const { passphraseID, userID, requestId } = b || {};
+    const { req } = ctx;
+    const body = pickBody(req);
+    const { passphraseID, userID, requestId } = body || {};
 
-    if (!passphraseID || userID === undefined || userID === null) {
-      return { ok: false, error: "passphraseID and userID required." };
+    if (!passphraseID || !userID) {
+      return { statusCode: 400, body: JSON.stringify({ error: "passphraseID and userID required" }) };
     }
 
-    const { Item } = await dynamodb.get({
+    const params = {
       TableName: "passphrases",
-      Key: { passphraseID: String(passphraseID) },
+      Key: { passphraseID },
       ProjectionExpression: "#kv, #wr",
-      ExpressionAttributeNames: {
-        "#kv": "keyVersion",
-        "#wr": "wrapped",
-      },
-    }).promise();
+      ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped" },
+    };
 
-    if (!Item) return { ok: false, error: "passphrase not found." };
+    const { Item } = await dynamodb.get(params).promise();
+    if (!Item) {
+      return { statusCode: 404, body: JSON.stringify({ error: "passphrase not found" }) };
+    }
 
-    const cipherB64 = Item.wrapped?.[String(userID)];
+    const cipherB64 = Item.wrapped?.[userID];
     if (!cipherB64) {
-      return { ok: false, error: "no wrapped data for this user.", status: 403 };
+      return { statusCode: 403, body: JSON.stringify({ error: "no wrapped data for this user" }) };
     }
 
     return {
-      ok: true,
-      passphraseID: String(passphraseID),
-      userID: String(userID),
-      cipherB64,
+      passphraseID,
+      userID,
+      cipherB64,             // BASE64 string: [ephemeralPub||IV||ciphertext]
       keyVersion: Item.keyVersion,
-      requestId,
+      requestId,             // echo for caller correlation
     };
   });
-};
+
+  return { name: "passphrases" };
+}
+
+module.exports = { register };

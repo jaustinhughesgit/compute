@@ -1,67 +1,107 @@
-// routes/modules/updateEntityByAI.js
-/**
- * Action:
- *  - updateEntityByAI  → run LLM over current entity JSON and overwrite S3 object
- */
-module.exports.register = ({ on /*, use */ }) => {
-  /* helpers */
-  const getSub = async (val, dynamodb) => {
-    const params = { TableName: "subdomains", KeyConditionExpression: "su = :su", ExpressionAttributeValues: { ":su": val } };
-    return dynamodb.query(params).promise();
-  };
+// modules/updateEntityByAI.js
+"use strict";
 
-  const retrieveAndParseJSON = async (s3, key, isPublic) => {
-    const bucket = (isPublic ? "public" : "private") + ".1var.com";
-    const data = await s3.getObject({ Bucket: bucket, Key: key }).promise();
-    return JSON.parse(data.Body.toString("utf-8"));
-  };
+function register({ on, use }) {
+  const {
+    // shared helpers
+    getS3,
+    getHead,
+    retrieveAndParseJSON,
+    fileLocation,
+    // raw deps bag if needed
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
 
-  on("updateEntityByAI", async (ctx) => {
-    const { dynamodb, s3, openai } = ctx.deps;
-    const su = (ctx.path || "").split("/")[3];
-    const prompt = ctx.req?.body?.body || {};
+  /**
+   * Legacy-compatible helper that mirrors the old runPrompt() from cookies.js.
+   * Preserves prompt construction, model choice, block/module reattachment, etc.
+   */
+  async function runPrompt(question, entity, dynamodb, openai, Anthropic) {
+    const gptScript = [""];
 
-    // resolve visibility and load current JSON
-    const sub = await getSub(su, dynamodb);
-    if (!sub.Items?.length) return { ok: false, error: "not-found" };
-    const isPublic = !!sub.Items[0].z;
+    const head = await getHead("su", entity, dynamodb);
+    const isPublic = head.Items[0].z;
 
-    const current = await retrieveAndParseJSON(s3, su, isPublic);
-    const originalBlocks = Array.isArray(current?.blocks) ? current.blocks : current?.published?.blocks;
-    const originalModules = current?.modules || current?.published?.modules;
+    // pull current JSON from S3, but keep original blocks/modules aside
+    let results = await retrieveAndParseJSON(entity, isPublic);
+    const blocks = JSON.parse(JSON.stringify(results.blocks));
+    const modules = JSON.parse(JSON.stringify(results.modules));
+    results = JSON.stringify(results);
 
-    // Build instruction & call the model
-    const sys = [
-      "",
-      "Using the proprietary JSON structure. RESPOND WITH A SINGLE JSON *OBJECT* — no commentary."
-    ].join("\n");
+    const combinedPrompt = `${gptScript} /n/n Using the proprietary json structure. RESPOND BACK WITH JUST AND ONLY A SINGLE JSON FILE!! NO COMMENTS!! NO EXPLINATIONS!! NO INTRO!! JUST JSON!!:  ${question.prompt} /n/n Here is the code to edit; ${results} `;
 
-    const combined = `${sys}\n\nUser Prompt: ${prompt?.prompt || ""}\n\n--- Current JSON to edit ---\n${JSON.stringify(current)}`;
+    let jsonParsed;
 
-    const res = await openai.chat.completions.create({
-      model: "o3-mini-2025-01-31",
-      messages: [{ role: "system", content: combined }],
-      response_format: { type: "json_object" }
-    });
+    // Keep the exact old branching (Anthropic path is disabled)
+    if (false) {
+      const anthropic = new Anthropic();
+      const response = await anthropic.messages.create({
+        model: "claude-3-5-sonnet-20240620",
+        max_tokens: 4000,
+        temperature: 0.7,
+        system: gptScript.join(" "),
+        messages: [
+          {
+            role: "user",
+            content: [{ type: "text", text: combinedPrompt }],
+          },
+        ],
+      });
+      jsonParsed = JSON.parse(response.content[0].text);
+      jsonParsed.modules = modules;
+      jsonParsed.blocks = blocks;
+      jsonParsed.ai = true;
+    } else {
+      const response = await openai.chat.completions.create({
+        messages: [{ role: "system", content: combinedPrompt }],
+        model: "o3-mini-2025-01-31",
+        response_format: { type: "json_object" },
+      });
+      jsonParsed = JSON.parse(response.choices[0].message.content);
+      jsonParsed.modules = modules;
+      jsonParsed.blocks = blocks;
+      jsonParsed.ai = true;
+    }
 
-    const asStr = res.choices?.[0]?.message?.content || "{}";
-    let parsed;
-    try { parsed = JSON.parse(asStr); } catch { parsed = {}; }
+    return { response: JSON.stringify(jsonParsed), isPublic, entity };
+  }
 
-    // keep modules/blocks stable if model omitted them
-    if (parsed && !parsed.modules && originalModules) parsed.modules = originalModules;
-    if (parsed && !parsed.blocks && originalBlocks) parsed.blocks = originalBlocks;
-    parsed.ai = true;
+  on("updateEntityByAI", async (ctx, meta) => {
+    const { req, path } = ctx;
+    const { dynamodb, openai, Anthropic } = deps;
+    const s3 = getS3();
 
-    // write back to same bucket
-    const bucket = (isPublic ? "public" : "private") + ".1var.com";
-    await s3.putObject({
-      Bucket: bucket,
-      Key: su,
-      Body: JSON.stringify(parsed),
-      ContentType: "application/json"
-    }).promise();
+    // ── Path parsing parity with legacy: fileID came from reqPath.split("/")[3]
+    // In modules, ctx.path is the tail ("/<fileID>..."). Use index 1 to match old position.
+    const fileID = String(path || "").split("?")[0].split("/")[1];
 
-    return { ok: true, oai: parsed };
+    // ── Body unwrapping parity: support both flattened req.body and legacy body.body
+    const raw = req?.body;
+    const prompt = raw && typeof raw === "object" && raw.body && typeof raw.body === "object"
+      ? raw.body
+      : raw;
+
+    // Run model and write exact same S3 object
+    const oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
+    await s3
+      .putObject({
+        Bucket: fileLocation(oai.isPublic) + ".1var.com",
+        Key: fileID,
+        Body: oai.response,
+        ContentType: "application/json",
+      })
+      .promise();
+
+    // Preserve legacy response shape fields
+    const response = {};
+    response.oai = JSON.parse(oai.response);
+    response.existing = meta?.cookie?.existing; // same as legacy "cookie.existing"
+    response.file = (fileID ?? "") + "";
+
+    return { ok: true, response };
   });
-};
+
+  return { name: "updateEntityByAI" };
+}
+
+module.exports = { register };

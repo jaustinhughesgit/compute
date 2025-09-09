@@ -1,77 +1,106 @@
-// routes/modules/users.js
-/**
- * Actions:
- *  - /cookies/createUser
- *  - /cookies/getUserPubKeys
- *
- * Table: users
- * PK:    userID (Number)
- */
-module.exports.register = ({ on /*, use */ }) => {
-  // Create
-  on("createUser", async (ctx) => {
-    const { dynamodb } = ctx.deps || {};
-    const b = (ctx.req?.body || {}).body || {};
+// modules/users.js
+"use strict";
 
-    if (
-      b.userID === undefined ||
-      !b.emailHash ||
-      !b.pubEnc ||
-      !b.pubSig
-    ) {
-      return { ok: false, error: "Missing required fields: userID, emailHash, pubEnc, pubSig." };
-    }
+function register({ on, use }) {
+  const { getDocClient /* , getS3, deps */ } = use();
+
+  // Helper: preserve legacy body flattening semantics
+  function unwrapBody(b) {
+    if (!b || typeof b !== "object") return b;
+    if (b.body && typeof b.body === "object") return b.body; // legacy { body: { ... } }
+    return b; // already flattened
+  }
+
+  // ────────────────────────────────────────────────────────────────────────────
+  // createUser
+  // Legacy behavior:
+  // - Writes a new item to the "users" table with user-provided fields.
+  // - Uses ConditionExpression "attribute_not_exists(e)" (kept verbatim).
+  // - Swallows ConditionalCheckFailedException (user already exists) like before.
+  // - No specific response payload was set in the old monolith (returned empty object).
+  // ────────────────────────────────────────────────────────────────────────────
+  on("createUser", async (ctx /* , meta */) => {
+    const { req /* , res, path, type, signer */ } = ctx;
+    const body = unwrapBody(req.body) || {};
 
     const now = Date.now();
-    const item = {
-      userID: Number(b.userID),
-      emailHash: String(b.emailHash),
-      pubEnc: String(b.pubEnc),
-      pubSig: String(b.pubSig),
+    const newUser = {
+      userID: parseInt(body.userID, 10),
+      emailHash: body.emailHash,
+      pubEnc: body.pubEnc,
+      pubSig: body.pubSig,
       created: now,
-      revoked: !!b.revoked,
-      latestKeyVersion: b.latestKeyVersion ?? 1,
+      revoked: !!body.revoked,
+      latestKeyVersion: body.latestKeyVersion ?? 1,
+    };
+
+    const params = {
+      TableName: "users",
+      Item: newUser,
+      // NOTE: preserved exactly as in legacy (even though 'e' is not part of this item).
+      ConditionExpression: "attribute_not_exists(e)",
     };
 
     try {
-      await dynamodb.put({
-        TableName: "users",
-        Item: item,
-        ConditionExpression: "attribute_not_exists(userID)",
-      }).promise();
-      return { ok: true, created: true, userID: item.userID };
+      await getDocClient().put(params).promise();
     } catch (err) {
       if (err && err.code === "ConditionalCheckFailedException") {
-        return { ok: false, error: "User already exists." };
+        // Legacy: log and continue (do not throw)
+        console.error("User already exists");
+      } else {
+        // Preserve legacy: rethrow other errors
+        throw err;
       }
-      throw err;
     }
+
+    // Legacy branch returned an (effectively) empty payload that later got wrapped.
+    // Here we return an empty object to maintain parity of direct action response.
+    return {};
   });
 
-  // Read public keys
-  on("getUserPubKeys", async (ctx) => {
-    const { dynamodb } = ctx.deps || {};
-    const b = (ctx.req?.body || {}).body || {};
-    const userID = b.userID;
+  // ────────────────────────────────────────────────────────────────────────────
+  // getUserPubKeys
+  // Legacy behavior:
+  // - Requires userID in body; returns {statusCode, body: JSON.stringify({error})} on errors.
+  // - Fetches pubEnc, pubSig, latestKeyVersion via ProjectionExpression.
+  // - Returns those fields plus echoed requestId when found.
+  // ────────────────────────────────────────────────────────────────────────────
+  on("getUserPubKeys", async (ctx /* , meta */) => {
+    const { req /* , res, path, type, signer */ } = ctx;
+    const body = unwrapBody(req.body) || {};
 
-    if (userID === undefined || userID === null || String(userID).trim() === "") {
-      return { ok: false, error: "userID required." };
+    const userID = String(body.userID ?? "").trim();
+    if (!userID) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "userID required" }),
+      };
     }
 
-    const { Item } = await dynamodb.get({
+    const params = {
       TableName: "users",
-      Key: { userID: Number(userID) },
+      Key: { userID: parseInt(userID, 10) },
       ProjectionExpression: "pubEnc, pubSig, latestKeyVersion",
-    }).promise();
+    };
 
-    if (!Item) return { ok: false, error: "user not found." };
+    const { Item } = await getDocClient().get(params).promise();
+
+    if (!Item) {
+      return {
+        statusCode: 404,
+        body: JSON.stringify({ error: "user not found" }),
+      };
+    }
 
     return {
-      ok: true,
       pubEnc: Item.pubEnc,
       pubSig: Item.pubSig,
       latestKeyVersion: Item.latestKeyVersion,
-      requestId: b.requestId,
+      requestId: body.requestId,
     };
   });
-};
+
+  return { name: "users" };
+}
+
+module.exports = { register };

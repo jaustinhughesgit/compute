@@ -1,256 +1,224 @@
-// routes/modules/validation.js
+// modules/validation.js
 "use strict";
 
-/**
- * Actions:
- *  - validation         → GET perms + validation value for an entity by sub-uuid
- *  - saveAuthenticator  → update existing access (va + permissions)
- *  - makeAuthenticator  → create new access for an entity
- *  - useAuthenticator   → attach one entity's access set to another entity
- */
-module.exports.register = ({ on /*, use */ }) => {
-  /* ────────────────────────── helpers ────────────────────────── */
-  const getSub = async (val, key, dynamodb) => {
-    let params;
-    if (key === "su") {
-      params = { TableName: "subdomains", KeyConditionExpression: "su = :su", ExpressionAttributeValues: { ":su": val } };
-    } else if (key === "e") {
-      params = { TableName: "subdomains", IndexName: "eIndex", KeyConditionExpression: "e = :e", ExpressionAttributeValues: { ":e": val } };
-    } else if (key === "a") {
-      params = { TableName: "subdomains", IndexName: "aIndex", KeyConditionExpression: "a = :a", ExpressionAttributeValues: { ":a": val } };
-    } else if (key === "g") {
-      params = { TableName: "subdomains", IndexName: "gIndex", KeyConditionExpression: "g = :g", ExpressionAttributeValues: { ":g": val } };
-    }
-    return dynamodb.query(params).promise();
+function register({ on, use }) {
+  const {
+    // domain/data helpers from shared (reuse, don’t duplicate)
+    getSub,
+    getEntity,
+    addVersion,
+    updateEntity,
+    incrementCounterAndGetNewValue,
+    createAccess,
+    convertToJSON,
+
+    // service getters / deps
+    getDocClient,
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
+
+  // helper: legacy body flattening (supports flattened req.body and legacy req.body.body)
+  const getPayload = (req) => {
+    const b = req?.body;
+    if (b && typeof b === "object" && b.body && typeof b.body === "object") return b.body;
+    return (b && typeof b === "object") ? b : {};
   };
 
-  const getEntity = async (e, dynamodb) => {
-    const params = { TableName: "entities", KeyConditionExpression: "e = :e", ExpressionAttributeValues: { ":e": e } };
-    return dynamodb.query(params).promise();
-  };
-
-  const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
-    const response = await dynamodb.update({
-      TableName: tableName,
-      Key: { pk: tableName },
-      UpdateExpression: "ADD #cnt :val",
-      ExpressionAttributeNames: { "#cnt": "x" },
-      ExpressionAttributeValues: { ":val": 1 },
-      ReturnValues: "UPDATED_NEW"
-    }).promise();
-    return response.Attributes.x;
-  };
-
-  const addVersion = async (newE, col, val, forceC, dynamodb) => {
-    try {
-      const id = await incrementCounterAndGetNewValue("vCounter", dynamodb);
-      let newCValue;
-      let newSValue;
-
-      const q = await dynamodb.query({
-        TableName: "versions",
-        IndexName: "eIndex",
-        KeyConditionExpression: "e = :eValue",
-        ExpressionAttributeValues: { ":eValue": newE },
-        ScanIndexForward: false,
-        Limit: 1
-      }).promise();
-
-      if (forceC) {
-        newCValue = forceC;
-        newSValue = q.Items.length ? (parseInt(q.Items[0].s) || 0) + 1 : 1;
-      } else {
-        newSValue = 1;
-        newCValue = q.Items.length ? (parseInt(q.Items[0].c) || 0) + 1 : 1;
-      }
-
-      let prevV, prevD;
-      if (q.Items.length) { prevV = q.Items[0].v; prevD = q.Items[0].d; }
-
-      const newRecord = { v: String(id), c: String(newCValue), e: newE, s: String(newSValue), p: prevV, d: Date.now(), [col]: val };
-      await dynamodb.put({ TableName: "versions", Item: newRecord }).promise();
-
-      if (prevV && prevD) {
-        await dynamodb.update({
-          TableName: "versions",
-          Key: { v: prevV, d: prevD },
-          UpdateExpression: "set n = :newV",
-          ExpressionAttributeValues: { ":newV": String(id) }
-        }).promise();
-      }
-      return { v: String(id), c: String(newCValue) };
-    } catch {
-      return null;
-    }
-  };
-
-  const updateEntity = async (e, col, val, v, c, dynamodb) => {
-    let params;
-    if (col === "t" || col === "f" || col === "l" || col === "o" || col === "ai") {
-      params = {
-        TableName: "entities",
-        Key: { e },
-        UpdateExpression: `set ${col} = list_append(if_not_exists(${col}, :empty_list), :val), v = :v, c = :c`,
-        ExpressionAttributeValues: { ":val": [val], ":empty_list": [], ":v": v, ":c": c }
-      };
-    } else {
-      params = {
-        TableName: "entities",
-        Key: { e },
-        UpdateExpression: `set ${col} = :val, v = :v, c = :c`,
-        ExpressionAttributeValues: { ":val": val, ":v": v, ":c": c }
-      };
-    }
-    return dynamodb.update(params).promise();
-  };
-
-  const createAccess = async (ai, g, e, ex, at, to, va, ac, dynamodb) => {
-    return dynamodb.put({
-      TableName: "access",
-      Item: { ai, g, e, ex, at, to, va, ac }
-    }).promise();
-  };
-
+  // helper: build permissions string from booleans (order preserved: e r w a d p o)
   const permsFromBooleans = (b = {}) => {
     let s = "";
     if (b.execute) s += "e";
-    if (b.read) s += "r";
-    if (b.write) s += "w";
-    if (b.add) s += "a";
-    if (b.delete) s += "d";
-    if (b.permit) s += "p";
-    if (b.own) s += "o";
+    if (b.read)    s += "r";
+    if (b.write)   s += "w";
+    if (b.add)     s += "a";
+    if (b.delete)  s += "d";
+    if (b.permit)  s += "p";
+    if (b.own)     s += "o";
     return s;
   };
 
-  /* ────────────────────────── handlers ───────────────────────── */
+  // ──────────────────────────────────────────────────────────────────────────
+  // validation → GET perms + validation value for an entity by sub-uuid
+  // legacy response shape: { ok: true, response: { validation, read, write, add, delete, permit, own } }
+  // ──────────────────────────────────────────────────────────────────────────
+  on("validation", async (ctx /*, meta */) => {
+    const ddb = getDocClient();
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const subUuid = segs[0];
 
-  on("validation", async (ctx) => {
-    const { dynamodb } = ctx.deps;
-    const subUuid = (ctx.path || "").split("/")[3];
-    const sub = await getSub(subUuid, "su", dynamodb);
-    if (!sub.Items?.length) return { ok: false, error: "not-found" };
+    const sub = await getSub(subUuid, "su");
+    if (!sub?.Items?.length) {
+      // legacy returned empty-ish object on misses; wrap in { ok: true, response } to match outer shape
+      return {
+        ok: true,
+        response: { validation: {}, read: false, write: false, add: false, delete: false, permit: false, own: false },
+      };
+    }
 
     const params = {
       TableName: "access",
       IndexName: "eIndex",
       KeyConditionExpression: "e = :e",
-      ExpressionAttributeValues: { ":e": String(sub.Items[0].e) }
+      ExpressionAttributeValues: { ":e": String(sub.Items[0].e) },
     };
-    const access = await dynamodb.query(params).promise();
-    if (!access.Items?.length) {
-      return { validation: {}, read: false, write: false, add: false, delete: false, permit: false, own: false };
+    const access = await ddb.query(params).promise();
+    if (!access?.Items?.length) {
+      return {
+        ok: true,
+        response: { validation: {}, read: false, write: false, add: false, delete: false, permit: false, own: false },
+      };
     }
 
-    const permission = access.Items[0].ac || "";
+    const permission = String(access.Items[0].ac || "");
     const has = (ch) => permission.includes(ch);
     return {
-      validation: access.Items[0].va,
-      read: has("r"),
-      write: has("w"),
-      add: has("a"),
-      delete: has("d"),
-      permit: has("p"),
-      own: has("o")
+      ok: true,
+      response: {
+        validation: access.Items[0].va,
+        read:  has("r"),
+        write: has("w"),
+        add:   has("a"),
+        delete:has("d"),
+        permit:has("p"),
+        own:   has("o"),
+      },
     };
   });
 
-  on("saveAuthenticator", async (ctx) => {
-    const { dynamodb } = ctx.deps;
-    const body = ctx.req?.body?.body || {};
-    const subUuid = (ctx.path || "").split("/")[3];
+  // ──────────────────────────────────────────────────────────────────────────
+  // saveAuthenticator → update existing access (va + permissions)
+  // legacy response shape: { ok: true, response: { alert: "success" } }
+  // ──────────────────────────────────────────────────────────────────────────
+  on("saveAuthenticator", async (ctx /*, meta */) => {
+    const ddb = getDocClient();
+    const body = getPayload(ctx.req);
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const subUuid = segs[0];
 
-    const sub = await getSub(subUuid, "su", dynamodb);
-    if (!sub.Items?.length) return { ok: false, error: "not-found" };
+    const sub = await getSub(subUuid, "su");
+    if (!sub?.Items?.length) return { ok: true, response: { alert: "not-found" } };
 
-    const q = await dynamodb.query({
+    const q = await ddb.query({
       TableName: "access",
       IndexName: "eIndex",
       KeyConditionExpression: "e = :e",
-      ExpressionAttributeValues: { ":e": String(sub.Items[0].e) }
+      ExpressionAttributeValues: { ":e": String(sub.Items[0].e) },
     }).promise();
 
-    if (!q.Items?.length) return { ok: false, error: "no-access" };
+    if (!q?.Items?.length) return { ok: true, response: { alert: "no-access" } };
 
-    const ai = q.Items[0].ai.toString();
+    const ai = String(q.Items[0].ai);
     const ac = permsFromBooleans(body);
-    await dynamodb.update({
+
+    await ddb.update({
       TableName: "access",
       Key: { ai },
       UpdateExpression: "set va = :va, ac = :ac",
-      ExpressionAttributeValues: { ":va": body.value, ":ac": ac }
+      ExpressionAttributeValues: { ":va": body.value, ":ac": ac },
     }).promise();
 
-    return { ok: true };
+    return { ok: true, response: { alert: "success" } };
   });
 
-  on("makeAuthenticator", async (ctx) => {
-    const { dynamodb } = ctx.deps;
-    const body = ctx.req?.body?.body || {};
-    const subUuid = (ctx.path || "").split("/")[3];
+  // ──────────────────────────────────────────────────────────────────────────
+  // makeAuthenticator → create new access for an entity
+  // legacy behavior:
+  //  - ignore Buffer-like payloads
+  //  - require ex/at/va/to/ac, then create access + attach to entity via version/update
+  //  - response returned was the converted tree for the same sub (convertToJSON)
+  //    wrapped as { ok: true, response: <tree> }
+  // ──────────────────────────────────────────────────────────────────────────
+  on("makeAuthenticator", async (ctx, meta) => {
+    const ddb  = getDocClient();
+    const { dynamodbLL, uuidv4 } = deps || {};
+    const body = getPayload(ctx.req);
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const subUuid = segs[0];
 
-    const sub = await getSub(subUuid, "su", dynamodb);
-    if (!sub.Items?.length) return { ok: false, error: "not-found" };
+    const sub = await getSub(subUuid, "su");
+    if (!sub?.Items?.length) return { ok: true, response: { alert: "not-found" } };
 
-    // ignore if payload was a raw Buffer blob
+    // Ignore if payload was a raw Buffer blob (legacy check)
     const isBufferLike = body && typeof body === "object" && body.type === "Buffer";
-    if (isBufferLike) return { ok: false, error: "buffer-not-supported" };
+    if (isBufferLike) return { ok: true, response: { alert: "buffer-not-supported" } };
 
     const ex = body.expires;
     const at = body.attempts;
     const va = body.value;
     const to = body.timeout;
     const ac = permsFromBooleans(body);
-
     if (!ex || !at || !va || !to || !ac) {
-      return { ok: false, error: "missing-fields" };
+      return { ok: true, response: { alert: "missing-fields" } };
     }
 
-    const ai = String(await incrementCounterAndGetNewValue("aiCounter", dynamodb));
-    await createAccess(ai, String(sub.Items[0].g), String(sub.Items[0].e), ex, at, to, va, ac, dynamodb);
+    const ai = String(await incrementCounterAndGetNewValue("aiCounter"));
+    await createAccess(ai, String(sub.Items[0].g), String(sub.Items[0].e), ex, at, to, va, ac);
 
-    // attach to entity if not the global "0"
     if (String(sub.Items[0].e) !== "0") {
-      const ent = await getEntity(String(sub.Items[0].e), dynamodb);
-      const changeID = ent.Items?.[0]?.c ? String(ent.Items[0].c) : "1";
-      const v = await addVersion(String(sub.Items[0].e), "ai", ai, changeID, dynamodb);
-      if (v) await updateEntity(String(sub.Items[0].e), "ai", ai, v.v, v.c, dynamodb);
+      const ent = await getEntity(String(sub.Items[0].e));
+      const changeID = ent?.Items?.[0]?.c ? String(ent.Items[0].c) : "1";
+      const ver = await addVersion(String(sub.Items[0].e), "ai", ai, changeID);
+      if (ver) await updateEntity(String(sub.Items[0].e), "ai", ai, ver.v, ver.c);
     }
 
-    return { ok: true, ai, ac };
+    // parity: return convertToJSON tree for this sub
+    const tree = await convertToJSON(
+      subUuid,
+      [],              // parentPath
+      null,            // isUsing
+      null,            // mapping
+      meta?.cookie || {},
+      ddb,             // ddb
+      uuidv4,          // uuid
+      undefined,       // pathID
+      [],              // parentPath2
+      {},              // id2Path
+      "",              // usingID
+      dynamodbLL,      // ddbLL
+      ctx.req?.body    // body (for deepEqual validation path)
+    );
+
+    return { ok: true, response: tree };
   });
 
-  on("useAuthenticator", async (ctx) => {
-    const { dynamodb } = ctx.deps;
-    const parts = (ctx.path || "").split("/");
-    const EntitySU = parts[3];
-    const AuthenticatorSU = parts[4];
+  // ──────────────────────────────────────────────────────────────────────────
+  // useAuthenticator → attach one entity's access set to another entity
+  // legacy response shape: { ok: true, response: { alert: "success" } }
+  // (legacy loop attached all access.ai from the authenticator entity)
+  // ──────────────────────────────────────────────────────────────────────────
+  on("useAuthenticator", async (ctx /*, meta */) => {
+    const ddb = getDocClient();
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const entitySU       = segs[0];
+    const authenticatorSU= segs[1];
 
-    const subEntity = await getSub(EntitySU, "su", dynamodb);
-    const subAuth = await getSub(AuthenticatorSU, "su", dynamodb);
-    if (!subEntity.Items?.length || !subAuth.Items?.length) return { ok: false, error: "not-found" };
+    const subEntity = await getSub(entitySU, "su");
+    const subAuth   = await getSub(authenticatorSU, "su");
+    if (!subEntity?.Items?.length || !subAuth?.Items?.length) {
+      return { ok: true, response: { alert: "not-found" } };
+    }
 
-    const access = await dynamodb.query({
+    const access = await ddb.query({
       TableName: "access",
       IndexName: "eIndex",
       KeyConditionExpression: "e = :e",
-      ExpressionAttributeValues: { ":e": String(subAuth.Items[0].e) }
+      ExpressionAttributeValues: { ":e": String(subAuth.Items[0].e) },
     }).promise();
 
-    if (!access.Items?.length) return { ok: false, error: "no-access" };
+    if (!access?.Items?.length) return { ok: true, response: { alert: "no-access" } };
 
-    const ent = await getEntity(String(subEntity.Items[0].e), dynamodb);
-    const changeID = ent.Items?.[0]?.c ? String(ent.Items[0].c) : "1";
+    const ent = await getEntity(String(subEntity.Items[0].e));
+    const changeID = ent?.Items?.[0]?.c ? String(ent.Items[0].c) : "1";
 
-    const added = [];
     for (const ac of access.Items) {
-      const v = await addVersion(String(subEntity.Items[0].e), "ai", String(ac.ai), changeID, dynamodb);
-      if (v) {
-        await updateEntity(String(subEntity.Items[0].e), "ai", String(ac.ai), v.v, v.c, dynamodb);
-        added.push(String(ac.ai));
-      }
+      const v = await addVersion(String(subEntity.Items[0].e), "ai", String(ac.ai), changeID);
+      if (v) await updateEntity(String(subEntity.Items[0].e), "ai", String(ac.ai), v.v, v.c);
     }
 
-    return { ok: true, added };
+    return { ok: true, response: { alert: "success" } };
   });
-};
+
+  return { name: "validation" };
+}
+
+module.exports = { register };

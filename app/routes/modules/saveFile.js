@@ -1,54 +1,82 @@
 // modules/saveFile.js
 "use strict";
 
-/**
- * Saves the provided JSON to S3 at the entity's SU name, and returns convertToJSON.
- */
-async function saveFileHandle(ctx) {
+function register({ on, use }) {
   const {
-    s3, dynamodb, uuidv4, dynamodbLL,
-    convertToJSON, getSub, setIsPublic,
-    reqPath, reqBody, cookie
-  } = ctx;
+    // shared helpers
+    manageCookie, getVerified, verifyPath, allVerified,
+    convertToJSON, createFile,
+    // raw deps bag if needed
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
 
-  // Path: /<anything>/saveFile/:su
-  const segs = (reqPath || "").split("/");
-  const su = segs[3];
+  on("saveFile", async (ctx /*, meta */) => {
+    const { req, res, path } = ctx;
+    const { dynamodb, dynamodbLL, uuidv4, s3 } = (ctx.deps || deps || {});
 
-  // Determine public/private from subdomain row (authoritative),
-  // but also try to read it from convertToJSON meta if available.
-  const sub = await getSub(su, "su", dynamodb);
-  setIsPublic(sub.Items?.[0]?.z);
+    // ── Auth/cookie+verification (strict parity with legacy flow) ─────────────
+    const cookie = await manageCookie({}, ctx.xAccessToken, res, dynamodb, uuidv4);
+    const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb);
 
-  const mainObj = await convertToJSON(
-    su, [], null, null, cookie, dynamodb, uuidv4,
-    null, [], {}, "", dynamodbLL, reqBody
-  );
+    // In legacy, verifyPath consumed the original path split; recreate a compatible value.
+    const fullPathForVerify =
+      (req && typeof req.path === "string" && req.path) ||
+      `/${(ctx.type || "cookies")}/saveFile${String(path || "")}`;
+    const splitPath = String(fullPathForVerify).split("/");
 
-  const defaultLocation =
-    (sub.Items?.[0]?.z === true || sub.Items?.[0]?.z === "true") ? "public" : "private";
+    const verified = await verifyPath(splitPath, verifications, dynamodb);
+    const allV = allVerified(verified);
+    if (!allV) {
+      // Legacy returned an empty JSON body on failed verification.
+      return {};
+    }
 
-  const metaLocation = mainObj?.obj?.[su]?.meta?.location; // "public" | "private"
-  const bucketName = (metaLocation || defaultLocation) + ".1var.com";
+    // ── Path parsing: /saveFile/:fileID/... → fileID is first seg in ctx.path ─
+    const segs = String(path || "").split("/").filter(Boolean);
+    const actionFile = segs[0] || "";
 
-  const payload = (reqBody && Object.prototype.hasOwnProperty.call(reqBody, "body"))
-    ? reqBody.body
-    : reqBody;
+    // ── Maintain legacy request-body handling (flattened vs legacy body.body) ─
+    // Legacy code passed the *entire* reqBody into convertToJSON, and for createFile:
+    //   if (!reqBody.body) createFile(fileID, reqBody) else createFile(fileID, reqBody.body)
+    // We emulate that exactly using the current req.body shape.
+    const hasLegacyEnvelope =
+      req && req.body && typeof req.body === "object" && Object.prototype.hasOwnProperty.call(req.body, "body");
 
-  await s3.putObject({
-    Bucket: bucketName,
-    Key: su,
-    Body: (typeof payload === "string") ? payload : JSON.stringify(payload),
-    ContentType: "application/json"
-  }).promise();
+    // Pass-through for convertToJSON (legacy passed "reqBody" positionally as the 'body' arg)
+    const bodyForConvert = hasLegacyEnvelope ? req.body : req.body;
 
-  return { mainObj, actionFile: su };
+    // ── Convert & then persist file payload exactly like before ───────────────
+    const mainObj = await convertToJSON(
+      actionFile,
+      [],
+      null,
+      null,
+      cookie,
+      dynamodb,
+      uuidv4,
+      null,
+      [],
+      {},
+      "",
+      dynamodbLL,
+      bodyForConvert
+    );
+
+    if (!hasLegacyEnvelope) {
+      await createFile(actionFile, req.body, s3);
+    } else {
+      await createFile(actionFile, req.body.body, s3);
+    }
+
+    // Legacy always appended these fields before the final sendBack()
+    mainObj.existing = cookie.existing;
+    mainObj.file = actionFile + "";
+
+    // Legacy sendBack(..., { ok: true, response }) shape:
+    return { ok: true, response: mainObj };
+  });
+
+  return { name: "saveFile" };
 }
 
-// keep old-style usage
-module.exports.handle = saveFileHandle;
-
-// new auto-wiring entry for cookies.js registerModule(...)
-module.exports.register = function register({ on /*, use */ }) {
-  on("saveFile", saveFileHandle);
-};
+module.exports = { register };

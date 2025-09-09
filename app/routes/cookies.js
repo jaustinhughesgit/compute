@@ -3,26 +3,29 @@
 
 const express = require("express");
 const AWS = require("aws-sdk");
-const { createShared } = require("./shared");
+const { createShared } = require("./shared"); /* shared exposes:
+  Registry: on, use, dispatch, expose, actions, registry, cache
+  Toggles: setIsPublic, fileLocation
+  Utils: isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment
+  Domain (Dynamo): getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks
+  Links: makeLinkId, makeCKey, putLink, deleteLink, getLinkedChildren, getLinkedParents, migrateLinksFromEntities
+  Versions/Entities/Words/Groups: incrementCounterAndGetNewValue, addVersion, updateEntity, createWord, createGroup, createEntity, createSubdomain
+  Access/Cookies/Auth: createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth
+  S3/Files: createFile, retrieveAndParseJSON
+  Tree: convertToJSON
+  Misc: getHead, sendBack, getDocClient, getS3, getSES
+  Deps bag: deps { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+*/
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Lazily-created shared (so adapter + express share one instance)
-// ───────────────────────────────────────────────────────────────────────────────
 let _deps, _shared, _signer;
 const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Helpers
-// ───────────────────────────────────────────────────────────────────────────────
-
-// unwrap worker/axios-style bodies: `{ method, headers, body: {...} }`
 function unwrapBody(b) {
   if (!b || typeof b !== "object") return b;
   if (b.body && typeof b.body === "object") return b.body;
   return b;
 }
 
-// promote a header from a possibly nested `headers` object into `req.headers`
 function promoteHeader(req, hdrs, name, targetLower) {
   if (!hdrs) return;
   const v = hdrs[name] ?? hdrs[name.toLowerCase()];
@@ -31,27 +34,25 @@ function promoteHeader(req, hdrs, name, targetLower) {
   req.headers[targetLower] = v;
 }
 
-// normalize path/action/type for router + adapter (keeps old shapes working)
 function normalize(rawPath, typeFromParams, queryType) {
-  let rp = String(rawPath || "").split("?")[0]; // drop query
+  let rp = String(rawPath || "").split("?")[0];
   const segs = rp.split("/").filter(Boolean);
 
   let type = typeFromParams || queryType;
   let action = "";
   let pathForModules = rp;
 
-  // Mounted at "/cookies/<action>/..." or "/url/<action>/..."
   if (segs[0] === "cookies" || segs[0] === "url") {
     type = type || segs[0];
     action = segs[1] || "";
-    pathForModules = "/" + segs.slice(2).join("/"); // "/<tail>..."
+    pathForModules = "/" + segs.slice(2).join("/");
   } else {
     // Mounted at "/<action>/..."
     action = segs[0] || "";
-    pathForModules = "/" + segs.slice(1).join("/"); // "/<tail>..."
+    pathForModules = "/" + segs.slice(1).join("/");
   }
 
-  if (!pathForModules) pathForModules = "/"; // always provide a tail
+  if (!pathForModules) pathForModules = "/";
   return { action, type, pathForModules };
 }
 
@@ -104,25 +105,20 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   const router = express.Router({ mergeParams: true });
 
-  // Single catch-all that preserves legacy worker bridge semantics
   router.all("*", async (req, res) => {
     try {
-      // 1) unwrap worker/axios-style envelope so modules get a flat body
       if (req.body && typeof req.body === "object") {
         const maybeHeaders =
           req.body.headers || (req.body.body && req.body.body.headers) || null;
 
-        // promote worker-provided headers into real req.headers (legacy parity)
         if (maybeHeaders) {
           promoteHeader(req, maybeHeaders, "X-Original-Host", "x-original-host");
           promoteHeader(req, maybeHeaders, "X-accessToken", "x-accesstoken");
         }
 
-        // then flatten the body once
         req.body = unwrapBody(req.body);
       }
 
-      // 2) compute path from either actual req.path or X-Original-Host (legacy)
       const cookie = req.cookies || {};
       let rawPath = String(req.path || "").split("?")[0];
       let type = req.params?.type || req.type || req.query?.type;
@@ -148,28 +144,21 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       );
       type = t;
 
-      // 3) build ctx exactly how modules/shared expect
       const ctx = {
         req,
         res,
-        path: pathForModules, // tail that modules expect
+        path: pathForModules,
         type,
         signer: _signer,
         deps: _deps,
-        // expose x-accessToken like the old router passed to manageCookie(...)
         xAccessToken:
           req.get?.("X-accessToken") ||
           req.headers?.["x-accesstoken"] ||
           req.headers?.["x-accessToken"],
       };
 
-      // 4) dispatch to modules via shared
       const result = await ensureShared().dispatch(action, ctx, { cookie });
-
-      // 5) if a module wrote the response, we're done
       if (res.headersSent) return;
-
-      // otherwise, mirror the legacy behavior
       if (result && result.__handled) return;
       if (result != null) return res.json(result);
 
@@ -187,10 +176,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   return router;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-/** Adapter: call the same dispatch logic without an Express router.
- *  (keeps the exact same header/cookie normalization as setupRouter) */
-// ───────────────────────────────────────────────────────────────────────────────
 async function route(
   req,
   res,
@@ -213,32 +198,25 @@ async function route(
   action,
   xAccessToken
 ) {
-  // init shared deps/signer once
   _deps = _deps || { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = _shared || createShared(_deps);
   _signer =
     _signer || signer || new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
 
-  // minimal req/res shape
   req = req || {};
   res = res || {};
   req.headers ||= {};
 
-  // 1) graft/unwrap provided body & promote worker headers
   if (reqBody) {
     const flat = unwrapBody(reqBody);
-
-    // keep original body if it already exists + has keys; else replace
     if (!req.body || !Object.keys(req.body).length) req.body = flat;
 
     const hdrs =
       (reqBody && reqBody.headers) || (flat && flat.headers) || undefined;
     promoteHeader(req, hdrs, "X-Original-Host", "x-original-host");
-    // critical for legacy cookie flow:
     promoteHeader(req, hdrs, "X-accessToken", "x-accesstoken");
   }
 
-  // 2) derive the raw path, honoring X-Original-Host the same way as router
   let raw = String(reqPath || req?.path || "").split("?")[0];
   if (!raw || raw === "/") {
     const fromHeader =
@@ -253,14 +231,12 @@ async function route(
     }
   }
 
-  // 3) determine action if not provided (consistent with normalize())
   let a = action;
   if (!a) {
     const segs = String(raw || "").split("/").filter(Boolean);
     a = segs[0] === "cookies" || segs[0] === "url" ? segs[1] || "" : segs[0] || "";
   }
 
-  // 4) normalize tail the same way modules expect
   const normalizeTail = (rawPath) => {
     const segs = String(rawPath || "").split("/").filter(Boolean);
     const tail =
@@ -277,7 +253,6 @@ async function route(
     type: req?.type || reqType,
     signer: _signer,
     deps: _deps,
-    // pass through xAccessToken like the legacy code path
     xAccessToken:
       xAccessToken ||
       req?.get?.("X-accessToken") ||
@@ -300,9 +275,6 @@ async function route(
   }
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Legacy helper exports — these delegate to shared.* so modules stay intact
-// ───────────────────────────────────────────────────────────────────────────────
 const bind = (name) => (...args) => {
   const s = ensureShared();
   if (typeof s[name] !== "function") throw new Error(`shared.${name} not found`);
@@ -312,8 +284,6 @@ const bind = (name) => (...args) => {
 module.exports = {
   setupRouter,
   route,
-
-  // legacy names (must exist in shared)
   getHead: bind("getHead"),
   convertToJSON: bind("convertToJSON"),
   manageCookie: bind("manageCookie"),

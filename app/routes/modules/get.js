@@ -1,34 +1,52 @@
-// routes/modules/get.js
+// modules/get.js
 "use strict";
 
-module.exports.register = ({ on, use }) => {
-  on("get", async (ctx, { cookie }) => {
-    console.log("get1")
-    const { dynamodb, uuidv4, dynamodbLL } = ctx.deps;
+function register({ on, use }) {
+  const {
+    // domain / utils from shared
+    getDocClient,
+    getVerified,
+    getTasks, getTasksIOS,
+    convertToJSON,
+    manageCookie,
+    // NEW: pulled from shared
+    verifyPath, allVerified,
+    // deps bag (unchanged)
+    deps,
+  } = use();
 
-    const convertToJSON = use("convertToJSON");
-    const getTasks      = use("getTasks");
-    const getTasksIOS   = use("getTasksIOS");
+  on("get", async (ctx /*, meta */) => {
+    const { req, res, path } = ctx;
+    const dynamodb = getDocClient();
 
-   const parts = String(ctx.path || "").split("/").filter(Boolean);
-   // Support both normalized tail "/<id>..." and legacy "/cookies/get/<id>..."
-   const fileID = parts[0] || parts[2] || null;
+    // manage cookie (legacy behavior)
+    const cookie = await manageCookie({}, ctx.xAccessToken, res, dynamodb, deps.uuidv4);
 
-   if (!fileID) {
-     console.error("Missing fileID in ctx.path", { path: ctx.path });
-     return { ok: false, error: "Missing file ID in path" };
-   }
+    // verify path (moved to shared; same logic)
+    const segs = String(path || "").split("/").filter(Boolean);
+    const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb);
+    const verifiedList = await verifyPath(segs, verifications, dynamodb);
+    const isAllowed = allVerified(verifiedList);
+    if (!isAllowed) return {}; // legacy empty response on denial
 
-    const mainObj = await convertToJSON(
-      fileID, [], null, null,
-      cookie, dynamodb, uuidv4,
-      null, [], {}, "", dynamodbLL, ctx.req.body
+    // main legacy logic
+    const fileID = segs[0] || "";
+    let mainObj = await convertToJSON(
+      fileID, [], null, null, cookie, dynamodb, deps.uuidv4,
+      null, [], {}, "", deps.dynamodbLL, req?.body
     );
 
     const tasksUnix = await getTasks(fileID, "su", dynamodb);
-    mainObj.tasks   = await getTasksIOS(tasksUnix);
-    mainObj.file    = fileID;
+    const tasksISO = await getTasksIOS(tasksUnix);
+    mainObj["tasks"] = tasksISO;
 
-    return { ok: true, response: mainObj };
+    mainObj["existing"] = cookie.existing;
+    mainObj["file"] = fileID + "";
+
+    return mainObj;
   });
-};
+
+  return { name: "get" };
+}
+
+module.exports = { register };

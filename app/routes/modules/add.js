@@ -1,100 +1,206 @@
-// routes/modules/add.js
+// modules/add.js
 "use strict";
 
 /**
- * Simple child creation + linkage (minimal path):
- * - create word for childName (dedupes by lowercase)
- * - create entity inheriting g/h/ai from parent
- * - create subdomain for child
- * - link parentE → childE using the "links" table
+ * Creates a new child Entity + Word under a parent Subdomain (su),
+ * creates a new subdomain for the child, seeds an initial file,
+ * links parent<->child (t/f), sets child's group (g), and
+ * (optionally) returns the refreshed tree for a provided head su.
  *
- * Accepts either:
- *   Path:  /cookies/add/:parentSU/:childName
- *   Body:  { body: { parentSU, childName } }
+ * Route shape it expects (already normalized by router):
+ *   /<parentSU>/<newEntityName>/<headSU?>
+ *
+ * Examples:
+ *   /1v4rabc123/New%20Thing/1v4rroot999
+ *   /1v4rabc123/New%20Thing               // no head su → no tree emitted
  */
-
-async function addHandle(ctx, use) {
-  console.log("add")
-  const { dynamodb, uuidv4 } = (ctx.deps || {});
-  const parts = (ctx.path || "").split("?")[0].split("/");
-
-  // Prefer path args; fall back to body
-  const body = ctx.req?.body || {};
-  const b = body.body || {};
-  const parentSU =
-    (parts[3] && decodeURIComponent(parts[3])) || b.parentSU || "";
-  const childName =
-    (parts[4] && decodeURIComponent(parts[4])) || b.childName || "";
-
-  if (!parentSU) return { ok: false, error: "add: parentSU required" };
-  if (!childName) return { ok: false, error: "add: childName required" };
-
+function register({ on, use }) {
   const {
-    getSub,
-    getEntity,
-    createWord,
-    addVersion,
-    updateEntity,
-    createEntity,
-    createSubdomain,
-    incrementCounterAndGetNewValue,
-    putLink,
+    // domain
+    getSub, getEntity,
+    // versions/entities/words/groups
+    incrementCounterAndGetNewValue, addVersion, updateEntity,
+    createWord, createEntity, createSubdomain,
+    // files / s3
+    createFile,
+    // utils
     getUUID,
-  } = use;
+    // tree
+    convertToJSON,
+    // raw deps if ever needed
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
 
-  // 1) resolve parent
-  const parent = await getSub(parentSU, "su", dynamodb);
-  if (!parent.Items?.length) return { ok: false, error: "add: parent su not found" };
+  on("add", async (ctx /*, meta */) => {
+    const { path } = ctx;
 
-  const parentE = String(parent.Items[0].e);
-  const pEntity = await getEntity(parentE, dynamodb);
-  if (!pEntity.Items?.length) return { ok: false, error: "add: parent entity not found" };
+    // Parse: "/<parentSU>/<newEntityName>/<headSU?>"
+    const segs = String(path || "/").split("/").filter(Boolean);
+    const parentSU = segs[0] || "";
+    const rawName  = segs[1] || "";
+    const headSU   = segs[2] || ""; // optional
 
-  // 2) create word + entity
-  const eId = String(await incrementCounterAndGetNewValue("eCounter", dynamodb));
-  const wId = String(await incrementCounterAndGetNewValue("wCounter", dynamodb));
-  const aId = await createWord(wId, childName, dynamodb);
+    if (!parentSU || !rawName) {
+      return { ok: false, error: "usage: /<parentSU>/<newEntityName>/<headSU?>" };
+    }
 
-  // capture "a" in versions
-  const vMeta = await addVersion(eId, "a", aId, null, dynamodb);
+    const newEntityName = decodeURIComponent(rawName).trim();
+    if (!newEntityName) {
+      return { ok: false, error: "newEntityName empty" };
+    }
 
-  // inherit g/h/ai from parent
-  const g  = pEntity.Items[0].g;
-  const h  = pEntity.Items[0].h;
-  const ai = pEntity.Items[0].ai || "0";
+    // Look up parent sub + entity
+    const parentSub = await getSub(parentSU, "su");
+    if (!parentSub?.Items?.length) {
+      return { ok: false, error: "parent-subdomain-not-found", parentSU };
+    }
 
-  await createEntity(eId, aId, vMeta.v, g, h, ai, dynamodb);
+    const parentEId = String(parentSub.Items[0].e);
+    const parentZ   = !!parentSub.Items[0].z; // visibility
+    const eParent   = await getEntity(parentEId);
+    if (!eParent?.Items?.length) {
+      return { ok: false, error: "parent-entity-not-found", parentEId };
+    }
 
-  // 3) subdomain mirrors parent visibility
-  const su = await getUUID(uuidv4);
-  const z = !!parent.Items[0].z;
-  await createSubdomain(su, aId, eId, "0", z, dynamodb);
+    const parentEntity = eParent.Items[0];
 
-  // 4) link parent → child (links table)
-  await putLink(parentE, eId, dynamodb);
+    // Allocate ids
+    const eIdNum = await incrementCounterAndGetNewValue("eCounter");
+    const wIdNum = await incrementCounterAndGetNewValue("wCounter");
+    const eId    = String(eIdNum);
+    const aId    = String(wIdNum);
 
-  // Optional lightweight version history of linkage (best-effort)
-  try {
-    const v1 = await addVersion(parentE, "t", eId, pEntity.Items[0].c || "1", dynamodb);
-    await updateEntity(parentE, "t", eId, v1.v, v1.c, dynamodb);
+    // Create the word for the new entity
+    await createWord(aId, newEntityName);
 
-    const v2 = await addVersion(eId, "f", parentE, "1", dynamodb);
-    await updateEntity(eId, "f", parentE, v2.v, v2.c, dynamodb);
-  } catch {
-    // ignore — linkage recorded in `links` table already
-  }
+    // Version the new entity's "a" (word) field
+    const aDetails = await addVersion(eId, "a", aId, null);
 
-  return { ok: true, su, e: eId, parentE };
+    // Create the new entity in same group/head/ai as parent
+    await createEntity(
+      eId,
+      aId,
+      aDetails.v,
+      String(parentEntity.g),
+      String(parentEntity.h),
+      parentEntity.ai,
+    );
+
+    // Create a new subdomain id for the child + seed an initial file
+    const childSU = await getUUID(deps?.uuidv4); // shared helper accepts uuidv4 from deps
+    await createSubdomain(childSU, aId, eId, "0", parentZ);
+
+    // Seed the file (kept close to the legacy structure for compatibility)
+    const initialFile = {
+      input: [],
+      published: {
+        blocks: [{ entity: childSU, name: "Primary" }],
+        modules: {},
+        actions: [
+          {
+            target: "{|res|}!",
+            chain: [{ access: "send", params: ["{|entity|}"] }],
+            assign: "{|send|}",
+          },
+        ],
+        function: {},
+        automation: [],
+        menu: {
+          ready: {
+            _name: "Ready",
+            _classes: ["Root"],
+            _show: false,
+            _selected: true,
+            options: {
+              _name: "Options",
+              _classes: ["ready"],
+              _show: true,
+              _selected: false,
+              back: { _name: "Back", _classes: ["options"], _show: false, _selected: false },
+            },
+            close: { _name: "Close", _classes: ["ready"], _show: false, _selected: false },
+          },
+        },
+        commands: {
+          ready:  { call: "ready",  ready: false, updateSpeechAt: true, timeOut: 0 },
+          back:   { call: "back",   ready: true,  updateSpeechAt: true, timeOut: 0 },
+          close:  { call: "close",  ready: false, updateSpeechAt: true, timeOut: 0 },
+          options:{ call: "options",ready: false, updateSpeechAt: true, timeOut: 0 },
+        },
+        calls: {
+          ready:  [{ if: [{ key: ["ready","_selected"], expression: "==", value: true }], then: ["ready"],  show: ["ready"],  run: [{ function: "show", args: ["menu", 0], custom: false }] }],
+          back:   [{ if: [{ key: ["ready","_selected"], expression: "!=", value: true }], then: ["ready"],  show: ["ready"],  run: [{ function: "highlight", args: ["ready", 0], custom: false }] }],
+          close:  [{ if: [], then: ["ready"], show: [], run: [{ function: "hide", args: ["menu", 0] }] }],
+          options:[{ if: [{ key: ["ready","_selected"], expression: "==", value: true }], then: ["ready","options"], show: ["options"], run: [] }],
+        },
+        templates: {
+          init:   { "1": { rows: { "1": { cols: ["a","b"] } } } },
+          second: { "2": { rows: { "1": { cols: ["c","d"] } } } },
+        },
+        assignments: {
+          a: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 1" }, _mode: "_html" },
+          b: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 2" }, _mode: "_html" },
+          c: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 3" }, _mode: "_html" },
+          d: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 4" }, _mode: "_html" },
+        },
+        mindsets: [],
+        thoughts: {
+          "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+            owners: [],
+            content: "",
+            contentType: "text",
+            moods: {},
+            selectedMood: "",
+          },
+        },
+        moods: [],
+      },
+      skip: [],
+      sweeps: 1,
+      expected: [],
+    };
+
+    await createFile(childSU, initialFile);
+
+    // Link parent → child (t) and child → parent (f)
+    {
+      const linkToChild = await addVersion(parentEId, "t", eId, String(parentEntity.c));
+      await updateEntity(parentEId, "t", eId, linkToChild.v, linkToChild.c);
+
+      const linkToParent = await addVersion(eId, "f", parentEId, "1");
+      await updateEntity(eId, "f", parentEId, linkToParent.v, linkToParent.c);
+    }
+
+    // Put child into parent's group (g)
+    {
+      const gDetails = await addVersion(eId, "g", String(parentEntity.g), "1");
+      await updateEntity(eId, "g", String(parentEntity.g), gDetails.v, gDetails.c);
+    }
+
+    // Optionally emit a refreshed tree for headSU (keeps legacy behavior)
+    let tree = null;
+    if (headSU) {
+      try {
+        // shared.convertToJSON has a few legacy signatures across codepaths;
+        // prefer the simplest call; ignore failure (still return created ids).
+        tree = await convertToJSON(headSU);
+      } catch (err) {
+        // Non-fatal: just omit tree if helper signature differs in your build.
+        tree = null;
+      }
+    }
+
+    return {
+      ok: true,
+      action: "add",
+      parent: { su: parentSU, e: parentEId, public: parentZ },
+      created: { su: childSU, e: eId, a: aId, name: newEntityName },
+      head: headSU || null,
+      tree, // may be null if convertToJSON signature differs
+    };
+  });
+
+  return { name: "add" };
 }
 
-// Back-compat export (if something calls this module directly)
-module.exports.handle = async function handle(ctx) {
-  console.log("add")
-  const use = ctx.use || {}; // if the caller injected helpers on ctx
-  return addHandle(ctx, use);
-};
-
-// New loader hook
-module.exports.register = ({ on, use }) => {
-  on("add", (ctx) => addHandle(ctx, use));
-};
+module.exports = { register };

@@ -1,45 +1,53 @@
-// routes/modules/runEntity.js
+// modules/runEntity.js
 "use strict";
 
-/**
- * Run an entity (by subdomain su). If subdomain has a cached .output in DynamoDB,
- * return it; otherwise delegate to app.runApp() and return its chainParams.
- *
- * The module registers itself via `register({ on })` so your loader can auto-wire it.
- */
+function register({ on, use }) {
+  const {
+    // domain helper
+    getSub,
+    // raw deps bag if ever needed
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
 
-async function runEntityHandle(ctx) {
-  const { dynamodb, req, res, next, getSub, reqPath } = ctx || {};
+  on("runEntity", async (ctx /*, meta */) => {
+    const { req, res, path /*, type, signer */ } = ctx;
 
-  // Path shape: /<anything>/runEntity/:su
-  const su = (reqPath || "").split("?")[0].split("/")[3];
-  if (!su) {
-    throw new Error("runEntity: su required");
-  }
+    // Legacy path parsing equivalent of: reqPath.split("?")[0].split("/")[3]
+    // In the modular router, ctx.path is already the tail after the action,
+    // e.g. "/<su>/...". We take the first non-empty segment.
+    const clean = String(path || "").split("?")[0];
+    const segs = clean.split("/").filter(Boolean);
+    const actionFile = segs[0] || "";
 
-  const subBySU = await getSub(su, "su", dynamodb);
-  if (!subBySU?.Items?.length) {
-    throw new Error(`runEntity: no subdomain found for ${su}`);
-  }
+    // Preserve original logging side-effects
+    console.log("actionFile", actionFile);
 
-  const out = subBySU.Items[0].output;
-  if (out !== undefined && out !== "") {
-    // Use persisted output if present
+    // Use shared domain helper (no refactor of signatures here)
+    const subBySU = await getSub(actionFile, "su");
+    console.log("subBySU", subBySU);
+
+    const out = subBySU.Items[0].output;
+    console.log("subBySU.Items[0].output", out);
+    console.log("typeof subBySU.Items[0].output", typeof out);
+
+    // Strict-parity behavior:
+    // If no output stored on subdomain, call runApp(req,res, next?)
+    if (out === undefined || out === "") {
+      // Keep require path consistent with legacy (cookies.js lived in routes/,
+      // this module lives in routes/modules/, so app.js is ../../app)
+      const { runApp } = require("../../app");
+      const ot = await runApp(req, res /*, next not available here */);
+      console.log("ot", ot);
+      // Legacy: mark existing then return chainParams
+      ot.existing = true;
+      return ot?.chainParams;
+    }
+
+    // Else: return stored output verbatim
     return out;
-  }
+  });
 
-  // Fall back to the main app runner (same file you call inside the route)
-  const { runApp } = require("../../app");
-  const result = await runApp(req, res, next);
-
-  // Mirror the route behavior: return chainParams when available
-  return result?.chainParams ?? result ?? null;
+  return { name: "runEntity" };
 }
 
-// Optional: keep a direct handle export (symmetry with other modules)
-module.exports.handle = runEntityHandle;
-
-// Required by your loader: expose a register() that binds the action name.
-module.exports.register = function register({ on /*, use */ }) {
-  on("runEntity", runEntityHandle);
-};
+module.exports = { register };

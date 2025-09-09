@@ -1,46 +1,48 @@
-// routes/modules/embed.js
+// modules/embed.js
 "use strict";
 
-/**
- * Action:  /cookies/embed
- * Body:    { body: { text: string|JSON-string, requestId?: string } }
- *
- * Returns an OpenAI embedding for the provided text.
- */
-module.exports.register = ({ on /*, use */ }) => {
-  on("embed", async (ctx) => {
-    try {
-      const { openai } = (ctx.deps || {});
-      if (!openai) return { ok: false, error: "OpenAI client not available." };
+function register({ on, use }) {
+  const {
+    // raw deps bag (use only what's needed)
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
 
-      // Be robust to either ctx.reqBody or raw Express req.body
-      const body = ctx.reqBody ?? ctx.req?.body ?? {};
-      const b = body.body ?? body;
-      let text = b?.text;
+  // local helper: preserve legacy "flattened or legacy body.body" handling
+  function unwrapBody(b) {
+    if (!b || typeof b !== "object") return b;
+    if (b.body && typeof b.body === "object") return b.body;
+    return b;
+  }
 
-      if (typeof text !== "string") {
-        return { ok: false, error: "body.text must be a string." };
-      }
+  on("embed", async (ctx /*, meta */) => {
+    const { req /*, res, path, type, signer */ } = ctx;
 
-      // Legacy behavior: if it's a JSON string, parse then re-stringify (normalizes whitespace/ordering)
-      try {
-        const parsed = JSON.parse(text);
-        text = JSON.stringify(parsed);
-      } catch {
-        // not JSON; use as-is
-      }
+    // parity with old route logging/shape expectations
+    // (keep minimal logs if present upstream; safe to no-op if console isn’t desired)
+    try { console.log("req.body", req?.body); } catch {}
 
-      const { data } = await openai.embeddings.create({
-        model: "text-embedding-3-large",
-        input: text,
-      });
+    const flat = unwrapBody(req?.body || {});
+    try { console.log("flat (legacy body.body supported)", flat); } catch {}
 
-      const emb = Array.isArray(data) && data[0] ? data[0].embedding : null;
-      if (!emb) return { ok: false, error: "Embedding failed." };
+    // legacy flow:
+    //  text is a JSON string → JSON.parse → JSON.stringify → embed
+    let text = flat?.text;
+    let parsedText = JSON.parse(text);
+    let stringifyText = JSON.stringify(parsedText);
 
-      return { ok: true, embedding: emb, requestId: b.requestId };
-    } catch (err) {
-      return { ok: false, error: String(err?.message || err) };
-    }
+    const { data } = await deps.openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: stringifyText,
+    });
+
+    // preserve response shape/keys
+    return {
+      embedding: data[0].embedding,
+      requestId: flat?.requestId,
+    };
   });
-};
+
+  return { name: "embed" };
+}
+
+module.exports = { register };

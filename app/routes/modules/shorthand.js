@@ -1,96 +1,144 @@
-// routes/modules/shorthand.js
-/**
- * Action:  /cookies/shorthand/:su
- * Body:    { body: { arrayLogic: [...], emit?: "..." } }
- *
- * Reads the published JSON for :su (from public bucket), injects the provided
- * shorthand array into the engine, persists the updated JSON back to S3, and
- * returns a compact payload. If shared.use.convertToJSON exists, we also try to
- * return a computed tree (best-effort).
- */
-module.exports.register = ({ on, use }) => {
-  on("shorthand", async (ctx /*, { cookie } */) => {
-    const { s3, openai, Anthropic, dynamodb, dynamodbLL, uuidv4, ses } = ctx.deps || {};
-    const parts = (ctx.path || "").split("?")[0].split("/");
-    const su = parts[3] || "";
-    const body = ctx.req?.body || {};
-    const payload = body.body || {};
-    const arrayLogic = payload.arrayLogic;
+// modules/shorthand.js
+"use strict";
 
-    if (!su) return { ok: false, error: "Missing entity id (su) in path." };
-    if (!Array.isArray(arrayLogic)) {
-      return { ok: false, error: "body.arrayLogic must be an array." };
+function register({ on, use }) {
+  const {
+    // shared helpers
+    getDocClient,
+    getS3,
+    retrieveAndParseJSON,
+    convertToJSON,
+    manageCookie,
+    getVerified,
+    verifyPath,
+    allVerified,
+    // raw deps bag if needed
+    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+  } = use();
+
+  on("shorthand", async (ctx /*, meta */) => {
+    const { req, res, path, type, signer } = ctx;
+
+    const dynamodb = getDocClient();
+    const s3 = getS3();
+
+    // Preserve legacy dual-shape body handling (flattened or { body: {...} })
+    const wrapBody = (b) => {
+      if (!b || typeof b !== "object") return { body: b };
+      if (b.body && typeof b.body === "object") return b; // already legacy-shaped
+      return { body: b }; // wrap flattened
+    };
+
+    // Determine target file (legacy used reqPath.split("/")[3])
+    const segs = String(path || "").split("/").filter(Boolean);
+    const actionFile = segs[0] || "";
+
+    // ── Cookie + path verification (parity with legacy route) ───────────────────
+    const mainObj = {};
+    const cookie = await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, deps.uuidv4);
+
+    try {
+      const verifications = await getVerified("gi", String(cookie?.gi ?? ""), dynamodb);
+      const splitPath = String(req?.path || "").split("/");
+      const verified = await verifyPath(splitPath, verifications, dynamodb);
+      if (!allVerified(verified)) return {};
+    } catch (_err) {
+      // On verification helper failure, mimic legacy by returning empty payload.
+      return {};
     }
 
-    const s3GetJSON = async (bucket, key) => {
-      const obj = await s3.getObject({ Bucket: bucket, Key: key }).promise();
-      return JSON.parse(obj.Body.toString("utf-8"));
-    };
-    const s3PutJSON = (bucket, key, json) =>
-      s3.putObject({
-        Bucket: bucket,
-        Key: key,
-        Body: JSON.stringify(json),
-        ContentType: "application/json",
-      }).promise();
+    const wrapped = wrapBody(req?.body || {});
+    const body = wrapped.body || {};
+    const arrayLogic = body.arrayLogic;
+    const emitType = body.emit; // kept for parity (not used directly)
 
-    // Load current published doc
-    const doc = await s3GetJSON("public.1var.com", su);
+    // Load current published JSON and prepare shorthand input (parity)
+    const jsonpl = await retrieveAndParseJSON(actionFile, true);
+    const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
+    const blocks = shorthandLogic?.published?.blocks;
+    const originalPublished = shorthandLogic.published;
 
-    // Prepare the engine input to match legacy pipeline
-    const blocksBackup = Array.isArray(doc?.published?.blocks)
-      ? JSON.parse(JSON.stringify(doc.published.blocks))
-      : [];
+    shorthandLogic.input = arrayLogic;
+    if (Array.isArray(shorthandLogic.input)) {
+      shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+    }
 
-    const engineInput = JSON.parse(JSON.stringify(doc));
-    engineInput.input = Array.isArray(arrayLogic) ? [...arrayLogic] : [];
-    engineInput.input.unshift({ physical: [[engineInput.published]] });
-
-    // Run the shorthand engine
-    const { shorthand } = require("../shorthand"); // existing engine
+    // Call legacy shorthand engine with the original argument order
+    const { shorthand } = require("../shorthand");
     const newShorthand = await shorthand(
-      engineInput,
-      ctx.req,
-      ctx.res,
-      null,                         // next
-      null,                         // privateKey (not needed by engine paths that we use)
+      shorthandLogic,
+      req,
+      res,
+      undefined,                              // next
+      undefined,                              // privateKey
       dynamodb,
-      uuidv4,
+      deps.uuidv4,
       s3,
-      ses,
-      openai,
-      Anthropic,
-      dynamodbLL,
-      true,                         // keep "isPublished" style
-      ctx.path,
-      body,
-      ctx.req?.method,
-      ctx.req?.type,
-      ctx.res?.headersSent,
-      ctx.signer,
-      "shorthand",
-      ctx.req?.headers?.["x-accesstoken"] || ctx.req?.headers?.["X-accessToken"]
+      deps.ses,
+      deps.openai,
+      deps.Anthropic,
+      deps.dynamodbLL,
+      true,                                   // isShorthand
+      req?.path,                              // reqPath
+      wrapped,                                // reqBody (preserve legacy shape)
+      req?.method,                            // reqMethod
+      type,                                   // reqType
+      res?.headersSent || req?._headerSent,   // reqHeaderSent
+      signer,
+      "shorthand",                            // action
+      ctx.xAccessToken
     );
 
-    // Restore blocks; strip transients; persist
-    newShorthand.published.blocks = blocksBackup;
-    const content = JSON.parse(JSON.stringify(newShorthand.content || null));
+    // Restore blocks; strip temp fields; compute equality (parity)
+    if (blocks && newShorthand?.published) {
+      newShorthand.published.blocks = blocks;
+    }
+    const content = JSON.parse(JSON.stringify(newShorthand.content));
     delete newShorthand.input;
     delete newShorthand.content;
 
-    await s3PutJSON("public.1var.com", su, newShorthand);
+    // Keep equality calc for parity (not returned)
+    const isPublishedEqual =
+      JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+    void isPublishedEqual;
 
-    const result = { ok: true, su, newShorthand, content };
+    // Persist to S3 exactly as before
+    await s3
+      .putObject({
+        Bucket: "public.1var.com",
+        Key: actionFile,
+        Body: JSON.stringify(newShorthand),
+        ContentType: "application/json",
+      })
+      .promise();
 
-    // Best-effort: if shared.use.convertToJSON is available, add a tree
-    if (use && typeof use.convertToJSON === "function") {
-      try {
-        result.view = await use.convertToJSON(su, ctx, { body: body });
-      } catch {
-        // non-fatal; omitted
-      }
-    }
+    // Return same response shape as legacy: convertToJSON + extras
+    const result = await convertToJSON(
+      actionFile,
+      [],
+      null,
+      null,
+      cookie,
+      dynamodb,
+      deps.uuidv4,
+      null,
+      [],
+      {},
+      "",
+      deps.dynamodbLL,
+      wrapped
+    );
 
-    return result;
+    result["newShorthand"] = newShorthand;
+    result["content"] = content;
+    result["existing"] = cookie?.existing;
+    result["file"] = String(actionFile);
+
+    // Legacy route wrapped responses as { ok: true, response: ... }
+    return { ok: true, response: result };
   });
-};
+
+  return { name: "shorthand" };
+}
+
+module.exports = { register };
