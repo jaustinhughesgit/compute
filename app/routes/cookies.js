@@ -28,7 +28,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   _shared = createShared(_deps);
 
   // IMPORTANT: use your real CloudFront key pair id
-  _signer = new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID, privateKey);
+
+  _signer = new AWS.CloudFront.Signer('YOUR_KEY_PAIR_ID', privateKey);
 
   // register modules with shared.on/use
   const regOpts = { on: _shared.on, use: _shared.use };
