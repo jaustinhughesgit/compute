@@ -59,6 +59,7 @@ function normalize(rawPath, typeFromParams, queryType) {
 // Express router (preferred)
 // ───────────────────────────────────────────────────────────────────────────────
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
+  // IMPORTANT: pass uuidv4 so shared.getUUID() can use it
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
 
@@ -325,8 +326,6 @@ module.exports = {
   updateEntity: bind("updateEntity"),
   getEntity: bind("getEntity"),
   verifyThis: bind("verifyThis"),
-  getLinkedChildren: bind("getLinkedChildren"),
-  getLinkedParents: bind("getLinkedParents"),
   putLink: bind("putLink"),
   deleteLink: bind("deleteLink"),
 };

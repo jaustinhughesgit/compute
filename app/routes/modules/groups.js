@@ -1,4 +1,4 @@
-//routes/modules/groups.js
+// routes/modules/groups.js
 /** Capabilities:
  *  - action === "newGroup"
  *  - action === "useGroup"
@@ -6,34 +6,27 @@
  */
 module.exports.register = ({ on, use }) => {
   on('newGroup', async (ctx, { cookie }) => {
-    console.log("ctx",ctx)
     const { dynamodb, uuidv4, s3, ses, dynamodbLL } = ctx.deps;
 
-    const increment = use('incrementCounterAndGetNewValue');
-    const createWord = use('createWord');
-    const createGroup = use('createGroup');
-    const createAccess = use('createAccess');
+    const increment      = use('incrementCounterAndGetNewValue');
+    const createWord     = use('createWord');
+    const createGroup    = use('createGroup');
+    const createAccess   = use('createAccess');
     const createVerified = use('createVerified');
-    const createSubdomain = use('createSubdomain');
-    const addVersion = use('addVersion');
-    const createEntity = use('createEntity');
-    const createFile = use('createFile');
-    const getUUID = use('getUUID');
-    const convertToJSON = use('convertToJSON');
-    const email = use('email');
+    const createSubdomain= use('createSubdomain');
+    const addVersion     = use('addVersion');
+    const createEntity   = use('createEntity');
+    const createFile     = use('createFile');
+    const getUUID        = use('getUUID');
+    const convertToJSON  = use('convertToJSON');
+    const email          = use('email');
 
-const parts = ctx.path.split('/'); // e.g. "/module2/module2/abc"
-const [, newGroupName, headEntityName, headUUIDToShow] = parts;
+    const parts = ctx.path.split('/'); // e.g. "/newGroup/<name>/<head>/<uuid?>"
+    const [, newGroupName, headEntityName, headUUIDToShow] = parts;
 
-if (!newGroupName || !headEntityName) {
-  throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
-}
-
-
-    console.log("parts",parts)
-    console.log("newGroupName",newGroupName)
-    console.log("headEntityName",headEntityName)
-    console.log("headUUIDToShow",headUUIDToShow)
+    if (!newGroupName || !headEntityName) {
+      throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
+    }
 
     // Words & ids
     const aNewG = await increment('wCounter', dynamodb);
@@ -47,7 +40,8 @@ if (!newGroupName || !headEntityName) {
     const ai    = await increment('aiCounter', dynamodb);
 
     // Access + verified
-    await createAccess(ai.toString(), gNew.toString(), '0', { count: 1, metric: 'year' }, 10, { count: 1, metric: 'minute' }, {}, 'rwado');
+    await createAccess(ai.toString(), gNew.toString(), '0',
+      { count: 1, metric: 'year' }, 10, { count: 1, metric: 'minute' }, {}, 'rwado');
 
     const ttlSeconds = 90_000;
     const exUnix     = Math.floor(Date.now()/1000) + ttlSeconds;
@@ -57,13 +51,14 @@ if (!newGroupName || !headEntityName) {
     // Create group + head entity + subs
     await createGroup(gNew.toString(), aG, eNew.toString(), [ai.toString()], dynamodb);
 
-    const suRoot = await getUUID(uuidv4);
+    // Use shared.getUUID() — it now falls back to deps.uuidv4 if no param
+    const suRoot = await getUUID(); // was: getUUID(uuidv4)
     await createSubdomain(suRoot, '0', '0', gNew.toString(), true, dynamodb);
 
     const vHead = await addVersion(eNew.toString(), 'a', aE.toString(), null, dynamodb);
     await createEntity(eNew.toString(), aE.toString(), vHead.v, gNew.toString(), eNew.toString(), [ai.toString()], dynamodb);
 
-    const suDoc = await getUUID(uuidv4);
+    const suDoc = await getUUID(); // was: getUUID(uuidv4)
     const payload = {
       input: [],
       published: {
@@ -118,7 +113,7 @@ if (!newGroupName || !headEntityName) {
     const verifyURL = `http://1var.com/verify/${suRoot}`;
     const text  = `Dear 1 Var User,\n\nWe have received a request to create a new group at 1 VAR. If you requested this, please visit:\n\n${verifyURL}`;
     const html  = `Dear 1 Var User,<br><br>We have received a request to create a new group at 1 VAR. If you requested this, please visit:<br><br>${verifyURL}`;
-    await email(from, to, subject, text, html, ctx.deps.ses);
+    await email(from, to, subject, text, html, ses);
 
     // Return the new document view
     const mainObj = await convertToJSON(
@@ -132,11 +127,11 @@ if (!newGroupName || !headEntityName) {
   on('useGroup', async (ctx, { cookie }) => {
     const { dynamodb, uuidv4, dynamodbLL } = ctx.deps;
 
-    const getSub       = use('getSub');
-    const getEntity    = use('getEntity');
-    const addVersion   = use('addVersion');
-    const updateEntity = use('updateEntity');
-    const convertToJSON= use('convertToJSON');
+    const getSub        = use('getSub');
+    const getEntity     = use('getEntity');
+    const addVersion    = use('addVersion');
+    const updateEntity  = use('updateEntity');
+    const convertToJSON = use('convertToJSON');
 
     const parts = ctx.path.split('/');
     const newUsingSU = parts[3];   // entity to mark as "using"
@@ -163,18 +158,18 @@ if (!newGroupName || !headEntityName) {
   on('substituteGroup', async (ctx, { cookie }) => {
     const { dynamodb, uuidv4, dynamodbLL } = ctx.deps;
 
-    const getSub       = use('getSub');
-    const getEntity    = use('getEntity');
-    const addVersion   = use('addVersion');
-    const updateEntity = use('updateEntity');
-    const convertToJSON= use('convertToJSON');
+    const getSub        = use('getSub');
+    const getEntity     = use('getEntity');
+    const addVersion    = use('addVersion');
+    const updateEntity  = use('updateEntity');
+    const convertToJSON = use('convertToJSON');
 
     const parts = ctx.path.split('/');
-    const newSubstitutingSU = parts[3];
+    const newSubstitutingSU  = parts[3];
     const headSubstitutingSU = parts[4];
 
-    const sg = await getSub(newSubstitutingSU, 'su', dynamodb);
-    const sd = await getSub(headSubstitutingSU, 'su', dynamodb);
+    const sg  = await getSub(newSubstitutingSU, 'su', dynamodb);
+    const sd  = await getSub(headSubstitutingSU, 'su', dynamodb);
     const sge = await getEntity(sg.Items[0].e, dynamodb);
     const sde = await getEntity(sd.Items[0].e, dynamodb);
 

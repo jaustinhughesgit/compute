@@ -242,9 +242,29 @@ function createShared(deps = {}) {
     return a === b;
   };
 
-  async function getUUID(uuidv4) {
-    const id = await uuidv4();
-    return "1v4r" + id;
+  // Robust UUID helper: uses param → deps.uuidv4 → crypto.randomUUID → polyfill
+  async function getUUID(uuidv4Param) {
+    let gen = uuidv4Param || deps.uuidv4;
+    let raw;
+    if (typeof gen === "function") {
+      raw = await gen(); // works for sync or async
+    } else {
+      try {
+        const { randomUUID } = require("crypto");
+        if (typeof randomUUID === "function") {
+          raw = randomUUID();
+        }
+      } catch (_) { /* ignore */ }
+      if (!raw) {
+        // simple v4-ish fallback
+        raw = "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0;
+          const v = c === "x" ? r : (r & 0x3 | 0x8);
+          return v.toString(16);
+        });
+      }
+    }
+    return "1v4r" + raw;
   }
 
   /* ─────────────────────────────── tasks helpers ──────────────────────────────── */
