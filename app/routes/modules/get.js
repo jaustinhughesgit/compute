@@ -10,7 +10,14 @@ module.exports.register = ({ on, use }) => {
     const getTasks      = use("getTasks");
     const getTasksIOS   = use("getTasksIOS");
 
-    const fileID = (ctx.path || "").split("/")[3];
+   const parts = String(ctx.path || "").split("/").filter(Boolean);
+   // Support both normalized tail "/<id>..." and legacy "/cookies/get/<id>..."
+   const fileID = parts[0] || parts[2] || null;
+
+   if (!fileID) {
+     console.error("Missing fileID in ctx.path", { path: ctx.path });
+     return { ok: false, error: "Missing file ID in path" };
+   }
 
     const mainObj = await convertToJSON(
       fileID, [], null, null,
