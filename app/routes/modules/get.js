@@ -29,7 +29,6 @@ module.exports.register = ({ on, use }) => {
     mainObj.tasks   = await getTasksIOS(tasksUnix);
     mainObj.file    = fileID;
 
-    console.log("get2",tasksUnix)
     return { ok: true, response: mainObj };
   });
 };
