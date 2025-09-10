@@ -207,10 +207,12 @@ function register({ on, use }) {
     // No headSU provided (or tree build failed): return compact creation info
     return {
       ok: true,
-      action: "add",
-      parent: { su: parentSU, e: parentEId, public: parentZ },
-      created: { su: childSU, e: eId, a: aId, name: newEntityName },
-      head: headSU || null
+      "response":{
+        action: "add",
+        parent: { su: parentSU, e: parentEId, public: parentZ },
+        created: { su: childSU, e: eId, a: aId, name: newEntityName },
+        head: headSU || null
+      }
     };
   });
 
