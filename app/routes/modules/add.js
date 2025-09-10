@@ -192,13 +192,11 @@ function register({ on, use }) {
 
     return {
       ok: true,
-      response: {
-        action: "add",
-        parent: { su: parentSU, e: parentEId, public: parentZ },
-        created: { su: childSU, e: eId, a: aId, name: newEntityName },
-        head: headSU || null,
-        tree, // may be null if convertToJSON signature differs
-      },
+      action: "add",
+      parent: { su: parentSU, e: parentEId, public: parentZ },
+      created: { su: childSU, e: eId, a: aId, name: newEntityName },
+      head: headSU || null,
+      tree, // may be null if convertToJSON signature differs
     };
   });
 
