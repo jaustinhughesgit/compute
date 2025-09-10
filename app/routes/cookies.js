@@ -63,12 +63,25 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   // IMPORTANT: pass uuidv4 so shared.getUUID() can use it
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
+  _shared.use(async (ctx) => {
+    // Mint (or lookup) a cookie and attach it both to ctx and req.cookies
+    const main = {};
+    const ck = await _shared.manageCookie(
+      main,
+      ctx.xAccessToken,       // picked from headers by setupRouter
+      ctx.res                 // lets manageCookie set Set-Cookie
+    );
 
+    // Make it available everywhere
+    ctx.cookie = ck;
+    ctx.req.cookies ||= {};
+    Object.assign(ctx.req.cookies, ck);
+  });
   // keep legacy default, but prefer env
   _signer =
     _signer ||
     new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
- const useCompat = (mw) => (typeof mw === "function" ? _shared.use(mw) : _shared);
+  const useCompat = (mw) => (typeof mw === "function" ? _shared.use(mw) : _shared);
   const regOpts = { on: _shared.on, use: useCompat };
 
   const reg = (p) => {
