@@ -82,19 +82,56 @@ function createShared(deps = {}) {
     };
   };
 
-  const dispatch = async (action, ctx, extra) => {
-    const handler = actions.get(action);
-    if (!handler) return null;
+const dispatch = async (action, ctx = {}, extra = {}) => {
+  const handler = actions.get(action);
+  if (!handler) return null;
+
+  // Ensure a predictable res shape
+  const res = ctx?.res || {};
+  if (typeof res.headersSent !== "boolean") res.headersSent = false;
+
+  try {
+    // Run middlewares
     for (const mw of middlewares) {
-      await mw(ctx, extra);
-      if (ctx?.res?.headersSent) return { __handled: true };
+      if (res.headersSent) return { __handled: true };
+
+      // Support 3-arity: (ctx, extra, next)
+      if (mw.length >= 3) {
+        let advanced = false;
+        const next = () => { advanced = true; };
+        const maybe = await mw(ctx, extra, next);
+
+        // If mw didn't call next(), treat it as having handled (or short-circuited)
+        if (!advanced) {
+          if (res.headersSent) return { __handled: true };
+          // If it returned something, bubble that out; otherwise mark handled.
+          return (maybe === undefined) ? { __handled: true } : maybe;
+        }
+      } else {
+        // (ctx) or (ctx, extra)
+        const maybe = await mw(ctx, extra);
+        if (res.headersSent) return { __handled: true };
+        if (maybe && typeof maybe === "object" && maybe.__handled) return maybe;
+        if (maybe !== undefined) return maybe; // middleware short-circuit
+      }
     }
-    console.log("ctx",ctx)
-    console.log("extra",extra)
+
+    if (res.headersSent) return { __handled: true };
+
+    // Call the action handler
     const out = await handler(ctx, extra);
-    if (ctx?.res?.headersSent) return { __handled: true };
+    if (res.headersSent) return { __handled: true };
     return out;
-  };
+  } catch (err) {
+    // Best-effort error response if we have an express-like res
+    if (ctx?.res && !res.headersSent && typeof res.status === "function" && typeof res.json === "function") {
+      res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
+      return { __handled: true };
+    }
+    // Otherwise rethrow so callers can handle
+    throw err;
+  }
+};
 
   const expose = (name, fn) => {
     registry[name] = fn;
