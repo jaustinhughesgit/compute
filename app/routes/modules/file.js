@@ -169,6 +169,7 @@ function register({ on, use }) {
       });
     });
 
+    console.log("sendBack response", response)
     sendBack(res, "json", { ok: true, response }, false);
     return { __handled: true };
   });
