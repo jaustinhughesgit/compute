@@ -63,26 +63,24 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   // IMPORTANT: pass uuidv4 so shared.getUUID() can use it
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
-
-  // Keep legacy parity: middleware mints/attaches cookie during dispatch
   _shared.use(async (ctx) => {
+    // Mint (or lookup) a cookie and attach it both to ctx and req.cookies
     const main = {};
     const ck = await _shared.manageCookie(
       main,
-      ctx.xAccessToken, // picked from headers/cookies by setupRouter
-      ctx.res           // lets manageCookie set Set-Cookie
+      ctx.xAccessToken,       // picked from headers by setupRouter
+      ctx.res                 // lets manageCookie set Set-Cookie
     );
+
     // Make it available everywhere
     ctx.cookie = ck;
     ctx.req.cookies ||= {};
     Object.assign(ctx.req.cookies, ck);
   });
-
   // keep legacy default, but prefer env
   _signer =
     _signer ||
     new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
-
   const useCompat = (mw) => (typeof mw === "function" ? _shared.use(mw) : _shared);
   const regOpts = { on: _shared.on, use: useCompat };
 
@@ -90,7 +88,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     const m = require(p);
     const mod = m?.register ? m : m?.default?.register ? m.default : null;
     if (!mod) throw new TypeError(`Module "${p}" does not export register()`);
-    return mod.register(regOpts); // pass adapter, not _shared directly
+    return mod.register(regOpts); // <— pass adapter, not _shared directly
   };
 
   // register all modules (unchanged)
@@ -123,7 +121,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   router.all("*", async (req, res) => {
     try {
-      // ——— Body/header normalization ———
       if (req.body && typeof req.body === "object") {
         const maybeHeaders =
           req.body.headers || (req.body.body && req.body.body.headers) || null;
@@ -136,27 +133,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
         req.body = unwrapBody(req.body);
       }
 
-      // ───────────────────────────────────────────────────────────────
-      // PRE-MINT COOKIE (critical for legacy helpers reading meta.cookie)
-      // ───────────────────────────────────────────────────────────────
-      try {
-        const main = {};
-        const tokenFromReq =
-          req.get?.("X-accessToken") ||
-          req.headers?.["x-accesstoken"] ||
-          req.headers?.["x-accessToken"] ||
-          req.cookies?.accessToken; // accept browser cookie if present
-
-        const ck = await ensureShared().manageCookie(main, tokenFromReq, res);
-        req.cookies ||= {};
-        Object.assign(req.cookies, ck);
-      } catch {
-        // non-fatal; handlers that require auth will still fail gracefully
-      }
-
       const cookie = req.cookies || {};
-
-      // ——— Path/type normalization ———
       let rawPath = String(req.path || "").split("?")[0];
       let type = req.params?.type || req.type || req.query?.type;
 
@@ -181,7 +158,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       );
       type = t;
 
-      // ——— Build ctx ———
       const ctx = {
         req,
         res,
@@ -192,11 +168,9 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
         xAccessToken:
           req.get?.("X-accessToken") ||
           req.headers?.["x-accesstoken"] ||
-          req.headers?.["x-accessToken"] ||
-          req.cookies?.accessToken, // include cookie token
+          req.headers?.["x-accessToken"],
       };
 
-      // ——— Dispatch ———
       const result = await ensureShared().dispatch(action, ctx, { cookie });
       if (res.headersSent) return;
       if (result && result.__handled) return; // explicit no-op (legacy parity)
@@ -216,9 +190,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   return router;
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Standalone adapter (unchanged except for cookie pre-mint already present)
-// ───────────────────────────────────────────────────────────────────────────────
 async function route(
   req,
   res,
@@ -300,26 +271,8 @@ async function route(
       xAccessToken ||
       req?.get?.("X-accessToken") ||
       req?.headers?.["x-accesstoken"] ||
-      req?.headers?.["x-accessToken"] ||
-      // also accept browser cookie if present (parity improvement)
-      req?.cookies?.accessToken,
+      req?.headers?.["x-accessToken"],
   };
-
-  // Ensure a cookie exists for this request (legacy parity)
-  try {
-    const main = {};
-    const ck = await ensureShared().manageCookie(
-      main,
-      ctx.xAccessToken, // header/cookie token if provided
-      ctx.res           // lets manageCookie set Set-Cookie
-    );
-    // Make the cookie visible to handlers & modules:
-    ctx.cookie = ck;
-    req.cookies ||= {};
-    Object.assign(req.cookies, ck);
-  } catch (e) {
-    // Non-fatal
-  }
 
   try {
     const result = await ensureShared().dispatch(a, ctx, { cookie: req?.cookies || {} });
