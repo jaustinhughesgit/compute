@@ -4,7 +4,7 @@ function register({ on, use }) {
   const { getSub } = shared;
 
   on("runEntity", async (ctx) => {
-    const { req, res, path } = ctx;
+    const { req, res, path, next } = ctx;
 
     // Figure out the action file (same as old logic)
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
@@ -21,7 +21,7 @@ function register({ on, use }) {
 
     const { runApp } = require("../../app");
     let ot;
-    ot = await runApp(reqForApp, resProxy);
+    ot = await runApp(req, res, next);
     console.log("ot", ot)
 
     //ot.existing = true;
