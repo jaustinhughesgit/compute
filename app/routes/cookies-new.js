@@ -271,8 +271,32 @@ async function route(
       xAccessToken ||
       req?.get?.("X-accessToken") ||
       req?.headers?.["x-accesstoken"] ||
-      req?.headers?.["x-accessToken"],
+      req?.headers?.["x-accessToken"] ||
+      // also accept browser cookie if present (parity improvement)
+      req?.cookies?.accessToken,
   };
+
+  // ───────────────────────────────────────────────────────────────
+  // Ensure a cookie exists for this request (legacy parity)
+  // This mirrors the middleware used in setupRouter(), but runs here
+  // so the standalone route(...) path also mints/attaches a cookie.
+  try {
+    const main = {};
+    const ck = await ensureShared().manageCookie(
+      main,
+      ctx.xAccessToken, // header/cookie token if provided
+      ctx.res           // lets manageCookie set Set-Cookie
+    );
+    // Make the cookie visible to handlers & modules:
+    ctx.cookie = ck;
+    req.cookies ||= {};
+    Object.assign(req.cookies, ck);
+  } catch (e) {
+    // Non-fatal: continue without a cookie if something unexpected happens
+    // (handlers that require auth will still fail gracefully)
+  }
+  // ───────────────────────────────────────────────────────────────
+
 
   try {
     const result = await ensureShared().dispatch(a, ctx, { cookie: req?.cookies || {} });
