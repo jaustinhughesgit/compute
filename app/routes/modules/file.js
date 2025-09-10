@@ -1,5 +1,5 @@
 // modules/file.js
-"use strict";
+//"use strict";
 
 function register({ on, use }) {
   const {

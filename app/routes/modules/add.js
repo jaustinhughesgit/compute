@@ -1,5 +1,5 @@
 // modules/add.js
-"use strict";
+//"use strict";
 
 /**
  * Creates a new child Entity + Word under a parent Subdomain (su),

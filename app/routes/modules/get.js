@@ -1,5 +1,5 @@
 // modules/get.js
-"use strict";
+//"use strict";
 
 function register({ on, use }) {
   const {

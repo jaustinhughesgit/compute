@@ -1,5 +1,5 @@
 // routes/cookies.js
-"use strict";
+//"use strict";
 
 const express = require("express");
 const AWS = require("aws-sdk");

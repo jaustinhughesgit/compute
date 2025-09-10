@@ -1,5 +1,5 @@
 // shared.js
-"use strict";
+//"use strict";
 
 /**
  * Shared core for routes/modules.
