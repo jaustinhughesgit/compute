@@ -110,16 +110,28 @@ function register({ on, use }) {
 
     // Hand off to the app with legacy-compatible shapes
     const { runApp } = require("../../app");
-    const ot = await runApp(reqForApp, resProxy);
-
-    // If runApp already wrote to the real res, we’re done
-    if (res?.headersSent || resProxy.headersSent) {
-      return resProxy.body;
+    let ot;
+    try {
+      ot = await runApp(reqForApp, resProxy);
+    } catch (err) {
+      console.error("runEntity → runApp error", err);
+      // Old cookies.js would not force a response on failure
+      return { __handled: true };
     }
 
-    // Mirror old cookies.js behavior
-    if (ot) ot.existing = true;
-    return ot?.chainParams ?? null;
+    // If runApp already wrote to the real response, suppress any router fallback.
+    if (res?.headersSent || resProxy.headersSent) {
+      return { __handled: true };
+    }
+
+    // Old cookies.js: only surface chainParams if present; otherwise do nothing.
+    if (ot && typeof ot === "object" && Object.prototype.hasOwnProperty.call(ot, "chainParams")) {
+      ot.existing = true;
+      return ot.chainParams;
+    }
+
+    // No chainParams → treat as handled with no body (prevents router wrappers).
+    return { __handled: true };
   });
 
   return { name: "runEntity" };
