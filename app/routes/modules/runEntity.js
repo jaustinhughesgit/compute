@@ -1,49 +1,58 @@
 // modules/runEntity.js
-"use strict";
-
+//"use strict";
 function register({ on, use }) {
-  const {
-    // domain helper
-    getSub,
-    // raw deps bag if ever needed
-    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
-  } = use();
+  const { getSub } = use();
 
-  on("runEntity", async (ctx /*, meta */) => {
-    const { req, res, path /*, type, signer */ } = ctx;
+  on("runEntity", async (ctx) => {
+    const { req, res, path } = ctx;
 
-    // Legacy path parsing equivalent of: reqPath.split("?")[0].split("/")[3]
-    // In the modular router, ctx.path is already the tail after the action,
-    // e.g. "/<su>/...". We take the first non-empty segment.
-    const clean = String(path || "").split("?")[0];
-    const segs = clean.split("/").filter(Boolean);
+    const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
     const actionFile = segs[0] || "";
-
-    // Preserve original logging side-effects
     console.log("actionFile", actionFile);
 
-    // Use shared domain helper (no refactor of signatures here)
     const subBySU = await getSub(actionFile, "su");
     console.log("subBySU", subBySU);
 
-    const out = subBySU.Items[0].output;
+    const out = subBySU.Items?.[0]?.output;
     console.log("subBySU.Items[0].output", out);
     console.log("typeof subBySU.Items[0].output", typeof out);
 
-    // Strict-parity behavior:
-    // If no output stored on subdomain, call runApp(req,res, next?)
     if (out === undefined || out === "") {
-      // Keep require path consistent with legacy (cookies.js lived in routes/,
-      // this module lives in routes/modules/, so app.js is ../../app)
       const { runApp } = require("../../app");
-      const ot = await runApp(req, res /*, next not available here */);
-      console.log("ot", ot);
-      // Legacy: mark existing then return chainParams
-      ot.existing = true;
-      return ot?.chainParams;
+
+      // minimal, non-circular req snapshot
+      const reqLite = {
+        method: req.method,
+        path: req.path,
+        query: req.query,
+        body: req.body,
+        headers: req.headers,
+      };
+
+      // tiny response shim that collects what runApp writes, no sockets
+      const resShim = {
+        headersSent: false,
+        statusCode: 200,
+        body: undefined,
+        status(code) { this.statusCode = code; return this; },
+        json(payload) { this.body = payload; this.headersSent = true; return this; },
+        send(payload) { this.body = payload; this.headersSent = true; return this; },
+        setHeader() { /* noop */ return this; },
+        getHeader() { return undefined; },
+        cookie() { /* noop for runApp */ return this; },
+      };
+
+      const ot = await runApp(reqLite, resShim);   // <-- NO real Express res
+
+      if (resShim.headersSent) {
+        // runApp already produced a response body → return it upstream
+        return resShim.body;
+      }
+
+      ot && (ot.existing = true);
+      return ot?.chainParams ?? null;
     }
 
-    // Else: return stored output verbatim
     return out;
   });
 
