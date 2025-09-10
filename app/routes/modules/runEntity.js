@@ -15,19 +15,20 @@ function register({ on, use }) {
     const subBySU = await getSub(actionFile, "su");
     const out = subBySU.Items?.[0]?.output;
     console.log("out", out)
-    if (out !== undefined && out !== "") {
-      return out; // honor stored output shortcut, like before
-    }
+    if (out === undefined && out === "") {
+
     console.log("skipping 'out'' because it was not generated")
 
-    // Hand off to the app with legacy-compatible shapes
     const { runApp } = require("../../app");
     let ot;
     ot = await runApp(reqForApp, resProxy);
     console.log("ot", ot)
-    //if (ot){
-    ot.existing = true;
+
+    //ot.existing = true;
     return ot?.chainParams
+    } else {
+            return out; 
+    }
   });
 
   return { name: "runEntity" };
