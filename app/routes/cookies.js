@@ -11,6 +11,7 @@ const keyPairId = 'K2LZRHRSYZRU3Y';
 let convertCounter = 0
 let isPublic = true
 async function getSub(val, key, dynamodb) {
+    //console.log("getSub", val, key)
     let params
     if (key == "su") {
         params = { TableName: 'subdomains', KeyConditionExpression: 'su = :su', ExpressionAttributeValues: { ':su': val } };
@@ -24,6 +25,7 @@ async function getSub(val, key, dynamodb) {
     return await dynamodb.query(params).promise()
 }
 async function getEntity(e, dynamodb) {
+    //console.log("inside getEntity", e)
     params = { TableName: 'entities', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': e } };
     return await dynamodb.query(params).promise()
 }
@@ -300,13 +302,50 @@ async function convertToJSON(
     substitutingID = ""
 ) {
 
+    // we need to be able to replace the existing entity, not get the child of the substituted
 
+
+    // else if (substituting) {
+    //substitutingID = fileID;
+    //const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
+    /*        const headSubstitutingObj = await convertToJSON(
+                subOfHead.Items[0].su,
+                newParentPath,
+                true,
+                entity.Items[0].m,
+                cookie,
+                dynamodb,
+                uuidv4,
+                pathUUID,
+                newParentPath2,
+                id2Path,
+                usingID, dynamodbLL, body, substitutingID
+            );
+            const headKey = Object.keys(headSubstitutingObj.obj)[0];
+            Object.assign(obj[fileID].children, headSubstitutingObj.obj[headKey].children);
+            Object.assign(paths, headSubstitutingObj.paths);
+            Object.assign(paths2, headSubstitutingObj.paths2);
+            obj[fileID].meta["substitutingMeta"] = {
+                "name": headSubstitutingObj.obj[headKey].meta.name,
+                "head": headSubstitutingObj.obj[headKey].meta.head,
+                "id": headKey,
+                "pathid": pathUUID
+            };
+        }
+    */
+    //console.log("fileID", fileID)
+    //console.log("cookie", cookie)
+    //console.log("body", body)
     var { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, dynamodb, body);
+    console.log("verified", verified)
+    console.log("subBySU", subBySU)
+    console.log("entity", entity)
+    console.log("isPublic", isPublic)
 
-
+    console.log("entity.Items[0].z", entity.Items[0].z)
     if (typeof entity.Items[0].z == "string") {
         const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
-
+        console.log("subByE", subByE)
         var veriThis = await verifyThis(subByE.Items[0].su, cookie, dynamodb, body)
 
 
@@ -314,13 +353,22 @@ async function convertToJSON(
         subBySU = veriThis.subBySU;
         entity = veriThis.entity;
         isPublic = veriThis.isPublic;
-
+        //NEED TO look into = await verifyThis(fileID, cookie, dynamodb, body);
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("zzzzzzzzzz")
+        console.log("verified", verified)
+        console.log("subBySU", subBySU)
+        console.log("entity", entity)
+        console.log("isPublic", isPublic)
     }
 
     if (!verified) {
         return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
     }
-
+    console.log("1")
     let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
     // pull linked children from the links table (was entity.Items[0].l)
     const linked = await getLinkedChildren(entity.Items[0].e, dynamodb);
@@ -332,7 +380,7 @@ async function convertToJSON(
     const obj = {};
     const paths = {};
     const paths2 = {};
-
+    console.log("2")
 
 
 
@@ -349,13 +397,13 @@ async function convertToJSON(
     if (substitutingID == null) {
         substitutingID = ""
     }
-
+    console.log("3")
     id2Path[fileID] = pathUUID;
     const subH = await getSub(entity.Items[0].h, "e", dynamodb);
     if (subH.Count === 0) {
         await sleep(2000);
     }
-
+    console.log("4")
     obj[fileID] = {
         meta: {
             name: name,
@@ -375,7 +423,7 @@ async function convertToJSON(
     const newParentPath2 = isUsing ? [...parentPath2] : [...parentPath2, fileID];
     paths[fileID] = newParentPath;
     paths2[pathUUID] = newParentPath2;
-
+    console.log("5")
     if (children && children.length > 0 && convertCounter < 1000) {
         convertCounter += children.length;
         const childPromises = children.map(async (child) => {
@@ -391,7 +439,7 @@ async function convertToJSON(
             Object.assign(paths2, childResponse.paths2);
         }
     }
-
+    console.log("6")
     if (using) {
         usingID = fileID;
         const subOfHead = await getSub(entity.Items[0].u, "e", dynamodb);
@@ -419,7 +467,7 @@ async function convertToJSON(
             "pathid": pathUUID
         };
     }
-
+    console.log("7")
     if (linked && linked.length > 0) {
         const linkedPromises = linked.map(async (childE) => {
             const subByE = await getSub(childE, "e", dynamodb);
@@ -448,11 +496,11 @@ async function convertToJSON(
             Object.assign(paths2, lr.paths2);
         }
     }
-
+    console.log("8")
     //console.log("getGroups")
     const groupList = await getGroups(dynamodb);
     //console.log("returning ----", groupList)
-
+    console.log("9")
     return { obj, paths, paths2, id2Path, groups: groupList };
 }
 const updateEntity = async (e, col, val, v, c, dynamodb) => {
@@ -676,8 +724,11 @@ const incrementCounterAndGetNewValue = async (tableName, dynamodb) => {
     return response.Attributes.x;
 };
 const getHead = async (by, value, dynamodb) => {
+    //console.log("getHead", by, value)
     const subBySU = await getSub(value, by, dynamodb);
+    //console.log("getEntity", subBySU)
     const entity = await getEntity(subBySU.Items[0].e, dynamodb)
+    //console.log("getSub", entity)
     const headSub = await getSub(entity.Items[0].h, "e", dynamodb);
     return headSub
 }
@@ -805,6 +856,7 @@ async function addVersion(newE, col, val, forceC, dynamodb) {
 const createFile = async (su, fileData, s3) => {
 
     const jsonString = JSON.stringify(fileData);
+    console.log("!!! jsonString", jsonString)
     const bucketParams = {
         Bucket: fileLocation(isPublic) + '.1var.com',
         Key: su,
@@ -812,6 +864,7 @@ const createFile = async (su, fileData, s3) => {
         ContentType: 'application/json'
     };
     const data = await s3.putObject(bucketParams).promise();
+    console.log("data", data)
     return true;
 }
 const updateJSONL = async (newLine, keys, s3) => {
@@ -1033,14 +1086,17 @@ async function getCookie(val, key) {
     return await dynamodb.query(params).promise()
 }
 async function manageCookie(mainObj, xAccessToken, res, dynamodb, uuidv4) {
+    console.log("xAccessToken", xAccessToken)
     let existing = false
     if (xAccessToken) {
+        console.log("existing user")
         mainObj["status"] = "authenticated";
         existing = true;
         let val = xAccessToken;
         let cookie = await getCookie(val, "ak")
         return cookie.Items[0]
     } else {
+        console.log("else generate Cookie!")
         const ak = await getUUID(uuidv4)
         const ci = await incrementCounterAndGetNewValue('ciCounter', dynamodb);
         const gi = await incrementCounterAndGetNewValue('giCounter', dynamodb);
@@ -1512,7 +1568,14 @@ async function searchSubdomains(
     embedding, domain, subdomain, entity, query, limit, action
 ) {
 
-
+    console.log("searchSubdomains ----------------");
+    console.log("embedding", embedding);
+    console.log("domain", domain);
+    console.log("subdomain", subdomain);
+    console.log("entity", entity);
+    console.log("query", query);
+    console.log("limit", limit);
+    console.log("action", action);
     if (!embedding || !domain || !subdomain || !entity) {
         console.log("returning early because of a falsy")
         return
@@ -1604,6 +1667,8 @@ async function searchSubdomains(
 
 async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
 
+    console.log("PROMISE CHECK )))", req, res, reqBody, reqMethod, reqType, reqHeaderSent, action)
+    console.log("route indise")
     cache = {
         getSub: {},
         getEntity: {},
@@ -1617,6 +1682,7 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
     var response = {}
     var actionFile = ""
     var mainObj = {}
+    //console.log("reqMethod", reqMethod)
     if (reqMethod === 'GET' || reqMethod === 'POST') {
 
 
@@ -1642,6 +1708,1436 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 let tasksUnix = await getTasks(fileID, "su", dynamodb)
                 let tasksISO = await getTasksIOS(tasksUnix)
                 mainObj["tasks"] = tasksISO
+            } else if (action == "resetDB") {
+                try {
+                    for (const tableName of tablesToClear) {
+                        await clearTable(tableName, dynamodb);
+
+                    }
+                    for (const counter of countersToReset) {
+                        await resetCounter(counter, dynamodb);
+
+                    }
+                    mainObj = { "alert": "success" }
+                } catch (error) {
+                    console.error('Error resetting database:', error);
+                    mainObj = { "alert": "failed" }
+                }
+            } else if (action === "createLinks") {
+                // create DynamoDB "links" table (id PK + wholeIndex, partIndex, ckeyIndex)
+                try {
+                    const TableName = "links";
+                    // use the low-level client if you passed it in; else make one
+                    const ddbLL = dynamodbLL || new AWS.DynamoDB({ region: "us-east-1" });
+
+                    // 1) check if table exists
+                    let exists = false;
+                    try {
+                        await ddbLL.describeTable({ TableName }).promise();
+                        exists = true;
+                    } catch (err) {
+                        if (err.code !== "ResourceNotFoundException") throw err;
+                    }
+
+                    if (!exists) {
+                        // 2) create with PAY_PER_REQUEST + 3 GSIs
+                        const params = {
+                            TableName,
+                            BillingMode: "PAY_PER_REQUEST",
+                            AttributeDefinitions: [
+                                { AttributeName: "id", AttributeType: "S" },
+                                { AttributeName: "whole", AttributeType: "S" },
+                                { AttributeName: "part", AttributeType: "S" },
+                                { AttributeName: "ckey", AttributeType: "S" },
+                                { AttributeName: "type", AttributeType: "S" }, // GSI sort key
+                            ],
+                            KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+                            GlobalSecondaryIndexes: [
+                                {
+                                    IndexName: "wholeIndex",
+                                    KeySchema: [
+                                        { AttributeName: "whole", KeyType: "HASH" },
+                                        { AttributeName: "type", KeyType: "RANGE" }
+                                    ],
+                                    Projection: { ProjectionType: "ALL" }
+                                },
+                                {
+                                    IndexName: "partIndex",
+                                    KeySchema: [
+                                        { AttributeName: "part", KeyType: "HASH" },
+                                        { AttributeName: "type", KeyType: "RANGE" }
+                                    ],
+                                    Projection: { ProjectionType: "ALL" }
+                                },
+                                {
+                                    IndexName: "ckeyIndex",
+                                    KeySchema: [{ AttributeName: "ckey", KeyType: "HASH" }],
+                                    Projection: { ProjectionType: "ALL" }
+                                }
+                            ]
+                        };
+
+                        await ddbLL.createTable(params).promise();
+                        // wait until active
+                        await ddbLL.waitFor("tableExists", { TableName }).promise();
+
+                        mainObj = { alert: "created", table: TableName };
+                    } else {
+                        mainObj = { alert: "already-exists", table: TableName };
+                    }
+                } catch (error) {
+                    console.error("createLinks failed:", error);
+                    mainObj = { alert: "failed", error: String(error?.message || error) };
+                }
+            } else if (action == "add") {
+                const fileID = reqPath.split("/")[3];
+                const newEntityName = reqPath.split("/")[4];
+                const headUUID = reqPath.split("/")[5];
+                const parent = await getSub(fileID, "su", dynamodb);
+                setIsPublic(parent.Items[0].z);
+                const eParent = await getEntity(parent.Items[0].e, dynamodb);
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai, dynamodb);
+                const uniqueId = await getUUID(uuidv4);
+                let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", parent.Items[0].z, dynamodb)
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            },
+                            "mindsets": [],
+                            "thoughts": {
+                                "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+                                    "owners": [],
+                                    "content": "",
+                                    "contentType": "text",
+                                    "moods": {
+                                    },
+                                    "selectedMood": ""
+                                }
+                            },
+                            "moods": [
+                            ],
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }, s3);
+                actionFile = uniqueId;
+                const details2 = await addVersion(parent.Items[0].e.toString(), "t", e.toString(), eParent.Items[0].c, dynamodb);
+                const updateParent = await updateEntity(parent.Items[0].e.toString(), "t", e.toString(), details2.v, details2.c, dynamodb);
+                const details22 = await addVersion(e.toString(), "f", parent.Items[0].e.toString(), "1", dynamodb);
+                const updateParent22 = await updateEntity(e.toString(), "f", parent.Items[0].e.toString(), details22.v, details22.c, dynamodb);
+                const group = eParent.Items[0].g;
+                const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
+                const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
+                mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "link") {
+                const childID = reqPath.split("/")[3];   // su of child
+                const parentID = reqPath.split("/")[4];  // su of parent
+                await linkEntities(childID, parentID, dynamodb);
+                // re-emit the child tree after linking
+                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+            } else if (action === "unlink") {
+                const childID = reqPath.split("/")[3];   // su of child
+                const parentID = reqPath.split("/")[4];  // su of parent
+                const childSub = await getSub(childID, "su", dynamodb);
+                const parentSub = await getSub(parentID, "su", dynamodb);
+                if (childSub.Items.length && parentSub.Items.length) {
+                    const childE = childSub.Items[0].e;
+                    const parentE = parentSub.Items[0].e;
+                    await deleteLink(parentE, childE, dynamodb);
+                }
+                // return updated child view
+                mainObj = await convertToJSON(childID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+            } else if (action === "migrateLinks") {
+                try {
+                    const stats = await migrateLinksFromEntities(dynamodb);
+                    mainObj = { alert: "ok", migrated: stats.created, scanned: stats.scanned, table: "links" };
+                } catch (err) {
+                    console.error("migrateLinks failed:", err);
+                    mainObj = { alert: "failed", error: String(err?.message || err) };
+                }
+            } else if (action === "newGroup") {
+                if (cookie != undefined) {
+                    const newGroupName = reqPath.split("/")[3]
+                    const headEntityName = reqPath.split("/")[4]
+                    const parentEntity = reqPath.split("/")[5]
+                    console.log("reqBody??", reqBody)
+                    console.log("req.body??", req.body)
+                    setIsPublic(true)
+                    const aNewG = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
+                    const aNewE = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                    const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
+                    const gNew = await incrementCounterAndGetNewValue('gCounter', dynamodb);
+                    const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                    const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                    const access = await createAccess(ai.toString(), gNew.toString(), "0", { "count": 1, "metric": "year" }, 10, { "count": 1, "metric": "minute" }, {}, "rwado")
+                    const ttlDurationInSeconds = 90000;
+                    const ex = Math.floor(Date.now() / 1000) + ttlDurationInSeconds;
+                    const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
+                    await createVerified(vi.toString(), cookie.gi.toString(), gNew.toString(), "0", ai.toString(), "0", ex, true, 0, 0)
+                    const groupID = await createGroup(gNew.toString(), aNewG, e.toString(), [ai.toString()], dynamodb);
+                    const uniqueId = await getUUID(uuidv4)
+                    let subRes = await createSubdomain(uniqueId, "0", "0", gNew.toString(), true, dynamodb)
+                    const details = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
+                    const result = await createEntity(e.toString(), aE.toString(), details.v, gNew.toString(), e.toString(), [ai.toString()], dynamodb); //DO I NEED details.c
+                    const uniqueId2 = await getUUID(uuidv4)
+                    console.log("reqBody.output", reqBody.output)
+                    console.log("req.body.output", req.body.output)
+                    const fileResult = await createFile(uniqueId2,
+                        {
+                            "input": [], "published": {
+                                "blocks": [{ "entity": uniqueId2, "name": "Primary" }],
+                                "modules": {},
+                                "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": [reqBody.output] }], "assign": "{|send|}" }],
+                                "function": {},
+                                "automation": [],
+                                "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                                "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                                "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                                "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                                "assignments": {
+                                    "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                    "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                    "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                    "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                                },
+                                "mindsets": [],
+                                "thoughts": {
+                                    "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
+                                        "owners": [],
+                                        "content": "",
+                                        "contentType": "text",
+                                        "moods": {
+                                        },
+                                        "selectedMood": ""
+                                    }
+                                },
+                                "moods": [
+                                ],
+                            }, "skip": [], "sweeps": 1, "expected": []
+                        }
+                        , s3)
+                    actionFile = uniqueId2
+
+                    let subRes2 = await createSubdomain(uniqueId2, aE.toString(), e.toString(), "0", true, dynamodb)
+                    let from = "noreply@email.1var.com"
+                    let to = "austin@1var.com"
+                    let subject = "1 VAR - Email Address Verification Request"
+                    let emailText = "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/" + uniqueId
+                    let emailHTML = "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/" + uniqueId
+                    let emailer = await email(from, to, subject, emailText, emailHTML, ses)
+
+                    mainObj = await convertToJSON(uniqueId2, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+                    console.log("mainObj=.", mainObj)
+                }
+            } else if (action === "useGroup") {
+                actionFile = reqPath.split("/")[3]
+                const newUsingName = reqPath.split("/")[3]
+                const headUsingName = reqPath.split("/")[4]
+                const using = await getSub(newUsingName, "su", dynamodb);
+                const ug = await getEntity(using.Items[0].e, dynamodb)
+                const used = await getSub(headUsingName, "su", dynamodb);
+                const ud = await getEntity(used.Items[0].e, dynamodb)
+                const details2 = await addVersion(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), ug.Items[0].c, dynamodb);
+                const updateParent = await updateEntity(ug.Items[0].e.toString(), "u", ud.Items[0].e.toString(), details2.v, details2.c, dynamodb);
+                const headSub = await getSub(ug.Items[0].h, "e", dynamodb);
+                mainObj = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "substituteGroup") {
+                actionFile = reqPath.split("/")[3]
+                const newSubstitutingName = reqPath.split("/")[3]
+                const headSubstitutingName = reqPath.split("/")[4]
+                const substituting = await getSub(newSubstitutingName, "su", dynamodb);
+                const sg = await getEntity(substituting.Items[0].e, dynamodb)
+                const substituted = await getSub(headSubstitutingName, "su", dynamodb);
+                const sd = await getEntity(substituted.Items[0].e, dynamodb)
+                const details2 = await addVersion(sg.Items[0].e.toString(), "z", sd.Items[0].e.toString(), sg.Items[0].c, dynamodb);
+                const updateParent = await updateEntity(sg.Items[0].e.toString(), "z", sd.Items[0].e.toString(), details2.v, details2.c, dynamodb);
+                const headSub = await getSub(sg.Items[0].h, "e", dynamodb);
+                mainObj = await convertToJSON(headSub.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "map") {
+                const referencedParent = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const mappedParent = reqPath.split("/")[5]
+                const headEntity = reqPath.split("/")[6]
+                const subRefParent = await getSub(referencedParent, "su", dynamodb);
+                setIsPublic(subRefParent.Items[0].z);
+                const subMapParent = await getSub(mappedParent, "su", dynamodb);
+                const mpE = await getEntity(subMapParent.Items[0].e, dynamodb)
+                const mrE = await getEntity(subRefParent.Items[0].e, dynamodb)
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, mpE.Items[0].g, mpE.Items[0].h, mpE.Items[0].ai, dynamodb);
+                const uniqueId = await getUUID(uuidv4)
+                let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [{
+                            "physical": [
+                                [{}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                            ]
+                        }, { "virtual": [] }], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            }
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }
+                    , s3)
+                actionFile = uniqueId
+                let newM = {}
+                newM[mrE.Items[0].e] = e.toString()
+                const details2a = await addVersion(mpE.Items[0].e.toString(), "m", newM, mpE.Items[0].c, dynamodb);
+                let addM = {}
+                addM[mrE.Items[0].e] = [e.toString()]
+                const updateParent = await updateEntity(mpE.Items[0].e.toString(), "m", addM, details2a.v, details2a.c, dynamodb);
+                mainObj = await convertToJSON(headEntity, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "extend") {
+                const fileID = reqPath.split("/")[3]
+                const newEntityName = reqPath.split("/")[4]
+                const headUUID = reqPath.split("/")[5]
+                const parent = await getSub(fileID, "su", dynamodb);
+                setIsPublic(parent.Items[0].z)
+                const eParent = await getEntity(parent.Items[0].e, dynamodb)
+                const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+                const aNew = await incrementCounterAndGetNewValue('wCounter', dynamodb);
+                const a = await createWord(aNew.toString(), newEntityName, dynamodb);
+                const details = await addVersion(e.toString(), "a", a.toString(), null, dynamodb);
+                const result = await createEntity(e.toString(), a.toString(), details.v, eParent.Items[0].g, eParent.Items[0].h, eParent.Items[0].ai, dynamodb);
+                const uniqueId = await getUUID(uuidv4)
+                let subRes = await createSubdomain(uniqueId, a.toString(), e.toString(), "0", true, dynamodb)
+                const fileResult = await createFile(uniqueId,
+                    {
+                        "input": [{
+                            "physical": [
+                                [{}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "blocks", [{ "entity": uniqueId, "name": "Primary" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "modules", {}],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "actions", [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }]],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", {}], ["ROWRESULT", "0", "NESTED", "000!!", "function", {}], ["ROWRESULT", "0", "NESTED", "000!!", "automation", []],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "menu", { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "commands", { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "calls", { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "templates", { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } }],
+                                ["ROWRESULT", "000", "NESTED", "000!!", "assignments", { "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello5" }, "_mode": "_html" }, "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello6" }, "_mode": "_html" }, "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello7" }, "_mode": "_html" }, "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Hello8" }, "_mode": "_html" } }]
+                            ]
+                        }, { "virtual": [] }], "published": {
+                            "blocks": [{ "entity": uniqueId, "name": "Primary" }],
+                            "modules": {},
+                            "actions": [{ "target": "{|res|}!", "chain": [{ "access": "send", "params": ["{|entity|}"] }], "assign": "{|send|}" }],
+                            "function": {},
+                            "automation": [],
+                            "menu": { "ready": { "_name": "Ready", "_classes": ["Root"], "_show": false, "_selected": true, "options": { "_name": "Options", "_classes": ["ready"], "_show": true, "_selected": false, "back": { "_name": "Back", "_classes": ["options"], "_show": false, "_selected": false } }, "close": { "_name": "Close", "_classes": ["ready"], "_show": false, "_selected": false } } },
+                            "commands": { "ready": { "call": "ready", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "back": { "call": "back", "ready": true, "updateSpeechAt": true, "timeOut": 0 }, "close": { "call": "close", "ready": false, "updateSpeechAt": true, "timeOut": 0 }, "options": { "call": "options", "ready": false, "updateSpeechAt": true, "timeOut": 0 } },
+                            "calls": { "ready": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "show", "args": ["menu", 0], "custom": false }] }], "back": [{ "if": [{ "key": ["ready", "_selected"], "expression": "!=", "value": true }], "then": ["ready"], "show": ["ready"], "run": [{ "function": "highlight", "args": ["ready", 0], "custom": false }] }], "close": [{ "if": [], "then": ["ready"], "show": [], "run": [{ "function": "hide", "args": ["menu", 0] }] }], "options": [{ "if": [{ "key": ["ready", "_selected"], "expression": "==", "value": true }], "then": ["ready", "options"], "show": ["options"], "run": [] }] },
+                            "templates": { "init": { "1": { "rows": { "1": { "cols": ["a", "b"] } } } }, "second": { "2": { "rows": { "1": { "cols": ["c", "d"] } } } } },
+                            "assignments": {
+                                "a": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 1" }, "_mode": "_html" },
+                                "b": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 2" }, "_mode": "_html" },
+                                "c": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 3" }, "_mode": "_html" },
+                                "d": { "_editable": false, "_movement": "move", "_owners": [], "_modes": { "_html": "Box 4" }, "_mode": "_html" }
+                            }
+                        }, "skip": [], "sweeps": 1, "expected": []
+                    }
+                    , s3)
+                actionFile = uniqueId
+                const updateList = eParent.Items[0].t
+                for (u in updateList) {
+                    const details24 = await addVersion(updateList[u], "-f", eParent.Items[0].e, "1", dynamodb);
+                    const updateParent24 = await updateEntity(updateList[u], "-f", eParent.Items[0].e, details24.v, details24.c, dynamodb);
+                    const details25 = await addVersion(eParent.Items[0].e, "-t", updateList[u], "1", dynamodb);
+                    const updateParent25 = await updateEntity(eParent.Items[0].e, "-t", updateList[u], details25.v, details25.c, dynamodb);
+                    const details26 = await addVersion(updateList[u], "f", e.toString(), "1", dynamodb);
+                    const updateParent26 = await updateEntity(updateList[u], "f", e.toString(), details26.v, details26.c, dynamodb);
+                    const details27 = await addVersion(e.toString(), "t", updateList[u], "1", dynamodb);
+                    const updateParent27 = await updateEntity(e.toString(), "t", updateList[u], details27.v, details27.c, dynamodb);
+                }
+
+                const details28 = await addVersion(eParent.Items[0].e, "t", e.toString(), "1", dynamodb);
+                const updateParent28 = await updateEntity(eParent.Items[0].e, "t", e.toString(), details28.v, details28.c, dynamodb);
+
+                const group = eParent.Items[0].g
+                const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
+                const updateParent3 = await updateEntity(e.toString(), "g", group, details3.v, details3.c, dynamodb);
+                mainObj = await convertToJSON(headUUID, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "reqPut") {
+                actionFile = reqPath.split("/")[3]
+                fileCategory = reqPath.split("/")[4]
+                fileType = reqPath.split("/")[5]
+                const subBySU = await getSub(actionFile, "su", dynamodb);
+                setIsPublic(subBySU.Items[0].z)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "file") {
+                actionFile = reqPath.split("/")[3]
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+                let tasksUnix = await getTasks(actionFile, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
+            } else if (action === "addFineTune") {
+                let sections = reqPath.split("/")
+
+                const fileResult = await updateJSONL(reqBody.body, sections, s3)
+                mainObj = { "alert": "success" }
+            } else if (action === "createFineTune") {
+                let sections = reqPath.split("/")
+
+
+                const fineTuneResponse = await fineTune(openai, "create", sections[3], sections[4])
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "listFineTune") {
+                let sections = reqPath.split("/")
+
+                const fineTuneResponse = await fineTune(openai, "list", sections[3], "")
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "deleteFineTune") {
+                let sections = reqPath.split("/")
+
+
+                const fineTuneResponse = await fineTune(openai, "delete", sections[3], sections[4])
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "eventsFineTune") {
+                let sections = reqPath.split("/")
+
+
+                const fineTuneResponse = await fineTune(openai, "events", sections[3], sections[4])
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "retrieveFineTune") {
+                let sections = reqPath.split("/")
+
+
+                const fineTuneResponse = await fineTune(openai, "retrieve", sections[3], sections[4])
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "cancelFineTune") {
+                let sections = reqPath.split("/")
+
+
+                const fineTuneResponse = await fineTune(openai, "cancel", sections[3], sections[4])
+                mainObj = { "alert": JSON.stringify(fineTuneResponse) }
+            } else if (action === "saveFile") {
+                console.log("reqBody", reqBody)
+                console.log("req.body", req.body)
+
+                actionFile = reqPath.split("/")[3]
+                console.log("!!! actionFile", actionFile)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+                console.log("createFile reqBody.body", reqBody.body)
+                if (!reqBody.body) {
+                    const fileResult = await createFile(actionFile, reqBody, s3)
+                } else {
+                    const fileResult = await createFile(actionFile, reqBody.body, s3)
+                }
+            } else if (action === "makePublic") {
+                actionFile = reqPath.split("/")[3]
+                let permission = reqPath.split("/")[4]
+                const permStat = await updateSubPermission(actionFile, permission, dynamodb, s3)
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "makeAuthenticator") {
+
+                const subUuid = reqPath.split("/")[3]
+                actionFile = reqPath.split("/")[3]
+                const sub = await getSub(subUuid, "su", dynamodb);
+                let buffer = false
+                if (reqBody.body.hasOwnProperty("type")) {
+                    if (reqBody.body.type == "Buffer") {
+                        buffer = true
+                    }
+                }
+                let ex = false
+                let at = false
+                let va = false
+                let to = false
+                let ac = false
+                if (!buffer) {
+                    ex = reqBody.body.expires
+                    at = reqBody.body.attempts
+                    va = reqBody.body.value
+                    to = reqBody.body.timeout
+                    let permissions = ""
+                    if (reqBody.body.execute == true) { permissions += "e" }
+                    if (reqBody.body.read == true) { permissions += "r" }
+                    if (reqBody.body.write == true) { permissions += "w" }
+                    if (reqBody.body.add == true) { permissions += "a" }
+                    if (reqBody.body.delete == true) { permissions += "d" }
+                    if (reqBody.body.permit == true) { permissions += "p" }
+                    if (reqBody.body.own == true) { permissions += "o" }
+                    ac = permissions
+                }
+                if (ex && at && va && to && ac && !buffer) {
+                    const ai = await incrementCounterAndGetNewValue('aiCounter', dynamodb);
+                    const access = await createAccess(ai.toString(), sub.Items[0].g.toString(), sub.Items[0].e.toString(), ex, at, to, va, ac)
+
+                    if (sub.Items[0].e.toString() != "0") {
+                        const details2 = await addVersion(sub.Items[0].e.toString(), "ai", ai.toString(), null, dynamodb);
+                        const updateParent = await updateEntity(sub.Items[0].e.toString(), "ai", ai.toString(), details2.v, details2.c, dynamodb);
+                    }
+                }
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody)
+            } else if (action === "validation") {
+                const subUuid = reqPath.split("/")[3]
+                const sub = await getSub(subUuid, "su", dynamodb);
+                let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
+                let access = await dynamodb.query(params).promise()
+                let permission = access.Items[0].ac;
+                let r = false
+                let w = false
+                let a = false
+                let d = false
+                let p = false
+                let o = false
+                if (permission.includes("r")) { r = true }
+                if (permission.includes("w")) { w = true }
+                if (permission.includes("a")) { a = true }
+                if (permission.includes("d")) { d = true }
+                if (permission.includes("p")) { p = true }
+                if (permission.includes("o")) { o = true }
+                mainObj = { "validation": access.Items[0].va, "read": r, "write": w, "add": a, "delete": d, "permit": p, "own": o }
+            } else if (action === "saveAuthenticator") {
+                const subUuid = reqPath.split("/")[3]
+                const sub = await getSub(subUuid, "su", dynamodb);
+                let params1 = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': sub.Items[0].e.toString() } }
+                let access = await dynamodb.query(params1).promise()
+                let permissions = ""
+                if (reqBody.body.execute == true) { permissions += "e" }
+                if (reqBody.body.read == true) { permissions += "r" }
+                if (reqBody.body.write == true) { permissions += "w" }
+                if (reqBody.body.add == true) { permissions += "a" }
+                if (reqBody.body.delete == true) { permissions += "d" }
+                if (reqBody.body.permit == true) { permissions += "p" }
+                if (reqBody.body.own == true) { permissions += "o" }
+                let params2 = {
+                    "TableName": 'access',
+                    "Key": {
+                        "ai": access.Items[0].ai.toString()
+                    },
+                    "UpdateExpression": `set va = :va, ac = :ac`,
+                    "ExpressionAttributeValues": {
+                        ':va': reqBody.body.value,
+                        ':ac': permissions
+                    }
+                };
+                await dynamodb.update(params2).promise();
+                mainObj = { "alert": "success" }
+            } else if (action == "useAuthenticator") {
+                const Entity = reqPath.split("/")[3]
+                const Authenticator = reqPath.split("/")[4]
+
+
+                const subEntity = await getSub(Entity, "su", dynamodb);
+                const subAuthenticator = await getSub(Authenticator, "su", dynamodb);
+
+
+                let params = { TableName: 'access', IndexName: 'eIndex', KeyConditionExpression: 'e = :e', ExpressionAttributeValues: { ':e': subAuthenticator.Items[0].e.toString() } }
+                let access = await dynamodb.query(params).promise()
+
+                const useE = await getEntity(subEntity.Items[0].e, dynamodb)
+
+                for (ac in access.Items) {
+
+
+
+                    let changeID = "1"
+                    if (useE.Items[0].hasOwnProperty("c")) {
+                        changeID = useE.Items[0].c.toString();
+                    }
+                    const details3 = await addVersion(subEntity.Items[0].e.toString(), "ai", access.Items[ac].ai.toString(), changeID, dynamodb);
+                    const updateAuth = await updateEntity(subEntity.Items[0].e.toString(), "ai", access.Items[ac].ai.toString(), details3.v, details3.c, dynamodb);
+
+                }
+                mainObj = { "alert": "success" }
+            } else if (action == "createTask") {
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
+                const task = reqBody.body;
+                let sDate = new Date(task.startDate + 'T00:00:00Z')
+                let sDateSeconds = sDate.getTime() / 1000;
+                let eDate = new Date(task.endDate + 'T00:00:00Z')
+                let eDateSeconds = Math.floor(eDate.getTime() / 1000);
+                let ST = task.startTime
+                const [sHours, sMinutes] = ST.split(':').map(Number);
+                const sSeconds = (sHours * 3600) + (sMinutes * 60);
+                let ET = task.endTime
+                const [eHours, eMinutes] = ET.split(':').map(Number);
+                const eSeconds = (eHours * 3600) + (eMinutes * 60);
+                const en = reqPath.split("/")[3];
+                const sd = sDateSeconds;
+                const ed = eDateSeconds;
+                const st = sSeconds;
+                const et = eSeconds;
+                const zo = task.zone;
+                const it = task.interval
+                const mo = task.monday
+                const tu = task.tuesday
+                const we = task.wednesday
+                const th = task.thursday
+                const fr = task.friday
+                const sa = task.saturday
+                const su = task.sunday
+                const taskJSON = {
+                    startDate: task.startDate,
+                    endDate: task.endDate,
+                    startTime: task.startTime,
+                    endTime: task.endTime,
+                    timeZone: zo,
+                    monday: mo,
+                    tuesday: tu,
+                    wednesday: we,
+                    thursday: th,
+                    friday: fr,
+                    saturday: sa,
+                    sunday: su
+                }
+
+                const schedules = await convertTimespanToUTC(taskJSON)
+
+
+
+                let ti
+                if (task.taskID === "") {
+                    ti = await incrementCounterAndGetNewValue('tiCounter', dynamodb);
+                } else {
+                    ti = task.taskID;
+                    await removeSchedule(ti);
+                }
+                let ex = 0
+                for (const schedule of schedules) {
+                    let sDateS = new Date(schedule.startDate + 'T00:00:00Z')
+                    let sDateSecondsS = sDateS.getTime() / 1000;
+                    let eDateS = new Date(schedule.endDate + 'T00:00:00Z')
+                    let eDateSecondsS = Math.floor(eDateS.getTime() / 1000);
+                    const [sHoursS, sMinutesS] = schedule.startTime.split(':').map(Number);
+                    const sSecondsS = (sHoursS * 3600) + (sMinutesS * 60);
+                    const [eHoursS, eMinutesS] = schedule.endTime.split(':').map(Number);
+                    const eSecondsS = (eHoursS * 3600) + (eMinutesS * 60);
+                    const sdS = sDateSecondsS;
+                    const edS = eDateSecondsS;
+                    const stS = sSecondsS;
+                    const etS = eSecondsS;
+                    const itS = task.interval
+                    const moS = schedule.monday
+                    const tuS = schedule.tuesday
+                    const weS = schedule.wednesday
+                    const thS = schedule.thursday
+                    const frS = schedule.friday
+                    const saS = schedule.saturday
+                    const suS = schedule.sunday
+                    ex = eDateSecondsS + eSecondsS
+                    await createSchedule(ti, en, sdS, edS, stS, etS, itS, +moS, +tuS, +weS, +thS, +frS, +saS, +suS, ex, dynamodb)
+                }
+                if (ex > 0) {
+                    await createTask(ti, en, sd, ed, st, et, zo, it, +mo, +tu, +we, +th, +fr, +sa, +su, ex, dynamodb)
+                }
+                let tasksUnix = await getTasks(fileID, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
+            } else if (action == "tasks") {
+                const sub = reqPath.split("/")[3]
+                let tasksUnix = await getTasks(sub, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
+            } else if (action == "deleteTask") {
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
+                const task = reqBody.body;
+                await removeSchedule(task.taskID);
+                let tasksUnix = await getTasks(fileID, "su", dynamodb)
+                let tasksISO = await getTasksIOS(tasksUnix)
+                mainObj["tasks"] = tasksISO
+            } else if (action == "updateEntityByAI") {
+                //console.log("updateEntityByAI", reqPath)
+                const fileID = reqPath.split("/")[3]
+                actionFile = fileID
+                const prompt = reqBody.body;
+
+                let oai = await runPrompt(prompt, fileID, dynamodb, openai, Anthropic);
+                const params = {
+                    Bucket: fileLocation(oai.isPublic) + ".1var.com",
+                    Key: fileID,
+                    Body: oai.response,
+                    ContentType: "application/json"
+                };
+
+                await s3.putObject(params).promise();
+                //console.log("Making oai")
+                mainObj["oai"] = JSON.parse(oai.response);
+                //console.log("mainObj", mainObj)
+            } else if (action == "position") {
+
+                let b = reqBody.body;
+
+                const { description, domain, subdomain, embedding, entity, pb, output } = b || {};
+
+                console.log("b", b)
+                console.log("b.body", b.body)
+                console.log("description-----------", description);
+                console.log("domain", domain);
+                console.log("subdomain", subdomain);
+                console.log("embedding", embedding);
+                console.log("entity", entity);
+                if (!embedding || !domain || !subdomain || !entity) {
+                    return res.status(400).json({ error: 'embedding, domain & subdomain required' });
+                }
+                /* 1️⃣  pull the record for that sub‑domain from DynamoDB */
+                const tableName = `i_${domain}`;
+                let item;
+                try {
+                    const params = {
+                        TableName: tableName,
+                        KeyConditionExpression: '#r = :sub',
+                        ExpressionAttributeNames: { '#r': 'root' },
+                        ExpressionAttributeValues: { ':sub': subdomain },
+                        Limit: 1
+                    };
+                    const data = await dynamodb.query(params).promise();
+                    if (!data.Items.length) {
+                        return res.status(404).json({ error: 'no record for that sub‑domain' });
+                    }
+                    item = data.Items[0];
+                } catch (err) {
+                    console.error('DynamoDB query failed:', err);
+                    return res.status(502).json({ error: 'db‑unavailable' });
+                }
+                /* 2️⃣  cosine distance helper */
+                const cosineDist = (a, b) => {
+                    let dot = 0, na = 0, nb = 0;
+                    for (let i = 0; i < a.length; i++) {
+                        dot += a[i] * b[i];
+                        na += a[i] * a[i];
+                        nb += b[i] * b[i];
+                    }
+                    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+                };
+                /* 3️⃣  compare with emb1…emb5 */
+                const distances = {};
+                for (let i = 1; i <= 5; i++) {
+                    const attr = `emb${i}`;
+                    const raw = item[attr];
+                    let refArr = null;
+
+                    if (typeof raw === 'string') {
+                        try {
+                            refArr = JSON.parse(raw);
+                        } catch (err) {
+                            console.warn(`Failed to parse ${attr} for ${domain}/${subdomain}:`, err);
+                            continue;
+                        }
+                    }
+                    else if (Array.isArray(raw)) {
+                        refArr = raw;
+                    }
+
+                    if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
+                        continue;
+                    }
+
+                    distances[attr] = cosineDist(embedding, refArr);
+                }
+                console.log("!!!!pb", pb)
+
+                try {
+                    const updateParams = {
+                        TableName: 'subdomains',
+                        Key: { su: entity },
+                        UpdateExpression: `
+                        SET #d1 = :d1,
+                            #d2 = :d2,
+                            #d3 = :d3,
+                            #d4 = :d4,
+                            #d5 = :d5,
+                            #path = :path,
+                            #pb = :pb,
+                            #output = :output
+                      `,
+                        ExpressionAttributeNames: {
+                            '#d1': 'dist1',
+                            '#d2': 'dist2',
+                            '#d3': 'dist3',
+                            '#d4': 'dist4',
+                            '#d5': 'dist5',
+                            '#path': 'path',
+                            '#pb': 'pb',
+                            '#output': 'output'
+                        },
+                        ExpressionAttributeValues: {
+                            ':d1': distances.emb1 ?? null,
+                            ':d2': distances.emb2 ?? null,
+                            ':d3': distances.emb3 ?? null,
+                            ':d4': distances.emb4 ?? null,
+                            ':d5': distances.emb5 ?? null,
+                            ':path': `/${domain}/${subdomain}`,
+                            ':pb': pb,
+                            ':output': output
+                        },
+                        ReturnValues: 'UPDATED_NEW'
+                    };
+                    const updateResult = await dynamodb.update(updateParams).promise();
+
+                } catch (err) {
+                    console.error('Failed to update subdomains table:', err);
+                    return res.status(502).json({ error: 'failed to save distances' });
+                }
+
+                mainObj = {
+                    action,
+                    position: distances,
+                    domain,
+                    subdomain,
+                    entity,
+                    id: item.id ?? null
+                }
+
+                /************************************************************
+                 *  action === "search"
+                 *  ---------------------------------------------------------
+                 *  Body must contain: domain, subdomain
+                 *  Optional: query (original text), entity (caller id)
+                 *
+                 *  Reads from the "subdomains" table and returns every row
+                 *  whose  path  matches  "/{domain}/{subdomain}"  AND whose
+                 *  dist1…dist5  are  all  ≤  0.2  (or the DIST_LIMIT below).
+                 ************************************************************/
+            } else if (action === 'search') {
+
+                const { domain, subdomain, query = '', entity = null, embedding, limit } = reqBody.body || {};
+                mainObj = await searchSubdomains(embedding, domain, subdomain, entity, query, limit, action)
+
+            } else if (action == "addIndex") {
+
+            } else if (action == "getFile") {
+                actionFile = reqPath.split("/")[3];
+                let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                mainObj = JSON.parse(JSON.stringify(jsonpl))
+            } else if (action == "shorthand") {
+                console.log("SHORTHAND !!!!!!!!!!")
+                actionFile = reqPath.split("/")[3];
+                let { shorthand } = require('../routes/shorthand');
+                const arrayLogic = reqBody.body.arrayLogic;
+                const emitType = reqBody.body.emit
+                console.log("arrayLogic", arrayLogic)
+                console.log("emitType", emitType)
+                let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
+                const blocks = shorthandLogic.published.blocks
+                let originalPublished = shorthandLogic.published
+                shorthandLogic.input = arrayLogic;
+                shorthandLogic.input.unshift({
+                    "physical": [[shorthandLogic.published]]
+                })
+                console.log("shorthandLogic", shorthandLogic)
+                let newShorthand = await shorthand(shorthandLogic, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken);
+                console.log("newShorthand", newShorthand)
+                newShorthand.published.blocks = blocks;
+                console.log("newShorthand", newShorthand)
+                let content = JSON.parse(JSON.stringify(newShorthand.content));
+                delete newShorthand.input
+                delete newShorthand.content
+                let isPublishedEqual = JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+                console.log("isPublishedEqual", isPublishedEqual)
+                const params = {
+                    Bucket: "public.1var.com",
+                    Key: actionFile,
+                    Body: JSON.stringify(newShorthand),
+                    ContentType: "application/json"
+                };
+                await s3.putObject(params).promise();
+                mainObj = await convertToJSON(actionFile, [], null, null, cookie, dynamodb, uuidv4, null, [], {}, "", dynamodbLL, reqBody);
+                mainObj["newShorthand"] = newShorthand
+                mainObj["content"] = content
+
+
+                /*} else if (action === "convert") {
+    
+                    const { parseArrayLogic } = require("../routes/parseArrayLogic");
+    
+                    console.log("reqBody", reqBody)
+                    console.log("reqBody.body", reqBody.body)
+    
+    
+                    // app.js (inside the "convert" branch)
+                    let arrayLogic = reqBody.body.arrayLogic;
+    
+                    // If the client sent a JSON string, turn it into a JS value
+                    if (typeof arrayLogic === 'string') {
+                        try {
+                            arrayLogic = JSON.parse(arrayLogic);
+                        } catch (err) {
+                            console.error('arrayLogic is not valid JSON:', err);
+                            throw new Error('Bad arrayLogic payload');   // or return 400
+                        }
+                    }
+                    console.log("arrayLogic", arrayLogic)
+                    const parseResults = await parseArrayLogic({
+                        arrayLogic,          // now an array, not a string
+                        dynamodb,
+                        uuidv4,
+                        s3,
+                        ses,
+                        openai,
+                        Anthropic,
+                        dynamodbLL
+                    });
+    
+    
+                    mainObj = { "parseResults": parseResults };
+                
+                    }
+                */
+            } else if (action === "convert") {
+                const { parseArrayLogic } = require("../routes/parseArrayLogic");
+                const { shorthand } = require("../routes/shorthand");
+
+                console.log("reqBody", reqBody);
+                console.log("reqBody.body", reqBody.body);
+
+                // 1️⃣  Grab & normalise arrayLogic from the client
+                let arrayLogic = reqBody.body.arrayLogic;
+                let prompt = reqBody.body.prompt;
+                if (typeof arrayLogic === "string") {
+                    try {
+                        arrayLogic = JSON.parse(arrayLogic);
+                    } catch (err) {
+                        console.error("arrayLogic is not valid JSON:", err);
+                        throw new Error("Bad arrayLogic payload");
+                    }
+                    sourceType = "arrayLogic"
+                } else if (typeof prompt === "string") {
+                    sourceType = "prompt"
+                    console.log("prompt JSON", prompt)
+                    let promptInjection = JSON.parse(prompt);
+                    userPath = 1000000000000128
+                    let fixedPrompt = `directive = [
+  \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
+  \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
+  \`When the user supplies a new persistent fact or resource, **create a single breadcrumb whose method/action pair ends in “/get”.**\`,
+  \`• That breadcrumb *simultaneously* stores the data and exposes a standard API for future recall (no separate “/set” or “/store” needed).\`,
+  \`• If the user also wants the value immediately, invoke the same “/get” crumb in the same array and return its output in the conclusion.\`,
+  \`• If the user only wants to recall something that is already exposed, skip the storage step and simply call the existing “/get”.\`,
+  \`You accept {user_requests}, leverage {persistant_knowledge, previous_response, previous_processed_conclusion, relevant_items}, mimic {examples}, follow the {rules}, and organize it into {response}. Response is an array processed in sequence, where the last item is the result conclusion.\`
+]
+
+var response = [];
+
+const user_requests = ${JSON.stringify(promptInjection.userRequest)};
+
+const persistent_knowledge = [{"requester":"Austin Hughes", "Austin_Hughes_id":${userPath}}];
+
+const relevant_items = ${JSON.stringify(promptInjection.relevantItems)}
+
+const previous_request = [];
+
+const previous_response = [];
+
+const previous_processed_conclusion = [];
+
+const REF_RE = /^__\\$ref\((\d+)\)(?:\.(.+))?$/;
+
+const isBreadcrumb = key => /^[\w-]+\/.+/.test(key);
+
+async function fetchCrumb(key, payload) {
+  const res = await fetch(\`https://1var.com/getCrumbOuput/\${encodeURIComponent(key)}\`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  return res.json();
+}
+
+async function processArray(source, context = [], target = []) {
+  const walk = (node, pool) => {
+    if (typeof node === "string") {
+      const m = REF_RE.exec(node);
+      if (m) {
+        let val = pool[+m[1]];
+        for (const k of (m[2]?.split(".") || [])) val = val?.[k];
+        return val ?? node;
+      }
+      return node;
+    }
+    if (Array.isArray(node)) return node.map((x) => walk(x, pool));
+    if (node && typeof node === "object") {
+      return Object.fromEntries(
+        Object.entries(node).map(([k, v]) => [k, walk(v, pool)])
+      );
+    }
+    return node;
+  };
+
+  const result = [];
+  for (const raw of source) {
+    let item = walk(raw, [...context, ...result]);
+
+    if (
+      item &&
+      typeof item === "object" &&
+      Object.keys(item).length === 1
+    ) {
+      const [key] = Object.keys(item);
+      if (isBreadcrumb(key)) {
+        const payload = item[key];
+        item = {
+          output: await fetchCrumb(key, payload),
+        };
+      }
+    }
+    result.push(item);
+  }
+
+  const last = walk(source.at(-1), [...context, ...result]);
+
+  target.length = 0;
+  if (Array.isArray(last.conclusion)) {
+    target.push(...last.conclusion);
+  } else {
+    target.push(last.conclusion);
+  }
+  return
+}
+
+(async () => {
+  await processArray(previous_response, [], previous_processed_conclusion);
+  console.log(previous_processed_conclusion)
+})();
+
+breadcrumb_rules = [
+  /*breadcrumb app 'key': */
+  /* 0 */ \`Breadcrumb Format → root / sub‑root / clarifier(s) / locale? / context? / (method/action pairs)+\`,
+
+  /* 1 */ \`No proper nouns anywhere → Never place company, product, or person names (or other unique identifiers) in any breadcrumb segment. All such specifics belong only in the request’s input payload.\`,
+
+  /* 2 */ \`root → Must select a single term from this fixed list: agriculture, architecture, biology, business, characteristic, chemistry, community, cosmology, economics, education, entertainment, environment, event, food, geology, geography, government, health, history, language, law, manufacturing, mathematics, people, psychology, philosophy, religion, sports, technology, transportation.\`,
+
+  /* 3 */ \`sub‑root → A high‑level sub‑domain of the chosen root (e.g. health/clinical, cosmology/galaxies, architecture/structures). Still entirely conceptual—no proper nouns.\`,
+
+  /* 4 */ \`domain‑specific clarifier(s) → One or more deeply nested, slash‑separated conceptual layers that progressively narrow the topic with precise, fully spelled‑out terms (e.g. markets/assets/equity/dividends/valuation or oncology/tumor/staging/treatment/plan). Do NOT fuse concepts into a single segment; each idea gets its own breadcrumb step. No proper nouns.\`,
+
+  /* 5 */ \`locale (optional) → Language or regional facet (e.g. english/american, multilingual/global).\`,
+
+  /* 6 */ \`context (optional) → Perspective or use‑case lens (e.g. marketing, alert, payment, availability).\`,
+
+  /* 7 */ \`method/action pairs → One or more repetitions of “method‑qualifier / action‑verb” (e.g. by/market‑open/sell, via/api/get). These describe *how* the request should execute. Do not include input values or schema fields here.\`,
+  /*breadcrumb app 'value': */
+  /* 8 */ \`input:{} → The req.body data being sent to the app. Likely sending 'relevant_items' (e.g. { "company_name": "Apple", "product_name": "iPhone 15" }).\`,
+
+  /* 9 */ \`schema:{} → Defines the shape/type of the response data being returned. \`,
+
+  /*10*/ \`Consistency → Always follow this hierarchy and naming discipline so the system can route requests deterministically across all domains and use‑cases.\`
+];
+
+examples = [
+  \`"My favorite color is red" => [
+      { "user": "1000000003" },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string",
+        "const": "red"
+      },
+      {
+        "characteristic/preferences/color/by/user/get": {
+          "input": "__$ref(0)",
+          "schema": "__$ref(1)"
+        }
+      },
+      { "conclusion": "__$ref(2).output" } // ==> red
+  ]\`,
+
+  \`"What is my favorite color?" => [
+      { "user-id": "1000000003" },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "string"
+      },
+      {
+        "characteristic/preferences/color/by/user/get": {
+          "input": "__$ref(0)",
+          "schema": "__$ref(1)"
+        }
+      },
+      { "conclusion": "__$ref(2).output" } // ==> red
+  ]\`,
+ 
+  \`"When is the acoustic guitar available for an in-store demo?" =>[
+      {
+        "store": "Melody Music Emporium",
+        "store-id": "hidden",
+        "instrument": "Taylor G50 2024",
+        "requested-time": "2025-05-30T19:00:00Z"
+      },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "verified": {"type": "boolean"},
+          "approved-data": {"type": "object"}
+        },
+        "required": ["verified", "approved-data"]
+      },
+      {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+          "confirm-availability": {"type": "boolean"}
+        },
+        "required": ["confirm-availability"]
+      },
+      {
+        "business/logistics/inventory/stock-verification/by/system/check/availability": {
+          "input": "__$ref(0)",
+          "schema": "__$ref(1)"
+        }
+      },
+      {
+        "business/sales/engagements/demo-booking/by/employee/check/availability": {
+          "input": "__$ref(3).output.approved-data",
+          "schema": "__$ref(2)"
+        }
+      },
+      {
+        "conclusion": {
+          "availability": "__$ref(4).output"
+        }
+      }    
+  ]\`
+]
+
+root_and_sub_roots = {
+  "agriculture": subdomains("agriculture"),
+  "architecture": subdomains("architecture"),
+  "biology": subdomains("biology"),
+  "business": subdomains("business"),
+  "characteristic": subdomains("characteristic"),
+  "chemistry": subdomains("chemistry"),
+  "community": subdomains("community"),
+  "cosmology": subdomains("cosmology"),
+  "economics": subdomains("economics"),
+  "education": subdomains("education"),
+  "entertainment": subdomains("entertainment"),
+  "environment": subdomains("environment"),
+  "event": subdomains("event"),
+  "food": subdomains("food"),
+  "geology": subdomains("geology"),
+  "geography": subdomains("geography"),
+  "government": subdomains("government"),
+  "health": subdomains("health"),
+  "history": subdomains("history"),
+  "language": subdomains("language"),
+  "law": subdomains("law"),
+  "manufacturing": subdomains("manufacturing"),
+  "mathematics": subdomains("mathematics"),
+  "people": subdomains("people"),
+  "psychology": subdomains("psychology"),
+  "philosophy": subdomains("philosophy"),
+  "religion": subdomains("religion"),
+  "sports": subdomains("sports"),
+  "technology": subdomains("technology"),
+  "transportation": subdomains("transportation")
+}
+
+function subdomains(domain){
+    let subsArray = require('./'+domain);
+    return subsArray
+}
+//RESPOND LIKE THE EXAMPLES ONLY
+`
+
+
+                    arrayLogic = fixedPrompt
+                }
+                console.log("arrayLogic", arrayLogic);
+
+                // 2️⃣  First pass – evaluate the array logic
+                const parseResults = await parseArrayLogic({
+                    arrayLogic,
+                    dynamodb,
+                    uuidv4,
+                    s3,
+                    ses,
+                    openai,
+                    Anthropic,
+                    dynamodbLL,
+                    sourceType
+                });
+
+                // 3️⃣  If a shorthand payload was produced, immediately run the shorthand engine
+                let newShorthand = null;
+                let conclusion = null;
+                if (parseResults?.shorthand) {
+
+                    const arrayLogic = JSON.parse(JSON.stringify(parseResults.shorthand));
+                    console.log("SHORTHAND !!!!!!!!!!")
+                    actionFile = reqPath.split("/")[3];
+                    let { shorthand } = require('../routes/shorthand');
+                    const emitType = reqBody.body.emit
+                    console.log("arrayLogic", arrayLogic)
+                    console.log("emitType", emitType)
+                    let jsonpl = await retrieveAndParseJSON(actionFile, true);
+                    let shorthandLogic = JSON.parse(JSON.stringify(jsonpl))
+
+                    console.log("shorthandLogic1", shorthandLogic)
+
+
+                    // Deep‑clone so we can mutate safely
+
+                    const blocks = shorthandLogic.published.blocks; // keep original blocks safe
+                    const originalPublished = shorthandLogic.published;
+
+                    // Re‑inject the client arrayLogic exactly as the standalone /shorthand route does
+                    shorthandLogic.input = [{ "virtual": arrayLogic }];
+                    shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+
+
+                    console.log("shorthandLogic2", shorthandLogic)
+                    // 🪄  Run the shorthand pipeline
+                    newShorthand = await shorthand(
+                        shorthandLogic,
+                        req,
+                        res,
+                        next,
+                        privateKey,
+                        dynamodb,
+                        uuidv4,
+                        s3,
+                        ses,
+                        openai,
+                        Anthropic,
+                        dynamodbLL,
+                        true,              // keep the original "isPublished" flag
+                        reqPath,
+                        reqBody,
+                        reqMethod,
+                        reqType,
+                        reqHeaderSent,
+                        signer,
+                        "shorthand",      // treat this sub‑phase as a shorthand op
+                        xAccessToken
+                    );
+                    console.log("newShorthand4", newShorthand)
+                    // Restore untouched blocks & clean temp props
+                    newShorthand.published.blocks = blocks;
+                    console.log("newShorthand5", newShorthand)
+                    conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
+                    delete newShorthand.input;
+                    delete newShorthand.conclusion;
+
+                    // Quick checksum for callers (optional)
+                    parseResults.isPublishedEqual =
+                        JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+                    console.log("originalPublished", originalPublished);
+                    console.log("newShorthand.published", newShorthand.published)
+                    // Persist the freshly‑generated shorthand back to S3 (mirrors the original route)
+                    console.log("newShorthand6", newShorthand)
+                    if (reqPath) {
+                        const actionFile = reqPath.split("/")[3];
+                        await s3
+                            .putObject({
+                                Bucket: "public.1var.com",
+                                Key: actionFile,
+                                Body: JSON.stringify(newShorthand),
+                                ContentType: "application/json",
+                            })
+                            .promise();
+                    }
+                }
+
+                /* 4️⃣  Return everything to the caller */
+                mainObj = {
+                    parseResults,
+                    newShorthand,
+                    arrayLogic: parseResults?.arrayLogic,
+                    conclusion
+                };
+            } else if (action === "embed") {
+                console.log("reqBody", reqBody)
+                console.log("reqBody.body", reqBody.body)
+                let text = reqBody.body.text
+                let parsedText = JSON.parse(text)
+                let stringifyText = JSON.stringify(parsedText)
+                console.log("stringifyText", stringifyText)
+                const { data } = await openai.embeddings.create({
+                    model: 'text-embedding-3-large',
+                    input: stringifyText
+                });
+                console.log("data", data);
+                console.log("data[0]", data[0]);
+                console.log("data[0].embedding", data[0].embedding);
+                console.log(" reqBody.body.requestId", reqBody.body.requestId);
+                mainObj["embedding"] = data[0].embedding;
+                mainObj["requestId"] = reqBody.body.requestId;
+            } else if (action === "createUser") {
+                const now = Date.now();
+                const newUser = {
+                    userID: parseInt(reqBody.body.userID),
+                    emailHash: reqBody.body.emailHash,
+                    pubEnc: reqBody.body.pubEnc,
+                    pubSig: reqBody.body.pubSig,
+                    created: now,
+                    revoked: !!reqBody.body.revoked,
+                    latestKeyVersion: reqBody.body.latestKeyVersion ?? 1
+                };
+                const params = { TableName: "users", Item: newUser, ConditionExpression: "attribute_not_exists(e)" };
+                try {
+                    const createUserResult = await dynamodb.put(params).promise();
+                } catch (err) {
+                    if (err.code === "ConditionalCheckFailedException") {
+                        console.error("User already exists");
+                    } else {
+                        throw err;
+                    }
+                }
+            } else if (action === "getUserPubKeys") {
+                console.log("getUserPubKeys555")
+                console.log("reqBody.body", reqBody.body)
+                // 1. Sanitise / validate input
+                const userID = String(reqBody.body.userID ?? "").trim();
+                if (!userID) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: "userID required" })
+                    };
+                }
+
+                /* 2. Fetch just the three columns we need            *
+                 *    (projection keeps RCUs low and hides extras)    */
+                const params = {
+                    TableName: "users",
+                    Key: { userID: parseInt(userID) },
+                    ProjectionExpression: "pubEnc, pubSig, latestKeyVersion"
+                };
+
+                const { Item } = await dynamodb.get(params).promise();
+
+                if (!Item) {
+                    return {
+                        statusCode: 404,
+                        body: JSON.stringify({ error: "user not found" })
+                    };
+                }
+
+                mainObj = {
+                    pubEnc: Item.pubEnc,
+                    pubSig: Item.pubSig,
+                    latestKeyVersion: Item.latestKeyVersion,
+                    requestId: reqBody.body.requestId
+                }
+
+                /* ─────────────── ADD / WRAP PASSPHRASE ─────────────── */
+            } else if (action === "wrapPassphrase" || action === "addPassphrase") {
+                console.log("wrapPassphrase555 || addPassphrase555")
+                console.log("reqBody.body", reqBody.body)
+                const { passphraseID, keyVersion, wrapped } = reqBody.body || {};
+
+                console.log("passphraseID", passphraseID)
+                console.log("keyVersion", keyVersion)
+                console.log("wrapped", wrapped)
+                console.log("typeof wrapped", typeof wrapped)
+                // Basic validation
+                if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
+                    mainObj = { error: "Invalid payload" };
+                } else {
+
+                    const params = {
+                        TableName: "passphrases",
+                        Item: {
+                            passphraseID,
+                            keyVersion: Number(keyVersion),
+                            wrapped,
+                            created: new Date().toISOString()
+                        },
+                        ConditionExpression: "attribute_not_exists(passphraseID)"
+                    };
+
+                    let dynRes = await dynamodb.put(params).promise();
+                    console.log("dynRes", dynRes)
+                    mainObj = { success: true }
+                }
+
+            } else if (action === "decryptPassphrase") {
+                console.log("decryptPassphrase555");
+                console.log("reqBody.body", reqBody.body);
+
+                /* 1. Sanitise / validate input */
+                const { passphraseID, userID, requestId } = reqBody.body || {};
+                if (!passphraseID || !userID) {
+                    return {
+                        statusCode: 400,
+                        body: JSON.stringify({ error: "passphraseID and userID required" })
+                    };
+                }
+
+                /* 2. Look up the wrapped blob for this user only
+                 *    (projection keeps RCUs low and avoids sending the whole object)   */
+                const params = {
+                    TableName: "passphrases",
+                    Key: { passphraseID },
+                    ProjectionExpression: "#kv, #wr",              // use aliases
+                    ExpressionAttributeNames: {
+                        "#kv": "keyVersion",
+                        "#wr": "wrapped"
+                    }
+                };
+
+                const { Item } = await dynamodb.get(params).promise();
+
+                if (!Item) {
+                    return {
+                        statusCode: 404,
+                        body: JSON.stringify({ error: "passphrase not found" })
+                    };
+                }
+
+                const cipherB64 = Item.wrapped?.[userID];
+                if (!cipherB64) {
+                    return {
+                        statusCode: 403,                                // caller is authenticated but not authorised
+                        body: JSON.stringify({ error: "no wrapped data for this user" })
+                    };
+                }
+
+                /* 3. Build response object — echoed back to the browser-side
+                 *    module via worker → PrimaryModule routing.                    */
+                mainObj = {
+                    passphraseID,
+                    userID,
+                    cipherB64,                 // BASE64 string:  [ephemeralPub||IV||ciphertext]
+                    keyVersion: Item.keyVersion,
+                    requestId                  // echoed for caller correlation
+                };
             } else if (action == "runEntity") {
                 //console.log("reqPath", reqPath);
                 //console.log("reqPath.split('?')[0]", reqPath.split("?")[0]);
@@ -1670,6 +3166,9 @@ async function route(req, res, next, privateKey, dynamodb, uuidv4, s3, ses, open
                 //    return
                 //}
             }
+            /* else if (action == "transcribe"){
+                mainObj["presign"] = await getPresignedUrl();
+            } */
 
 
 
