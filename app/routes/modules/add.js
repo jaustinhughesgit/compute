@@ -176,6 +176,7 @@ function register({ on, use }) {
       await updateEntity(eId, "g", String(parentEntity.g), gDetails?.v, gDetails?.c);
     }
 
+    
     // ───────────────────────────────────────────────────────────────────
     // LEGACY PARITY: if a headSU is provided, return the TREE DIRECTLY.
     // This mirrors old cookies.js which returned convertToJSON(...) as
