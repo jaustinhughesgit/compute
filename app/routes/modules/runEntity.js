@@ -1,70 +1,131 @@
 // modules/runEntity.js
 function register({ on, use }) {
-  const { getSub } = use(); // ok: use() returns shared surface
+  const shared = use();                 // shared surface
+  const { getSub } = shared;
 
   on("runEntity", async (ctx) => {
     const { req, res, path } = ctx;
 
+    // Figure out the action file (same as old logic)
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
     const actionFile = segs[0] || "";
 
     const subBySU = await getSub(actionFile, "su");
     const out = subBySU.Items?.[0]?.output;
 
-    if (out === undefined || out === "") {
-      const { runApp } = require("../../app");
-
-      // ——— build an “express-ish” req clone ———
-      const merged = Object.create(null);
-      // 1) take existing headers, normalize case
-      for (const [k, v] of Object.entries(req.headers || {})) {
-        merged[k.toLowerCase()] = v;
-      }
-      // 2) also merge any body.headers the caller might have sent
-      const bodyHdrs = (req.body && req.body.headers) || {};
-      for (const [k, v] of Object.entries(bodyHdrs)) {
-        merged[k.toLowerCase()] = v;
-      }
-
-      const reqLite = {
-        method: req.method,
-        path: req.path || ctx.path || "/",
-        url: req.originalUrl || req.url || req.path || ctx.path || "/",
-        originalUrl: req.originalUrl || req.url || req.path || ctx.path || "/",
-        query: req.query || {},
-        cookies: req.cookies || {},              // some middlewares read this
-        headers: merged,                         // normalized map
-        body: { ...(req.body || {}), headers: { ...bodyHdrs, ...merged } },
-        get(name) {                              // express compat
-          const k = String(name).toLowerCase();
-          return this.headers[k];
-        }
-      };
-
-      // ——— response shim (unchanged) ———
-      const resShim = {
-        headersSent: false,
-        statusCode: 200,
-        body: undefined,
-        status(code) { this.statusCode = code; return this; },
-        json(payload) { this.body = payload; this.headersSent = true; return this; },
-        send(payload) { this.body = payload; this.headersSent = true; return this; },
-        setHeader() { return this; },
-        getHeader() { return undefined; },
-        cookie() { return this; },
-      };
-
-      const ot = await runApp(reqLite, resShim);
-
-      if (resShim.headersSent) return resShim.body;
-      ot && (ot.existing = true);
-      return ot?.chainParams ?? null;
+    if (out !== undefined && out !== "") {
+      return out; // honor stored output shortcut, like before
     }
 
-    return out;
+    // --- Build a legacy-compatible req for runApp --------------------------
+    const body = isPlainObject(req.body) ? { ...req.body } : {};
+    const hdrsFromBody = isPlainObject(body.headers) ? { ...body.headers } : {};
+
+    // Normalize request headers to a case-insensitive bag
+    const hdrsFromReq = Object.entries(req.headers || {}).reduce((m, [k, v]) => {
+      m[k.toLowerCase()] = v; return m;
+    }, {});
+
+    // Ensure mixed-case compatibility in body.headers (old runApp expects these)
+    const capitalized = {
+      "X-Original-Host": hdrsFromBody["X-Original-Host"] ?? hdrsFromBody["x-original-host"] ?? hdrsFromReq["x-original-host"],
+      "X-accessToken":   hdrsFromBody["X-accessToken"]   ?? hdrsFromBody["x-accesstoken"]   ?? hdrsFromReq["x-accesstoken"],
+    };
+
+    body.headers = {
+      // keep original caller-provided headers first (so we don't clobber)
+      ...hdrsFromBody,
+      // add legacy-cased keys if missing
+      ...Object.fromEntries(Object.entries(capitalized).filter(([,v]) => v != null)),
+      // also include a lower-cased overlay so req.get() + direct lower-case lookups work
+      ...hdrsFromReq,
+    };
+
+    // Recreate the legacy path the old cookies.js built from X-Original-Host
+    const originalHostPath = (capitalized["X-Original-Host"] || "").toString()
+      .replace(/^https?:\/\/[^/]+/, "")
+      .split("?")[0];
+
+    const legacyPath =
+      originalHostPath && originalHostPath !== "/"
+        ? originalHostPath
+        : `/cookies/runEntity/${actionFile}`;
+
+    // Make a req proxy that looks like old Express req (without mutating ctx.req)
+    const reqForApp = Object.create(req || null);
+    reqForApp.method      = req.method;
+    reqForApp.path        = legacyPath;
+    reqForApp.url         = legacyPath;
+    reqForApp.originalUrl = legacyPath;
+    reqForApp.query       = req.query || {};
+    reqForApp.cookies     = req.cookies || {};
+    reqForApp.headers     = { ...(req.headers || {}) }; // leave original casing as-is
+    reqForApp.body        = body;
+    if (typeof reqForApp.get !== "function") {
+      reqForApp.get = function (name) {
+        const k = String(name).toLowerCase();
+        const bag = {};
+        // case-insensitive view over headers
+        for (const [hk, hv] of Object.entries(this.headers || {})) {
+          bag[hk.toLowerCase()] = hv;
+        }
+        return bag[k];
+      };
+    }
+
+    // --- Response proxy that forwards to real res (so cookies/headers go out) ----
+    const resProxy = Object.create(res || null);
+    resProxy.headersSent = !!res?.headersSent;
+    resProxy.statusCode = res?.statusCode ?? 200;
+
+    resProxy.status = function (code) {
+      resProxy.statusCode = code;
+      res?.status && res.status(code);
+      return resProxy;
+    };
+    resProxy.setHeader = function (...args) {
+      res?.setHeader && res.setHeader(...args);
+      return resProxy;
+    };
+    resProxy.getHeader = function (...args) {
+      return res?.getHeader ? res.getHeader(...args) : undefined;
+    };
+    resProxy.cookie = function (...args) {
+      res?.cookie && res.cookie(...args);
+      return resProxy;
+    };
+    resProxy.json = function (payload) {
+      resProxy.body = payload;
+      resProxy.headersSent = true;
+      if (res?.json) res.json(payload);
+      else if (res?.send) res.send(payload);
+      return resProxy;
+    };
+    resProxy.send = function (payload) {
+      resProxy.body = payload;
+      resProxy.headersSent = true;
+      res?.send && res.send(payload);
+      return resProxy;
+    };
+
+    // Hand off to the app with legacy-compatible shapes
+    const { runApp } = require("../../app");
+    const ot = await runApp(reqForApp, resProxy);
+
+    // If runApp already wrote to the real res, we’re done
+    if (res?.headersSent || resProxy.headersSent) {
+      return resProxy.body;
+    }
+
+    // Mirror old cookies.js behavior
+    if (ot) ot.existing = true;
+    return ot?.chainParams ?? null;
   });
 
   return { name: "runEntity" };
 }
+
+// small local helper
+function isPlainObject(x) { return x && typeof x === "object" && !Array.isArray(x) && !Buffer.isBuffer(x); }
 
 module.exports = { register };
