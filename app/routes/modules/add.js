@@ -1,5 +1,5 @@
 // modules/add.js
-//"use strict";
+// "use strict";
 
 /**
  * Creates a new child Entity + Word under a parent Subdomain (su),
@@ -12,7 +12,7 @@
  *
  * Examples:
  *   /1v4rabc123/New%20Thing/1v4rroot999
- *   /1v4rabc123/New%20Thing               // no head su → no tree emitted
+ *   /1v4rabc123/New%20Thing               // no head su → returns created ids
  */
 function register({ on, use }) {
   const {
@@ -27,7 +27,7 @@ function register({ on, use }) {
     getUUID,
     // tree
     convertToJSON,
-    // raw deps if ever needed
+    // raw deps
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
@@ -61,7 +61,6 @@ function register({ on, use }) {
     if (!eParent?.Items?.length) {
       return { ok: false, error: "parent-entity-not-found", parentEId };
     }
-
     const parentEntity = eParent.Items[0];
 
     // Allocate ids
@@ -87,10 +86,10 @@ function register({ on, use }) {
     );
 
     // Create a new subdomain id for the child + seed an initial file
-    const childSU = await getUUID(deps?.uuidv4); // shared helper accepts uuidv4 from deps
+    const childSU = await getUUID(deps?.uuidv4);
     await createSubdomain(childSU, aId, eId, "0", parentZ);
 
-    // Seed the file (kept close to the legacy structure for compatibility)
+    // Seed the file (legacy-compatible structure)
     const initialFile = {
       input: [],
       published: {
@@ -165,40 +164,53 @@ function register({ on, use }) {
     // Link parent → child (t) and child → parent (f)
     {
       const linkToChild = await addVersion(parentEId, "t", eId, String(parentEntity.c));
-      await updateEntity(parentEId, "t", eId, linkToChild.v, linkToChild.c);
+      await updateEntity(parentEId, "t", eId, linkToChild?.v, linkToChild?.c);
 
       const linkToParent = await addVersion(eId, "f", parentEId, "1");
-      await updateEntity(eId, "f", parentEId, linkToParent.v, linkToParent.c);
+      await updateEntity(eId, "f", parentEId, linkToParent?.v, linkToParent?.c);
     }
 
     // Put child into parent's group (g)
     {
       const gDetails = await addVersion(eId, "g", String(parentEntity.g), "1");
-      await updateEntity(eId, "g", String(parentEntity.g), gDetails.v, gDetails.c);
+      await updateEntity(eId, "g", String(parentEntity.g), gDetails?.v, gDetails?.c);
     }
 
-    // Optionally emit a refreshed tree for headSU (keeps legacy behavior)
-    let tree = null;
+    // ───────────────────────────────────────────────────────────────────
+    // LEGACY PARITY: if a headSU is provided, return the TREE DIRECTLY.
+    // This mirrors old cookies.js which returned convertToJSON(...) as
+    // the top-level response for "add".
+    // ───────────────────────────────────────────────────────────────────
     if (headSU) {
       try {
-        // shared.convertToJSON has a few legacy signatures across codepaths;
-        // prefer the simplest call; ignore failure (still return created ids).
-        tree = await convertToJSON(headSU);
+        const tree = await convertToJSON(
+          headSU,            // fileID
+          [],                // parentPath
+          null,              // isUsing
+          null,              // mapping
+          ctx.cookie,        // cookie (minted by middleware/router)
+          deps?.dynamodb,    // ddb
+          deps?.uuidv4,      // uuid
+          null,              // pathID
+          [],                // parentPath2
+          {},                // id2Path
+          "",                // usingID
+          deps?.dynamodbLL,  // ddbLL
+          ctx?.req?.body     // body for deepEqual validation path
+        );
+        return tree; // EXACT legacy shape
       } catch (err) {
-        // Non-fatal: just omit tree if helper signature differs in your build.
-        tree = null;
+        // If tree build fails, fall through to the fallback response.
       }
     }
 
+    // No headSU provided (or tree build failed): return compact creation info
     return {
       ok: true,
-      response: {
-        action: "add",
-        parent: { su: parentSU, e: parentEId, public: parentZ },
-        created: { su: childSU, e: eId, a: aId, name: newEntityName },
-        head: headSU || null,
-        tree, // may be null if convertToJSON signature differs
-      },
+      action: "add",
+      parent: { su: parentSU, e: parentEId, public: parentZ },
+      created: { su: childSU, e: eId, a: aId, name: newEntityName },
+      head: headSU || null
     };
   });
 
