@@ -546,11 +546,10 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     console.log("ddb",ddb)
     console.log("uuid",uuid)
     if (xAccessToken) {
-  mainObj.status = "authenticated";
-  const cookie = await getCookie(xAccessToken, "ak", ddb);
-  const item = cookie.Items?.[0];
-  return item ? { ...item, existing: true } : undefined;
-} else {
+      mainObj.status = "authenticated";
+      const cookie = await getCookie(xAccessToken, "ak", ddb);
+      return cookie.Items?.[0];
+    } else {
       const ak = await getUUID(uuid);
       const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
       const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
