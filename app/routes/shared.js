@@ -89,6 +89,8 @@ function createShared(deps = {}) {
       await mw(ctx, extra);
       if (ctx?.res?.headersSent) return { __handled: true };
     }
+    console.log("ctx",ctx)
+    console.log("extra",extra)
     const out = await handler(ctx, extra);
     if (ctx?.res?.headersSent) return { __handled: true };
     return out;
@@ -502,6 +504,10 @@ function createShared(deps = {}) {
   }
 
   async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+    console.log("mainObj",mainObj)
+    console.log("xAccessToken",xAccessToken)
+    console.log("ddb",ddb)
+    console.log("uuid",uuid)
     if (xAccessToken) {
       mainObj.status = "authenticated";
       const cookie = await getCookie(xAccessToken, "ak", ddb);
