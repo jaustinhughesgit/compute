@@ -15,14 +15,51 @@ function register({ on, use }) {
 
     // OLD parity: if output is undefined OR empty string -> runApp
     if (out == null || out === "") {
-      // Build the SAME sanitized req the old router passed into route()/runApp
+      // ---- Build a sanitized, Express-like request the old code expects ----
+      const body =
+        req && typeof req.body === "object" ? req.body : {};
+
+      // headers might have been posted inside body.headers (legacy edge/gateway)
+      const hdrsFromBody =
+        (body && body.headers) ||
+        (body && body.body && body.body.headers) ||
+        undefined;
+
+      // normalize body.headers into both original- and lower-case keys
+      const normalizedFromBody = {};
+      if (hdrsFromBody && typeof hdrsFromBody === "object") {
+        for (const [k, v] of Object.entries(hdrsFromBody)) {
+          normalizedFromBody[k] = v;
+          normalizedFromBody[k.toLowerCase()] = v;
+        }
+      }
+
+      // merged headers: real req.headers + promoted body.headers
+      const mergedHeaders = Object.assign({}, req?.headers || {}, normalizedFromBody);
+
+      // tiny Express-like getter
+      const getHeader = (name) => {
+        if (!name) return undefined;
+        const lc = String(name).toLowerCase();
+        return mergedHeaders[name] ?? mergedHeaders[lc];
+      };
+
       const reqLite = {
-        body: req?.body,
         method: req?.method,
+        path: req?.path,                             // keep original path
+        originalUrl: req?.originalUrl || req?.path,  // many middlewares read this
         type: req?.type,
         _headerSent: req?._headerSent ?? res?.headersSent ?? false,
-        path: req?.path, // old code forwarded the original req.path here
+
+        body,                        // keep body.headers available for legacy reads
+        headers: mergedHeaders,      // allow direct header access
+        get: getHeader,              // allow req.get("X-Original-Host") etc.
+
+        cookies: req?.cookies || {},
+        query: req?.query || {},
+        params: req?.params || {}
       };
+      // ---- end sanitized req ----
 
       const { runApp } = require("../../app");
       const ot = await runApp(reqLite, res, next); // res stays real, same as old
