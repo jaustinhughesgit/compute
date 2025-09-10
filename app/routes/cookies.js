@@ -173,8 +173,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
       const result = await ensureShared().dispatch(action, ctx, { cookie });
       if (res.headersSent) return;
-      if (result && result.__handled) return;
-      if (result != null) return res.json(result);
+      if (result && result.__handled) return; // explicit no-op (legacy parity)
+      if (result !== undefined && result !== null) return res.json(result);
 
       return res.status(404).json({ ok: false, error: `No handler for "${action}"` });
     } catch (err) {
@@ -278,7 +278,11 @@ async function route(
     const result = await ensureShared().dispatch(a, ctx, { cookie: req?.cookies || {} });
 
     if (!res?.headersSent) {
-      if (res?.json) return res.json(result ?? { ok: false, error: `No handler for "${a}"` });
+      if (result && result.__handled) return; // do nothing; old cookies.js parity
+      if (res?.json && result !== undefined && result !== null) {
+        return res.json(result);
+      }
+      if (res?.json) return res.json({ ok: false, error: `No handler for "${a}"` });
       return result;
     }
   } catch (err) {
