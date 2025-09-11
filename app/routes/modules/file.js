@@ -117,11 +117,20 @@ if (!has1v4r || !allVerified(verified)) {
   // NOTE: We keep response.obj empty so worker won't try to GET the file yet.
   // ────────────────────────────────────────────────────────────
 
-    // Let shared.manageCookie handle correct bootstrap (it uses getUUID → "1v4r...").
-    if (!cookie?.entity || !String(cookie.entity).startsWith("1v4r")) {
-      cookie = (await manageCookie({}, ctx.xAccessToken, res, dynamodb, uuidv4)) || {};
+    // If the cookie didn't get a group yet, create one.
+    let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
+    if (!gi) {
+      gi = String(await incrementCounterAndGetNewValue("gCounter"));
+      // Minimal new-group creation; adjust params as your shared API expects.
+      await createGroup(gi);
+      // Attach the group id to the in-memory cookie object so it rounds-trip in the response.
+      cookie.gi = gi; //<<< Error happend here
     }
-    const su = String(cookie.entity); // guaranteed "1v4r..." here
+
+    // Create a fresh entity for this visitor and a sub-uuid for routing (1v4r…)
+    const eId = String(await incrementCounterAndGetNewValue("eCounter"));
+    await createEntity(eId, gi);
+    const su = await createSubdomain(gi, eId); // should return the "1v4r..." sub id
 
     // Tell the worker this is a "new session" so it can redirect.
     // IMPORTANT: keep response.obj empty to avoid the normal load path.
