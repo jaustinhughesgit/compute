@@ -113,7 +113,7 @@ if (!has1v4r || !allVerified(verified)) {
   //   so the worker can redirect
   // NOTE: We keep response.obj empty so worker won't try to GET the file yet.
   // ────────────────────────────────────────────────────────────
-  try {
+
     // If the cookie didn't get a group yet, create one.
     let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
     if (!gi) {
@@ -138,12 +138,7 @@ if (!has1v4r || !allVerified(verified)) {
       false
     );
     return { __handled: true };
-  } catch (err) {
-    console.error("bootstrap error", err);
-    // Preserve legacy behavior on errors
-    sendBack(res, "json", {ok: true, "response":{}}, false);
-    return { __handled: true };
-  }
+
 }
 
     // 3) Extract the "file id" like old code: first segment after action
