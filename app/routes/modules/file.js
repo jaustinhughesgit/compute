@@ -8,6 +8,7 @@ function register({ on, use }) {
     incrementCounterAndGetNewValue,
     createGroup, createEntity, createSubdomain,
     getTasksIOS,
+    getUUID, createWord,
     deps, 
   } = use();
 
@@ -71,7 +72,7 @@ function register({ on, use }) {
     return { body: b };
   }
 
-  on("file", async (ctx /*, meta */) => {
+on("file", async (ctx /*, meta */) => {
     const { req, res, path, type, signer } = ctx;
     const { dynamodb, dynamodbLL, uuidv4 } = deps;
 
@@ -91,98 +92,40 @@ function register({ on, use }) {
     const has1v4r = splitPath.some(seg => seg && seg.startsWith("1v4r"));
     const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
 
-if (!has1v4r || !allVerified(verified)) {
+    if (!has1v4r || !allVerified(verified)) {
+      // ✅ use existing gi if present; otherwise mint a new one from giCounter
+      let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
+      const createdNewGroup = !gi;
+      if (!gi) {
+        gi = String(await incrementCounterAndGetNewValue("giCounter", dynamodb));
+        cookie.gi = gi;
+      }
 
-    let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
-    if (!gi) {
-      gi = String(await incrementCounterAndGetNewValue("gCounter"));
-      await createGroup(gi);
-      cookie.gi = gi;
-    }
+      // ✅ create a word (name) for the new entity
+      const aId = String(await incrementCounterAndGetNewValue("aCounter", dynamodb));
+      await createWord(aId, "Welcome", dynamodb);
 
+      // ✅ create a proper entity: (e, a, v, g, h, ai)
+      const eId = String(await incrementCounterAndGetNewValue("eCounter", dynamodb));
+      await createEntity(eId, aId, "1", gi, eId, "0", dynamodb);
 
-  async function getUUID(fn = uuidv4) {
-    const id = await fn();
-    return "1v4r" + id;
-  }
+      // ✅ only create the group record if we just minted a new gi
+      if (createdNewGroup) {
+        await createGroup(gi, aId, eId, "0", dynamodb);
+      }
 
-    const eId = String(await incrementCounterAndGetNewValue("eCounter"));
-    await createEntity(eId, gi);
-    const suId = await getUUID();            // e.g. "1v4r" + uuidv4()
-    const su = await createSubdomain(suId, eId);
-    sendBack(
-      res,
-      "json",
-      { ok: true, response: { existing: true, entity: su, cookie } },
-      false
-    );
-    return { __handled: true };
+      // ✅ subdomain must be a "1v4r..." uuid; and pass full signature
+      const su = await getUUID(uuidv4); // returns "1v4r" + uuid
+      await createSubdomain(su, aId, eId, gi, false, dynamodb);
 
-}
-
-    const actionFile = (String(path || "").split("/")[1] || "").trim();
-
-    const reqBody = legacyWrapBody(req);
-    const converted = await convertToJSON(
-      actionFile,
-      [],                 // parentPath
-      null,               // isUsing
-      null,               // mapping
-      cookie,
-      dynamodb,
-      uuidv4,
-      null,               // pathID
-      [],                 // parentPath2
-      {},                 // id2Path
-      "",                 // usingID
-      dynamodbLL,
-      reqBody,            // body (legacy-compatible)
-      ""                  // substitutingID
-    );
-
-    const tasksUnix = await getTasks(actionFile, "su", dynamodb);
-    const tasksISO = typeof getTasksIOS === "function" ? getTasksIOS(tasksUnix) : tasksUnix;
-    converted.tasks = tasksISO;
-
-    const response = converted;
-    response.existing = cookie?.existing;
-    response.file = actionFile + "";
-
-    const expires = 90_000;
-
-    const head = await getHead("su", actionFile, dynamodb);
-    const isPublic = !!(head?.Items?.[0]?.z);
-    const url = `https://${fileLocation(isPublic)}.1var.com/${actionFile}`;
-
-    const policy = JSON.stringify({
-      Statement: [{
-        Resource: url,
-        Condition: {
-          DateLessThan: { "AWS:EpochTime": Math.floor((Date.now() + expires) / 1000) }
-        }
-      }]
-    });
-
-    if (type === "url" || req?.type === "url" || req?.query?.type === "url") {
-      const signedUrl = signer.getSignedUrl({ url, policy });
-      sendBack(res, "json", { signedUrl }, false);
+      sendBack(
+        res,
+        "json",
+        { ok: true, response: { existing: true, entity: su, cookie } },
+        false
+      );
       return { __handled: true };
     }
-
-    const cookies = signer.getSignedCookie({ policy });
-    Object.entries(cookies).forEach(([name, val]) => {
-      res.cookie(name, val, {
-        maxAge: expires,
-        httpOnly: true,
-        domain: ".1var.com",
-        secure: true,
-        sameSite: "None",
-      });
-    });
-
-    sendBack(res, "json", { ok: true, response }, false);
-    return { __handled: true };
-  });
 
   return { name: "file" };
 }
