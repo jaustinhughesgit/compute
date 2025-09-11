@@ -141,7 +141,7 @@ if (!has1v4r || !allVerified(verified)) {
   } catch (err) {
     console.error("bootstrap error", err);
     // Preserve legacy behavior on errors
-    sendBack(res, "json", {}, false);
+    sendBack(res, "json", {ok: true, "response":{}}, false);
     return { __handled: true };
   }
 }
