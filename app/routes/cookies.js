@@ -176,9 +176,11 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       if (result && result.__handled) return; // explicit no-op (legacy parity)
       if (result !== undefined && result !== null) {
         // Respect whatever the handler returned
+        console.log("sendBack1")
         return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
       }
       // Legacy: empty JSON when nothing to do
+        console.log("sendBack2")
       return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
     } catch (err) {
       console.error("cookies route error", err);
@@ -189,6 +191,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       }
             if (!res.headersSent) {
         // Legacy error shape
+        console.log("sendBack3")
         _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
       }
     }
@@ -287,10 +290,13 @@ async function route(
     if (!res?.headersSent) {
       if (result && result.__handled) return; // legacy parity
       if (res?.json && result !== undefined && result !== null) {
+
+        console.log("sendBack4")
         return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
       }
       if (res?.json) {
         // No handler → empty payload
+        console.log("sendBack5")
         return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
       }
       // No HTTP writer (shorthand / programmatic) → return raw
@@ -299,6 +305,7 @@ async function route(
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
     if (!res?.headersSent && res?.status && res?.json) {
+        console.log("sendBack6")
       _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
 
     }
