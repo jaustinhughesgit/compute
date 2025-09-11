@@ -205,16 +205,30 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       // Legacy: empty JSON when nothing to do
       return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
     } catch (err) {
-      console.error("cookies route error", err);
-      if (!res.headersSent) {
-        res
-          .status(500)
-          .json({ ok: false, error: err?.message || "Internal Server Error" });
-      }
-      if (!res.headersSent) {
-        // Legacy error shape
-        _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
-      }
+      
+     if (!res.headersSent && isMissingResource(err)) {
+       try {
+         const main = {};
+         const cookie = await _shared.manageCookie(main, /*xAccessToken*/ null, res);
+         return _shared.sendBack(
+           res,
+           "json",
+           { ok: true, response: { existing: true, entity: cookie?.entity, cookie } },
+           false
+         );
+       } catch (e2) {
+         // fall through to 500 if even bootstrap fails
+         err = e2;
+       }
+     }
+     console.error("cookies route error", err);
+     if (!res.headersSent) {
+       res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
+     }
+     if (!res.headersSent) {
+       _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
+     }
+
     }
   });
 
