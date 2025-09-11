@@ -639,34 +639,82 @@ function createShared(deps = {}) {
     return "1v4r" + id;
   }
 
-  async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-    console.log("mainObj", mainObj);
-    console.log("xAccessToken", xAccessToken);
-    console.log("ddb", ddb);
-    console.log("uuid", uuid);
-    if (xAccessToken) {
-      mainObj.status = "authenticated";
-      const cookie = await getCookie(xAccessToken, "ak", ddb);
-      return cookie.Items?.[0];
-    } else {
-      const ak = await getUUID(uuid);
-      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
-      const ttl = 86400;
-      const ex = Math.floor(Date.now() / 1000) + ttl;
-      await createCookie(String(ci), String(gi), ex, ak, ddb);
-      mainObj.accessToken = ak;
-      // set browser cookie for *.1var.com
+async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+  const ttlSec = 86400;                       // 1 day
+  const nowSec = Math.floor(Date.now() / 1000);
+
+  const setBrowserCookies = (ak, gi) => {
+    try {
+      // Persist both AK and GI so downstream sees them immediately
       res?.cookie?.("accessToken", ak, {
         domain: ".1var.com",
-        maxAge: ttl * 1000,
+        maxAge: ttlSec * 1000,
         httpOnly: true,
         secure: true,
         sameSite: "None",
       });
-      return { ak, gi, ex, ci, existing: true };
+      res?.cookie?.("gi", String(gi), {
+        domain: ".1var.com",
+        maxAge: ttlSec * 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      });
+    } catch { /* no-op for non-HTTP contexts */ }
+  };
+
+  const bootstrapNewVisitor = async () => {
+    // Fresh AK + cookie id + group id
+    const ak = await getUUID(uuid);                                 // "1v4r..." token
+    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+    const gi = String(await incrementCounterAndGetNewValue("gCounter", ddb));
+    const ex = nowSec + ttlSec;
+
+    // Create minimal group record (placeholder a/e/ai = "0")
+    await createGroup(gi, "0", "0", "0", ddb);
+
+    // Persist cookie row
+    await createCookie(String(ci), String(gi), ex, ak, ddb);
+
+    // Surface to caller & browser
+    mainObj.status = "bootstrapped";
+    mainObj.accessToken = ak;
+    setBrowserCookies(ak, gi);
+
+    return { ak, gi, ex, ci, existing: true };
+  };
+
+  // If caller provided an access token, try to reuse it
+  if (xAccessToken) {
+    mainObj.status = "authenticated";
+    const q = await getCookie(xAccessToken, "ak", ddb);
+    const row = q?.Items?.[0];
+
+    // If not found or malformed → bootstrap
+    if (!row || !row.gi) {
+      return await bootstrapNewVisitor();
     }
+
+    // If cookie is expired → bootstrap
+    if (!row.ex || Number(row.ex) <= nowSec) {
+      return await bootstrapNewVisitor();
+    }
+
+    // If the referenced group does not exist (empty DB or deleted) → bootstrap
+    const gq = await getGroup(String(row.gi), ddb);
+    if (!gq?.Items?.length) {
+      return await bootstrapNewVisitor();
+    }
+
+    // Looks good: refresh browser cookies so client consistently has both
+    setBrowserCookies(xAccessToken, row.gi);
+    return row; // { ci, gi, ex, ak }
   }
+
+  // No token at all → first-time visitor
+  return await bootstrapNewVisitor();
+}
+
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
     await ddb
