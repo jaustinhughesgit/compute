@@ -36,13 +36,6 @@ const deepEqual = (a, b) => {
   return a == b;
 };
 
-const isMissingResource = (err) =>
-  err &&
-  (
-    err.code === "ResourceNotFoundException" ||
-    err.name === "ResourceNotFoundException" ||
-    /requested resource not found/i.test(String(err.message || ""))
-  );
 
 function createShared(deps = {}) {
   const {
@@ -114,24 +107,6 @@ function createShared(deps = {}) {
       if (res.headersSent) return { __handled: true };
       return out;
     } catch (err) {
-     // Treat "Requested resource not found" as an acceptable error = invalid cookie
-     if (ctx?.res && !res.headersSent && isMissingResource(err)) {
-       try {
-         const main = {};
-         // Force a fresh bootstrap (acts like invalid cookie)
-         const cookie = await manageCookie(main, /*xAccessToken*/ null, ctx.res);
-         sendBack(
-           ctx.res,
-           "json",
-           { ok: true, response: { existing: true, entity: cookie?.entity, cookie } },
-           false
-         );
-         return { __handled: true };
-       } catch (e2) {
-         // fall through to normal 500 handling if bootstrap itself fails
-         err = e2;
-       }
-     }
       if (
         ctx?.res &&
         !res.headersSent &&
@@ -664,83 +639,34 @@ function createShared(deps = {}) {
     return "1v4r" + id;
   }
 
-async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-  const ttlSec = 86400;
-  const nowSec = Math.floor(Date.now() / 1000);
-
-  const setBrowserCookies = (ak, gi) => {
-    try {
+  async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+    console.log("mainObj", mainObj);
+    console.log("xAccessToken", xAccessToken);
+    console.log("ddb", ddb);
+    console.log("uuid", uuid);
+    if (xAccessToken) {
+      mainObj.status = "authenticated";
+      const cookie = await getCookie(xAccessToken, "ak", ddb);
+      return cookie.Items?.[0];
+    } else {
+      const ak = await getUUID(uuid);
+      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+      const ttl = 86400;
+      const ex = Math.floor(Date.now() / 1000) + ttl;
+      await createCookie(String(ci), String(gi), ex, ak, ddb);
+      mainObj.accessToken = ak;
+      // set browser cookie for *.1var.com
       res?.cookie?.("accessToken", ak, {
-        domain: ".1var.com", maxAge: ttlSec * 1000, httpOnly: true, secure: true, sameSite: "None",
+        domain: ".1var.com",
+        maxAge: ttl * 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
       });
-      res?.cookie?.("gi", String(gi), {
-        domain: ".1var.com", maxAge: ttlSec * 1000, httpOnly: true, secure: true, sameSite: "None",
-      });
-    } catch {}
-  };
-
-  const makeStarterWordEntityAndSub = async (gi) => {
-    // word (name)
-    const aId = String(await incrementCounterAndGetNewValue("aCounter", ddb));
-    await createWord(aId, "Welcome", ddb);
-
-    // entity (head=h=e)
-    const eId = String(await incrementCounterAndGetNewValue("eCounter", ddb));
-    await createEntity(eId, aId, "1", gi, eId, "0", ddb);
-
-    // subdomain (the “entity id” the worker expects)
-    const su = await getUUID(uuid); // "1v4r..." string
-    await createSubdomain(su, aId, eId, gi, false, ddb);
-
-    // group record (points to this entity + its name)
-    await createGroup(String(gi), aId, eId, "0", ddb);
-
-    return { su, eId, aId };
-  };
-
-  const bootstrap = async () => {
-    const ak = await getUUID(uuid);
-    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-    const gi = String(await incrementCounterAndGetNewValue("giCounter", ddb));
-    const ex = nowSec + ttlSec;
-
-    await createCookie(String(ci), String(gi), ex, ak, ddb);
-
-    // Create a minimal, valid landing entity + subdomain
-    const { su } = await makeStarterWordEntityAndSub(gi);
-
-    mainObj.status = "bootstrapped";
-    mainObj.accessToken = ak;
-    setBrowserCookies(ak, gi);
-
-    // IMPORTANT: return entity=sub-uuid so the worker can redirect
-    return { ak, gi, ex, ci, existing: true, entity: su };
-  };
-
-  if (xAccessToken) {
-    mainObj.status = "authenticated";
-    const q = await getCookie(xAccessToken, "ak", ddb);
-    const row = q?.Items?.[0];
-
-    if (!row || !row.gi || !row.ex || Number(row.ex) <= nowSec) {
-      return await bootstrap();
+      return { ak, gi, ex, ci, existing: true };
     }
-
-    // Ensure the group exists; if missing, rebuild starter artifacts
-    const gq = await getGroup(String(row.gi), ddb);
-    if (!gq?.Items?.length) {
-      return await bootstrap();
-    }
-
-    setBrowserCookies(xAccessToken, row.gi);
-    return row; // { ci, gi, ex, ak }
   }
-
-  // No token at all → bootstrap new visitor
-  return await bootstrap();
-}
-
-
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
     await ddb
