@@ -1,5 +1,5 @@
-// shared.js
-//"use strict";
+// routes/shared.js
+// "use strict";
 
 /**
  * Shared core for routes/modules.
@@ -17,9 +17,15 @@ const moment = require("moment-timezone");
 /* Utilities                                                                   */
 /* ──────────────────────────────────────────────────────────────────────────── */
 
-const isObject = (val) => val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
-const isCSV = (str) => typeof str === "string" && (str.includes(",") || str.includes("\n"));
-const parseCSV = (csv) => String(csv).trim().split("\n").map((row) => row.split(",").map((c) => c.trim()));
+const isObject = (val) =>
+  val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
+const isCSV = (str) =>
+  typeof str === "string" && (str.includes(",") || str.includes("\n"));
+const parseCSV = (csv) =>
+  String(csv)
+    .trim()
+    .split("\n")
+    .map((row) => row.split(",").map((c) => c.trim()));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const deepEqual = (a, b) => {
@@ -34,7 +40,8 @@ const deepEqual = (a, b) => {
     return deepEqual(parseCSV(a), parseCSV(b));
   }
   if (isObject(a) && isObject(b)) {
-    const k1 = Object.keys(a), k2 = Object.keys(b);
+    const k1 = Object.keys(a),
+      k2 = Object.keys(b);
     if (k1.length !== k2.length) return false;
     for (const k of k1) if (!deepEqual(a[k], b[k])) return false;
     return true;
@@ -51,24 +58,26 @@ const deepEqual = (a, b) => {
 function createShared(deps = {}) {
   // injected deps (DocumentClient, low-level DynamoDB, uuid, S3, SES, AWS SDK, LLMs…)
   const {
-    dynamodb,       // AWS.DynamoDB.DocumentClient
-    dynamodbLL,     // AWS.DynamoDB
-    uuidv4,         // () => string
-    s3,             // AWS.S3
-    ses,            // AWS.SES
-    AWS,            // AWS sdk root (for CloudFront signer in modules if they need it)
+    dynamodb, // AWS.DynamoDB.DocumentClient
+    dynamodbLL, // AWS.DynamoDB
+    uuidv4, // () => string
+    s3, // AWS.S3
+    ses, // AWS.SES
+    AWS, // AWS sdk root (for CloudFront signer in modules if they need it)
     openai,
     Anthropic,
   } = deps;
 
   /* ───────── Registry ───────── */
-  const actions = new Map();          // action → handler(ctx, extra)
-  const middlewares = [];             // array of (ctx, extra) => Promise<void>
+  const actions = new Map(); // action → handler(ctx, extra)
+  const middlewares = []; // array of (ctx, extra) => Promise<void>
   const registry = Object.create(null);
 
   const on = (action, handler) => {
-    if (typeof action !== "string" || !action) throw new TypeError("on(action, handler): action must be a string");
-    if (typeof handler !== "function") throw new TypeError("on(action, handler): handler must be a function");
+    if (typeof action !== "string" || !action)
+      throw new TypeError("on(action, handler): action must be a string");
+    if (typeof handler !== "function")
+      throw new TypeError("on(action, handler): handler must be a function");
     actions.set(action, handler);
     return () => actions.delete(action);
   };
@@ -82,56 +91,64 @@ function createShared(deps = {}) {
     };
   };
 
-const dispatch = async (action, ctx = {}, extra = {}) => {
-  const handler = actions.get(action);
-  if (!handler) return null;
+  const dispatch = async (action, ctx = {}, extra = {}) => {
+    const handler = actions.get(action);
+    if (!handler) return null;
 
-  // Ensure a predictable res shape
-  const res = ctx?.res || {};
-  if (typeof res.headersSent !== "boolean") res.headersSent = false;
+    // Ensure a predictable res shape
+    const res = ctx?.res || {};
+    if (typeof res.headersSent !== "boolean") res.headersSent = false;
 
-  try {
-    // Run middlewares
-    for (const mw of middlewares) {
+    try {
+      // Run middlewares
+      for (const mw of middlewares) {
+        if (res.headersSent) return { __handled: true };
+
+        // Support 3-arity: (ctx, extra, next)
+        if (mw.length >= 3) {
+          let advanced = false;
+          const next = () => {
+            advanced = true;
+          };
+          const maybe = await mw(ctx, extra, next);
+
+          // If mw didn't call next(), treat it as having handled (or short-circuited)
+          if (!advanced) {
+            if (res.headersSent) return { __handled: true };
+            // If it returned something, bubble that out; otherwise mark handled.
+            return maybe === undefined ? { __handled: true } : maybe;
+          }
+        } else {
+          // (ctx) or (ctx, extra)
+          const maybe = await mw(ctx, extra);
+          if (res.headersSent) return { __handled: true };
+          if (maybe && typeof maybe === "object" && maybe.__handled) return maybe;
+          if (maybe !== undefined) return maybe; // middleware short-circuit
+        }
+      }
+
       if (res.headersSent) return { __handled: true };
 
-      // Support 3-arity: (ctx, extra, next)
-      if (mw.length >= 3) {
-        let advanced = false;
-        const next = () => { advanced = true; };
-        const maybe = await mw(ctx, extra, next);
-
-        // If mw didn't call next(), treat it as having handled (or short-circuited)
-        if (!advanced) {
-          if (res.headersSent) return { __handled: true };
-          // If it returned something, bubble that out; otherwise mark handled.
-          return (maybe === undefined) ? { __handled: true } : maybe;
-        }
-      } else {
-        // (ctx) or (ctx, extra)
-        const maybe = await mw(ctx, extra);
-        if (res.headersSent) return { __handled: true };
-        if (maybe && typeof maybe === "object" && maybe.__handled) return maybe;
-        if (maybe !== undefined) return maybe; // middleware short-circuit
+      // Call the action handler
+      const out = await handler(ctx, extra);
+      if (res.headersSent) return { __handled: true };
+      return out;
+    } catch (err) {
+      // Best-effort error response if we have an express-like res
+      if (
+        ctx?.res &&
+        !res.headersSent &&
+        typeof res.status === "function" &&
+        typeof res.json === "function"
+      ) {
+        console.log("err", err);
+        res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
+        return { __handled: true };
       }
+      // Otherwise rethrow so callers can handle
+      throw err;
     }
-
-    if (res.headersSent) return { __handled: true };
-
-    // Call the action handler
-    const out = await handler(ctx, extra);
-    if (res.headersSent) return { __handled: true };
-    return out;
-  } catch (err) {
-    // Best-effort error response if we have an express-like res
-    if (ctx?.res && !res.headersSent && typeof res.status === "function" && typeof res.json === "function") {
-      res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
-      return { __handled: true };
-    }
-    // Otherwise rethrow so callers can handle
-    throw err;
-  }
-};
+  };
 
   const expose = (name, fn) => {
     registry[name] = fn;
@@ -141,7 +158,7 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   /* ───────── Public/private toggles (for S3 bucket selection etc.) ───────── */
   let _isPublic = true;
   const setIsPublic = (val) => {
-    _isPublic = (val === true || val === "true");
+    _isPublic = val === true || val === "true";
     return _isPublic;
   };
   const fileLocation = (val) => (val === true || val === "true" ? "public" : "private");
@@ -162,15 +179,40 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   async function getSub(val, key, ddb = dynamodb) {
     let params;
     if (key === "su") {
-      params = { TableName: "subdomains", KeyConditionExpression: "su = :su", ExpressionAttributeValues: { ":su": val } };
+      params = {
+        TableName: "subdomains",
+        KeyConditionExpression: "su = :su",
+        ExpressionAttributeValues: { ":su": val },
+      };
     } else if (key === "e") {
-      params = { TableName: "subdomains", IndexName: "eIndex", KeyConditionExpression: "e = :e", ExpressionAttributeValues: { ":e": val } };
+      params = {
+        TableName: "subdomains",
+        IndexName: "eIndex",
+        KeyConditionExpression: "e = :e",
+        ExpressionAttributeValues: { ":e": val },
+      };
     } else if (key === "a") {
-      params = { TableName: "subdomains", IndexName: "aIndex", KeyConditionExpression: "a = :a", ExpressionAttributeValues: { ":a": val } };
+      params = {
+        TableName: "subdomains",
+        IndexName: "aIndex",
+        KeyConditionExpression: "a = :a",
+        ExpressionAttributeValues: { ":a": val },
+      };
     } else if (key === "g") {
-      params = { TableName: "subdomains", IndexName: "gIndex", KeyConditionExpression: "g = :g", ExpressionAttributeValues: { ":g": val } };
+      params = {
+        TableName: "subdomains",
+        IndexName: "gIndex",
+        KeyConditionExpression: "g = :g",
+        ExpressionAttributeValues: { ":g": val },
+      };
     } else if (key === "path") {
-      params = { TableName: "subdomains", IndexName: "path-index", KeyConditionExpression: "#p = :p", ExpressionAttributeNames: { "#p": "path" }, ExpressionAttributeValues: { ":p": val } };
+      params = {
+        TableName: "subdomains",
+        IndexName: "path-index",
+        KeyConditionExpression: "#p = :p",
+        ExpressionAttributeNames: { "#p": "path" },
+        ExpressionAttributeValues: { ":p": val },
+      };
     } else {
       throw new Error(`getSub: unknown key "${key}"`);
     }
@@ -179,7 +221,11 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
   async function getEntity(e, ddb = dynamodb) {
     if (cache.getEntity[e]) return cache.getEntity[e];
-    const params = { TableName: "entities", KeyConditionExpression: "e = :e", ExpressionAttributeValues: { ":e": e } };
+    const params = {
+      TableName: "entities",
+      KeyConditionExpression: "e = :e",
+      ExpressionAttributeValues: { ":e": e },
+    };
     const res = await ddb.query(params).promise();
     cache.getEntity[e] = res;
     return res;
@@ -187,7 +233,11 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
   async function getWord(a, ddb = dynamodb) {
     if (cache.getWord[a]) return cache.getWord[a];
-    const params = { TableName: "words", KeyConditionExpression: "a = :a", ExpressionAttributeValues: { ":a": a } };
+    const params = {
+      TableName: "words",
+      KeyConditionExpression: "a = :a",
+      ExpressionAttributeValues: { ":a": a },
+    };
     const res = await ddb.query(params).promise();
     cache.getWord[a] = res;
     return res;
@@ -195,7 +245,11 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
   async function getGroup(g, ddb = dynamodb) {
     if (cache.getGroup[g]) return cache.getGroup[g];
-    const params = { TableName: "groups", KeyConditionExpression: "g = :g", ExpressionAttributeValues: { ":g": g } };
+    const params = {
+      TableName: "groups",
+      KeyConditionExpression: "g = :g",
+      ExpressionAttributeValues: { ":g": g },
+    };
     const res = await ddb.query(params).promise();
     cache.getGroup[g] = res;
     return res;
@@ -203,7 +257,11 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
   async function getAccess(ai, ddb = dynamodb) {
     if (cache.getAccess[ai]) return cache.getAccess[ai];
-    const params = { TableName: "access", KeyConditionExpression: "ai = :ai", ExpressionAttributeValues: { ":ai": ai } };
+    const params = {
+      TableName: "access",
+      KeyConditionExpression: "ai = :ai",
+      ExpressionAttributeValues: { ":ai": ai },
+    };
     const res = await ddb.query(params).promise();
     cache.getAccess[ai] = res;
     return res;
@@ -212,13 +270,27 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   async function getVerified(key, val, ddb = dynamodb) {
     let params;
     if (key === "vi") {
-      params = { TableName: "verified", KeyConditionExpression: "vi = :vi", ExpressionAttributeValues: { ":vi": val } };
+      params = {
+        TableName: "verified",
+        KeyConditionExpression: "vi = :vi",
+        ExpressionAttributeValues: { ":vi": val },
+      };
     } else if (key === "ai") {
-      params = { TableName: "verified", IndexName: "aiIndex", KeyConditionExpression: "ai = :ai", ExpressionAttributeValues: { ":ai": val } };
+      params = {
+        TableName: "verified",
+        IndexName: "aiIndex",
+        KeyConditionExpression: "ai = :ai",
+        ExpressionAttributeValues: { ":ai": val },
+      };
     } else if (key === "gi") {
-      params = { TableName: "verified", IndexName: "giIndex", KeyConditionExpression: "gi = :gi", ExpressionAttributeValues: { ":gi": val } };
+      params = {
+        TableName: "verified",
+        IndexName: "giIndex",
+        KeyConditionExpression: "gi = :gi",
+        ExpressionAttributeValues: { ":gi": val },
+      };
     } else {
-      throw new Error(`getVerified: unknown key "${key}"`);
+      throw new Error(`getVerified: unknown key "${key}`);
     }
     return await ddb.query(params).promise();
   }
@@ -228,8 +300,12 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     const groups = await ddb.scan(params).promise();
     const out = [];
     // parallel lookups
-    const subsByG = await Promise.all(groups.Items.map((it) => getSub(it.g.toString(), "g", ddb)));
-    const wordsByA = await Promise.all(groups.Items.map((it) => getWord(it.a.toString(), ddb)));
+    const subsByG = await Promise.all(
+      groups.Items.map((it) => getSub(it.g.toString(), "g", ddb))
+    );
+    const wordsByA = await Promise.all(
+      groups.Items.map((it) => getWord(it.a.toString(), ddb))
+    );
     for (let i = 0; i < groups.Items.length; i++) {
       const groupItem = groups.Items[i];
       const subByG = subsByG[i];
@@ -239,7 +315,7 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
       out.push({
         groupId: subByG.Items?.[0]?.su,
         name: word.Items?.[0]?.r,
-        head: subByE.Items?.[0]?.su
+        head: subByE.Items?.[0]?.su,
       });
     }
     return out;
@@ -256,11 +332,13 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     const id = makeLinkId(wholeE, partE);
     const ckey = makeCKey(wholeE, partE);
     try {
-      await ddb.put({
-        TableName: "links",
-        Item: { id, whole: wholeE, part: partE, ckey, type: "link", ts: Date.now() },
-        ConditionExpression: "attribute_not_exists(id)"
-      }).promise();
+      await ddb
+        .put({
+          TableName: "links",
+          Item: { id, whole: wholeE, part: partE, ckey, type: "link", ts: Date.now() },
+          ConditionExpression: "attribute_not_exists(id)",
+        })
+        .promise();
     } catch (err) {
       if (err.code !== "ConditionalCheckFailedException") throw err;
     }
@@ -269,48 +347,58 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
   async function deleteLink(wholeE, partE, ddb = dynamodb) {
     const ckey = makeCKey(wholeE, partE);
-    const q = await ddb.query({
-      TableName: "links",
-      IndexName: "ckeyIndex",
-      KeyConditionExpression: "ckey = :ck",
-      ExpressionAttributeValues: { ":ck": ckey },
-      Limit: 1
-    }).promise();
+    const q = await ddb
+      .query({
+        TableName: "links",
+        IndexName: "ckeyIndex",
+        KeyConditionExpression: "ckey = :ck",
+        ExpressionAttributeValues: { ":ck": ckey },
+        Limit: 1,
+      })
+      .promise();
     if (!q.Items || !q.Items.length) return false;
     await ddb.delete({ TableName: "links", Key: { id: q.Items[0].id } }).promise();
     return true;
   }
 
   async function getLinkedChildren(e, ddb = dynamodb) {
-    const res = await ddb.query({
-      TableName: "links",
-      IndexName: "wholeIndex",
-      KeyConditionExpression: "whole = :e",
-      ExpressionAttributeValues: { ":e": e }
-    }).promise();
+    const res = await ddb
+      .query({
+        TableName: "links",
+        IndexName: "wholeIndex",
+        KeyConditionExpression: "whole = :e",
+        ExpressionAttributeValues: { ":e": e },
+      })
+      .promise();
     return (res.Items || []).map((it) => it.part);
   }
 
   async function getLinkedParents(e, ddb = dynamodb) {
-    const res = await ddb.query({
-      TableName: "links",
-      IndexName: "partIndex",
-      KeyConditionExpression: "part = :e",
-      ExpressionAttributeValues: { ":e": e }
-    }).promise();
+    const res = await ddb
+      .query({
+        TableName: "links",
+        IndexName: "partIndex",
+        KeyConditionExpression: "part = :e",
+        ExpressionAttributeValues: { ":e": e },
+      })
+      .promise();
     return (res.Items || []).map((it) => it.whole);
   }
 
   async function migrateLinksFromEntities(ddb = dynamodb) {
-    let created = 0, scanned = 0, last;
+    let created = 0,
+      scanned = 0,
+      last;
     do {
-      const batch = await ddb.scan({
-        TableName: "entities",
-        ProjectionExpression: "e, #l, #o",
-        ExpressionAttributeNames: { "#l": "l", "#o": "o" },
-        ExclusiveStartKey: last
-      }).promise();
-      for (const item of (batch.Items || [])) {
+      const batch = await ddb
+        .scan({
+          TableName: "entities",
+          ProjectionExpression: "e, #l, #o",
+          ExpressionAttributeNames: { "#l": "l", "#o": "o" },
+          ExclusiveStartKey: last,
+        })
+        .promise();
+      for (const item of batch.Items || []) {
         scanned++;
         const eThis = item.e;
         if (Array.isArray(item.l)) {
@@ -336,14 +424,16 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   /* ──────────────────────────────────────────────────────────────────────── */
 
   async function incrementCounterAndGetNewValue(tableName, ddb = dynamodb) {
-    const res = await ddb.update({
-      TableName: tableName,
-      Key: { pk: tableName },
-      UpdateExpression: "ADD #x :one",
-      ExpressionAttributeNames: { "#x": "x" },
-      ExpressionAttributeValues: { ":one": 1 },
-      ReturnValues: "UPDATED_NEW"
-    }).promise();
+    const res = await ddb
+      .update({
+        TableName: tableName,
+        Key: { pk: tableName },
+        UpdateExpression: "ADD #x :one",
+        ExpressionAttributeNames: { "#x": "x" },
+        ExpressionAttributeValues: { ":one": 1 },
+        ReturnValues: "UPDATED_NEW",
+      })
+      .promise();
     return res.Attributes.x;
   }
 
@@ -352,7 +442,7 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
       TableName: "words",
       IndexName: "sIndex",
       KeyConditionExpression: "s = :s",
-      ExpressionAttributeValues: { ":s": word.toLowerCase() }
+      ExpressionAttributeValues: { ":s": word.toLowerCase() },
     };
     const result = await ddb.query(params).promise();
     if (result.Items.length > 0) return { exists: true, id: result.Items[0].a };
@@ -363,7 +453,9 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     const lower = String(word || "").toLowerCase();
     const check = await wordExists(lower, ddb);
     if (check.exists) return check.id;
-    await ddb.put({ TableName: "words", Item: { a: id, r: word, s: lower } }).promise();
+    await ddb
+      .put({ TableName: "words", Item: { a: id, r: word, s: lower } })
+      .promise();
     return id;
   }
 
@@ -372,14 +464,16 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
       const vId = await incrementCounterAndGetNewValue("vCounter", ddb);
       let newC, newS;
 
-      const latest = await ddb.query({
-        TableName: "versions",
-        IndexName: "eIndex",
-        KeyConditionExpression: "e = :e",
-        ExpressionAttributeValues: { ":e": eNew },
-        ScanIndexForward: false,
-        Limit: 1
-      }).promise();
+      const latest = await ddb
+        .query({
+          TableName: "versions",
+          IndexName: "eIndex",
+          KeyConditionExpression: "e = :e",
+          ExpressionAttributeValues: { ":e": eNew },
+          ScanIndexForward: false,
+          Limit: 1,
+        })
+        .promise();
 
       if (forceC) {
         newC = forceC;
@@ -397,26 +491,52 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
 
       let newRecord;
       if (col === "t" || col === "f" || col === "l" || col === "o") {
-        newRecord = { v: String(vId), c: String(newC), e: eNew, s: String(newS), p: prevV, [col]: [val], d: Date.now() };
+        newRecord = {
+          v: String(vId),
+          c: String(newC),
+          e: eNew,
+          s: String(newS),
+          p: prevV,
+          [col]: [val],
+          d: Date.now(),
+        };
       } else if (col === "m") {
         const ent = await getEntity(eNew, ddb);
         const current = ent.Items?.[0]?.m || {};
         const k = Object.keys(val)[0];
         current[k] = (current[k] || []).concat(val[k]);
-        newRecord = { v: String(vId), c: String(newC), e: eNew, s: String(newS), p: prevV, m: current, d: Date.now() };
+        newRecord = {
+          v: String(vId),
+          c: String(newC),
+          e: eNew,
+          s: String(newS),
+          p: prevV,
+          m: current,
+          d: Date.now(),
+        };
       } else {
-        newRecord = { v: String(vId), c: String(newC), e: eNew, s: String(newS), p: prevV, [col]: val, d: Date.now() };
+        newRecord = {
+          v: String(vId),
+          c: String(newC),
+          e: eNew,
+          s: String(newS),
+          p: prevV,
+          [col]: val,
+          d: Date.now(),
+        };
       }
 
       await ddb.put({ TableName: "versions", Item: newRecord }).promise();
       if (prevV && prevD) {
-        await ddb.update({
-          TableName: "versions",
-          Key: { v: prevV, d: prevD },
-          UpdateExpression: "SET #n = :nv",
-          ExpressionAttributeNames: { "#n": "n" },
-          ExpressionAttributeValues: { ":nv": String(vId) }
-        }).promise();
+        await ddb
+          .update({
+            TableName: "versions",
+            Key: { v: prevV, d: prevD },
+            UpdateExpression: "SET #n = :nv",
+            ExpressionAttributeNames: { "#n": "n" },
+            ExpressionAttributeValues: { ":nv": String(vId) },
+          })
+          .promise();
       }
       return { v: String(vId), c: String(newC) };
     } catch (err) {
@@ -447,65 +567,76 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
           ":val": [val],
           ":empty": [],
           ":v": v,
-          ":c": c
-        }
+          ":c": c,
+        },
       };
     } else if (col === "m") {
       // ensure map and nested list exist before append
       const k = Object.keys(val)[0];
-      await ddb.update({
-        TableName: "entities",
-        Key: { e },
-        UpdateExpression: "SET #m = if_not_exists(#m, :empty)",
-        ExpressionAttributeNames: { "#m": "m" },
-        ExpressionAttributeValues: { ":empty": {} }
-      }).promise();
-      await ddb.update({
-        TableName: "entities",
-        Key: { e },
-        UpdateExpression: "SET #m.#k = if_not_exists(#m.#k, :emptyList)",
-        ExpressionAttributeNames: { "#m": "m", "#k": k },
-        ExpressionAttributeValues: { ":emptyList": [] }
-      }).promise();
+      await ddb
+        .update({
+          TableName: "entities",
+          Key: { e },
+          UpdateExpression: "SET #m = if_not_exists(#m, :empty)",
+          ExpressionAttributeNames: { "#m": "m" },
+          ExpressionAttributeValues: { ":empty": {} },
+        })
+        .promise();
+      await ddb
+        .update({
+          TableName: "entities",
+          Key: { e },
+          UpdateExpression: "SET #m.#k = if_not_exists(#m.#k, :emptyList)",
+          ExpressionAttributeNames: { "#m": "m", "#k": k },
+          ExpressionAttributeValues: { ":emptyList": [] },
+        })
+        .promise();
       params = {
         TableName: "entities",
         Key: { e },
-        UpdateExpression: "SET #m.#k = list_append(#m.#k, :newVal), #v = :v, #c = :c",
+        UpdateExpression:
+          "SET #m.#k = list_append(#m.#k, :newVal), #v = :v, #c = :c",
         ExpressionAttributeNames: { "#m": "m", "#k": k, "#v": "v", "#c": "c" },
-        ExpressionAttributeValues: { ":newVal": val[k], ":v": v, ":c": c }
+        ExpressionAttributeValues: { ":newVal": val[k], ":v": v, ":c": c },
       };
     } else {
       params = {
         TableName: "entities",
         Key: { e },
         UpdateExpression: `SET ${col} = :val, v = :v, c = :c`,
-        ExpressionAttributeValues: { ":val": val, ":v": v, ":c": c }
+        ExpressionAttributeValues: { ":val": val, ":v": v, ":c": c },
       };
     }
     return await ddb.update(params).promise();
   }
 
   async function createGroup(gid, groupNameID, entityID, ai, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "groups",
-      Item: { g: gid, a: groupNameID, e: entityID, ai }
-    }).promise();
+    await ddb
+      .put({
+        TableName: "groups",
+        Item: { g: gid, a: groupNameID, e: entityID, ai },
+      })
+      .promise();
     return gid;
   }
 
   async function createEntity(e, a, v, g, h, ai, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "entities",
-      Item: { e, a, v, g, h, ai: ai || "0" }
-    }).promise();
+    await ddb
+      .put({
+        TableName: "entities",
+        Item: { e, a, v, g, h, ai: ai || "0" },
+      })
+      .promise();
     return e;
   }
 
   async function createSubdomain(su, a, e, g, z, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "subdomains",
-      Item: { su, a, e, g, z }
-    }).promise();
+    await ddb
+      .put({
+        TableName: "subdomains",
+        Item: { su, a, e, g, z },
+      })
+      .promise();
     return su;
   }
 
@@ -514,21 +645,32 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   /* ──────────────────────────────────────────────────────────────────────── */
 
   async function createCookie(ci, gi, ex, ak, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "cookies",
-      Item: { ci, gi, ex, ak }
-    }).promise();
+    await ddb.put({ TableName: "cookies", Item: { ci, gi, ex, ak } }).promise();
     return true;
   }
 
   async function getCookie(val, key, ddb = dynamodb) {
     let params;
     if (key === "ci") {
-      params = { TableName: "cookies", KeyConditionExpression: "ci = :ci", ExpressionAttributeValues: { ":ci": val } };
+      params = {
+        TableName: "cookies",
+        KeyConditionExpression: "ci = :ci",
+        ExpressionAttributeValues: { ":ci": val },
+      };
     } else if (key === "ak") {
-      params = { TableName: "cookies", IndexName: "akIndex", KeyConditionExpression: "ak = :ak", ExpressionAttributeValues: { ":ak": val } };
+      params = {
+        TableName: "cookies",
+        IndexName: "akIndex",
+        KeyConditionExpression: "ak = :ak",
+        ExpressionAttributeValues: { ":ak": val },
+      };
     } else if (key === "gi") {
-      params = { TableName: "cookies", IndexName: "giIndex", KeyConditionExpression: "gi = :gi", ExpressionAttributeValues: { ":gi": val } };
+      params = {
+        TableName: "cookies",
+        IndexName: "giIndex",
+        KeyConditionExpression: "gi = :gi",
+        ExpressionAttributeValues: { ":gi": val },
+      };
     } else {
       throw new Error(`getCookie: unknown key "${key}"`);
     }
@@ -541,10 +683,10 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   }
 
   async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-    console.log("mainObj",mainObj)
-    console.log("xAccessToken",xAccessToken)
-    console.log("ddb",ddb)
-    console.log("uuid",uuid)
+    console.log("mainObj", mainObj);
+    console.log("xAccessToken", xAccessToken);
+    console.log("ddb", ddb);
+    console.log("uuid", uuid);
     if (xAccessToken) {
       mainObj.status = "authenticated";
       const cookie = await getCookie(xAccessToken, "ak", ddb);
@@ -563,25 +705,41 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
         maxAge: ttl * 1000,
         httpOnly: true,
         secure: true,
-        sameSite: "None"
+        sameSite: "None",
       });
       return { ak, gi, ex, ci, existing: true };
     }
   }
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "access",
-      Item: { ai, g, e, ex, at, to, va, ac }
-    }).promise();
+    await ddb
+      .put({
+        TableName: "access",
+        Item: { ai, g, e, ex, at, to, va, ac },
+      })
+      .promise();
     return ai;
   }
 
-  async function createVerified(vi, gi, g, e, ai, va, ex, bo, at, ti, ddb = dynamodb) {
-    await ddb.put({
-      TableName: "verified",
-      Item: { vi, gi, g, e, ai, va, ex, bo, at, ti }
-    }).promise();
+  async function createVerified(
+    vi,
+    gi,
+    g,
+    e,
+    ai,
+    va,
+    ex,
+    bo,
+    at,
+    ti,
+    ddb = dynamodb
+  ) {
+    await ddb
+      .put({
+        TableName: "verified",
+        Item: { vi, gi, g, e, ai, va, ex, bo, at, ti },
+      })
+      .promise();
     return vi;
   }
 
@@ -603,15 +761,29 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
       0,
       ddb
     );
-    const details = await addVersion(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), String(Entity.Items[0].c || "1"), ddb);
-    await updateEntity(String(Entity.Items[0].e), "ai", String(access.Items[0].ai), details.v, details.c, ddb);
+    const details = await addVersion(
+      String(Entity.Items[0].e),
+      "ai",
+      String(access.Items[0].ai),
+      String(Entity.Items[0].c || "1"),
+      ddb
+    );
+    await updateEntity(
+      String(Entity.Items[0].e),
+      "ai",
+      String(access.Items[0].ai),
+      details.v,
+      details.c,
+      ddb
+    );
     return true;
   }
 
   async function verifyThis(fileID, cookie, ddb = dynamodb, body) {
     // permissions: public → auto true; else look for matching verified/access
     let subBySU = await getSub(fileID, "su", ddb);
-    if (!subBySU.Items?.length) return { verified: false, subBySU, entity: null, isPublic: false };
+    if (!subBySU.Items?.length)
+      return { verified: false, subBySU, entity: null, isPublic: false };
 
     setIsPublic(subBySU.Items[0].z);
     let entity = await getEntity(subBySU.Items[0].e, ddb);
@@ -625,8 +797,9 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     } else {
       const verif = await getVerified("gi", String(cookie.gi), ddb, body);
       // #1: any granted AI present & boolean true?
-      verified = verif.Items.some((v) => groupAi.includes(v.ai) && v.bo)
-        || verif.Items.some((v) => entityAi.includes(v.ai) && v.bo);
+      verified =
+        verif.Items.some((v) => groupAi.includes(v.ai) && v.bo) ||
+        verif.Items.some((v) => entityAi.includes(v.ai) && v.bo);
 
       // #2: deepEqual body validation path against 'access.va'
       if (!verified) {
@@ -647,7 +820,10 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
     if (entity.Items[0].z && typeof entity.Items[0].z === "string") {
       const subByE = await getSub(entity.Items[0].z, "e", ddb);
       const v2 = await verifyThis(subByE.Items[0].su, cookie, ddb, body);
-      verified = v2.verified; subBySU = v2.subBySU; entity = v2.entity; setIsPublic(v2.isPublic);
+      verified = v2.verified;
+      subBySU = v2.subBySU;
+      entity = v2.entity;
+      setIsPublic(v2.isPublic);
     }
 
     return { verified, subBySU, entity, isPublic: _isPublic };
@@ -660,12 +836,14 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   async function createFile(su, fileData, s3cli = s3) {
     const jsonString = JSON.stringify(fileData);
     const bucket = `${fileLocation(_isPublic)}.1var.com`;
-    await s3cli.putObject({
-      Bucket: bucket,
-      Key: su,
-      Body: jsonString,
-      ContentType: "application/json"
-    }).promise();
+    await s3cli
+      .putObject({
+        Bucket: bucket,
+        Key: su,
+        Body: jsonString,
+        ContentType: "application/json",
+      })
+      .promise();
     return true;
   }
 
@@ -693,7 +871,12 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   async function getTasks(val, col, ddb = dynamodb) {
     if (col === "e") {
       const subByE = await getSub(String(val), "e", ddb);
-      const params = { TableName: "tasks", IndexName: "urlIndex", KeyConditionExpression: "url = :u", ExpressionAttributeValues: { ":u": subByE.Items?.[0]?.su } };
+      const params = {
+        TableName: "tasks",
+        IndexName: "urlIndex",
+        KeyConditionExpression: "url = :u",
+        ExpressionAttributeValues: { ":u": subByE.Items?.[0]?.su },
+      };
       return await ddb.query(params).promise();
     } else if (col === "su") {
       const params = {
@@ -701,56 +884,56 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
         IndexName: "urlIndex",
         KeyConditionExpression: "#url = :u",
         ExpressionAttributeNames: { "#url": "url" },
-        ExpressionAttributeValues: { ":u": val }
+        ExpressionAttributeValues: { ":u": val },
       };
       return await ddb.query(params).promise();
     }
     throw new Error("getTasks: invalid column");
   }
 
-function getTasksIOS(tasks) {
-  tasks = tasks.Items;
-  const converted = [];
-  for (let task in tasks) {
-    converted.push({});
-    converted[task].url = tasks[task].url;
+  function getTasksIOS(tasks) {
+    tasks = tasks.Items;
+    const converted = [];
+    for (let task in tasks) {
+      converted.push({});
+      converted[task].url = tasks[task].url;
 
-    const momentSD = moment.unix(tasks[task].sd).utc();
-    converted[task].startDate = momentSD.format("YYYY-MM-DD");
+      const momentSD = moment.unix(tasks[task].sd).utc();
+      converted[task].startDate = momentSD.format("YYYY-MM-DD");
 
-    const momentED = moment.unix(tasks[task].ed).utc();
-    converted[task].endDate = momentED.format("YYYY-MM-DD");
+      const momentED = moment.unix(tasks[task].ed).utc();
+      converted[task].endDate = momentED.format("YYYY-MM-DD");
 
-    const momentST = moment.unix(tasks[task].sd + tasks[task].st).utc();
-    converted[task].startTime = momentST.format("HH:mm");
+      const momentST = moment.unix(tasks[task].sd + tasks[task].st).utc();
+      converted[task].startTime = momentST.format("HH:mm");
 
-    const momentET = moment.unix(tasks[task].sd + tasks[task].et).utc();
-    converted[task].endTime = momentET.format("HH:mm");
+      const momentET = moment.unix(tasks[task].sd + tasks[task].et).utc();
+      converted[task].endTime = momentET.format("HH:mm");
 
-    converted[task].monday    = tasks[task].mo === 1;
-    converted[task].tuesday   = tasks[task].tu === 1;
-    converted[task].wednesday = tasks[task].we === 1;
-    converted[task].thursday  = tasks[task].th === 1;
-    converted[task].friday    = tasks[task].fr === 1;
-    converted[task].saturday  = tasks[task].sa === 1;
-    converted[task].sunday    = tasks[task].su === 1;
+      converted[task].monday = tasks[task].mo === 1;
+      converted[task].tuesday = tasks[task].tu === 1;
+      converted[task].wednesday = tasks[task].we === 1;
+      converted[task].thursday = tasks[task].th === 1;
+      converted[task].friday = tasks[task].fr === 1;
+      converted[task].saturday = tasks[task].sa === 1;
+      converted[task].sunday = tasks[task].su === 1;
 
-    converted[task].zone     = tasks[task].zo;
-    converted[task].interval = tasks[task].it;
-    converted[task].taskID   = tasks[task].ti;
+      converted[task].zone = tasks[task].zo;
+      converted[task].interval = tasks[task].it;
+      converted[task].taskID = tasks[task].ti;
+    }
+    return converted;
   }
-  return converted;
-}
-
 
   function allVerified(list) {
-    let v = true
-    for (l in list) {               // legacy loop style, preserved
+    let v = true;
+    for (l in list) {
+      // legacy loop style, preserved
       if (list[l] != true) {
-        v = false
+        v = false;
       }
     }
-    return v
+    return v;
   }
 
   async function verifyPath(splitPath, verifications, ddb = dynamodb) {
@@ -758,46 +941,46 @@ function getTasksIOS(tasks) {
     let verCounter = 0;
     for (ver in splitPath) {
       if (splitPath[ver].startsWith("1v4r")) {
-        let verValue = false
-        verified.push(false)
+        let verValue = false;
+        verified.push(false);
         const sub = await getSub(splitPath[ver], "su", ddb);
 
-        let groupID = sub.Items[0].g
-        let entityID = sub.Items[0].e
+        let groupID = sub.Items[0].g;
+        let entityID = sub.Items[0].e;
         if (sub.Items[0].z) {
-          verValue = true
+          verValue = true;
         }
         for (veri in verifications.Items) {
           if (entityID != "0") {
-            let eSub = await getEntity(sub.Items[0].e, ddb)
-            groupID = eSub.Items[0].g
+            let eSub = await getEntity(sub.Items[0].e, ddb);
+            groupID = eSub.Items[0].g;
             if (eSub.Items[0].ai.toString() == "0") {
-              verValue = true
+              verValue = true;
             }
           }
           if (sub.Items.length > 0) {
             if (sub.Items[0].z == true) {
-              verValue = true
+              verValue = true;
             } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
               const ex = Math.floor(Date.now() / 1000);
               if (ex < verifications.Items[veri].ex) {
-                verValue = true
+                verValue = true;
               }
             } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo) {
               const ex = Math.floor(Date.now() / 1000);
               if (ex < verifications.Items[veri].ex) {
-                verValue = true
+                verValue = true;
               }
             } else if (entityID == "0" && groupID == "0") {
               verValue = true;
             }
           }
         }
-        verified[verCounter] = verValue
+        verified[verCounter] = verValue;
         verCounter++;
       }
     }
-    return verified
+    return verified;
   }
 
   /* ──────────────────────────────────────────────────────────────────────── */
@@ -825,8 +1008,14 @@ function getTasksIOS(tasks) {
     body,
     substitutingID = ""
   ) {
-    const { verified, subBySU, entity, isPublic } = await verifyThis(fileID, cookie, ddb, body);
-    if (!verified) return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
+    const { verified, subBySU, entity, isPublic } = await verifyThis(
+      fileID,
+      cookie,
+      ddb,
+      body
+    );
+    if (!verified)
+      return { obj: {}, paths: {}, paths2: {}, id2Path: {}, groups: {}, verified: false };
 
     let children = mapping?.[subBySU.Items[0].e] || entity.Items[0].t;
     const linked = await getLinkedChildren(entity.Items[0].e, ddb);
@@ -858,7 +1047,7 @@ function getTasksIOS(tasks) {
       usingID,
       substitutingID,
       location: fileLocation(isPublic),
-      verified: true
+      verified: true,
     };
 
     const newParentPath = isUsing ? [...parentPath] : [...parentPath, fileID];
@@ -869,11 +1058,28 @@ function getTasksIOS(tasks) {
     // children
     if (children && children.length > 0 && state.convertCounter < 1200) {
       state.convertCounter += children.length;
-      const childRes = await Promise.all(children.map(async (childE) => {
-        const subByE = await getSub(childE, "e", ddb);
-        const uuidSu = subByE.Items[0].su;
-        return await convertToJSON(uuidSu, newParentPath, false, mapping, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
-      }));
+      const childRes = await Promise.all(
+        children.map(async (childE) => {
+          const subByE = await getSub(childE, "e", ddb);
+          const uuidSu = subByE.Items[0].su;
+          return await convertToJSON(
+            uuidSu,
+            newParentPath,
+            false,
+            mapping,
+            cookie,
+            ddb,
+            uuid,
+            pathUUID,
+            newParentPath2,
+            id2Path,
+            usingID,
+            ddbLL,
+            body,
+            substitutingID
+          );
+        })
+      );
       for (const r of childRes) {
         Object.assign(obj[fileID].children, r.obj);
         Object.assign(paths, r.paths);
@@ -885,8 +1091,20 @@ function getTasksIOS(tasks) {
     if (using) {
       const subOfHead = await getSub(entity.Items[0].u, "e", ddb);
       const headUsingObj = await convertToJSON(
-        subOfHead.Items[0].su, newParentPath, true, entity.Items[0].m, cookie, ddb, uuid,
-        pathUUID, newParentPath2, id2Path, fileID, ddbLL, body, substitutingID
+        subOfHead.Items[0].su,
+        newParentPath,
+        true,
+        entity.Items[0].m,
+        cookie,
+        ddb,
+        uuid,
+        pathUUID,
+        newParentPath2,
+        id2Path,
+        fileID,
+        ddbLL,
+        body,
+        substitutingID
       );
       const headKey = Object.keys(headUsingObj.obj)[0];
       Object.assign(obj[fileID].children, headUsingObj.obj[headKey].children);
@@ -896,17 +1114,34 @@ function getTasksIOS(tasks) {
         name: headUsingObj.obj[headKey].meta.name,
         head: headUsingObj.obj[headKey].meta.head,
         id: headKey,
-        pathid: pathUUID
+        pathid: pathUUID,
       };
     }
 
     // linked
     if (linked && linked.length > 0) {
-      const linkedRes = await Promise.all(linked.map(async (childE) => {
-        const subByE = await getSub(childE, "e", ddb);
-        const uuidSu = subByE.Items[0].su;
-        return await convertToJSON(uuidSu, newParentPath, false, null, cookie, ddb, uuid, pathUUID, newParentPath2, id2Path, usingID, ddbLL, body, substitutingID);
-      }));
+      const linkedRes = await Promise.all(
+        linked.map(async (childE) => {
+          const subByE = await getSub(childE, "e", ddb);
+          const uuidSu = subByE.Items[0].su;
+          return await convertToJSON(
+            uuidSu,
+            newParentPath,
+            false,
+            null,
+            cookie,
+            ddb,
+            uuid,
+            pathUUID,
+            newParentPath2,
+            id2Path,
+            usingID,
+            ddbLL,
+            body,
+            substitutingID
+          );
+        })
+      );
       for (const r of linkedRes) {
         Object.assign(obj[fileID].linked, r.obj);
         Object.assign(paths, r.paths);
@@ -967,7 +1202,7 @@ function getTasksIOS(tasks) {
     // access / cookies / verification
     createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth,
 
-     verifyPath, allVerified,
+    verifyPath, allVerified,
 
     // files
     createFile, retrieveAndParseJSON, convertToJSON,
