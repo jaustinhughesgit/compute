@@ -120,7 +120,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   const router = express.Router({ mergeParams: true });
 
   router.all("*", async (req, res) => {
-    try {
+
       if (req.body && typeof req.body === "object") {
         const maybeHeaders =
           req.body.headers || (req.body.body && req.body.body.headers) || null;
@@ -182,19 +182,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       // Legacy: empty JSON when nothing to do
         console.log("sendBack2")
       return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
-    } catch (err) {
-      console.error("cookies route error", err);
-      if (!res.headersSent) {
-        res
-          .status(500)
-          .json({ ok: false, error: err?.message || "Internal Server Error" });
-      }
-            if (!res.headersSent) {
-        // Legacy error shape
-        console.log("sendBack3")
-        _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
-      }
-    }
+    
+    
   });
 
   return router;
