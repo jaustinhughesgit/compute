@@ -9,7 +9,7 @@ function register({ on, use }) {
     createGroup, createEntity, createSubdomain,
     getTasksIOS,
     getUUID, createWord,
-    deps, 
+    deps,
   } = use();
 
 
@@ -72,7 +72,7 @@ function register({ on, use }) {
     return { body: b };
   }
 
-on("file", async (ctx /*, meta */) => {
+  on("file", async (ctx /*, meta */) => {
     const { req, res, path, type, signer } = ctx;
     const { dynamodb, dynamodbLL, uuidv4 } = deps;
 
