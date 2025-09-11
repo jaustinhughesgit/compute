@@ -1,21 +1,7 @@
 // routes/shared.js
-// "use strict";
 
-/**
- * Shared core for routes/modules.
- * One instance per process (created in routes/cookies.js via createShared(deps)).
- *
- * Exposes:
- *  - Registry: on, use, dispatch
- *  - Helpers & data accessors ported from old cookies.js
- *  - Legacy helpers used via bind(...) in cookies.js
- */
 
 const moment = require("moment-timezone");
-
-/* ──────────────────────────────────────────────────────────────────────────── */
-/* Utilities                                                                   */
-/* ──────────────────────────────────────────────────────────────────────────── */
 
 const isObject = (val) =>
   val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
@@ -46,31 +32,25 @@ const deepEqual = (a, b) => {
     for (const k of k1) if (!deepEqual(a[k], b[k])) return false;
     return true;
   }
-  // fallback for primitives
-  // eslint-disable-next-line eqeqeq
+
   return a == b;
 };
 
-/* ──────────────────────────────────────────────────────────────────────────── */
-/* Create shared                                                              */
-/* ──────────────────────────────────────────────────────────────────────────── */
 
 function createShared(deps = {}) {
-  // injected deps (DocumentClient, low-level DynamoDB, uuid, S3, SES, AWS SDK, LLMs…)
   const {
-    dynamodb, // AWS.DynamoDB.DocumentClient
-    dynamodbLL, // AWS.DynamoDB
-    uuidv4, // () => string
-    s3, // AWS.S3
-    ses, // AWS.SES
-    AWS, // AWS sdk root (for CloudFront signer in modules if they need it)
+    dynamodb, 
+    dynamodbLL, 
+    uuidv4,
+    s3, 
+    ses, 
+    AWS, 
     openai,
     Anthropic,
   } = deps;
 
-  /* ───────── Registry ───────── */
-  const actions = new Map(); // action → handler(ctx, extra)
-  const middlewares = []; // array of (ctx, extra) => Promise<void>
+  const actions = new Map(); 
+  const middlewares = []; 
   const registry = Object.create(null);
 
   const on = (action, handler) => {
@@ -95,16 +75,13 @@ function createShared(deps = {}) {
     const handler = actions.get(action);
     if (!handler) return null;
 
-    // Ensure a predictable res shape
     const res = ctx?.res || {};
     if (typeof res.headersSent !== "boolean") res.headersSent = false;
 
     try {
-      // Run middlewares
       for (const mw of middlewares) {
         if (res.headersSent) return { __handled: true };
 
-        // Support 3-arity: (ctx, extra, next)
         if (mw.length >= 3) {
           let advanced = false;
           const next = () => {
@@ -112,29 +89,24 @@ function createShared(deps = {}) {
           };
           const maybe = await mw(ctx, extra, next);
 
-          // If mw didn't call next(), treat it as having handled (or short-circuited)
           if (!advanced) {
             if (res.headersSent) return { __handled: true };
-            // If it returned something, bubble that out; otherwise mark handled.
             return maybe === undefined ? { __handled: true } : maybe;
           }
         } else {
-          // (ctx) or (ctx, extra)
           const maybe = await mw(ctx, extra);
           if (res.headersSent) return { __handled: true };
           if (maybe && typeof maybe === "object" && maybe.__handled) return maybe;
-          if (maybe !== undefined) return maybe; // middleware short-circuit
+          if (maybe !== undefined) return maybe; 
         }
       }
 
       if (res.headersSent) return { __handled: true };
 
-      // Call the action handler
       const out = await handler(ctx, extra);
       if (res.headersSent) return { __handled: true };
       return out;
     } catch (err) {
-      // Best-effort error response if we have an express-like res
       if (
         ctx?.res &&
         !res.headersSent &&
@@ -145,7 +117,6 @@ function createShared(deps = {}) {
         res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
         return { __handled: true };
       }
-      // Otherwise rethrow so callers can handle
       throw err;
     }
   };
@@ -155,7 +126,6 @@ function createShared(deps = {}) {
     return fn;
   };
 
-  /* ───────── Public/private toggles (for S3 bucket selection etc.) ───────── */
   let _isPublic = true;
   const setIsPublic = (val) => {
     _isPublic = val === true || val === "true";
@@ -163,7 +133,6 @@ function createShared(deps = {}) {
   };
   const fileLocation = (val) => (val === true || val === "true" ? "public" : "private");
 
-  /* ───────── Caches (per-process; simple memoization) ───────── */
   const cache = {
     getSub: Object.create(null),
     getEntity: Object.create(null),
@@ -171,10 +140,6 @@ function createShared(deps = {}) {
     getGroup: Object.create(null),
     getAccess: Object.create(null),
   };
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Data access helpers (DynamoDB)                                          */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   async function getSub(val, key, ddb = dynamodb) {
     let params;
@@ -321,10 +286,6 @@ function createShared(deps = {}) {
     return out;
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Link table helpers                                                      */
-  /* ──────────────────────────────────────────────────────────────────────── */
-
   const makeLinkId = (wholeE, partE) => `lnk#${wholeE}#${partE}`;
   const makeCKey = (wholeE, partE) => `${wholeE}|${partE}`;
 
@@ -418,10 +379,6 @@ function createShared(deps = {}) {
     } while (last);
     return { scanned, created };
   }
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Counters, versions, entities, words, groups                             */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   async function incrementCounterAndGetNewValue(tableName, ddb = dynamodb) {
     const res = await ddb
@@ -744,7 +701,6 @@ function createShared(deps = {}) {
   }
 
   async function useAuth(fileID, Entity, access, cookie, ddb = dynamodb) {
-    // create a new verified token for this cookie against the entity/access pair
     const ttl = 90000;
     const ex = Math.floor(Date.now() / 1000) + ttl;
     const vi = await incrementCounterAndGetNewValue("viCounter", ddb);
@@ -780,7 +736,6 @@ function createShared(deps = {}) {
   }
 
   async function verifyThis(fileID, cookie, ddb = dynamodb, body) {
-    // permissions: public → auto true; else look for matching verified/access
     let subBySU = await getSub(fileID, "su", ddb);
     if (!subBySU.Items?.length)
       return { verified: false, subBySU, entity: null, isPublic: false };
@@ -829,10 +784,6 @@ function createShared(deps = {}) {
     return { verified, subBySU, entity, isPublic: _isPublic };
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* S3 helpers                                                               */
-  /* ──────────────────────────────────────────────────────────────────────── */
-
   async function createFile(su, fileData, s3cli = s3) {
     const jsonString = JSON.stringify(fileData);
     const bucket = `${fileLocation(_isPublic)}.1var.com`;
@@ -853,21 +804,13 @@ function createShared(deps = {}) {
     return JSON.parse(data.Body.toString("utf-8"));
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* getHead                                                                  */
-  /* ──────────────────────────────────────────────────────────────────────── */
-
   async function getHead(by, value, ddb = dynamodb) {
     const sub = await getSub(value, by, ddb);
     const ent = await getEntity(sub.Items[0].e, ddb);
     const headSub = await getSub(ent.Items[0].h, "e", ddb);
     return headSub;
   }
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Tasks (read API used by UI)                                              */
-  /* ──────────────────────────────────────────────────────────────────────── */
-
+  
   async function getTasks(val, col, ddb = dynamodb) {
     if (col === "e") {
       const subByE = await getSub(String(val), "e", ddb);

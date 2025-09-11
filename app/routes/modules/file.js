@@ -6,6 +6,9 @@ function register({ on, use }) {
     // shared helpers we need
     getSub, getEntity, getTasks, getVerified,
     convertToJSON, fileLocation, manageCookie, getHead, sendBack,
+    // extra helpers for bootstrap
+    incrementCounterAndGetNewValue,
+    createGroup, createEntity, createSubdomain,
     getTasksIOS, // may or may not exist on shared; we guard below
     // raw deps
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
@@ -95,10 +98,47 @@ function register({ on, use }) {
     const splitPath = String(path || "").split("/");
     const verified = await verifyPath(splitPath, verifications, dynamodb);
 
-    if (!allVerified(verified)) {
-      sendBack(res, "json", {}, false);
-      return { __handled: true };
+if (!allVerified(verified)) {
+  // ────────────────────────────────────────────────────────────
+  // BOOTSTRAP for first-time / unauthenticated users
+  // - ensure the visitor has a group id (gi)
+  // - create a brand-new entity and sub-uuid (1v4r…)
+  // - return { existing: true, entity: <su>, cookie: <cookie> }
+  //   so the worker can redirect
+  // NOTE: We keep response.obj empty so worker won't try to GET the file yet.
+  // ────────────────────────────────────────────────────────────
+  try {
+    // If the cookie didn't get a group yet, create one.
+    let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
+    if (!gi) {
+      gi = String(await incrementCounterAndGetNewValue("gCounter"));
+      // Minimal new-group creation; adjust params as your shared API expects.
+      await createGroup(gi);
+      // Attach the group id to the in-memory cookie object so it rounds-trip in the response.
+      cookie.gi = gi;
     }
+
+    // Create a fresh entity for this visitor and a sub-uuid for routing (1v4r…)
+    const eId = String(await incrementCounterAndGetNewValue("eCounter"));
+    await createEntity(eId, gi);
+    const su = await createSubdomain(gi, eId); // should return the "1v4r..." sub id
+
+    // Tell the worker this is a "new session" so it can redirect.
+    // IMPORTANT: keep response.obj empty to avoid the normal load path.
+    sendBack(
+      res,
+      "json",
+      { ok: true, response: { existing: true, entity: su, cookie } },
+      false
+    );
+    return { __handled: true };
+  } catch (err) {
+    console.error("bootstrap error", err);
+    // Preserve legacy behavior on errors
+    sendBack(res, "json", {}, false);
+    return { __handled: true };
+  }
+}
 
     // 3) Extract the "file id" like old code: first segment after action
     const actionFile = (String(path || "").split("/")[1] || "").trim();
