@@ -94,11 +94,17 @@ function register({ on, use }) {
       (await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4));
 
     // 2) Authorization checks — strict parity with old logic
-    const verifications = await getVerified("gi", cookie?.gi?.toString?.(), dynamodb);
+    // Guard: only query when we actually have a group id
+    let verifications = { Items: [] };
+    const cookieGi = cookie?.gi != null ? String(cookie.gi) : "";
+    if (cookieGi && cookieGi !== "0") {
+      verifications = await getVerified("gi", cookieGi, dynamodb);
+    }
     const splitPath = String(path || "").split("/");
-    const verified = await verifyPath(splitPath, verifications, dynamodb);
+    const has1v4r = splitPath.some(seg => seg && seg.startsWith("1v4r"));
+    const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
 
-if (!allVerified(verified)) {
+if (!has1v4r || !allVerified(verified)) {
   // ────────────────────────────────────────────────────────────
   // BOOTSTRAP for first-time / unauthenticated users
   // - ensure the visitor has a group id (gi)
