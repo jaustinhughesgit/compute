@@ -361,6 +361,7 @@ async function legacyBottomCompat({
   isShorthand = false,
 }) {
   try {
+    console.log("1", action)
     if (!action) return;
 
     // Build the legacy mainObj/response shape
@@ -369,12 +370,15 @@ async function legacyBottomCompat({
     const mainObj = {};
 
     // carry through "existing" if it was set by manageCookie middleware
+    console.log("2", "existing")
     if (cookie && Object.prototype.hasOwnProperty.call(cookie, "existing")) {
       mainObj["existing"] = cookie.existing;
     }
+    console.log("2", "actionFile", actionFile)
     mainObj["file"] = actionFile + "";
     response = mainObj;
 
+    console.log("action", action)
     if (action === "file") {
       const expires = 90_000;
       // Use the last known public/private toggle from shared; default to public if unknown

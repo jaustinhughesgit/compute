@@ -1,77 +1,75 @@
 // modules/file.js
-//"use strict";
+"use strict";
 
 function register({ on, use }) {
   const {
     // shared helpers we need
     getSub, getEntity, getTasks, getVerified,
     convertToJSON, fileLocation, manageCookie, getHead, sendBack,
-    getTasksIOS, // ← pulled from shared
-    // raw deps (unchanged signatures where used)
+    getTasksIOS, // may or may not exist on shared; we guard below
+    // raw deps
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
   // ────────────────────────────────────────────────────────────
-  // helpers copied verbatim in spirit from old cookies.js
-  // (kept local to this module to preserve behavior)
+  // helpers kept close to preserve old behavior
   // ────────────────────────────────────────────────────────────
 
   function allVerified(list) {
-    let v = true;
-    for (let l in list) {
-      if (list[l] != true) v = false;
+    // list is an Array<boolean>
+    for (let i = 0; i < list.length; i++) {
+      if (list[i] !== true) return false;
     }
-    return v;
+    return true;
   }
 
   async function verifyPath(splitPath, verifications, dynamodb) {
-    let verified = [];
+    const verified = [];
     let verCounter = 0;
-    for (let ver in splitPath) {
-      if (splitPath[ver].startsWith("1v4r")) {
-        let verValue = false;
-        verified.push(false);
 
-        const sub = await getSub(splitPath[ver], "su", dynamodb);
-        let groupID = sub.Items[0]?.g;
-        let entityID = sub.Items[0]?.e;
+    for (let idx = 0; idx < splitPath.length; idx++) {
+      const seg = splitPath[idx];
+      if (!seg || !seg.startsWith("1v4r")) continue;
 
-        if (sub.Items[0]?.z) {
-          verValue = true;
+      let verValue = false;
+      verified.push(false);
+
+      const sub = await getSub(seg, "su", dynamodb);
+      let groupID = sub.Items?.[0]?.g;
+      let entityID = sub.Items?.[0]?.e;
+
+      if (sub.Items?.[0]?.z) verValue = true;
+
+      for (let vi = 0; vi < (verifications.Items || []).length; vi++) {
+        const row = verifications.Items[vi];
+
+        if (entityID !== "0") {
+          const eSub = await getEntity(sub.Items?.[0]?.e, dynamodb);
+          groupID = eSub.Items?.[0]?.g;
+
+          // "ai" is "access index"? In legacy: if == "0" → public
+          if (String(eSub.Items?.[0]?.ai) === "0") verValue = true;
         }
 
-        for (let veri in (verifications.Items || [])) {
-          if (entityID != "0") {
-            let eSub = await getEntity(sub.Items[0].e, dynamodb);
-            groupID = eSub.Items[0].g;
-
-            if (eSub.Items[0].ai.toString() == "0") {
-              verValue = true;
-            }
-          }
-          if (sub.Items.length > 0) {
-            if (sub.Items[0].z == true) {
-              verValue = true;
-            } else if (entityID == verifications.Items[veri].e && verifications.Items[veri].bo) {
-              const ex = Math.floor(Date.now() / 1000);
-              if (ex < verifications.Items[veri].ex) verValue = true;
-            } else if (groupID == verifications.Items[veri].g && verifications.Items[veri].bo) {
-              const ex = Math.floor(Date.now() / 1000);
-              if (ex < verifications.Items[veri].ex) verValue = true;
-            } else if (entityID == "0" && groupID == "0") {
-              verValue = true;
-            }
+        if ((sub.Items || []).length > 0) {
+          if (sub.Items[0].z === true) {
+            verValue = true;
+          } else {
+            const now = Math.floor(Date.now() / 1000);
+            if (entityID == row.e && row.bo && now < row.ex) verValue = true;
+            else if (groupID == row.g && row.bo && now < row.ex) verValue = true;
+            else if (entityID == "0" && groupID == "0") verValue = true;
           }
         }
-
-        verified[verCounter] = verValue;
-        verCounter++;
       }
+
+      verified[verCounter++] = verValue;
     }
+
     return verified;
   }
 
-  // Legacy body compatibility: accept flattened req.body or legacy { body: {...} }
+  // Accept flattened req.body or legacy { body: {...} }
   function legacyWrapBody(req) {
     const b = req?.body;
     if (!b || typeof b !== "object") return { body: {} };
@@ -86,26 +84,26 @@ function register({ on, use }) {
     const { req, res, path, type, signer } = ctx;
     const { dynamodb, dynamodbLL, uuidv4 } = deps;
 
-    // 1) Legacy cookie/auth & path verification (strict parity)
+    // 1) Cookie/auth (prefer the one minted by cookies.js middleware)
     const mainObj = {};
-    const cookie = await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4);
-    const verifications = await getVerified("gi", cookie.gi?.toString?.(), dynamodb);
+    const cookie =
+      ctx.cookie ||
+      (await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4));
 
-    // Use the module-tail path for verification; still matches legacy behavior
+    // 2) Authorization checks — strict parity with old logic
+    const verifications = await getVerified("gi", cookie?.gi?.toString?.(), dynamodb);
     const splitPath = String(path || "").split("/");
     const verified = await verifyPath(splitPath, verifications, dynamodb);
-    const allV = allVerified(verified);
-    if (!allV) {
-      // same empty fall-through as legacy when not verified
+
+    if (!allVerified(verified)) {
       sendBack(res, "json", {}, false);
       return { __handled: true };
     }
 
-    // 2) Extract the "file id" as in old code: reqPath.split("/")[3]
-    //    Here, modules get "/<su>[/...]" so index 1 is the id.
+    // 3) Extract the "file id" like old code: first segment after action
     const actionFile = (String(path || "").split("/")[1] || "").trim();
 
-    // 3) Convert to JSON (unchanged signature; pass legacy-shaped body)
+    // 4) convertToJSON with legacy-shaped body
     const reqBody = legacyWrapBody(req);
     const converted = await convertToJSON(
       actionFile,
@@ -124,20 +122,20 @@ function register({ on, use }) {
       ""                  // substitutingID
     );
 
-    // 4) Tasks enrichment (strict parity)
+    // 5) Tasks enrichment (guard if helper missing)
     const tasksUnix = await getTasks(actionFile, "su", dynamodb);
-    const tasksISO = getTasksIOS(tasksUnix);
-    converted["tasks"] = tasksISO;
+    const tasksISO = typeof getTasksIOS === "function" ? getTasksIOS(tasksUnix) : tasksUnix;
+    converted.tasks = tasksISO;
 
-    // 5) Build legacy response container
+    // 6) Legacy response container
     const response = converted;
-    response["existing"] = cookie.existing;
-    response["file"] = actionFile + "";
+    response.existing = cookie?.existing;
+    response.file = actionFile + "";
 
-    // 6) CloudFront signed URL / signed cookies (identical logic/shape)
+    // 7) CloudFront signed URL / signed cookies
     const expires = 90_000;
 
-    // Preserve original bucket selection semantics by deriving from head.z
+    // Determine bucket from head.z (legacy parity)
     const head = await getHead("su", actionFile, dynamodb);
     const isPublic = !!(head?.Items?.[0]?.z);
     const url = `https://${fileLocation(isPublic)}.1var.com/${actionFile}`;
@@ -151,13 +149,14 @@ function register({ on, use }) {
       }]
     });
 
-    if (type === "url") {
+    // When the route is /url/file/... or ?type=url we return a direct signed URL
+    if (type === "url" || req?.type === "url" || req?.query?.type === "url") {
       const signedUrl = signer.getSignedUrl({ url, policy });
       sendBack(res, "json", { signedUrl }, false);
       return { __handled: true };
     }
 
-    // signed-cookies branch
+    // Otherwise issue signed cookies for the CloudFront policy
     const cookies = signer.getSignedCookie({ policy });
     Object.entries(cookies).forEach(([name, val]) => {
       res.cookie(name, val, {
@@ -165,11 +164,10 @@ function register({ on, use }) {
         httpOnly: true,
         domain: ".1var.com",
         secure: true,
-        sameSite: "None"
+        sameSite: "None",
       });
     });
 
-    console.log("sendBack response", response)
     sendBack(res, "json", { ok: true, response }, false);
     return { __handled: true };
   });
