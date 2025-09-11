@@ -109,6 +109,15 @@ function register({ on, use }) {
     const body = ctx.req?.body || {};
     const outputParam = (body && (body.output ?? body?.body?.output)) || undefined;
 
+ const thought = {}
+    thought[suDoc] = {
+            owners: [],
+            content: "",
+            contentType: "text",
+            moods: {},
+            selectedMood: "",
+          }
+
     const payload = {
       input: [],
       published: {
@@ -183,15 +192,7 @@ function register({ on, use }) {
           d: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 4" }, _mode: "_html" },
         },
         mindsets: [],
-        thoughts: {
-          "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
-            owners: [],
-            content: "",
-            contentType: "text",
-            moods: {},
-            selectedMood: "",
-          },
-        },
+        thoughts: thought,
         moods: [],
       },
       skip: [],
