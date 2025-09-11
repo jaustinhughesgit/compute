@@ -177,7 +177,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       if (result !== undefined && result !== null) {
         // Respect whatever the handler returned
         console.log("sendBack1")
-        return _shared.sendBack(res, "json", { ok: false, response: result }, /*isShorthand*/ false);
+        return _shared.sendBack(res, "json", { ok: true, response: result }, /*isShorthand*/ false);
       }
       // Legacy: empty JSON when nothing to do
         console.log("sendBack2")
