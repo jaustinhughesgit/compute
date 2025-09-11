@@ -89,9 +89,12 @@ function register({ on, use }) {
 
     // 1) Cookie/auth (prefer the one minted by cookies.js middleware)
     const mainObj = {};
-    const cookie =
-      ctx.cookie ||
-      (await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4));
+    // Use let and ensure we always have a plain object
+    let cookie =
+      ctx.cookie ??
+      (await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4)) ??
+      {};
+    if (cookie == null || typeof cookie !== "object") cookie = {};
 
     // 2) Authorization checks — strict parity with old logic
     // Guard: only query when we actually have a group id
@@ -108,26 +111,17 @@ if (!has1v4r || !allVerified(verified)) {
   // ────────────────────────────────────────────────────────────
   // BOOTSTRAP for first-time / unauthenticated users
   // - ensure the visitor has a group id (gi)
-  // - create a brand-new entity and sub-uuid (1v4r…)
+  // - mint/return a valid subdomain uuid (1v4r…) via manageCookie
   // - return { existing: true, entity: <su>, cookie: <cookie> }
   //   so the worker can redirect
   // NOTE: We keep response.obj empty so worker won't try to GET the file yet.
   // ────────────────────────────────────────────────────────────
 
-    // If the cookie didn't get a group yet, create one.
-    let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
-    if (!gi) {
-      gi = String(await incrementCounterAndGetNewValue("gCounter"));
-      // Minimal new-group creation; adjust params as your shared API expects.
-      await createGroup(gi);
-      // Attach the group id to the in-memory cookie object so it rounds-trip in the response.
-      cookie.gi = gi;
+    // Let shared.manageCookie handle correct bootstrap (it uses getUUID → "1v4r...").
+    if (!cookie?.entity || !String(cookie.entity).startsWith("1v4r")) {
+      cookie = (await manageCookie({}, ctx.xAccessToken, res, dynamodb, uuidv4)) || {};
     }
-
-    // Create a fresh entity for this visitor and a sub-uuid for routing (1v4r…)
-    const eId = String(await incrementCounterAndGetNewValue("eCounter"));
-    await createEntity(eId, gi);
-    const su = await createSubdomain(gi, eId); // should return the "1v4r..." sub id
+    const su = String(cookie.entity); // guaranteed "1v4r..." here
 
     // Tell the worker this is a "new session" so it can redirect.
     // IMPORTANT: keep response.obj empty to avoid the normal load path.

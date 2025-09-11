@@ -347,16 +347,7 @@ async function route(
   }
 }
 
-/* ────────────────────────────────────────────────────────────────────────────
-   Legacy bottom-of-old-cookies.js behavior (compat layer)
-   - action "file": CloudFront signed URL or signed cookies
-   - action "reqPut": S3 pre-signed PUT
-   This only runs when no module already handled the request.
-   It mirrors the original control flow & response shape as closely as possible.
-──────────────────────────────────────────────────────────────────────────── */
 async function legacyBottomCompat({ action, type, pathForModules, req, res, cookie, isShorthand = false }) {
-  // Nothing to do here anymore — modules handle 'file' and 'reqPut'.
-  // Keep the legacy shape of an empty response to avoid breaking old callers.
   try {
     return ensureShared().sendBack(res, "json", { ok: true, response: {} }, isShorthand);
   } catch (e) {
