@@ -100,7 +100,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/file");
   reg("./modules/links");
   reg("./modules/tasks");
-  reg("./modules/groups");
   reg("./modules/validation");
   reg("./modules/updateEntityByAI");
   reg("./modules/position");
@@ -121,6 +120,9 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/add");
   reg("./modules/addIndex");
   reg("./modules/reqPut");
+  reg("./modules/newGroup");
+  reg("./modules/useGroup");
+  reg("./modules/substituteGroup");
 
   const router = express.Router({ mergeParams: true });
 
