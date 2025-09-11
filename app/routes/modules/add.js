@@ -1,5 +1,5 @@
 // modules/add.js
-// "use strict";
+"use strict";
 
 /**
  * Creates a new child Entity + Word under a parent Subdomain (su),
@@ -89,6 +89,15 @@ function register({ on, use }) {
     const childSU = await getUUID(deps?.uuidv4);
     await createSubdomain(childSU, aId, eId, "0", parentZ);
 
+    const thought = {}
+    thought[childSU] = {
+            owners: [],
+            content: "",
+            contentType: "text",
+            moods: {},
+            selectedMood: "",
+          }
+
     // Seed the file (legacy-compatible structure)
     const initialFile = {
       input: [],
@@ -143,15 +152,7 @@ function register({ on, use }) {
           d: { _editable: false, _movement: "move", _owners: [], _modes: { _html: "Box 4" }, _mode: "_html" },
         },
         mindsets: [],
-        thoughts: {
-          "1v4rdc3d72be-3e20-435c-a68b-3808f99af1b5": {
-            owners: [],
-            content: "",
-            contentType: "text",
-            moods: {},
-            selectedMood: "",
-          },
-        },
+        thoughts: thought,
         moods: [],
       },
       skip: [],
@@ -176,11 +177,9 @@ function register({ on, use }) {
       await updateEntity(eId, "g", String(parentEntity.g), gDetails?.v, gDetails?.c);
     }
 
-
     // ───────────────────────────────────────────────────────────────────
-    // LEGACY PARITY: if a headSU is provided, return the TREE DIRECTLY.
-    // This mirrors old cookies.js which returned convertToJSON(...) as
-    // the top-level response for "add".
+    // LEGACY PARITY: if a headSU is provided, return the TREE DIRECTLY,
+    // but include `file: childSU` so the client can immediately fetch it.
     // ───────────────────────────────────────────────────────────────────
     if (headSU) {
       try {
@@ -199,7 +198,7 @@ function register({ on, use }) {
           deps?.dynamodbLL,  // ddbLL
           ctx?.req?.body     // body for deepEqual validation path
         );
-        return tree; // EXACT legacy shape
+        return { ...tree, file: childSU };
       } catch (err) {
         // If tree build fails, fall through to the fallback response.
       }
@@ -208,11 +207,12 @@ function register({ on, use }) {
     // No headSU provided (or tree build failed): return compact creation info
     return {
       ok: true,
-        action: "add",
-        parent: { su: parentSU, e: parentEId, public: parentZ },
-        created: { su: childSU, e: eId, a: aId, name: newEntityName },
-        head: headSU || null
-      }
+      action: "add",
+      parent: { su: parentSU, e: parentEId, public: parentZ },
+      created: { su: childSU, e: eId, a: aId, name: newEntityName },
+      head: headSU || null,
+      file: childSU,
+    };
   });
 
   return { name: "add" };
