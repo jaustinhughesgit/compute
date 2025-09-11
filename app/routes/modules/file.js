@@ -6,11 +6,10 @@ function register({ on, use }) {
     getSub, getEntity, getTasks, getVerified,
     convertToJSON, fileLocation, manageCookie, getHead, sendBack,
     incrementCounterAndGetNewValue,
-    //createGroup, createEntity, createSubdomain,
+    createGroup, createEntity, createSubdomain,
     getTasksIOS,
     getUUID, createWord,
     deps,
-    dispatch,
   } = use();
 
 
@@ -94,25 +93,25 @@ function register({ on, use }) {
     const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
 
     if (!has1v4r || !allVerified(verified)) {
-      // Only bootstrap a brand-new experience if this cookie has **no active verifications**.
-      const now = Math.floor(Date.now() / 1000);
-      const hasActiveVerification = (verifications.Items || []).some(v => v.bo && now < v.ex);
 
-      if (!hasActiveVerification) {
-        // Choose sensible defaults; caller may override via query (?group= & ?head=)
-        const groupName = encodeURIComponent(req?.query?.group || "My Group");
-        const headName  = encodeURIComponent(req?.query?.head  || "Primary");
-        // newGroup expects ctx.path = "/<name>/<head>/<uuid?>"
-        const newCtx = { ...ctx, path: `/${groupName}/${headName}` };
-        // Delegate provisioning to the canonical handler
-        const out = await dispatch("newGroup", newCtx, { cookie });
-        return out ?? { __handled: true };
+      let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
+      if (!gi) {
+        gi = String(await incrementCounterAndGetNewValue("gCounter"));
+        await createGroup(gi);
+        cookie.gi = gi;
       }
 
-      // Cookie exists but isn't authorized for this path → explicit 403, no provisioning here.
-      res.status?.(403);
-      sendBack(res, "json", { ok: false, error: "not_verified" }, false);
+      const eId = String(await incrementCounterAndGetNewValue("eCounter"));
+      await createEntity(eId, gi);
+      const su = await createSubdomain(gi, eId);
+      sendBack(
+        res,
+        "json",
+        { ok: true, response: { existing: true, entity: su, cookie } },
+        false
+      );
       return { __handled: true };
+
     }
 
     const actionFile = (String(path || "").split("/")[1] || "").trim();
