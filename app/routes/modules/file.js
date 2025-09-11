@@ -111,7 +111,7 @@ if (!has1v4r || !allVerified(verified)) {
   // ────────────────────────────────────────────────────────────
   // BOOTSTRAP for first-time / unauthenticated users
   // - ensure the visitor has a group id (gi)
-  // - mint/return a valid subdomain uuid (1v4r…) via manageCookie
+  // - create a brand-new entity and sub-uuid (1v4r…)
   // - return { existing: true, entity: <su>, cookie: <cookie> }
   //   so the worker can redirect
   // NOTE: We keep response.obj empty so worker won't try to GET the file yet.
