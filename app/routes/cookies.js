@@ -120,6 +120,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/resetDB");
   reg("./modules/add");
   reg("./modules/addIndex");
+  reg("./modules/reqPut");
 
   const router = express.Router({ mergeParams: true });
 
@@ -351,124 +352,12 @@ async function route(
    This only runs when no module already handled the request.
    It mirrors the original control flow & response shape as closely as possible.
 ──────────────────────────────────────────────────────────────────────────── */
-async function legacyBottomCompat({
-  action,
-  type,
-  pathForModules,
-  req,
-  res,
-  cookie,
-  isShorthand = false,
-}) {
+async function legacyBottomCompat({ action, type, pathForModules, req, res, cookie, isShorthand = false }) {
+  // Nothing to do here anymore — modules handle 'file' and 'reqPut'.
+  // Keep the legacy shape of an empty response to avoid breaking old callers.
   try {
-    console.log("1", action)
-    if (!action) return;
-
-    // Build the legacy mainObj/response shape
-    const actionFile = String(pathForModules || "/").replace(/^\//, "");
-    let response;
-    const mainObj = {};
-
-    // carry through "existing" if it was set by manageCookie middleware
-    console.log("2", "existing")
-    if (cookie && Object.prototype.hasOwnProperty.call(cookie, "existing")) {
-      mainObj["existing"] = cookie.existing;
-    }
-    console.log("2", "actionFile", actionFile)
-    mainObj["file"] = actionFile + "";
-    response = mainObj;
-
-    console.log("action", action)
-    if (action === "file") {
-      const expires = 90_000;
-      // Use the last known public/private toggle from shared; default to public if unknown
-      const isPublic = !!ensureShared()._isPublic;
-      const url = `https://${ensureShared().fileLocation(isPublic)}.1var.com/${actionFile}`;
-
-      const policy = JSON.stringify({
-        Statement: [
-          {
-            Resource: url,
-            Condition: {
-              DateLessThan: { "AWS:EpochTime": Math.floor((Date.now() + expires) / 1000) },
-            },
-          },
-        ],
-      });
-
-      if (type === "url" || req?.type === "url" || req?.query?.type === "url") {
-        // direct CloudFront URL
-        const signedUrl = _signer.getSignedUrl({ url, policy });
-        return ensureShared().sendBack(res, "json", { signedUrl }, isShorthand);
-      }
-
-      // signed-cookies branch (attach to domain)
-      const cookies = _signer.getSignedCookie({ policy });
-      Object.entries(cookies).forEach(([name, val]) => {
-        res.cookie?.(name, val, {
-          maxAge: expires,
-          httpOnly: true,
-          domain: ".1var.com",
-          secure: true,
-          sameSite: "None",
-        });
-      });
-
-      return ensureShared().sendBack(res, "json", { ok: true, response }, isShorthand);
-    } else if (action === "reqPut") {
-      // Inputs may come from query or body; default content type if absent
-      const isPublic = !!ensureShared()._isPublic;
-      const bucketName = `${ensureShared().fileLocation(isPublic)}.1var.com`;
-      const fileName = actionFile;
-      const expires = 90_000;
-
-      const fileCategory =
-        req?.query?.fileCategory ||
-        req?.body?.fileCategory ||
-        req?.query?.category ||
-        req?.body?.category ||
-        "application";
-      const fileType =
-        req?.query?.fileType ||
-        req?.body?.fileType ||
-        req?.query?.type ||
-        req?.body?.type ||
-        "octet-stream";
-
-      const params = {
-        Bucket: bucketName,
-        Key: fileName,
-        Expires: Math.floor(expires / 1000), // AWS expects seconds
-        ContentType: `${fileCategory}/${fileType}`,
-      };
-
-      try {
-        // v2 SDK compat: promisify getSignedUrl
-        const getSignedUrlAsync = (op, p) =>
-          new Promise((resolve, reject) =>
-            ensureShared()
-              .getS3()
-              .getSignedUrl(op, p, (err, url) => (err ? reject(err) : resolve(url)))
-          );
-
-        const url = await getSignedUrlAsync("putObject", params);
-        response.putURL = url;
-        return ensureShared().sendBack(res, "json", { ok: true, response }, isShorthand);
-      } catch (err) {
-        console.error("getSignedUrl failed:", err);
-        return ensureShared().sendBack(res, "json", { ok: false, response: {} }, isShorthand);
-      }
-    } else {
-      if (Object.prototype.hasOwnProperty.call(response, "ot")) {
-        return ensureShared().sendBack(res, "json", { ok: true, response }, isShorthand);
-      } else if (isShorthand) {
-        return ensureShared().sendBack(res, "json", { ok: true, response }, isShorthand);
-      } else {
-        return ensureShared().sendBack(res, "json", { ok: true, response }, isShorthand);
-      }
-    }
+    return ensureShared().sendBack(res, "json", { ok: true, response: {} }, isShorthand);
   } catch (e) {
-    // Match legacy: return an empty shape on error if not already handled
     if (!res.headersSent) {
       return ensureShared().sendBack(res, "json", { ok: false, response: {} }, isShorthand);
     }
