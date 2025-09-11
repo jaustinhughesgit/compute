@@ -924,11 +924,12 @@ function getTasksIOS(tasks) {
   /* ──────────────────────────────────────────────────────────────────────── */
 
   function sendBack(res, type, val, isShorthand) {
-    if (!isShorthand) {
-      return res?.json?.(val);
-    } else {
-      return val;
-    }
+  // normalize undefined/null → {}
+  if (val == null) val = {};
+  // shorthand → return the raw value (no HTTP write)
+  if (isShorthand) return val;
+  // non-shorthand → write JSON over HTTP
+  return res?.json?.(val);
   }
 
   /* ──────────────────────────────────────────────────────────────────────── */

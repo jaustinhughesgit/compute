@@ -174,15 +174,22 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
       const result = await ensureShared().dispatch(action, ctx, { cookie });
       if (res.headersSent) return;
       if (result && result.__handled) return; // explicit no-op (legacy parity)
-      if (result !== undefined && result !== null) return res.json(result);
-
-      return res.status(404).json({ ok: false, error: `No handler for "${action}"` });
+      if (result !== undefined && result !== null) {
+        // Respect whatever the handler returned
+        return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
+      }
+      // Legacy: empty JSON when nothing to do
+      return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
     } catch (err) {
       console.error("cookies route error", err);
       if (!res.headersSent) {
         res
           .status(500)
           .json({ ok: false, error: err?.message || "Internal Server Error" });
+      }
+            if (!res.headersSent) {
+        // Legacy error shape
+        _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
       }
     }
   });
@@ -278,17 +285,22 @@ async function route(
     const result = await ensureShared().dispatch(a, ctx, { cookie: req?.cookies || {} });
 
     if (!res?.headersSent) {
-      if (result && result.__handled) return; // do nothing; old cookies.js parity
+      if (result && result.__handled) return; // legacy parity
       if (res?.json && result !== undefined && result !== null) {
-        return res.json(result);
+        return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
       }
-      if (res?.json) return res.json({ ok: false, error: `No handler for "${a}"` });
-      return result;
+      if (res?.json) {
+        // No handler → empty payload
+        return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
+      }
+      // No HTTP writer (shorthand / programmatic) → return raw
+      return result ?? {};
     }
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
     if (!res?.headersSent && res?.status && res?.json) {
-      res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
+      _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
+
     }
   }
 }
@@ -302,6 +314,7 @@ const bind = (name) => (...args) => {
 module.exports = {
   setupRouter,
   route,
+  sendBack: bind("sendBack"),
   getHead: bind("getHead"),
   convertToJSON: bind("convertToJSON"),
   manageCookie: bind("manageCookie"),

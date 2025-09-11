@@ -176,7 +176,7 @@ function register({ on, use }) {
       await updateEntity(eId, "g", String(parentEntity.g), gDetails?.v, gDetails?.c);
     }
 
-    
+
     // ───────────────────────────────────────────────────────────────────
     // LEGACY PARITY: if a headSU is provided, return the TREE DIRECTLY.
     // This mirrors old cookies.js which returned convertToJSON(...) as
@@ -208,13 +208,11 @@ function register({ on, use }) {
     // No headSU provided (or tree build failed): return compact creation info
     return {
       ok: true,
-      "response":{
         action: "add",
         parent: { su: parentSU, e: parentEId, public: parentZ },
         created: { su: childSU, e: eId, a: aId, name: newEntityName },
         head: headSU || null
       }
-    };
   });
 
   return { name: "add" };

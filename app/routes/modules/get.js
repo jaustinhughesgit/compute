@@ -43,7 +43,7 @@ function register({ on, use }) {
     mainObj["existing"] = cookie.existing;
     mainObj["file"] = fileID + "";
 
-    return { ok: true, response: mainObj};
+    return mainObj;
   });
 
   return { name: "get" };
