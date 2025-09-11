@@ -103,7 +103,8 @@ function register({ on, use }) {
 
       const eId = String(await incrementCounterAndGetNewValue("eCounter"));
       await createEntity(eId, gi);
-      const su = await createSubdomain(gi, eId);
+      const suID = await getUUID(deps?.uuidv4);
+      const su = await createSubdomain(suID, eId);
       sendBack(
         res,
         "json",
