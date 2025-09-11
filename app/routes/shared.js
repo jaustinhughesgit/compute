@@ -125,6 +125,7 @@ const dispatch = async (action, ctx = {}, extra = {}) => {
   } catch (err) {
     // Best-effort error response if we have an express-like res
     if (ctx?.res && !res.headersSent && typeof res.status === "function" && typeof res.json === "function") {
+      console.log("err",err)
       res.status(500).json({ ok: false, error: err?.message || "Internal Server Error" });
       return { __handled: true };
     }
