@@ -36,6 +36,13 @@ const deepEqual = (a, b) => {
   return a == b;
 };
 
+const isMissingResource = (err) =>
+  err &&
+  (
+    err.code === "ResourceNotFoundException" ||
+    err.name === "ResourceNotFoundException" ||
+    /requested resource not found/i.test(String(err.message || ""))
+  );
 
 function createShared(deps = {}) {
   const {
@@ -107,6 +114,24 @@ function createShared(deps = {}) {
       if (res.headersSent) return { __handled: true };
       return out;
     } catch (err) {
+     // Treat "Requested resource not found" as an acceptable error = invalid cookie
+     if (ctx?.res && !res.headersSent && isMissingResource(err)) {
+       try {
+         const main = {};
+         // Force a fresh bootstrap (acts like invalid cookie)
+         const cookie = await manageCookie(main, /*xAccessToken*/ null, ctx.res);
+         sendBack(
+           ctx.res,
+           "json",
+           { ok: true, response: { existing: true, entity: cookie?.entity, cookie } },
+           false
+         );
+         return { __handled: true };
+       } catch (e2) {
+         // fall through to normal 500 handling if bootstrap itself fails
+         err = e2;
+       }
+     }
       if (
         ctx?.res &&
         !res.headersSent &&
