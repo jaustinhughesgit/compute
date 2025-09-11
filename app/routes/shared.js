@@ -640,80 +640,81 @@ function createShared(deps = {}) {
   }
 
 async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-  const ttlSec = 86400;                       // 1 day
+  const ttlSec = 86400;
   const nowSec = Math.floor(Date.now() / 1000);
 
   const setBrowserCookies = (ak, gi) => {
     try {
-      // Persist both AK and GI so downstream sees them immediately
       res?.cookie?.("accessToken", ak, {
-        domain: ".1var.com",
-        maxAge: ttlSec * 1000,
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
+        domain: ".1var.com", maxAge: ttlSec * 1000, httpOnly: true, secure: true, sameSite: "None",
       });
       res?.cookie?.("gi", String(gi), {
-        domain: ".1var.com",
-        maxAge: ttlSec * 1000,
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
+        domain: ".1var.com", maxAge: ttlSec * 1000, httpOnly: true, secure: true, sameSite: "None",
       });
-    } catch { /* no-op for non-HTTP contexts */ }
+    } catch {}
   };
 
-  const bootstrapNewVisitor = async () => {
-    // Fresh AK + cookie id + group id
-    const ak = await getUUID(uuid);                                 // "1v4r..." token
+  const makeStarterWordEntityAndSub = async (gi) => {
+    // word (name)
+    const aId = String(await incrementCounterAndGetNewValue("aCounter", ddb));
+    await createWord(aId, "Welcome", ddb);
+
+    // entity (head=h=e)
+    const eId = String(await incrementCounterAndGetNewValue("eCounter", ddb));
+    await createEntity(eId, aId, "1", gi, eId, "0", ddb);
+
+    // subdomain (the “entity id” the worker expects)
+    const su = await getUUID(uuid); // "1v4r..." string
+    await createSubdomain(su, aId, eId, gi, false, ddb);
+
+    // group record (points to this entity + its name)
+    await createGroup(String(gi), aId, eId, "0", ddb);
+
+    return { su, eId, aId };
+  };
+
+  const bootstrap = async () => {
+    const ak = await getUUID(uuid);
     const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-    const gi = String(await incrementCounterAndGetNewValue("gCounter", ddb));
+    const gi = String(await incrementCounterAndGetNewValue("giCounter", ddb));
     const ex = nowSec + ttlSec;
 
-    // Create minimal group record (placeholder a/e/ai = "0")
-    await createGroup(gi, "0", "0", "0", ddb);
-
-    // Persist cookie row
     await createCookie(String(ci), String(gi), ex, ak, ddb);
 
-    // Surface to caller & browser
+    // Create a minimal, valid landing entity + subdomain
+    const { su } = await makeStarterWordEntityAndSub(gi);
+
     mainObj.status = "bootstrapped";
     mainObj.accessToken = ak;
     setBrowserCookies(ak, gi);
 
-    return { ak, gi, ex, ci, existing: true };
+    // IMPORTANT: return entity=sub-uuid so the worker can redirect
+    return { ak, gi, ex, ci, existing: true, entity: su };
   };
 
-  // If caller provided an access token, try to reuse it
   if (xAccessToken) {
     mainObj.status = "authenticated";
     const q = await getCookie(xAccessToken, "ak", ddb);
     const row = q?.Items?.[0];
 
-    // If not found or malformed → bootstrap
-    if (!row || !row.gi) {
-      return await bootstrapNewVisitor();
+    if (!row || !row.gi || !row.ex || Number(row.ex) <= nowSec) {
+      return await bootstrap();
     }
 
-    // If cookie is expired → bootstrap
-    if (!row.ex || Number(row.ex) <= nowSec) {
-      return await bootstrapNewVisitor();
-    }
-
-    // If the referenced group does not exist (empty DB or deleted) → bootstrap
+    // Ensure the group exists; if missing, rebuild starter artifacts
     const gq = await getGroup(String(row.gi), ddb);
     if (!gq?.Items?.length) {
-      return await bootstrapNewVisitor();
+      return await bootstrap();
     }
 
-    // Looks good: refresh browser cookies so client consistently has both
     setBrowserCookies(xAccessToken, row.gi);
     return row; // { ci, gi, ex, ak }
   }
 
-  // No token at all → first-time visitor
-  return await bootstrapNewVisitor();
+  // No token at all → bootstrap new visitor
+  return await bootstrap();
 }
+
 
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
