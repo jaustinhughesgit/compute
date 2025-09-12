@@ -289,7 +289,7 @@ function createShared(deps = {}) {
   const makeLinkId = (wholeE, partE) => `lnk#${wholeE}#${partE}`;
   const makeCKey = (wholeE, partE) => `${wholeE}|${partE}`;
 
-  async function putLink(wholeE, partE, prop, ddb = dynamodb) {
+  async function putLink(wholeE, partE, propE, ddb = dynamodb) {
     const id = makeLinkId(wholeE, partE);
     const ckey = makeCKey(wholeE, partE);
     try {
@@ -303,7 +303,7 @@ function createShared(deps = {}) {
             ckey,
             type: "link",
             ts: Date.now(),
-            ...(prop ? { prop: String(prop).trim().toLowerCase() } : {}),
+            ...(propE ? { prop: propE } : {}), // store server entity id
           },
           ConditionExpression: "attribute_not_exists(id)",
         })

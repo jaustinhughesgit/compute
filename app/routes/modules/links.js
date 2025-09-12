@@ -116,18 +116,19 @@ function register({ on, use }) {
     const childID = segs[0] || "";   // su of child
     const parentID = segs[1] || "";  // su of parent
     // prop is optional 3rd segment; URL-decoded & normalized
-    const propRaw = segs[2] ? decodeURIComponent(segs[2]) : "";
-    const propNorm = String(propRaw || "").trim().toLowerCase();
+    const propSU   = segs[2] || ""; // already an SU, not a surface
 
     // attempt link only if both found; ignore else
     try {
-      const childSub  = await getSub(childID,  "su");
-      const parentSub = await getSub(parentID, "su");
+    const childSub  = await getSub(childSU,  "su");
+    const parentSub = await getSub(parentSU, "su");
+    const propSub   = propSU ? await getSub(propSU, "su") : null;
 
       if (childSub?.Items?.length && parentSub?.Items?.length) {
-        const childE  = childSub.Items[0].e;
-        const parentE = parentSub.Items[0].e;
-        await putLink(parentE, childE, propNorm || undefined);
+      const childE  = childSub.Items[0].e;   // server entity id
+      const parentE = parentSub.Items[0].e;  // server entity id
+      const propE   = propSub?.Items?.[0]?.e; // server entity id (optional)
+      await putLink(parentE, childE, propE || undefined);
       }
     } catch (err) {
       // keep behavior: don't throw; proceed to return current child view
