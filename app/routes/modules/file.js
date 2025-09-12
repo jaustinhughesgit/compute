@@ -15,6 +15,7 @@ function register({ on, use }) {
     // Ensure we know public/private for signing
     const v = await verifyThis(su, cookie);
     if (!v.verified) return { ok: true, response: {} }; // legacy: empty on no access
+    
 
     // Build the unified tree (enforces permissions)
     const tree = await convertToJSON(

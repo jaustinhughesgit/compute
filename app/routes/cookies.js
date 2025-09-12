@@ -304,6 +304,14 @@ async function route(
       req?.headers?.["x-accesstoken"] ||
       req?.headers?.["x-accessToken"],
   };
+  // Ensure a valid cookie for the legacy adapter too
+  try {
+    const main = {};
+    const ck = await _shared.manageCookie(main, ctx.xAccessToken, res);
+    ctx.cookie = ck;
+    req.cookies ||= {};
+    Object.assign(req.cookies, ck);
+  } catch (_) { /* non-fatal: downstream verifyThis will handle */ }
 
   try {
     // Flush shared caches per request (parity with old behavior)
