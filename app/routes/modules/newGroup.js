@@ -223,7 +223,7 @@ function register({ on, use }) {
         },
       },
     };
-    await ses.sendEmail(params).promise();
+    //await ses.sendEmail(params).promise();
 
     // Return the new document view
     const mainObj = await convertToJSON(
