@@ -1219,6 +1219,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let rA = await rowArray
             let bod = rA[1];
             console.log("bod rA[1]", bod);
+            console.log("req", req)
             console.log("req.body", req.body)
 
             let expt = rA[2]
