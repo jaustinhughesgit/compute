@@ -1,195 +1,63 @@
-// modules/file.js
 "use strict";
 
 function register({ on, use }) {
-  const {
-    getSub, getEntity, getTasks, getVerified,
-    convertToJSON, fileLocation, manageCookie, getHead, sendBack,
-    incrementCounterAndGetNewValue,
-    createGroup, createEntity, createSubdomain,
-    getTasksIOS,
-    getUUID, createWord,
-    deps,
-  } = use();
+  on("file", async (ctx, { cookie }) => {
+    const {
+      // shared helpers (REUSE, don’t duplicate)
+      verifyThis, convertToJSON, getTasks, getTasksIOS,
+      fileLocation, getSub, sendBack, // sendBack only if you *really* need to short-circuit
+      deps, // { uuidv4, ... }
+    } = use();
 
+    const su = String(ctx.path || "").split("/").filter(Boolean)[0];
+    if (!su) return { ok: true, response: {} };
 
-  function allVerified(list) {
-    for (let i = 0; i < list.length; i++) {
-      if (list[i] !== true) return false;
-    }
-    return true;
-  }
+    // Ensure we know public/private for signing
+    const v = await verifyThis(su, cookie);
+    if (!v.verified) return { ok: true, response: {} }; // legacy: empty on no access
 
-  async function verifyPath(splitPath, verifications, dynamodb) {
-    const verified = [];
-    let verCounter = 0;
-
-    for (let idx = 0; idx < splitPath.length; idx++) {
-      const seg = splitPath[idx];
-      console.log("1", seg)
-      if (!seg || !seg.startsWith("1v4r")) continue;
-      console.log("2")
-      let verValue = false;
-      verified.push(false);
-
-      const sub = await getSub(seg, "su", dynamodb);
-      console.log("3",sub)
-      let groupID = sub.Items?.[0]?.g;
-      let entityID = sub.Items?.[0]?.e;
-
-      if (sub.Items?.[0]?.z) verValue = true;
-
-      console.log("4groupID",groupID)
-      console.log("4entityID",entityID)
-      for (let vi = 0; vi < (verifications.Items || []).length; vi++) {
-        console.log("vi", vi)
-        const row = verifications.Items[vi];
-
-        if (entityID !== "0") {
-          console.log("entityID")
-          const eSub = await getEntity(sub.Items?.[0]?.e, dynamodb);
-          groupID = eSub.Items?.[0]?.g;
-          console.log("5verValue",verValue)
-          if (String(eSub.Items?.[0]?.ai) === "0") verValue = true;
-        }
-          console.log("6verValue",verValue)
-        console.log("sub", sub)
-        if ((sub.Items || []).length > 0) {
-          console.log("7verValue",verValue)
-          if (sub.Items[0].z === true) {
-            verValue = true;
-          } else {
-            const now = Math.floor(Date.now() / 1000);
-            if (entityID == row.e && row.bo && now < row.ex) verValue = true;
-            else if (groupID == row.g && row.bo && now < row.ex) verValue = true;
-            else if (entityID == "0" && groupID == "0") verValue = true;
-          }
-        }
-      }
-
-      verified[verCounter++] = verValue;
-    }
-    console.log("return", verified)
-    return verified;
-  }
-
-  function legacyWrapBody(req) {
-    const b = req?.body;
-    if (!b || typeof b !== "object") return { body: {} };
-    if (b.body && typeof b.body === "object") return b;
-    return { body: b };
-  }
-
-  on("file", async (ctx /*, meta */) => {
-    const { req, res, path, type, signer } = ctx;
-    const { dynamodb, dynamodbLL, uuidv4 } = deps;
-
-    const mainObj = {};
-    let cookie =
-      ctx.cookie ??
-      (await manageCookie(mainObj, ctx.xAccessToken, res, dynamodb, uuidv4)) ??
-      {};
-    if (cookie == null || typeof cookie !== "object") cookie = {};
-
-    let verifications = { Items: [] };
-    const cookieGi = cookie?.gi != null ? String(cookie.gi) : "";
-    if (cookieGi && cookieGi !== "0") {
-      verifications = await getVerified("gi", cookieGi, dynamodb);
-    }
-    const splitPath = String(path || "").split("/");
-    console.log("splitPath", splitPath)
-    const has1v4r = splitPath.some(seg => seg && seg.startsWith("1v4r"));
-    console.log("verifications",verifications)
-    const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
-    console.log("verified",verified)
-
-    console.log("has1v4r", has1v4r)
-    console.log("allVerified(verified)", allVerified(verified))
-    if (has1v4r && !allVerified(verified)) {
-
-      let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
-      if (!gi) {
-        gi = String(await incrementCounterAndGetNewValue("gCounter"));
-        await createGroup(gi);
-        cookie.gi = gi;
-      }
-
-      const eId = String(await incrementCounterAndGetNewValue("eCounter"));
-      await createEntity(eId, gi);
-      const suID = await getUUID(deps?.uuidv4);
-      const su = await createSubdomain(suID, eId);
-      sendBack(
-        res,
-        "json",
-        { ok: true, response: { existing: true, entity: su, cookie } },
-        false
-      );
-      return { __handled: true };
-
-    }
-
-    const actionFile = (String(path || "").split("/")[1] || "").trim();
-
-    const reqBody = legacyWrapBody(req);
-    const converted = await convertToJSON(
-      actionFile,
-      [],                 // parentPath
-      null,               // isUsing
-      null,               // mapping
-      cookie,
-      dynamodb,
-      uuidv4,
-      null,               // pathID
-      [],                 // parentPath2
-      {},                 // id2Path
-      "",                 // usingID
-      dynamodbLL,
-      reqBody,            // body (legacy-compatible)
-      ""                  // substitutingID
+    // Build the unified tree (enforces permissions)
+    const tree = await convertToJSON(
+      su, [], null, null, cookie, undefined, deps.uuidv4,
+      undefined, [], {}, "", deps.dynamodbLL, ctx.req?.body
     );
 
-    const tasksUnix = await getTasks(actionFile, "su", dynamodb);
-    const tasksISO = typeof getTasksIOS === "function" ? getTasksIOS(tasksUnix) : tasksUnix;
-    converted.tasks = tasksISO;
+    // Attach tasks (normalized)
+    const t = await getTasks(su, "su");
+    tree.tasks = getTasksIOS(t);
 
-    const response = converted;
-    response.existing = cookie?.existing;
-    response.file = actionFile + "";
+    // Parity fields
+    tree.existing = cookie?.existing;
+    tree.file = su + "";
 
-    const expires = 90_000;
-
-    const head = await getHead("su", actionFile, dynamodb);
-    const isPublic = !!(head?.Items?.[0]?.z);
-    const url = `https://${fileLocation(isPublic)}.1var.com/${actionFile}`;
-
+    // CloudFront grant (url vs signed cookies)
+    const host = `${fileLocation(v.isPublic)}.1var.com`;
+    const url  = `https://${host}/${su}`;
+    const expiresMs = 90_000;
     const policy = JSON.stringify({
       Statement: [{
         Resource: url,
-        Condition: {
-          DateLessThan: { "AWS:EpochTime": Math.floor((Date.now() + expires) / 1000) }
-        }
+        Condition: { "DateLessThan": { "AWS:EpochTime": Math.floor((Date.now()+expiresMs)/1000) } }
       }]
     });
 
-    if (type === "url" || req?.type === "url" || req?.query?.type === "url") {
-      const signedUrl = signer.getSignedUrl({ url, policy });
-      sendBack(res, "json", { signedUrl }, false);
-      return { __handled: true };
+    if (ctx.type === "url") {
+      const signedUrl = ctx.signer.getSignedUrl({ url, policy });
+      return { ok: true, response: { signedUrl } };
+    } else {
+      const cookies = ctx.signer.getSignedCookie({ policy });
+      // set cookies on the response (same options as legacy)
+      for (const [name, val] of Object.entries(cookies)) {
+        ctx.res.cookie(name, val, {
+          maxAge: expiresMs,
+          httpOnly: true,
+          domain: ".1var.com",
+          secure: true,
+          sameSite: "None",
+        });
+      }
+      return { ok: true, response: tree };
     }
-
-    const cookies = signer.getSignedCookie({ policy });
-    Object.entries(cookies).forEach(([name, val]) => {
-      res.cookie(name, val, {
-        maxAge: expires,
-        httpOnly: true,
-        domain: ".1var.com",
-        secure: true,
-        sameSite: "None",
-      });
-    });
-
-    sendBack(res, "json", { ok: true, response }, false);
-    return { __handled: true };
   });
 
   return { name: "file" };
