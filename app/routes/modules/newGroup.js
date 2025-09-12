@@ -192,7 +192,15 @@ function register({ on, use }) {
       expected: [],
     };
 
-    await createSubdomain(suDoc, aE.toString(), e.toString(), "0", true, dynamodb);
+    await createSubdomain(
+  suDoc,
+  aE.toString(),
+  e.toString(),
+  "0",
+  true,
+  outputParam,   // ← NEW: stash the output on the subdomain item
+  dynamodb
+);
     await createFile(suDoc, payload, deps.s3);
 
     // Email (exact legacy strings, including "recieved")

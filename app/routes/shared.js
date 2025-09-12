@@ -587,15 +587,33 @@ function createShared(deps = {}) {
     return e;
   }
 
-  async function createSubdomain(su, a, e, g, z, ddb = dynamodb) {
-    await ddb
-      .put({
-        TableName: "subdomains",
-        Item: { su, a, e, g, z },
-      })
-      .promise();
-    return su;
+async function createSubdomain(
+  su, a, e, g, z,
+  maybeOutputOrDdb,        // ← new flexible arg
+  maybeDdb                  // ← only present when you pass output + ddb
+) {
+  // Back-compat arg resolution:
+  let output; 
+  let ddb = dynamodb;
+
+  if (maybeDdb) {
+    // called as createSubdomain(..., output, ddb)
+    output = maybeOutputOrDdb;
+    ddb = maybeDdb;
+  } else if (maybeOutputOrDdb && typeof maybeOutputOrDdb.put === "function") {
+    // old form: createSubdomain(..., ddb)
+    ddb = maybeOutputOrDdb;
+  } else {
+    // called as createSubdomain(..., output) or nothing extra
+    output = maybeOutputOrDdb;
   }
+
+  const item = { su, a, e, g, z };
+  if (output !== undefined) item.output = output;
+
+  await ddb.put({ TableName: "subdomains", Item: item }).promise();
+  return su;
+}
 
   /* ──────────────────────────────────────────────────────────────────────── */
   /* Cookies / Access / Verification                                         */

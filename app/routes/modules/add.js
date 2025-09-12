@@ -88,6 +88,7 @@ function register({ on, use }) {
     // Create a new subdomain id for the child + seed an initial file
     const childSU = await getUUID(deps?.uuidv4);
     await createSubdomain(childSU, aId, eId, "0", parentZ);
+    
 
     const thought = {}
     thought[childSU] = {
