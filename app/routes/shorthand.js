@@ -1,6 +1,11 @@
 // shorthand.js
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
+
+  req.body = req.body || {};
+  req.headers = req.headers || {};
+  req.body.headers = { ...(req.headers || {}), ...(req.body.headers || {}) };
+
     let matrix = [];
     let colID = [];
     let rowID = [];
@@ -1170,14 +1175,20 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
         let { route } = require('./cookies')
         let entity = Object.keys(data).find(k => k !== "add");
-        let xAccessToken = req.body.headers["X-accessToken"]
+const xAccessToken =
+  (req.body?.headers && req.body.headers["X-accessToken"]) ||
+  (req.headers && req.headers["x-accesstoken"]) ||
+  undefined;
         let originalHost = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         let splitOriginalHost = originalHost.split("1var.com")[1];
         let reqPath = splitOriginalHost.split("?")[0];
         let reqBody2 = req.body;
         const action = reqPath.split("/")[2];
         let newReq = {};
-        newReq.body = req.body
+newReq.body = {
+  ...(req.body || {}),
+  headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
+};
         newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         newReq.method = req.method
         newReq.type = req.type
@@ -1226,48 +1237,25 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let act = rA[3];
             let param1 = rA[4];
             let param2 = rA[5];
-            
-// Best-effort extraction with sane fallbacks
-let xAccessToken =
-  req.get('x-accesstoken')                                   // Express helper
-  ?? req.headers?.['x-accesstoken']                           // raw header (lowercased by Express)
-  ?? req.body?.headers?.['x-accesstoken']                     // body-copied, lowercase
-  ?? req.body?.headers?.['X-accesstoken']                     // case variants
-  ?? req.body?.headers?.['X-accessToken']
-  ?? req.apiGateway?.event?.headers?.['x-accesstoken']        // raw API GW event
-  ?? req.apiGateway?.event?.headers?.['X-accesstoken']
-  ?? req.apiGateway?.event?.headers?.['X-accessToken']
-  ?? req.cookies?.ak;                                         // cookie alias from your dump
-
-// Strip optional "Bearer " prefix if present
-xAccessToken = xAccessToken?.replace(/^Bearer\s+/i, '');
-
-// (Optional) if the API GW event body is base64 JSON that also mirrors headers:
-if (!xAccessToken && req.apiGateway?.event?.isBase64Encoded && req.apiGateway?.event?.body) {
-  try {
-    const parsed = JSON.parse(Buffer.from(req.apiGateway.event.body, 'base64').toString('utf8'));
-    xAccessToken = (parsed.headers?.['x-accesstoken']
-                 ?? parsed.headers?.['X-accesstoken']
-                 ?? parsed.headers?.['X-accessToken'])?.replace(/^Bearer\s+/i, '');
-  } catch { /* ignore */ }
-}
-
-
-
+const xAccessToken =
+  (req.body?.headers && req.body.headers["X-accessToken"]) ||
+  (req.headers && req.headers["x-accesstoken"]) ||
+  undefined;
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
             const action = reqPath.split("/")[2];
-
-            let newReq = {};
-            
-            newReq.body = req.body
+let newReq = {};
+newReq.body = {
+  ...(req.body || {}),
+  headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
+};
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
             console.log("deepMerge bod", bod)
-            newReq.body.body = await deepMerge(newReq.body.body, bod);
+            newReq.body.body = await deepMerge(newReq.body.body || {}, bod);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent

@@ -9,16 +9,28 @@ function register({ on, use }) {
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
-  on("convert", async (ctx, meta = {}) => {
-    const { req, res, path, signer } = ctx;
-    const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
+on("convert", async (ctx, meta = {}) => {
+  const { req, res, path, signer } = ctx;
+  const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
-    // ── legacy body handling (support flattened req.body and legacy body.body)
-    const rawBody = (req && req.body) || {};
-    const body =
-      rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
-        ? rawBody
-        : { body: rawBody };
+  // ✅ Mirror req.headers into req.body.headers for legacy callers
+  if (req) {
+    req.body = req.body || {};
+    const rawHeaders = req.headers || {};
+    // keep any existing body.headers fields, then overlay real headers
+    req.body.headers = { ...(req.body.headers || {}), ...rawHeaders };
+    // alias for legacy mixed-case lookup
+    if (rawHeaders["x-accesstoken"] && !req.body.headers["X-accessToken"]) {
+      req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
+    }
+  }
+
+  // ── legacy body handling…
+  const rawBody = (req && req.body) || {};
+  const body =
+    rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
+      ? rawBody
+      : { body: rawBody };
 
     // ── legacy path parsing (tail after action): "/<fileId>[...]" → fileId
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
