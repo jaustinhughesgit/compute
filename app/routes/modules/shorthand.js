@@ -17,6 +17,7 @@ function register({ on, use }) {
   } = use();
 
   on("shorthand", async (ctx /*, meta */) => {
+    console.log("ctx",ctx)
     const { req, res, path, type, signer } = ctx;
 
     const dynamodb = getDocClient();
