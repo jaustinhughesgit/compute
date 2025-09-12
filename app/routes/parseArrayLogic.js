@@ -1707,7 +1707,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
         console.log("fixedPossesed", fixedPossessed)
-        if (!bestMatch.su) {
+        if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
             // derive entity/group names from the essence
@@ -1733,11 +1733,11 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
             routeRowNewIndex = shorthand.length;
             console.log("shorthand", shorthand)
-            console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
+            //console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
             shorthand.push(
                 ["GET", padRef(routeRowNewIndex), "response", "file"]
             )
-
+            
             if (fixedOutput) {
                 shorthand.push(
                     [
