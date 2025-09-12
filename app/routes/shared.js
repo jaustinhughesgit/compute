@@ -36,7 +36,14 @@ const deepEqual = (a, b) => {
   return a == b;
 };
 
-
+const isMissingResource = (err) =>
+  err &&
+  (
+    err.code === "ResourceNotFoundException" ||
+    err.name === "ResourceNotFoundException" ||
+    /requested resource not found/i.test(String(err.message || ""))
+  );
+  
 function createShared(deps = {}) {
   const {
     dynamodb, 
