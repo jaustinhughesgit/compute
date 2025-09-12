@@ -115,8 +115,11 @@ function register({ on, use }) {
     const segs = splitPath(path);
     const childID = segs[0] || "";   // su of child
     const parentID = segs[1] || "";  // su of parent
+    // prop is optional 3rd segment; URL-decoded & normalized
+    const propRaw = segs[2] ? decodeURIComponent(segs[2]) : "";
+    const propNorm = String(propRaw || "").trim().toLowerCase();
 
-    // replicate legacy: attempt link only if both found; ignore else
+    // attempt link only if both found; ignore else
     try {
       const childSub  = await getSub(childID,  "su");
       const parentSub = await getSub(parentID, "su");
@@ -124,7 +127,7 @@ function register({ on, use }) {
       if (childSub?.Items?.length && parentSub?.Items?.length) {
         const childE  = childSub.Items[0].e;
         const parentE = parentSub.Items[0].e;
-        await putLink(parentE, childE);
+        await putLink(parentE, childE, propNorm || undefined);
       }
     } catch (err) {
       // keep behavior: don't throw; proceed to return current child view

@@ -39,18 +39,18 @@ const deepEqual = (a, b) => {
 
 function createShared(deps = {}) {
   const {
-    dynamodb, 
-    dynamodbLL, 
+    dynamodb,
+    dynamodbLL,
     uuidv4,
-    s3, 
-    ses, 
-    AWS, 
+    s3,
+    ses,
+    AWS,
     openai,
     Anthropic,
   } = deps;
 
-  const actions = new Map(); 
-  const middlewares = []; 
+  const actions = new Map();
+  const middlewares = [];
   const registry = Object.create(null);
 
   const on = (action, handler) => {
@@ -97,7 +97,7 @@ function createShared(deps = {}) {
           const maybe = await mw(ctx, extra);
           if (res.headersSent) return { __handled: true };
           if (maybe && typeof maybe === "object" && maybe.__handled) return maybe;
-          if (maybe !== undefined) return maybe; 
+          if (maybe !== undefined) return maybe;
         }
       }
 
@@ -289,14 +289,22 @@ function createShared(deps = {}) {
   const makeLinkId = (wholeE, partE) => `lnk#${wholeE}#${partE}`;
   const makeCKey = (wholeE, partE) => `${wholeE}|${partE}`;
 
-  async function putLink(wholeE, partE, ddb = dynamodb) {
+  async function putLink(wholeE, partE, prop, ddb = dynamodb) {
     const id = makeLinkId(wholeE, partE);
     const ckey = makeCKey(wholeE, partE);
     try {
       await ddb
         .put({
           TableName: "links",
-          Item: { id, whole: wholeE, part: partE, ckey, type: "link", ts: Date.now() },
+          Item: {
+            id,
+            whole: wholeE,
+            part: partE,
+            ckey,
+            type: "link",
+            ts: Date.now(),
+            ...(prop ? { prop: String(prop).trim().toLowerCase() } : {}),
+          },
           ConditionExpression: "attribute_not_exists(id)",
         })
         .promise();
@@ -587,33 +595,33 @@ function createShared(deps = {}) {
     return e;
   }
 
-async function createSubdomain(
-  su, a, e, g, z,
-  maybeOutputOrDdb,        // ← new flexible arg
-  maybeDdb                  // ← only present when you pass output + ddb
-) {
-  // Back-compat arg resolution:
-  let output; 
-  let ddb = dynamodb;
+  async function createSubdomain(
+    su, a, e, g, z,
+    maybeOutputOrDdb,        // ← new flexible arg
+    maybeDdb                  // ← only present when you pass output + ddb
+  ) {
+    // Back-compat arg resolution:
+    let output;
+    let ddb = dynamodb;
 
-  if (maybeDdb) {
-    // called as createSubdomain(..., output, ddb)
-    output = maybeOutputOrDdb;
-    ddb = maybeDdb;
-  } else if (maybeOutputOrDdb && typeof maybeOutputOrDdb.put === "function") {
-    // old form: createSubdomain(..., ddb)
-    ddb = maybeOutputOrDdb;
-  } else {
-    // called as createSubdomain(..., output) or nothing extra
-    output = maybeOutputOrDdb;
+    if (maybeDdb) {
+      // called as createSubdomain(..., output, ddb)
+      output = maybeOutputOrDdb;
+      ddb = maybeDdb;
+    } else if (maybeOutputOrDdb && typeof maybeOutputOrDdb.put === "function") {
+      // old form: createSubdomain(..., ddb)
+      ddb = maybeOutputOrDdb;
+    } else {
+      // called as createSubdomain(..., output) or nothing extra
+      output = maybeOutputOrDdb;
+    }
+
+    const item = { su, a, e, g, z };
+    if (output !== undefined) item.output = output;
+
+    await ddb.put({ TableName: "subdomains", Item: item }).promise();
+    return su;
   }
-
-  const item = { su, a, e, g, z };
-  if (output !== undefined) item.output = output;
-
-  await ddb.put({ TableName: "subdomains", Item: item }).promise();
-  return su;
-}
 
   /* ──────────────────────────────────────────────────────────────────────── */
   /* Cookies / Access / Verification                                         */
@@ -828,7 +836,7 @@ async function createSubdomain(
     const headSub = await getSub(ent.Items[0].h, "e", ddb);
     return headSub;
   }
-  
+
   async function getTasks(val, col, ddb = dynamodb) {
     if (col === "e") {
       const subByE = await getSub(String(val), "e", ddb);
@@ -1120,12 +1128,12 @@ async function createSubdomain(
   /* ──────────────────────────────────────────────────────────────────────── */
 
   function sendBack(res, type, val, isShorthand) {
-  // normalize undefined/null → {}
-  if (val == null) val = {};
-  // shorthand → return the raw value (no HTTP write)
-  if (isShorthand) return val;
-  // non-shorthand → write JSON over HTTP
-  return res?.json?.(val);
+    // normalize undefined/null → {}
+    if (val == null) val = {};
+    // shorthand → return the raw value (no HTTP write)
+    if (isShorthand) return val;
+    // non-shorthand → write JSON over HTTP
+    return res?.json?.(val);
   }
 
   /* ──────────────────────────────────────────────────────────────────────── */
