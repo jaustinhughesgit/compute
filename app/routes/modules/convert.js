@@ -29,7 +29,9 @@ function register({ on, use }) {
     let sourceType;
 
     // ── require legacy helpers (relative to routes/)
+    console.log("require parseArrayLogic")
     const { parseArrayLogic } = require("../parseArrayLogic");
+    console.log("require shorthand")
     const { shorthand } = require("../shorthand");
 
     // 1️⃣ Grab & normalise arrayLogic/prompt from the client
