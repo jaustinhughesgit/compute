@@ -1494,7 +1494,7 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
             content:
                 "You are a JSON-only assistant. Reply with **only** a valid JSON " +
                 "array—the arrayLogic representation of the user’s request. " +
-                "No prose. No markdown. No code fences."
+                "No prose. No markdown. No code fences. No comments!!"
         },
         { role: "user", content: prompt }
         ]
