@@ -96,7 +96,7 @@ function register({ on, use }) {
 
     console.log("!has1v4r",!has1v4r)
     console.log("!allVerified(verified)",!allVerified(verified))
-    if (!has1v4r || !allVerified(verified)) {
+    if (has1v4r && !allVerified(verified)) {
 
       let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
       if (!gi) {
