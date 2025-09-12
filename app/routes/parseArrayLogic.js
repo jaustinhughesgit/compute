@@ -1707,29 +1707,29 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
         console.log("fixedPossesed", fixedPossessed)
-        if (!bestMatch?.su) {
+        if (!bestMatch.su) {
 
             console.log("bestMatch.su is null")
-// derive entity/group names from the essence
-const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-const sanitize = s => s.replace(/[\/?#]/g, ' ').trim(); // avoid path chars
+            // derive entity/group names from the essence
+            const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+            const sanitize = s => s.replace(/[\/?#]/g, ' ').trim(); // avoid path chars
 
-const entNameRaw =
-  pick(fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
-const entName = sanitize(entNameRaw);
+            const entNameRaw =
+                pick(fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
+            const entName = sanitize(entNameRaw);
 
-// choose your grouping strategy; simplest = same as entity
-const groupName = entName; 
-// (or: `${domain}/${subdomain}` or `domain` if you want topical grouping)
+            // choose your grouping strategy; simplest = same as entity
+            const groupName = entName;
+            // (or: `${domain}/${subdomain}` or `domain` if you want topical grouping)
 
-shorthand.push([
-  "ROUTE",
-  { output: entName }, // keep output aligned with the created entity name
-  {},
-  "newGroup",
-  groupName,
-  entName
-]);
+            shorthand.push([
+                "ROUTE",
+                { output: entName }, // keep output aligned with the created entity name
+                {},
+                "newGroup",
+                groupName,
+                entName
+            ]);
 
             routeRowNewIndex = shorthand.length;
             console.log("shorthand", shorthand)
