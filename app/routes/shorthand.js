@@ -1226,7 +1226,34 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let act = rA[3];
             let param1 = rA[4];
             let param2 = rA[5];
-            let xAccessToken = req.body.headers["X-accessToken"]
+            
+// Best-effort extraction with sane fallbacks
+let xAccessToken =
+  req.get('x-accesstoken')                                   // Express helper
+  ?? req.headers?.['x-accesstoken']                           // raw header (lowercased by Express)
+  ?? req.body?.headers?.['x-accesstoken']                     // body-copied, lowercase
+  ?? req.body?.headers?.['X-accesstoken']                     // case variants
+  ?? req.body?.headers?.['X-accessToken']
+  ?? req.apiGateway?.event?.headers?.['x-accesstoken']        // raw API GW event
+  ?? req.apiGateway?.event?.headers?.['X-accesstoken']
+  ?? req.apiGateway?.event?.headers?.['X-accessToken']
+  ?? req.cookies?.ak;                                         // cookie alias from your dump
+
+// Strip optional "Bearer " prefix if present
+xAccessToken = xAccessToken?.replace(/^Bearer\s+/i, '');
+
+// (Optional) if the API GW event body is base64 JSON that also mirrors headers:
+if (!xAccessToken && req.apiGateway?.event?.isBase64Encoded && req.apiGateway?.event?.body) {
+  try {
+    const parsed = JSON.parse(Buffer.from(req.apiGateway.event.body, 'base64').toString('utf8'));
+    xAccessToken = (parsed.headers?.['x-accesstoken']
+                 ?? parsed.headers?.['X-accesstoken']
+                 ?? parsed.headers?.['X-accessToken'])?.replace(/^Bearer\s+/i, '');
+  } catch { /* ignore */ }
+}
+
+
+
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
