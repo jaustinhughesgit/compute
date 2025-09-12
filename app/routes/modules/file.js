@@ -26,28 +26,36 @@ function register({ on, use }) {
 
     for (let idx = 0; idx < splitPath.length; idx++) {
       const seg = splitPath[idx];
+      console.log("1", seg)
       if (!seg || !seg.startsWith("1v4r")) continue;
-
+      console.log("2")
       let verValue = false;
       verified.push(false);
 
       const sub = await getSub(seg, "su", dynamodb);
+      console.log("3",sub)
       let groupID = sub.Items?.[0]?.g;
       let entityID = sub.Items?.[0]?.e;
 
       if (sub.Items?.[0]?.z) verValue = true;
 
+      console.log("4groupID",groupID)
+      console.log("4entityID",entityID)
       for (let vi = 0; vi < (verifications.Items || []).length; vi++) {
+        console.log("vi", vi)
         const row = verifications.Items[vi];
 
         if (entityID !== "0") {
+          console.log("entityID")
           const eSub = await getEntity(sub.Items?.[0]?.e, dynamodb);
           groupID = eSub.Items?.[0]?.g;
-
+          console.log("5verValue",verValue)
           if (String(eSub.Items?.[0]?.ai) === "0") verValue = true;
         }
-
+          console.log("6verValue",verValue)
+        console.log("sub", sub)
         if ((sub.Items || []).length > 0) {
+          console.log("7verValue",verValue)
           if (sub.Items[0].z === true) {
             verValue = true;
           } else {
@@ -61,7 +69,7 @@ function register({ on, use }) {
 
       verified[verCounter++] = verValue;
     }
-
+    console.log("return", verified)
     return verified;
   }
 
@@ -91,11 +99,12 @@ function register({ on, use }) {
     const splitPath = String(path || "").split("/");
     console.log("splitPath", splitPath)
     const has1v4r = splitPath.some(seg => seg && seg.startsWith("1v4r"));
+    console.log("verifications",verifications)
     const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
     console.log("verified",verified)
 
     console.log("has1v4r", has1v4r)
-    console.log("!allVerified(verified)", !allVerified(verified))
+    console.log("allVerified(verified)", allVerified(verified))
     if (has1v4r && !allVerified(verified)) {
 
       let gi = cookie?.gi && String(cookie.gi) !== "0" ? String(cookie.gi) : null;
