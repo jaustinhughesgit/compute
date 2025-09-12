@@ -92,9 +92,9 @@ function register({ on, use }) {
     console.log("splitPath", splitPath)
     const has1v4r = splitPath.some(seg => seg && seg.startsWith("1v4r"));
     const verified = has1v4r ? await verifyPath(splitPath, verifications, dynamodb) : [];
-    console.log(verified)
+    console.log("verified",verified)
 
-    console.log("!has1v4r", !has1v4r)
+    console.log("has1v4r", has1v4r)
     console.log("!allVerified(verified)", !allVerified(verified))
     if (has1v4r && !allVerified(verified)) {
 
