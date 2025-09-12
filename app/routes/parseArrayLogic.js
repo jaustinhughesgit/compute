@@ -1503,6 +1503,42 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     // Extract the first slice that looks like a JSON array
     let text = rsp.choices[0].message.content.trim();
 
+    function stripComments(jsonLike) {
+  let out = '';
+  let inString = false, quote = '', escaped = false;
+  let inSL = false, inML = false;
+
+  for (let i = 0; i < jsonLike.length; i++) {
+    const c = jsonLike[i], n = jsonLike[i + 1];
+
+    if (inSL) {                      // single-line comment
+      if (c === '\n' || c === '\r') { inSL = false; out += c; }
+      continue;
+    }
+    if (inML) {                      // multi-line comment
+      if (c === '*' && n === '/') { inML = false; i++; }
+      continue;
+    }
+    if (inString) {                  // inside string literal
+      out += c;
+      if (!escaped && c === quote) { inString = false; quote = ''; }
+      escaped = !escaped && c === '\\';
+      continue;
+    }
+    if (c === '"' || c === "'") {    // start string (JSON uses ", but be tolerant)
+      inString = true; quote = c; out += c; continue;
+    }
+    if (c === '/' && n === '/') { inSL = true; i++; continue; }
+    if (c === '/' && n === '*') { inML = true; i++; continue; }
+
+    out += c;
+  }
+  return out;
+}
+
+// usage
+text = stripComments(text);
+
     console.log("text", text)
     const start = text.indexOf("[");
     const end = text.lastIndexOf("]");
