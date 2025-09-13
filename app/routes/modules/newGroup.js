@@ -99,6 +99,12 @@ function register({ on, use }) {
 
     // Keep dual body shape support
     const body = ctx.req?.body || {};
+
+    console.log("***!!!")
+    console.log("ctx", ctx)
+    console.log("ctx.req", ctx.req)
+    console.log("ctx.req.body", ctx.req.body)
+
     const outputParam = (body && (body.output ?? body?.body?.output)) || undefined;
 
     const thought = {};
