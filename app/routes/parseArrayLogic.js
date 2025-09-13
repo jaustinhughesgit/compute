@@ -1753,9 +1753,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
             console.log("body>>>>>>>",body)
             const entNameRaw =
-                pick(fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
+                pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
             const entName = sanitize(entNameRaw);
-
+            fixedOutput = entName
             // choose your grouping strategy; simplest = same as entity
             const groupName = entName;
             // (or: `${domain}/${subdomain}` or `domain` if you want topical grouping)
