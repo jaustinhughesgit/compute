@@ -1237,16 +1237,20 @@ newReq.body = {
             let act = rA[3];
             let param1 = rA[4];
             let param2 = rA[5];
-            let xAccessToken = req.body.headers["X-accessToken"]
+const xAccessToken =
+  (req.body?.headers && req.body.headers["X-accessToken"]) ||
+  (req.headers && req.headers["x-accesstoken"]) ||
+  undefined;
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
             const action = reqPath.split("/")[2];
-
-            let newReq = {};
-            
-            newReq.body = req.body
+let newReq = {};
+newReq.body = {
+  ...(req.body || {}),
+  headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
+};
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
