@@ -103,9 +103,10 @@ function register({ on, use }) {
     console.log("***!!!")
     console.log("ctx", ctx)
     console.log("ctx.req", ctx.req)
-    console.log("ctx.req.body", ctx.req.body)
+    console.log("ctx.req.body", ctx.req.body) // << Empty object {}
 
-    const outputParam = (body && (body.output ?? body?.body?.output)) || undefined;
+    const outputParam = ctx?.req?.body?.body?.output;
+
 
     const thought = {};
     thought[suDoc] = {

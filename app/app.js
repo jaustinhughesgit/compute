@@ -268,24 +268,28 @@ app.post('/api/ingest', async (req, res) => {
     }
 });
 
-app.use(async (req, res, next) => {
+// app.js (recommended)
+let cookiesRouterPromise; // Promise<express.Router>
 
-    if (!cookiesRouter) {
-        try {
-            const privateKey = await getPrivateKey();
-            cookiesRouter = setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
-            app.use('/:type(cookies|url)*', function (req, res, next) {
-                req.type = req.params.type;
-                next('route');
-            }, cookiesRouter);
-            next();
-        } catch (error) {
-            console.error("Failed to retrieve private key:", error);
-            res.status(500).send("Server Error");
-        }
-    } else {
-        next();
-    }
+async function getCookiesRouter() {
+  if (!cookiesRouterPromise) {
+    cookiesRouterPromise = (async () => {
+      const privateKey = await getPrivateKey();
+      return setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
+    })();
+  }
+  return cookiesRouterPromise;
+}
+
+// Single mount; per-request we await the router and hand off to it
+app.use('/:type(cookies|url)', async (req, res, next) => {
+  try {
+    req.type = req.params.type;        // keep your "type" flag
+    const router = await getCookiesRouter();
+    return router(req, res, next);     // hand this SAME request to the router
+  } catch (err) {
+    next(err);
+  }
 });
 
 const entities = {

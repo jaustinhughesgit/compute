@@ -1753,9 +1753,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
             console.log("body>>>>>>>",body)
             const entNameRaw =
-                pick(fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
+                pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
             const entName = sanitize(entNameRaw);
-
+            fixedOutput = entName
             // choose your grouping strategy; simplest = same as entity
             const groupName = entName;
             // (or: `${domain}/${subdomain}` or `domain` if you want topical grouping)
@@ -1887,14 +1887,26 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ]);
             // ...and ALSO write/refresh positioning metadata
             
-            shorthand.push([
-                "ROUTE",
-                { "body": { domain, subdomain, dist1, dist2, dist3, dist4, dist5, path: breadcrumb, entity: bestMatch.su } },
-                {},
-                "position",
-                bestMatch.su,
-                ""
-            ]);
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "auto matched entity",
+              domain,
+              subdomain,
+              embedding,            // ✅ required
+              entity: bestMatch.su, // the matched id
+              pb: possessedCombined,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              output: fixedOutput
+            }
+          },
+          {},
+          "position",
+          bestMatch.su,
+          ""
+        ]);
         }
         routeRowNewIndex = shorthand.length;
     }

@@ -32,7 +32,7 @@ function register({ on, use }) {
     // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
     const b = getLegacyBody(req);
     console.log("b",b)
-    const { description, domain, subdomain, embedding, entity, pb, output } = b || {};
+    const { description, domain, subdomain, embedding, entity, pb, output } = b.body || {};
 
     console.log("Position 3")
     // Legacy error shapes and codes:
