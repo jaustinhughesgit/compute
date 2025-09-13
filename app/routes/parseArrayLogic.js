@@ -1866,6 +1866,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ]);
 
             if (fixedOutput) {
+
                 shorthand.push([
                     "ROUTE",
                     inputParam,
@@ -1876,7 +1877,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]);
             } else {
                 shorthand.push([
-                    fixedOutput
+                    "hello"
                 ]);
             }
 
