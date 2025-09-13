@@ -1887,26 +1887,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ]);
             // ...and ALSO write/refresh positioning metadata
             
-        shorthand.push([
-          "ROUTE",
-          {
-            "body": {
-              description: "auto matched entity",
-              domain,
-              subdomain,
-              embedding,            // ✅ required
-              entity: bestMatch.su, // the matched id
-              pb: possessedCombined,
-              dist1, dist2, dist3, dist4, dist5,
-              path: breadcrumb,
-              output: fixedOutput
-            }
-          },
-          {},
-          "position",
-          bestMatch.su,
-          ""
-        ]);
+            shorthand.push([
+                "ROUTE",
+                { "body": { domain, subdomain, dist1, dist2, dist3, dist4, dist5, path: breadcrumb, entity: bestMatch.su } },
+                {},
+                "position",
+                bestMatch.su,
+                ""
+            ]);
         }
         routeRowNewIndex = shorthand.length;
     }
