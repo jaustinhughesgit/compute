@@ -1743,7 +1743,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
-        console.log("fixedPossesed", fixedPossessed)
+        console.log("fixedPossessed", fixedPossessed)
         if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
@@ -1856,7 +1856,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         // NEW: make the features and path visible to your indexer
                         dist1, dist2, dist3, dist4, dist5,
                         path: pathStr,
-                        output: fixedOutput
+                        output: "world"
                     }
                 },
                 {},
