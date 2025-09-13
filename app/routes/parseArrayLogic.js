@@ -1751,6 +1751,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
             const sanitize = s => s.replace(/[\/?#]/g, ' ').trim(); // avoid path chars
 
+            console.log("body>>>>>>>",body)
             const entNameRaw =
                 pick(fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
             const entName = sanitize(entNameRaw);
