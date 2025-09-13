@@ -1614,9 +1614,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
-        } else{
-            fixedOutput = "hello world1"
-        }
+        } 
 
         if (elem[bc].hasOwnProperty("possessedBy")) {
             fixedPossessed = elem[bc].possessedBy
@@ -1745,7 +1743,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         const schemaParam = convertShorthandRefs(expectedKeys);
 
 
-        console.log("fixedPossessed", fixedPossessed)
+        console.log("fixedPossesed", fixedPossessed)
         if (!bestMatch?.su) {
 
             console.log("bestMatch.su is null")
@@ -1858,7 +1856,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         // NEW: make the features and path visible to your indexer
                         dist1, dist2, dist3, dist4, dist5,
                         path: pathStr,
-                        output: "world"
+                        output: fixedOutput
                     }
                 },
                 {},
@@ -1868,7 +1866,6 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ]);
 
             if (fixedOutput) {
-                
                 shorthand.push([
                     "ROUTE",
                     inputParam,
@@ -1889,20 +1886,27 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
             ]);
             // ...and ALSO write/refresh positioning metadata
-
-
-
-
-            //HERE!!!!!!!!!!!!!!!!!!
-            // This is coming back null
-            shorthand.push([
-                "ROUTE",
-                { "body": { domain, subdomain, dist1, dist2, dist3, dist4, dist5, path: breadcrumb, entity: bestMatch.su, output:"hello" } },
-                {},
-                "position",
-                bestMatch.su,
-                ""
-            ]);
+            
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "auto matched entity",
+              domain,
+              subdomain,
+              embedding,            // ✅ required
+              entity: bestMatch.su, // the matched id
+              pb: possessedCombined,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              output: fixedOutput
+            }
+          },
+          {},
+          "position",
+          bestMatch.su,
+          ""
+        ]);
         }
         routeRowNewIndex = shorthand.length;
     }
