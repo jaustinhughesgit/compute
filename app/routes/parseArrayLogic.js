@@ -1500,9 +1500,9 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
         ]
     });
     console.log("rsp77", rsp);
-    console.log("text1", text)
     // Extract the first slice that looks like a JSON array
     let text = rsp.choices[0].message.content.trim();
+    console.log("text1", text)
 
     function stripComments(jsonLike) {
   let out = '';
