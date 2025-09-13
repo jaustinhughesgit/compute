@@ -1614,6 +1614,8 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
+        } else{
+            fixedOutput = "hello world1"
         }
 
         if (elem[bc].hasOwnProperty("possessedBy")) {
@@ -1866,7 +1868,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             ]);
 
             if (fixedOutput) {
-
+                
                 shorthand.push([
                     "ROUTE",
                     inputParam,
@@ -1877,7 +1879,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 ]);
             } else {
                 shorthand.push([
-                    "hello"
+                    fixedOutput
                 ]);
             }
 
