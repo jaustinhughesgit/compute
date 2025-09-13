@@ -291,9 +291,9 @@ async function route(
     a = segs[0] === "cookies" || segs[0] === "url" ? segs[1] || "" : segs[0] || "";
   }
 
-  console.log("route10")
+  console.log("route1")
   const normalizeTail = (rawPath) => {
-  console.log("route11")
+  console.log("route1")
     const segs = String(rawPath || "").split("/").filter(Boolean);
     const tail =
       segs[0] === "cookies" || segs[0] === "url"
@@ -302,7 +302,7 @@ async function route(
     return tail || "/";
   };
 
-  console.log("route12")
+  console.log("route1")
   const ctx = {
     req,
     res,
@@ -318,7 +318,7 @@ async function route(
   };
 
   try {
-  console.log("route13")
+  console.log("route1")
     // Flush shared caches per request (parity with old behavior)
     const s = ensureShared();
     if (s.cache) {
@@ -327,7 +327,7 @@ async function route(
 
     const result = await s.dispatch(a, ctx, { cookie: req?.cookies || {} });
 
-  console.log("route14")
+  console.log("route1")
     if (!res?.headersSent) {
       if (result && result.__handled) return; // legacy parity
       if (res?.json && result !== undefined && result !== null) {
