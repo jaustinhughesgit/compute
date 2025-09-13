@@ -376,15 +376,16 @@ function subdomains(domain){
       conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
       delete newShorthand.input;
       delete newShorthand.conclusion;
-      console.log("sh3")
+      console.log("sh3",actionFile)
 
       // Quick checksum for callers (optional parity field)
       parseResults.isPublishedEqual =
         JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
-      console.log("sh4")
+      console.log("sh4", JSON.stringify(newShorthand))
 
       // Persist to S3 (exact bucket/key/content-type)
       if (actionFile) {
+        console.log("actionFile",actionFile)
         await s3
           .putObject({
             Bucket: "public.1var.com",
