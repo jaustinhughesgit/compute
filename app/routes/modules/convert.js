@@ -344,6 +344,7 @@ function subdomains(domain){
       const fakeReqPath = `/cookies/convert/${actionFile}`;
       // Build a reqBody shaped like legacy expectations
       const legacyReqBody = { body: body.body || {} };
+      console.log("sh1")
 
       // Run the shorthand pipeline (preserve call signature)
       newShorthand = await shorthand(
@@ -369,16 +370,18 @@ function subdomains(domain){
         "shorthand",
         ctx.xAccessToken
       );
-
+      console.log("sh2")
       // Restore untouched blocks & clean temp props (parity)
       newShorthand.published.blocks = blocks;
       conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
       delete newShorthand.input;
       delete newShorthand.conclusion;
+      console.log("sh3")
 
       // Quick checksum for callers (optional parity field)
       parseResults.isPublishedEqual =
         JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
+      console.log("sh4")
 
       // Persist to S3 (exact bucket/key/content-type)
       if (actionFile) {
@@ -391,6 +394,7 @@ function subdomains(domain){
           })
           .promise();
       }
+      console.log("sh5")
     }
 
     // 4️⃣ Return everything to the caller (parity with legacy response shape)
@@ -400,10 +404,12 @@ function subdomains(domain){
       arrayLogic: parseResults?.arrayLogic,
       conclusion,
     };
+      console.log("sh6")
 
     // Append legacy fields added by the router tail
     mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
     mainObj.file = String(actionFile || "");
+      console.log("sh7")
 
     // Legacy sendBack shape: { ok: true, response }
     return { ok: true, response: mainObj };
