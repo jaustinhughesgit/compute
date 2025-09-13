@@ -317,6 +317,8 @@ async function route(
     if (!res?.headersSent) {
       if (result && result.__handled) return; // legacy parity
       if (res?.json && result !== undefined && result !== null) {
+        console.log("~~result",result)
+        console.log("~~isShorthand",isShorthand)
         return _shared.sendBack(res, "json", result, /*isShorthand*/ !!isShorthand);
       }
 
@@ -330,18 +332,22 @@ async function route(
         cookie: req?.cookies || {},
         isShorthand: !!isShorthand,
       });
+      console.log("~~headersSent")
       if (res?.headersSent) return;
 
       if (res?.json) {
         // No handler → empty payload
+        console.log("~~1")
         return _shared.sendBack(res, "json", {}, /*isShorthand*/ !!isShorthand);
       }
       // No HTTP writer (shorthand/programmatic) → return raw
+        console.log("~~2")
       return result ?? {};
     }
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
     if (!res?.headersSent && res?.status && res?.json) {
+        console.log("~~3")
       _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ !!isShorthand);
     }
   }
@@ -349,9 +355,12 @@ async function route(
 
 async function legacyBottomCompat({ action, type, pathForModules, req, res, cookie, isShorthand = false }) {
   try {
+        console.log("~~4")
     return ensureShared().sendBack(res, "json", { ok: true, response: {} }, isShorthand);
   } catch (e) {
     if (!res.headersSent) {
+
+        console.log("~~5")
       return ensureShared().sendBack(res, "json", { ok: false, response: {} }, isShorthand);
     }
   }

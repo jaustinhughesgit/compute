@@ -24,19 +24,23 @@ function register({ on, use }) {
   };
 
   on("position", async (ctx, meta) => {
+    console.log("Position 1", ctx)
     const { req, res /*, path, type, signer */ } = ctx;
     const dynamodb = getDocClient();
 
+    console.log("Position 2")
     // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
     const b = getLegacyBody(req);
     const { description, domain, subdomain, embedding, entity, pb, output } = b || {};
 
+    console.log("Position 3")
     // Legacy error shapes and codes:
     if (!embedding || !domain || !subdomain || !entity) {
       res.status(400).json({ error: "embedding, domain & subdomain required" });
       return { __handled: true };
     }
 
+    console.log("Position 4")
     // 1️⃣ pull the record for that sub-domain from DynamoDB (unchanged)
     const tableName = `i_${domain}`;
     let item;
@@ -60,6 +64,7 @@ function register({ on, use }) {
       return { __handled: true };
     }
 
+    console.log("Position 5")
     // 2️⃣ compare incoming embedding with emb1…emb5 (unchanged)
     const distances = {};
     for (let i = 1; i <= 5; i++) {
@@ -84,6 +89,7 @@ function register({ on, use }) {
       distances[attr] = cosineDist(embedding, refArr);
     }
 
+    console.log("Position 1")
     // 3️⃣ update subdomains with dist1…dist5, path, pb, and output (unchanged)
     try {
       const updateParams = {
@@ -130,6 +136,7 @@ function register({ on, use }) {
       return { __handled: true };
     }
 
+    console.log("Position 5")
     // Legacy response shape: wrapped in { ok: true, response }
     const existing = meta?.cookie?.existing;
     const response = {
@@ -142,7 +149,7 @@ function register({ on, use }) {
       existing,
       file: "", // legacy always appended actionFile (empty for this branch)
     };
-
+    console.log("response", response)
     return { ok: true, response };
   });
 

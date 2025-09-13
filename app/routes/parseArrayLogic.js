@@ -1886,6 +1886,12 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
             ]);
             // ...and ALSO write/refresh positioning metadata
+
+
+
+
+            //HERE!!!!!!!!!!!!!!!!!!
+            // This is coming back null
             shorthand.push([
                 "ROUTE",
                 { "body": { domain, subdomain, dist1, dist2, dist3, dist4, dist5, path: breadcrumb, entity: bestMatch.su } },
