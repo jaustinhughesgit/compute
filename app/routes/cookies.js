@@ -243,6 +243,7 @@ async function route(
   action,
   xAccessToken
 ) {
+  console.log("route1")
   _deps = _deps || { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = _shared || createShared(_deps);
   _signer =
@@ -252,9 +253,12 @@ async function route(
   res = res || {};
   req.headers ||= {};
 
+  console.log("route2")
   if (reqBody) {
+  console.log("route3")
     const flat = unwrapBody(reqBody);
     if (!req.body || !Object.keys(req.body).length) req.body = flat;
+  console.log("route4")
 
     const hdrs =
       (reqBody && reqBody.headers) || (flat && flat.headers) || undefined;
@@ -262,8 +266,10 @@ async function route(
     promoteHeader(req, hdrs, "X-accessToken", "x-accesstoken");
   }
 
+  console.log("route5")
   let raw = String(reqPath || req?.path || "").split("?")[0];
   if (!raw || raw === "/") {
+  console.log("route6")
     const fromHeader =
       req?.get?.("X-Original-Host") ||
       req?.headers?.["x-original-host"] ||
@@ -271,18 +277,23 @@ async function route(
         req.body.headers &&
         (req.body.headers["X-Original-Host"] || req.body.headers["x-original-host"]));
     if (fromHeader) {
+  console.log("route7")
       const p = String(fromHeader).replace(/^https?:\/\/[^/]+/, "");
       raw = p.split("?")[0];
     }
   }
 
+  console.log("route8")
   let a = action;
   if (!a) {
+  console.log("route9")
     const segs = String(raw || "").split("/").filter(Boolean);
     a = segs[0] === "cookies" || segs[0] === "url" ? segs[1] || "" : segs[0] || "";
   }
 
+  console.log("route10")
   const normalizeTail = (rawPath) => {
+  console.log("route11")
     const segs = String(rawPath || "").split("/").filter(Boolean);
     const tail =
       segs[0] === "cookies" || segs[0] === "url"
@@ -291,6 +302,7 @@ async function route(
     return tail || "/";
   };
 
+  console.log("route12")
   const ctx = {
     req,
     res,
@@ -306,6 +318,7 @@ async function route(
   };
 
   try {
+  console.log("route13")
     // Flush shared caches per request (parity with old behavior)
     const s = ensureShared();
     if (s.cache) {
@@ -314,6 +327,7 @@ async function route(
 
     const result = await s.dispatch(a, ctx, { cookie: req?.cookies || {} });
 
+  console.log("route14")
     if (!res?.headersSent) {
       if (result && result.__handled) return; // legacy parity
       if (res?.json && result !== undefined && result !== null) {
