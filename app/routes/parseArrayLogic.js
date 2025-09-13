@@ -1614,15 +1614,11 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
-        }  else {
-            fixedOutput = "HELLO3"
         }
 
         if (elem[bc].hasOwnProperty("possessedBy")) {
             fixedPossessed = elem[bc].possessedBy
             delete elem[bc].possessedBy
-        } else {
-            fixedPossessed = "10000000001"
         }
 
         if (elem[bc].hasOwnProperty("date")) {
