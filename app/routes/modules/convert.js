@@ -9,28 +9,16 @@ function register({ on, use }) {
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
-on("convert", async (ctx, meta = {}) => {
-  const { req, res, path, signer } = ctx;
-  const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
+  on("convert", async (ctx, meta = {}) => {
+    const { req, res, path, signer } = ctx;
+    const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
-  // ✅ Mirror req.headers into req.body.headers for legacy callers
-  if (req) {
-    req.body = req.body || {};
-    const rawHeaders = req.headers || {};
-    // keep any existing body.headers fields, then overlay real headers
-    req.body.headers = { ...(req.body.headers || {}), ...rawHeaders };
-    // alias for legacy mixed-case lookup
-    if (rawHeaders["x-accesstoken"] && !req.body.headers["X-accessToken"]) {
-      req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
-    }
-  }
-
-  // ── legacy body handling…
-  const rawBody = (req && req.body) || {};
-  const body =
-    rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
-      ? rawBody
-      : { body: rawBody };
+    // ── legacy body handling (support flattened req.body and legacy body.body)
+    const rawBody = (req && req.body) || {};
+    const body =
+      rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
+        ? rawBody
+        : { body: rawBody };
 
     // ── legacy path parsing (tail after action): "/<fileId>[...]" → fileId
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
@@ -344,7 +332,6 @@ function subdomains(domain){
       const fakeReqPath = `/cookies/convert/${actionFile}`;
       // Build a reqBody shaped like legacy expectations
       const legacyReqBody = { body: body.body || {} };
-      console.log("sh1")
 
       // Run the shorthand pipeline (preserve call signature)
       newShorthand = await shorthand(
@@ -370,22 +357,19 @@ function subdomains(domain){
         "shorthand",
         ctx.xAccessToken
       );
-      console.log("sh2",newShorthand)
+
       // Restore untouched blocks & clean temp props (parity)
       newShorthand.published.blocks = blocks;
       conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
       delete newShorthand.input;
       delete newShorthand.conclusion;
-      console.log("sh3.2",actionFile)
 
       // Quick checksum for callers (optional parity field)
       parseResults.isPublishedEqual =
         JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
-      console.log("sh4.2", JSON.stringify(newShorthand))
 
       // Persist to S3 (exact bucket/key/content-type)
       if (actionFile) {
-        console.log("actionFile",actionFile)
         await s3
           .putObject({
             Bucket: "public.1var.com",
@@ -395,7 +379,6 @@ function subdomains(domain){
           })
           .promise();
       }
-      console.log("sh5")
     }
 
     // 4️⃣ Return everything to the caller (parity with legacy response shape)
@@ -405,12 +388,10 @@ function subdomains(domain){
       arrayLogic: parseResults?.arrayLogic,
       conclusion,
     };
-      console.log("sh6")
 
     // Append legacy fields added by the router tail
     mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
     mainObj.file = String(actionFile || "");
-      console.log("sh7")
 
     // Legacy sendBack shape: { ok: true, response }
     return { ok: true, response: mainObj };
