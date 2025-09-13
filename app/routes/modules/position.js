@@ -31,8 +31,12 @@ function register({ on, use }) {
     console.log("Position 2")
     // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
     const b = getLegacyBody(req);
+    console.log("b<<<<<<<<<<",b)
     const { description, domain, subdomain, embedding, entity, pb, output } = b || {};
-
+    console.log(description)
+    console.log(domain, subdomain)
+    console.log(embedding)
+    console.log(entity, pb, output)
     console.log("Position 3")
     // Legacy error shapes and codes:
     if (!embedding || !domain || !subdomain || !entity) {
