@@ -370,18 +370,18 @@ function subdomains(domain){
         "shorthand",
         ctx.xAccessToken
       );
-      console.log("sh2")
+      console.log("sh2",newShorthand)
       // Restore untouched blocks & clean temp props (parity)
       newShorthand.published.blocks = blocks;
       conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
       delete newShorthand.input;
       delete newShorthand.conclusion;
-      console.log("sh3",actionFile)
+      console.log("sh3.2",actionFile)
 
       // Quick checksum for callers (optional parity field)
       parseResults.isPublishedEqual =
         JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
-      console.log("sh4", JSON.stringify(newShorthand))
+      console.log("sh4.2", JSON.stringify(newShorthand))
 
       // Persist to S3 (exact bucket/key/content-type)
       if (actionFile) {
