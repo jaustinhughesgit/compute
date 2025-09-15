@@ -302,28 +302,45 @@ on("createLinks", async (ctx, meta) => {
 // Response: { response: { entities:[{name,su}], links:[{subj,prop,obj}] } }
 // ───────────────────────────────────────────────────────────────────────────
 on("export", async (ctx, meta) => {
+  console.log("exprt ----------------------")
+  console.log("exprt ----------------------")
+  console.log("exprt ----------------------")
+  console.log("exprt ----------------------")
+  console.log("exprt ----------------------")
+  console.log("exprt ----------------------")
   const doc = getDocClient();
   const segs = splitPath(ctx.path || "");
   const rb = legacyWrapBody(ctx?.req?.body) || {};
   const body = rb?.body || {};
+  console.log("doc",doc)
+  console.log("segs",segs)
+  console.log("rb",rb)
+  console.log("body",body)
 
   // Resolve creator 'e' with new precedence:
   // 1) explicit body.by (raw 'e')
   // 2) path seg treated as **primary su** → look up 'e' via getSub(su, "su")
   // 3) cookie.e fallback
   let byE = String(body.by || "").trim();
-
+console.log("1")
   if (!byE) {
+console.log("2", byE)
     const primarySu = String(segs[0] || "").trim();
     if (primarySu) {
+console.log("3", primarySu)
       try {
+console.log("4")
         const sub = await getSub(primarySu, "su"); // su -> e
+console.log("5")
         byE = String(sub?.Items?.[0]?.e || "").trim();
+console.log("6", byE)
       } catch { /* ignore; we'll fall back below */ }
     }
   }
   if (!byE) byE = String(meta?.cookie?.e || "").trim();
+  console.log("7",byE)
   if (!byE) {
+    console.log("8")
     return withStandardEnvelope({ entities: [], links: [], note: "no-by" }, meta, "");
   }
 
@@ -331,6 +348,7 @@ on("export", async (ctx, meta) => {
   const items = [];
   let ExclusiveStartKey = undefined;
   do {
+  console.log("9")
     const res = await doc.query({
       TableName: "links",
       IndexName: "byIndex",
@@ -339,6 +357,7 @@ on("export", async (ctx, meta) => {
       ExpressionAttributeValues: { ":by": byE },
       ExclusiveStartKey,
     }).promise();
+  console.log("10",res)
     items.push(...(res.Items || []));
     ExclusiveStartKey = res.LastEvaluatedKey;
   } while (ExclusiveStartKey);
@@ -347,11 +366,15 @@ on("export", async (ctx, meta) => {
   const eSet = new Set();
   const get = (obj, ...keys) => keys.reduce((v, k) => (v ??= obj?.[k]), undefined);
 
+  console.log("11")
   for (const it of items) {
     // tolerate several field spellings
     const parentE = get(it, "whole") ?? get(it, "parent") ?? get(it, "parentE");
     const childE  = get(it, "part")  ?? get(it, "child")  ?? get(it, "childE");
     const propE   = get(it, "propE") ?? get(it, "prop")   ?? undefined;
+  console.log("12",parentE)
+  console.log("13",childE)
+  console.log("14",propE)
     if (parentE) eSet.add(String(parentE));
     if (childE)  eSet.add(String(childE));
     if (propE)   eSet.add(String(propE));
@@ -360,6 +383,7 @@ on("export", async (ctx, meta) => {
   // Resolve each entity 'e' to (su, name). We accept several name fields.
   const eToNameSu = new Map();
   for (const e of eSet) {
+    console.log("e",e)
     try {
       const sub = await getSub(String(e), "e"); // lookup by server entity id
       const rec = sub?.Items?.[0] || {};
@@ -367,7 +391,12 @@ on("export", async (ctx, meta) => {
       const name = String(
         rec.name || rec.title || rec.s || rec.surface || rec.lemma || su || e
       ).toLowerCase();
+    console.log("sub",sub)
+    console.log("rec",rec)
+    console.log("su",su)
+    console.log("name",name)
       if (su) {
+        console.log("15")
         eToNameSu.set(String(e), { name, su });
       }
     } catch (err) {
@@ -377,7 +406,9 @@ on("export", async (ctx, meta) => {
 
   // Build normalized link triples (subj --prop--> obj)
   const links = [];
+  console.log("items",items)
   for (const it of items) {
+    console.log("it", it)
     const subjE = get(it, "whole") ?? get(it, "parent") ?? get(it, "parentE");
     const objE  = get(it, "part")  ?? get(it, "child")  ?? get(it, "childE");
     const propE = get(it, "propE") ?? get(it, "prop")   ?? undefined;
@@ -386,7 +417,7 @@ on("export", async (ctx, meta) => {
     const prop  = propE ? (eToNameSu.get(String(propE))?.name || "related_to") : "related_to";
     if (subj && obj) links.push({ subj, prop, obj });
   }
-
+  console.log("eToNameSu",eToNameSu)
   // Unique list of entities referenced in the link set
   const entities = Array.from(eToNameSu.values());
 
