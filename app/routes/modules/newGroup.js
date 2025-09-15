@@ -23,22 +23,18 @@ function register({ on, use }) {
     const dynamodb = getDocClient();
     const { uuidv4, ses } = deps;
 
-    // Path args (same positions as legacy: [3]=name, [4]=head, [5]=uuid)
     const segs = String(ctx.path || "").split("/").filter(Boolean);
     const [newGroupName, headEntityName, headUUIDToShow] = segs;
     if (!newGroupName || !headEntityName) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
     }
 
-    // Legacy: ensure cookie exists (route used manageCookie up-front)
     const ensuredCookie =
       cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
     console.log("ensuredCookie", ensuredCookie);
 
-    // Legacy: set public toggle before creating resources
     setIsPublic(true);
 
-    // Words & ids
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
     const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
 
@@ -49,7 +45,6 @@ function register({ on, use }) {
     const e     = await incrementCounterAndGetNewValue("eCounter", dynamodb);
     const ai    = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
 
-    // Access + verified (preserve exact values & order)
     await createAccess(
       ai.toString(),
       gNew.toString(),
@@ -71,14 +66,13 @@ function register({ on, use }) {
       gNew.toString(),
       "0",
       ai.toString(),
-      "0",   // ← va (string "0") — legacy value, do not change
-      ex,    // ← ex
-      true,  // ← bo
-      0,     // ← at
-      0      // ← ti
+      "0",
+      ex,
+      true,
+      0,
+      0 
     );
 
-    // Group + head entity + subs
     await createGroup(gNew.toString(), aG, e.toString(), [ai.toString()], dynamodb);
 
     const suRoot = await getUUID(uuidv4);
@@ -97,13 +91,12 @@ function register({ on, use }) {
 
     const suDoc = await getUUID(uuidv4);
 
-    // Keep dual body shape support
     const body = ctx.req?.body || {};
 
     console.log("***!!!")
     console.log("ctx", ctx)
     console.log("ctx.req", ctx.req)
-    console.log("ctx.req.body", ctx.req.body) // << Empty object {}
+    console.log("ctx.req.body", ctx.req.body)
 
     const outputParam = ctx?.req?.body?.body?.output;
 
@@ -205,12 +198,11 @@ function register({ on, use }) {
   e.toString(),
   "0",
   true,
-  outputParam,   // ← NEW: stash the output on the subdomain item
+  outputParam,
   dynamodb
 );
     await createFile(suDoc, payload, deps.s3);
 
-    // Email (exact legacy strings, including "recieved")
     const params = {
       Source: "noreply@email.1var.com",
       Destination: { ToAddresses: ["austin@1var.com"] },
@@ -230,9 +222,10 @@ function register({ on, use }) {
         },
       },
     };
+    //Keep this comment. This was commented to pause emails in development
     //await ses.sendEmail(params).promise();
 
-    // Return the new document view
+
     const mainObj = await convertToJSON(
       suDoc,
       [],

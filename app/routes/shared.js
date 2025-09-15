@@ -595,8 +595,8 @@ function createShared(deps = {}) {
 
   async function createSubdomain(
     su, a, e, g, z,
-    maybeOutputOrDdb, 
-    maybeDdb 
+    maybeOutputOrDdb,
+    maybeDdb
   ) {
     let output;
     let ddb = dynamodb;
@@ -617,15 +617,15 @@ function createShared(deps = {}) {
     return su;
   }
 
-async function createCookie(ci, gi, ex, ak, e, ddb = dynamodb) {
-  await ddb
-    .put({
-      TableName: "cookies",
-      Item: { ci, gi, ex, ak, e },
-    })
-    .promise();
-  return true;
-}
+  async function createCookie(ci, gi, ex, ak, e, ddb = dynamodb) {
+    await ddb
+      .put({
+        TableName: "cookies",
+        Item: { ci, gi, ex, ak, e },
+      })
+      .promise();
+    return true;
+  }
 
   async function getCookie(val, key, ddb = dynamodb) {
     let params;
@@ -649,13 +649,13 @@ async function createCookie(ci, gi, ex, ak, e, ddb = dynamodb) {
         KeyConditionExpression: "gi = :gi",
         ExpressionAttributeValues: { ":gi": val },
       };
-} else if (key === "e") {
-  params = {
-    TableName: "cookies",
-    IndexName: "eIndex",
-    KeyConditionExpression: "e = :e",
-    ExpressionAttributeValues: { ":e": val },
-  };
+    } else if (key === "e") {
+      params = {
+        TableName: "cookies",
+        IndexName: "eIndex",
+        KeyConditionExpression: "e = :e",
+        ExpressionAttributeValues: { ":e": val },
+      };
     } else {
       throw new Error(`getCookie: unknown key "${key}"`);
     }
@@ -667,78 +667,113 @@ async function createCookie(ci, gi, ex, ak, e, ddb = dynamodb) {
     return "1v4r" + id;
   }
 
-async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-  console.log("mainObj", mainObj);
-  console.log("xAccessToken", xAccessToken);
-  console.log("ddb", ddb);
-  console.log("uuid", uuid);
+  async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+    console.log("mainObj", mainObj);
+    console.log("xAccessToken", xAccessToken);
+    console.log("ddb", ddb);
+    console.log("uuid", uuid);
 
-  if (xAccessToken) {
-    mainObj.status = "authenticated";
-    const cookie = await getCookie(xAccessToken, "ak", ddb);
-    return cookie.Items?.[0];
-  } else {
-    /*
-      call newGroup with /newGroup/newUser/newUser
-      get subdomain back
-      const sub = await getSub(subdomain, "su", ddb);
-      add the "e" to the createCookie using sub.Items[0].e
-      make sure e is added to the cookie record in the database
-    */
-    const ttl = 86400;
-    const ak = await getUUID(uuid);
-    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-    const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
-    const ex = Math.floor(Date.now() / 1000) + ttl;
+    if (xAccessToken) {
+      mainObj.status = "authenticated";
+      const cookie = await getCookie(xAccessToken, "ak", ddb);
+      return cookie.Items?.[0];
+    } else {
+      /*
+        call newGroup with /newGroup/newUser/newUser
+        get subdomain back
+        const sub = await getSub(subdomain, "su", ddb);
+        add the "e" to the createCookie using sub.Items[0].e
+        make sure e is added to the cookie record in the database
+      */
+      const ttl = 86400;
+      const ak = await getUUID(uuid);
+      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+      const ex = Math.floor(Date.now() / 1000) + ttl;
 
-    let eForCookie = "0";
+      let eForCookie = "0";
+      let suDocForEmail = null;
 
-    try {
-      // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
-      const newGroupHandler = actions.get("newGroup");
-      if (typeof newGroupHandler === "function") {
-        const ctxForNewGroup = {
-          path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
-          req: { body: {} },
-          res,
-          xAccessToken: null,
-        };
+      try {
+        // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
+        const newGroupHandler = actions.get("newGroup");
+        if (typeof newGroupHandler === "function") {
+          const ctxForNewGroup = {
+            path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
+            req: { body: {} },
+            res,
+            xAccessToken: null,
+          };
 
-        // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
-        const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+          // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
+          const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
 
-        // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
-        const suDoc = ngResult?.response?.file;
-        if (suDoc) {
-          const sub = await getSub(suDoc, "su", ddb);
-          if (sub?.Items?.length) {
-            eForCookie = String(sub.Items[0].e || "0");
+          // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
+          const suDoc = ngResult?.response?.file;
+          if (suDoc) {
+            suDocForEmail = suDoc;
+            const sub = await getSub(suDoc, "su", ddb);
+            if (sub?.Items?.length) {
+              eForCookie = String(sub.Items[0].e || "0");
+            }
           }
+        } else {
+          console.warn("manageCookie: newGroup action not registered; proceeding without e");
         }
-      } else {
-        console.warn("manageCookie: newGroup action not registered; proceeding without e");
+      } catch (err) {
+        console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
       }
-    } catch (err) {
-      console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
+
+      // Create the cookie, now including e
+      await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
+
+
+      // Create the user record BEFORE returning the cookie.
+      // e = user id; suDoc drives the generated email <suDoc>@email.1var.com
+      try {
+        if (eForCookie !== "0" && suDocForEmail) {
+          const createUserHandler = actions.get("createUser");
+          if (typeof createUserHandler === "function") {
+            await createUserHandler(
+              {
+                req: {
+                  body: {
+                    userID: eForCookie,
+                    emailHash: `${suDocForEmail}@email.1var.com`,
+                    pubEnc: null,
+                    pubSig: null,
+                    revoked: false,
+                    latestKeyVersion: 1,
+                  }
+                }
+              },
+              {}
+            );
+          } else {
+            console.warn("manageCookie: createUser action not registered; skipping user creation");
+          }
+        } else {
+          console.warn("manageCookie: missing e or suDoc; skipping user creation");
+        }
+      } catch (err) {
+        console.warn("manageCookie: createUser failed; continuing without blocking", err);
+      }
+
+
+      mainObj.accessToken = ak;
+
+      // set browser cookie for *.1var.com
+      res?.cookie?.("accessToken", ak, {
+        domain: ".1var.com",
+        maxAge: ttl * 1000,
+        httpOnly: true,
+        secure: true,
+        sameSite: "None",
+      });
+
+      return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
     }
-
-    // Create the cookie, now including e
-    await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
-
-    mainObj.accessToken = ak;
-
-    // set browser cookie for *.1var.com
-    res?.cookie?.("accessToken", ak, {
-      domain: ".1var.com",
-      maxAge: ttl * 1000,
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-    });
-
-    return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
   }
-}
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
     await ddb

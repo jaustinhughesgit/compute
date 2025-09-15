@@ -48,7 +48,6 @@ function normalize(rawPath, typeFromParams, queryType) {
     action = segs[1] || "";
     pathForModules = "/" + segs.slice(2).join("/");
   } else {
-    // Mounted at "/<action>/..."
     action = segs[0] || "";
     pathForModules = "/" + segs.slice(1).join("/");
   }
@@ -57,30 +56,23 @@ function normalize(rawPath, typeFromParams, queryType) {
   return { action, type, pathForModules };
 }
 
-// ───────────────────────────────────────────────────────────────────────────────
-// Express router (preferred)
-// ───────────────────────────────────────────────────────────────────────────────
 function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic) {
-  // IMPORTANT: pass uuidv4 so shared.getUUID() can use it
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
 
-  // Mint (or lookup) a cookie and attach it both to ctx and req.cookies
   _shared.use(async (ctx) => {
     const main = {};
     const ck = await _shared.manageCookie(
       main,
-      ctx.xAccessToken,   // picked from headers below
-      ctx.res             // lets manageCookie set Set-Cookie header
+      ctx.xAccessToken,   
+      ctx.res 
     );
 
-    // Make this cookie available everywhere downstream
     ctx.cookie = ck;
     ctx.req.cookies ||= {};
     Object.assign(ctx.req.cookies, ck);
   });
 
-  // keep legacy default, but prefer env
   _signer =
     _signer ||
     new AWS.CloudFront.Signer(process.env.CF_KEYPAIR_ID || "K2LZRHRSYZRU3Y", privateKey);
@@ -92,10 +84,9 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     const m = require(p);
     const mod = m?.register ? m : m?.default?.register ? m.default : null;
     if (!mod) throw new TypeError(`Module "${p}" does not export register()`);
-    return mod.register(regOpts); // pass adapter, not _shared directly
+    return mod.register(regOpts);
   };
 
-  // register all modules
   reg("./modules/get");
   reg("./modules/file");
   reg("./modules/links");
@@ -128,7 +119,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   router.all("*", async (req, res) => {
     try {
-      // Flush shared caches per request (parity with old behavior)
       const s = ensureShared();
       if (s.cache) {
         for (const k of Object.keys(s.cache)) s.cache[k] = Object.create(null);
@@ -184,25 +174,18 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
           req.headers?.["x-accessToken"],
       };
 
-      // Try modules first
       const result = await s.dispatch(action, ctx, { cookie });
       if (res.headersSent) return;
-      if (result && result.__handled) return; // explicit no-op (legacy parity)
+      if (result && result.__handled) return; 
 
-      // If a module returned something concrete, respect it.
       if (result !== undefined && result !== null) {
         return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
       }
 
-      // ───────────────────────────────────────────────────────────────────
-      // Legacy-compat fallback: bottom-of-old-cookies.js behavior
-      // (only kicks in if no module handled the action)
-      // ───────────────────────────────────────────────────────────────────
       await legacyBottomCompat({ action, type, pathForModules, req, res, cookie });
 
       if (res.headersSent) return;
 
-      // Legacy: empty JSON when nothing to do
       return _shared.sendBack(res, "json", {}, /*isShorthand*/ false);
     } catch (err) {
       console.error("cookies route error", err);
@@ -212,7 +195,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
           .json({ ok: false, error: err?.message || "Internal Server Error" });
       }
       if (!res.headersSent) {
-        // Legacy error shape
         _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ false);
       }
     }
@@ -319,7 +301,6 @@ async function route(
 
   try {
   console.log("route13")
-    // Flush shared caches per request (parity with old behavior)
     const s = ensureShared();
     if (s.cache) {
       for (const k of Object.keys(s.cache)) s.cache[k] = Object.create(null);
@@ -329,14 +310,13 @@ async function route(
 
   console.log("route14")
     if (!res?.headersSent) {
-      if (result && result.__handled) return; // legacy parity
+      if (result && result.__handled) return;
       if (res?.json && result !== undefined && result !== null) {
         console.log("~~result",result)
         console.log("~~isShorthand",isShorthand)
         return _shared.sendBack(res, "json", result, /*isShorthand*/ !!isShorthand);
       }
 
-      // Legacy-compat fallback (bottom-of-old-cookies.js)
       await legacyBottomCompat({
         action: a,
         type: ctx.type,
@@ -350,11 +330,9 @@ async function route(
       if (res?.headersSent) return;
 
       if (res?.json) {
-        // No handler → empty payload
         console.log("~~1")
-        return _shared.sendBack(res, "json", {}, /*isShorthand*/ !!isShorthand);
+        return _shared.sendBack(res, "json", {}, !!isShorthand);
       }
-      // No HTTP writer (shorthand/programmatic) → return raw
         console.log("~~2")
       return result ?? {};
     }
@@ -403,7 +381,6 @@ module.exports = {
   getEntity: bind("getEntity"),
   verifyThis: bind("verifyThis"),
 
-  // explicit exports mirroring old tail
   getLinkedChildren: bind("getLinkedChildren"),
   getLinkedParents: bind("getLinkedParents"),
   putLink: bind("putLink"),

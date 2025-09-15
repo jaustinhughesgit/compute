@@ -4,21 +4,13 @@
 function register({ on, use }) {
   const { getDocClient /* , getS3, deps */ } = use();
 
-  // Helper: preserve legacy body flattening semantics
   function unwrapBody(b) {
     if (!b || typeof b !== "object") return b;
-    if (b.body && typeof b.body === "object") return b.body; // legacy { body: { ... } }
-    return b; // already flattened
+    if (b.body && typeof b.body === "object") return b.body; 
+    return b; 
   }
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // createUser
-  // Legacy behavior:
-  // - Writes a new item to the "users" table with user-provided fields.
-  // - Uses ConditionExpression "attribute_not_exists(e)" (kept verbatim).
-  // - Swallows ConditionalCheckFailedException (user already exists) like before.
-  // - No specific response payload was set in the old monolith (returned empty object).
-  // ────────────────────────────────────────────────────────────────────────────
+
   on("createUser", async (ctx /* , meta */) => {
     const { req /* , res, path, type, signer */ } = ctx;
     const body = unwrapBody(req.body) || {};
@@ -37,7 +29,6 @@ function register({ on, use }) {
     const params = {
       TableName: "users",
       Item: newUser,
-      // NOTE: preserved exactly as in legacy (even though 'e' is not part of this item).
       ConditionExpression: "attribute_not_exists(e)",
     };
 
@@ -45,26 +36,16 @@ function register({ on, use }) {
       await getDocClient().put(params).promise();
     } catch (err) {
       if (err && err.code === "ConditionalCheckFailedException") {
-        // Legacy: log and continue (do not throw)
         console.error("User already exists");
       } else {
-        // Preserve legacy: rethrow other errors
         throw err;
       }
     }
 
-    // Legacy branch returned an (effectively) empty payload that later got wrapped.
-    // Here we return an empty object to maintain parity of direct action response.
     return {};
   });
 
-  // ────────────────────────────────────────────────────────────────────────────
-  // getUserPubKeys
-  // Legacy behavior:
-  // - Requires userID in body; returns {statusCode, body: JSON.stringify({error})} on errors.
-  // - Fetches pubEnc, pubSig, latestKeyVersion via ProjectionExpression.
-  // - Returns those fields plus echoed requestId when found.
-  // ────────────────────────────────────────────────────────────────────────────
+
   on("getUserPubKeys", async (ctx /* , meta */) => {
     const { req /* , res, path, type, signer */ } = ctx;
     const body = unwrapBody(req.body) || {};
