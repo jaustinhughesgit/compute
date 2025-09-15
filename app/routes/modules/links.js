@@ -118,6 +118,9 @@ function register({ on, use }) {
     // prop is optional 3rd segment; URL-decoded & normalized
     const propSU   = segs[2] || ""; // already an SU, not a surface
 
+    console.log("req",req);
+    console.log("path",path);
+    console.log("segs",segs);
     // attempt link only if both found; ignore else
     try {
     const childSub  = await getSub(childSU,  "su");
