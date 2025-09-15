@@ -287,13 +287,19 @@ on("createLinks", async (ctx, meta) => {
   });
 
   // ───────────────────────────────────────────────────────────────────────────
-// export  (download all entities + links created by a specific 'by' (e))
-// Path variants:
-//   POST /export                    // uses cookie.e
-//   POST /export/:byE              // uses path param
-// Body (optional): { by: "<e>" }   // overrides both
-// Response:
-//   { response: { entities:[{name,su}], links:[{subj,prop,obj}] } }
+// export
+// Download all entities + links created by a specific creator 'e'.
+//
+// New behavior:
+//   - The first path segment is treated as a **primary su**, not a raw 'by'.
+//   - We resolve su → e with getSub(su, "su") and export for that 'e'.
+//
+// Supported call styles (priority order):
+//   1) Body override:          POST /export            with body { by: "<e>" }
+//   2) Primary su in path:     POST /export/:primarySu  (server resolves su → e)
+//   3) Cookie fallback:        POST /export            (uses cookie.e)
+//
+// Response: { response: { entities:[{name,su}], links:[{subj,prop,obj}] } }
 // ───────────────────────────────────────────────────────────────────────────
 on("export", async (ctx, meta) => {
   const doc = getDocClient();
@@ -301,8 +307,22 @@ on("export", async (ctx, meta) => {
   const rb = legacyWrapBody(ctx?.req?.body) || {};
   const body = rb?.body || {};
 
-  // Resolve creator 'e' in priority: body.by > path seg > cookie.e
-  const byE = String(body.by || segs[0] || meta?.cookie?.e || "").trim();
+  // Resolve creator 'e' with new precedence:
+  // 1) explicit body.by (raw 'e')
+  // 2) path seg treated as **primary su** → look up 'e' via getSub(su, "su")
+  // 3) cookie.e fallback
+  let byE = String(body.by || "").trim();
+
+  if (!byE) {
+    const primarySu = String(segs[0] || "").trim();
+    if (primarySu) {
+      try {
+        const sub = await getSub(primarySu, "su"); // su -> e
+        byE = String(sub?.Items?.[0]?.e || "").trim();
+      } catch { /* ignore; we'll fall back below */ }
+    }
+  }
+  if (!byE) byE = String(meta?.cookie?.e || "").trim();
   if (!byE) {
     return withStandardEnvelope({ entities: [], links: [], note: "no-by" }, meta, "");
   }
