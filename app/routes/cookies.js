@@ -64,8 +64,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     const main = {};
     const ck = await _shared.manageCookie(
       main,
-      ctx.xAccessToken,   
-      ctx.res 
+      ctx.xAccessToken,
+      ctx.res
     );
 
     ctx.cookie = ck;
@@ -176,7 +176,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
       const result = await s.dispatch(action, ctx, { cookie });
       if (res.headersSent) return;
-      if (result && result.__handled) return; 
+      if (result && result.__handled) return;
 
       if (result !== undefined && result !== null) {
         return _shared.sendBack(res, "json", result, /*isShorthand*/ false);
@@ -237,10 +237,10 @@ async function route(
 
   console.log("route2")
   if (reqBody) {
-  console.log("route3")
+    console.log("route3")
     const flat = unwrapBody(reqBody);
     if (!req.body || !Object.keys(req.body).length) req.body = flat;
-  console.log("route4")
+    console.log("route4")
 
     const hdrs =
       (reqBody && reqBody.headers) || (flat && flat.headers) || undefined;
@@ -251,7 +251,7 @@ async function route(
   console.log("route5")
   let raw = String(reqPath || req?.path || "").split("?")[0];
   if (!raw || raw === "/") {
-  console.log("route6")
+    console.log("route6")
     const fromHeader =
       req?.get?.("X-Original-Host") ||
       req?.headers?.["x-original-host"] ||
@@ -259,7 +259,7 @@ async function route(
         req.body.headers &&
         (req.body.headers["X-Original-Host"] || req.body.headers["x-original-host"]));
     if (fromHeader) {
-  console.log("route7")
+      console.log("route7")
       const p = String(fromHeader).replace(/^https?:\/\/[^/]+/, "");
       raw = p.split("?")[0];
     }
@@ -268,14 +268,14 @@ async function route(
   console.log("route8")
   let a = action;
   if (!a) {
-  console.log("route9")
+    console.log("route9")
     const segs = String(raw || "").split("/").filter(Boolean);
     a = segs[0] === "cookies" || segs[0] === "url" ? segs[1] || "" : segs[0] || "";
   }
 
   console.log("route10")
   const normalizeTail = (rawPath) => {
-  console.log("route11")
+    console.log("route11")
     const segs = String(rawPath || "").split("/").filter(Boolean);
     const tail =
       segs[0] === "cookies" || segs[0] === "url"
@@ -300,7 +300,7 @@ async function route(
   };
 
   try {
-  console.log("route13")
+    console.log("route13")
     const s = ensureShared();
     if (s.cache) {
       for (const k of Object.keys(s.cache)) s.cache[k] = Object.create(null);
@@ -308,12 +308,12 @@ async function route(
 
     const result = await s.dispatch(a, ctx, { cookie: req?.cookies || {} });
 
-  console.log("route14")
+    console.log("route14")
     if (!res?.headersSent) {
       if (result && result.__handled) return;
       if (res?.json && result !== undefined && result !== null) {
-        console.log("~~result",result)
-        console.log("~~isShorthand",isShorthand)
+        console.log("~~result", result)
+        console.log("~~isShorthand", isShorthand)
         return _shared.sendBack(res, "json", result, /*isShorthand*/ !!isShorthand);
       }
 
@@ -333,13 +333,13 @@ async function route(
         console.log("~~1")
         return _shared.sendBack(res, "json", {}, !!isShorthand);
       }
-        console.log("~~2")
+      console.log("~~2")
       return result ?? {};
     }
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
     if (!res?.headersSent && res?.status && res?.json) {
-        console.log("~~3")
+      console.log("~~3")
       _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ !!isShorthand);
     }
   }
@@ -347,12 +347,12 @@ async function route(
 
 async function legacyBottomCompat({ action, type, pathForModules, req, res, cookie, isShorthand = false }) {
   try {
-        console.log("~~4")
+    console.log("~~4")
     return ensureShared().sendBack(res, "json", { ok: true, response: {} }, isShorthand);
   } catch (e) {
     if (!res.headersSent) {
 
-        console.log("~~5")
+      console.log("~~5")
       return ensureShared().sendBack(res, "json", { ok: false, response: {} }, isShorthand);
     }
   }

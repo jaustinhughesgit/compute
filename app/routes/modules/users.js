@@ -6,7 +6,7 @@ function register({ on, use }) {
 
   function unwrapBody(b) {
     if (!b || typeof b !== "object") return b;
-    if (b.body && typeof b.body === "object") return b.body; 
+    if (b.body && typeof b.body === "object") return b.body; // legacy { body: { ... } }
     return b; 
   }
 

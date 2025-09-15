@@ -707,7 +707,12 @@ function createShared(deps = {}) {
 
           // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
           const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
-
+          console.log("ngResult",ngResult)
+          console.log("ngResult",ngResult)
+          console.log("ngResult",ngResult)
+          console.log("ngResult",ngResult)
+          console.log("ngResult",ngResult)
+          console.log("ngResult",ngResult)
           // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
           const suDoc = ngResult?.response?.file;
           if (suDoc) {
