@@ -1637,18 +1637,14 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
         console.log("fixedPossessed", fixedPossessed)
         console.log("typeof fixedPossessed", typeof fixedPossessed)
-        let base = 0
+        let base = 1000000000000000
         console.log("base", base)
-        const possessedNumeric = Number(fixedPossessed) || 0;
-        let converted = possessedNumeric / 1e13;
-        console.log("converted", converted)
-        let possessedBase = base + converted;
-        console.log("possessedBase", possessedBase);
-        let domainIndex = parseInt(domains.indexOf(domain) + "00")
+        let domainIndex = 10000000000000 * domains.indexOf(domain)
         console.log("domainIndex", domainIndex);
-        let subdomainIndex = parseInt(DOMAIN_SUBS[domain].indexOf(subdomain))
+        let subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain)
         console.log("subdomainIndex", subdomainIndex);
-        let possessedCombined = possessedBase + domainIndex + subdomainIndex
+        let userID = 1
+        let possessedCombined = possessedBase + domainIndex + subdomainIndex + userID
         console.log("possessedCombined", possessedCombined);
 
         const {
@@ -1690,6 +1686,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
         let subdomainMatches = [];
         if (dist1 != null) {
+            pb = possessedCombined + dist1
             try {
                 const params = {
                     TableName: "subdomains",
@@ -1700,7 +1697,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
                     },
                     ExpressionAttributeValues: {
-                        ":pb": possessedCombined,
+                        ":pb": pb,
                         ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
                         ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
                         ":d3lo": dist3 - 0.01, ":d3hi": dist3 + 0.01,
