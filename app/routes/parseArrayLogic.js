@@ -1644,7 +1644,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         let subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain)
         console.log("subdomainIndex", subdomainIndex);
         let userID = 1
-        let possessedCombined = possessedBase + domainIndex + subdomainIndex + userID
+        let possessedCombined = base + domainIndex + subdomainIndex + userID
         console.log("possessedCombined", possessedCombined);
 
         const {
