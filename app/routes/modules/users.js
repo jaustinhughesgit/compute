@@ -1,9 +1,8 @@
 // modules/users.js
 "use strict";
-const crypto = require("crypto");
 
 function register({ on, use }) {
-  const { getDocClient, incrementCounterAndGetNewValue /* , getS3, deps */ } = use();
+  const { getDocClient /* , getS3, deps */ } = use();
 
   // Helper: preserve legacy body flattening semantics
   function unwrapBody(b) {
@@ -25,24 +24,11 @@ function register({ on, use }) {
     const body = unwrapBody(req.body) || {};
 
     const now = Date.now();
-
-    // Allow callers to pass either { emailHash } or { email }.
-    const email = body.email ? String(body.email) : "";
-    const emailHash =
-      body.emailHash ??
-      (email ? crypto.createHash("sha256").update(email).digest("hex") : undefined);
-
-    // Auto-generate a userID if not provided.
-    const userID =
-      body.userID != null
-        ? parseInt(body.userID, 10)
-        : await incrementCounterAndGetNewValue("userCounter", getDocClient());
-
     const newUser = {
-      userID,
-      emailHash,
-      pubEnc: body.pubEnc || "",
-      pubSig: body.pubSig || "",
+      userID: parseInt(body.userID, 10),
+      emailHash: body.emailHash,
+      pubEnc: body.pubEnc,
+      pubSig: body.pubSig,
       created: now,
       revoked: !!body.revoked,
       latestKeyVersion: body.latestKeyVersion ?? 1,
