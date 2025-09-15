@@ -1117,35 +1117,6 @@ const DOMAIN_SUBS = {
 const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 
-// ADD: exact decimal + helpers for low-level DynamoDB Numbers
-const Decimal = require("decimal.js");
-
-// choose how many fractional digits you want to keep in DynamoDB (<= 38 total digits)
-const DEC_SCALE = 24;
-
-/** Normalize to Decimal (avoid passing through JS Number unnecessarily) */
-const toDec = x => (Decimal.isDecimal(x) ? x : new Decimal(String(x)));
-
-/** String for DynamoDB {N: "..."} with fixed scale */
-const nStr = x => toDec(x).toFixed(DEC_SCALE);
-
-/** Convenience to build low-level DynamoDB Number attribute */
-const N = x => ({ N: nStr(x) });
-
-/** Convert a low-level DynamoDB item (subset) to plain JS for fields we use here */
-const llToJs = item => {
-  const out = {};
-  for (const [k, av] of Object.entries(item || {})) {
-    if (av == null) continue;
-    if ("S" in av) out[k] = av.S;
-    else if ("N" in av) out[k] = Number(av.N); // safe here: our dist* are small (< 2)
-    else if ("BOOL" in av) out[k] = av.BOOL;
-    else if ("NULL" in av) out[k] = null;
-    // extend as needed for other attribute types you store
-  }
-  return out;
-};
-
 const parseVector = v => {
     if (!v) return null;
     if (Array.isArray(v)) return v;
@@ -1714,54 +1685,40 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                     : null;
             });
         }
-let subdomainMatches = [];
-let pbNStr; // keep the exact decimal string around for later use if needed
-if (dist1 != null) {
-    // exact decimal math: pb = possessedCombined + dist1 (no IEEE-754 rounding)
-    const pbDec = toDec(possessedCombined).plus(toDec(dist1));
-    pbNStr = pbDec.toFixed(DEC_SCALE); // exact string for DynamoDB {N: ...}
-
-    try {
-        // use the LOW-LEVEL client (dynamodbLL) so we can send exact { N: "..." } values
-        const paramsLL = {
-            TableName: "subdomains",
-            IndexName: "pb-index",
-            KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
-            ExpressionAttributeNames: {
-                "#p": "pb", "#d1": "dist1", "#d2": "dist2",
-                "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
-            },
-            ExpressionAttributeValues: {
-                ":pb":   N(pbDec),
-                ":d1lo": N(toDec(dist1).minus(0.01)),
-                ":d1hi": N(toDec(dist1).plus(0.01)),
-                ":d2lo": N(toDec(dist2).minus(0.01)),
-                ":d2hi": N(toDec(dist2).plus(0.01)),
-                ":d3lo": N(toDec(dist3).minus(0.01)),
-                ":d3hi": N(toDec(dist3).plus(0.01)),
-                ":d4lo": N(toDec(dist4).minus(0.01)),
-                ":d4hi": N(toDec(dist4).plus(0.01)),
-                ":d5lo": N(toDec(dist5).minus(0.01)),
-                ":d5hi": N(toDec(dist5).plus(0.01))
-            },
-            // FilterExpression unchanged
-            FilterExpression:
-                "#d2 BETWEEN :d2lo AND :d2hi AND " +
-                "#d3 BETWEEN :d3lo AND :d3hi AND " +
-                "#d4 BETWEEN :d4lo AND :d4hi AND " +
-                "#d5 BETWEEN :d5lo AND :d5hi",
-            ScanIndexForward: true
-        };
-        console.log("paramsLL", paramsLL);
-
-        const { Items: rawItems } = await dynamodbLL.query(paramsLL).promise();
-        // Convert to plain JS object for the fields you use later (dist*, su, etc.)
-        subdomainMatches = (rawItems || []).map(llToJs);
-    } catch (err) {
-        console.error("subdomains GSI query failed:", err);
-    }
-}
-
+        let subdomainMatches = [];
+        if (dist1 != null) {
+            pb = possessedCombined.toString() + dist1.toString().replace(/^0?\./, "");
+            try {
+                const params = {
+                    TableName: "subdomains",
+                    IndexName: "pb-index",
+                    KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
+                    ExpressionAttributeNames: {
+                        "#p": "pb", "#d1": "dist1", "#d2": "dist2",
+                        "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
+                    },
+                    ExpressionAttributeValues: {
+                        ":pb": { N: pb },
+                        ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
+                        ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
+                        ":d3lo": dist3 - 0.01, ":d3hi": dist3 + 0.01,
+                        ":d4lo": dist4 - 0.01, ":d4hi": dist4 + 0.01,
+                        ":d5lo": dist5 - 0.01, ":d5hi": dist5 + 0.01
+                    },
+                    FilterExpression:
+                        "#d2 BETWEEN :d2lo AND :d2hi AND " +
+                        "#d3 BETWEEN :d3lo AND :d3hi AND " +
+                        "#d4 BETWEEN :d4lo AND :d4hi AND " +
+                        "#d5 BETWEEN :d5lo AND :d5hi",
+                    ScanIndexForward: true
+                };
+                console.log("params", params)
+                const { Items } = await dynamodb.query(params).promise();
+                subdomainMatches = Items ?? [];
+            } catch (err) {
+                console.error("subdomains GSI query failed:", err);
+            }
+        }
         let bestMatch = null;
         console.log("subdomainMatches", subdomainMatches)
         if (subdomainMatches.length) {
@@ -1885,27 +1842,27 @@ if (dist1 != null) {
 
 
             const pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
+            pb = possessedCombined.toString() + dist1.toString().replace(/^0?\./, "");
             shorthand.push([
-  "ROUTE",
-  {
-    "body": {
-      description: "auto created entity",
-      domain, subdomain,
-      embedding,
-      entity: padRef(routeRowNewIndex + 1),
-      // preserve exact pb as a string if we computed it; otherwise fall back to integer bucket
-      pb: (typeof pbNStr === "string" ? pbNStr : String(possessedCombined)),
-      pbScale: DEC_SCALE, // optional metadata (helps downstream writers)
-      dist1, dist2, dist3, dist4, dist5,
-      path: pathStr,
-      output: fixedOutput
-    }
-  },
-  {},
-  "position",
-  padRef(routeRowNewIndex + 1),
-  ""
-]);
+                "ROUTE",
+                {
+                    "body": {
+                        description: "auto created entity",
+                        domain, subdomain,
+                        embedding,
+                        entity: padRef(routeRowNewIndex + 1),
+                        pb: pb,
+                        // NEW: make the features and path visible to your indexer
+                        dist1, dist2, dist3, dist4, dist5,
+                        path: pathStr,
+                        output: fixedOutput
+                    }
+                },
+                {},
+                "position",
+                padRef(routeRowNewIndex + 1),
+                ""
+            ]);
 
             if (fixedOutput) {
                 shorthand.push([
