@@ -246,6 +246,7 @@ function register({ on, use }) {
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
+    mainObj.entity = e.toString()
 
     console.log("response:",mainObj)
     return { ok: true, response: mainObj };
