@@ -72,14 +72,23 @@ function register({ on, use }) {
       0 
     );
 const headEntityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-await createGroup(groupId, aG, headEntityId, [aiId], dynamodb);
+await createGroup(gNew.toString(), aG, headEntityId, [aiId], dynamodb);
 
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
     const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
 const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-await createEntity(entityId, aE.toString(), vHead.v, groupId, headEntityId, [aiId], dynamodb);
+
+    let savedE = await createEntity(
+      entityId,
+      aE.toString(),
+      vHead.v,
+      gNew.toString(),
+      entityId,
+      [ai.toString()],
+      dynamodb
+    );
 
     console.log("savedE",entityId);
     console.log("savedE",entityId);
