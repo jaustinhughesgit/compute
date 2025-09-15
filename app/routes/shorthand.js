@@ -1860,6 +1860,7 @@ newReq.body = {
         
     }
     shorthandObj.published = rr0
+    shorthandObj.conclusion = rr0
     return shorthandObj
 }
 
