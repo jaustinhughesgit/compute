@@ -131,8 +131,28 @@ function register({ on, use }) {
       const childE  = childSub.Items[0].e;   // server entity id
       const parentE = parentSub.Items[0].e;  // server entity id
       const propE   = propSub?.Items?.[0]?.e; // server entity id (optional)
-      await putLink(parentE, childE, propE || undefined);
-      }
+        // Create the link
+        const res = await putLink(parentE, childE, propE || undefined);
+
+        // Stamp creator (from users cookie record) onto the link
+        const creatorE = String(meta?.cookie?.e ?? "0");
+        if (res?.id) {
+          try {
+            await getDocClient()
+              .update({
+                TableName: "links",
+                Key: { id: res.id },
+                // preserve original creator if already set
+                UpdateExpression: "SET #by = if_not_exists(#by, :by)",
+                ExpressionAttributeNames: { "#by": "by" },
+                ExpressionAttributeValues: { ":by": creatorE },
+              })
+              .promise();
+          } catch (updErr) {
+            console.warn("link: failed to set creator on link", updErr);
+          }
+        }
+     }
     } catch (err) {
       // keep behavior: don't throw; proceed to return current child view
       console.error("link action failed (continuing to return child view):", err);
