@@ -253,6 +253,7 @@ function register({ on, use }) {
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
 
+    console.log("response:",mainObj)
     return { ok: true, response: mainObj };
   });
 }
