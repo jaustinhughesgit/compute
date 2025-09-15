@@ -79,7 +79,7 @@ function register({ on, use }) {
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
     const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-    await createEntity(
+    let savedE = await createEntity(
       e.toString(),
       aE.toString(),
       vHead.v,
@@ -88,6 +88,11 @@ function register({ on, use }) {
       [ai.toString()],
       dynamodb
     );
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
 
     const suDoc = await getUUID(uuidv4);
 
