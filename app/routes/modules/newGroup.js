@@ -253,8 +253,9 @@ function register({ on, use }) {
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
-
-    console.log("response:",mainObj)
+    // Surface the freshly created identifiers so callers can wire users/cookies.
+    mainObj.created = { groupID: gNew.toString(), entityID: e.toString() };
+    console.log("response:", mainObj)
     return { ok: true, response: mainObj };
   });
 }
