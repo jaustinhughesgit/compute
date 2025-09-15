@@ -712,10 +712,22 @@ function createShared(deps = {}) {
           const suDoc = ngResult?.response?.file;
           if (suDoc) {
             suDocForEmail = suDoc;
-            const sub = await getSub(suDoc, "su", ddb);
-            if (sub?.Items?.length) {
-              eForCookie = String(sub.Items[0].e || "0");
+          const sub = await getSub(suDoc, "su", ddb);
+          if (sub?.Items?.length) {
+            // sub may correspond to the new GROUP; derive the true entity id from the group
+            const gFromSub = String(sub.Items[0].g ?? "");
+            if (gFromSub) {
+              const group = await getGroup(gFromSub, ddb);
+              const entId = group?.Items?.[0]?.e;
+              if (entId) {
+                eForCookie = String(entId);
+              }
             }
+            // Fallback: if group lookup fails, use the subdomain's e as-is
+            if (eForCookie === "0" && sub.Items[0].e != null) {
+              eForCookie = String(sub.Items[0].e);
+            }
+          }
           }
         } else {
           console.warn("manageCookie: newGroup action not registered; proceeding without e");
