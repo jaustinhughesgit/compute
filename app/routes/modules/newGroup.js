@@ -72,7 +72,8 @@ function register({ on, use }) {
       0 
     );
 const headEntityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-await createGroup(gNew.toString(), aG, headEntityId, [aiId], dynamodb);
+
+    await createGroup(gNew.toString(), aG, headEntityId, [ai.toString()], dynamodb);
 
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
