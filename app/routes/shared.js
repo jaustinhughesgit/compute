@@ -730,7 +730,7 @@ function createShared(deps = {}) {
             }
             // Fallback: if group lookup fails, use the subdomain's e as-is
             if (eForCookie === "0" && sub.Items[0].e != null) {
-              eForCookie = String(sub.Items[0].e);
+              eForCookie = "2";
             }
           }
           }
