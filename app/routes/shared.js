@@ -303,7 +303,7 @@ function createShared(deps = {}) {
             ckey,
             type: "link",
             ts: Date.now(),
-            ...(propE ? { prop: propE } : {}), // store server entity id
+            ...(propE ? { prop: propE } : {}),
           },
           ConditionExpression: "attribute_not_exists(id)",
         })
@@ -505,7 +505,6 @@ function createShared(deps = {}) {
       }
       return { v: String(vId), c: String(newC) };
     } catch (err) {
-      // allow callers to handle a null
       return null;
     }
   }
@@ -516,7 +515,7 @@ function createShared(deps = {}) {
       const ent = await getEntity(e, ddb);
       const arr = ent.Items[0]?.[col.replace("-", "")] || [];
       const idx = arr.indexOf(val);
-      if (idx < 0) return ent; // nothing to remove
+      if (idx < 0) return ent;
       params = {
         TableName: "entities",
         Key: { e },
@@ -536,7 +535,6 @@ function createShared(deps = {}) {
         },
       };
     } else if (col === "m") {
-      // ensure map and nested list exist before append
       const k = Object.keys(val)[0];
       await ddb
         .update({
@@ -597,22 +595,18 @@ function createShared(deps = {}) {
 
   async function createSubdomain(
     su, a, e, g, z,
-    maybeOutputOrDdb,        // ← new flexible arg
-    maybeDdb                  // ← only present when you pass output + ddb
+    maybeOutputOrDdb, 
+    maybeDdb 
   ) {
-    // Back-compat arg resolution:
     let output;
     let ddb = dynamodb;
 
     if (maybeDdb) {
-      // called as createSubdomain(..., output, ddb)
       output = maybeOutputOrDdb;
       ddb = maybeDdb;
     } else if (maybeOutputOrDdb && typeof maybeOutputOrDdb.put === "function") {
-      // old form: createSubdomain(..., ddb)
       ddb = maybeOutputOrDdb;
     } else {
-      // called as createSubdomain(..., output) or nothing extra
       output = maybeOutputOrDdb;
     }
 
@@ -623,14 +617,15 @@ function createShared(deps = {}) {
     return su;
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Cookies / Access / Verification                                         */
-  /* ──────────────────────────────────────────────────────────────────────── */
-
-  async function createCookie(ci, gi, ex, ak, ddb /*, e */ = dynamodb) {
-    await ddb.put({ TableName: "cookies", Item: { ci, gi, ex, ak /*, e */ } }).promise();
-    return true;
-  }
+async function createCookie(ci, gi, ex, ak, e, ddb = dynamodb) {
+  await ddb
+    .put({
+      TableName: "cookies",
+      Item: { ci, gi, ex, ak, e },
+    })
+    .promise();
+  return true;
+}
 
   async function getCookie(val, key, ddb = dynamodb) {
     let params;
@@ -654,14 +649,13 @@ function createShared(deps = {}) {
         KeyConditionExpression: "gi = :gi",
         ExpressionAttributeValues: { ":gi": val },
       };
-    /*} else if (key === "e") {
-      params = {
-        TableName: "cookies",
-        IndexName: "eIndex",
-        KeyConditionExpression: "e = :e",
-        ExpressionAttributeValues: { ":e": val },
-      };
-    */
+} else if (key === "e") {
+  params = {
+    TableName: "cookies",
+    IndexName: "eIndex",
+    KeyConditionExpression: "e = :e",
+    ExpressionAttributeValues: { ":e": val },
+  };
     } else {
       throw new Error(`getCookie: unknown key "${key}"`);
     }
@@ -673,41 +667,78 @@ function createShared(deps = {}) {
     return "1v4r" + id;
   }
 
-  async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-    console.log("mainObj", mainObj);
-    console.log("xAccessToken", xAccessToken);
-    console.log("ddb", ddb);
-    console.log("uuid", uuid);
-    if (xAccessToken) {
-      mainObj.status = "authenticated";
-      const cookie = await getCookie(xAccessToken, "ak", ddb);
-      return cookie.Items?.[0];
-    } else {
-      /*
-        call newGroup with /newGroup/newUser/newUser
-        get subdomain back
-        const sub = await getSub(subdomain, "su", ddb);
-        add the "e" to the createCookie using sub.Items[0].e
-        make sure e is added to the cookie record in the database
-      */
-      const ak = await getUUID(uuid);
-      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
-      const ttl = 86400;
-      const ex = Math.floor(Date.now() / 1000) + ttl;
-      await createCookie(String(ci), String(gi), ex, ak, /* e, */ ddb);
-      mainObj.accessToken = ak;
-      // set browser cookie for *.1var.com
-      res?.cookie?.("accessToken", ak, {
-        domain: ".1var.com",
-        maxAge: ttl * 1000,
-        httpOnly: true,
-        secure: true,
-        sameSite: "None",
-      });
-      return { ak, gi, ex, ci, existing: true };
+async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+  console.log("mainObj", mainObj);
+  console.log("xAccessToken", xAccessToken);
+  console.log("ddb", ddb);
+  console.log("uuid", uuid);
+
+  if (xAccessToken) {
+    mainObj.status = "authenticated";
+    const cookie = await getCookie(xAccessToken, "ak", ddb);
+    return cookie.Items?.[0];
+  } else {
+    /*
+      call newGroup with /newGroup/newUser/newUser
+      get subdomain back
+      const sub = await getSub(subdomain, "su", ddb);
+      add the "e" to the createCookie using sub.Items[0].e
+      make sure e is added to the cookie record in the database
+    */
+    const ttl = 86400;
+    const ak = await getUUID(uuid);
+    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+    const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+    const ex = Math.floor(Date.now() / 1000) + ttl;
+
+    let eForCookie = "0";
+
+    try {
+      // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
+      const newGroupHandler = actions.get("newGroup");
+      if (typeof newGroupHandler === "function") {
+        const ctxForNewGroup = {
+          path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
+          req: { body: {} },
+          res,
+          xAccessToken: null,
+        };
+
+        // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
+        const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+
+        // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
+        const suDoc = ngResult?.response?.file;
+        if (suDoc) {
+          const sub = await getSub(suDoc, "su", ddb);
+          if (sub?.Items?.length) {
+            eForCookie = String(sub.Items[0].e || "0");
+          }
+        }
+      } else {
+        console.warn("manageCookie: newGroup action not registered; proceeding without e");
+      }
+    } catch (err) {
+      console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
     }
+
+    // Create the cookie, now including e
+    await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
+
+    mainObj.accessToken = ak;
+
+    // set browser cookie for *.1var.com
+    res?.cookie?.("accessToken", ak, {
+      domain: ".1var.com",
+      maxAge: ttl * 1000,
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    });
+
+    return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
   }
+}
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
     await ddb
@@ -792,12 +823,9 @@ function createShared(deps = {}) {
       verified = true;
     } else {
       const verif = await getVerified("gi", String(cookie.gi), ddb, body);
-      // #1: any granted AI present & boolean true?
       verified =
         verif.Items.some((v) => groupAi.includes(v.ai) && v.bo) ||
         verif.Items.some((v) => entityAi.includes(v.ai) && v.bo);
-
-      // #2: deepEqual body validation path against 'access.va'
       if (!verified) {
         const bb = isObject(body) ? (isObject(body.body) ? body.body : body) : {};
         for (const ai of entityAi) {
@@ -812,7 +840,6 @@ function createShared(deps = {}) {
       }
     }
 
-    // handle entity.z indirection (string → another entity)
     if (entity.Items[0].z && typeof entity.Items[0].z === "string") {
       const subByE = await getSub(entity.Items[0].z, "e", ddb);
       const v2 = await verifyThis(subByE.Items[0].su, cookie, ddb, body);
@@ -912,7 +939,6 @@ function createShared(deps = {}) {
   function allVerified(list) {
     let v = true;
     for (l in list) {
-      // legacy loop style, preserved
       if (list[l] != true) {
         v = false;
       }
@@ -966,10 +992,6 @@ function createShared(deps = {}) {
     }
     return verified;
   }
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* convertToJSON (tree builder)                                            */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   function makeIdMaps() {
     return { convertCounter: 0 };
@@ -1039,7 +1061,6 @@ function createShared(deps = {}) {
     paths[fileID] = newParentPath;
     paths2[pathUUID] = newParentPath2;
 
-    // children
     if (children && children.length > 0 && state.convertCounter < 1200) {
       state.convertCounter += children.length;
       const childRes = await Promise.all(
@@ -1071,7 +1092,6 @@ function createShared(deps = {}) {
       }
     }
 
-    // using (inline)
     if (using) {
       const subOfHead = await getSub(entity.Items[0].u, "e", ddb);
       const headUsingObj = await convertToJSON(
@@ -1102,7 +1122,6 @@ function createShared(deps = {}) {
       };
     }
 
-    // linked
     if (linked && linked.length > 0) {
       const linkedRes = await Promise.all(
         linked.map(async (childE) => {
@@ -1138,30 +1157,17 @@ function createShared(deps = {}) {
     return { obj, paths, paths2, id2Path, groups: groupList };
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Small response helper (legacy parity)                                    */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   function sendBack(res, type, val, isShorthand) {
-    // normalize undefined/null → {}
     if (val == null) val = {};
-    // shorthand → return the raw value (no HTTP write)
     if (isShorthand) return val;
-    // non-shorthand → write JSON over HTTP
     return res?.json?.(val);
   }
 
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Service getters                                                          */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   const getDocClient = () => dynamodb;
   const getS3 = () => s3;
   const getSES = () => ses;
-
-  /* ──────────────────────────────────────────────────────────────────────── */
-  /* Export shared surface                                                    */
-  /* ──────────────────────────────────────────────────────────────────────── */
 
   return {
     // registry
