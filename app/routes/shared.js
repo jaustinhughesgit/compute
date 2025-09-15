@@ -721,7 +721,10 @@ function createShared(deps = {}) {
       } catch (err) {
         console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
       }
-
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
       // Create the cookie, now including e
       await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
 
