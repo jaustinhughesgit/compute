@@ -33,78 +33,126 @@ function register({ on, use }) {
   // ───────────────────────────────────────────────────────────────────────────
   // createLinks  (idempotent table bootstrap)
   // ───────────────────────────────────────────────────────────────────────────
-  on("createLinks", async (ctx, meta) => {
-    const { deps: ctxDeps = {} } = ctx;
-    const { dynamodbLL: ddbLLFromCtx, AWS: AWSFromCtx } = ctxDeps;
-    const { dynamodbLL: ddbLLFromUse, AWS: AWSFromUse } = deps || {};
+  // ───────────────────────────────────────────────────────────────────────────
+// createLinks  (idempotent table bootstrap)
+// ───────────────────────────────────────────────────────────────────────────
+on("createLinks", async (ctx, meta) => {
+  const { deps: ctxDeps = {} } = ctx;
+  const { dynamodbLL: ddbLLFromCtx, AWS: AWSFromCtx } = ctxDeps;
+  const { dynamodbLL: ddbLLFromUse, AWS: AWSFromUse } = deps || {};
 
-    const TableName = "links";
-    const ddbLL =
-      ddbLLFromCtx ||
-      ddbLLFromUse ||
-      new (AWSFromCtx || AWSFromUse).DynamoDB({ region: "us-east-1" });
+  const TableName = "links";
+  const ddbLL =
+    ddbLLFromCtx ||
+    ddbLLFromUse ||
+    new (AWSFromCtx || AWSFromUse).DynamoDB({ region: "us-east-1" });
 
-    let mainObj;
+  let mainObj;
+  try {
+    // Does the table exist?
+    let exists = false;
+    let desc;
     try {
-      let exists = false;
-      try {
-        await ddbLL.describeTable({ TableName }).promise();
-        exists = true;
-      } catch (err) {
-        if (err.code !== "ResourceNotFoundException") throw err;
-      }
+      desc = await ddbLL.describeTable({ TableName }).promise();
+      exists = true;
+    } catch (err) {
+      if (err.code !== "ResourceNotFoundException") throw err;
+    }
 
-      if (!exists) {
-        const params = {
+    if (!exists) {
+      const params = {
+        TableName,
+        BillingMode: "PAY_PER_REQUEST",
+        AttributeDefinitions: [
+          { AttributeName: "id",     AttributeType: "S" },
+          { AttributeName: "whole",  AttributeType: "S" },
+          { AttributeName: "part",   AttributeType: "S" },
+          { AttributeName: "ckey",   AttributeType: "S" },
+          { AttributeName: "type",   AttributeType: "S" },
+          // NEW: enable fast queries by creator
+          { AttributeName: "by",     AttributeType: "S" },
+        ],
+        KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
+        GlobalSecondaryIndexes: [
+          {
+            IndexName: "wholeIndex",
+            KeySchema: [
+              { AttributeName: "whole", KeyType: "HASH" },
+              { AttributeName: "type",  KeyType: "RANGE" }
+            ],
+            Projection: { ProjectionType: "ALL" }
+          },
+          {
+            IndexName: "partIndex",
+            KeySchema: [
+              { AttributeName: "part",  KeyType: "HASH" },
+              { AttributeName: "type",  KeyType: "RANGE" }
+            ],
+            Projection: { ProjectionType: "ALL" }
+          },
+          {
+            IndexName: "ckeyIndex",
+            KeySchema: [{ AttributeName: "ckey", KeyType: "HASH" }],
+            Projection: { ProjectionType: "ALL" }
+          },
+          // NEW: byIndex (creator)
+          {
+            IndexName: "byIndex",
+            KeySchema: [
+              { AttributeName: "by",   KeyType: "HASH" },
+              { AttributeName: "type", KeyType: "RANGE" }
+            ],
+            Projection: { ProjectionType: "ALL" }
+          }
+        ]
+      };
+
+      await ddbLL.createTable(params).promise();
+      await ddbLL.waitFor("tableExists", { TableName }).promise();
+      mainObj = { alert: "created", table: TableName, indexes: ["wholeIndex","partIndex","ckeyIndex","byIndex"] };
+    } else {
+      // If table already exists, ensure byIndex exists; if not, create it.
+      const indexNames = (desc.Table.GlobalSecondaryIndexes || []).map(i => i.IndexName);
+      if (!indexNames.includes("byIndex")) {
+        await ddbLL.updateTable({
           TableName,
-          BillingMode: "PAY_PER_REQUEST",
           AttributeDefinitions: [
-            { AttributeName: "id",     AttributeType: "S" },
-            { AttributeName: "whole",  AttributeType: "S" },
-            { AttributeName: "part",   AttributeType: "S" },
-            { AttributeName: "ckey",   AttributeType: "S" },
-            { AttributeName: "type",   AttributeType: "S" },
+            { AttributeName: "by",   AttributeType: "S" },
+            { AttributeName: "type", AttributeType: "S" },
           ],
-          KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
-          GlobalSecondaryIndexes: [
-            {
-              IndexName: "wholeIndex",
+          GlobalSecondaryIndexUpdates: [{
+            Create: {
+              IndexName: "byIndex",
               KeySchema: [
-                { AttributeName: "whole", KeyType: "HASH" },
-                { AttributeName: "type",  KeyType: "RANGE" }
-              ],
-              Projection: { ProjectionType: "ALL" }
-            },
-            {
-              IndexName: "partIndex",
-              KeySchema: [
-                { AttributeName: "part", KeyType: "HASH" },
+                { AttributeName: "by",   KeyType: "HASH" },
                 { AttributeName: "type", KeyType: "RANGE" }
               ],
               Projection: { ProjectionType: "ALL" }
-            },
-            {
-              IndexName: "ckeyIndex",
-              KeySchema: [{ AttributeName: "ckey", KeyType: "HASH" }],
-              Projection: { ProjectionType: "ALL" }
             }
-          ]
-        };
+          }]
+        }).promise();
 
-        await ddbLL.createTable(params).promise();
-        await ddbLL.waitFor("tableExists", { TableName }).promise();
-
-        mainObj = { alert: "created", table: TableName };
+        // Optionally wait until ACTIVE
+        let ready = false;
+        while (!ready) {
+          await new Promise(r => setTimeout(r, 1500));
+          const d2 = await ddbLL.describeTable({ TableName }).promise();
+          const idx = (d2.Table.GlobalSecondaryIndexes || []).find(i => i.IndexName === "byIndex");
+          ready = idx && idx.IndexStatus === "ACTIVE";
+        }
+        mainObj = { alert: "index-added", table: TableName, added: "byIndex" };
       } else {
-        mainObj = { alert: "already-exists", table: TableName };
+        mainObj = { alert: "already-exists", table: TableName, indexes: indexNames };
       }
-    } catch (error) {
-      console.error("createLinks failed:", error);
-      mainObj = { alert: "failed", error: String(error?.message || error) };
     }
+  } catch (error) {
+    console.error("createLinks failed:", error);
+    mainObj = { alert: "failed", error: String(error?.message || error) };
+  }
 
-    return withStandardEnvelope(mainObj, meta, "");
-  });
+  return withStandardEnvelope(mainObj, meta, "");
+});
+
 
   // ───────────────────────────────────────────────────────────────────────────
   // link  (child su -> parent su; returns updated child view)
@@ -237,6 +285,95 @@ function register({ on, use }) {
     }
     return withStandardEnvelope(mainObj, meta, "");
   });
+
+  // ───────────────────────────────────────────────────────────────────────────
+// export  (download all entities + links created by a specific 'by' (e))
+// Path variants:
+//   POST /export                    // uses cookie.e
+//   POST /export/:byE              // uses path param
+// Body (optional): { by: "<e>" }   // overrides both
+// Response:
+//   { response: { entities:[{name,su}], links:[{subj,prop,obj}] } }
+// ───────────────────────────────────────────────────────────────────────────
+on("export", async (ctx, meta) => {
+  const doc = getDocClient();
+  const segs = splitPath(ctx.path || "");
+  const rb = legacyWrapBody(ctx?.req?.body) || {};
+  const body = rb?.body || {};
+
+  // Resolve creator 'e' in priority: body.by > path seg > cookie.e
+  const byE = String(body.by || segs[0] || meta?.cookie?.e || "").trim();
+  if (!byE) {
+    return withStandardEnvelope({ entities: [], links: [], note: "no-by" }, meta, "");
+  }
+
+  // Page through byIndex to get all links stamped by this creator
+  const items = [];
+  let ExclusiveStartKey = undefined;
+  do {
+    const res = await doc.query({
+      TableName: "links",
+      IndexName: "byIndex",
+      KeyConditionExpression: "#by = :by",
+      ExpressionAttributeNames: { "#by": "by" },
+      ExpressionAttributeValues: { ":by": byE },
+      ExclusiveStartKey,
+    }).promise();
+    items.push(...(res.Items || []));
+    ExclusiveStartKey = res.LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+
+  // Gather unique entity-ids referenced by those links (parent/subj, child/obj, prop)
+  const eSet = new Set();
+  const get = (obj, ...keys) => keys.reduce((v, k) => (v ??= obj?.[k]), undefined);
+
+  for (const it of items) {
+    // tolerate several field spellings
+    const parentE = get(it, "whole") ?? get(it, "parent") ?? get(it, "parentE");
+    const childE  = get(it, "part")  ?? get(it, "child")  ?? get(it, "childE");
+    const propE   = get(it, "propE") ?? get(it, "prop")   ?? undefined;
+    if (parentE) eSet.add(String(parentE));
+    if (childE)  eSet.add(String(childE));
+    if (propE)   eSet.add(String(propE));
+  }
+
+  // Resolve each entity 'e' to (su, name). We accept several name fields.
+  const eToNameSu = new Map();
+  for (const e of eSet) {
+    try {
+      const sub = await getSub(String(e), "e"); // lookup by server entity id
+      const rec = sub?.Items?.[0] || {};
+      const su   = String(rec.su || rec.id || rec.subdomain || "").trim();
+      const name = String(
+        rec.name || rec.title || rec.s || rec.surface || rec.lemma || su || e
+      ).toLowerCase();
+      if (su) {
+        eToNameSu.set(String(e), { name, su });
+      }
+    } catch (err) {
+      // best-effort; skip missing
+    }
+  }
+
+  // Build normalized link triples (subj --prop--> obj)
+  const links = [];
+  for (const it of items) {
+    const subjE = get(it, "whole") ?? get(it, "parent") ?? get(it, "parentE");
+    const objE  = get(it, "part")  ?? get(it, "child")  ?? get(it, "childE");
+    const propE = get(it, "propE") ?? get(it, "prop")   ?? undefined;
+    const subj  = eToNameSu.get(String(subjE))?.name || "";
+    const obj   = eToNameSu.get(String(objE))?.name  || "";
+    const prop  = propE ? (eToNameSu.get(String(propE))?.name || "related_to") : "related_to";
+    if (subj && obj) links.push({ subj, prop, obj });
+  }
+
+  // Unique list of entities referenced in the link set
+  const entities = Array.from(eToNameSu.values());
+
+  // Return a compact export payload
+  return withStandardEnvelope({ entities, links }, meta, "");
+});
+
 
   return { name: "links" };
 }
