@@ -1,8 +1,12 @@
 // modules/position.js
 "use strict";
 
+const AWS = require("aws-sdk"); // only for types/utilities if needed (low-level is already provided via deps)
+
 function register({ on, use }) {
-  const { getDocClient } = use();
+  const { getDocClient, deps } = use();
+  const doc = getDocClient();          // DocumentClient (JSON in/out)
+  const ddb = deps.dynamodbLL;         // low-level AWS.DynamoDB (AttributeValue API)
 
   // Keep legacy body handling parity: support both flattened req.body and legacy req.body.body
   const getLegacyBody = (req) => {
@@ -12,7 +16,7 @@ function register({ on, use }) {
     return b;
   };
 
-  // Cosine distance: unchanged from legacy
+  // Cosine distance (unchanged)
   const cosineDist = (a, b) => {
     let dot = 0, na = 0, nb = 0;
     for (let i = 0; i < a.length; i++) {
@@ -24,24 +28,24 @@ function register({ on, use }) {
   };
 
   on("position", async (ctx, meta) => {
-    console.log("Position 1", ctx)
+    console.log("Position 1", ctx);
     const { req, res /*, path, type, signer */ } = ctx;
-    const dynamodb = getDocClient();
 
-    console.log("Position 2")
+    console.log("Position 2");
     // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
     const b = getLegacyBody(req);
-    console.log("b",b)
-    const { description, domain, subdomain, embedding, entity, pb, output } = b.body || {};
+    console.log("b", b);
+    // NOTE: keep legacy shape (b.body || {}) to preserve behavior
+    const { description, domain, subdomain, embedding, entity, pb, output } = b?.body || {};
 
-    console.log("Position 3")
+    console.log("Position 3");
     // Legacy error shapes and codes:
     if (!embedding || !domain || !subdomain || !entity) {
       res.status(400).json({ error: "embedding, domain & subdomain required" });
       return { __handled: true };
     }
 
-    console.log("Position 4")
+    console.log("Position 4");
     // 1️⃣ pull the record for that sub-domain from DynamoDB (unchanged)
     const tableName = `i_${domain}`;
     let item;
@@ -53,7 +57,7 @@ function register({ on, use }) {
         ExpressionAttributeValues: { ":sub": subdomain },
         Limit: 1,
       };
-      const data = await dynamodb.query(params).promise();
+      const data = await doc.query(params).promise();
       if (!data.Items.length) {
         res.status(404).json({ error: "no record for that sub-domain" });
         return { __handled: true };
@@ -65,7 +69,7 @@ function register({ on, use }) {
       return { __handled: true };
     }
 
-    console.log("Position 5")
+    console.log("Position 5");
     // 2️⃣ compare incoming embedding with emb1…emb5 (unchanged)
     const distances = {};
     for (let i = 1; i <= 5; i++) {
@@ -76,7 +80,7 @@ function register({ on, use }) {
       if (typeof raw === "string") {
         try {
           refArr = JSON.parse(raw);
-        } catch (e) {
+        } catch (_e) {
           // keep legacy permissive behavior: skip malformed
           continue;
         }
@@ -84,14 +88,12 @@ function register({ on, use }) {
         refArr = raw;
       }
 
-      if (!Array.isArray(refArr) || refArr.length !== embedding.length) {
-        continue;
-      }
+      if (!Array.isArray(refArr) || refArr.length !== embedding.length) continue;
       distances[attr] = cosineDist(embedding, refArr);
     }
 
-    console.log("Position 1")
-    // 3️⃣ update subdomains with dist1…dist5, path, pb, and output (unchanged)
+    console.log("Position 6");
+    // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
     try {
       const updateParams = {
         TableName: "subdomains",
@@ -103,7 +105,6 @@ function register({ on, use }) {
               #d4 = :d4,
               #d5 = :d5,
               #path = :path,
-              #pb = :pb,
               #output = :output
         `,
         ExpressionAttributeNames: {
@@ -113,11 +114,8 @@ function register({ on, use }) {
           "#d4": "dist4",
           "#d5": "dist5",
           "#path": "path",
-          "#pb": "pb",
           "#output": "output",
         },
-        // NOTE: preserve legacy behavior — pass values through verbatim.
-        // (If pb/output are undefined, DynamoDB will error just like legacy.)
         ExpressionAttributeValues: {
           ":d1": distances.emb1 ?? null,
           ":d2": distances.emb2 ?? null,
@@ -125,19 +123,47 @@ function register({ on, use }) {
           ":d4": distances.emb4 ?? null,
           ":d5": distances.emb5 ?? null,
           ":path": `/${domain}/${subdomain}`,
-          ":pb": {N:pb},
           ":output": output,
         },
         ReturnValues: "UPDATED_NEW",
       };
-      await dynamodb.update(updateParams).promise();
+      await doc.update(updateParams).promise();
     } catch (err) {
-      console.error("Failed to update subdomains table:", err);
+      console.error("Failed to update subdomains table (DocClient):", err);
       res.status(502).json({ error: "failed to save distances" });
       return { __handled: true };
     }
 
-    console.log("Position 5")
+    console.log("Position 7");
+    // 4️⃣ Low-level update for pb as a DynamoDB Number (N) using AttributeValue API
+    try {
+      if (pb == null) {
+        // Keep behavior predictable: if pb is missing, skip this step silently.
+        // If you want strict legacy erroring on missing pb, replace this branch with:
+        // throw new Error("pb is required");
+      } else {
+        const pbStr = String(pb);
+        // Optional minimal guard: ensure it looks like a decimal/number string
+        // (DynamoDB will still validate; this just avoids obvious mistakes)
+        if (!/^-?\d+(\.\d+)?$/.test(pbStr)) {
+          throw new Error(`Invalid pb format: ${pbStr}`);
+        }
+
+        await ddb.updateItem({
+          TableName: "subdomains",
+          Key: { su: { S: String(entity) } },
+          UpdateExpression: "SET #pb = :pb",
+          ExpressionAttributeNames: { "#pb": "pb" },
+          ExpressionAttributeValues: { ":pb": { N: pbStr } }
+        }).promise();
+      }
+    } catch (err) {
+      console.error("Failed to set pb (low-level):", err);
+      res.status(502).json({ error: "failed to save pb" });
+      return { __handled: true };
+    }
+
+    console.log("Position 8");
     // Legacy response shape: wrapped in { ok: true, response }
     const existing = meta?.cookie?.existing;
     const response = {
@@ -150,7 +176,7 @@ function register({ on, use }) {
       existing,
       file: "", // legacy always appended actionFile (empty for this branch)
     };
-    console.log("response", response)
+    console.log("response", response);
     return { ok: true, response };
   });
 

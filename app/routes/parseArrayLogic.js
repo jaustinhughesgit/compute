@@ -1505,40 +1505,40 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     console.log("text1", text)
 
     function stripComments(jsonLike) {
-  let out = '';
-  let inString = false, quote = '', escaped = false;
-  let inSL = false, inML = false;
+        let out = '';
+        let inString = false, quote = '', escaped = false;
+        let inSL = false, inML = false;
 
-  for (let i = 0; i < jsonLike.length; i++) {
-    const c = jsonLike[i], n = jsonLike[i + 1];
+        for (let i = 0; i < jsonLike.length; i++) {
+            const c = jsonLike[i], n = jsonLike[i + 1];
 
-    if (inSL) {                      // single-line comment
-      if (c === '\n' || c === '\r') { inSL = false; out += c; }
-      continue;
-    }
-    if (inML) {                      // multi-line comment
-      if (c === '*' && n === '/') { inML = false; i++; }
-      continue;
-    }
-    if (inString) {                  // inside string literal
-      out += c;
-      if (!escaped && c === quote) { inString = false; quote = ''; }
-      escaped = !escaped && c === '\\';
-      continue;
-    }
-    if (c === '"' || c === "'") {    // start string (JSON uses ", but be tolerant)
-      inString = true; quote = c; out += c; continue;
-    }
-    if (c === '/' && n === '/') { inSL = true; i++; continue; }
-    if (c === '/' && n === '*') { inML = true; i++; continue; }
+            if (inSL) {                      // single-line comment
+                if (c === '\n' || c === '\r') { inSL = false; out += c; }
+                continue;
+            }
+            if (inML) {                      // multi-line comment
+                if (c === '*' && n === '/') { inML = false; i++; }
+                continue;
+            }
+            if (inString) {                  // inside string literal
+                out += c;
+                if (!escaped && c === quote) { inString = false; quote = ''; }
+                escaped = !escaped && c === '\\';
+                continue;
+            }
+            if (c === '"' || c === "'") {    // start string (JSON uses ", but be tolerant)
+                inString = true; quote = c; out += c; continue;
+            }
+            if (c === '/' && n === '/') { inSL = true; i++; continue; }
+            if (c === '/' && n === '*') { inML = true; i++; continue; }
 
-    out += c;
-  }
-  return out;
-}
+            out += c;
+        }
+        return out;
+    }
 
-// usage
-text = stripComments(text);
+    // usage
+    text = stripComments(text);
 
     console.log("text2", text)
     const start = text.indexOf("[");
@@ -1687,7 +1687,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         }
         let subdomainMatches = [];
         if (dist1 != null) {
-            pb = possessedCombined.toString() + dist1.toString().replace(/^0?\./, "");
+            const pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
+            const n = x => ({ N: (typeof x === "string" ? x : String(x)) });
+
             try {
                 const params = {
                     TableName: "subdomains",
@@ -1698,23 +1700,22 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                         "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
                     },
                     ExpressionAttributeValues: {
-                        ":pb": { N: pb },
-                        ":d1lo": dist1 - 0.01, ":d1hi": dist1 + 0.01,
-                        ":d2lo": dist2 - 0.01, ":d2hi": dist2 + 0.01,
-                        ":d3lo": dist3 - 0.01, ":d3hi": dist3 + 0.01,
-                        ":d4lo": dist4 - 0.01, ":d4hi": dist4 + 0.01,
-                        ":d5lo": dist5 - 0.01, ":d5hi": dist5 + 0.01
+                        ":pb": n(pb),
+                        ":d1lo": n(dist1 - 0.01), ":d1hi": n(dist1 + 0.01),
+                        ":d2lo": n(dist2 - 0.01), ":d2hi": n(dist2 + 0.01),
+                        ":d3lo": n(dist3 - 0.01), ":d3hi": n(dist3 + 0.01),
+                        ":d4lo": n(dist4 - 0.01), ":d4hi": n(dist4 + 0.01),
+                        ":d5lo": n(dist5 - 0.01), ":d5hi": n(dist5 + 0.01),
                     },
-                    FilterExpression:
-                        "#d2 BETWEEN :d2lo AND :d2hi AND " +
-                        "#d3 BETWEEN :d3lo AND :d3hi AND " +
-                        "#d4 BETWEEN :d4lo AND :d4hi AND " +
-                        "#d5 BETWEEN :d5lo AND :d5hi",
                     ScanIndexForward: true
                 };
-                console.log("params", params)
-                const { Items } = await dynamodb.query(params).promise();
-                subdomainMatches = Items ?? [];
+
+                // ⚠️ use low-level client here
+                const { Items } = await dynamodbLL.query(params).promise();
+
+                // Optional: convert low-level AVs → plain JS for the rest of your code
+                const jsItems = (Items || []).map(Converter.unmarshall);
+                subdomainMatches = jsItems;
             } catch (err) {
                 console.error("subdomains GSI query failed:", err);
             }
@@ -1749,7 +1750,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
             const sanitize = s => s.replace(/[\/?#]/g, ' ').trim(); // avoid path chars
 
-            console.log("body>>>>>>>",JSON.stringify(body, null, 2))
+            console.log("body>>>>>>>", JSON.stringify(body, null, 2))
             const entNameRaw =
                 pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
             const entName = sanitize(entNameRaw);
@@ -1773,7 +1774,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
             shorthand.push(
                 ["GET", padRef(routeRowNewIndex), "response", "file"]
             )
-            
+
             if (fixedOutput) {
                 shorthand.push(
                     [
@@ -1842,7 +1843,7 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
             const pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
-            pb = possessedCombined.toString() + dist1.toString().replace(/^0?\./, "");
+            pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
             shorthand.push([
                 "ROUTE",
                 {
@@ -1885,27 +1886,27 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
                 "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
             ]);
             // ...and ALSO write/refresh positioning metadata
-            
-        shorthand.push([
-          "ROUTE",
-          {
-            "body": {
-              description: "auto matched entity",
-              domain,
-              subdomain,
-              embedding,            // ✅ required
-              entity: bestMatch.su, // the matched id
-              pb: possessedCombined,
-              dist1, dist2, dist3, dist4, dist5,
-              path: breadcrumb,
-              output: fixedOutput
-            }
-          },
-          {},
-          "position",
-          bestMatch.su,
-          ""
-        ]);
+
+            shorthand.push([
+                "ROUTE",
+                {
+                    "body": {
+                        description: "auto matched entity",
+                        domain,
+                        subdomain,
+                        embedding,            // ✅ required
+                        entity: bestMatch.su, // the matched id
+                        pb: possessedCombined,
+                        dist1, dist2, dist3, dist4, dist5,
+                        path: breadcrumb,
+                        output: fixedOutput
+                    }
+                },
+                {},
+                "position",
+                bestMatch.su,
+                ""
+            ]);
         }
         routeRowNewIndex = shorthand.length;
     }
