@@ -78,7 +78,7 @@ const headEntityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
-    const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
+    const vHead = await addVersion(headEntityId, "a", aE.toString(), null, dynamodb);
 const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
 
     let savedE = await createEntity(
@@ -203,7 +203,7 @@ const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).to
     await createSubdomain(
   suDoc,
   aE.toString(),
-  e.toString(),
+  entityId,
   "0",
   true,
   outputParam,
