@@ -10,6 +10,8 @@ function register({ on, use }) {
   } = use();
 
 on("convert", async (ctx, meta = {}) => {
+  console.log("CONVERT")
+  console.log("CONVERT")
   const { req, res, path, signer } = ctx;
   const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 

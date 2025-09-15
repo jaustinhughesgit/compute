@@ -249,6 +249,7 @@ function register({ on, use }) {
       body
     );
 
+    console.log("ensuredCookie", ensuredCookie)
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
