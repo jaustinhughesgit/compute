@@ -1853,8 +1853,12 @@ newReq.body = {
     console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     console.log("rr0", rr0)
-    shorthandObj.conclusion = JSON.parse(JSON.stringify(rr0.conclusion))
-    delete rr0.conclusion;
+    if (rr0.hasOwnProperty("conclusion")){
+        shorthandObj.conclusion = JSON.parse(JSON.stringify(rr0.conclusion))
+        delete rr0.conclusion;
+    } else {
+        
+    }
     shorthandObj.published = rr0
     return shorthandObj
 }
