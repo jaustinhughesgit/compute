@@ -23,6 +23,26 @@ function register({ on, use }) {
     const dynamodb = getDocClient();
     const { uuidv4, ses } = deps;
 
+    // --- Atomic reservation helper: bumps a counter by `count` and returns the IDs reserved ---
+    // Requires your counters table to be the same one used by incrementCounterAndGetNewValue
+    // (i.e., process.env.COUNTERS_TABLE with key { name } and attribute `value`).
+    async function reserveIds(counterName, count) {
+      const res = await dynamodb
+        .update({
+          TableName: process.env.COUNTERS_TABLE,
+          Key: { name: counterName },
+          UpdateExpression: "SET #v = if_not_exists(#v, :zero) + :n",
+          ExpressionAttributeNames: { "#v": "value" },
+          ExpressionAttributeValues: { ":zero": 0, ":n": count },
+          ReturnValues: "UPDATED_NEW",
+        })
+        .promise();
+
+      const end = res.Attributes.value; // new value after bump
+      const start = end - count + 1;
+      return Array.from({ length: count }, (_, i) => String(start + i));
+    }
+
     const segs = String(ctx.path || "").split("/").filter(Boolean);
     const [newGroupName, headEntityName, headUUIDToShow] = segs;
     if (!newGroupName || !headEntityName) {
@@ -35,15 +55,16 @@ function register({ on, use }) {
 
     setIsPublic(true);
 
+    // Words (unchanged)
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
     const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
 
     const aNewE = await incrementCounterAndGetNewValue("wCounter", dynamodb);
     const aE    = await createWord(aNewE.toString(), headEntityName, dynamodb);
 
-    const gNew  = await incrementCounterAndGetNewValue("gCounter", dynamodb);
-    const e     = await incrementCounterAndGetNewValue("eCounter", dynamodb);
-    const ai    = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
+    // Group, Access, Verified counters (unchanged)
+    const gNew = await incrementCounterAndGetNewValue("gCounter", dynamodb);
+    const ai   = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
 
     await createAccess(
       ai.toString(),
@@ -70,41 +91,46 @@ function register({ on, use }) {
       ex,
       true,
       0,
-      0 
+      0
     );
 
-    await createGroup(gNew.toString(), aG, e.toString(), [ai.toString()], dynamodb);
+    // --- Reserve two entity IDs atomically: [headEntityId, entityId] ---
+    const [headEntityId, entityId] = await reserveIds("eCounter", 2);
+
+    // Group uses the head entity id (same role your previous `e` had)
+    await createGroup(gNew.toString(), aG, headEntityId, [ai.toString()], dynamodb);
 
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
-    const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-    let savedE = await createEntity(
-      e.toString(),
+    // Version is created for the HEAD entity (mirrors your previous flow)
+    const vHead = await addVersion(headEntityId, "a", aE.toString(), null, dynamodb);
+
+    // Create the actual entity you want to return (child/new entity)
+    await createEntity(
+      entityId,           // NEW entity id (second from the reservation)
       aE.toString(),
-      vHead.v,
+      vHead.v,            // reuse the head version (keeps your prior wiring)
       gNew.toString(),
-      e.toString(),
+      headEntityId,       // owner is the head entity
       [ai.toString()],
       dynamodb
     );
-    console.log("savedE",savedE);
-    console.log("savedE",savedE);
-    console.log("savedE",savedE);
-    console.log("savedE",savedE);
-    console.log("savedE",savedE);
+
+    // savedE is the second reserved id we just created
+    const savedE = entityId;
+    console.log("savedE", savedE);
 
     const suDoc = await getUUID(uuidv4);
 
     const body = ctx.req?.body || {};
 
-    console.log("***!!!")
-    console.log("ctx", ctx)
-    console.log("ctx.req", ctx.req)
-    console.log("ctx.req.body", ctx.req.body)
+    console.log("***!!!");
+    console.log("ctx", ctx);
+    console.log("ctx.req", ctx.req);
+    console.log("ctx.req.body", ctx.req.body);
 
     const outputParam = ctx?.req?.body?.body?.output;
-
 
     const thought = {};
     thought[suDoc] = {
@@ -197,15 +223,17 @@ function register({ on, use }) {
       expected: [],
     };
 
+    // IMPORTANT: Point this subdomain at the newly created entity (entityId),
+    // since that's what you're returning / working with now.
     await createSubdomain(
-  suDoc,
-  aE.toString(),
-  e.toString(),
-  "0",
-  true,
-  outputParam,
-  dynamodb
-);
+      suDoc,
+      aE.toString(),
+      savedE,          // use entityId instead of headEntityId here
+      "0",
+      true,
+      outputParam,
+      dynamodb
+    );
     await createFile(suDoc, payload, deps.s3);
 
     const params = {
@@ -230,7 +258,6 @@ function register({ on, use }) {
     //Keep this comment. This was commented to pause emails in development
     //await ses.sendEmail(params).promise();
 
-
     const mainObj = await convertToJSON(
       suDoc,
       [],
@@ -247,13 +274,13 @@ function register({ on, use }) {
       body
     );
 
-    console.log("ensuredCookie", ensuredCookie)
+    console.log("ensuredCookie", ensuredCookie);
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
-    mainObj.entity = savedE.toString()
+    mainObj.entity = savedE; // already a string
 
-    console.log("response:",mainObj)
+    console.log("response:", mainObj);
     return { ok: true, response: mainObj };
   });
 }
