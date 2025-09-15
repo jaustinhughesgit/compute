@@ -707,32 +707,20 @@ function createShared(deps = {}) {
 
           // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
           const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
-          console.log("ngResult",ngResult)
-          console.log("ngResult",ngResult)
-          console.log("ngResult",ngResult)
-          console.log("ngResult",ngResult)
-          console.log("ngResult",ngResult)
-          console.log("ngResult",ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
           // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
           const suDoc = ngResult?.response?.file;
           if (suDoc) {
             suDocForEmail = suDoc;
-          const sub = await getSub(suDoc, "su", ddb);
-          if (sub?.Items?.length) {
-            // sub may correspond to the new GROUP; derive the true entity id from the group
-            const gFromSub = String(sub.Items[0].g ?? "");
-            if (gFromSub) {
-              const group = await getGroup(gFromSub, ddb);
-              const entId = group?.Items?.[0]?.e;
-              if (entId) {
-                eForCookie = String(entId);
-              }
+            const sub = await getSub(suDoc, "su", ddb);
+            if (sub?.Items?.length) {
+              eForCookie = String(sub.Items[0].e);
             }
-            // Fallback: if group lookup fails, use the subdomain's e as-is
-            if (eForCookie === "0" && sub.Items[0].e != null) {
-              eForCookie = "2";
-            }
-          }
           }
         } else {
           console.warn("manageCookie: newGroup action not registered; proceeding without e");
