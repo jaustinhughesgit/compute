@@ -627,8 +627,8 @@ function createShared(deps = {}) {
   /* Cookies / Access / Verification                                         */
   /* ──────────────────────────────────────────────────────────────────────── */
 
-  async function createCookie(ci, gi, ex, ak, ddb = dynamodb) {
-    await ddb.put({ TableName: "cookies", Item: { ci, gi, ex, ak } }).promise();
+  async function createCookie(ci, gi, ex, ak, ddb /*, e */ = dynamodb) {
+    await ddb.put({ TableName: "cookies", Item: { ci, gi, ex, ak /*, e */ } }).promise();
     return true;
   }
 
@@ -654,6 +654,14 @@ function createShared(deps = {}) {
         KeyConditionExpression: "gi = :gi",
         ExpressionAttributeValues: { ":gi": val },
       };
+    /*} else if (key === "e") {
+      params = {
+        TableName: "cookies",
+        IndexName: "eIndex",
+        KeyConditionExpression: "e = :e",
+        ExpressionAttributeValues: { ":e": val },
+      };
+    */
     } else {
       throw new Error(`getCookie: unknown key "${key}"`);
     }
@@ -675,12 +683,19 @@ function createShared(deps = {}) {
       const cookie = await getCookie(xAccessToken, "ak", ddb);
       return cookie.Items?.[0];
     } else {
+      /*
+        call newGroup with /newGroup/newUser/newUser
+        get subdomain back
+        const sub = await getSub(subdomain, "su", ddb);
+        add the "e" to the createCookie using sub.Items[0].e
+        make sure e is added to the cookie record in the database
+      */
       const ak = await getUUID(uuid);
       const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
       const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
       const ttl = 86400;
       const ex = Math.floor(Date.now() / 1000) + ttl;
-      await createCookie(String(ci), String(gi), ex, ak, ddb);
+      await createCookie(String(ci), String(gi), ex, ak, /* e, */ ddb);
       mainObj.accessToken = ak;
       // set browser cookie for *.1var.com
       res?.cookie?.("accessToken", ak, {
