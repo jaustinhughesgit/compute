@@ -123,8 +123,8 @@ function register({ on, use }) {
     console.log("segs",segs);
     // attempt link only if both found; ignore else
     try {
-    const childSub  = await getSub(childSU,  "su");
-    const parentSub = await getSub(parentSU, "su");
+    const childSub  = await getSub(childID,  "su");
+    const parentSub = await getSub(parentID, "su");
     const propSub   = propSU ? await getSub(propSU, "su") : null;
 
       if (childSub?.Items?.length && parentSub?.Items?.length) {
