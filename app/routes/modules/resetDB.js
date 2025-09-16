@@ -15,6 +15,7 @@ function register({ on, use }) {
     'cookies',
     'entities',
     'groups',
+    'links',
     'schedules',
     'subdomains',
     'tasks',
