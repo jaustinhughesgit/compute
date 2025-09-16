@@ -1562,7 +1562,6 @@ async function parseArrayLogic({
   Anthropic,
   dynamodbLL,
   sourceType,
-  // ➕ optional fallback entity id/key provided by convert.js
   actionFile
 } = {}) {
 
@@ -1747,6 +1746,11 @@ async function parseArrayLogic({
             ).item;
         }
 
+         
+       // Helper to build pb from dist1 (kept local to avoid leaking globals)
+       const buildPb = (d1) =>
+           (d1 != null) ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}` : null;
+
         const inputParam = convertShorthandRefs(
             body.input
         );
@@ -1756,50 +1760,51 @@ async function parseArrayLogic({
 
         console.log("fixedPossesed", fixedPossessed)
         if (!bestMatch?.su) {
+            // ─────────────────────────────────────────────────────────────────────
+            // NEW: If caller supplied an actionFile (entity) AND no match was found,
+            //      use their entity. First ensure it has distances/pb/etc by writing
+            //      a fresh positioning record; then run it.
+            // ─────────────────────────────────────────────────────────────────────
+            if (actionFile) {
+                console.log("No bestMatch; using provided actionFile entity:", actionFile);
 
+                // We already computed embedding, domain/subdomain, and distances above.
+                // Always (re)write positioning so the entity has required fields.
+                const pbStr = buildPb(dist1);
 
-          // 👉 If convert.js provided an actionFile (entity), use it as the fallback
-            const suppliedEntity =
-              (typeof actionFile === "string" && actionFile.trim()) ? actionFile.trim() : null;
+                // Safety: if reference embeddings are missing and distances are null,
+                // we still write whatever we have; downstream should handle,
+                // but in practice these should exist for the domain/subdomain.
+                shorthand.push([
+                    "ROUTE",
+                    {
+                        "body": {
+                            description: "provided entity (fallback)",
+                            domain,
+                            subdomain,
+                            embedding,
+                            entity: actionFile,
+                            pb: pbStr,
+                            dist1, dist2, dist3, dist4, dist5,
+                            path: breadcrumb,
+                            output: fixedOutput
+                        }
+                    },
+                    {},
+                    "position",
+                    actionFile,
+                    ""
+                ]);
 
-            // Precompute path & pb string (used by both branches)
-            const pathStr = breadcrumb;
-            const pbStr = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\\./, "")}`;
+                // Now run the provided entity
+                shorthand.push([
+                    "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+                ]);
 
-            if (suppliedEntity) {
-              // ✅ Use the supplied entity instead of creating a new one
-              shorthand.push(
-                ["ROUTE", inputParam, schemaParam, "runEntity", suppliedEntity, ""]
-              );
-
-              // Also write/refresh positioning metadata for indexers/GSIs
-              shorthand.push([
-                "ROUTE",
-                {
-                  "body": {
-                    description: "auto supplied entity",
-                    domain,
-                    subdomain,
-                    embedding,
-                    entity: suppliedEntity,
-                    pb: pbStr,
-                    dist1, dist2, dist3, dist4, dist5,
-                    path: pathStr,
-                    output: fixedOutput
-                  }
-                },
-                {},
-                "position",
-                suppliedEntity,
-                ""
-              ]);
-
-              // keep routeRowNewIndex progression consistent
-              routeRowNewIndex = shorthand.length;
-              // Skip new-entity creation branch entirely
-              continue;
+                routeRowNewIndex = shorthand.length;
+                continue; // done with this row; move to the next
             }
-            
+
             console.log("bestMatch.su is null")
             // derive entity/group names from the essence
             const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
@@ -1896,9 +1901,9 @@ async function parseArrayLogic({
 
 
 
-           pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
-           pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\\./, "")}`;
- 
+
+            const pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
+            pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
             shorthand.push([
                 "ROUTE",
                 {
