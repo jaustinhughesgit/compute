@@ -43,6 +43,12 @@ on("convert", async (ctx, meta = {}) => {
     let actionFile = segs[0] || "";
       console.log("actionFile::::::::", actionFile)
 
+      //req.body.output
+      let out
+      if (req.body.output == "$essence"){
+        out = req?.body?.body?.prompt?.userRequest
+      }
+
     // keep response assembly identical
     let mainObj = {};
     let sourceType;
@@ -328,6 +334,7 @@ function subdomains(domain){
       dynamodbLL,
       sourceType,
       actionFile,
+      out
     });
 
     // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine

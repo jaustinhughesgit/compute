@@ -1562,7 +1562,8 @@ async function parseArrayLogic({
   Anthropic,
   dynamodbLL,
   sourceType,
-  actionFile
+  actionFile,
+  out
 } = {}) {
 
     console.log("arrayLogic from prompt", arrayLogic)
@@ -1625,8 +1626,6 @@ async function parseArrayLogic({
         if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
-        } else {
-            fixedOutput = resolvedLogic
         }
 
         if (elem[bc].hasOwnProperty("possessedBy")) {
@@ -1789,6 +1788,7 @@ async function parseArrayLogic({
 
                 if (needsDists || needsPb) {
                   // Ask position to compute & persist dists (and pb if we have it)
+                  console.log("POSITION BBB", fixedOutput)
                   shorthand.push([
                     "ROUTE",
                     {
