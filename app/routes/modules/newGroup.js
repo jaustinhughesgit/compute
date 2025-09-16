@@ -44,6 +44,9 @@ function register({ on, use }) {
     const gNew  = await incrementCounterAndGetNewValue("gCounter", dynamodb);
     const ai    = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
 
+
+                        const e = await incrementCounterAndGetNewValue('eCounter', dynamodb);
+
     await createAccess(
       ai.toString(),
       gNew.toString(),
@@ -82,11 +85,13 @@ await createGroup(groupId, aG, headEntityId, [aiId], dynamodb);
       e.toString(),
       aE.toString(),
       vHead.v,
+      gNew.toString(),
       e.toString(),
-      gNew.toString(,
       [ai.toString()],
       dynamodb
     );
+
+
     console.log("savedE",savedE);
     console.log("savedE",savedE);
     console.log("savedE",savedE);
@@ -250,7 +255,7 @@ await createGroup(groupId, aG, headEntityId, [aiId], dynamodb);
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
-    mainObj.entity = savedE.toString()
+    mainObj.entity = e.toString()
 
     console.log("response:",mainObj)
     return { ok: true, response: mainObj };
