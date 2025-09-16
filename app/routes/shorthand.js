@@ -2,9 +2,9 @@
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
 
-  req.body = req.body || {};
-  req.headers = req.headers || {};
-  req.body.headers = { ...(req.headers || {}), ...(req.body.headers || {}) };
+    req.body = req.body || {};
+    req.headers = req.headers || {};
+    req.body.headers = { ...(req.headers || {}), ...(req.body.headers || {}) };
 
     let matrix = [];
     let colID = [];
@@ -92,7 +92,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             if (match) {
                 return parseInt(match[1], 10);
             }
-        } catch {}
+        } catch { }
         return token;
     }
 
@@ -189,7 +189,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     function isCellRefString(txt) {
-        console.log("shorthand txt",txt)
+        console.log("shorthand txt", txt)
         return /^\d{3}[a-z]{2}$/.test(txt.toString());
     }
 
@@ -483,9 +483,9 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         let cell = getCellID(cellTxt);
         if (cell && typeof cellTxt === "string") {
-            console.log("matrix",matrix);
-            console.log("cell.row",cell.row);
-            console.log("matrix[cell.row]",matrix[cell.row]);
+            console.log("matrix", matrix);
+            console.log("cell.row", cell.row);
+            console.log("matrix[cell.row]", matrix[cell.row]);
             let ref = matrix[cell.row][cell.col];
             if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
                 return resolveCell(ref);
@@ -499,7 +499,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     async function awaitAll(arr) {
         return Promise.all(arr.map(v => Promise.resolve(v)));
-      }
+    }
 
     async function parseFunction(row, startIndex) {
 
@@ -677,7 +677,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (keywords[functionName]) {
                     //console.log("true")
                     const resolvedArgs = await awaitAll(functionArray);
-                    console.log("resolvedArgs44",resolvedArgs)
+                    console.log("resolvedArgs44", resolvedArgs)
                     result = await keywords[functionName](resolvedArgs);
                     console.log("result44", result)
                 } else {
@@ -702,7 +702,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseNestedKeywords(rowArray) {
-        console.log("parseNestedKeywords",rowArray)
+        console.log("parseNestedKeywords", rowArray)
         let i = 0;
         let topLevelFunctions = [];
         while (i < rowArray.length) {
@@ -769,11 +769,11 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     async function parseRow(rowIndex) {
         console.log("matrix", matrix);
-        console.log("matrix[rowIndex]",rowIndex, matrix[rowIndex])
+        console.log("matrix[rowIndex]", rowIndex, matrix[rowIndex])
         const rowArray = matrix[rowIndex] || [];
-        
+
         if (!isCellRef(rowArray[0]) && !(rowArray[0] in keywords)) {
-            const resolvedFirst = await resolveCell(rowArray[0]); 
+            const resolvedFirst = await resolveCell(rowArray[0]);
             rowResult[rowIndex] = resolvedFirst;
             return resolvedFirst;
         }
@@ -1166,29 +1166,29 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             await run(skip);
         }
-        console.log("rowResult",rowResult)
+        console.log("rowResult", rowResult)
         return rowResult[0];
     }
 
     async function getVAR(data) {
-            console.log("getVAR matrix",matrix);
+        console.log("getVAR matrix", matrix);
 
         let { route } = require('./cookies')
         let entity = Object.keys(data).find(k => k !== "add");
-const xAccessToken =
-  (req.body?.headers && req.body.headers["X-accessToken"]) ||
-  (req.headers && req.headers["x-accesstoken"]) ||
-  undefined;
+        const xAccessToken =
+            (req.body?.headers && req.body.headers["X-accessToken"]) ||
+            (req.headers && req.headers["x-accesstoken"]) ||
+            undefined;
         let originalHost = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         let splitOriginalHost = originalHost.split("1var.com")[1];
         let reqPath = splitOriginalHost.split("?")[0];
         let reqBody2 = req.body;
         const action = reqPath.split("/")[2];
         let newReq = {};
-newReq.body = {
-  ...(req.body || {}),
-  headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
-};
+        newReq.body = {
+            ...(req.body || {}),
+            headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
+        };
         newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + "getFile" + "/" + entity;
         newReq.method = req.method
         newReq.type = req.type
@@ -1222,10 +1222,10 @@ newReq.body = {
 
     var keywords = {
         ROUTE: async (rowArray) => {
-            console.log("keywords ROUTE matrix",matrix);
-             
+            console.log("keywords ROUTE matrix", matrix);
+
             let { route } = require('./cookies')
-            console.log("ROUTE rowArray",rowArray)
+            console.log("ROUTE rowArray", rowArray)
             console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
@@ -1237,27 +1237,27 @@ newReq.body = {
             let act = rA[3];
             let param1 = rA[4];
             let param2 = rA[5];
-const xAccessToken =
-  (req.body?.headers && req.body.headers["X-accessToken"]) ||
-  (req.headers && req.headers["x-accesstoken"]) ||
-  undefined;
+            const xAccessToken =
+                (req.body?.headers && req.body.headers["X-accessToken"]) ||
+                (req.headers && req.headers["x-accesstoken"]) ||
+                undefined;
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
             const action = reqPath.split("/")[2];
-let newReq = {};
-newReq.body = {
-  ...(req.body || {}),
-  headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
-};
+            let newReq = {};
+            newReq.body = {
+                ...(req.body || {}),
+                headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }
+            };
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
             console.log("deepMerge newReq.body", newReq.body)
             console.log("deepMerge bod", bod)
- const payload = await deepMerge({}, bod);                     // resolve refs then mirror
- newReq.body.body = await deepMerge(newReq.body.body || {}, payload);
- newReq.body       = await deepMerge(newReq.body       || {}, payload);
+            const payload = await deepMerge({}, bod);                     // resolve refs then mirror
+            newReq.body.body = await deepMerge(newReq.body.body || {}, payload);
+            newReq.body = await deepMerge(newReq.body || {}, payload);
             newReq.method = req.method
             newReq.type = req.type
             newReq._headerSent = req._headerSent
@@ -1271,14 +1271,14 @@ newReq.body = {
         },
         FINDORCREATE: async (rowArray) => {
             let rA = await rowArray
-            return {"url":"http://abc.api.1var.com/cookies/find"+rA[0]}
+            return { "url": "http://abc.api.1var.com/cookies/find" + rA[0] }
         },
         EMPTY: (rowArray) => {
             return "";
         },
         SLEEP: async (rowArray) => {
             console.log("SLEEP rowArray", rowArray)
-            await sleep(rowArray[1]);    
+            await sleep(rowArray[1]);
             return "";
         },
         JOIN: async (rowArray) => {
@@ -1350,7 +1350,7 @@ newReq.body = {
                 const resolvedValue = await resolveCell(cell);
                 return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
             }));
-            
+
             const sum = values.reduce((acc, val) => acc + val, 0);
             const average = values.length > 0 ? sum / values.length : 0;
             return average.toFixed(2);
@@ -1853,11 +1853,11 @@ newReq.body = {
     console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
     console.log("rr0", rr0)
-    if (rr0.hasOwnProperty("conclusion")){
+    if (rr0.hasOwnProperty("conclusion")) {
         shorthandObj.conclusion = JSON.parse(JSON.stringify(rr0.conclusion))
         delete rr0.conclusion;
     } else {
-        
+
     }
     shorthandObj.published = rr0
     shorthandObj.conclusion = "rr0"

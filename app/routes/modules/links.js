@@ -180,7 +180,7 @@ function register({ on, use }) {
         const parentE = parentSub.Items[0].e;  // server entity id
         const propE = propSub?.Items?.[0]?.e; // server entity id (optional)
         // Create the link
-        const res = await putLink(parentE, childE, propE || undefined);
+        const res = await putLink(parentE, childE, propE || undefined); //wholeE, partE, propE, ddb = dynamodb
 
         // Stamp creator (from users cookie record) onto the link
         const creatorE = String(meta?.cookie?.e ?? "0");
