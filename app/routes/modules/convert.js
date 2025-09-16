@@ -327,6 +327,7 @@ function subdomains(domain){
       Anthropic,
       dynamodbLL,
       sourceType,
+      actionFile,
     });
 
     // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine

@@ -1552,7 +1552,19 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     return JSON.parse(text);
 }
 
-async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, sourceType } = {}) {
+async function parseArrayLogic({
+  arrayLogic = [],
+  dynamodb,
+  uuidv4,
+  s3,
+  ses,
+  openai,
+  Anthropic,
+  dynamodbLL,
+  sourceType,
+  // ➕ optional fallback entity id/key provided by convert.js
+  actionFile
+} = {}) {
 
     console.log("arrayLogic from prompt", arrayLogic)
     if (sourceType === "prompt") {
@@ -1745,6 +1757,49 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
         console.log("fixedPossesed", fixedPossessed)
         if (!bestMatch?.su) {
 
+
+          // 👉 If convert.js provided an actionFile (entity), use it as the fallback
+            const suppliedEntity =
+              (typeof actionFile === "string" && actionFile.trim()) ? actionFile.trim() : null;
+
+            // Precompute path & pb string (used by both branches)
+            const pathStr = breadcrumb;
+            const pbStr = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\\./, "")}`;
+
+            if (suppliedEntity) {
+              // ✅ Use the supplied entity instead of creating a new one
+              shorthand.push(
+                ["ROUTE", inputParam, schemaParam, "runEntity", suppliedEntity, ""]
+              );
+
+              // Also write/refresh positioning metadata for indexers/GSIs
+              shorthand.push([
+                "ROUTE",
+                {
+                  "body": {
+                    description: "auto supplied entity",
+                    domain,
+                    subdomain,
+                    embedding,
+                    entity: suppliedEntity,
+                    pb: pbStr,
+                    dist1, dist2, dist3, dist4, dist5,
+                    path: pathStr,
+                    output: fixedOutput
+                  }
+                },
+                {},
+                "position",
+                suppliedEntity,
+                ""
+              ]);
+
+              // keep routeRowNewIndex progression consistent
+              routeRowNewIndex = shorthand.length;
+              // Skip new-entity creation branch entirely
+              continue;
+            }
+            
             console.log("bestMatch.su is null")
             // derive entity/group names from the essence
             const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
@@ -1841,9 +1896,9 @@ async function parseArrayLogic({ arrayLogic = [], dynamodb, uuidv4, s3, ses, ope
 
 
 
-
-            const pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
-            pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
+           pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
+           pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\\./, "")}`;
+ 
             shorthand.push([
                 "ROUTE",
                 {
