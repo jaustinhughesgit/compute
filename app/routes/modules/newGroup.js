@@ -171,12 +171,12 @@ function register({ on, use }) {
                     Text: {
                         Data:
                             "Dear 1 Var User, \n\n We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. \n\n http://1var.com/verify/" +
-                            suRoot,
+                            uniqueId,
                     },
                     Html: {
                         Data:
                             "Dear 1 Var User, <br><br> We have recieved a request to create a new group at 1 VAR. If you requested this verification, please go to the following URL to confirm that you are the authorized to use this email for your group. <br><br> http://1var.com/verify/" +
-                            suRoot,
+                            uniqueId,
                     },
                 },
             },
