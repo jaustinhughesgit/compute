@@ -733,6 +733,8 @@ function createShared(deps = {}) {
       // Create the user record BEFORE returning the cookie.
       // e = user id; suDoc drives the generated email <suDoc>@email.1var.com
       try {
+        console.log("eForCookie",eForCookie)
+        console.log("suDocForEmail",suDocForEmail)
         if (eForCookie !== "0" && suDocForEmail) {
           const createUserHandler = actions.get("createUser");
           if (typeof createUserHandler === "function") {
