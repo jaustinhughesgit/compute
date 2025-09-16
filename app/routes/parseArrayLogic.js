@@ -1751,6 +1751,13 @@ async function parseArrayLogic({
        const buildPb = (d1) =>
            (d1 != null) ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}` : null;
 
+       // Helper: check if an existing subdomain row for this entity already has distances/pb
+       const loadExistingEntityRow = async (su) => {
+         try { const { Item } = await dynamodb.get({ TableName: "subdomains", Key: { su } }).promise(); return Item || null; }
+         catch (e) { console.error("subdomains.get failed", e); return null; }
+       };
+
+
         const inputParam = convertShorthandRefs(
             body.input
         );
@@ -1768,13 +1775,42 @@ async function parseArrayLogic({
             if (actionFile) {
                 console.log("No bestMatch; using provided actionFile entity:", actionFile);
 
-                // We already computed embedding, domain/subdomain, and distances above.
-                // Always (re)write positioning so the entity has required fields.
+                +                // Check if distances/pb already exist for this entity
+                const existing = await loadExistingEntityRow(actionFile);
+                const needsDists =
+                  !existing ||
+                  [1,2,3,4,5].some(i => existing[`dist${i}`] == null);
+                const needsPb = !existing || existing.pb == null;
+
+                // Compute pb using our current dist1 if available
                 const pbStr = buildPb(dist1);
 
-                // Safety: if reference embeddings are missing and distances are null,
-                // we still write whatever we have; downstream should handle,
-                // but in practice these should exist for the domain/subdomain.
+                if (needsDists || needsPb) {
+                  // Ask position to compute & persist dists (and pb if we have it)
+                  shorthand.push([
+                    "ROUTE",
+                    {
+                      "body": {
+                        description: "provided entity (fallback, ensure distances)",
+                        domain,
+                        subdomain,
+                        embedding,
+                        entity: actionFile,
+                        pb: pbStr ?? null,
+                        // pass through caller-visible info
+                        path: breadcrumb,
+                        output: fixedOutput
+                      }
+                    },
+                    {},
+                    "position",
+                    actionFile,
+                    ""
+                  ]);
+                } else {
+                  console.log("Entity already has distances/pb; skipping recompute.");
+                }
+
                 shorthand.push([
                     "ROUTE",
                     {

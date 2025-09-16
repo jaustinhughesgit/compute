@@ -36,7 +36,9 @@ function register({ on, use }) {
     const b = getLegacyBody(req);
     console.log("b", b);
     // NOTE: keep legacy shape (b.body || {}) to preserve behavior
-    const { description, domain, subdomain, embedding, entity, pb, output } = b?.body || {};
+    const {
+      description, domain, subdomain, embedding, entity, pb, output, path
+    } = b?.body || {};
 
     console.log("Position 3");
     // Legacy error shapes and codes:
@@ -95,6 +97,12 @@ function register({ on, use }) {
     console.log("Position 6");
     // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
     try {
+
+      // Prefer provided path; otherwise fallback to canonical domain/subdomain path
+      const resolvedPath = (typeof path === "string" && path.trim().length)
+        ? path
+        : `/${domain}/${subdomain}`;
+
       const updateParams = {
         TableName: "subdomains",
         Key: { su: entity },
@@ -105,7 +113,10 @@ function register({ on, use }) {
               #d4 = :d4,
               #d5 = :d5,
               #path = :path,
-              #output = :output
+              #output = :output,
+              #domain = :domain,
+              #subdomain = :subdomain,
+              #embedding = :embedding
         `,
         ExpressionAttributeNames: {
           "#d1": "dist1",
@@ -115,6 +126,9 @@ function register({ on, use }) {
           "#d5": "dist5",
           "#path": "path",
           "#output": "output",
+          "#domain": "domain",
+          "#subdomain": "subdomain",
+          "#embedding": "embedding",
         },
         ExpressionAttributeValues: {
           ":d1": distances.emb1 ?? null,
@@ -122,8 +136,11 @@ function register({ on, use }) {
           ":d3": distances.emb3 ?? null,
           ":d4": distances.emb4 ?? null,
           ":d5": distances.emb5 ?? null,
-          ":path": `/${domain}/${subdomain}`,
-          ":output": output,
+          ":path": resolvedPath,
+          ":output": output ?? null,
+          ":domain": domain,
+          ":subdomain": subdomain,
+          ":embedding": embedding,
         },
         ReturnValues: "UPDATED_NEW",
       };
@@ -168,13 +185,19 @@ function register({ on, use }) {
     const existing = meta?.cookie?.existing;
     const response = {
       action: "position",
-      position: distances,
+      position: {
+        dist1: distances.emb1 ?? null,
+        dist2: distances.emb2 ?? null,
+        dist3: distances.emb3 ?? null,
+        dist4: distances.emb4 ?? null,
+        dist5: distances.emb5 ?? null,
+      },
       domain,
       subdomain,
       entity,
       id: item.id ?? null,
       existing,
-      file: "", // legacy always appended actionFile (empty for this branch)
+      file: "", // unchanged: convert appends file later when relevant
     };
     console.log("response", response);
     return { ok: true, response };
