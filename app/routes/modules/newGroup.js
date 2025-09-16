@@ -24,6 +24,12 @@ function register({ on, use }) {
     const { uuidv4, ses } = deps;
 
     const segs = String(ctx.path || "").split("/").filter(Boolean);
+    console.log("ctx.path~~~~~~~~", ctx.path);
+    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
+    console.log("ctx.path~~~~~~~~", ctx.path);
+    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
+    console.log("ctx.path~~~~~~~~", ctx.path);
+    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
     const [newGroupName, headEntityName, headUUIDToShow] = segs;
     if (!newGroupName || !headEntityName) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
@@ -98,7 +104,7 @@ function register({ on, use }) {
     console.log("ctx.req", ctx.req)
     console.log("ctx.req.body", ctx.req.body)
 
-    const outputParam = ctx?.req?.body?.body?.output;
+    const outputParam = ctx?.req?.body?.body?.output || "$noName";
 
 
     const thought = {};

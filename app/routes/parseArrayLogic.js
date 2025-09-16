@@ -1848,7 +1848,7 @@ async function parseArrayLogic({
 
             console.log("body>>>>>>>", JSON.stringify(body, null, 2))
             const entNameRaw =
-                pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "untitled";
+                pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
             const entName = sanitize(entNameRaw);
             fixedOutput = entName
             // choose your grouping strategy; simplest = same as entity
