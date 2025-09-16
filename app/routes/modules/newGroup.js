@@ -97,14 +97,14 @@ function register({ on, use }) {
 
     const suDoc = await getUUID(uuidv4);
 
-    const body = ctx.req?.body || {};
+    const body = ctx.req?.body || {"output":headEntityName, "body":{"output":headEntityName}};
 
     console.log("***!!!")
     console.log("ctx", ctx)
     console.log("ctx.req", ctx.req)
     console.log("ctx.req.body", ctx.req.body)
 
-    const outputParam = ctx?.req?.body?.body?.output || "$noName";
+    const outputParam = ctx?.req?.body?.body?.output || headEntityName;
 
 
     const thought = {};
