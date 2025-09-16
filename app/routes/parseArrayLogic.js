@@ -1482,7 +1482,7 @@ const classifyDomains = async ({ openai, text }) => {
     return { domain, subdomain };
 };
 
-async function buildArrayLogicFromPrompt({ openai, prompt }) {
+async function buildArrayLogicFromPrompt({ openai, prompt, req }) {
     console.log("prompt77", prompt)
     const rsp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -1625,6 +1625,8 @@ async function parseArrayLogic({
         if (elem[bc].hasOwnProperty("output")) {
             fixedOutput = elem[bc].output
             delete elem[bc].output
+        } else {
+            fixedOutput = resolvedLogic
         }
 
         if (elem[bc].hasOwnProperty("possessedBy")) {
