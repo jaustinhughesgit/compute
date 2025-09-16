@@ -42,6 +42,7 @@ function register({ on, use }) {
     'cookies':  { partitionKey: 'ci' },
     'entities': { partitionKey: 'e' },
     'groups':   { partitionKey: 'g' },
+    'links':   { partitionKey: 'id' },
     'schedules':{ partitionKey: 'si' },
     'subdomains': { partitionKey: 'su' },
     'tasks':    { partitionKey: 'ti' },
