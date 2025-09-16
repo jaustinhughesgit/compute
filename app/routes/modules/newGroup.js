@@ -72,24 +72,14 @@ function register({ on, use }) {
       0 
     );
 const headEntityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-
-    await createGroup(gNew.toString(), aG, headEntityId, [ai.toString()], dynamodb);
+await createGroup(groupId, aG, headEntityId, [aiId], dynamodb);
 
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
-    const vHead = await addVersion(headEntityId, "a", aE.toString(), null, dynamodb);
+    const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
 const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-
-    let savedE = await createEntity(
-      entityId,
-      aE.toString(),
-      vHead.v,
-      gNew.toString(),
-      entityId,
-      [ai.toString()],
-      dynamodb
-    );
+await createEntity(entityId, aE.toString(), vHead.v, entityId, headEntityId, [aiId], dynamodb);
 
     console.log("savedE",entityId);
     console.log("savedE",entityId);
@@ -203,7 +193,7 @@ const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).to
     await createSubdomain(
   suDoc,
   aE.toString(),
-  entityId,
+  e.toString(),
   "0",
   true,
   outputParam,
@@ -254,7 +244,7 @@ const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).to
     // Parity: add existing + file
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
-    mainObj.entity = entityId.toString()
+    mainObj.entity = savedE.toString()
 
     console.log("response:",mainObj)
     return { ok: true, response: mainObj };
