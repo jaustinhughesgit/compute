@@ -34,9 +34,14 @@ on("convert", async (ctx, meta = {}) => {
       ? rawBody
       : { body: rawBody };
 
+
+      console.log("req::::::::", req)
+      console.log("req.body::::::::", req.body)
+      console.log("segsPath::::::::", path)
     // ── legacy path parsing (tail after action): "/<fileId>[...]" → fileId
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
     let actionFile = segs[0] || "";
+      console.log("actionFile::::::::", actionFile)
 
     // keep response assembly identical
     let mainObj = {};
