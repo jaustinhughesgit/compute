@@ -71,6 +71,45 @@ function createShared(deps = {}) {
     };
   };
 
+  async function normalizeToEntityE(val, ddb = dynamodb) {
+  const s = String(val || "").trim();
+  if (!s) return s;
+
+  // 1) If it's clearly a subdomain id, resolve su -> { e, g }
+  if (s.startsWith("1v4r")) {
+    const sub = await getSub(s, "su", ddb);
+    const rec = sub?.Items?.[0];
+    if (!rec) return s; // best-effort
+
+    // entity su => use its e if present
+    if (rec.e && rec.e !== "0") return String(rec.e);
+
+    // group su (e==="0") => resolve group's head entity
+    if (rec.g && rec.g !== "0") {
+      const grp = await getGroup(String(rec.g), ddb);
+      const headE = grp?.Items?.[0]?.e;
+      if (headE) return String(headE);
+    }
+    return s;
+  }
+
+  // 2) If it matches an existing entity (subdomains.eIndex), keep as-is
+  const subByE = await getSub(s, "e", ddb);
+  if (subByE?.Count) return s;
+
+  // 3) If it matches a group (subdomains.gIndex), map to its head entity
+  const subByG = await getSub(s, "g", ddb);
+  if (subByG?.Count) {
+    const grp = await getGroup(s, ddb);
+    const headE = grp?.Items?.[0]?.e;
+    if (headE) return String(headE);
+  }
+
+  // Fallback (unknown): return the value unchanged
+  return s;
+}
+
+
   const dispatch = async (action, ctx = {}, extra = {}) => {
     const handler = actions.get(action);
     if (!handler) return null;
@@ -289,30 +328,99 @@ function createShared(deps = {}) {
   const makeLinkId = (wholeE, partE) => `lnk#${wholeE}#${partE}`;
   const makeCKey = (wholeE, partE) => `${wholeE}|${partE}`;
 
-  async function putLink(wholeE, partE, propE, ddb = dynamodb) {
-    const id = makeLinkId(wholeE, partE);
-    const ckey = makeCKey(wholeE, partE);
-    try {
-      await ddb
-        .put({
-          TableName: "links",
-          Item: {
-            id,
-            whole: wholeE,
-            part: partE,
-            ckey,
-            type: "link",
-            ts: Date.now(),
-            ...(propE ? { prop: propE } : {}),
-          },
-          ConditionExpression: "attribute_not_exists(id)",
-        })
-        .promise();
-    } catch (err) {
-      if (err.code !== "ConditionalCheckFailedException") throw err;
-    }
-    return { id, ckey };
+async function putLink(wholeIn, partIn, propIn, ddb = dynamodb) {
+  const wholeE = await normalizeToEntityE(wholeIn, ddb);
+  const partE  = await normalizeToEntityE(partIn, ddb);
+  const propE  = propIn ? await normalizeToEntityE(propIn, ddb) : undefined;
+
+  const id = makeLinkId(wholeE, partE);
+  const ckey = makeCKey(wholeE, partE);
+  try {
+    await ddb.put({
+      TableName: "links",
+      Item: {
+        id,
+        whole: wholeE,
+        part: partE,
+        ckey,
+        type: "link",
+        ts: Date.now(),
+        ...(propE ? { prop: propE } : {}),
+      },
+      ConditionExpression: "attribute_not_exists(id)",
+    }).promise();
+  } catch (err) {
+    if (err.code !== "ConditionalCheckFailedException") throw err;
   }
+  return { id, ckey };
+}
+
+async function fixGroupIdLinks(ddb = dynamodb) {
+  let scanned = 0, fixed = 0, last;
+
+  const tryToEntity = async (maybeId) => {
+    const e = await normalizeToEntityE(maybeId, ddb);
+    return String(e || maybeId);
+  };
+
+  do {
+    const batch = await ddb.scan({
+      TableName: "links",
+      ProjectionExpression: "id, whole, part, prop",
+      ExclusiveStartKey: last,
+    }).promise();
+
+    for (const it of batch.Items || []) {
+      scanned++;
+      const wantWhole = await tryToEntity(it.whole);
+      const wantPart  = await tryToEntity(it.part);
+      const wantProp  = it.prop ? await tryToEntity(it.prop) : undefined;
+
+      // If anything changed, rewrite the row using idempotent pattern:
+      if (wantWhole !== String(it.whole) || wantPart !== String(it.part) || (it.prop && wantProp !== String(it.prop))) {
+        // Delete old row
+        await ddb.delete({ TableName: "links", Key: { id: it.id } }).promise();
+        // Write corrected row
+        await putLink(wantWhole, wantPart, wantProp, ddb);
+        fixed++;
+      }
+    }
+    last = batch.LastEvaluatedKey;
+  } while (last);
+
+  return { scanned, fixed };
+}
+
+on("fixGroupIdLinks", async (ctx, meta) => {
+  let mainObj;
+  try {
+    const stats = await (use().migrateLinksFixGroupIds?.()  // if you expose it
+      ?? (async () => await fixGroupIdLinks())());          // or call directly if in scope
+    mainObj = { alert: "ok", ...stats, table: "links" };
+  } catch (err) {
+    mainObj = { alert: "failed", error: String(err?.message || err) };
+  }
+  return withStandardEnvelope(mainObj, meta, "");
+});
+
+async function deleteLink(wholeIn, partIn, ddb = dynamodb) {
+  const wholeE = await normalizeToEntityE(wholeIn, ddb);
+  const partE  = await normalizeToEntityE(partIn, ddb);
+  const ckey   = makeCKey(wholeE, partE);
+
+  const q = await ddb.query({
+    TableName: "links",
+    IndexName: "ckeyIndex",
+    KeyConditionExpression: "ckey = :ck",
+    ExpressionAttributeValues: { ":ck": ckey },
+    Limit: 1,
+  }).promise();
+
+  if (!q.Items || !q.Items.length) return false;
+  await ddb.delete({ TableName: "links", Key: { id: q.Items[0].id } }).promise();
+  return true;
+}
+
 
   async function deleteLink(wholeE, partE, ddb = dynamodb) {
     const ckey = makeCKey(wholeE, partE);
