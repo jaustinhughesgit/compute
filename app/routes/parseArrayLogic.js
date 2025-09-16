@@ -1134,8 +1134,6 @@ const DOMAIN_SUBS = {
 // - `dynamodbLL` is a low-level DynamoDB client for any operation that *uses* pb in keys/filters/writes.
 // - You will pass `dynamodb` and `dynamodbLL` into parseArrayLogic({ ... }).
 
-const domains = {...};
-const DOMAIN_SUBS = {...};
 
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
