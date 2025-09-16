@@ -1699,38 +1699,62 @@ async function parseArrayLogic({
         }
         let subdomainMatches = [];
         if (dist1 != null) {
-            const pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
-            const n = x => ({ N: (typeof x === "string" ? x : String(x)) });
+            // helpers
+const n = x => ({ N: String(x) });
 
-            try {
-                const params = {
-                    TableName: "subdomains",
-                    IndexName: "pb-index",
-                    KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
-                    ExpressionAttributeNames: {
-                        "#p": "pb", "#d1": "dist1", "#d2": "dist2",
-                        "#d3": "dist3", "#d4": "dist4", "#d5": "dist5"
-                    },
-                    ExpressionAttributeValues: {
-                        ":pb": n(pb),
-                        ":d1lo": n(dist1 - 0.01), ":d1hi": n(dist1 + 0.01),
-                        ":d2lo": n(dist2 - 0.01), ":d2hi": n(dist2 + 0.01),
-                        ":d3lo": n(dist3 - 0.01), ":d3hi": n(dist3 + 0.01),
-                        ":d4lo": n(dist4 - 0.01), ":d4hi": n(dist4 + 0.01),
-                        ":d5lo": n(dist5 - 0.01), ":d5hi": n(dist5 + 0.01),
-                    },
-                    ScanIndexForward: true
-                };
+function buildPb(possessedCombined) {
+  // keep pb stable & numeric (don’t append dist1)
+  return possessedCombined; // Number
+}
 
-                // ⚠️ use low-level client here
-                const { Items } = await dynamodbLL.query(params).promise();
+/**
+ * Build query params for GSI (pb, dist1) with optional bands on dist2..dist5.
+ * dists = { dist1, dist2, dist3, dist4, dist5 }  (numbers or null/undefined)
+ * band  = half-width of BETWEEN window (default 0.01)
+ */
+function buildGsiParamsLowLevel({ pb, dists, band = 0.01 }) {
+  if (dists.dist1 == null) {
+    throw new Error("dist1 is required to query the pb-index sort key.");
+  }
 
-                // Optional: convert low-level AVs → plain JS for the rest of your code
-                const jsItems = (Items || []).map(Converter.unmarshall);
-                subdomainMatches = jsItems;
-            } catch (err) {
-                console.error("subdomains GSI query failed:", err);
-            }
+  const names  = { "#p": "pb", "#d1": "dist1" };
+  const values = {
+    ":pb":   n(pb),
+    ":d1lo": n(dists.dist1 - band),
+    ":d1hi": n(dists.dist1 + band),
+  };
+
+  const filters = [];
+  for (let i = 2; i <= 5; i++) {
+    const d = dists[`dist${i}`];
+    if (d == null) continue;                // only use what you have
+    names[`#d${i}`] = `dist${i}`;
+    values[`:d${i}lo`] = n(d - band);
+    values[`:d${i}hi`] = n(d + band);
+    filters.push(`#d${i} BETWEEN :d${i}lo AND :d${i}hi`);
+  }
+
+  const params = {
+    TableName: "subdomains",
+    IndexName: "pb-index",
+    KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+    ScanIndexForward: true,
+  };
+  if (filters.length) params.FilterExpression = filters.join(" AND ");
+  return params;
+}
+
+// usage inside your code:
+const pb = buildPb(possessedCombined);
+const dists = { dist1, dist2, dist3, dist4, dist5 };
+
+const params = buildGsiParamsLowLevel({ pb, dists, band: 0.01 });
+const { Items } = await dynamodbLL.query(params).promise();
+
+// Convert low-level AVs -> JS if you need plain objects
+const jsItems = (Items || []).map(AWS.DynamoDB.Converter.unmarshall);
         }
         let bestMatch = null;
         console.log("subdomainMatches", subdomainMatches)
