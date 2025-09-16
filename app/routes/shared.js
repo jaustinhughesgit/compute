@@ -715,6 +715,7 @@ function createShared(deps = {}) {
           console.log("ngResult", ngResult)
           // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
           eForCookie = ngResult?.response?.entity;
+          suDocForEmail = ngResult?.response?.file;
         } else {
           console.warn("manageCookie: newGroup action not registered; proceeding without e");
         }
