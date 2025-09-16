@@ -1267,7 +1267,58 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             console.log("act", act)
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
             console.log("ROUTE resp=>", resp);
-            return resp
+            // After: let resp = await route(newReq, ...);
+try {
+  // Figure out if the "result" is a plain string in common response shapes
+  const pickString = (v) => {
+    if (typeof v === "string") return v;
+    if (v && typeof v.response === "string") return v.response;
+    if (v && typeof v.RESULTS === "string") return v.RESULTS;
+    if (v && typeof v.body === "string") return v.body;
+    if (v && typeof v.published === "string") return v.published;
+    return undefined;
+  };
+
+  const resultString = pickString(resp);
+
+  // If this was a runEntity call and we got a string, write it to DynamoDB
+  if (act === "runEntity" && typeof resultString === "string") {
+    const pk = String(param1);
+
+    // Prefer DocumentClient (v2) if present
+    if (dynamodb && typeof dynamodb.update === "function") {
+      await dynamodb.update({
+        TableName: "subdomains",
+        Key: { su: pk },
+        UpdateExpression: "SET #output = :out",
+        ExpressionAttributeNames: { "#output": "output" },
+        ExpressionAttributeValues: { ":out": resultString },
+        ReturnValues: "NONE"
+      }).promise();
+      console.log("Updated subdomains.output via DocumentClient for su=", pk);
+    }
+    // Fall back to low-level DynamoDB client
+    else if (dynamodbLL && typeof dynamodbLL.updateItem === "function") {
+      await dynamodbLL.updateItem({
+        TableName: "subdomains",
+        Key: { su: { S: pk } },
+        UpdateExpression: "SET #output = :out",
+        ExpressionAttributeNames: { "#output": "output" },
+        ExpressionAttributeValues: { ":out": { S: resultString } },
+        ReturnValues: "NONE"
+      }).promise();
+      console.log("Updated subdomains.output via low-level client for su=", pk);
+    }
+    else {
+      console.warn("No DynamoDB client available to update subdomains.output");
+    }
+  }
+} catch (err) {
+  console.error("Failed to update subdomains.output for runEntity:", err);
+}
+
+return resp;
+
         },
         FINDORCREATE: async (rowArray) => {
             let rA = await rowArray
