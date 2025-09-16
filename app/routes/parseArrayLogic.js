@@ -1775,7 +1775,7 @@ async function parseArrayLogic({
             if (actionFile) {
                 console.log("No bestMatch; using provided actionFile entity:", actionFile);
 
-                +                // Check if distances/pb already exist for this entity
+                                // Check if distances/pb already exist for this entity
                 const existing = await loadExistingEntityRow(actionFile);
                 const needsDists =
                   !existing ||
