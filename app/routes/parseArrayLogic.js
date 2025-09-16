@@ -1110,171 +1110,194 @@ const DOMAIN_SUBS = {
         "warehousing"
     ]
 };
+
 //const domains = {...}
 //const DOMAIN_SUBS = {...}
+
+
+
+
+
+
+
+
+
+
+
+
+
+                // Drop-in replacement that keeps your logic intact but makes every pb touchpoint
+// DynamoDB low-level compliant (no IEEE-754 loss).
+//
+// Assumptions:
+// - `dynamodb` is a DocumentClient (high-level) for everything that doesn't touch pb.
+// - `dynamodbLL` is a low-level DynamoDB client for any operation that *uses* pb in keys/filters/writes.
+// - You will pass `dynamodb` and `dynamodbLL` into parseArrayLogic({ ... }).
+
+const domains = {...};
+const DOMAIN_SUBS = {...};
 
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
 
-// helper to marshal numbers for low-level client
+// marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
 const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 const parseVector = v => {
-    if (!v) return null;
-    if (Array.isArray(v)) return v;
-    try {
-        return JSON.parse(v);
-    } catch {
-        return null;
-    }
+  if (!v) return null;
+  if (Array.isArray(v)) return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
 };
 
 const cosineDist = (a, b) => {
-    let dot = 0, na = 0, nb = 0;
-    for (let i = 0; i < a.length; i++) {
-        dot += a[i] * b[i];
-        na += a[i] * a[i];
-        nb += b[i] * b[i];
-    }
-    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
 };
 
 const toVector = v => {
-    if (!v) return null;
-    const arr = Array.isArray(v) ? v : JSON.parse(v);
-    if (!Array.isArray(arr)) return null;
-    const len = Math.hypot(...arr);
-    return len ? arr.map(x => x / len) : null;
+  if (!v) return null;
+  const arr = Array.isArray(v) ? v : JSON.parse(v);
+  if (!Array.isArray(arr)) return null;
+  const len = Math.hypot(...arr);
+  return len ? arr.map(x => x / len) : null;
 };
 
 const createArrayOfRootKeys = schema => {
-    if (!schema || typeof schema !== "object") return [];
-    const { properties } = schema;
-    return properties && typeof properties === "object"
-        ? Object.keys(properties)
-        : [];
+  if (!schema || typeof schema !== "object") return [];
+  const { properties } = schema;
+  return properties && typeof properties === "object"
+    ? Object.keys(properties)
+    : [];
 };
 
 const calcMatchScore = (elementDists, item) => {
-    let sum = 0, count = 0;
-    for (let i = 1; i <= 5; i++) {
-        const e = elementDists[`dist${i}`];
-        const t = item[`dist${i}`];
-        if (typeof e === "number" && typeof t === "number") {
-            sum += Math.abs(e - t);
-            count++;
-        }
+  let sum = 0, count = 0;
+  for (let i = 1; i <= 5; i++) {
+    const e = elementDists[`dist${i}`];
+    const t = item[`dist${i}`];
+    if (typeof e === "number" && typeof t === "number") {
+      sum += Math.abs(e - t);
+      count++;
     }
-    return count ? sum / count : Number.POSITIVE_INFINITY;
+  }
+  return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
-    const cache = new Array(arrayLogic.length);
-    const resolving = new Set();
+  const cache = new Array(arrayLogic.length);
+  const resolving = new Set();
 
-    const deepResolve = val => {
-        if (typeof val === "string") {
-            const m = val.match(REF_REGEX);
-            if (m) {
-                const [, idxStr, restPath] = m;
-                const target = resolveElement(Number(idxStr));
-                if (!restPath) return target;
-                const segs = restPath.replace(/^\./, "").split(".");
-                let out = target;
-                for (const s of segs) { if (out == null) break; out = out[s]; }
-                return deepResolve(out);
-            }
-        }
-        if (Array.isArray(val)) return val.map(deepResolve);
-        if (val && typeof val === "object")
-            return Object.fromEntries(Object.entries(val).map(
-                ([k, v]) => [k, deepResolve(v)]
-            ));
-        return val;
-    };
+  const deepResolve = val => {
+    if (typeof val === "string") {
+      const m = val.match(REF_REGEX);
+      if (m) {
+        const [, idxStr, restPath] = m;
+        const target = resolveElement(Number(idxStr));
+        if (!restPath) return target;
+        const segs = restPath.replace(/^\./, "").split(".");
+        let out = target;
+        for (const s of segs) { if (out == null) break; out = out[s]; }
+        return deepResolve(out);
+      }
+    }
+    if (Array.isArray(val)) return val.map(deepResolve);
+    if (val && typeof val === "object")
+      return Object.fromEntries(Object.entries(val).map(
+        ([k, v]) => [k, deepResolve(v)]
+      ));
+    return val;
+  };
 
-    const resolveElement = i => {
-        if (cache[i] !== undefined) return cache[i];
-        if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
-        resolving.add(i);
-        cache[i] = deepResolve(arrayLogic[i]);
-        resolving.delete(i);
-        return cache[i];
-    };
+  const resolveElement = i => {
+    if (cache[i] !== undefined) return cache[i];
+    if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
+    resolving.add(i);
+    cache[i] = deepResolve(arrayLogic[i]);
+    resolving.delete(i);
+    return cache[i];
+  };
 
-    return arrayLogic.map((_, i) => resolveElement(i));
+  return arrayLogic.map((_, i) => resolveElement(i));
 }
 
 const OFFSET = 1;
-const padRef = nRef => String(nRef).padStart(3, "0") + "!!";
+const padRef = n_ => String(n_).padStart(3, "0") + "!!";
 const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
 
 const convertShorthandRefs = v => {
-    if (typeof v === "string") {
-        const m = v.match(OP_ONLY);
-        if (m) return padRef(Number(m[1]) + OFFSET);
-        return v;
-    }
-    if (Array.isArray(v)) return v.map(convertShorthandRefs);
-    if (v && typeof v === "object")
-        return Object.fromEntries(Object.entries(v).map(
-            ([k, val]) => [k, convertShorthandRefs(val)]
-        ));
+  if (typeof v === "string") {
+    const m = v.match(OP_ONLY);
+    if (m) return padRef(Number(m[1]) + OFFSET);
     return v;
+  }
+  if (Array.isArray(v)) return v.map(convertShorthandRefs);
+  if (v && typeof v === "object")
+    return Object.fromEntries(Object.entries(v).map(
+      ([k, val]) => [k, convertShorthandRefs(val)]
+    ));
+  return v;
 };
 
 const isOperationElem = obj =>
-    obj && typeof obj === "object" && !Array.isArray(obj) &&
-    Object.keys(obj).length === 1 &&
-    (() => { const v = obj[Object.keys(obj)[0]]; return v && v.input && v.schema; })();
+  obj && typeof obj === "object" && !Array.isArray(obj) &&
+  Object.keys(obj).length === 1 &&
+  (() => { const v = obj[Object.keys(obj)[0]]; return v && v.input && v.schema; })();
 
 const isSchemaElem = obj =>
-    obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
+  obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-    const rsp = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        top_p: 0,
-        seed: 42,
-        messages: [{
-            role: "user", content:
-                `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
-        }]
-    });
-    console.log(`IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`)
-    console.log("callOpenAI rsp.choices[0].message", rsp.choices[0].message)
-    const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
-    if (list.includes(guess)) return guess;
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    top_p: 0,
+    seed: 42,
+    messages: [{
+      role: "user",
+      content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
+    }]
+  });
+  const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
+  if (list.includes(guess)) return guess;
 
-    const strict = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        top_p: 0,
-        seed: 42,
-        response_format: {
-            type: "json_schema",
-            json_schema: {
-                name: schemaName, strict: true,
-                schema: {
-                    type: "object",
-                    properties: { [promptLabel]: { type: "string", enum: list } },
-                    required: [promptLabel], additionalProperties: false
-                }
-            }
-        },
-        messages: [
-            { role: "system", content: `You are a classifier that picks the best ${promptLabel}.` },
-            { role: "user", content: `Which ${promptLabel} best fits: "${str}"?` }
-        ]
-    });
-    console.log("callOpenAI strict", strict)
-    return JSON.parse(strict.choices[0].message.content)[promptLabel];
+  const strict = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    top_p: 0,
+    seed: 42,
+    response_format: {
+      type: "json_schema",
+      json_schema: {
+        name: schemaName, strict: true,
+        schema: {
+          type: "object",
+          properties: { [promptLabel]: { type: "string", enum: list } },
+          required: [promptLabel], additionalProperties: false
+        }
+      }
+    },
+    messages: [
+      { role: "system", content: `You are a classifier that picks the best ${promptLabel}.` },
+      { role: "user", content: `Which ${promptLabel} best fits: "${str}"?` }
+    ]
+  });
+  return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
+
+// your real schema goes here
 
 
 const buildLogicSchema = {
@@ -1437,523 +1460,534 @@ const buildLogicSchema = {
     }
 }
 
-
 const buildBreadcrumbApp = async ({ openai, str }) => {
-    console.log("openai 4", openai)
-    const rsp = await openai.chat.completions.create({
-        model: "gpt-4o-2024-08-06",
-        response_format: { type: "json_object" },
-        messages: [
-            {
-                role: "system",
-                content:
-                    "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else."
-            },
-            { role: "user", content: str }
-        ],
-        functions: [buildLogicSchema],
-        function_call: { name: "build_logic" }
-    });
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-2024-08-06",
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
+      { role: "user", content: str }
+    ],
+    functions: [buildLogicSchema],
+    function_call: { name: "build_logic" }
+  });
 
-    const fc = rsp.choices[0].message.function_call;
-    fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
-    console.log("fc.arguments", fc.arguments)
-    const args = JSON.parse(fc.arguments);
-
-    return args;
+  const fc = rsp.choices[0].message.function_call;
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  const args = JSON.parse(fc.arguments);
+  return args;
 };
 
 const classifyDomains = async ({ openai, text }) => {
-    console.log("classifyDomains", text)
-    const domain = await callOpenAI({
-        openai, str: JSON.stringify(text),
-        list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
+  const domain = await callOpenAI({
+    openai, str: JSON.stringify(text),
+    list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
+  });
+  const subList = DOMAIN_SUBS[domain] ?? [];
+  let subdomain = "";
+  if (subList.length)
+    subdomain = await callOpenAI({
+      openai, str: JSON.stringify(text), list: subList,
+      promptLabel: "subdomain", schemaName: "subdomain_classification"
     });
-    const subList = DOMAIN_SUBS[domain] ?? [];
-    let subdomain = "";
-    if (subList.length)
-        subdomain = await callOpenAI({
-            openai, str: JSON.stringify(text), list: subList,
-            promptLabel: "subdomain", schemaName: "subdomain_classification"
-        });
-    return { domain, subdomain };
+  return { domain, subdomain };
 };
 
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
-    console.log("prompt77", prompt)
-    const rsp = await openai.chat.completions.create({
-        model: "gpt-4o-mini",
-        temperature: 0,
-        top_p: 0,
-        seed: 42,
-        messages: [{
-            role: "system",
-            content:
-                "You are a JSON-only assistant. Reply with **only** a valid JSON " +
-                "array—the arrayLogic representation of the user’s request. " +
-                "No prose. No markdown. No code fences. No comments!!"
-        },
-        { role: "user", content: prompt }
-        ]
-    });
-    console.log("rsp77", rsp);
-    let text = rsp.choices[0].message.content.trim();
-    console.log("text1", text)
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    top_p: 0,
+    seed: 42,
+    messages: [{
+      role: "system",
+      content:
+        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
+        "array—the arrayLogic representation of the user’s request. " +
+        "No prose. No markdown. No code fences. No comments!!"
+    },
+    { role: "user", content: prompt }
+    ]
+  });
+  let text = rsp.choices[0].message.content.trim();
 
-    function stripComments(jsonLike) {
-        let out = '';
-        let inString = false, quote = '', escaped = false;
-        let inSL = false, inML = false;
+  function stripComments(jsonLike) {
+    let out = '';
+    let inString = false, quote = '', escaped = false;
+    let inSL = false, inML = false;
 
-        for (let i = 0; i < jsonLike.length; i++) {
-            const c = jsonLike[i], n = jsonLike[i + 1];
+    for (let i = 0; i < jsonLike.length; i++) {
+      const c = jsonLike[i], n = jsonLike[i + 1];
 
-            if (inSL) { if (c === '\n' || c === '\r') { inSL = false; out += c; } continue; }
-            if (inML) { if (c === '*' && n === '/') { inML = false; i++; } continue; }
-            if (inString) {
-                out += c;
-                if (!escaped && c === quote) { inString = false; quote = ''; }
-                escaped = !escaped && c === '\\';
-                continue;
-            }
-            if (c === '"' || c === "'") { inString = true; quote = c; out += c; continue; }
-            if (c === '/' && n === '/') { inSL = true; i++; continue; }
-            if (c === '/' && n === '*') { inML = true; i++; continue; }
+      if (inSL) {
+        if (c === '\n' || c === '\r') { inSL = false; out += c; }
+        continue;
+      }
+      if (inML) {
+        if (c === '*' && n === '/') { inML = false; i++; }
+        continue;
+      }
+      if (inString) {
+        out += c;
+        if (!escaped && c === quote) { inString = false; quote = ''; }
+        escaped = !escaped && c === '\\';
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        inString = true; quote = c; out += c; continue;
+      }
+      if (c === '/' && n === '/') { inSL = true; i++; continue; }
+      if (c === '/' && n === '*') { inML = true; i++; continue; }
 
-            out += c;
-        }
-        return out;
+      out += c;
     }
+    return out;
+  }
 
-    text = stripComments(text);
+  text = stripComments(text);
 
-    console.log("text2", text)
-    const start = text.indexOf("[");
-    const end = text.lastIndexOf("]");
-    if (start === -1 || end === -1) {
-        throw new Error("Model response did not contain a JSON array.");
-    }
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start === -1 || end === -1) {
+    throw new Error("Model response did not contain a JSON array.");
+  }
 
-    text = text.slice(start, end + 1);
-    console.log("removes brackets")
-    return JSON.parse(text);
+  text = text.slice(start, end + 1);
+  return JSON.parse(text);
 }
 
 async function parseArrayLogic({
   arrayLogic = [],
-  dynamodb,
+  dynamodb,    // DocumentClient (safe for non-pb ops)
   uuidv4,
   s3,
   ses,
   openai,
   Anthropic,
-  dynamodbLL,
+  dynamodbLL,  // Low-level DynamoDB for pb ops
   sourceType,
   actionFile,
   out
 } = {}) {
 
-    console.log("arrayLogic from prompt", arrayLogic)
-    if (sourceType === "prompt") {
-        if (typeof arrayLogic !== "string") {
-            throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
-        }
-        arrayLogic = await buildArrayLogicFromPrompt({ openai, prompt: arrayLogic });
+  if (sourceType === "prompt") {
+    if (typeof arrayLogic !== "string") {
+      throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
+    }
+    arrayLogic = await buildArrayLogicFromPrompt({ openai, prompt: arrayLogic });
+  }
+
+  const resolvedLogic = resolveArrayLogic(arrayLogic);
+
+  const shorthand = [];
+  const results = [];
+  let routeRowNewIndex = null;
+
+  // helper to safely build the huge numeric pb as a string representation
+  const buildPb = (possessedCombined, d1) =>
+    (d1 != null)
+      ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}`
+      : null;
+
+  // presence check only (uses DocumentClient)
+  const loadExistingEntityRow = async (su) => {
+    try {
+      const { Item } = await dynamodb.get({
+        TableName: "subdomains",
+        Key: { su }
+        // If you want to avoid ever returning pb from DocClient, add ProjectionExpression here.
+      }).promise();
+      return Item || null;
+    } catch (e) {
+      console.error("subdomains.get failed", e);
+      return null;
+    }
+  };
+
+  for (let i = 0; i < arrayLogic.length; i++) {
+    const origElem = arrayLogic[i];
+
+    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
+      continue;
     }
 
-    console.log("arrayLogic from openai", arrayLogic)
+    const elem = resolvedLogic[i];
 
-    console.log("openai1", openai)
-    const resolvedLogic = resolveArrayLogic(arrayLogic);
+    let fixedOutput;
+    let fixedPossessed;
+    let fixedDate;
 
-    const shorthand = [];
-    const results = [];
+    if (!isOperationElem(origElem)) {
+      if (isSchemaElem(origElem)) {
+        shorthand.push(createArrayOfRootKeys(elem));
+      } else if (origElem && typeof origElem === "object") {
+        shorthand.push([convertShorthandRefs(elem)]);
+      } else {
+        shorthand.push([convertShorthandRefs(elem)]);
+      }
+      continue;
+    }
 
-    let routeRowNewIndex = null;
+    const bc = Object.keys(elem)[0];
 
-    for (let i = 0; i < arrayLogic.length; i++) {
-        const origElem = arrayLogic[i];
+    if (elem[bc].hasOwnProperty("output")) {
+      fixedOutput = elem[bc].output;
+      delete elem[bc].output;
+    }
+    if (elem[bc].hasOwnProperty("possessedBy")) {
+      fixedPossessed = elem[bc].possessedBy;
+      delete elem[bc].possessedBy;
+    }
+    if (elem[bc].hasOwnProperty("date")) {
+      fixedDate = elem[bc].date;
+      delete elem[bc].date;
+    }
 
-        if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
-            continue;
-        }
+    const [breadcrumb] = Object.keys(elem);
+    const body = elem[breadcrumb];
+    const origBody = origElem[breadcrumb];
 
-        const elem = resolvedLogic[i];
-        console.log("resolvedLogic", i, JSON.stringify(resolvedLogic));
-        console.log("elem", JSON.stringify(elem));
+    const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
-        let fixedOutput;
-        let fixedPossessed;
-        let fixedDate;
+    // possessedCombined base & indexes
+    const base = 1000000000000000.0;
+    const domainIndex = 10000000000000 * domains.indexOf(domain);
+    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
+    const userID = 1;
+    const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
-        if (!isOperationElem(origElem)) {
-            if (isSchemaElem(origElem)) {
-                shorthand.push(createArrayOfRootKeys(elem));
-            } else if (origElem && typeof origElem === "object") {
-                shorthand.push([convertShorthandRefs(elem)]);
-            } else {
-                shorthand.push([convertShorthandRefs(elem)]);
-            }
-            continue;
-        }
+    // embedding
+    const {
+      data: [{ embedding: rawEmb }]
+    } = await openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: JSON.stringify(elem)
+    });
+    const embedding = toVector(rawEmb);
 
-        console.log("elem", elem)
-        const bc = Object.keys(elem)[0]
-        console.log("elem[bc]", elem[bc])
+    // get subdomain vector refs (DocClient is fine; no pb touched)
+    let dynamoRecord = null;
+    let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
+    try {
+      const { Items } = await dynamodb
+        .query({
+          TableName: `i_${domain}`,
+          KeyConditionExpression: "#r = :pk",
+          ExpressionAttributeNames: { "#r": "root" },
+          ExpressionAttributeValues: { ":pk": subdomain },
+          Limit: 1
+        })
+        .promise();
+      dynamoRecord = Items?.[0] ?? null;
+    } catch (err) {
+      console.error("DynamoDB query failed:", err);
+    }
 
-        if (elem[bc].hasOwnProperty("output")) {
-            fixedOutput = elem[bc].output
-            delete elem[bc].output
-        }
+    if (dynamoRecord) {
+      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
+      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+        const ref = parseVector(dynamoRecord[k]);
+        return Array.isArray(ref) && ref.length === embedding.length
+          ? cosineDist(embedding, ref)
+          : null;
+      });
+    }
 
-        if (elem[bc].hasOwnProperty("possessedBy")) {
-            fixedPossessed = elem[bc].possessedBy
-            delete elem[bc].possessedBy
-        }
+    // low-level pb-index query (to avoid 36-digit precision loss)
+    let subdomainMatches = [];
+    if (dist1 != null) {
+      const pbStr = buildPb(possessedCombined, dist1);
 
-        if (elem[bc].hasOwnProperty("date")) {
-            fixedDate = elem[bc].date
-            delete elem[bc].date
-        }
-
-        const [breadcrumb] = Object.keys(elem);
-        const body = elem[breadcrumb];
-
-        console.log("openai 2", openai)
-        const { domain, subdomain } = await classifyDomains({ openai, text: elem });
-        console.log("domain1", domain);
-        console.log("subdomain1", subdomain);
-
-        console.log("fixedPossessed", fixedPossessed)
-        console.log("typeof fixedPossessed", typeof fixedPossessed)
-        const base = 1000000000000000.0;
-        const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
-        const subdomainIndex = 100000000000 * (DOMAIN_SUBS[domain]?.indexOf(subdomain) ?? -1);
-        const userID = 1;
-        const possessedCombined = base + domainIndex + subdomainIndex + userID;
-        console.log("possessedCombined", possessedCombined);
-
-        const {
-            data: [{ embedding: rawEmb }]
-        } = await openai.embeddings.create({
-            model: "text-embedding-3-large",
-            input: JSON.stringify(elem)
-        });
-        const embedding = toVector(rawEmb);
-
-        let dynamoRecord = null;
-        let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
-        try {
-            const { Items } = await dynamodb
-                .query({
-                    TableName: `i_${domain}`,
-                    KeyConditionExpression: "#r = :pk",
-                    ExpressionAttributeNames: { "#r": "root" },
-                    ExpressionAttributeValues: { ":pk": subdomain },
-                    Limit: 1
-                })
-                .promise();
-            dynamoRecord = Items?.[0] ?? null;
-        } catch (err) {
-            console.error("DynamoDB query failed:", err);
-        }
-        if (dynamoRecord) {
-            const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-            [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
-                const ref = parseVector(dynamoRecord[k]);
-                return Array.isArray(ref) && ref.length === embedding.length
-                    ? cosineDist(embedding, ref)
-                    : null;
-            });
-        }
-
-        let subdomainMatches = [];
-        if (dist1 != null) {
-            // build pb string (not JS number)
-            const pbStr = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, '')}`;
-
-            try {
-                const ExpressionAttributeNames = {
-                    '#p': 'pb',
-                    '#d1': 'dist1',
-                    '#d2': 'dist2',
-                    '#d3': 'dist3',
-                    '#d4': 'dist4',
-                    '#d5': 'dist5',
-                };
-
-                const ExpressionAttributeValues = {
-                    ':pb': n(pbStr),
-                    ':d1lo': n(dist1 - 0.01),
-                    ':d1hi': n(dist1 + 0.01),
-                };
-
-                const filterParts = [];
-                [dist2, dist3, dist4, dist5].forEach((v, idx) => {
-                    const i2 = idx + 2;
-                    if (Number.isFinite(v)) {
-                        ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
-                        ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
-                        filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
-                    }
-                });
-
-                const params = {
-                    TableName: 'subdomains',
-                    IndexName: 'pb-index',
-                    KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
-                    ExpressionAttributeNames,
-                    ExpressionAttributeValues,
-                    ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
-                    ScanIndexForward: true,
-                };
-
-                const { Items } = await dynamodbLL.query(params).promise();
-                // low-level -> plain JS
-                subdomainMatches = (Items || []).map(Converter.unmarshall);
-            } catch (err) {
-                console.error('subdomains GSI query failed:', err);
-            }
-        }
-
-        let bestMatch = null;
-        console.log("subdomainMatches", subdomainMatches)
-        if (subdomainMatches.length) {
-            bestMatch = subdomainMatches.reduce(
-                (best, item) => {
-                    const score = calcMatchScore(
-                        { dist1, dist2, dist3, dist4, dist5 },
-                        item
-                    );
-                    return score < best.score ? { item, score } : best;
-                },
-                { item: null, score: Number.POSITIVE_INFINITY }
-            ).item;
-        }
-
-        // Helper to build pb from dist1
-        const buildPb = (d1) =>
-            (d1 != null) ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}` : null;
-
-        // Helper: check if an existing subdomain row for this entity already has distances/pb
-        const loadExistingEntityRow = async (su) => {
-            try {
-                const { Item } = await dynamodb.get({
-                    TableName: "subdomains",
-                    Key: { su },
-                    // Avoid pulling big pb number unnecessarily
-                    ProjectionExpression: "su, dist1, dist2, dist3, dist4, dist5, #p",
-                    ExpressionAttributeNames: { "#p": "pb" }
-                }).promise();
-                return Item || null;
-            } catch (e) { console.error("subdomains.get failed", e); return null; }
+      try {
+        const ExpressionAttributeNames = {
+          '#p': 'pb',
+          '#d1': 'dist1',
+          '#d2': 'dist2',
+          '#d3': 'dist3',
+          '#d4': 'dist4',
+          '#d5': 'dist5',
         };
 
-        const inputParam = convertShorthandRefs(body.input);
-        const expectedKeys = createArrayOfRootKeys(body.schema);
-        const schemaParam = convertShorthandRefs(expectedKeys);
+        const ExpressionAttributeValues = {
+          ':pb': n(pbStr),
+          ':d1lo': n(dist1 - 0.01),
+          ':d1hi': n(dist1 + 0.01),
+        };
 
-        console.log("fixedPossesed", fixedPossessed)
-        if (!bestMatch?.su) {
-            if (actionFile) {
-                console.log("No bestMatch; using provided actionFile entity:", actionFile);
+        const filterParts = [];
+        [dist2, dist3, dist4, dist5].forEach((v, idx) => {
+          const i2 = idx + 2;
+          if (Number.isFinite(v)) {
+            ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
+            ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
+            filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
+          }
+        });
 
-                const existing = await loadExistingEntityRow(actionFile);
-                const needsDists =
-                    !existing ||
-                    [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
-                const needsPb = !existing || existing.pb == null;
+        const params = {
+          TableName: 'subdomains',
+          IndexName: 'pb-index',
+          KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
+          ExpressionAttributeNames,
+          ExpressionAttributeValues,
+          ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
+          ScanIndexForward: true,
+        };
 
-                const pbStr = buildPb(dist1);
+        const { Items } = await dynamodbLL.query(params).promise();
+        // AV -> plain JS (dist* become numbers; pb would be a stringified big number if you wrapNumbers)
+        subdomainMatches = (Items || []).map(Converter.unmarshall);
+      } catch (err) {
+        console.error('subdomains GSI query failed:', err);
+      }
+    }
 
-                if (needsDists || needsPb) {
-                    console.log("POSITION BBB", fixedOutput)
-                    shorthand.push([
-                        "ROUTE",
-                        {
-                            "body": {
-                                description: "provided entity (fallback, ensure distances)",
-                                domain,
-                                subdomain,
-                                embedding,
-                                entity: actionFile,
-                                pb: pbStr ?? null,
-                                path: breadcrumb,
-                                output: fixedOutput
-                            }
-                        },
-                        {},
-                        "position",
-                        actionFile,
-                        ""
-                    ]);
-                } else {
-                    console.log("Entity already has distances/pb; skipping recompute.");
-                }
+    // pick best match
+    let bestMatch = null;
+    if (subdomainMatches.length) {
+      bestMatch = subdomainMatches.reduce(
+        (best, item) => {
+          const score = calcMatchScore(
+            { dist1, dist2, dist3, dist4, dist5 },
+            item
+          );
+          return score < best.score ? { item, score } : best;
+        },
+        { item: null, score: Number.POSITIVE_INFINITY }
+      ).item;
+    }
 
-                shorthand.push([
-                    "ROUTE",
-                    {
-                        "body": {
-                            description: "provided entity (fallback)",
-                            domain,
-                            subdomain,
-                            embedding,
-                            entity: actionFile,
-                            pb: pbStr,
-                            dist1, dist2, dist3, dist4, dist5,
-                            path: breadcrumb,
-                            output: fixedOutput
-                        }
-                    },
-                    {},
-                    "position",
-                    actionFile,
-                    ""
-                ]);
+    const inputParam = convertShorthandRefs(body.input);
+    const expectedKeys = createArrayOfRootKeys(body.schema);
+    const schemaParam = convertShorthandRefs(expectedKeys);
 
-                shorthand.push([
-                    "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-                ]);
+    if (!bestMatch?.su) {
+      // If caller provided an entity, ensure distances/pb exist, then run it
+      if (actionFile) {
+        const existing = await loadExistingEntityRow(actionFile);
+        const needsDists =
+          !existing ||
+          [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
+        const needsPb = !existing || existing.pb == null;
 
-                routeRowNewIndex = shorthand.length;
-                continue;
+        const pbStr = buildPb(possessedCombined, dist1);
+
+        if (needsDists || needsPb) {
+          shorthand.push([
+            "ROUTE",
+            {
+              "body": {
+                description: "provided entity (fallback, ensure distances)",
+                domain,
+                subdomain,
+                embedding,
+                entity: actionFile,
+                pb: pbStr ?? null,
+                path: breadcrumb,
+                output: fixedOutput
+              }
+            },
+            {},
+            "position",
+            actionFile,
+            ""
+          ]);
+        }
+
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "provided entity (fallback)",
+              domain,
+              subdomain,
+              embedding,
+              entity: actionFile,
+              pb: pbStr,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              output: fixedOutput
             }
+          },
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
 
-            console.log("bestMatch.su is null")
-            const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-            const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
+        // Now run the provided entity
+        shorthand.push([
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ]);
 
-            console.log("body>>>>>>>", JSON.stringify(body, null, 2))
-            const entNameRaw =
-                pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
-            const entName = sanitize(entNameRaw);
-            fixedOutput = entName;
-            const groupName = entName;
+        routeRowNewIndex = shorthand.length;
+        continue;
+      }
 
-            shorthand.push([
-                "ROUTE",
-                { output: entName },
-                {},
-                "newGroup",
-                groupName,
-                entName
-            ]);
+      // create a new entity/group
+      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
-            routeRowNewIndex = shorthand.length;
+      const entNameRaw =
+        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      const entName = sanitize(entNameRaw);
+      fixedOutput = entName;
+      const groupName = entName;
 
-            shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      shorthand.push([
+        "ROUTE",
+        { output: entName },
+        {},
+        "newGroup",
+        groupName,
+        entName
+      ]);
 
-            if (fixedOutput) {
-                shorthand.push(
-                    ["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]
-                );
-                shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+      routeRowNewIndex = shorthand.length;
 
-                const desiredObj = structuredClone(elem);
-                if (fixedOutput) desiredObj.response = fixedOutput;
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          {},
+          {},
+          "getFile",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
+
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+
+        const desiredObj = structuredClone(elem);
+        if (fixedOutput) desiredObj.response = fixedOutput;
+
 
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
                 newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
                 newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
                 newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra)*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while loop*/ {"assign":"{|generateSummary|}",`;
-                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]}, {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"}, {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]} ]};`;
+                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
+                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
 
-                console.log("openai 3", openai)
-                const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL })
-                console.log("objectJPL", objectJPL)
 
-                shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-                );
+        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
-                shorthand.push(
-                    ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]
-                );
+        shorthand.push(
+          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
+        );
 
-                shorthand.push(
-                    ["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]
-                );
-            }
-
-            const pathStr = breadcrumb;
-            const pbStr2 = buildPb(dist1);
-            shorthand.push([
-                "ROUTE",
-                {
-                    "body": {
-                        description: "auto created entity",
-                        domain, subdomain,
-                        embedding,
-                        entity: padRef(routeRowNewIndex + 1),
-                        pb: pbStr2,
-                        dist1, dist2, dist3, dist4, dist5,
-                        path: pathStr,
-                        output: fixedOutput
-                    }
-                },
-                {},
-                "position",
-                padRef(routeRowNewIndex + 1),
-                ""
-            ]);
-
-            if (fixedOutput) {
-                shorthand.push([
-                    "ROUTE",
-                    inputParam,
-                    {},
-                    "runEntity",
-                    padRef(routeRowNewIndex + 1),
-                    ""
-                ]);
-            } else {
-                shorthand.push([fixedOutput]);
-            }
-
+        if (objectJPL.modules) {
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
+          );
         } else {
-            // bestMatch path
-            shorthand.push([
-                "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
-            ]);
-
-            shorthand.push([
-                "ROUTE",
-                {
-                    "body": {
-                        description: "auto matched entity",
-                        domain,
-                        subdomain,
-                        embedding,
-                        entity: bestMatch.su,
-                        pb: possessedCombined,
-                        dist1, dist2, dist3, dist4, dist5,
-                        path: breadcrumb,
-                        output: fixedOutput
-                    }
-                },
-                {},
-                "position",
-                bestMatch.su,
-                ""
-            ]);
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
+          );
         }
 
-        routeRowNewIndex = shorthand.length;
+        shorthand.push(
+          [
+            "ROUTE",
+            padRef(routeRowNewIndex + 5),
+            {},
+            "saveFile",
+            padRef(routeRowNewIndex + 1),
+            ""
+          ]
+        );
+      }
+
+      // record positioning for the new entity (pb must be safe)
+      const pathStr = breadcrumb;
+      const pbStr2 = buildPb(possessedCombined, dist1);
+
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto created entity",
+            domain, subdomain,
+            embedding,
+            entity: padRef(routeRowNewIndex + 1),
+            pb: pbStr2,
+            dist1, dist2, dist3, dist4, dist5,
+            path: pathStr,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        padRef(routeRowNewIndex + 1),
+        ""
+      ]);
+
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          inputParam,
+          {},
+          "runEntity",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
+      } else {
+        shorthand.push([fixedOutput]);
+      }
+
+    } else {
+      // run best match
+      shorthand.push([
+        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
+      ]);
+
+      // refresh positioning metadata, with pb built from current dist1
+      const pbStr = buildPb(possessedCombined, dist1);
+
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto matched entity",
+            domain,
+            subdomain,
+            embedding,
+            entity: bestMatch.su,
+            pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        bestMatch.su,
+        ""
+      ]);
     }
 
-    const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
-    if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-        const getRowIndex = shorthand.push(
-            ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
-        ) - 1;
+    routeRowNewIndex = shorthand.length;
+  }
 
-        shorthand.push([
-            "ROWRESULT",
-            "000",
-            pad
+  const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
+  if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    const getRowIndex = shorthand.push(
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
+    ) - 1;
 
+    shorthand.push([
+      "ROWRESULT",
+      "000",
+      padRef(getRowIndex + 1)
+    ]);
+  }
 
+  const finalShorthand = shorthand.map(convertShorthandRefs);
 
+  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
+  return { shorthand: finalShorthand, details: results, arrayLogic };
+}
+
+module.exports = { parseArrayLogic };
