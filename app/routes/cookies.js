@@ -223,7 +223,8 @@ async function route(
   reqHeaderSent,
   signer,
   action,
-  xAccessToken
+  xAccessToken,
+  Converter
 ) {
   console.log("route1")
   _deps = _deps || { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };

@@ -1110,12 +1110,16 @@ const DOMAIN_SUBS = {
         "warehousing"
     ]
 };
-
 //const domains = {...}
 //const DOMAIN_SUBS = {...}
 
-const DOMAINS = Object.keys(DOMAIN_SUBS);
+const { DynamoDB } = require('aws-sdk');
+const { Converter } = DynamoDB;
 
+// helper to marshal numbers for low-level client
+const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
+
+const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 const parseVector = v => {
     if (!v) return null;
@@ -1128,9 +1132,7 @@ const parseVector = v => {
 };
 
 const cosineDist = (a, b) => {
-    let dot = 0,
-        na = 0,
-        nb = 0;
+    let dot = 0, na = 0, nb = 0;
     for (let i = 0; i < a.length; i++) {
         dot += a[i] * b[i];
         na += a[i] * a[i];
@@ -1156,8 +1158,7 @@ const createArrayOfRootKeys = schema => {
 };
 
 const calcMatchScore = (elementDists, item) => {
-    let sum = 0,
-        count = 0;
+    let sum = 0, count = 0;
     for (let i = 1; i <= 5; i++) {
         const e = elementDists[`dist${i}`];
         const t = item[`dist${i}`];
@@ -1185,7 +1186,7 @@ function resolveArrayLogic(arrayLogic) {
                 const segs = restPath.replace(/^\./, "").split(".");
                 let out = target;
                 for (const s of segs) { if (out == null) break; out = out[s]; }
-                return deepResolve(out);                          // nested refs
+                return deepResolve(out);
             }
         }
         if (Array.isArray(val)) return val.map(deepResolve);
@@ -1209,7 +1210,7 @@ function resolveArrayLogic(arrayLogic) {
 }
 
 const OFFSET = 1;
-const padRef = n => String(n).padStart(3, "0") + "!!";
+const padRef = nRef => String(nRef).padStart(3, "0") + "!!";
 const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
 
 const convertShorthandRefs = v => {
@@ -1235,7 +1236,6 @@ const isSchemaElem = obj =>
     obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-
     const rsp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
         temperature: 0,
@@ -1275,6 +1275,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
     console.log("callOpenAI strict", strict)
     return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
+
 
 const buildLogicSchema = {
     "name": "build_logic",
@@ -1437,9 +1438,6 @@ const buildLogicSchema = {
 }
 
 
-
-
-
 const buildBreadcrumbApp = async ({ openai, str }) => {
     console.log("openai 4", openai)
     const rsp = await openai.chat.completions.create({
@@ -1453,8 +1451,8 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
             },
             { role: "user", content: str }
         ],
-        functions: [buildLogicSchema],      // ⇦ register the schema
-        function_call: { name: "build_logic" }   // ⇦ force the calltemperature: 0.3,
+        functions: [buildLogicSchema],
+        function_call: { name: "build_logic" }
     });
 
     const fc = rsp.choices[0].message.function_call;
@@ -1463,7 +1461,6 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
     const args = JSON.parse(fc.arguments);
 
     return args;
-
 };
 
 const classifyDomains = async ({ openai, text }) => {
@@ -1482,7 +1479,7 @@ const classifyDomains = async ({ openai, text }) => {
     return { domain, subdomain };
 };
 
-async function buildArrayLogicFromPrompt({ openai, prompt, req }) {
+async function buildArrayLogicFromPrompt({ openai, prompt }) {
     console.log("prompt77", prompt)
     const rsp = await openai.chat.completions.create({
         model: "gpt-4o-mini",
@@ -1500,7 +1497,6 @@ async function buildArrayLogicFromPrompt({ openai, prompt, req }) {
         ]
     });
     console.log("rsp77", rsp);
-    // Extract the first slice that looks like a JSON array
     let text = rsp.choices[0].message.content.trim();
     console.log("text1", text)
 
@@ -1512,23 +1508,15 @@ async function buildArrayLogicFromPrompt({ openai, prompt, req }) {
         for (let i = 0; i < jsonLike.length; i++) {
             const c = jsonLike[i], n = jsonLike[i + 1];
 
-            if (inSL) {                      // single-line comment
-                if (c === '\n' || c === '\r') { inSL = false; out += c; }
-                continue;
-            }
-            if (inML) {                      // multi-line comment
-                if (c === '*' && n === '/') { inML = false; i++; }
-                continue;
-            }
-            if (inString) {                  // inside string literal
+            if (inSL) { if (c === '\n' || c === '\r') { inSL = false; out += c; } continue; }
+            if (inML) { if (c === '*' && n === '/') { inML = false; i++; } continue; }
+            if (inString) {
                 out += c;
                 if (!escaped && c === quote) { inString = false; quote = ''; }
                 escaped = !escaped && c === '\\';
                 continue;
             }
-            if (c === '"' || c === "'") {    // start string (JSON uses ", but be tolerant)
-                inString = true; quote = c; out += c; continue;
-            }
+            if (c === '"' || c === "'") { inString = true; quote = c; out += c; continue; }
             if (c === '/' && n === '/') { inSL = true; i++; continue; }
             if (c === '/' && n === '*') { inML = true; i++; continue; }
 
@@ -1537,7 +1525,6 @@ async function buildArrayLogicFromPrompt({ openai, prompt, req }) {
         return out;
     }
 
-    // usage
     text = stripComments(text);
 
     console.log("text2", text)
@@ -1571,10 +1558,7 @@ async function parseArrayLogic({
         if (typeof arrayLogic !== "string") {
             throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
         }
-        arrayLogic = await buildArrayLogicFromPrompt({
-            openai,
-            prompt: arrayLogic
-        });
+        arrayLogic = await buildArrayLogicFromPrompt({ openai, prompt: arrayLogic });
     }
 
     console.log("arrayLogic from openai", arrayLogic)
@@ -1598,22 +1582,16 @@ async function parseArrayLogic({
         console.log("resolvedLogic", i, JSON.stringify(resolvedLogic));
         console.log("elem", JSON.stringify(elem));
 
-
-        var fixedOutput
-        var fixedPossessed
-        var fixedDate
-
-
+        let fixedOutput;
+        let fixedPossessed;
+        let fixedDate;
 
         if (!isOperationElem(origElem)) {
-
             if (isSchemaElem(origElem)) {
                 shorthand.push(createArrayOfRootKeys(elem));
-            }
-            else if (origElem && typeof origElem === "object") {
+            } else if (origElem && typeof origElem === "object") {
                 shorthand.push([convertShorthandRefs(elem)]);
-            }
-            else {
+            } else {
                 shorthand.push([convertShorthandRefs(elem)]);
             }
             continue;
@@ -1640,7 +1618,6 @@ async function parseArrayLogic({
 
         const [breadcrumb] = Object.keys(elem);
         const body = elem[breadcrumb];
-        const origBody = origElem[breadcrumb];
 
         console.log("openai 2", openai)
         const { domain, subdomain } = await classifyDomains({ openai, text: elem });
@@ -1649,15 +1626,11 @@ async function parseArrayLogic({
 
         console.log("fixedPossessed", fixedPossessed)
         console.log("typeof fixedPossessed", typeof fixedPossessed)
-        let base = 1000000000000000.0
-        console.log("base", base)
-        let domainIndex = 10000000000000 * domains.indexOf(domain)
-        console.log("domainIndex", domainIndex);
-        let subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain)
-        console.log("subdomainIndex", subdomainIndex);
-        let userID = 1
-        let possessedCombined = 0.0
-        possessedCombined = base + domainIndex + subdomainIndex + userID
+        const base = 1000000000000000.0;
+        const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
+        const subdomainIndex = 100000000000 * (DOMAIN_SUBS[domain]?.indexOf(subdomain) ?? -1);
+        const userID = 1;
+        const possessedCombined = base + domainIndex + subdomainIndex + userID;
         console.log("possessedCombined", possessedCombined);
 
         const {
@@ -1667,10 +1640,6 @@ async function parseArrayLogic({
             input: JSON.stringify(elem)
         });
         const embedding = toVector(rawEmb);
-
-
-
-
 
         let dynamoRecord = null;
         let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
@@ -1697,36 +1666,56 @@ async function parseArrayLogic({
                     : null;
             });
         }
+
         let subdomainMatches = [];
         if (dist1 != null) {
-            const pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
-            const n = x => ({ N: (typeof x === "string" ? x : String(x)) });
+            // build pb string (not JS number)
+            const pbStr = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, '')}`;
 
             try {
-                const params = {
-                    TableName: "subdomains",
-                    IndexName: "pb-index",
-                    KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
-                    ExpressionAttributeNames: {
-                        "#p": "pb", "#d1": "dist1"
-                    },
-                    ExpressionAttributeValues: {
-                        ":pb": n(pb),
-                        ":d1lo": n(dist1 - 0.01), ":d1hi": n(dist1 + 0.01)
-                    },
-                    ScanIndexForward: true
+                const ExpressionAttributeNames = {
+                    '#p': 'pb',
+                    '#d1': 'dist1',
+                    '#d2': 'dist2',
+                    '#d3': 'dist3',
+                    '#d4': 'dist4',
+                    '#d5': 'dist5',
                 };
 
-                // ⚠️ use low-level client here
-                const { Items } = await dynamodbLL.query(params).promise();
+                const ExpressionAttributeValues = {
+                    ':pb': n(pbStr),
+                    ':d1lo': n(dist1 - 0.01),
+                    ':d1hi': n(dist1 + 0.01),
+                };
 
-                // Optional: convert low-level AVs → plain JS for the rest of your code
-                const jsItems = (Items || []).map(Converter.unmarshall);
-                subdomainMatches = jsItems;
+                const filterParts = [];
+                [dist2, dist3, dist4, dist5].forEach((v, idx) => {
+                    const i2 = idx + 2;
+                    if (Number.isFinite(v)) {
+                        ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
+                        ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
+                        filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
+                    }
+                });
+
+                const params = {
+                    TableName: 'subdomains',
+                    IndexName: 'pb-index',
+                    KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
+                    ExpressionAttributeNames,
+                    ExpressionAttributeValues,
+                    ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
+                    ScanIndexForward: true,
+                };
+
+                const { Items } = await dynamodbLL.query(params).promise();
+                // low-level -> plain JS
+                subdomainMatches = (Items || []).map(Converter.unmarshall);
             } catch (err) {
-                console.error("subdomains GSI query failed:", err);
+                console.error('subdomains GSI query failed:', err);
             }
         }
+
         let bestMatch = null;
         console.log("subdomainMatches", subdomainMatches)
         if (subdomainMatches.length) {
@@ -1742,70 +1731,64 @@ async function parseArrayLogic({
             ).item;
         }
 
-         
-       // Helper to build pb from dist1 (kept local to avoid leaking globals)
-       const buildPb = (d1) =>
-           (d1 != null) ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}` : null;
+        // Helper to build pb from dist1
+        const buildPb = (d1) =>
+            (d1 != null) ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}` : null;
 
-       // Helper: check if an existing subdomain row for this entity already has distances/pb
-       const loadExistingEntityRow = async (su) => {
-         try { const { Item } = await dynamodb.get({ TableName: "subdomains", Key: { su } }).promise(); return Item || null; }
-         catch (e) { console.error("subdomains.get failed", e); return null; }
-       };
+        // Helper: check if an existing subdomain row for this entity already has distances/pb
+        const loadExistingEntityRow = async (su) => {
+            try {
+                const { Item } = await dynamodb.get({
+                    TableName: "subdomains",
+                    Key: { su },
+                    // Avoid pulling big pb number unnecessarily
+                    ProjectionExpression: "su, dist1, dist2, dist3, dist4, dist5, #p",
+                    ExpressionAttributeNames: { "#p": "pb" }
+                }).promise();
+                return Item || null;
+            } catch (e) { console.error("subdomains.get failed", e); return null; }
+        };
 
-
-        const inputParam = convertShorthandRefs(
-            body.input
-        );
+        const inputParam = convertShorthandRefs(body.input);
         const expectedKeys = createArrayOfRootKeys(body.schema);
         const schemaParam = convertShorthandRefs(expectedKeys);
 
-
         console.log("fixedPossesed", fixedPossessed)
         if (!bestMatch?.su) {
-            // ─────────────────────────────────────────────────────────────────────
-            // NEW: If caller supplied an actionFile (entity) AND no match was found,
-            //      use their entity. First ensure it has distances/pb/etc by writing
-            //      a fresh positioning record; then run it.
-            // ─────────────────────────────────────────────────────────────────────
             if (actionFile) {
                 console.log("No bestMatch; using provided actionFile entity:", actionFile);
 
-                                // Check if distances/pb already exist for this entity
                 const existing = await loadExistingEntityRow(actionFile);
                 const needsDists =
-                  !existing ||
-                  [1,2,3,4,5].some(i => existing[`dist${i}`] == null);
+                    !existing ||
+                    [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
                 const needsPb = !existing || existing.pb == null;
 
-                // Compute pb using our current dist1 if available
                 const pbStr = buildPb(dist1);
 
                 if (needsDists || needsPb) {
-                  // Ask position to compute & persist dists (and pb if we have it)
-                  console.log("POSITION BBB", fixedOutput)
-                  shorthand.push([
-                    "ROUTE",
-                    {
-                      "body": {
-                        description: "provided entity (fallback, ensure distances)",
-                        domain,
-                        subdomain,
-                        embedding,
-                        entity: actionFile,
-                        pb: pbStr ?? null,
-                        // pass through caller-visible info
-                        path: breadcrumb,
-                        output: fixedOutput
-                      }
-                    },
-                    {},
-                    "position",
-                    actionFile,
-                    ""
-                  ]);
+                    console.log("POSITION BBB", fixedOutput)
+                    shorthand.push([
+                        "ROUTE",
+                        {
+                            "body": {
+                                description: "provided entity (fallback, ensure distances)",
+                                domain,
+                                subdomain,
+                                embedding,
+                                entity: actionFile,
+                                pb: pbStr ?? null,
+                                path: breadcrumb,
+                                output: fixedOutput
+                            }
+                        },
+                        {},
+                        "position",
+                        actionFile,
+                        ""
+                    ]);
                 } else {
-                  console.log("Entity already has distances/pb; skipping recompute.");
+                    console.log("Entity already has distances/pb; skipping recompute.");
                 }
 
                 shorthand.push([
@@ -1829,32 +1812,28 @@ async function parseArrayLogic({
                     ""
                 ]);
 
-                // Now run the provided entity
                 shorthand.push([
                     "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
                 ]);
 
                 routeRowNewIndex = shorthand.length;
-                continue; // done with this row; move to the next
+                continue;
             }
 
             console.log("bestMatch.su is null")
-            // derive entity/group names from the essence
             const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-            const sanitize = s => s.replace(/[\/?#]/g, ' ').trim(); // avoid path chars
+            const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
             console.log("body>>>>>>>", JSON.stringify(body, null, 2))
             const entNameRaw =
                 pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
             const entName = sanitize(entNameRaw);
-            fixedOutput = entName
-            // choose your grouping strategy; simplest = same as entity
+            fixedOutput = entName;
             const groupName = entName;
-            // (or: `${domain}/${subdomain}` or `domain` if you want topical grouping)
 
             shorthand.push([
                 "ROUTE",
-                { output: entName }, // keep output aligned with the created entity name
+                { output: entName },
                 {},
                 "newGroup",
                 groupName,
@@ -1862,81 +1841,44 @@ async function parseArrayLogic({
             ]);
 
             routeRowNewIndex = shorthand.length;
-            console.log("shorthand", shorthand)
-            //console.log("???", ["GET", padRef(routeRowNewIndex), "response", "file"])
-            shorthand.push(
-                ["GET", padRef(routeRowNewIndex), "response", "file"]
-            )
+
+            shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
             if (fixedOutput) {
                 shorthand.push(
-                    [
-                        "ROUTE",
-                        {},
-                        {},
-                        "getFile",
-                        padRef(routeRowNewIndex + 1),
-                        ""
-                    ]
-                )
+                    ["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]
+                );
+                shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
-                shorthand.push(
-                    ["GET", padRef(routeRowNewIndex + 2), "response"]
-                )
-                console.log("elem", elem)
-                const desiredObj = structuredClone(elem); // or JSON.parse(JSON.stringify(elem))
+                const desiredObj = structuredClone(elem);
                 if (fixedOutput) desiredObj.response = fixedOutput;
+
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
                 newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
                 newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
                 newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
-                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
-
-                console.log(newJPL);
+                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra)*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while loop*/ {"assign":"{|generateSummary|}",`;
+                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]}, {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"}, {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]} ]};`;
 
                 console.log("openai 3", openai)
-                let objectJPL = await buildBreadcrumbApp({ openai, str: newJPL })
+                const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL })
                 console.log("objectJPL", objectJPL)
 
-                console.log("objectJPL.actions", objectJPL.actions)
                 shorthand.push(
                     ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-                )
-
-                if (objectJPL.modules) {
-                    shorthand.push(
-                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-                    )
-                } else {
-                    shorthand.push(
-                        ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-                    )
-                }
-
+                );
 
                 shorthand.push(
-                    [
-                        "ROUTE",
-                        padRef(routeRowNewIndex + 5),
-                        {},
-                        "saveFile",
-                        padRef(routeRowNewIndex + 1),
-                        ""
-                    ]
-                )
+                    ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]
+                );
 
+                shorthand.push(
+                    ["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]
+                );
             }
 
-            console.log(domain); //undefined
-            console.log(subdomain); //undefined
-            console.log(embedding); //undefined
-
-
-
-
-            const pathStr = breadcrumb; // already available: const [breadcrumb] = Object.keys(elem);
-            pb = `${possessedCombined.toString()}.${dist1.toString().replace(/^0?\./, "")}`;
+            const pathStr = breadcrumb;
+            const pbStr2 = buildPb(dist1);
             shorthand.push([
                 "ROUTE",
                 {
@@ -1945,8 +1887,7 @@ async function parseArrayLogic({
                         domain, subdomain,
                         embedding,
                         entity: padRef(routeRowNewIndex + 1),
-                        pb: pb,
-                        // NEW: make the features and path visible to your indexer
+                        pb: pbStr2,
                         dist1, dist2, dist3, dist4, dist5,
                         path: pathStr,
                         output: fixedOutput
@@ -1968,17 +1909,14 @@ async function parseArrayLogic({
                     ""
                 ]);
             } else {
-                shorthand.push([
-                    fixedOutput
-                ]);
+                shorthand.push([fixedOutput]);
             }
 
         } else {
-            // keep your runEntity call ...
+            // bestMatch path
             shorthand.push([
                 "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
             ]);
-            // ...and ALSO write/refresh positioning metadata
 
             shorthand.push([
                 "ROUTE",
@@ -1987,8 +1925,8 @@ async function parseArrayLogic({
                         description: "auto matched entity",
                         domain,
                         subdomain,
-                        embedding,            // ✅ required
-                        entity: bestMatch.su, // the matched id
+                        embedding,
+                        entity: bestMatch.su,
                         pb: possessedCombined,
                         dist1, dist2, dist3, dist4, dist5,
                         path: breadcrumb,
@@ -2001,6 +1939,7 @@ async function parseArrayLogic({
                 ""
             ]);
         }
+
         routeRowNewIndex = shorthand.length;
     }
 
@@ -2013,15 +1952,8 @@ async function parseArrayLogic({
         shorthand.push([
             "ROWRESULT",
             "000",
-            padRef(getRowIndex + 1)
-        ]);
-    }
+            pad
 
-    const finalShorthand = shorthand.map(convertShorthandRefs);
 
-    console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
-    return { shorthand: finalShorthand, details: results, arrayLogic };
-}
 
-module.exports = { parseArrayLogic };

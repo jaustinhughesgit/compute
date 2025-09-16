@@ -321,6 +321,7 @@ function subdomains(domain){
 
       arrayLogic = fixedPrompt;
     }
+    
 
     // 2️⃣ First pass – evaluate the array logic (parity with legacy)
     const parseResults = await parseArrayLogic({
@@ -334,7 +335,7 @@ function subdomains(domain){
       dynamodbLL,
       sourceType,
       actionFile,
-      out
+      out,
     });
 
     // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine
