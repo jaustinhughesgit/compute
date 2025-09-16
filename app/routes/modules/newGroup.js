@@ -78,14 +78,20 @@ await createGroup(groupId, aG, headEntityId, [aiId], dynamodb);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
     const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
-const entityId = (await incrementCounterAndGetNewValue("eCounter", dynamodb)).toString();
-await createEntity(entityId, aE.toString(), vHead.v, entityId, headEntityId, [aiId], dynamodb);
-
-    console.log("savedE",entityId);
-    console.log("savedE",entityId);
-    console.log("savedE",entityId);
-    console.log("savedE",entityId);
-    console.log("savedE",entityId);
+    let savedE = await createEntity(
+      e.toString(),
+      aE.toString(),
+      vHead.v,
+      e.toString(),
+      gNew.toString(,
+      [ai.toString()],
+      dynamodb
+    );
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
+    console.log("savedE",savedE);
 
     const suDoc = await getUUID(uuidv4);
 
