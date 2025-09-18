@@ -1137,6 +1137,7 @@ const DOMAIN_SUBS = {
 
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
+const { getSub } = require("./routes/cookies");
 
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
@@ -1651,7 +1652,8 @@ async function parseArrayLogic({
     const base = 1000000000000000.0;
     const domainIndex = 10000000000000 * domains.indexOf(domain);
     const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
-    const userID = 1;
+    const subRes = await getSub(actionFile, "su", dynamodb); // { Items: [...] }
+    const userID = Number(subRes?.Items?.[0]?.e ?? 0);
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding
