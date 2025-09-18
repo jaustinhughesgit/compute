@@ -1566,7 +1566,7 @@ async function parseArrayLogic({
   sourceType,
   actionFile,
   out,
-  getSub
+  e
 } = {}) {
 
   if (sourceType === "prompt") {
@@ -1652,8 +1652,7 @@ async function parseArrayLogic({
     const base = 1000000000000000.0;
     const domainIndex = 10000000000000 * domains.indexOf(domain);
     const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
-    const subRes = await getSub(actionFile, "su", dynamodb); // { Items: [...] }
-    const userID = Number(subRes?.Items?.[0]?.e ?? 0);
+    const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding

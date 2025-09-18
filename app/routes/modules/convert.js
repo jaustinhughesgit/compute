@@ -4,7 +4,7 @@
 function register({ on, use }) {
   const {
     // shared helpers
-    getSub,
+    getCookie,
     retrieveAndParseJSON,
     // raw deps bag for legacy calls
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
@@ -27,6 +27,9 @@ on("convert", async (ctx, meta = {}) => {
       req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
     }
   }
+
+  let cookie = await getCookie(req.body.headers["X-accessToken"], "ak")
+  let e = cookie?.Items?.[0]?.e ?? 0
 
   // ── legacy body handling…
   const rawBody = (req && req.body) || {};
@@ -337,7 +340,7 @@ function subdomains(domain){
       sourceType,
       actionFile,
       out,
-      getSub
+      e
     });
 
     // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine
