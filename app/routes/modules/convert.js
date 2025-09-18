@@ -4,6 +4,7 @@
 function register({ on, use }) {
   const {
     // shared helpers
+    getSub,
     retrieveAndParseJSON,
     // raw deps bag for legacy calls
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
@@ -336,6 +337,7 @@ function subdomains(domain){
       sourceType,
       actionFile,
       out,
+      getSub
     });
 
     // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine
