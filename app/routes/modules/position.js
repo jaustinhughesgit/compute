@@ -115,9 +115,11 @@ function register({ on, use }) {
               #path = :path,
               #output = :output,
               #domain = :domain,
-              #subdomain = :subdomain,
-              #embedding = :embedding
-        `,
+              #subdomain = :subdomain
+          `,
+          //,
+              //#embedding = :embedding
+        //`,
         ExpressionAttributeNames: {
           "#d1": "dist1",
           "#d2": "dist2",
@@ -127,8 +129,8 @@ function register({ on, use }) {
           "#path": "path",
           "#output": "output",
           "#domain": "domain",
-          "#subdomain": "subdomain",
-          "#embedding": "embedding",
+          "#subdomain": "subdomain"//,
+          //"#embedding": "embedding",
         },
         ExpressionAttributeValues: {
           ":d1": distances.emb1 ?? null,
@@ -139,8 +141,8 @@ function register({ on, use }) {
           ":path": resolvedPath,
           ":output": output ?? null,
           ":domain": domain,
-          ":subdomain": subdomain,
-          ":embedding": embedding,
+          ":subdomain": subdomain//,
+          //":embedding": embedding,
         },
         ReturnValues: "UPDATED_NEW",
       };
