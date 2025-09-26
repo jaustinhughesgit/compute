@@ -1,6 +1,4 @@
 // routes/shared.js
-
-
 const moment = require("moment-timezone");
 
 const isObject = (val) =>

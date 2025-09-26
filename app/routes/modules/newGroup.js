@@ -24,13 +24,28 @@ function register({ on, use }) {
     const { uuidv4, ses } = deps;
 
     const segs = String(ctx.path || "").split("/").filter(Boolean);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
     const [newGroupName, headEntityName, headUUIDToShow] = segs;
+
+    // 👇 Check if a group is already tied to this cookie
+    if (cookie?.gi) {
+      const existingGroup = await getGroup(cookie.gi.toString());
+      if (existingGroup.Items?.length) {
+        // The group already exists for this cookie. Return its data.
+        const e = existingGroup.Items[0].e;
+        const suDoc = (await getSub(e, "e"))?.Items?.[0]?.su;
+
+        return {
+          ok: true,
+          response: {
+            existing: true,
+            file: suDoc,
+            entity: e,
+            headUUID: headUUIDToShow || null,
+          },
+        };
+      }
+    }
+
     if (!newGroupName || !headEntityName) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
     }
@@ -42,14 +57,14 @@ function register({ on, use }) {
     setIsPublic(true);
 
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
-    const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
+    const aG = await createWord(aNewG.toString(), newGroupName, dynamodb);
 
     const aNewE = await incrementCounterAndGetNewValue("wCounter", dynamodb);
-    const aE    = await createWord(aNewE.toString(), headEntityName, dynamodb);
+    const aE = await createWord(aNewE.toString(), headEntityName, dynamodb);
 
-    const gNew  = await incrementCounterAndGetNewValue("gCounter", dynamodb);
-    const e     = await incrementCounterAndGetNewValue("eCounter", dynamodb);
-    const ai    = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
+    const gNew = await incrementCounterAndGetNewValue("gCounter", dynamodb);
+    const e = await incrementCounterAndGetNewValue("eCounter", dynamodb);
+    const ai = await incrementCounterAndGetNewValue("aiCounter", dynamodb);
 
     await createAccess(
       ai.toString(),
@@ -76,7 +91,7 @@ function register({ on, use }) {
       ex,
       true,
       0,
-      0 
+      0
     );
 
     await createGroup(gNew.toString(), aG, e.toString(), [ai.toString()], dynamodb);
@@ -97,7 +112,7 @@ function register({ on, use }) {
 
     const suDoc = await getUUID(uuidv4);
 
-    const body = ctx.req?.body || {"output":headEntityName, "body":{"output":headEntityName}};
+    const body = ctx.req?.body || { "output": headEntityName, "body": { "output": headEntityName } };
 
     console.log("***!!!")
     console.log("ctx", ctx)
@@ -199,14 +214,14 @@ function register({ on, use }) {
     };
 
     await createSubdomain(
-  suDoc,
-  aE.toString(),
-  e.toString(),
-  "0",
-  true,
-  outputParam,
-  dynamodb
-);
+      suDoc,
+      aE.toString(),
+      e.toString(),
+      "0",
+      true,
+      outputParam,
+      dynamodb
+    );
     await createFile(suDoc, payload, deps.s3);
 
     const params = {
@@ -254,7 +269,7 @@ function register({ on, use }) {
     mainObj.file = suDoc + "";
     mainObj.entity = e.toString();
 
-    console.log("response:",mainObj)
+    console.log("response:", mainObj)
     return { ok: true, response: mainObj };
   });
 }
