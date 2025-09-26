@@ -21,6 +21,7 @@ function register({ on, use }) {
     'tasks',
     'words',
     'verified',
+    'paths',
     'versions',
   ];
 
@@ -35,7 +36,8 @@ function register({ on, use }) {
     { tableName: 'tiCounter', primaryKey: 'tiCounter' },
     { tableName: 'vCounter', primaryKey: 'vCounter' },
     { tableName: 'viCounter', primaryKey: 'viCounter' },
-    { tableName: 'wCounter', primaryKey: 'wCounter' }
+    { tableName: 'wCounter', primaryKey: 'wCounter' },
+    { tableName: 'pCounter', primaryKey: 'pCounter' }
   ];
 
   const keySchemaMap = {
@@ -49,6 +51,7 @@ function register({ on, use }) {
     'tasks':    { partitionKey: 'ti' },
     'words':    { partitionKey: 'a' },
     'verified': { partitionKey: 'vi' },
+    'paths': { partitionKey: 'pi' },
     'versions': { partitionKey: 'v', sortKey: 'd' }
   };
 
