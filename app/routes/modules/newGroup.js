@@ -46,11 +46,14 @@ function register({ on, use }) {
     // ---------- EARLY EXIT if manageCookie already created an entity ----------
     // If manageCookie pre-created the (group, entity), it put the entity id in cookie.e.
     // In that case: DO NOT create another pair. Reuse the existing entity/doc and return it.
-    if (ensuredCookie?.e && ensuredCookie.e !== "0") {
+    if (ensuredCookie?.existing === true && ensuredCookie?.e && ensuredCookie.e !== "0") {
+
       try {
-        // Find a document subdomain tied to this entity (there should be one created by manageCookie's newGroup).
-        const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
-        let suDoc = subByE?.Items?.find(it => it.g === "0")?.su || subByE?.Items?.[0]?.su;
+        // Find a document subdomain tied to this entity (the one created by manageCookie's internal newGroup).
+       const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
+        const suDoc =
+          (subByE?.Items || []).find(it => it.g === "0")?.su ||
+          (subByE?.Items || [])[0]?.su;
 
         // If, for any reason, there is no doc yet, we can still proceed by returning the head entity su.
         // Worst case, we just return the first available su.
