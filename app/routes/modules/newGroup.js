@@ -16,6 +16,7 @@ function register({ on, use }) {
       getUUID,
       convertToJSON,
       manageCookie,
+      getSub,
       getDocClient,
       deps, // { ses, uuidv4, ... }
     } = use();
@@ -40,6 +41,66 @@ function register({ on, use }) {
     console.log("ensuredCookie", ensuredCookie);
 
     setIsPublic(true);
+
+
+    // ---------- EARLY EXIT if manageCookie already created an entity ----------
+    // If manageCookie pre-created the (group, entity), it put the entity id in cookie.e.
+    // In that case: DO NOT create another pair. Reuse the existing entity/doc and return it.
+    if (ensuredCookie?.e && ensuredCookie.e !== "0") {
+      try {
+        // Find a document subdomain tied to this entity (there should be one created by manageCookie's newGroup).
+        const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
+        let suDoc = subByE?.Items?.find(it => it.g === "0")?.su || subByE?.Items?.[0]?.su;
+
+        // If, for any reason, there is no doc yet, we can still proceed by returning the head entity su.
+        // Worst case, we just return the first available su.
+        if (!suDoc) {
+          // As a fallback, try the head (entity.h → su)
+          // but since we don't have entity record here, just stick with "no suDoc"
+          // convertToJSON requires a valid su; if none, synthesize a minimal response.
+          return {
+            ok: true,
+            response: {
+              existing: true,
+              file: null,
+              entity: ensuredCookie.e.toString(),
+              obj: {},
+              paths: {},
+              paths2: {},
+              id2Path: {},
+              groups: [],
+              verified: true
+            }
+          };
+        }
+
+        const body = ctx.req?.body || {};
+        const mainObj = await convertToJSON(
+          suDoc,
+          [],
+          null,
+          null,
+          ensuredCookie,
+          dynamodb,
+          uuidv4,
+          null,
+          [],
+          {},
+          "",
+          deps.dynamodbLL,
+          body
+        );
+        mainObj.existing = true;
+        mainObj.file = suDoc + "";
+        mainObj.entity = ensuredCookie.e.toString();
+        console.log("response (reused):", mainObj);
+        return { ok: true, response: mainObj };
+      } catch (reuseErr) {
+        console.warn("newGroup: reuse-path failed, falling back to create", reuseErr);
+        // If reuse fails, we fall through to creation path below.
+      }
+    }
+   // ---------- END EARLY EXIT ----------
 
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
     const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
