@@ -1,7 +1,4 @@
-// modules/groups/newGroup.js
-// "newGroup"  → /<newGroupName>/<headEntityName>/<headUUID?>
-function register({ on, use }) {
-  on("newGroup", async (ctx, { cookie }) => {
+on("newGroup", async (ctx, { cookie }) => {
     const {
       setIsPublic,
       incrementCounterAndGetNewValue,
@@ -17,6 +14,7 @@ function register({ on, use }) {
       convertToJSON,
       manageCookie,
       getDocClient,
+      getGroup,
       deps, // { ses, uuidv4, ... }
     } = use();
 
@@ -272,6 +270,3 @@ function register({ on, use }) {
     console.log("response:", mainObj)
     return { ok: true, response: mainObj };
   });
-}
-
-module.exports = { register };
