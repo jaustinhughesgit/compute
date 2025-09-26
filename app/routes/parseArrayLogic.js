@@ -3,7 +3,7 @@
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const domains = [
+const DOMAINS = [
     "agriculture",
     "architecture",
     "biology",
@@ -1124,8 +1124,11 @@ const DOMAIN_SUBS = {
 
 
 // parseArrayLogic.js
-//const domains = {...}
+//commented for brevity
+//const DOMAINS = {...}
 //const DOMAIN_SUBS = {...}
+
+                
 
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
@@ -1133,7 +1136,6 @@ const { Converter } = DynamoDB;
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
-const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 const parseVector = v => {
   if (!v) return null;
@@ -1182,6 +1184,22 @@ const calcMatchScore = (elementDists, item) => {
     }
   }
   return count ? sum / count : Number.POSITIVE_INFINITY;
+};
+
+const splitPath = p =>
+  String(p ?? "").split(/[./]/).filter(Boolean);
+
+const pathSimilarity = (a, b) => {
+  const A = splitPath(a), B = splitPath(b);
+  if (!A.length || !B.length) return 0;
+  // common-prefix similarity ∈ [0,1]
+  const minLen = Math.min(A.length, B.length);
+  let prefix = 0;
+  for (let i = 0; i < minLen; i++) {
+    if (A[i] !== B[i]) break;
+    prefix++;
+  }
+  return prefix / Math.max(A.length, B.length);
 };
 
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
@@ -1450,24 +1468,23 @@ const buildLogicSchema = {
     }
 }
 
-async function buildBreadcrumbApp({ openai, str }) {
+const buildBreadcrumbApp = async ({ openai, str }) => {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-2024-08-06",
+    response_format: { type: "json_object" },
     messages: [
       { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
       { role: "user", content: str }
     ],
-    tools: [{ type: "function", function: buildLogicSchema }],
-    tool_choice: { type: "function", function: { name: "build_logic" } }
+    functions: [buildLogicSchema],
+    function_call: { name: "build_logic" }
   });
 
-  const msg = rsp.choices[0].message || {};
-  const toolCall = (msg.tool_calls || []).find(t => t.type === "function" && t.function?.name === "build_logic");
-  if (!toolCall?.function?.arguments) throw new Error("build_logic tool did not return arguments");
-
-  const raw = toolCall.function.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
-  return JSON.parse(raw);
-}
+  const fc = rsp.choices[0].message.function_call;
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  const args = JSON.parse(fc.arguments);
+  return args;
+};
 
 const classifyDomains = async ({ openai, text }) => {
   const domain = await callOpenAI({
@@ -1650,10 +1667,10 @@ async function parseArrayLogic({
     const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
     // possessedCombined base & indexes
-const base = 1000000000000000.0;
-const dIdx = Math.max(0, DOMAINS.indexOf(domain));
-const subList = DOMAIN_SUBS[domain] || [];
-const sdIdx = Math.max(0, subList.indexOf(subdomain));
+    const base = 1000000000000000.0;
+ const dIdx = Math.max(0, domains.indexOf(domain));
+ const subList = DOMAIN_SUBS[domain] || [];
+ const sdIdx = Math.max(0, subList.indexOf(subdomain));
  const domainIndex = 10000000000000 * dIdx;
  const subdomainIndex = 100000000000 * sdIdx;
    const userID = e;
@@ -1745,20 +1762,40 @@ const sdIdx = Math.max(0, subList.indexOf(subdomain));
       }
     }
 
-    // pick best match
-    let bestMatch = null;
-    if (subdomainMatches.length) {
-      bestMatch = subdomainMatches.reduce(
-        (best, item) => {
-          const score = calcMatchScore(
-            { dist1, dist2, dist3, dist4, dist5 },
-            item
-          );
-          return score < best.score ? { item, score } : best;
-        },
-        { item: null, score: Number.POSITIVE_INFINITY }
-      ).item;
-    }
+// prevent matching the submitting (primary) entity
+if (actionFile) {
+  subdomainMatches = subdomainMatches.filter(
+    it => String(it.su) !== String(actionFile)
+  );
+}
+
+// path-aware + distance-aware selection
+let bestMatch = null;
+if (subdomainMatches.length) {
+  const PATH_WEIGHT = 0.25;      // tune: how much path matters vs. dist
+  const MIN_PATH_SIM = 0.0;      // set >0 (e.g. 0.33) if you want a hard floor
+
+  bestMatch = subdomainMatches
+    // optionally insist on some minimal path similarity
+    .filter(it => {
+      const sim = pathSimilarity(it.path, breadcrumb);
+      return sim >= MIN_PATH_SIM;
+    })
+    .reduce(
+      (best, it) => {
+        const distScore = calcMatchScore(
+          { dist1, dist2, dist3, dist4, dist5 },
+          it
+        );
+        const sim = pathSimilarity(it.path, breadcrumb);
+        // smaller is better: distance + penalty for path dissimilarity
+        const combined = distScore + PATH_WEIGHT * (1 - sim);
+        return combined < best.score ? { item: it, score: combined } : best;
+      },
+      { item: null, score: Number.POSITIVE_INFINITY }
+    ).item || null;
+}
+
 
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
@@ -1864,8 +1901,8 @@ const sdIdx = Math.max(0, subList.indexOf(subdomain));
         // Pull a display name from the fetched file (if present)
         shorthand.push(["GET", padRef(routeRowNewIndex + 3), "published", "name"]);
         const nameRow = routeRowNewIndex + 4;
-const deepClone = global.structuredClone || ((x) => JSON.parse(JSON.stringify(x)));
-        const desiredObj = deepClone(elem);
+
+        const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
 
 
