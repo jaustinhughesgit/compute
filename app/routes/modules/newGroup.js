@@ -111,6 +111,38 @@ on("newGroup", async (ctx, { cookie }) => {
       dynamodb
     );
 
+
+    // --- NEW: tie the freshly created entity id to the user's cookie ---
+    try {
+      // We prefer ci (PK). If not present, look it up via gi index.
+      let ciKey = ensuredCookie?.ci;
+      if (!ciKey && ensuredCookie?.gi) {
+        const q = await dynamodb.query({
+          TableName: "cookies",
+          IndexName: "giIndex",
+          KeyConditionExpression: "gi = :gi",
+          ExpressionAttributeValues: { ":gi": ensuredCookie.gi.toString() },
+          Limit: 1,
+        }).promise();
+        ciKey = q?.Items?.[0]?.ci;
+      }
+      if (ciKey) {
+        await dynamodb.update({
+          TableName: "cookies",
+          Key: { ci: ciKey.toString() },
+          UpdateExpression: "SET #e = :e",
+          ExpressionAttributeNames: { "#e": "e" },
+          ExpressionAttributeValues: { ":e": e.toString() },
+        }).promise();
+      } else {
+        console.warn("newGroup: could not resolve cookie ci to set e");
+      }
+    } catch (err) {
+      console.warn("newGroup: failed to update cookie.e", err);
+    }
+    // --- end NEW ---
+
+
     const suDoc = await getUUID(uuidv4);
 
     const body = ctx.req?.body || { "output": headEntityName, "body": { "output": headEntityName } };
