@@ -52,7 +52,7 @@ function register({ on, use }) {
   // ID minting now uses your shared { pk: <tableName>, x: <number> } pattern.
   async function nextPathId() {
     const x = await incrementCounterAndGetNewValue(CounterTable); // returns updated x
-    return `p${Number(x)}`; // e.g. "p36"
+    return `${Number(x)}`; // e.g. "p36"
   }
 
   async function resolveE({ body, segs, meta }) {
