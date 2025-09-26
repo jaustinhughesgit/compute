@@ -1579,6 +1579,7 @@ async function parseArrayLogic({
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   const shorthand = [];
+  const createdEntities = []; // <— NEW: accumulate created entities for response
   const results = [];
   let routeRowNewIndex = null;
 
@@ -1845,7 +1846,7 @@ async function parseArrayLogic({
       routeRowNewIndex = shorthand.length;
 
       shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
-
+      const fileIdRow = routeRowNewIndex + 1; // GET … response file
       if (fixedOutput) {
         shorthand.push([
           "ROUTE",
@@ -1857,6 +1858,9 @@ async function parseArrayLogic({
         ]);
 
         shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+        // Pull a display name from the fetched file (if present)
+        shorthand.push(["GET", padRef(routeRowNewIndex + 3), "published", "name"]);
+        const nameRow = routeRowNewIndex + 4;
 
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
@@ -1934,6 +1938,17 @@ async function parseArrayLogic({
       } else {
         shorthand.push([fixedOutput]);
       }
+      // NEW: record a created-entity descriptor we’ll expose back to the client
+      createdEntities.push({
+        // these values will be resolved by the runner when the array executes
+        entity: padRef(fileIdRow),
+        // prefer the file’s published.name (if present) else our entName guess
+        name: fixedOutput,
+        nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null,
+        domain,
+        subdomain,
+        contentType: "text"
+      });      
 
     } else {
       // run best match
@@ -1971,8 +1986,12 @@ async function parseArrayLogic({
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    // NEW: expose both the original conclusion and our createdEntities
     const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
+      ["ADDPROPERTY", "000!!", "conclusion", {
+        value: padRef(routeRowNewIndex),
+        createdEntities
+      }]
     ) - 1;
 
     shorthand.push([

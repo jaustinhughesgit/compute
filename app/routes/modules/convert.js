@@ -3,11 +3,9 @@
 
 function register({ on, use }) {
   const {
-    // shared helpers
     getCookie,
     retrieveAndParseJSON,
-    // raw deps bag for legacy calls
-    deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+    deps,
   } = use();
 
 on("convert", async (ctx, meta = {}) => {
@@ -16,13 +14,10 @@ on("convert", async (ctx, meta = {}) => {
   const { req, res, path, signer } = ctx;
   const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
-  // ✅ Mirror req.headers into req.body.headers for legacy callers
   if (req) {
     req.body = req.body || {};
     const rawHeaders = req.headers || {};
-    // keep any existing body.headers fields, then overlay real headers
     req.body.headers = { ...(req.body.headers || {}), ...rawHeaders };
-    // alias for legacy mixed-case lookup
     if (rawHeaders["x-accesstoken"] && !req.body.headers["X-accessToken"]) {
       req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
     }
@@ -31,7 +26,6 @@ on("convert", async (ctx, meta = {}) => {
   let cookie = await getCookie(req.body.headers["X-accessToken"], "ak")
   let e = cookie?.Items?.[0]?.e ?? 0
 
-  // ── legacy body handling…
   const rawBody = (req && req.body) || {};
   const body =
     rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
@@ -42,29 +36,23 @@ on("convert", async (ctx, meta = {}) => {
       console.log("req::::::::", req)
       console.log("req.body::::::::", req.body)
       console.log("segsPath::::::::", path)
-    // ── legacy path parsing (tail after action): "/<fileId>[...]" → fileId
     const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
     let actionFile = segs[0] || "";
       console.log("actionFile::::::::", actionFile)
 
-      //req.body.output
       let out
       if (req.body.output == "$essence"){
         out = req?.body?.body?.prompt?.userRequest
       }
 
-    // keep response assembly identical
     let mainObj = {};
     let sourceType;
 
-    // ── require legacy helpers (relative to routes/)
     console.log("require parseArrayLogic")
     const { parseArrayLogic } = require("../parseArrayLogic");
     console.log("require shorthand")
     const { shorthand } = require("../shorthand");
-
-    // 1️⃣ Grab & normalise arrayLogic/prompt from the client
-    let arrayLogic = body.body?.arrayLogic ?? body.body?.arrayLogic; // tolerate both shapes
+    let arrayLogic = body.body?.arrayLogic ?? body.body?.arrayLogic;
     let prompt = body.body?.prompt ?? body.body?.prompt;
 
     if (typeof arrayLogic === "string") {
@@ -77,8 +65,6 @@ on("convert", async (ctx, meta = {}) => {
       sourceType = "arrayLogic";
     } else if (typeof prompt === "string") {
       sourceType = "prompt";
-      // The legacy snippet parsed into a variable then referenced `promptObj`.
-      // Preserve behavior by defining promptObj (and keeping the unused alias).
       let promptInjection;
       let promptObj;
       try {
@@ -89,7 +75,6 @@ on("convert", async (ctx, meta = {}) => {
       }
       let userPath = 1000000000000128;
 
-      // ── fixedPrompt blob preserved verbatim (including template interpolations)
       const fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
@@ -343,31 +328,23 @@ function subdomains(domain){
       e
     });
 
-    // 3️⃣ If shorthand payload was produced, immediately run the shorthand engine
     let newShorthand = null;
     let conclusion = null;
 
     if (parseResults?.shorthand) {
       const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
-
-      // File id from tail path (legacy used reqPath.split("/")[3])
-      // We already parsed actionFile above; keep as-is.
       const jsonpl = await retrieveAndParseJSON(actionFile, true);
       const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
       const blocks = shorthandLogic.published.blocks;
       const originalPublished = shorthandLogic.published;
 
-      // Re-inject exactly like legacy /shorthand route
       shorthandLogic.input = [{ virtual: virtualArray }];
       shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
-      // Fabricate a reqPath string shaped like legacy expectations
       const fakeReqPath = `/cookies/convert/${actionFile}`;
-      // Build a reqBody shaped like legacy expectations
       const legacyReqBody = { body: body.body || {} };
       console.log("sh1")
 
-      // Run the shorthand pipeline (preserve call signature)
       newShorthand = await shorthand(
         shorthandLogic,
         req,
@@ -392,19 +369,24 @@ function subdomains(domain){
         ctx.xAccessToken
       );
       console.log("sh2",newShorthand)
-      // Restore untouched blocks & clean temp props (parity)
       newShorthand.published.blocks = blocks;
       conclusion = JSON.parse(JSON.stringify(newShorthand.conclusion));
+      // Our runner now sets conclusion as { value, createdEntities }
+      const rawConclusion = JSON.parse(JSON.stringify(newShorthand.conclusion || null));
+      const conclusionValue = rawConclusion && typeof rawConclusion === 'object' && 'value' in rawConclusion
+        ? rawConclusion.value
+        : rawConclusion;
+      const createdEntities = rawConclusion && rawConclusion.createdEntities || [];
+      conclusion = conclusionValue;
+      // expose createdEntities separately in the final payload
       delete newShorthand.input;
       delete newShorthand.conclusion;
       console.log("sh3.2",actionFile)
 
-      // Quick checksum for callers (optional parity field)
       parseResults.isPublishedEqual =
         JSON.stringify(originalPublished) === JSON.stringify(newShorthand.published);
       console.log("sh4.2", JSON.stringify(newShorthand))
 
-      // Persist to S3 (exact bucket/key/content-type)
       if (actionFile) {
         console.log("actionFile",actionFile)
         await s3
@@ -419,21 +401,19 @@ function subdomains(domain){
       console.log("sh5")
     }
 
-    // 4️⃣ Return everything to the caller (parity with legacy response shape)
     mainObj = {
       parseResults,
       newShorthand,
       arrayLogic: parseResults?.arrayLogic,
       conclusion,
+      createdEntities,
     };
       console.log("sh6")
 
-    // Append legacy fields added by the router tail
     mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
     mainObj.file = String(actionFile || "");
       console.log("sh7")
 
-    // Legacy sendBack shape: { ok: true, response }
     return { ok: true, response: mainObj };
   });
 
