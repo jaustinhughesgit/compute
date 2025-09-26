@@ -1658,9 +1658,12 @@ async function parseArrayLogic({
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
-    const domainIndex = 10000000000000 * domains.indexOf(domain);
-    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
-    const userID = e;
+ const dIdx = Math.max(0, domains.indexOf(domain));
+ const subList = DOMAIN_SUBS[domain] || [];
+ const sdIdx = Math.max(0, subList.indexOf(subdomain));
+ const domainIndex = 10000000000000 * dIdx;
+ const subdomainIndex = 100000000000 * sdIdx;
+   const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding
