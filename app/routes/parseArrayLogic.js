@@ -1668,7 +1668,7 @@ async function parseArrayLogic({
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
- const dIdx = Math.max(0, domains.indexOf(domain));
+ const dIdx = Math.max(0, DOMAINS.indexOf(domain));
  const subList = DOMAIN_SUBS[domain] || [];
  const sdIdx = Math.max(0, subList.indexOf(subdomain));
  const domainIndex = 10000000000000 * dIdx;
