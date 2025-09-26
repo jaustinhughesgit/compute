@@ -1206,35 +1206,38 @@ const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
   const cache = new Array(arrayLogic.length);
-  const resolving = new Set();
 
-  const deepResolve = val => {
-    if (typeof val === "string") {
-      const m = val.match(REF_REGEX);
-      if (m) {
-        const [, idxStr, restPath] = m;
-        const target = resolveElement(Number(idxStr));
-        if (!restPath) return target;
+  const walk = (node, rootIdx) => {
+    if (typeof node === "string") {
+      const m = node.match(REF_REGEX);
+      if (!m) return node;
+
+      const refIdx = Number(m[1]);
+      const restPath = m[2] || "";
+
+      // Disallow self or forward refs; leave them untouched
+      if (!(refIdx < rootIdx)) return node;
+
+      // Resolve only backwards
+      let out = resolveElement(refIdx);
+      if (restPath) {
         const segs = restPath.replace(/^\./, "").split(".");
-        let out = target;
         for (const s of segs) { if (out == null) break; out = out[s]; }
-        return deepResolve(out);
       }
+      return walk(out, rootIdx);
     }
-    if (Array.isArray(val)) return val.map(deepResolve);
-    if (val && typeof val === "object")
-      return Object.fromEntries(Object.entries(val).map(
-        ([k, v]) => [k, deepResolve(v)]
-      ));
-    return val;
+
+    if (Array.isArray(node)) return node.map(v => walk(v, rootIdx));
+    if (node && typeof node === "object") {
+      return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, walk(v, rootIdx)]));
+    }
+    return node;
   };
 
-  const resolveElement = i => {
+  const resolveElement = (i) => {
     if (cache[i] !== undefined) return cache[i];
-    if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
-    resolving.add(i);
-    cache[i] = deepResolve(arrayLogic[i]);
-    resolving.delete(i);
+    // No cycle set/throw — resolve only what’s already safe (backwards)
+    cache[i] = walk(arrayLogic[i], i);
     return cache[i];
   };
 
