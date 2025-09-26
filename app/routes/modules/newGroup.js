@@ -1,3 +1,6 @@
+// modules/groups/newGroup.js
+// "newGroup"  → /<newGroupName>/<headEntityName>/<headUUID?>
+function register({ on, use }) {
 on("newGroup", async (ctx, { cookie }) => {
     const {
       setIsPublic,
@@ -270,3 +273,6 @@ on("newGroup", async (ctx, { cookie }) => {
     console.log("response:", mainObj)
     return { ok: true, response: mainObj };
   });
+}
+
+module.exports = { register };
