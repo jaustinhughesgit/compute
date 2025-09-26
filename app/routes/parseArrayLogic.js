@@ -1492,6 +1492,7 @@ const classifyDomains = async ({ openai, text }) => {
 };
 
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
+    console.log("44444")
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1507,6 +1508,7 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     { role: "user", content: prompt }
     ]
   });
+    console.log("55555",rsp)
   let text = rsp.choices[0].message.content.trim();
 
   function stripComments(jsonLike) {
@@ -1569,10 +1571,15 @@ async function parseArrayLogic({
   e
 } = {}) {
 
+  console.log("sourceType", sourceType)
+  console.log("typeof arrayLogic", typeof arrayLogic)
   if (sourceType === "prompt") {
+    console.log("11111")
     if (typeof arrayLogic !== "string") {
+    console.log("22222")
       throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
     }
+    console.log("33333")
     arrayLogic = await buildArrayLogicFromPrompt({ openai, prompt: arrayLogic });
   }
 
