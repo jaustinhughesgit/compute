@@ -18,8 +18,8 @@
  *      - byIndex    (PK: by, SK: updatedAt)  // optional auditing by creator
  *
  *  - pCounter
- *      PK: k (S)       always "paths"
- *      ATTR: n (N)     monotonically increasing counter
+ *      PK: pk (S)       always "paths"
+ *      ATTR: x (N)     monotonically increasing counter
  */
 
 function register({ on, use }) {
@@ -48,20 +48,6 @@ function register({ on, use }) {
     return { ok: true, response };
   };
 
-  async function nextPathId(doc) {
-    const res = await doc
-      .update({
-        TableName: CounterTable,
-        Key: { k: "paths" },
-        UpdateExpression: "ADD #n :one SET #u = :now",
-        ExpressionAttributeNames: { "#n": "n", "#u": "updatedAt" },
-        ExpressionAttributeValues: { ":one": 1, ":now": new Date().toISOString() },
-        ReturnValues: "UPDATED_NEW",
-      })
-      .promise();
-    const n = Number(res?.Attributes?.n ?? 0);
-    return `p${n}`; // e.g. "p1234"; tweak formatting if you want zero-padding
-  }
 
   // ID minting now uses your shared { pk: <tableName>, x: <number> } pattern.
   async function nextPathId() {
