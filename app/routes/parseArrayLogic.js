@@ -1803,122 +1803,250 @@ if (subdomainMatches.length) {
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
-    if (!bestMatch?.su) {
-  // NO MATCH: ALWAYS create a brand-new entity and position it.
-  // Never position or run the primary (actionFile) in this branch.
+ 
 
-  const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-  const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
-  const entNameRaw =
-    pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
-  const entName = sanitize(entNameRaw);
-  fixedOutput = entName;
-  const groupName = entName;
+if (!bestMatch?.su) {
+      // If caller provided an entity, ensure distances/pb exist, then run it
+      if (actionFile) {
+        const existing = await loadExistingEntityRow(actionFile);
+        const needsDists =
+          !existing ||
+          [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
+        const needsPb = !existing || existing.pb == null;
 
-  // Create group
-  shorthand.push([
-    "ROUTE",
-    { output: entName },
-    {},
-    "newGroup",
-    groupName,
-    entName
-  ]);
+        const pbStr = buildPb(possessedCombined, dist1);
 
-  routeRowNewIndex = shorthand.length;
+        if (needsDists || needsPb) {
+          shorthand.push([
+            "ROUTE",
+            {
+              "body": {
+                description: "provided entity (fallback, ensure distances)",
+                domain,
+                subdomain,
+                embedding,
+                entity: actionFile,
+                pb: pbStr ?? null,
+                path: breadcrumb,
+                output: fixedOutput
+              }
+            },
+            {},
+            "position",
+            actionFile,
+            ""
+          ]);
+        }
 
-  // GET response file id
-  shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
-  const fileIdRow = routeRowNewIndex + 1;
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "provided entity (fallback)",
+              domain,
+              subdomain,
+              embedding,
+              entity: actionFile,
+              pb: pbStr,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              output: fixedOutput
+            }
+          },
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
 
-  // Optionally pull display name from file + synthesize app
-  if (fixedOutput) {
-    shorthand.push([
-      "ROUTE",
-      {},
-      {},
-      "getFile",
-      padRef(routeRowNewIndex + 1),
-      ""
-    ]);
+        // Now run the provided entity
+        shorthand.push([
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ]);
 
-    shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-    shorthand.push(["GET", padRef(routeRowNewIndex + 3), "published", "name"]);
-    const nameRow = routeRowNewIndex + 4;
-
-    const desiredObj = structuredClone(elem);
-    if (fixedOutput) desiredObj.response = fixedOutput;
-
-    // Build app (unchanged from your code)
-    let newJPL = `directive = [ "... same directive text ..." ];`;
-    newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; ...`; // keep your existing builder text
-
-    const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-
-    shorthand.push(
-      ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-    );
-    shorthand.push(
-      ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]
-    );
-    shorthand.push(
-      ["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]
-    );
-
-    // Record created entity for response
-    createdEntities.push({
-      entity: padRef(fileIdRow),
-      name: fixedOutput,
-      nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null,
-      domain,
-      subdomain,
-      contentType: "text"
-    });
-  }
-
-  // Position the new entity with dist/pb/path
-  const pathStr = breadcrumb;
-  const pbStr2 = buildPb(possessedCombined, dist1);
-
-  shorthand.push([
-    "ROUTE",
-    {
-      "body": {
-        description: "auto created entity",
-        domain, subdomain,
-        embedding,
-        entity: padRef(routeRowNewIndex + 1),
-        pb: pbStr2,
-        dist1, dist2, dist3, dist4, dist5,
-        path: pathStr,
-        output: fixedOutput
+        routeRowNewIndex = shorthand.length;
+        continue;
       }
-    },
-    {},
-    "position",
-    padRef(routeRowNewIndex + 1),
-    ""
-  ]);
 
-  // Run the new entity
-  if (fixedOutput) {
-    shorthand.push([
-      "ROUTE",
-      inputParam,
-      {},
-      "runEntity",
-      padRef(routeRowNewIndex + 1),
-      ""
-    ]);
-  } else {
-    shorthand.push([fixedOutput]);
+      // create a new entity/group
+      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
+
+      const entNameRaw =
+        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      const entName = sanitize(entNameRaw);
+      fixedOutput = entName;
+      const groupName = entName;
+
+      shorthand.push([
+        "ROUTE",
+        { output: entName },
+        {},
+        "newGroup",
+        groupName,
+        entName
+      ]);
+
+      routeRowNewIndex = shorthand.length;
+
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      const fileIdRow = routeRowNewIndex + 1; // GET … response file
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          {},
+          {},
+          "getFile",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
+
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+        // Pull a display name from the fetched file (if present)
+        shorthand.push(["GET", padRef(routeRowNewIndex + 3), "published", "name"]);
+        const nameRow = routeRowNewIndex + 4;
+
+        const desiredObj = structuredClone(elem);
+        if (fixedOutput) desiredObj.response = fixedOutput;
+
+
+                let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+                newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+                newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
+                newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
+                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
+                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
+
+
+        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+
+        shorthand.push(
+          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
+        );
+
+        if (objectJPL.modules) {
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
+          );
+        } else {
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
+          );
+        }
+
+        shorthand.push(
+          [
+            "ROUTE",
+            padRef(routeRowNewIndex + 5),
+            {},
+            "saveFile",
+            padRef(routeRowNewIndex + 1),
+            ""
+          ]
+        );
+      }
+
+      // record positioning for the new entity (pb must be safe)
+      const pathStr = breadcrumb;
+      const pbStr2 = buildPb(possessedCombined, dist1);
+
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto created entity",
+            domain, subdomain,
+            embedding,
+            entity: padRef(routeRowNewIndex + 1),
+            pb: pbStr2,
+            dist1, dist2, dist3, dist4, dist5,
+            path: pathStr,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        padRef(routeRowNewIndex + 1),
+        ""
+      ]);
+
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          inputParam,
+          {},
+          "runEntity",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
+      } else {
+        shorthand.push([fixedOutput]);
+      }
+      // NEW: record a created-entity descriptor we’ll expose back to the client
+      createdEntities.push({
+        // these values will be resolved by the runner when the array executes
+        entity: padRef(fileIdRow),
+        // prefer the file’s published.name (if present) else our entName guess
+        name: fixedOutput,
+        nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null,
+        domain,
+        subdomain,
+        contentType: "text"
+      });      
+
+    } else {
+      // run best match
+      shorthand.push([
+        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
+      ]);
+
+      // refresh positioning metadata, with pb built from current dist1
+      const pbStr = buildPb(possessedCombined, dist1);
+
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto matched entity",
+            domain,
+            subdomain,
+            embedding,
+            entity: bestMatch.su,
+            pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        bestMatch.su,
+        ""
+      ]);
+    }
+
+    routeRowNewIndex = shorthand.length;
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
   }
-
-  routeRowNewIndex = shorthand.length;
-  continue;
-}
-
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {

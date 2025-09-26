@@ -9,15 +9,10 @@ function register({ on, use }) {
       const { req, res, path, signer } = ctx;
       const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Normalize request + headers (keep behavior but avoid noisy logs)
-      // ───────────────────────────────────────────────────────────────────────
       if (req) {
         req.body = req.body || {};
         const rawHeaders = req.headers || {};
-        // Maintain previous behavior of merging headers (downstream may rely on it)
         req.body.headers = { ...(req.body.headers || {}), ...rawHeaders };
-        // Normalize X-accessToken
         if (rawHeaders["x-accesstoken"] && !req.body.headers["X-accessToken"]) {
           req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
         } else if (rawHeaders["x-access-token"] && !req.body.headers["X-accessToken"]) {
@@ -40,32 +35,20 @@ function register({ on, use }) {
         // Swallow cookie lookup errors to preserve legacy flow
       }
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Normalize body shape
-      // ───────────────────────────────────────────────────────────────────────
       const rawBody = (req && req.body) || {};
       const body =
         rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
           ? rawBody
           : { body: rawBody };
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Path & action file
-      // ───────────────────────────────────────────────────────────────────────
       const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
       let actionFile = segs[0] || "";
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Optional $essence passthrough
-      // ───────────────────────────────────────────────────────────────────────
       let out;
       if (req?.body?.output === "$essence") {
         out = req?.body?.body?.prompt?.userRequest;
       }
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Prepare inputs for parseArrayLogic
-      // ───────────────────────────────────────────────────────────────────────
       let mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
@@ -74,14 +57,12 @@ function register({ on, use }) {
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
 
-      // If prompt is provided (obj or string), convert to the fixed prompt string
       if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
         const promptObj = typeof prompt === "string" ? (JSON.parse(prompt || "{}")) : prompt;
 
         const userPath = 1000000000000128;
 
-        // NOTE: replaced promptInjection.* with promptObj.* (the original would throw)
         const fixedPrompt = `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
@@ -317,14 +298,10 @@ function subdomains(domain){
 
         arrayLogic = fixedPrompt;
       } else if (typeof arrayLogic === "string" && arrayLogic.trim().startsWith("[")) {
-        // only treat as arrayLogic if it looks like JSON-array; otherwise fall back
         arrayLogic = JSON.parse(arrayLogic);
         sourceType = "arrayLogic";
       }
 
-      // ───────────────────────────────────────────────────────────────────────
-      // First pass – evaluate the array logic
-      // ───────────────────────────────────────────────────────────────────────
       const parseResults = await parseArrayLogic({
         arrayLogic,
         dynamodb,
@@ -347,12 +324,10 @@ function subdomains(domain){
       if (parseResults?.shorthand) {
         const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
 
-        // Safely load shorthand JSON; guard against missing/invalid published payload
         let jsonpl = null;
         try {
           jsonpl = await retrieveAndParseJSON(actionFile, true);
         } catch (err) {
-          // Keep going without crashing; we'll return parseResults below
           console.error("retrieveAndParseJSON failed:", err && err.message);
         }
 
@@ -361,14 +336,12 @@ function subdomains(domain){
           const blocks = shorthandLogic.published?.blocks ?? [];
           const originalPublished = shorthandLogic.published;
 
-          // Compose the input the way shorthand() expects
           shorthandLogic.input = [{ virtual: virtualArray }];
           shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
           const fakeReqPath = `/cookies/convert/${actionFile}`;
           const legacyReqBody = { body: body.body || {} };
 
-          // Execute shorthand
           newShorthand = await shorthand(
             shorthandLogic,
             req,
@@ -409,19 +382,16 @@ function subdomains(domain){
             : [];
           conclusion = conclusionValue;
 
-          // Expose createdEntities separately in final payload
           if (newShorthand) {
             delete newShorthand.input;
             delete newShorthand.conclusion;
           }
 
-          // Track whether published changed
           if (parseResults) {
             parseResults.isPublishedEqual =
               JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
           }
 
-          // Persist to S3 if we have an actionFile
           if (actionFile) {
             try {
               await s3
@@ -434,13 +404,12 @@ function subdomains(domain){
                 .promise();
             } catch (err) {
               console.error("S3 putObject failed:", err && err.message);
-              // Non-fatal; continue returning computed response
+              
             }
           }
         } // end if jsonpl?.published
       } // end if parseResults?.shorthand
 
-      // Assemble response object (shape preserved)
       mainObj = {
         parseResults,
         newShorthand,
