@@ -330,6 +330,7 @@ function subdomains(domain){
 
     let newShorthand = null;
     let conclusion = null;
+    let createdEntities = [];
 
     if (parseResults?.shorthand) {
       const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
@@ -376,7 +377,9 @@ function subdomains(domain){
       const conclusionValue = rawConclusion && typeof rawConclusion === 'object' && 'value' in rawConclusion
         ? rawConclusion.value
         : rawConclusion;
-      const createdEntities = rawConclusion && rawConclusion.createdEntities || [];
+      createdEntities = (rawConclusion && Array.isArray(rawConclusion.createdEntities))
+        ? rawConclusion.createdEntities
+        : [];
       conclusion = conclusionValue;
       // expose createdEntities separately in the final payload
       delete newShorthand.input;
