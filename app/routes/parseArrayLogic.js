@@ -1761,7 +1761,7 @@ async function parseArrayLogic({
     const schemaParam = convertShorthandRefs(expectedKeys);
 
     console.log("999 bestMatch", bestMatch)
-    if (!bestMatch?.su) {
+    if (bestMatch) {
       // If caller provided an entity, ensure distances/pb exist, then run it
       console.log("999 actionFile", actionFile)
       if (actionFile) {
