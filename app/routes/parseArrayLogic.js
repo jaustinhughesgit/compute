@@ -1141,7 +1141,6 @@ const { Converter } = DynamoDB;
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
-const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 const parseVector = v => {
   if (!v) return null;
