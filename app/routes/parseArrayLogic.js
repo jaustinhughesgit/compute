@@ -1849,11 +1849,11 @@ async function parseArrayLogic({
         "newGroup",
         groupName,
         entName
-      ]);
+      ]); //{response: {..., file: '1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30',entity: '2'}
 
       routeRowNewIndex = shorthand.length;
 
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]); //1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30
 
       console.log("999 fixedOutput", fixedOutput)
       if (fixedOutput) {
@@ -1865,9 +1865,9 @@ async function parseArrayLogic({
           "getFile",
           padRef(routeRowNewIndex + 1),
           ""
-        ]);
+        ]); // ok: true, response: { input: [], published: { blocks: [Array], modules: {}, actions: [Array], function: {}, automation: [], menu: [Object], commands: [Object], calls: [Object], te
 
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]); // { input: [], published: { blocks: [ [Object] ], modules: {}, actions: [ [Object] ], function: {}, automation: [], menu: { ready: [Object] }, commands: { ready: [Object], back: [Obje
         console.log("999 elem", elem)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
@@ -1883,27 +1883,26 @@ async function parseArrayLogic({
 
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-
-        
         console.log("999 objectJPL", JSON.stringify(objectJPL))
-        
         console.log("999 actions",padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
 
         shorthand.push(
           ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-        );
+        ); //actions: [ [Object], [Object], [Object] ],
 
         if (objectJPL.modules) {
-        console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
+          console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-          );
+          );// modules: {}
         } else {
-        console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
+          console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-          );
-        }
+          );// modules: {}
+        } //modules: {}
+
+
         console.log("999 pushing to createdEntities")
         createdEntities.push({ 
           entity: padRef(routeRowNewIndex + 5), 
@@ -1955,7 +1954,7 @@ async function parseArrayLogic({
         "position",
         padRef(routeRowNewIndex + 1),
         ""
-      ]);
+      ]);// { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
 
       if (fixedOutput) {
         shorthand.push([
@@ -1965,7 +1964,7 @@ async function parseArrayLogic({
           "runEntity",
           padRef(routeRowNewIndex + 1),
           ""
-        ]);
+        ]); // $noName  (this is the cached output that is saved to the database record). Entity didn't run.
       } else {
         shorthand.push([fixedOutput]);
       }
@@ -2006,6 +2005,10 @@ async function parseArrayLogic({
     routeRowNewIndex = shorthand.length;
   }
 
+
+  // THIS IS THE ISSUE: WE ARE NOT ORGANIZED AT ADDING THE CONCLUSION AND CREATEDENTITIES
+
+
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
     const getRowIndex = shorthand.push(
@@ -2013,9 +2016,9 @@ async function parseArrayLogic({
     ) - 1;
 
     shorthand.push([
-      "ROWRESULT",
-      "000",
-      padRef(getRowIndex + 1),
+      "ADDPROPERTY",
+      "000!!",
+      "createdEntities",
       createdEntities
     ]);
   }
