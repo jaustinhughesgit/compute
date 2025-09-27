@@ -1111,24 +1111,29 @@ const DOMAIN_SUBS = {
     ]
 };
 
-
-
-
-
-
-
-
-
-
-
-
-
-// parseArrayLogic.js
-//commented for brevity
-//const DOMAINS = {...}
+//const domains = {...}
 //const DOMAIN_SUBS = {...}
 
-                
+
+
+
+
+
+
+
+
+
+
+
+
+                // Drop-in replacement that keeps your logic intact but makes every pb touchpoint
+// DynamoDB low-level compliant (no IEEE-754 loss).
+//
+// Assumptions:
+// - `dynamodb` is a DocumentClient (high-level) for everything that doesn't touch pb.
+// - `dynamodbLL` is a low-level DynamoDB client for any operation that *uses* pb in keys/filters/writes.
+// - You will pass `dynamodb` and `dynamodbLL` into parseArrayLogic({ ... }).
+
 
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
@@ -1136,6 +1141,7 @@ const { Converter } = DynamoDB;
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
+const DOMAINS = Object.keys(DOMAIN_SUBS);
 
 const parseVector = v => {
   if (!v) return null;
@@ -1186,58 +1192,39 @@ const calcMatchScore = (elementDists, item) => {
   return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
-const splitPath = p =>
-  String(p ?? "").split(/[./]/).filter(Boolean);
-
-const pathSimilarity = (a, b) => {
-  const A = splitPath(a), B = splitPath(b);
-  if (!A.length || !B.length) return 0;
-  // common-prefix similarity ∈ [0,1]
-  const minLen = Math.min(A.length, B.length);
-  let prefix = 0;
-  for (let i = 0; i < minLen; i++) {
-    if (A[i] !== B[i]) break;
-    prefix++;
-  }
-  return prefix / Math.max(A.length, B.length);
-};
-
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
   const cache = new Array(arrayLogic.length);
+  const resolving = new Set();
 
-  const walk = (node, rootIdx) => {
-    if (typeof node === "string") {
-      const m = node.match(REF_REGEX);
-      if (!m) return node;
-
-      const refIdx = Number(m[1]);
-      const restPath = m[2] || "";
-
-      // Disallow self or forward refs; leave them untouched
-      if (!(refIdx < rootIdx)) return node;
-
-      // Resolve only backwards
-      let out = resolveElement(refIdx);
-      if (restPath) {
+  const deepResolve = val => {
+    if (typeof val === "string") {
+      const m = val.match(REF_REGEX);
+      if (m) {
+        const [, idxStr, restPath] = m;
+        const target = resolveElement(Number(idxStr));
+        if (!restPath) return target;
         const segs = restPath.replace(/^\./, "").split(".");
+        let out = target;
         for (const s of segs) { if (out == null) break; out = out[s]; }
+        return deepResolve(out);
       }
-      return walk(out, rootIdx);
     }
-
-    if (Array.isArray(node)) return node.map(v => walk(v, rootIdx));
-    if (node && typeof node === "object") {
-      return Object.fromEntries(Object.entries(node).map(([k, v]) => [k, walk(v, rootIdx)]));
-    }
-    return node;
+    if (Array.isArray(val)) return val.map(deepResolve);
+    if (val && typeof val === "object")
+      return Object.fromEntries(Object.entries(val).map(
+        ([k, v]) => [k, deepResolve(v)]
+      ));
+    return val;
   };
 
-  const resolveElement = (i) => {
+  const resolveElement = i => {
     if (cache[i] !== undefined) return cache[i];
-    // No cycle set/throw — resolve only what’s already safe (backwards)
-    cache[i] = walk(arrayLogic[i], i);
+    if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
+    resolving.add(i);
+    cache[i] = deepResolve(arrayLogic[i]);
+    resolving.delete(i);
     return cache[i];
   };
 
@@ -1505,7 +1492,6 @@ const classifyDomains = async ({ openai, text }) => {
 };
 
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
-    console.log("44444")
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1521,7 +1507,6 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     { role: "user", content: prompt }
     ]
   });
-    console.log("55555",rsp)
   let text = rsp.choices[0].message.content.trim();
 
   function stripComments(jsonLike) {
@@ -1584,22 +1569,17 @@ async function parseArrayLogic({
   e
 } = {}) {
 
-  console.log("sourceType", sourceType)
-  console.log("typeof arrayLogic", typeof arrayLogic)
   if (sourceType === "prompt") {
-    console.log("11111")
     if (typeof arrayLogic !== "string") {
-    console.log("22222")
       throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
     }
-    console.log("33333")
     arrayLogic = await buildArrayLogicFromPrompt({ openai, prompt: arrayLogic });
   }
 
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   const shorthand = [];
-  const createdEntities = []; // <— NEW: accumulate created entities for response
+  const createdEntities = [];
   const results = [];
   let routeRowNewIndex = null;
 
@@ -1671,12 +1651,9 @@ async function parseArrayLogic({
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
- const dIdx = Math.max(0, DOMAINS.indexOf(domain));
- const subList = DOMAIN_SUBS[domain] || [];
- const sdIdx = Math.max(0, subList.indexOf(subdomain));
- const domainIndex = 10000000000000 * dIdx;
- const subdomainIndex = 100000000000 * sdIdx;
-   const userID = e;
+    const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
+    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
+    const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding
@@ -1765,99 +1742,126 @@ async function parseArrayLogic({
       }
     }
 
-// prevent matching the submitting (primary) entity
- if (actionFile) {
-   const primaryId = String(actionFile);
-   subdomainMatches = subdomainMatches.filter(it => {
-     const candId = String(it.su ?? it.entity ?? "");
-     return candId !== primaryId;
-   });
- }
-
-// path-aware + distance-aware selection
-let bestMatch = null;
-if (subdomainMatches.length) {
-  const PATH_WEIGHT = 0.25;      // tune: how much path matters vs. dist
-  const MIN_PATH_SIM = 0.0;      // set >0 (e.g. 0.33) if you want a hard floor
-
-  bestMatch = subdomainMatches
-    // optionally insist on some minimal path similarity
-    .filter(it => {
-      const sim = pathSimilarity(it.path, breadcrumb);
-      return sim >= MIN_PATH_SIM;
-    })
-    .reduce(
-      (best, it) => {
-        const distScore = calcMatchScore(
-          { dist1, dist2, dist3, dist4, dist5 },
-          it
-        );
-        const sim = pathSimilarity(it.path, breadcrumb);
-        // smaller is better: distance + penalty for path dissimilarity
-        const combined = distScore + PATH_WEIGHT * (1 - sim);
-        return combined < best.score ? { item: it, score: combined } : best;
-      },
-      { item: null, score: Number.POSITIVE_INFINITY }
-    ).item || null;
-}
-
+    // pick best match
+    let bestMatch = null;
+    if (subdomainMatches.length) {
+      bestMatch = subdomainMatches.reduce(
+        (best, item) => {
+          const score = calcMatchScore(
+            { dist1, dist2, dist3, dist4, dist5 },
+            item
+          );
+          return score < best.score ? { item, score } : best;
+        },
+        { item: null, score: Number.POSITIVE_INFINITY }
+      ).item;
+    }
 
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
- 
+    if (!bestMatch?.su) {
+      // If caller provided an entity, ensure distances/pb exist, then run it
+      if (actionFile) {
+        const existing = await loadExistingEntityRow(actionFile);
+        const needsDists =
+          !existing ||
+          [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
+        const needsPb = !existing || existing.pb == null;
 
+        const pbStr = buildPb(possessedCombined, dist1);
 
+        if (needsDists || needsPb) {
+          shorthand.push([
+            "ROUTE",
+            {
+              "body": {
+                description: "provided entity (fallback, ensure distances)",
+                domain,
+                subdomain,
+                embedding,
+                entity: actionFile,
+                pb: pbStr ?? null,
+                path: breadcrumb,
+                output: fixedOutput
+              }
+            },
+            {},
+            "position",
+            actionFile,
+            ""
+          ]);
+        }
 
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "provided entity (fallback)",
+              domain,
+              subdomain,
+              embedding,
+              entity: actionFile,
+              pb: pbStr,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              output: fixedOutput
+            }
+          },
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
 
+        // Now run the provided entity
+        shorthand.push([
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ]);
 
+        routeRowNewIndex = shorthand.length;
+        continue;
+      }
 
-    // --- Do not ever update the primary on no-match ---
-if (!bestMatch?.su) {
-  // ALWAYS create a new entity/group
-  const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-  const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
+      // create a new entity/group
+      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
-  const entNameRaw =
-    pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
-  const entName = sanitize(entNameRaw);
-  fixedOutput = entName;
-  const groupName = entName;
+      const entNameRaw =
+        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      const entName = sanitize(entNameRaw);
+      fixedOutput = entName;
+      const groupName = entName;
 
-  shorthand.push([
-    "ROUTE",
-    { output: entName },
-    {},
-    "newGroup",
-    groupName,
-    entName
-  ]);
+      shorthand.push([
+        "ROUTE",
+        { output: entName },
+        {},
+        "newGroup",
+        groupName,
+        entName
+      ]);
 
-  routeRowNewIndex = shorthand.length;
+      routeRowNewIndex = shorthand.length;
 
-  // capture file id for the new group
-  shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
-  const fileIdRow = routeRowNewIndex + 1;
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
-  if (fixedOutput) {
-    shorthand.push([
-      "ROUTE",
-      {},
-      {},
-      "getFile",
-      padRef(routeRowNewIndex + 1),
-      ""
-    ]);
-    shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-    shorthand.push(["GET", padRef(routeRowNewIndex + 3), "published", "name"]);
-    const nameRow = routeRowNewIndex + 4;
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          {},
+          {},
+          "getFile",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
 
-    const desiredObj = structuredClone(elem);
-    if (fixedOutput) desiredObj.response = fixedOutput;
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
-    // buildBreadcrumbApp / NESTED / saveFile (unchanged)
-    
+        const desiredObj = structuredClone(elem);
+        if (fixedOutput) desiredObj.response = fixedOutput;
+
 
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
                 newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
@@ -1866,131 +1870,127 @@ if (!bestMatch?.su) {
                 newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
                 newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
 
-    const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
-    shorthand.push(
-      ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-    );
-    shorthand.push(
-      ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]
-    );
-    shorthand.push(
-      ["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]
-    );
+        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
-    // optional: record created entity for caller-side UX
-    createdEntities.push({
-      entity: padRef(fileIdRow),
-      name: fixedOutput,
-      nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null,
-      domain,
-      subdomain,
-      contentType: "text"
-    });
-  }
+        shorthand.push(
+          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
+        );
 
-  // Position the NEW entity (never the primary)
-  const pathStr = breadcrumb;
-  const pbStr2 = buildPb(possessedCombined, dist1);
+        if (objectJPL.modules) {
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
+          );
+        } else {
+          shorthand.push(
+            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
+          );
+        }
 
-  shorthand.push([
-    "ROUTE",
-    {
-      "body": {
-        description: "auto created entity",
-        domain, subdomain,
-        embedding,
-        entity: padRef(routeRowNewIndex + 1),
-        pb: pbStr2,
-        dist1, dist2, dist3, dist4, dist5,
-        path: pathStr,
-        output: fixedOutput
+        createdEntities.push({ 
+          entity: padRef(routeRowNewIndex + 5), 
+          name: fixedOutput, 
+          nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null, 
+          domain, 
+          subdomain, 
+          contentType: "text",
+          other1:padRef(routeRowNewIndex + 1)
+        });
+
+        shorthand.push(
+          [
+            "ROUTE",
+            padRef(routeRowNewIndex + 5),
+            {},
+            "saveFile",
+            padRef(routeRowNewIndex + 1),
+            ""
+          ]
+        );
       }
-    },
-    {},
-    "position",
-    padRef(routeRowNewIndex + 1),
-    ""
-  ]);
 
-  // Run the NEW entity
-  if (fixedOutput) {
-    shorthand.push([
-      "ROUTE",
-      inputParam,
-      {},
-      "runEntity",
-      padRef(routeRowNewIndex + 1),
-      ""
-    ]);
-  } else {
-    shorthand.push([fixedOutput]);
-  }
+      // record positioning for the new entity (pb must be safe)
+      const pathStr = breadcrumb;
+      const pbStr2 = buildPb(possessedCombined, dist1);
 
-} else {
-  // Matched: run + position the matched entity (never the primary due to filter)
-  shorthand.push([
-    "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
-  ]);
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto created entity",
+            domain, subdomain,
+            embedding,
+            entity: padRef(routeRowNewIndex + 1),
+            pb: pbStr2,
+            dist1, dist2, dist3, dist4, dist5,
+            path: pathStr,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        padRef(routeRowNewIndex + 1),
+        ""
+      ]);
 
-  const pbStr = buildPb(possessedCombined, dist1);
-  shorthand.push([
-    "ROUTE",
-    {
-      "body": {
-        description: "auto matched entity",
-        domain,
-        subdomain,
-        embedding,
-        entity: bestMatch.su,
-        pb: pbStr,
-        dist1, dist2, dist3, dist4, dist5,
-        path: breadcrumb,
-        output: fixedOutput
+      if (fixedOutput) {
+        shorthand.push([
+          "ROUTE",
+          inputParam,
+          {},
+          "runEntity",
+          padRef(routeRowNewIndex + 1),
+          ""
+        ]);
+      } else {
+        shorthand.push([fixedOutput]);
       }
-    },
-    {},
-    "position",
-    bestMatch.su,
-    ""
-  ]);
-}
 
-routeRowNewIndex = shorthand.length;
+    } else {
+      // run best match
+      shorthand.push([
+        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
+      ]);
 
+      // refresh positioning metadata, with pb built from current dist1
+      const pbStr = buildPb(possessedCombined, dist1);
 
+      shorthand.push([
+        "ROUTE",
+        {
+          "body": {
+            description: "auto matched entity",
+            domain,
+            subdomain,
+            embedding,
+            entity: bestMatch.su,
+            pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        bestMatch.su,
+        ""
+      ]);
+    }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    routeRowNewIndex = shorthand.length;
   }
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-    // NEW: expose both the original conclusion and our createdEntities
     const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", {
-        value: padRef(routeRowNewIndex),
-        createdEntities
-      }]
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
 
     shorthand.push([
       "ROWRESULT",
       "000",
-      padRef(getRowIndex + 1)
+      padRef(getRowIndex + 1),
+      createdEntities
     ]);
   }
 
