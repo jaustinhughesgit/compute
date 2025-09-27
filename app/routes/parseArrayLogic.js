@@ -1761,10 +1761,10 @@ async function parseArrayLogic({
     const schemaParam = convertShorthandRefs(expectedKeys);
 
     console.log("999 bestMatch", bestMatch)
-    if (bestMatch) {
+    if (!bestMatch) {
       // If caller provided an entity, ensure distances/pb exist, then run it
       console.log("999 actionFile", actionFile)
-      if (actionFile) {
+      /*if (actionFile) {
         const existing = await loadExistingEntityRow(actionFile);
         const needsDists =
           !existing ||
@@ -1824,7 +1824,7 @@ async function parseArrayLogic({
         routeRowNewIndex = shorthand.length;
         console.log("999 routeRowNewIndex", routeRowNewIndex)
         continue;
-      }
+      }*/
       console.log("999 after continue")
       // create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
