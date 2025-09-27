@@ -1760,8 +1760,10 @@ async function parseArrayLogic({
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
+    console.log("999 bestMatch", bestMatch)
     if (!bestMatch?.su) {
       // If caller provided an entity, ensure distances/pb exist, then run it
+      console.log("999 actionFile", actionFile)
       if (actionFile) {
         const existing = await loadExistingEntityRow(actionFile);
         const needsDists =
@@ -1820,18 +1822,26 @@ async function parseArrayLogic({
         ]);
 
         routeRowNewIndex = shorthand.length;
+        console.log("999 routeRowNewIndex", routeRowNewIndex)
         continue;
       }
-
+      console.log("999 after continue")
       // create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
+      console.log("999 body?.schema?.const",body?.schema?.const)
+      console.log("999 fixedOutput", fixedOutput)
+      console.log("999 body?.input?.name", body?.input?.name)
+      console.log("999 body?.input?.title",body?.input?.title)
+      console.log("999 body?.input?.entity",body?.input?.entity)
       const entNameRaw =
         pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
+      console.log("999 entNameRaw", entNameRaw)
+      console.log("999 entName", entName)
 
       shorthand.push([
         "ROUTE",
@@ -1846,7 +1856,9 @@ async function parseArrayLogic({
 
       shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
+      console.log("999 fixedOutput", fixedOutput)
       if (fixedOutput) {
+        console.log("999 LETS GENERATE A JPL")
         shorthand.push([
           "ROUTE",
           {},
@@ -1857,9 +1869,10 @@ async function parseArrayLogic({
         ]);
 
         shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-
+        console.log("999 elm", elm)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
+        console.log("999 desiredObj",desiredObj)
 
 
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
@@ -1871,6 +1884,7 @@ async function parseArrayLogic({
 
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+        console.log("999 objectJPL",objectJPL)
 
         shorthand.push(
           ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
@@ -1885,7 +1899,7 @@ async function parseArrayLogic({
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
           );
         }
-
+        console.log("999 pushing to createdEntities")
         createdEntities.push({ 
           entity: padRef(routeRowNewIndex + 5), 
           name: fixedOutput, 
@@ -1895,6 +1909,7 @@ async function parseArrayLogic({
           contentType: "text",
           other1:padRef(routeRowNewIndex + 1)
         });
+        console.log("999 createdEntities", createdEntities)
 
         shorthand.push(
           [
