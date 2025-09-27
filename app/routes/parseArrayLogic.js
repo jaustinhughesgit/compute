@@ -2005,21 +2005,25 @@ async function parseArrayLogic({
     routeRowNewIndex = shorthand.length;
   }
 
-
-  // THIS IS THE ISSUE: WE ARE NOT ORGANIZED AT ADDING THE CONCLUSION AND CREATEDENTITIES
-
-
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
     const getRowIndex = shorthand.push(
       ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
 
+
     shorthand.push([
       "ADDPROPERTY",
-      "000!!",
+      padRef(getRowIndex + 1),
       "createdEntities",
       createdEntities
+    ]);
+
+
+    shorthand.push([
+      "ROWRESULT",
+      "000",
+      padRef(getRowIndex + 2)
     ]);
   }
 
