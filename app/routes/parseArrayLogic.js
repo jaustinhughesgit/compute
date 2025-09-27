@@ -2017,21 +2017,34 @@ async function parseArrayLogic({
       padRef(getRowIndex + 1),
       "createdEntities",
       createdEntities
-    ]);
+    ]); //try adding entities using ADDPROPTERY
 
 
     shorthand.push([
       "ROWRESULT",
       "000",
       padRef(getRowIndex + 2)
-    ]);
+    ]); //and then pushing that to 000
+
+    shorthand.push(
+          [
+            "ROUTE",
+            padRef(getRowIndex + 3),
+            {},
+            "saveFile",
+            padRef(routeRowNewIndex + 1),
+            ""
+          ]
+        );
+      }
+
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
 
-  return { shorthand: finalShorthand, details: results, arrayLogic };
+  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
 module.exports = { parseArrayLogic };
