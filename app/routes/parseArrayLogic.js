@@ -1869,7 +1869,7 @@ async function parseArrayLogic({
         ]);
 
         shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-        console.log("999 elm", elm)
+        console.log("999 elem", elem)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
         console.log("999 desiredObj",desiredObj)
