@@ -1921,6 +1921,7 @@ async function parseArrayLogic({
         console.log("padRef(routeRowNewIndex + 3)",padRef(routeRowNewIndex + 3));
         console.log("padRef(routeRowNewIndex + 4)",padRef(routeRowNewIndex + 4));
         console.log("padRef(routeRowNewIndex + 5)",padRef(routeRowNewIndex + 5));
+        console.log("shorthand",JSON.stringify(shorthand))
         shorthand.push(
           [
             "ROUTE",
