@@ -1835,8 +1835,7 @@ async function parseArrayLogic({
       console.log("999 body?.input?.name", body?.input?.name)
       console.log("999 body?.input?.title",body?.input?.title)
       console.log("999 body?.input?.entity",body?.input?.entity)
-      const entNameRaw =
-        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
@@ -1884,17 +1883,23 @@ async function parseArrayLogic({
 
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-        console.log("999 objectJPL",objectJPL)
+
+        
+        console.log("999 objectJPL", JSON.stringify(objectJPL))
+        
+        console.log("999 actions",padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
 
         shorthand.push(
           ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
         );
 
         if (objectJPL.modules) {
+        console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
           );
         } else {
+        console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
           );
@@ -1911,6 +1916,11 @@ async function parseArrayLogic({
         });
         console.log("999 createdEntities", createdEntities)
 
+        console.log("padRef(routeRowNewIndex + 1)",padRef(routeRowNewIndex + 1));
+        console.log("padRef(routeRowNewIndex + 2)",padRef(routeRowNewIndex + 2));
+        console.log("padRef(routeRowNewIndex + 3)",padRef(routeRowNewIndex + 3));
+        console.log("padRef(routeRowNewIndex + 4)",padRef(routeRowNewIndex + 4));
+        console.log("padRef(routeRowNewIndex + 5)",padRef(routeRowNewIndex + 5));
         shorthand.push(
           [
             "ROUTE",
