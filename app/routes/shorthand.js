@@ -1320,7 +1320,585 @@ try {
 return resp;
 
         },
-       
+        FINDORCREATE: async (rowArray) => {
+            let rA = await rowArray
+            return { "url": "http://abc.api.1var.com/cookies/find" + rA[0] }
+        },
+        EMPTY: (rowArray) => {
+            return "";
+        },
+        SLEEP: async (rowArray) => {
+            console.log("SLEEP rowArray", rowArray)
+            await sleep(rowArray[1]);
+            return "";
+        },
+        JOIN: async (rowArray) => {
+            const updatedArray = rowArray.map(str =>
+                typeof str === "string" ? str.replace(/¡¡/g, "!!") : str
+            );
+            const resolved = await resolveRow(updatedArray);
+            const flattenDeep = (arr) => {
+                return arr.reduce((acc, item) => {
+                    if (Array.isArray(item)) {
+                        acc.push(...flattenDeep(item));
+                    } else if (item && typeof item === "object" && Array.isArray(item.__useArray)) {
+                        acc.push(...flattenDeep(item.__useArray));
+                    } else {
+                        acc.push(item);
+                    }
+                    return acc;
+                }, []);
+            };
+            const items = resolved.slice(1);
+            const flattened = flattenDeep(items);
+            return flattened.join("");
+        },
+        SUBSTITUTE: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
+            const search = await resolveCell(rowArray[2]);
+            const replacement = await resolveCell(rowArray[3]);
+            const nth = await resolveCell(rowArray[4]);
+            let occurrences = 0;
+            if (typeof str !== "string" || typeof search !== "string") {
+                return str;
+            }
+            return str.replace(new RegExp(search, "g"), (match) => {
+                if (!nth || nth === "") {
+                    return replacement;
+                }
+                if (occurrences.toString() === nth) {
+                    occurrences++;
+                    return replacement;
+                }
+                occurrences++;
+                return match;
+            });
+        },
+        RANGE: async (rowArray) => {
+            const fromRef = rowArray[1];
+            const toRef = rowArray[2];
+            const fromCell = getCellID(fromRef);
+            const toCell = getCellID(toRef);
+            if (!fromCell || !toCell) return [];
+            const rowIndex = fromCell.row;
+            const startCol = Math.min(fromCell.col, toCell.col);
+            const endCol = Math.max(fromCell.col, toCell.col);
+            let results = [];
+            for (let col = startCol; col <= endCol; col++) {
+                let rawCellTxt = matrix[rowIndex][col];
+                let resolved = await resolveCell(rawCellTxt);
+                results.push(resolved);
+            }
+            return results;
+        },
+        USE: async (rowArray) => {
+            const argRef = rowArray[1];
+            const resolvedVal = await resolveCell(argRef);
+            return { __useArray: resolvedVal };
+        },
+        AVG: async (rowArray) => {
+            const values = await Promise.all(rowArray.slice(1).map(async (cell) => {
+                const resolvedValue = await resolveCell(cell);
+                return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
+            }));
+
+            const sum = values.reduce((acc, val) => acc + val, 0);
+            const average = values.length > 0 ? sum / values.length : 0;
+            return average.toFixed(2);
+        },
+        SUM: async (rowArray) => {
+            const values = await Promise.all(rowArray.slice(1).map(async (cell) => {
+                const resolvedValue = await resolveCell(cell);
+                return isNaN(resolvedValue) ? 0 : parseFloat(resolvedValue);
+            }));
+            const sum = values.reduce((acc, val) => acc + val, 0);
+            return sum.toFixed(2);
+        },
+        MED: async (rowArray) => {
+            const values = rowArray
+                .slice(1)
+                .map(async (cell) => {
+                    const resolvedValue = await resolveCell(cell);
+                    return isNaN(resolvedValue) ? null : parseFloat(resolvedValue);
+                })
+                .filter((val) => val !== null);
+            values.sort((a, b) => a - b);
+            const len = values.length;
+            if (len === 0) return "0.00";
+            const mid = Math.floor(len / 2);
+            if (len % 2 !== 0) {
+                return values[mid].toFixed(2);
+            }
+            const median = (values[mid - 1] + values[mid]) / 2;
+            return median.toFixed(2);
+        },
+        CONDITION: async (rowArray) => {
+            const leftVal = await resolveCell(rowArray[1]);
+            const operator = await resolveCell(rowArray[2]);
+            const rightVal = await resolveCell(rowArray[3]);
+            const leftNum = parseFloat(leftVal);
+            const rightNum = parseFloat(rightVal);
+            if (!comparisonOperators[operator]) {
+                return false;
+            }
+            if (!isNaN(leftNum) && !isNaN(rightNum)) {
+                return comparisonOperators[operator](leftNum, rightNum);
+            }
+            if (operator === "==") {
+                return leftVal === rightVal;
+            } else if (operator === "!=") {
+                return leftVal != rightVal;
+            } else {
+                return false;
+            }
+        },
+        ITE: async (rowArray) => {
+            const conditionVal = await resolveCell(rowArray[1]);
+            const thenVal = await resolveCell(rowArray[2]);
+            const elseVal = await resolveCell(rowArray[3]);
+            let isTrue;
+            if (typeof conditionVal === "boolean") {
+                isTrue = conditionVal;
+            }
+            else if (typeof conditionVal === "string") {
+                const lower = conditionVal.toLowerCase();
+                if (lower === "true") {
+                    isTrue = true;
+                } else if (lower === "false" || lower === "") {
+                    isTrue = false;
+                } else {
+                    isTrue = true;
+                }
+            }
+            else {
+                isTrue = Boolean(conditionVal);
+            }
+            return isTrue ? thenVal : elseVal;
+        },
+        ALL: async (rowArray) => {
+            const values = await Promise.all(rowArray.slice(1).map((cell) => resolveCell(cell)));
+            const bools = values.map((val) => {
+                if (typeof val === "boolean") return val;
+                if (typeof val === "string") {
+                    const lower = val.toLowerCase();
+                    if (lower === "true") return true;
+                    if (lower === "false" || lower === "") return false;
+                }
+                return Boolean(val);
+            });
+            return bools.every((b) => b === true);
+        },
+        JSON: async (rowArray) => {
+            let jsonStr = await resolveCell(rowArray[1]);
+            if (typeof jsonStr !== "string") {
+                return jsonStr;
+            }
+            try {
+                return JSON.parse(jsonStr);
+            } catch (e) {
+                console.error("Invalid JSON string:", jsonStr, e);
+                return {};
+            }
+        },
+        ARRAY: async (rowArray) => {
+            try {
+                let arrStr = await resolveCell(rowArray[1]);
+                if (typeof arrStr === "string" && rowArray.length === 2) {
+                    let parsed = JSON.parse(arrStr);
+                    if (Array.isArray(parsed)) {
+                        return parsed;
+                    }
+                }
+                const resolvedArray = [];
+                for (let i = 1; i < rowArray.length; i++) {
+                    const cellValue = await resolveCell(rowArray[i]);
+                    resolvedArray.push(cellValue);
+                }
+                return resolvedArray;
+            } catch (e) {
+                console.error("ARRAY: Error processing rowArray:", rowArray, e);
+                return [];
+            }
+        },
+        APPEND: async (rowArray) => {
+            try {
+                const baseRef = await resolveCell(rowArray[1]);
+                let copyArr = Array.isArray(baseRef) ? [...baseRef] : [];
+                const resolvedElements = [];
+                for (let i = 2; i < rowArray.length; i++) {
+                    const cellValue = await resolveCell(rowArray[i]);
+                    resolvedElements.push(cellValue);
+                }
+                copyArr.push(...resolvedElements);
+                return copyArr;
+            } catch (e) {
+                console.error("APPEND: Error processing rowArray:", rowArray, e);
+                return [];
+            }
+        },
+        PREPEND: async (rowArray) => {
+            try {
+                const baseRef = await resolveCell(rowArray[1]);
+                let copyArr = Array.isArray(baseRef) ? [...baseRef] : [];
+                const resolvedElements = [];
+                for (let i = 2; i < rowArray.length; i++) {
+                    const cellValue = await resolveCell(rowArray[i]);
+                    resolvedElements.push(cellValue);
+                }
+                copyArr.unshift(...resolvedElements);
+                return copyArr;
+            } catch (e) {
+                console.error("PREPEND: Error processing rowArray:", rowArray, e);
+                return [];
+            }
+        },
+        ADDPROPERTY: async (rowArray) => {
+            let baseRef = rowArray[1];
+            let key = await resolveCell(rowArray[2]);
+            let valueRef = rowArray[3];
+            console.log("ADDPROPERTY")
+            if (isRowResultRef(baseRef) || isJSON(baseRef)) {
+                let baseObj;
+                console.log("1", baseObj)
+                if (isRowResultRef(baseRef)) {
+                    console.log("2")
+                    let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                    baseObj = rowResult[baseIndex];
+                } else {
+                    console.log("3")
+                    baseObj = baseRef;
+                }
+                if (typeof baseObj !== "object" || baseObj === null) {
+                    console.log("4")
+                    baseObj = {};
+                } else {
+                    console.log("5")
+                    baseObj = Array.isArray(baseObj) ? [...baseObj] : { ...baseObj };
+                }
+                let finalVal;
+                if (isRowResultRef(valueRef)) {
+                    console.log("6")
+                    let valIndex = parseInt(valueRef.slice(0, 3), 10);
+                    finalVal = rowResult[valIndex];
+                } else {
+                    console.log("7")
+                    finalVal = await resolveCell(valueRef);
+                }
+                baseObj[key] = finalVal;
+                console.log("baseObj", baseObj)
+                return baseObj;
+            } else {
+                console.error("ADDPROPERTY: The base reference is not a rowResult reference:", baseRef);
+                return {};
+            }
+        },
+        MERGE: async (rowArray) => {
+            let baseRef = rowArray[1];
+            if (isRowResultRef(baseRef)) {
+                const baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseRef = rowResult[baseIndex];
+            } else if (typeof baseRef === "string") {
+                try {
+                    baseRef = JSON.parse(baseRef);
+                } catch (e) {
+                    console.warn("MERGE: baseRef is a string that did not parse as JSON. Using plain text:", baseRef);
+                }
+            }
+            if (Array.isArray(baseRef)) {
+                return baseRef.reduce(async (acc, item) => {
+                    let parsedItem = typeof item === "string" ? safelyParseJSON(item) : item;
+                    return await deepMerge(acc, parsedItem);
+                }, {});
+            } else if (typeof baseRef === "object" && baseRef !== null) {
+                const newDataRef = rowArray[2];
+                let newData = await resolveCell(newDataRef);
+                if (typeof newData === "string") {
+                    try {
+                        newData = JSON.parse(newData);
+                    } catch (e) {
+                        console.warn("MERGE: newData is a string that did not parse as JSON. Using plain text:", newData);
+                    }
+                }
+                return await deepMerge(baseRef, newData);
+            } else {
+                console.error("MERGE: rowArray[1] must be either an array or object:", baseRef);
+                return {};
+            }
+        },
+        NESTED: async (rowArray) => {
+            console.log("NESTED rowArray", rowArray)
+            const baseRef = rowArray[1];
+            if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
+                console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
+                return {};
+            }
+            let baseObj;
+            if (isRowResultRef(baseRef)) {
+                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseObj = rowResult[baseIndex];
+            } else {
+                baseObj = baseRef;
+            }
+            if (typeof baseObj !== "object" || baseObj === null) {
+                return setNestedValue({}, rowArray.slice(2, -1), resolveCell(rowArray[rowArray.length - 1]));
+            }
+            let newObj = Array.isArray(baseObj)
+                ? [...baseObj]
+                : { ...baseObj };
+            const pathTokens = rowArray.slice(2, rowArray.length - 1);
+            const valueRef = rowArray[rowArray.length - 1];
+            let finalVal;
+            if (isRowResultRef(valueRef)) {
+                let valIndex = parseInt(valueRef.slice(0, 3), 10);
+                finalVal = rowResult[valIndex];
+            } else {
+                finalVal = await resolveCell(valueRef);
+            }
+            const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
+            console.log("return updatedObj", JSON.stringify(updatedObj))
+            return updatedObj;
+        },
+        GET: (rowArray) => {
+            console.log("GET rowArray", rowArray)
+            const baseRef = rowArray[1];
+            if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
+                return {};
+            }
+            const pathTokens = rowArray.slice(2);
+            let nested = getNested(baseRef, pathTokens);
+            console.log("return nested", nested)
+            return nested;
+        },
+        DELETEPROPERTY: (rowArray) => {
+            const baseRef = rowArray[1];
+            if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
+                console.error("DELETEPROPERTY: The base reference is not a rowResult reference:", baseRef);
+                return {};
+            }
+            let baseObj;
+            if (isRowResultRef(baseRef)) {
+                let baseIndex = parseInt(baseRef.slice(0, 3), 10);
+                baseObj = rowResult[baseIndex];
+            } else {
+                baseObj = baseRef;
+            }
+            if (typeof baseObj !== "object" || baseObj === null) {
+                return {};
+            }
+            let newObj = Array.isArray(baseObj)
+                ? [...baseObj]
+                : { ...baseObj };
+            const pathTokens = rowArray.slice(2);
+            deleteNestedValue(newObj, pathTokens);
+            return newObj;
+        },
+        STRING: (rowArray) => {
+            let val;
+            if (isJSON(rowArray[1])) {
+                val = JSON.stringify(rowArray[1], null, 2);
+            } else {
+                val = String(resolveCell(rowArray[1]));
+            }
+            return val;
+        },
+        INTEGER: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
+            let intVal = parseInt(val, 10);
+            if (isNaN(intVal)) {
+                return 0;
+            }
+            return intVal;
+        },
+        FLOAT: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
+            let floatVal = parseFloat(val);
+            if (isNaN(floatVal)) {
+                return 0.0;
+            }
+            return floatVal;
+        },
+        BUFFER: async (rowArray) => {
+            let val = await resolveCell(rowArray[1]);
+            if (typeof val !== "string") {
+                return Buffer.from([]);
+            }
+            try {
+                return Buffer.from(val, "base64");
+            } catch (e) {
+                return Buffer.from([]);
+            }
+        },
+        ROWRESULT: async (rowArray) => {
+            rowResult[parseInt(rowArray[1], 10)] = await resolveCell(rowArray[2]);
+        },
+        LOOP: (rowArray) => {
+            if (!rowResult[resRow]) {
+                rowResult[resRow] = [0];
+            }
+            rowResult[resRow][0] = rowResult[resRow][0] + 1;
+            let res = rowResult[resRow][0];
+            return res;
+        },
+        ADD: async (rowArray) => {
+            let total = 0;
+            for (let i = 1; i < rowArray.length; i++) {
+                const expr = await resolveCell(rowArray[i]);
+                let val;
+                try {
+                    val = math.evaluate(expr.toString());
+                } catch (e) {
+                    console.error(`ADD: Error evaluating expression "${expr}":`, e);
+                    val = 0;
+                }
+                if (isNaN(val)) val = 0;
+                total += val;
+            }
+            return total;
+        },
+        SUBTRACT: async (rowArray) => {
+            if (rowArray.length < 2) return 0;
+            let initial = 0;
+            try {
+                initial = math.evaluate(resolveCell(rowArray[1]).toString());
+            } catch (e) {
+                console.error(`SUBTRACT: Error evaluating expression "${rowArray[1]}":`, e);
+                initial = 0;
+            }
+            for (let i = 2; i < rowArray.length; i++) {
+                let val;
+                const expr = await resolveCell(rowArray[i]);
+                try {
+                    val = math.evaluate(expr.toString());
+                } catch (e) {
+                    console.error(`SUBTRACT: Error evaluating expression "${expr}":`, e);
+                    val = 0;
+                }
+                if (isNaN(val)) val = 0;
+                initial -= val;
+            }
+            return initial;
+        },
+        RUN: (rowArray) => {
+            return parseInt(rowArray[1], 10);
+        },
+        MATRIX: (rowArray) => {
+            const cellInfo = getCellID(rowArray[1].toUpperCase());
+            if (!cellInfo) {
+                console.warn("Invalid cell reference, skipping:", rowArray[1]);
+                return;
+            }
+            let { row, col } = cellInfo;
+            while (matrix.length <= row) {
+                matrix.push([]);
+                let newRowID = rowID.length.toString().padStart(3, "0");
+                rowID.push(newRowID);
+            }
+            while (matrix[row].length <= col) {
+                matrix[row].push("");
+            }
+            matrix[row][col] = rowArray[2];
+            if (col > highestCol) {
+                highestCol = col;
+                generateColIDs();
+            }
+        },
+        UPPER: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
+            if (typeof str !== "string") {
+                return "";
+            }
+            return str.toUpperCase();
+        },
+        LOWER: async (rowArray) => {
+            const str = await resolveCell(rowArray[1]);
+            if (typeof str !== "string") {
+                return "";
+            }
+            return str.toLowerCase();
+        },
+        FIND: async (rowArray) => {
+            const needle = await resolveCell(rowArray[1]);
+            if (typeof needle !== "string") {
+                return "";
+            }
+            for (let r = 0; r < matrix.length; r++) {
+                for (let c = 0; c < matrix[r].length; c++) {
+                    if (matrix[r][c] === needle) {
+                        return rowID[r] + colID[c];
+                    }
+                }
+            }
+            return "";
+        },
+        SKIP: (rowArray) => {
+            return null;
+        },
+        SPLICE: (rowArray) => {
+            const cellInfo = getCellID(rowArray[1].toUpperCase());
+            if (!cellInfo) {
+                console.warn("SPLICE: invalid cell reference:", rowArray[1]);
+                return;
+            }
+            const { row, col } = cellInfo;
+            while (matrix.length <= row) {
+                matrix.push([]);
+                let newRowID = rowID.length.toString().padStart(3, "0");
+                rowID.push(newRowID);
+            }
+            while (matrix[row].length < col) {
+                matrix[row].push("");
+            }
+            const itemsToInsert = rowArray.slice(2);
+            matrix[row].splice(col, 0, ...itemsToInsert);
+            if (matrix[row].length - 1 > highestCol) {
+                highestCol = matrix[row].length - 1;
+                generateColIDs();
+            }
+        },
+        FUNCTION: (rowArray) => {
+
+        },
+        TREE: (rowArray) => {
+            const levels = parseInt(resolveCell(rowArray[1]), 10) || 0;
+            const direction = (resolveCell(rowArray[3]) || "").toLowerCase();
+            let rootRef = rowArray[2];
+            if (typeof rootRef === "string") {
+                rootRef = parseInt(rootRef, 10);
+            }
+            if (isNaN(rootRef)) {
+                console.warn("TREE: Invalid root row reference:", rowArray[2]);
+                return null;
+            }
+            let visitedSet = new Set();
+            if (direction === "down") {
+                visitedSet = gatherDown(rootRef, levels);
+            }
+            else if (direction === "up") {
+                visitedSet = gatherUp(rootRef, levels);
+            }
+            else if (direction === "out") {
+                const downSet = gatherDown(rootRef, levels);
+                const upSet = gatherUp(rootRef, levels);
+                visitedSet = new Set([...downSet, ...upSet]);
+            } else {
+                console.warn(`TREE: Unrecognized direction "${direction}", returning just the root row.`);
+                visitedSet.add(rootRef);
+            }
+            const visitedRows = Array.from(visitedSet).sort((a, b) => a - b);
+            if (visitedRows.length === 0) {
+                return null;
+            }
+            const maxRow = visitedRows[visitedRows.length - 1];
+            let fullOutput = [];
+            for (let i = 0; i <= maxRow; i++) {
+                if (visitedSet.has(i) && matrix[i]) {
+                    fullOutput[i] = [...matrix[i]];
+                } else {
+                    fullOutput[i] = null;
+                }
+            }
+            return fullOutput;
+        },
     };
 
     console.log("shorthandArray << ^^ >>", shorthandArray)
@@ -1334,6 +1912,10 @@ return resp;
 }
     shorthandObj.published = rr0
     shorthandObj.conclusion = "rr0"
+
+    
+  console.log("⇢ rowResult2", JSON.stringify(rowResult, null, 4));
+  console.log("⇢ shorthand2", JSON.stringify(shorthandObj, null, 4));
     return shorthandObj
 }
 
