@@ -2030,8 +2030,8 @@ async function parseArrayLogic({
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 2));
-
+  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
+  console.log("createdEntities",JSON.stringify(createdEntities, null, 4))
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
