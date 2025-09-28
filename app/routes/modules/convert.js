@@ -415,7 +415,7 @@ function subdomains(domain){
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
         conclusion,
-        createdEntities,
+        createdEntities: parseResults?.createdEntities,
       };
 
       mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
