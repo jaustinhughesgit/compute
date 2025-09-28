@@ -1904,15 +1904,7 @@ async function parseArrayLogic({
 
 
         console.log("999 pushing to createdEntities")
-        createdEntities.push({ 
-          entity: padRef(routeRowNewIndex + 5), 
-          name: fixedOutput, 
-          nameFromFile: typeof nameRow === "number" ? padRef(nameRow) : null, 
-          domain, 
-          subdomain, 
-          contentType: "text",
-          other1:padRef(routeRowNewIndex + 1)
-        });
+
         console.log("999 createdEntities", createdEntities)
 
         console.log("padRef(routeRowNewIndex + 1)",padRef(routeRowNewIndex + 1));
@@ -2016,14 +2008,20 @@ async function parseArrayLogic({
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      createdEntities
+      { 
+          entity: "", 
+          name: "_new", 
+          contentType: "text",
+          id:"_new"
+        }
     ]); //try adding entities using ADDPROPTERY
 
+    shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
     shorthand.push([
       "ROWRESULT",
       "000",
-      padRef(getRowIndex + 2)
+      padRef(getRowIndex + 3)
     ]); //and then pushing that to 000
     
   }
