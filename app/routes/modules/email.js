@@ -91,6 +91,7 @@ function register({ on, use }) {
 
   // --- INTERNAL: create minimal user (userID === e) when not present & send invite ---
   async function initEmail(ddb, ses, input) {
+    console.log(">>>initEmail",initEmail)
     const {
       recipientEmail, recipientHash, senderHash, senderName = "A 1var user",
       previewText = "", fromEmail = "noreply@email.1var.com", fromName = "1 VAR",
@@ -195,6 +196,7 @@ Privacy: https://1var.com/privacy`;
 
   // --- INTERNAL: for existing users (respect block/allow; send normal email content) ---
   async function generalEmail(ddb, ses, input, userRecord) {
+    console.log(">>>generalEmail",generalEmail)
     const {
       recipientEmail, recipientHash, senderHash,
       subject = "You have a new message on 1var",
@@ -268,6 +270,10 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     const recipientHash  = String(input.recipientHash  || "").trim();
     const senderHash     = String(input.senderHash     || "").trim();
 
+    console.log("recipientEmail",recipientEmail)
+    console.log("recipientHash",recipientHash)
+    console.log("senderHash",senderHash)
+
     if (!recipientEmail || !recipientHash || !senderHash) {
       return { ok: false, error: "recipientEmail, recipientHash, and senderHash are required" };
     }
@@ -282,13 +288,16 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         ExpressionAttributeValues: { ":eh": recipientHash },
         Limit: 1,
       }).promise();
+      console.log("qqq",q)
       existingUser = (q.Items && q.Items[0]) || null;
     } catch (err) {
       console.error("sendEmail: emailHashIndex lookup failed", err);
       return { ok: false, error: "lookup_failed" };
     }
 
+    console.log("existingUser",existingUser)
     if (!existingUser) {
+      console.log("initEmail",initEmail)
       // New user → initEmail
       try {
         return await initEmail(ddb, ses, input);
@@ -297,6 +306,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         return { ok: false, error: "init_email_failed" };
       }
     } else {
+      console.log("generalEmail",generalEmail)
       // Existing user → generalEmail
       try {
         return await generalEmail(ddb, ses, input, existingUser);

@@ -1,3 +1,4 @@
+//modules/stop.js
 "use strict";
 
 function register({ on, use }) {

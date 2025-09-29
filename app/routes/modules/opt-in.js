@@ -1,3 +1,4 @@
+//modules/opt-in.js
 "use strict";
 
 function register({ on, use }) {
