@@ -116,6 +116,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/substituteGroup");
   reg("./modules/paths");
   reg("./modules/email");
+  reg("./modules/stop");
+  reg("./modules/opt-in");
 
   const router = express.Router({ mergeParams: true });
 
