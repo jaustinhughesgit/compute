@@ -136,22 +136,6 @@ function createShared(deps = {}) {
     }
   };
 
- async function createMinimalUserPair(ddb = dynamodb) {
-   const aGid = await incrementCounterAndGetNewValue("wCounter", ddb);
-   const aEid = await incrementCounterAndGetNewValue("wCounter", ddb);
-   const aG   = await createWord(String(aGid), "user", ddb);
-   const aE   = await createWord(String(aEid), "user", ddb);
-   const gNew = await incrementCounterAndGetNewValue("gCounter", ddb);
-   const e    = await incrementCounterAndGetNewValue("eCounter", ddb);
-
-   await createGroup(String(gNew), aG, String(e), [], ddb);
-   const vHead = await addVersion(String(e), "a", aE, null, ddb);
-   await createEntity(String(e), aE, vHead?.v || "1", String(gNew), String(e), ["0"], ddb);
-
-   return { g: String(gNew), e: String(e) };
- }
- expose("createMinimalUserPair", createMinimalUserPair);
-  
   const expose = (name, fn) => {
     registry[name] = fn;
     return fn;
@@ -1250,7 +1234,7 @@ function createShared(deps = {}) {
 
     // utils
     isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment,
-    normalizeEmail, hashEmail, createMinimalUserPair,
+    normalizeEmail, hashEmail,
 
     // data access / domain
     getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks, getTasksIOS,
