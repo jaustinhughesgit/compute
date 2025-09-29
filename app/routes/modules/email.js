@@ -30,6 +30,8 @@ function register({ on, use }) {
     createEntity,
     addVersion,
     getSES,
+    hashEmail,
+    normalizeEmail,
   } = use();
 
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
@@ -267,8 +269,13 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     const ses = getSES();
     const input = unwrapBody(ctx.req?.body) || {};
 
-    const recipientEmail = String(input.recipientEmail || "").trim();
-    const recipientHash  = String(input.recipientHash  || "").trim();
+    const recipientEmail = normalizeEmail(input.recipientEmail);
+    const serverHash     = hashEmail(recipientEmail);
+    const recipientHashFromClient = String(input.recipientHash || "").trim();
+    const recipientHash  = serverHash; // always use server-computed hash
+    if (recipientHashFromClient && recipientHashFromClient !== serverHash) {
+      console.warn("sendEmail: recipientHash mismatch; using server-computed hash");
+    }
     const senderHash     = String(input.senderHash     || "").trim();
 
     console.log("recipientEmail",recipientEmail)
@@ -301,7 +308,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       console.log("initEmail",initEmail)
       // New user → initEmail
       try {
-        return await initEmail(ddb, ses, input);
+        return await initEmail(ddb, ses, { ...input, recipientHash });
       } catch (err) {
         console.error("sendEmail:initEmail failed", err);
         return { ok: false, error: "init_email_failed" };

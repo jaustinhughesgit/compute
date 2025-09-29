@@ -1,5 +1,6 @@
 // routes/shared.js
 const moment = require("moment-timezone");
+const crypto = require("crypto");
 
 const isObject = (val) =>
   val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
@@ -11,6 +12,20 @@ const parseCSV = (csv) =>
     .split("\n")
     .map((row) => row.split(",").map((c) => c.trim()));
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// ---- Email hashing (one-way) helpers ----
+function normalizeEmail(raw) {
+  return String(raw || "").trim().toLowerCase();
+}
+function hashEmail(raw) {
+  // Use a server-side secret ("pepper") if present to make hashes non-brute-forceable.
+  const PEPPER = process.env.EMAIL_HASH_PEPPER || "";
+  const canon = normalizeEmail(raw);
+  return PEPPER
+    ? crypto.createHmac("sha256", PEPPER).update(canon).digest("hex")
+    : crypto.createHash("sha256").update(canon).digest("hex");
+}
+
 
 const deepEqual = (a, b) => {
   if (a === b) return true;
@@ -743,7 +758,7 @@ function createShared(deps = {}) {
                 req: {
                   body: {
                     userID: eForCookie,
-                    emailHash: `${suDocForEmail}@email.1var.com`,
+                    emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
                     pubEnc: null,
                     pubSig: null,
                     revoked: false,
@@ -1219,6 +1234,7 @@ function createShared(deps = {}) {
 
     // utils
     isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment,
+    normalizeEmail, hashEmail,
 
     // data access / domain
     getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks, getTasksIOS,
