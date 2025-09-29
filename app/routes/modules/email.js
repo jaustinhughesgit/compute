@@ -262,6 +262,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
 
   // --- ACTION: decide path → initEmail (new) vs generalEmail (existing) ---
   on("sendEmail", async (ctx /*, meta */) => {
+    console.log("sendEmail ctx", ctx)
     const ddb = getDocClient();
     const ses = getSES();
     const input = unwrapBody(ctx.req?.body) || {};
