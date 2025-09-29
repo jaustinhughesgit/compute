@@ -32,6 +32,7 @@ function register({ on, use }) {
     getSES,
     hashEmail,
     normalizeEmail,
+    createMinimalUserPair,
   } = use();
 
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
@@ -100,17 +101,8 @@ function register({ on, use }) {
       brand = "1var", linksHost = "https://email.1var.com", apiHost = "https://abc.api.1var.com",
     } = input;
 
-    // Minimal group/entity so schema stays consistent
-    const aGid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aEid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aG = await createWord(String(aGid), "user", ddb);
-    const aE = await createWord(String(aEid), "user", ddb);
-    const gNew = await incrementCounterAndGetNewValue("gCounter", ddb);
-    const e    = await incrementCounterAndGetNewValue("eCounter", ddb);
-
-    await createGroup(String(gNew), aG, String(e), [], ddb);
-    const vHead = await addVersion(String(e), "a", aE, null, ddb);
-    await createEntity(String(e), aE, vHead?.v || "1", String(gNew), String(e), ["0"], ddb);
+   // Centralized: group/entity pair decides the canonical entityID used as userID
+   const { e } = await createMinimalUserPair(ddb);
 
     const now = Date.now();
     try {
