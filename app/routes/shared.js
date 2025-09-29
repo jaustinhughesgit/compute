@@ -84,7 +84,7 @@ function createShared(deps = {}) {
     };
   };
 
-
+  
 
   const dispatch = async (action, ctx = {}, extra = {}) => {
     const handler = actions.get(action);
@@ -136,22 +136,22 @@ function createShared(deps = {}) {
     }
   };
 
-  async function createMinimalUserPair(ddb = dynamodb) {
-    const aGid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aEid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aG = await createWord(String(aGid), "user", ddb);
-    const aE = await createWord(String(aEid), "user", ddb);
-    const gNew = await incrementCounterAndGetNewValue("gCounter", ddb);
-    const e = await incrementCounterAndGetNewValue("eCounter", ddb);
+ async function createMinimalUserPair(ddb = dynamodb) {
+   const aGid = await incrementCounterAndGetNewValue("wCounter", ddb);
+   const aEid = await incrementCounterAndGetNewValue("wCounter", ddb);
+   const aG   = await createWord(String(aGid), "user", ddb);
+   const aE   = await createWord(String(aEid), "user", ddb);
+   const gNew = await incrementCounterAndGetNewValue("gCounter", ddb);
+   const e    = await incrementCounterAndGetNewValue("eCounter", ddb);
 
-    await createGroup(String(gNew), aG, String(e), [], ddb);
-    const vHead = await addVersion(String(e), "a", aE, null, ddb);
-    await createEntity(String(e), aE, vHead?.v || "1", String(gNew), String(e), ["0"], ddb);
+   await createGroup(String(gNew), aG, String(e), [], ddb);
+   const vHead = await addVersion(String(e), "a", aE, null, ddb);
+   await createEntity(String(e), aE, vHead?.v || "1", String(gNew), String(e), ["0"], ddb);
 
-    return { g: String(gNew), e: String(e) };
-  }
-  expose("createMinimalUserPair", createMinimalUserPair);
-
+   return { g: String(gNew), e: String(e) };
+ }
+ expose("createMinimalUserPair", createMinimalUserPair);
+  
   const expose = (name, fn) => {
     registry[name] = fn;
     return fn;
@@ -726,16 +726,37 @@ function createShared(deps = {}) {
       let suDocForEmail = null;
 
       try {
-        const { e: eCreated } = await createMinimalUserPair(ddb);
-        eForCookie = eCreated;
-        // suDocForEmail optional; only set if you truly need an email doc here.
+        // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
+        const newGroupHandler = actions.get("newGroup");
+        if (typeof newGroupHandler === "function") {
+          const ctxForNewGroup = {
+            path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
+            req: { body: {} },
+            res,
+            xAccessToken: null,
+          };
+
+          // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
+          const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          console.log("ngResult", ngResult)
+          // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
+          eForCookie = ngResult?.response?.entity;
+          suDocForEmail = ngResult?.response?.file;
+        } else {
+          console.warn("manageCookie: newGroup action not registered; proceeding without e");
+        }
       } catch (err) {
         console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
       }
-      console.log("eForCookie", eForCookie)
-      console.log("eForCookie", eForCookie)
-      console.log("eForCookie", eForCookie)
-      console.log("eForCookie", eForCookie)
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
+      console.log("eForCookie",eForCookie)
       // Create the cookie, now including e
       await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
 
@@ -743,8 +764,8 @@ function createShared(deps = {}) {
       // Create the user record BEFORE returning the cookie.
       // e = user id; suDoc drives the generated email <suDoc>@email.1var.com
       try {
-        console.log("eForCookie", eForCookie)
-        console.log("suDocForEmail", suDocForEmail)
+        console.log("eForCookie",eForCookie)
+        console.log("suDocForEmail",suDocForEmail)
         if (eForCookie !== "0" && suDocForEmail) {
           const createUserHandler = actions.get("createUser");
           if (typeof createUserHandler === "function") {
