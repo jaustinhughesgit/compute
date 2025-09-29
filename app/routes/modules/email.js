@@ -282,8 +282,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     console.log("recipientHash",recipientHash)
     console.log("senderHash",senderHash)
 
-    if (!recipientEmail || !recipientHash || !senderHash) {
-      return { ok: false, error: "recipientEmail, recipientHash, and senderHash are required" };
+    if (!recipientEmail || !senderHash) {
+      return { ok: false, error: "recipientEmail and senderHash are required" };
     }
 
     // Lookup by GSI emailHashIndex
