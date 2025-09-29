@@ -1,65 +1,65 @@
 // modules/opt-in.js
 "use strict";
 
-/**
- * This handler intentionally ignores req.path/ctx.path.
- * It reads ONLY from the X-Original-Host header, which your router promotes:
- *   - router.all("*") and route() both do:
- *       req.get("X-Original-Host") || req.headers["x-original-host"] || body.headers["X-Original-Host"]
- *   - Then they strip scheme/host and keep the path.
- *
- * Expected header examples:
- *   https://abc.api.1var.com/cookies/opt-in/<recipientHash>/<senderHash?>
- *   /cookies/opt-in/<recipientHash>/<senderHash?>
- *   /url/opt-in/<recipientHash>/<senderHash?>
- */
-
 function register({ on, use }) {
   const { getDocClient } = use();
 
-  function parseFromOriginalHost(req) {
-    // Header may be accessible via req.get() or req.headers (lowercased by Node).
-    const rawHeader =
-      (req?.get && req.get("X-Original-Host")) ||
-      req?.headers?.["x-original-host"] ||
-      req?.headers?.["X-Original-Host"];
+  // Helper: extract pathname from X-Original-Host header or req.path
+  function getPathFromReq(req) {
+    // 1) start with req.path if it's already there
 
-    if (!rawHeader) {
-      return { recipientHash: "", senderHash: "" };
+    // 2) otherwise look for X-Original-Host (frameworks lowercase headers)
+    const headers = req?.headers || {};
+    const headerKey = Object.keys(headers).find(
+      (k) => k.toLowerCase() === "x-original-host"
+    );
+    const headerVal = headerKey ? headers[headerKey] : null;
+
+    if (!headerVal) return "";
+
+    // headerVal might be a full URL or just a path; try URL first
+    try {
+      const u = new URL(String(headerVal));
+      return u.pathname || "";
+    } catch {
+      // Not a full URL. Normalize to a path-ish string.
+      const s = String(headerVal);
+      if (s.startsWith("/")) return s;
+      return `/${s}`;
     }
+  }
 
-    // Normalize to a path (strip scheme+host if present, drop query)
-    const withoutOrigin = String(rawHeader).replace(/^https?:\/\/[^/]+/, "");
-    const pathOnly = withoutOrigin.split("?")[0];
+  // Helper: from a pathname, locate 'opt-in' and read the next segments
+  function parseOptInSegments(pathname) {
+    const segs = String(pathname)
+      .split("/")
+      .filter(Boolean); // remove empty
 
-    // Split and locate 'opt-in' regardless of any prefix like 'cookies' or 'url'
-    const segs = pathOnly.split("/").filter(Boolean);
+    // Find 'opt-in' anywhere in the path (e.g., /cookies/opt-in/...)
     const optIdx = segs.findIndex((s) => s.toLowerCase() === "opt-in");
     if (optIdx < 0) return { recipientHash: "", senderHash: "" };
 
     const recipientHash = decodeURIComponent(segs[optIdx + 1] || "");
     const senderHash = decodeURIComponent(segs[optIdx + 2] || "");
-
     return { recipientHash, senderHash };
   }
 
+  // Opt-in one sender or all
   on("opt-in", async (ctx) => {
     const { req } = ctx;
 
-    // Derive hashes strictly from X-Original-Host
-    const { recipientHash, senderHash } = parseFromOriginalHost(req);
+    const pathname = getPathFromReq(req);
+    const { recipientHash, senderHash } = parseOptInSegments(pathname);
 
     if (!recipientHash) {
-      // Keep the same contract your client expects
+      // Keep the same error text expected by the client
       return { ok: false, error: "recipientHash required" };
     }
 
-    // No cookie / no X-accessToken required for this operation.
-    // We only talk to DynamoDB with the recipientHash (and optional senderHash).
     const docClient = getDocClient();
 
     if (senderHash) {
-      // Allow a specific sender for this recipient
+      // Add senderHash to recipient’s whitelist
       const params = {
         TableName: "users",
         Key: { emailHash: recipientHash },
@@ -75,7 +75,7 @@ function register({ on, use }) {
         message: `Sender ${senderHash} allowed for ${recipientHash}`,
       };
     } else {
-      // Opt-in for all senders (toggle a simple flag)
+      // Opt-in all senders: mark an attribute like `whitelistAll`
       const params = {
         TableName: "users",
         Key: { emailHash: recipientHash },
