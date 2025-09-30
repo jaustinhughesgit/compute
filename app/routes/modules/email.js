@@ -274,8 +274,16 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       listUnsubPost,
     });
 
-    const sendRes = await ses.sendRawEmail({ RawMessage: { Data: Buffer.from(raw, "utf-8") } }).promise();
-    return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: e ? Number(e) : undefined };
+    const sendRes = await ses
+      .sendRawEmail({ RawMessage: { Data: Buffer.from(raw, "utf-8") } })
+      .promise();
+    return {
+      ok: true,
+      createdUser: false, // existing user path
+      sent: true,
+      messageId: sendRes?.MessageId,
+      userID: (userRecord?.userID != null) ? Number(userRecord.userID) : undefined,
+    };  
   }
 
   // Resolve the sender's *real* emailHash from a subdomain 'su'
@@ -368,7 +376,12 @@ on("sendEmail", async (ctx /*, meta */) => {
     // New user → initEmail
     try {
       // IMPORTANT: pass the *resolved* senderEmailHash downstream
-      return await initEmail(ddb, ses, { ...input, recipientHash, senderHash: senderEmailHash }, ctx);
+      return await initEmail(
+        ddb,
+        ses,
+        { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
+        ctx
+      );
     } catch (err) {
       console.error("sendEmail:initEmail failed", err);
       return { ok: false, error: "init_email_failed" };
@@ -377,7 +390,12 @@ on("sendEmail", async (ctx /*, meta */) => {
     // Existing user → generalEmail
     try {
       // IMPORTANT: pass the *resolved* senderEmailHash downstream
-      return await generalEmail(ddb, ses, { ...input, senderHash: senderEmailHash }, existingUser);
+      return await generalEmail(
+        ddb,
+        ses,
+        { ...input, recipientEmail, senderHash: senderEmailHash },
+        existingUser
+      );
     } catch (err) {
       console.error("sendEmail:generalEmail failed", err);
       return { ok: false, error: "general_email_failed" };
