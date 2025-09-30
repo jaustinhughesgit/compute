@@ -744,7 +744,7 @@ function createShared(deps = {}) {
                 req: {
                   body: {
                     userID: eForCookie,
-                    emailHash: `${suDocForEmail}@email.1var.com`,
+                    emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
                     pubEnc: null,
                     pubSig: null,
                     revoked: false,
