@@ -87,9 +87,9 @@ function register({ on, use }) {
 
   const escapeHeader = (s) => String(s).replace(/"/g, '\\"');
 
-  // --- RATE LIMIT: reservation-based sliding 24h window (≤200 sends/24h) ---
+  // --- RATE LIMIT: reservation-based sliding 24h window (dynamic per-sender limit) ---
 
-  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 2) {
+  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 4) {
     const now = Date.now();                       // ms
     const cutoff = now - 24*60*60*1000;           // ms
 
@@ -147,6 +147,36 @@ function register({ on, use }) {
     } catch (_) {
       // best-effort cleanup
     }
+  }
+
+  // NEW: compute sender's daily limit = 50 + days since user.created (ms)
+  async function getSenderDailyLimit(ddb, senderEmailHash, createdMsMaybe) {
+    const BASE = 50;
+    const DAY_MS = 24 * 60 * 60 * 1000;
+    const now = Date.now();
+
+    let createdMs = (typeof createdMsMaybe === "number" && isFinite(createdMsMaybe)) ? createdMsMaybe : null;
+
+    // If we don't already have created, look up via users GSI
+    if (createdMs == null) {
+      try {
+        const q = await ddb.query({
+          TableName: "users",
+          IndexName: "emailHashIndex",
+          KeyConditionExpression: "emailHash = :eh",
+          ExpressionAttributeValues: { ":eh": senderEmailHash },
+          Limit: 1,
+          ProjectionExpression: "created",
+        }).promise();
+        createdMs = (q.Items && q.Items[0] && Number(q.Items[0].created)) || null;
+      } catch (err) {
+        console.warn("getSenderDailyLimit: lookup by emailHashIndex failed", err);
+      }
+    }
+
+    if (!(createdMs > 0) || createdMs > now) return BASE; // fallback if missing or bad data
+    const days = Math.floor((now - createdMs) / DAY_MS);
+    return BASE + Math.max(0, days);
   }
 
   // --- INTERNAL: create/ensure user via manageCookie (no cookie sent back) & send invite ---
@@ -364,16 +394,17 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
 
       const e = Number(subItem.e);
 
-      // 2) users.userID (= e) -> users.emailHash
+      // 2) users.userID (= e) -> users.emailHash (+ created)
       const userRes = await ddb.get({
         TableName: "users",
         Key: { userID: e },
       }).promise();
 
       const emailHash = userRes?.Item?.emailHash;
-      if (!emailHash) return { userID: e }; // still return userID for potential future use
+      const created   = userRes?.Item?.created; // NEW: surface created for limit calc
+      if (!emailHash) return { userID: e, created }; // still return userID/created for potential future use
 
-      return { emailHash, userID: e };
+      return { emailHash, userID: e, created };
     } catch (err) {
       console.warn("resolveSenderEmailHash failed", err);
       return null;
@@ -405,11 +436,13 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     console.log("recipientHash", recipientHash);
     console.log("senderSu", senderSu);
 
-    // Resolve subdomain.su -> sender's real emailHash
+    // Resolve subdomain.su -> sender's real emailHash (+ created)
     let senderEmailHash = senderSu; // fallback if resolution fails
+    let senderCreatedMs = null;
     try {
       const resolved = await resolveSenderEmailHash(ddb, senderSu);
       if (resolved?.emailHash) senderEmailHash = resolved.emailHash;
+      if (resolved?.created != null) senderCreatedMs = Number(resolved.created);
     } catch (e) {
       console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
     }
@@ -430,9 +463,9 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       return { ok: false, error: "lookup_failed" };
     }
 
-    // Daily cap
-    const DAILY_LIMIT = 2;
-
+    // NEW: Dynamic daily cap = 50 + days since sender's created
+    const DAILY_LIMIT = await getSenderDailyLimit(ddb, senderEmailHash, senderCreatedMs);
+    console.log("DAILY_LIMIT",DAILY_LIMIT)
     if (!existingUser) {
       // New user → initEmail flow
       // Reserve slot just before sending
