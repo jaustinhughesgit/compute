@@ -24,14 +24,10 @@ Body:
 function register({ on, use }) {
   const {
     getDocClient,
-    incrementCounterAndGetNewValue,
-    createWord,
-    createGroup,
-    createEntity,
-    addVersion,
     getSES,
     hashEmail,
     normalizeEmail,
+    manageCookie,
   } = use();
 
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
@@ -91,8 +87,8 @@ function register({ on, use }) {
 
   const escapeHeader = (s) => String(s).replace(/"/g, '\\"');
 
-  // --- INTERNAL: create minimal user (userID === e) when not present & send invite ---
-  async function initEmail(ddb, ses, input) {
+  // --- INTERNAL: create/ensure user via manageCookie (no cookie sent back) & send invite ---
+  async function initEmail(ddb, ses, input, ctx) {
     console.log(">>>initEmail",initEmail)
     const {
       recipientEmail, recipientHash, senderHash, senderName = "A 1var user",
@@ -100,35 +96,55 @@ function register({ on, use }) {
       brand = "1var", linksHost = "https://email.1var.com", apiHost = "https://abc.api.1var.com",
     } = input;
 
-    // Minimal group/entity so schema stays consistent
-    const aGid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aEid = await incrementCounterAndGetNewValue("wCounter", ddb);
-    const aG = await createWord(String(aGid), "user", ddb);
-    const aE = await createWord(String(aEid), "user", ddb);
-    const gNew = await incrementCounterAndGetNewValue("gCounter", ddb);
-    const e    = await incrementCounterAndGetNewValue("eCounter", ddb);
-
-    await createGroup(String(gNew), aG, String(e), [], ddb);
-    const vHead = await addVersion(String(e), "a", aE, null, ddb);
-    await createEntity(String(e), aE, vHead?.v || "1", String(gNew), String(e), ["0"], ddb);
-
-    const now = Date.now();
+    // Standardize new-user setup via manageCookie.
+    // IMPORTANT: do not set a browser cookie on the SENDER. We pass blockCookieBack: true
+    // and provide a null `res` so manageCookie won’t call `res.cookie(...)`.
+    const blockCookieBack = true;
+    const mcMain = {
+      reason: "sendEmail:initEmail",
+      recipientEmail,
+      recipientHash,
+      senderHash,
+      blockCookieBack, // future-proofing: also passed into manageCookie
+    };
+    // If you later want to conditionally allow cookie setting, swap null with ctx?.res
+    const resForCookie = blockCookieBack ? null : ctx?.res || null;
+    let mc;
     try {
-      await ddb.put({
-        TableName: "users",
-        Item: {
-          userID: Number(e),
-          emailHash: recipientHash,
-          pubEnc: null,
-          pubSig: null,
-          created: now,
-          revoked: false,
-          latestKeyVersion: 1,
-        },
-        ConditionExpression: "attribute_not_exists(userID)",
-      }).promise();
+      mc = await manageCookie(mcMain, null, resForCookie, ddb);
     } catch (err) {
-      if (err.code !== "ConditionalCheckFailedException") throw err; // race is okay
+      console.error("manageCookie failed during initEmail", err);
+      throw err;
+    }
+
+    const e = mc?.e ? String(mc.e) : undefined;
+
+    // Ensure GSI lookup by hashed recipient email continues to work:
+    // upsert the users row for this userID with emailHash = recipientHash.
+    if (e) {
+      try {
+        await ddb.update({
+          TableName: "users",
+          Key: { userID: Number(e) },
+          UpdateExpression:
+            "SET emailHash = :eh, " +
+            "    pubEnc = if_not_exists(pubEnc, :ne), " +
+            "    pubSig = if_not_exists(pubSig, :ns), " +
+            "    created = if_not_exists(created, :now), " +
+            "    revoked = if_not_exists(revoked, :rv), " +
+            "    latestKeyVersion = if_not_exists(latestKeyVersion, :kv)",
+          ExpressionAttributeValues: {
+            ":eh": recipientHash,
+            ":ne": null,
+            ":ns": null,
+            ":now": Date.now(),
+            ":rv": false,
+            ":kv": 1,
+          },
+        }).promise();
+      } catch (err) {
+        console.warn("users upsert after manageCookie failed (non-fatal)", err);
+      }
     }
 
     // Invite links
@@ -259,7 +275,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     });
 
     const sendRes = await ses.sendRawEmail({ RawMessage: { Data: Buffer.from(raw, "utf-8") } }).promise();
-    return { ok: true, createdUser: false, sent: true, messageId: sendRes?.MessageId, userID: userRecord?.userID };
+    return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: e ? Number(e) : undefined };
   }
 
   // --- ACTION: decide path → initEmail (new) vs generalEmail (existing) ---
@@ -308,7 +324,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       console.log("initEmail",initEmail)
       // New user → initEmail
       try {
-        return await initEmail(ddb, ses, { ...input, recipientHash });
+        // pass ctx so we can (in the future) allow cookie setting if desired; currently blocked.
+        return await initEmail(ddb, ses, { ...input, recipientHash }, ctx);
       } catch (err) {
         console.error("sendEmail:initEmail failed", err);
         return { ok: false, error: "init_email_failed" };
