@@ -148,9 +148,9 @@ function register({ on, use }) {
     }
 
     // Invite links
-    const allowUrl       = `${linksHost}/opt-in?email=${encodeURIComponent(recipientHash)}&sender=${encodeURIComponent(senderHash)}`;
-    const blockSenderUrl = `${linksHost}/stop?email=${encodeURIComponent(recipientHash)}&sender=${encodeURIComponent(senderHash)}`;
-    const blockAllUrl    = `${linksHost}/stop?email=${encodeURIComponent(recipientHash)}`;
+    const allowUrl       = `${linksHost}/opt-in/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
+    const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
+    const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
     const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
 
     const subject = `${senderName} invited you to receive messages from ${brand}`;
@@ -234,8 +234,8 @@ Privacy: https://1var.com/privacy`;
     }
 
     // Provide convenient block links in footer
-    const blockSenderUrl = `${linksHost}/stop?email=${encodeURIComponent(recipientHash)}&sender=${encodeURIComponent(senderHash)}`;
-    const blockAllUrl    = `${linksHost}/stop?email=${encodeURIComponent(recipientHash)}`;
+    const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
+    const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
     const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
 
     const finalText =

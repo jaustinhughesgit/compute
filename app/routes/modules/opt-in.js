@@ -4,93 +4,91 @@
 function register({ on, use }) {
   const { getDocClient } = use();
 
-  // Helper: extract pathname from X-Original-Host header or req.path
-  function getPathFromReq(req) {
-    // 1) start with req.path if it's already there
+  // Convert DynamoDB DocumentClient Set or array → JS array
+  const setToArray = (maybeSet) => {
+    if (!maybeSet) return [];
+    if (Array.isArray(maybeSet)) return maybeSet;
+    if (maybeSet.values && Array.isArray(maybeSet.values)) return maybeSet.values;
+    return [];
+  };
 
-    // 2) otherwise look for X-Original-Host (frameworks lowercase headers)
-    const headers = req?.headers || {};
-    const headerKey = Object.keys(headers).find(
-      (k) => k.toLowerCase() === "x-original-host"
-    );
-    const headerVal = headerKey ? headers[headerKey] : null;
+  on("optIn", async (ctx) => {
+    const ddb = getDocClient();
+    const hostHeader = ctx?.req?.headers?.["x-original-host"];
 
-    if (!headerVal) return "";
+    if (!hostHeader) {
+      return { ok: false, error: "Missing X-Original-Host header" };
+    }
 
-    // headerVal might be a full URL or just a path; try URL first
     try {
-      const u = new URL(String(headerVal));
-      return u.pathname || "";
-    } catch {
-      // Not a full URL. Normalize to a path-ish string.
-      const s = String(headerVal);
-      if (s.startsWith("/")) return s;
-      return `/${s}`;
+      // Example: https://***.com/opt-in?email=HASH&sender=HASH
+      const url = new URL(hostHeader);
+      const recipientHash = url.searchParams.get("email");
+      const senderHash = url.searchParams.get("sender");
+
+      if (!recipientHash) {
+        return { ok: false, error: "Missing recipientHash (email param)" };
+      }
+
+      // Find the recipient user by emailHash (GSI: emailHashIndex)
+      const q = await ddb
+        .query({
+          TableName: "users",
+          IndexName: "emailHashIndex",
+          KeyConditionExpression: "emailHash = :eh",
+          ExpressionAttributeValues: { ":eh": recipientHash },
+          Limit: 1,
+        })
+        .promise();
+
+      const user = q.Items && q.Items[0];
+      if (!user) {
+        return { ok: false, error: "Recipient not found" };
+      }
+
+      // Update expressions depending on type of opt-in
+      if (senderHash) {
+        // Opt-in for one sender → add to whitelist
+        await ddb
+          .update({
+            TableName: "users",
+            Key: { userID: user.userID },
+            UpdateExpression: "ADD whitelist :s",
+            ExpressionAttributeValues: {
+              ":s": ddb.createSet([senderHash]),
+            },
+          })
+          .promise();
+
+        return {
+          ok: true,
+          message: `Sender ${senderHash} allowed for recipient ${recipientHash}`,
+        };
+      } else {
+        // Opt-in for all senders
+        await ddb
+          .update({
+            TableName: "users",
+            Key: { userID: user.userID },
+            UpdateExpression: "SET whitelistAll = :true",
+            ExpressionAttributeValues: { ":true": true },
+          })
+          .promise();
+
+        return {
+          ok: true,
+          message: `All senders allowed for recipient ${recipientHash}`,
+        };
+      }
+    } catch (err) {
+      console.error("opt-in handler failed", err);
+      return { ok: false, error: "Internal error during opt-in" };
     }
-  }
+  });
 
-  // Helper: from a pathname, locate 'opt-in' and read the next segments
-  function parseOptInSegments(pathname) {
-    const segs = String(pathname)
-      .split("/")
-      .filter(Boolean); // remove empty
-
-    // Find 'opt-in' anywhere in the path (e.g., /cookies/opt-in/...)
-    const optIdx = segs.findIndex((s) => s.toLowerCase() === "opt-in");
-    if (optIdx < 0) return { recipientHash: "", senderHash: "" };
-
-    const recipientHash = decodeURIComponent(segs[optIdx + 1] || "");
-    const senderHash = decodeURIComponent(segs[optIdx + 2] || "");
-    return { recipientHash, senderHash };
-  }
-
-  // Opt-in one sender or all
-  on("opt-in", async (ctx) => {
-    const { req } = ctx;
-
-    const pathname = getPathFromReq(req);
-    const { recipientHash, senderHash } = parseOptInSegments(pathname);
-
-    if (!recipientHash) {
-      // Keep the same error text expected by the client
-      return { ok: false, error: "recipientHash required" };
-    }
-
-    const docClient = getDocClient();
-
-    if (senderHash) {
-      // Add senderHash to recipient’s whitelist
-      const params = {
-        TableName: "users",
-        Key: { emailHash: recipientHash },
-        UpdateExpression: "ADD whitelist :s",
-        ExpressionAttributeValues: {
-          ":s": docClient.createSet([senderHash]),
-        },
-        ReturnValues: "UPDATED_NEW",
-      };
-      await docClient.update(params).promise();
-      return {
-        ok: true,
-        message: `Sender ${senderHash} allowed for ${recipientHash}`,
-      };
-    } else {
-      // Opt-in all senders: mark an attribute like `whitelistAll`
-      const params = {
-        TableName: "users",
-        Key: { emailHash: recipientHash },
-        UpdateExpression: "SET whitelistAll = :true",
-        ExpressionAttributeValues: {
-          ":true": true,
-        },
-        ReturnValues: "UPDATED_NEW",
-      };
-      await docClient.update(params).promise();
-      return {
-        ok: true,
-        message: `All senders allowed for ${recipientHash}`,
-      };
-    }
+  // Register dash-form too, so both work
+  on("opt-in", (ctx) => {
+    return ctx && ctx.req ? register({ on, use }).on("optIn", ctx) : { ok: false };
   });
 
   return { name: "opt-in" };
