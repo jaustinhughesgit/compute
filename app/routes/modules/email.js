@@ -173,9 +173,11 @@ function register({ on, use }) {
         console.warn("getSenderDailyLimit: lookup by emailHashIndex failed", err);
       }
     }
-
+    console.log("createdMs", createdMs)
     if (!(createdMs > 0) || createdMs > now) return BASE; // fallback if missing or bad data
     const days = Math.floor((now - createdMs) / DAY_MS);
+    console.log("DAY_MS",DAY_MS)
+    console.log("days",days)
     return BASE + Math.max(0, days);
   }
 
