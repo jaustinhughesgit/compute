@@ -278,69 +278,113 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: e ? Number(e) : undefined };
   }
 
+  // Resolve the sender's *real* emailHash from a subdomain 'su'
+async function resolveSenderEmailHash(ddb, senderSu) {
+  if (!senderSu) return null;
+
+  try {
+    // 1) subdomains.su -> subdomains.e
+    const sub = await ddb.query({
+      TableName: "subdomains",
+      KeyConditionExpression: "su = :su",
+      ExpressionAttributeValues: { ":su": senderSu },
+      Limit: 1,
+    }).promise();
+
+    const subItem = sub.Items?.[0];
+    if (!subItem || !subItem.e) return null;
+
+    const e = Number(subItem.e);
+
+    // 2) users.userID (= e) -> users.emailHash
+    // Prefer get() since userID is the table key
+    const userRes = await ddb.get({
+      TableName: "users",
+      Key: { userID: e },
+    }).promise();
+
+    const emailHash = userRes?.Item?.emailHash;
+    if (!emailHash) return null;
+
+    return { emailHash, userID: e };
+  } catch (err) {
+    console.warn("resolveSenderEmailHash failed", err);
+    return null;
+  }
+}
+
+
   // --- ACTION: decide path → initEmail (new) vs generalEmail (existing) ---
-  on("sendEmail", async (ctx /*, meta */) => {
-    console.log("sendEmail ctx", ctx)
-    const ddb = getDocClient();
-    const ses = getSES();
-    const input = unwrapBody(ctx.req?.body) || {};
+on("sendEmail", async (ctx /*, meta */) => {
+  const ddb = getDocClient();
+  const ses = getSES();
+  const input = unwrapBody(ctx.req?.body) || {};
 
-    const recipientEmail = normalizeEmail(input.recipientEmail);
-    const serverHash     = hashEmail(recipientEmail);
-    const recipientHashFromClient = String(input.recipientHash || "").trim();
-    const recipientHash  = serverHash; // always use server-computed hash
-    if (recipientHashFromClient && recipientHashFromClient !== serverHash) {
-      console.warn("sendEmail: recipientHash mismatch; using server-computed hash");
-    }
-    const senderHash     = String(input.senderHash     || "").trim();
+  const recipientEmail = normalizeEmail(input.recipientEmail);
+  const serverHash     = hashEmail(recipientEmail);
+  const recipientHashFromClient = String(input.recipientHash || "").trim();
+  const recipientHash  = serverHash; // always use server-computed hash
+  if (recipientHashFromClient && recipientHashFromClient !== serverHash) {
+    console.warn("sendEmail: recipientHash mismatch; using server-computed hash");
+  }
 
-    console.log("recipientEmail",recipientEmail)
-    console.log("recipientHash",recipientHash)
-    console.log("senderHash",senderHash)
+  // The client-supplied "senderHash" is actually subdomain.su
+  const senderSu = String(input.senderHash || "").trim();
 
-    if (!recipientEmail || !senderHash) {
-      return { ok: false, error: "recipientEmail and senderHash are required" };
-    }
+  console.log("recipientEmail", recipientEmail);
+  console.log("recipientHash", recipientHash);
+  console.log("senderSu", senderSu);
 
-    // Lookup by GSI emailHashIndex
-    let existingUser = null;
+  if (!recipientEmail || !senderSu) {
+    return { ok: false, error: "recipientEmail and senderHash are required" };
+  }
+
+  // --- NEW: resolve subdomain.su -> users.emailHash (the *real* sender hash) ---
+  let senderEmailHash = senderSu; // safe fallback if resolution fails
+  try {
+    const resolved = await resolveSenderEmailHash(ddb, senderSu);
+    if (resolved?.emailHash) senderEmailHash = resolved.emailHash;
+  } catch (e) {
+    console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
+  }
+
+  // Lookup by GSI emailHashIndex for RECIPIENT (unchanged)
+  let existingUser = null;
+  try {
+    const q = await ddb.query({
+      TableName: "users",
+      IndexName: "emailHashIndex",
+      KeyConditionExpression: "emailHash = :eh",
+      ExpressionAttributeValues: { ":eh": recipientHash },
+      Limit: 1,
+    }).promise();
+    existingUser = (q.Items && q.Items[0]) || null;
+  } catch (err) {
+    console.error("sendEmail: emailHashIndex lookup failed", err);
+    return { ok: false, error: "lookup_failed" };
+  }
+
+  if (!existingUser) {
+    // New user → initEmail
     try {
-      const q = await ddb.query({
-        TableName: "users",
-        IndexName: "emailHashIndex",
-        KeyConditionExpression: "emailHash = :eh",
-        ExpressionAttributeValues: { ":eh": recipientHash },
-        Limit: 1,
-      }).promise();
-      console.log("qqq",q)
-      existingUser = (q.Items && q.Items[0]) || null;
+      // IMPORTANT: pass the *resolved* senderEmailHash downstream
+      return await initEmail(ddb, ses, { ...input, recipientHash, senderHash: senderEmailHash }, ctx);
     } catch (err) {
-      console.error("sendEmail: emailHashIndex lookup failed", err);
-      return { ok: false, error: "lookup_failed" };
+      console.error("sendEmail:initEmail failed", err);
+      return { ok: false, error: "init_email_failed" };
     }
+  } else {
+    // Existing user → generalEmail
+    try {
+      // IMPORTANT: pass the *resolved* senderEmailHash downstream
+      return await generalEmail(ddb, ses, { ...input, senderHash: senderEmailHash }, existingUser);
+    } catch (err) {
+      console.error("sendEmail:generalEmail failed", err);
+      return { ok: false, error: "general_email_failed" };
+    }
+  }
+});
 
-    console.log("existingUser",existingUser)
-    if (!existingUser) {
-      console.log("initEmail",initEmail)
-      // New user → initEmail
-      try {
-        // pass ctx so we can (in the future) allow cookie setting if desired; currently blocked.
-        return await initEmail(ddb, ses, { ...input, recipientHash }, ctx);
-      } catch (err) {
-        console.error("sendEmail:initEmail failed", err);
-        return { ok: false, error: "init_email_failed" };
-      }
-    } else {
-      console.log("generalEmail",generalEmail)
-      // Existing user → generalEmail
-      try {
-        return await generalEmail(ddb, ses, input, existingUser);
-      } catch (err) {
-        console.error("sendEmail:generalEmail failed", err);
-        return { ok: false, error: "general_email_failed" };
-      }
-    }
-  });
 
   return { name: "email" };
 }
