@@ -89,7 +89,7 @@ function register({ on, use }) {
 
   // --- RATE LIMIT: reservation-based sliding 24h window (≤200 sends/24h) ---
 
-  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 200) {
+  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 2) {
     const now = Date.now();                       // ms
     const cutoff = now - 24*60*60*1000;           // ms
 
