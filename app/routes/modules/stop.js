@@ -10,6 +10,27 @@ function register({ on, use }) {
     return s === "1" || s === "true" || s === "yes" || s === "y";
   };
 
+  // Lookup a user by emailHash (GSI: emailHashIndex) and return userID if found
+  async function getUserIdByEmailHash(ddb, emailHash) {
+    if (!emailHash) return null;
+    try {
+      const q = await ddb.query({
+        TableName: "users",
+        IndexName: "emailHashIndex",
+        KeyConditionExpression: "emailHash = :eh",
+        ExpressionAttributeValues: { ":eh": emailHash },
+        ProjectionExpression: "userID",
+        Limit: 1,
+        ConsistentRead: true,
+      }).promise();
+      const item = q?.Items?.[0];
+      return item?.userID ?? null;
+    } catch (err) {
+      console.warn("getUserIdByEmailHash failed", err);
+      return null;
+    }
+  }
+
   // Shared handler logic
   const handleStop = async (ctx) => {
     const ddb = getDocClient();
@@ -53,8 +74,8 @@ function register({ on, use }) {
         })
         .promise();
 
-      const user = q.Items && q.Items[0];
-      if (!user) {
+      const recipient = q.Items && q.Items[0];
+      if (!recipient) {
         return { ok: false, error: "Recipient not found" };
       }
 
@@ -63,7 +84,7 @@ function register({ on, use }) {
         await ddb
           .update({
             TableName: "users",
-            Key: { userID: user.userID },
+            Key: { userID: recipient.userID },
             UpdateExpression: "SET blockAll = :true",
             ExpressionAttributeValues: { ":true": true },
           })
@@ -75,22 +96,63 @@ function register({ on, use }) {
         };
       }
 
-      // Otherwise, block a specific sender by adding to blacklist (a String Set)
-      await ddb
-        .update({
-          TableName: "users",
-          Key: { userID: user.userID },
-          UpdateExpression: "ADD blacklist :s",
-          ExpressionAttributeValues: {
-            ":s": ddb.createSet([senderHash]),
-          },
-        })
-        .promise();
+      // Per-sender block:
+      // 1) Find sender's userID by their emailHash (senderHash)
+      const senderUserID = await getUserIdByEmailHash(ddb, senderHash);
 
-      return {
-        ok: true,
-        message: `Sender ${senderHash} blocked for recipient ${recipientHash}`,
-      };
+      // 2) Atomically:
+      //   - ADD senderHash to recipient.blacklist (only if not already present)
+      //   - ADD 1 to sender.blocks (only if we found a sender user)
+      //
+      // We use a transaction with a ConditionExpression on the recipient update to
+      // ensure we only increment blocks when this is the FIRST time they’re being blocked
+      // by this recipient.
+      const transactItems = [
+        {
+          Update: {
+            TableName: "users",
+            Key: { userID: recipient.userID },
+            UpdateExpression: "ADD blacklist :s",
+            ConditionExpression:
+              "attribute_not_exists(blacklist) OR NOT contains(blacklist, :senderHash)",
+            ExpressionAttributeValues: {
+              ":s": ddb.createSet([senderHash]),
+              ":senderHash": senderHash,
+            },
+          },
+        },
+      ];
+
+      if (senderUserID != null) {
+        transactItems.push({
+          Update: {
+            TableName: "users",
+            Key: { userID: senderUserID },
+            UpdateExpression: "ADD blocks :one",
+            ExpressionAttributeValues: { ":one": 1 },
+          },
+        });
+      }
+
+      try {
+        await ddb.transactWrite({ TransactItems: transactItems }).promise();
+        return {
+          ok: true,
+          message: `Sender ${senderHash} blocked for recipient ${recipientHash}`,
+          blocksIncremented: senderUserID != null ? 1 : 0,
+        };
+      } catch (txErr) {
+        // If the condition failed, the sender was already in the blacklist.
+        if (txErr && txErr.code === "ConditionalCheckFailedException") {
+          return {
+            ok: true,
+            message: `Sender ${senderHash} already blocked for recipient ${recipientHash}`,
+            blocksIncremented: 0,
+          };
+        }
+        console.error("stop transactWrite failed", txErr);
+        return { ok: false, error: "Internal error during stop" };
+      }
     } catch (err) {
       console.error("stop handler failed", err);
       return { ok: false, error: "Internal error during stop" };
