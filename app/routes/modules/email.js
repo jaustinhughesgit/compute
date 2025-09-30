@@ -89,7 +89,7 @@ function register({ on, use }) {
 
   // --- RATE LIMIT: reservation-based sliding 24h window (dynamic per-sender limit) ---
 
-  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 5) {
+  async function reserveEmailSlot(ddb, senderHash, dailyLimit = 50) {
     const now = Date.now();                       // ms
     const cutoff = now - 24*60*60*1000;           // ms
 
@@ -151,7 +151,7 @@ function register({ on, use }) {
 
   // NEW: compute sender's daily limit = 50 + days since user.created (ms)
   async function getSenderDailyLimit(ddb, senderEmailHash, createdMsMaybe) {
-    const BASE = 5;
+    const BASE = 50;
     const DAY_MS = 24 * 60 * 60 * 1000;
     const now = Date.now();
 
