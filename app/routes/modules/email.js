@@ -431,7 +431,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     }
 
     // Daily cap
-    const DAILY_LIMIT = 200;
+    const DAILY_LIMIT = 2;
 
     if (!existingUser) {
       // New user → initEmail flow
