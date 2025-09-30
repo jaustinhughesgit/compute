@@ -30,6 +30,62 @@ function register({ on, use }) {
     manageCookie,
   } = use();
 
+  // --- NEW: reputation constants + helpers -----------------------------------
+
+  const RATIO_THRESHOLD = 0.10;
+
+  const safeNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+
+  async function getUserCounters(ddb, userID) {
+    if (!(userID > 0)) return { sent: 0, blocks: 0 };
+    const res = await ddb.get({
+      TableName: "users",
+      Key: { userID: Number(userID) },
+      ProjectionExpression: "sent, blocks",
+    }).promise();
+    return {
+      sent: safeNum(res?.Item?.sent),
+      blocks: safeNum(res?.Item?.blocks),
+    };
+  }
+
+  async function incrementUserCounter(ddb, userID, field, amount = 1) {
+    if (!(userID > 0)) return;
+    await ddb.update({
+      TableName: "users",
+      Key: { userID: Number(userID) },
+      // ADD initializes missing numeric attrs to 0 before adding
+      UpdateExpression: "ADD #f :inc",
+      ExpressionAttributeNames: { "#f": field },
+      ExpressionAttributeValues: { ":inc": Number(amount) },
+      ReturnValues: "NONE",
+    }).promise();
+  }
+
+  async function resolveUserIdByEmailHash(ddb, emailHash) {
+    if (!emailHash) return null;
+    try {
+      const q = await ddb.query({
+        TableName: "users",
+        IndexName: "emailHashIndex",
+        KeyConditionExpression: "emailHash = :eh",
+        ExpressionAttributeValues: { ":eh": emailHash },
+        ProjectionExpression: "userID, created",
+        Limit: 1,
+        ConsistentRead: true,
+      }).promise();
+      const item = q?.Items?.[0];
+      if (!item) return null;
+      return { userID: Number(item.userID), created: safeNum(item.created) || null };
+    } catch (err) {
+      console.warn("resolveUserIdByEmailHash failed", err);
+      return null;
+    }
+  }
+
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
 
   const setToArray = (maybeSet) => {
@@ -438,15 +494,44 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     console.log("recipientHash", recipientHash);
     console.log("senderSu", senderSu);
 
-    // Resolve subdomain.su -> sender's real emailHash (+ created)
+    // Resolve subdomain.su -> sender's real emailHash (+ created) (+ userID)
     let senderEmailHash = senderSu; // fallback if resolution fails
     let senderCreatedMs = null;
+    let senderUserID = null;
+    let resolved = null;
     try {
-      const resolved = await resolveSenderEmailHash(ddb, senderSu);
+      resolved = await resolveSenderEmailHash(ddb, senderSu);
       if (resolved?.emailHash) senderEmailHash = resolved.emailHash;
       if (resolved?.created != null) senderCreatedMs = Number(resolved.created);
+      if (resolved?.userID != null) senderUserID = Number(resolved.userID);
+
+      // Fallback: try to resolve userID from emailHash if userID missing but we do have an emailHash
+      if (!senderUserID && senderEmailHash && senderEmailHash !== senderSu) {
+        const viaEh = await resolveUserIdByEmailHash(ddb, senderEmailHash);
+        if (viaEh?.userID) {
+          senderUserID = Number(viaEh.userID);
+          if (senderCreatedMs == null && viaEh.created != null) senderCreatedMs = Number(viaEh.created);
+        }
+      }
     } catch (e) {
       console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
+    }
+
+    // --- NEW: reputation gate BEFORE reserving slots or hitting SES
+    if (senderUserID) {
+      const counters = await getUserCounters(ddb, senderUserID);
+      const ratio = counters.sent > 0 ? (counters.blocks / counters.sent) : 0;
+      if (ratio > RATIO_THRESHOLD) {
+        return {
+          ok: false,
+          error: "sender_reputation_blocked",
+          reason: "blocks_over_threshold",
+          sent: counters.sent,
+          blocks: counters.blocks,
+          ratio,
+          threshold: RATIO_THRESHOLD,
+        };
+      }
     }
 
     // Lookup by GSI emailHashIndex for RECIPIENT (to decide which path)
@@ -467,7 +552,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
 
     // NEW: Dynamic daily cap = 50 + days since sender's created
     const DAILY_LIMIT = await getSenderDailyLimit(ddb, senderEmailHash, senderCreatedMs);
-    console.log("DAILY_LIMIT",DAILY_LIMIT)
+    console.log("DAILY_LIMIT", DAILY_LIMIT);
+
     if (!existingUser) {
       // New user → initEmail flow
       // Reserve slot just before sending
@@ -477,12 +563,19 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }
 
       try {
-        return await initEmail(
+        const res = await initEmail(
           ddb,
           ses,
           { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
           ctx
         );
+
+        // NEW: increment sender.sent on successful SES send
+        if (res?.sent && senderUserID) {
+          await incrementUserCounter(ddb, senderUserID, "sent", 1);
+        }
+
+        return res;
       } catch (err) {
         // refund on failure
         await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
@@ -491,7 +584,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }
     } else {
       // Existing user → generalEmail flow
-      // Check block first (no reservation yet)
+      // Check recipient block first (no reservation yet)
       if (isBlocked(existingUser, senderEmailHash)) {
         return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
       }
@@ -503,12 +596,19 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }
 
       try {
-        return await generalEmail(
+        const res = await generalEmail(
           ddb,
           ses,
           { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
           existingUser
         );
+
+        // NEW: increment sender.sent on successful SES send
+        if (res?.sent && senderUserID) {
+          await incrementUserCounter(ddb, senderUserID, "sent", 1);
+        }
+
+        return res;
       } catch (err) {
         await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
         console.error("sendEmail:generalEmail failed", err);
@@ -516,6 +616,15 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }
     }
   });
+
+  // --- NOTE: Counting "blocks"
+  // In your /stop/:recipientHash/:senderHash route, AFTER persisting the blacklist,
+  // look up the sender's userID by emailHash (senderHash from the link) and ADD 1 to users.blocks:
+  //
+  //   const { userID } = await resolveUserIdByEmailHash(ddb, senderEmailHashFromLink);
+  //   if (userID) await incrementUserCounter(ddb, userID, "blocks", 1);
+  //
+  // We intentionally do not auto-increment blocks here because "block" is an external action.
 
   return { name: "email" };
 }
