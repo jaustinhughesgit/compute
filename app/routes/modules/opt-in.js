@@ -14,23 +14,36 @@ function register({ on, use }) {
     }
 
     try {
-      // Example: https://***.com/opt-in?email=HASH&sender=HASH
       const url = new URL(hostHeader);
-      const recipientHash = url.searchParams.get("email");
-      const senderHash = url.searchParams.get("sender");
+
+      // Try to extract from query params first
+      let recipientHash = url.searchParams.get("email");
+      let senderHash = url.searchParams.get("sender");
+
+      // If not present, try path-based format: /opt-in/{sender}/{email}
+      if ((!recipientHash || !senderHash) && url.pathname.includes("/opt-in/")) {
+        const parts = url.pathname.split("/").filter(Boolean); // drop empty segments
+        const optInIndex = parts.indexOf("opt-in");
+        if (optInIndex !== -1) {
+          senderHash = senderHash || parts[optInIndex + 1];
+          recipientHash = recipientHash || parts[optInIndex + 2];
+        }
+      }
 
       if (!recipientHash) {
         return { ok: false, error: "Missing recipientHash (email param)" };
       }
 
       // Find the recipient user by emailHash (GSI: emailHashIndex)
-      const q = await ddb.query({
-        TableName: "users",
-        IndexName: "emailHashIndex",
-        KeyConditionExpression: "emailHash = :eh",
-        ExpressionAttributeValues: { ":eh": recipientHash },
-        Limit: 1,
-      }).promise();
+      const q = await ddb
+        .query({
+          TableName: "users",
+          IndexName: "emailHashIndex",
+          KeyConditionExpression: "emailHash = :eh",
+          ExpressionAttributeValues: { ":eh": recipientHash },
+          Limit: 1,
+        })
+        .promise();
 
       const user = q.Items && q.Items[0];
       if (!user) {
@@ -39,14 +52,16 @@ function register({ on, use }) {
 
       if (senderHash) {
         // Single-sender opt-in
-        await ddb.update({
-          TableName: "users",
-          Key: { userID: user.userID },
-          UpdateExpression: "ADD whitelist :s",
-          ExpressionAttributeValues: {
-            ":s": ddb.createSet([senderHash]),
-          },
-        }).promise();
+        await ddb
+          .update({
+            TableName: "users",
+            Key: { userID: user.userID },
+            UpdateExpression: "ADD whitelist :s",
+            ExpressionAttributeValues: {
+              ":s": ddb.createSet([senderHash]),
+            },
+          })
+          .promise();
 
         return {
           ok: true,
@@ -54,12 +69,14 @@ function register({ on, use }) {
         };
       } else {
         // Opt-in for all senders
-        await ddb.update({
-          TableName: "users",
-          Key: { userID: user.userID },
-          UpdateExpression: "SET whitelistAll = :true",
-          ExpressionAttributeValues: { ":true": true },
-        }).promise();
+        await ddb
+          .update({
+            TableName: "users",
+            Key: { userID: user.userID },
+            UpdateExpression: "SET whitelistAll = :true",
+            ExpressionAttributeValues: { ":true": true },
+          })
+          .promise();
 
         return {
           ok: true,
