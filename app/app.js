@@ -631,18 +631,19 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
 const update = {
   TableName: "users",
   Key: { userID: Number(senderUserID) },
-  // ORDER MATTERS: SET ... then ADD ...
   UpdateExpression:
-    "SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc " +
-    "ADD #b :inc",
+    "SET #b = if_not_exists(#b, :zero) + :inc, " +
+    "#bt = if_not_exists(#bt, :empty), " +
+    "#bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
   ExpressionAttributeNames: {
     "#b": "bounces",
     "#bt": "bouncesByType",
-    "#t": String(bounceType),
+    "#t": String(bounceType), // e.g. "Permanent"
   },
   ExpressionAttributeValues: {
     ":inc": uniqueCount,
     ":zero": 0,
+    ":empty": {}, // initialize parent map
   },
   ReturnValues: "UPDATED_NEW",
 };
