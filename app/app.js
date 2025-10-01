@@ -651,6 +651,84 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     return { statusCode: 200, body: JSON.stringify({ ok: true, counted: uniqueCount }) };
   }
 
+if (event.Records && event.Records[0].eventSource === "aws:ses") {
+  const rec = event.Records[0].ses;
+
+  // Prefer the canonical recipients list from the receipt, fall back to commonHeaders.to
+  const rawRecipients =
+    (rec.receipt && Array.isArray(rec.receipt.recipients) && rec.receipt.recipients) ||
+    (rec.mail && rec.mail.commonHeaders && Array.isArray(rec.mail.commonHeaders.to) && rec.mail.commonHeaders.to) ||
+    [];
+
+  // Helper to extract plain email from "Name <email@x>" or plain "email@x"
+  const extractEmail = (s) => {
+    if (!s) return "";
+    const m = String(s).match(/<([^>]+)>/);
+    return (m ? m[1] : String(s)).trim();
+  };
+
+  // Find the first recipient on *your* domain
+  const ourRecipient = rawRecipients
+    .map(extractEmail)
+    .find((addr) => addr.toLowerCase().endsWith("@email.1var.com"));
+
+  // If not for our domain, do nothing — this avoids calling Dynamo with su=""
+  if (!ourRecipient) {
+    console.log("Inbound SES message not for our domain. Skipping getSub(). Recipients:", rawRecipients);
+    return { statusCode: 200, body: JSON.stringify("Ignored: not our domain") };
+  }
+
+  const emailTarget = ourRecipient.split("@")[0]; // su/local-part
+
+  // Extra guard (shouldn’t happen, but keep Dynamo safe)
+  if (!emailTarget) {
+    console.log("Empty local-part after domain check; skipping.");
+    return { statusCode: 200, body: JSON.stringify("Ignored: empty target") };
+  }
+
+  // ==== your existing logic below this point is now safe ====
+  const emailId = rec.mail.messageId;
+  const emailSubject = rec.mail.commonHeaders?.subject;
+  const emailDate = rec.mail.commonHeaders?.date;
+  const returnPath = rec.mail.commonHeaders?.returnPath;
+
+  // Only call getSub when we actually have a non-empty su
+  let subEmail = await getSub(emailTarget, "su", dynamodb);
+
+  const isPublic = String(subEmail?.Items?.[0]?.z ?? "false");
+  const fileLocation = (isPublic === "true") ? "public" : "private";
+
+  const getParams = { Bucket: `${fileLocation}.1var.com`, Key: emailTarget };
+  const data = await s3.getObject(getParams).promise().catch(err => {
+    console.warn("s3.getObject failed", err.code);
+    return null; // if no existing file, you may want to create one instead of failing
+  });
+
+  if (data && data.ContentType === "application/json") {
+    const s3JSON = JSON.parse(data.Body.toString());
+    s3JSON.email = Array.isArray(s3JSON.email) ? s3JSON.email : [];
+    s3JSON.email.unshift({
+      from: returnPath,
+      to: emailTarget,
+      subject: emailSubject,
+      date: emailDate,
+      emailID: emailId,
+    });
+
+    const putParams = {
+      Bucket: `${fileLocation}.1var.com`,
+      Key: emailTarget,
+      Body: JSON.stringify(s3JSON),
+      ContentType: "application/json",
+    };
+    await s3.putObject(putParams).promise();
+  }
+
+  return { statusCode: 200, body: JSON.stringify("Email processed") };
+}
+
+  //OLD event condition
+  /*
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
 
         let emailId = event.Records[0].ses.mail.messageId
@@ -691,7 +769,7 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
 
         return { statusCode: 200, body: JSON.stringify('Email processed') };
     }
-
+*/
     if (event.automate) {
 
         function isTimeInInterval(timeInDay, st, itInMinutes) {
