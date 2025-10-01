@@ -525,7 +525,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           ok: false,
           error: "sender_reputation_blocked",
           reason: "blocks_over_threshold",
-          sent: counters.sent,
+          totalSent: counters.sent,
           blocks: counters.blocks,
           ratio,
           threshold: RATIO_THRESHOLD,
