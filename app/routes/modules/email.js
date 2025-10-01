@@ -32,6 +32,8 @@ function register({ on, use }) {
 
   // --- Reputation constants + helpers -----------------------------------
   const RATIO_THRESHOLD = 0.10;
+  const CONFIG_SET = process.env.SES_CONFIG_SET || "ses-events";
+  
 
   const safeNum = (v) => {
     const n = Number(v);
@@ -348,7 +350,15 @@ Privacy: https://1var.com/privacy`;
       listUnsubPost,
     });
 
-    const sendRes = await ses.sendRawEmail({ RawMessage: { Data: Buffer.from(raw, "utf-8") } }).promise();
+    const sendRes = await ses.sendRawEmail(
+      { 
+        RawMessage: { Data: Buffer.from(raw, "utf-8") }, 
+        ConfigurationSetName: CONFIG_SET,
+        Tags: [
+          { Name: "senderHash", Value: String(senderHash || "") },
+          { Name: "recipientHash", Value: String(recipientHash || "") },
+        ]
+      }).promise();
 
     return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: Number(e) };
   }
@@ -416,7 +426,16 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     });
 
     const sendRes = await ses
-      .sendRawEmail({ RawMessage: { Data: Buffer.from(raw, "utf-8") } })
+      .sendRawEmail(
+        {
+          RawMessage: { Data: Buffer.from(raw, "utf-8") }, 
+          ConfigurationSetName: CONFIG_SET,
+          Tags: [
+            { Name: "senderHash", Value: String(senderHash || "") },
+            { Name: "recipientHash", Value: String(recipientHash || "") },
+          ] 
+        }
+      )
       .promise();
 
     return {

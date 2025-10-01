@@ -543,6 +543,9 @@ const serverlessHandler = serverless(app);
 
 const lambdaHandler = async (event, context) => {
 
+    console.log("lambdaHandler event", event)
+    console.log("lambdaHandler event", JSON.stringify(event, null, 2))
+
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
 
         let emailId = event.Records[0].ses.mail.messageId
