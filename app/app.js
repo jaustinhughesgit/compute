@@ -602,18 +602,28 @@ async function addDailyMetric(senderUserID, fields) {
 }
 
 // Global (per-recipient) permanent suppression for hard bounces
+// Global (per-recipient) permanent suppression for hard bounces
 async function upsertPermanentSuppression(recipientHash, reason = "hard_bounce") {
   if (!recipientHash) return;
   const now = nowMs();
-  const expiresAt = now + 365*ONE_DAY;             // 1 year
+  const expiresAt = now + 365*ONE_DAY; // 1 year
   const ttl = Math.floor((expiresAt + 5*ONE_DAY)/1000);
+
   await dynamodb.update({
     TableName: SUPPRESS_TABLE,
     Key: { recipientHash, scope: "*" },
-    UpdateExpression: "SET reason = :r, firstAt = if_not_exists(firstAt, :now), expiresAt = :exp, ttl = :ttl",
+    //   vvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvvv
+    UpdateExpression: "SET #reason = :r, #firstAt = if_not_exists(#firstAt, :now), #expiresAt = :exp, #ttl = :ttl",
+    ExpressionAttributeNames: {
+      "#reason": "reason",
+      "#firstAt": "firstAt",
+      "#expiresAt": "expiresAt",
+      "#ttl": "ttl",        // alias the reserved word
+    },
     ExpressionAttributeValues: { ":r": reason, ":now": now, ":exp": expiresAt, ":ttl": ttl }
   }).promise();
 }
+
 
 
 // Per-sender temp suppression for soft bounces (3 in 72h ⇒ 7 days)
