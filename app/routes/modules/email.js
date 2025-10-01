@@ -31,22 +31,22 @@ function register({ on, use }) {
   } = use();
 
   // --- Reputation constants + helpers -----------------------------------
-  // Block-ratio tiers (unique recipients vs. % who blocked)
-  const RATIO_TIER_BREAK = 50;          // switch at 50 unique recipients
-  const RATIO_THRESHOLD_LOW = 0.05;    // < 50 uniques → 5%
-  const RATIO_THRESHOLD_HIGH = 0.02;    // ≥ 50 uniques → 2%
+ // Block-ratio tiers (unique recipients vs. % who blocked)
+ const RATIO_TIER_BREAK = 50;          // switch at 50 unique recipients
+ const RATIO_THRESHOLD_LOW  = 0.05;    // < 50 uniques → 5%
+ const RATIO_THRESHOLD_HIGH = 0.02;    // ≥ 50 uniques → 2%
 
-  function getBlockRatioThreshold(uniqueSentCount) {
-    return (uniqueSentCount >= RATIO_TIER_BREAK) ? RATIO_THRESHOLD_HIGH : RATIO_THRESHOLD_LOW;
-  }
+ function getBlockRatioThreshold(uniqueSentCount) {
+   return (uniqueSentCount >= RATIO_TIER_BREAK) ? RATIO_THRESHOLD_HIGH : RATIO_THRESHOLD_LOW;
+ }
 
   const CONFIG_SET = process.env.SES_CONFIG_SET || "ses-events";
 
   // NEW: deliverability + metrics configuration
   const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks"; // NEW
-  const METRICS_TABLE = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";          // NEW
+  const METRICS_TABLE  = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";          // NEW
   const RATE_WINDOW_DAYS = 14;                                                              // NEW
-  const MIN_RATE_VOLUME = 500;                                                             // NEW
+  const MIN_RATE_VOLUME  = 500;                                                             // NEW
   const BOUNCE_WARN_RATE = 0.02; // 2% → warn/limit                                        // NEW
   const BOUNCE_BLOCK_RATE = 0.05; // 5% → block + review                                   // NEW
   const BOUNCE_HARD_BLOCK_RATE = 0.10; // 10% → hard block                                 // NEW
@@ -66,29 +66,8 @@ function register({ on, use }) {
     return [];
   };
 
-  // NEW: explicit opt-in check (whitelist semantics)
-  function isOptedIn(user, senderHash) {
-    if (!user) return false;
-    if (user.whitelistAll === true) return true;
-    const whitelist = setToArray(user.whitelist);
-    return !!(senderHash && whitelist.includes(senderHash));
-  }
-
-  // NEW: has this sender already contacted this recipient (invite or otherwise)?
-  async function hasContactedBefore(ddb, senderUserID, recipientUserID) {
-    if (!(senderUserID > 0) || !(recipientUserID > 0)) return false;
-    const res = await ddb.get({
-      TableName: "users",
-      Key: { userID: Number(senderUserID) },
-      ProjectionExpression: "uniqueSent",
-    }).promise();
-    const sentSet = setToArray(res?.Item?.uniqueSent);
-    return Array.isArray(sentSet) && sentSet.includes(Number(recipientUserID));
-  }
-
-
   // NEW: simple YYYY-MM-DD key
-  const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 10); // NEW
+  const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0,10); // NEW
 
   // NEW: add to daily metrics (sends / bounces / complaints, etc.)
   async function addDailyMetric(ddb, senderUserID, fields) { // NEW
@@ -97,10 +76,10 @@ function register({ on, use }) {
     const names = Object.keys(fields);
     if (!names.length) return;
 
-    const expr = "ADD " + names.map((n, i) => `#f${i} :v${i}`).join(", ");
+    const expr = "ADD " + names.map((n,i)=>`#f${i} :v${i}`).join(", ");
     const ExpressionAttributeNames = {};
     const ExpressionAttributeValues = {};
-    names.forEach((n, i) => { ExpressionAttributeNames[`#f${i}`] = n; ExpressionAttributeValues[`:v${i}`] = safeNum(fields[n]); });
+    names.forEach((n,i)=>{ ExpressionAttributeNames[`#f${i}`]=n; ExpressionAttributeValues[`:v${i}`]=safeNum(fields[n]); });
 
     await ddb.update({
       TableName: METRICS_TABLE,
@@ -114,7 +93,7 @@ function register({ on, use }) {
   // NEW: compute last-14-day hard-bounce rate
   async function getBounceRate14d(ddb, senderUserID) { // NEW
     if (!(senderUserID > 0)) return { sends14d: 0, bHard14d: 0, rate: 0 };
-    const days = Array.from({ length: RATE_WINDOW_DAYS }, (_, i) => dayKey(Date.now() - i * 86400000));
+    const days = Array.from({length: RATE_WINDOW_DAYS}, (_,i)=> dayKey(Date.now() - i*86400000));
     const keys = days.map(day => ({ senderUserID: Number(senderUserID), day }));
 
     const res = await ddb.batchGet({
@@ -126,8 +105,8 @@ function register({ on, use }) {
     const items = res?.Responses?.[METRICS_TABLE] || [];
     let sends14d = 0, bHard14d = 0;
     for (const it of items) {
-      sends14d += safeNum(it.sends);
-      bHard14d += safeNum(it.b_hard);
+      sends14d  += safeNum(it.sends);
+      bHard14d  += safeNum(it.b_hard);
     }
     const rate = sends14d > 0 ? (bHard14d / sends14d) : 0;
     return { sends14d, bHard14d, rate };
@@ -184,7 +163,7 @@ function register({ on, use }) {
       Key: { userID: Number(senderUserID) },
       UpdateExpression: "ADD uniqueSent :r",
       ExpressionAttributeValues: {
-        ":r": ddb.createSet([Number(recipientUserID)]), // creates/merges NS
+        ":r": ddb.createSet([ Number(recipientUserID) ]), // creates/merges NS
       },
       ReturnValues: "NONE",
     }).promise();
@@ -216,8 +195,8 @@ function register({ on, use }) {
     if (user.blockAll === true) return true;
     const blacklist = setToArray(user.blacklist);
     const whitelist = setToArray(user.whitelist);
-    const listedB = senderHash && blacklist.includes(senderHash);
-    const listedW = senderHash && whitelist.includes(senderHash);
+    const listedB  = senderHash && blacklist.includes(senderHash);
+    const listedW  = senderHash && whitelist.includes(senderHash);
     if (user.whitelistAll === true) return false; // allow all
     if (listedW) return false;                    // explicit allow
     if (listedB) return true;                     // explicit block
@@ -255,7 +234,7 @@ function register({ on, use }) {
   };
 
   const escapeHtml = (s) =>
-    String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 
   const escapeHeader = (s) => String(s).replace(/"/g, '\\"');
 
@@ -265,7 +244,7 @@ function register({ on, use }) {
   // --- RATE LIMIT: reservation-based sliding 24h window (dynamic per-sender limit) ---
   async function reserveEmailSlot(ddb, senderHash, dailyLimit = 50) {
     const now = Date.now();                       // ms
-    const cutoff = now - 24 * 60 * 60 * 1000;           // ms
+    const cutoff = now - 24*60*60*1000;           // ms
 
     const q = await ddb.query({
       TableName: "email_sends",
@@ -289,7 +268,7 @@ function register({ on, use }) {
       }).promise();
 
       const oldestTs = first.Items?.[0]?.ts ?? cutoff;
-      const retryAfterMs = Math.max((oldestTs + 24 * 60 * 60 * 1000) - now, 0);
+      const retryAfterMs = Math.max((oldestTs + 24*60*60*1000) - now, 0);
       return { ok: false, reason: "rate_limited", retryAfterMs };
     }
 
@@ -299,7 +278,7 @@ function register({ on, use }) {
       Item: {
         senderHash,
         ts,
-        ttl: Math.floor((now + 48 * 60 * 60 * 1000) / 1000),
+        ttl: Math.floor((now + 48*60*60*1000) / 1000),
       },
       ConditionExpression: "attribute_not_exists(senderHash) AND attribute_not_exists(#ts)",
       ExpressionAttributeNames: { "#ts": "ts" },
@@ -347,7 +326,7 @@ function register({ on, use }) {
     const days = Math.floor((now - createdMs) / DAY_MS);
     return BASE + Math.max(0, days);
   }
-
+  
   // --- INTERNAL: create/ensure user via manageCookie (no cookie sent back) & send invite ---
   async function initEmail(ddb, ses, input, ctx, senderUserID) { // CHANGED: added senderUserID
     console.log(">>>initEmail", initEmail);
@@ -409,10 +388,10 @@ function register({ on, use }) {
     }
 
     // Invite links (unchanged) ...
-    const allowUrl = `${linksHost}/opt-in/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
+    const allowUrl       = `${linksHost}/opt-in/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
     const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
-    const blockAllUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
-    const listUnsubPost = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
+    const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
+    const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
 
     const subject = `${senderName} invited you to receive messages from ${brand}`;
     const textBody = /* unchanged */ `You’re getting this one-time invite because ${senderName} entered your email on ${brand}.
@@ -467,8 +446,8 @@ Privacy: https://1var.com/privacy`;
     });
 
     const sendRes = await ses.sendRawEmail(
-      {
-        RawMessage: { Data: Buffer.from(raw, "utf-8") },
+      { 
+        RawMessage: { Data: Buffer.from(raw, "utf-8") }, 
         ConfigurationSetName: CONFIG_SET,
         Tags: [
           { Name: "senderHash", Value: String(senderHash || "") },
@@ -503,12 +482,6 @@ Privacy: https://1var.com/privacy`;
       return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
     }
 
-    // NEW: Require prior opt-in for general mail
-    if (!isOptedIn(userRecord, senderHash)) {
-      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "awaiting_opt_in" };
-    }
-
-
     // NEW: local deliverability suppression (global/per-sender)
     if (await isDeliverabilitySuppressed(ddb, recipientHash, senderUserID)) { // NEW
       return { ok: true, createdUser: false, sent: false, blocked: true, reason: "deliverability_suppressed" }; // NEW
@@ -516,11 +489,11 @@ Privacy: https://1var.com/privacy`;
 
     // Provide convenient block links in footer (unchanged)
     const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
-    const blockAllUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
-    const listUnsubPost = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
+    const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
+    const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
 
     const finalText =
-      `${messageText || "(no text provided)"}
+`${messageText || "(no text provided)"}
 
 —
 Don’t want more from ${senderName}? ${blockSenderUrl}
@@ -528,14 +501,14 @@ Block all ${brand} emails: ${blockAllUrl}
 `;
 
     const finalHtml =
-      messageHtml && messageHtml.trim()
-        ? `${messageHtml}
+messageHtml && messageHtml.trim()
+  ? `${messageHtml}
 <hr>
 <p style="font:12px/1.5 Arial,Helvetica,sans-serif;color:#666;">
 Don’t want more from ${escapeHtml(senderName)}? <a href="${blockSenderUrl}">Block ${escapeHtml(senderName)}</a><br>
 Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
 </p>`
-        : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;">
+  : `<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;">
 <p>(no HTML content provided)</p>
 <hr>
 <p style="font:12px/1.5 Arial,Helvetica,sans-serif;color:#666;">
@@ -558,12 +531,12 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     const sendRes = await ses
       .sendRawEmail(
         {
-          RawMessage: { Data: Buffer.from(raw, "utf-8") },
+          RawMessage: { Data: Buffer.from(raw, "utf-8") }, 
           ConfigurationSetName: CONFIG_SET,
           Tags: [
             { Name: "senderHash", Value: String(senderHash || "") },
             { Name: "recipientHash", Value: String(recipientHash || "") },
-          ]
+          ] 
         }
       )
       .promise();
@@ -605,7 +578,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }).promise();
 
       const emailHash = userRes?.Item?.emailHash;
-      const created = userRes?.Item?.created;
+      const created   = userRes?.Item?.created;
       if (!emailHash) return { userID: e, created };
       return { emailHash, userID: e, created };
     } catch (err) {
@@ -666,8 +639,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     if (senderUserID) {
       const rep = await getUserReputation(ddb, senderUserID);
       const ratio = rep.uniqueSentCount > 0 ? (rep.blocks / rep.uniqueSentCount) : 0;
-      const threshold = getBlockRatioThreshold(rep.uniqueSentCount);
-      if (ratio > threshold) {
+   const threshold = getBlockRatioThreshold(rep.uniqueSentCount);
+   if (ratio > threshold) {
         return {
           ok: false,
           error: "sender_reputation_blocked",
@@ -675,8 +648,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           uniqueSentCount: rep.uniqueSentCount,
           blocks: rep.blocks,
           ratio,
-          threshold,
-          tier: (rep.uniqueSentCount >= RATIO_TIER_BREAK) ? ">=50" : "<50",
+       threshold,
+       tier: (rep.uniqueSentCount >= RATIO_TIER_BREAK) ? ">=50" : "<50",
         };
       }
     }
@@ -744,69 +717,56 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         return { ok: false, error: "init_email_failed" };
       }
     } else {
-      // Existing user → enforce opt-in model
-      // 1) Honor explicit blocks
+      // Existing user → generalEmail flow
       if (isBlocked(existingUser, senderEmailHash)) {
         return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
       }
 
-      const optedIn = isOptedIn(existingUser, senderEmailHash);
 
-      if (!optedIn) {
-        // Not opted in yet:
-        // If this pair has already received the one-time invite, block further messages.
-        const alreadyContacted = await hasContactedBefore(ddb, senderUserID, Number(existingUser.userID));
-        if (alreadyContacted) {
-          return { ok: true, createdUser: false, sent: false, blocked: true, reason: "awaiting_opt_in" };
-        }
-
-        // First contact to an existing user → send invite (initEmail) instead of general content
-        const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
-        if (!reservation.ok) {
-          return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
-        }
+      // If sender has already contacted this recipient, require prior opt-in
+      if (senderUserID && existingUser?.userID != null) {
         try {
-          const res = await initEmail(
-            ddb,
-            ses,
-            {
-              ...input,
-              recipientEmail,
-              recipientHash,
-              senderHash: senderEmailHash,
-              // OPTIONAL: provide a preview if none was given
-              previewText: input.previewText || (input.messageText ? String(input.messageText).slice(0, 160) : ""),
-            },
-            ctx,
-            senderUserID
-          );
-          if (res?.sent && senderUserID && res?.userID > 0) {
-            await addUniqueSent(ddb, senderUserID, Number(res.userID)); // counts as the one allowed pre-opt-in send
+          const sentRes = await ddb.get({
+            TableName: "users",
+            Key: { userID: Number(senderUserID) },
+            ProjectionExpression: "uniqueSent",
+          }).promise();
+          const sentSet = setToArray(sentRes?.Item?.uniqueSent);
+          const alreadyContacted = Array.isArray(sentSet) && sentSet.includes(Number(existingUser.userID));
+          if (alreadyContacted) {
+            const whitelist = setToArray(existingUser.whitelist);
+            const optedIn = (existingUser.whitelistAll === true) ||
+                            (!!senderEmailHash && whitelist.includes(senderEmailHash));
+            if (!optedIn) {
+              return { ok: true, createdUser: false, sent: false, blocked: true, reason: "awaiting_opt_in" };
+            }
           }
-          return res;
         } catch (err) {
-          await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
-          console.error("sendEmail:initEmail(existing-user) failed", err);
-          return { ok: false, error: "init_email_failed" };
+          console.warn("sendEmail: uniqueSent lookup failed", err);
+          // fail-open here so we don't hard-break send flow on read blips
         }
       }
 
-      // Opted in → allow general email
+
       const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
       if (!reservation.ok) {
         return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
       }
+
       try {
         const res = await generalEmail(
           ddb,
           ses,
           { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
           existingUser,
-          senderUserID
+          senderUserID // NEW
         );
+
+        // Add recipient userID to sender.uniqueSent on successful send
         if (res?.sent && senderUserID && res?.userID > 0) {
           await addUniqueSent(ddb, senderUserID, Number(res.userID));
         }
+
         return res;
       } catch (err) {
         await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
