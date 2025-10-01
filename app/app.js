@@ -597,6 +597,7 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
 
     // We only need sender → userID to count "how many emails a user sends that bounce"
     const senderUserID = await getUserIdByEmailHash(senderHash);
+    console.log("senderUserID",senderUserID)
     if (!Number.isFinite(senderUserID)) {
       console.warn("Bounce received but no senderUserID could be resolved from emailHash", { senderHash, messageId });
       return { statusCode: 200, body: "No senderUserID, skipping count" };
