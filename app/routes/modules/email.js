@@ -30,8 +30,7 @@ function register({ on, use }) {
     manageCookie,
   } = use();
 
-  // --- NEW: reputation constants + helpers -----------------------------------
-
+  // --- Reputation constants + helpers -----------------------------------
   const RATIO_THRESHOLD = 0.10;
 
   const safeNum = (v) => {
@@ -39,32 +38,47 @@ function register({ on, use }) {
     return Number.isFinite(n) ? n : 0;
   };
 
-  async function getUserCounters(ddb, userID) {
-    if (!(userID > 0)) return { sent: 0, blocks: 0 };
+  const unwrapBody = (b) =>
+    (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
+
+  const setToArray = (maybeSet) => {
+    if (!maybeSet) return [];
+    if (Array.isArray(maybeSet)) return maybeSet;                 // already array
+    if (maybeSet.values && Array.isArray(maybeSet.values)) return maybeSet.values; // DocumentClient Set
+    return [];
+  };
+
+  // Read blocks + uniqueSent count for a user
+  async function getUserReputation(ddb, userID) {
+    if (!(userID > 0)) return { blocks: 0, uniqueSentCount: 0 };
     const res = await ddb.get({
       TableName: "users",
       Key: { userID: Number(userID) },
-      ProjectionExpression: "sent, blocks",
+      ProjectionExpression: "blocks, uniqueSent",
     }).promise();
-    return {
-      sent: safeNum(res?.Item?.sent),
-      blocks: safeNum(res?.Item?.blocks),
-    };
+
+    const blocks = safeNum(res?.Item?.blocks);
+    const uniqueSentArr = setToArray(res?.Item?.uniqueSent);
+    const uniqueSentCount = Array.isArray(uniqueSentArr) ? uniqueSentArr.length : 0;
+
+    return { blocks, uniqueSentCount };
   }
 
-  async function incrementUserCounter(ddb, userID, field, amount = 1) {
-    if (!(userID > 0)) return;
+  // ADD recipient userID to sender.uniqueSent (Number Set). Idempotent.
+  async function addUniqueSent(ddb, senderUserID, recipientUserID) {
+    if (!(senderUserID > 0) || !(recipientUserID > 0)) return;
     await ddb.update({
       TableName: "users",
-      Key: { userID: Number(userID) },
-      // ADD initializes missing numeric attrs to 0 before adding
-      UpdateExpression: "ADD #f :inc",
-      ExpressionAttributeNames: { "#f": field },
-      ExpressionAttributeValues: { ":inc": Number(amount) },
+      Key: { userID: Number(senderUserID) },
+      UpdateExpression: "ADD uniqueSent :r",
+      ExpressionAttributeValues: {
+        ":r": ddb.createSet([ Number(recipientUserID) ]), // creates/merges NS
+      },
       ReturnValues: "NONE",
     }).promise();
   }
 
+  // Resolve a user by emailHash (GSI) → { userID, created }
   async function resolveUserIdByEmailHash(ddb, emailHash) {
     if (!emailHash) return null;
     try {
@@ -84,15 +98,6 @@ function register({ on, use }) {
       return null;
     }
   }
-
-  const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
-
-  const setToArray = (maybeSet) => {
-    if (!maybeSet) return [];
-    if (Array.isArray(maybeSet)) return maybeSet;                 // already array
-    if (maybeSet.values && Array.isArray(maybeSet.values)) return maybeSet.values; // DocumentClient Set
-    return [];
-  };
 
   const isBlocked = (user, senderHash) => {
     if (!user) return false;
@@ -143,12 +148,10 @@ function register({ on, use }) {
   const escapeHeader = (s) => String(s).replace(/"/g, '\\"');
 
   // --- RATE LIMIT: reservation-based sliding 24h window (dynamic per-sender limit) ---
-
   async function reserveEmailSlot(ddb, senderHash, dailyLimit = 50) {
     const now = Date.now();                       // ms
     const cutoff = now - 24*60*60*1000;           // ms
 
-    // Count items in last 24h
     const q = await ddb.query({
       TableName: "email_sends",
       KeyConditionExpression: "senderHash = :s AND #ts >= :cutoff",
@@ -159,7 +162,6 @@ function register({ on, use }) {
     }).promise();
 
     if ((q.Count || 0) >= dailyLimit) {
-      // Fetch oldest in-window item to compute accurate retryAfter
       const first = await ddb.query({
         TableName: "email_sends",
         KeyConditionExpression: "senderHash = :s AND #ts >= :cutoff",
@@ -176,14 +178,13 @@ function register({ on, use }) {
       return { ok: false, reason: "rate_limited", retryAfterMs };
     }
 
-    // Write reservation with unique ts (Number). Use fractional part for uniqueness.
-    const ts = now + Math.random(); // still "ms" scale; fractional avoids collisions
+    const ts = now + Math.random();
     await ddb.put({
       TableName: "email_sends",
       Item: {
         senderHash,
         ts,
-        ttl: Math.floor((now + 48*60*60*1000) / 1000), // epoch seconds
+        ttl: Math.floor((now + 48*60*60*1000) / 1000),
       },
       ConditionExpression: "attribute_not_exists(senderHash) AND attribute_not_exists(#ts)",
       ExpressionAttributeNames: { "#ts": "ts" },
@@ -204,7 +205,7 @@ function register({ on, use }) {
     }
   }
 
-  // NEW: compute sender's daily limit = 50 + days since user.created (ms)
+  // Dynamic daily cap = 50 + days since sender.created
   async function getSenderDailyLimit(ddb, senderEmailHash, createdMsMaybe) {
     const BASE = 50;
     const DAY_MS = 24 * 60 * 60 * 1000;
@@ -212,7 +213,6 @@ function register({ on, use }) {
 
     let createdMs = (typeof createdMsMaybe === "number" && isFinite(createdMsMaybe)) ? createdMsMaybe : null;
 
-    // If we don't already have created, look up via users GSI
     if (createdMs == null) {
       try {
         const q = await ddb.query({
@@ -228,11 +228,8 @@ function register({ on, use }) {
         console.warn("getSenderDailyLimit: lookup by emailHashIndex failed", err);
       }
     }
-    console.log("createdMs", createdMs)
-    if (!(createdMs > 0) || createdMs > now) return BASE; // fallback if missing or bad data
+    if (!(createdMs > 0) || createdMs > now) return BASE;
     const days = Math.floor((now - createdMs) / DAY_MS);
-    console.log("DAY_MS",DAY_MS)
-    console.log("days",days)
     return BASE + Math.max(0, days);
   }
 
@@ -245,8 +242,6 @@ function register({ on, use }) {
       brand = "1var", linksHost = "https://email.1var.com", apiHost = "https://abc.api.1var.com",
     } = input;
 
-    // Standardize new-user setup via manageCookie.
-    // IMPORTANT: do not set a browser cookie on the SENDER.
     const blockCookieBack = true;
     const mcMain = {
       reason: "sendEmail:initEmail",
@@ -264,7 +259,7 @@ function register({ on, use }) {
       throw err;
     }
 
-    const e = mc?.e ? String(mc.e) : undefined;
+    const e = mc?.e ? String(mc.e) : undefined; // recipient userID as string
 
     // Ensure GSI lookup by hashed recipient email continues to work
     if (e) {
@@ -458,9 +453,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }).promise();
 
       const emailHash = userRes?.Item?.emailHash;
-      const created   = userRes?.Item?.created; // NEW: surface created for limit calc
-      if (!emailHash) return { userID: e, created }; // still return userID/created for potential future use
-
+      const created   = userRes?.Item?.created;
+      if (!emailHash) return { userID: e, created };
       return { emailHash, userID: e, created };
     } catch (err) {
       console.warn("resolveSenderEmailHash failed", err);
@@ -516,24 +510,24 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
     }
 
-    // --- NEW: reputation gate BEFORE reserving slots or hitting SES
+    // Reputation gate: blocks / uniqueSentCount
     if (senderUserID) {
-      const counters = await getUserCounters(ddb, senderUserID);
-      const ratio = counters.sent > 0 ? (counters.blocks / counters.sent) : 0;
+      const rep = await getUserReputation(ddb, senderUserID);
+      const ratio = rep.uniqueSentCount > 0 ? (rep.blocks / rep.uniqueSentCount) : 0;
       if (ratio > RATIO_THRESHOLD) {
         return {
           ok: false,
           error: "sender_reputation_blocked",
           reason: "blocks_over_threshold",
-          totalSent: counters.sent,
-          blocks: counters.blocks,
+          uniqueSentCount: rep.uniqueSentCount,
+          blocks: rep.blocks,
           ratio,
           threshold: RATIO_THRESHOLD,
         };
       }
     }
 
-    // Lookup by GSI emailHashIndex for RECIPIENT (to decide which path)
+    // Lookup recipient (decide path)
     let existingUser = null;
     try {
       const q = await ddb.query({
@@ -549,13 +543,12 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       return { ok: false, error: "lookup_failed" };
     }
 
-    // NEW: Dynamic daily cap = 50 + days since sender's created
+    // Dynamic per-sender daily limit
     const DAILY_LIMIT = await getSenderDailyLimit(ddb, senderEmailHash, senderCreatedMs);
     console.log("DAILY_LIMIT", DAILY_LIMIT);
 
     if (!existingUser) {
       // New user → initEmail flow
-      // Reserve slot just before sending
       const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
       if (!reservation.ok) {
         return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
@@ -569,26 +562,23 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           ctx
         );
 
-        // NEW: increment sender.sent on successful SES send
-        if (res?.sent && senderUserID) {
-          await incrementUserCounter(ddb, senderUserID, "sent", 1);
+        // Add recipient userID to sender.uniqueSent on successful send
+        if (res?.sent && senderUserID && res?.userID > 0) {
+          await addUniqueSent(ddb, senderUserID, Number(res.userID));
         }
 
         return res;
       } catch (err) {
-        // refund on failure
         await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
         console.error("sendEmail:initEmail failed", err);
         return { ok: false, error: "init_email_failed" };
       }
     } else {
       // Existing user → generalEmail flow
-      // Check recipient block first (no reservation yet)
       if (isBlocked(existingUser, senderEmailHash)) {
         return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
       }
 
-      // Not blocked → reserve slot, then send
       const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
       if (!reservation.ok) {
         return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
@@ -602,9 +592,9 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           existingUser
         );
 
-        // NEW: increment sender.sent on successful SES send
-        if (res?.sent && senderUserID) {
-          await incrementUserCounter(ddb, senderUserID, "sent", 1);
+        // Add recipient userID to sender.uniqueSent on successful send
+        if (res?.sent && senderUserID && res?.userID > 0) {
+          await addUniqueSent(ddb, senderUserID, Number(res.userID));
         }
 
         return res;
@@ -616,15 +606,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     }
   });
 
-  // --- NOTE: Counting "blocks"
-  // In your /stop/:recipientHash/:senderHash route, AFTER persisting the blacklist,
-  // look up the sender's userID by emailHash (senderHash from the link) and ADD 1 to users.blocks:
-  //
-  //   const { userID } = await resolveUserIdByEmailHash(ddb, senderEmailHashFromLink);
-  //   if (userID) await incrementUserCounter(ddb, userID, "blocks", 1);
-  //
-  // We intentionally do not auto-increment blocks here because "block" is an external action.
-
+  // NOTE: "blocks" is incremented in modules/stop.js on first-time per-recipient blocks.
   return { name: "email" };
 }
 
