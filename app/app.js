@@ -628,21 +628,24 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     }
 
     // Increment per-sender totals
-    const update = {
-      TableName: "users",
-      Key: { userID: Number(senderUserID) },
-      UpdateExpression: "ADD #b :inc SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
-      ExpressionAttributeNames: {
-        "#b": "bounces",
-        "#bt": "bouncesByType",
-        "#t": String(bounceType),
-      },
-      ExpressionAttributeValues: {
-        ":inc": uniqueCount,
-        ":zero": 0,
-      },
-      ReturnValues: "UPDATED_NEW",
-    };
+const update = {
+  TableName: "users",
+  Key: { userID: Number(senderUserID) },
+  // ORDER MATTERS: SET ... then ADD ...
+  UpdateExpression:
+    "SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc " +
+    "ADD #b :inc",
+  ExpressionAttributeNames: {
+    "#b": "bounces",
+    "#bt": "bouncesByType",
+    "#t": String(bounceType),
+  },
+  ExpressionAttributeValues: {
+    ":inc": uniqueCount,
+    ":zero": 0,
+  },
+  ReturnValues: "UPDATED_NEW",
+};
     const resUpd = await dynamodb.update(update).promise();
 
     console.log("Bounce counted", {
