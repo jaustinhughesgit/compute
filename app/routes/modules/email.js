@@ -75,7 +75,6 @@ function register({ on, use }) {
         ExpressionAttributeValues: { ":eh": emailHash },
         ProjectionExpression: "userID, created",
         Limit: 1,
-        ConsistentRead: true,
       }).promise();
       const item = q?.Items?.[0];
       if (!item) return null;
