@@ -31,7 +31,15 @@ function register({ on, use }) {
   } = use();
 
   // --- Reputation constants + helpers -----------------------------------
-  const RATIO_THRESHOLD = 0.10;
+ // Block-ratio tiers (unique recipients vs. % who blocked)
+ const RATIO_TIER_BREAK = 50;          // switch at 50 unique recipients
+ const RATIO_THRESHOLD_LOW  = 0.05;    // < 50 uniques → 5%
+ const RATIO_THRESHOLD_HIGH = 0.02;    // ≥ 50 uniques → 2%
+
+ function getBlockRatioThreshold(uniqueSentCount) {
+   return (uniqueSentCount >= RATIO_TIER_BREAK) ? RATIO_THRESHOLD_HIGH : RATIO_THRESHOLD_LOW;
+ }
+
   const CONFIG_SET = process.env.SES_CONFIG_SET || "ses-events";
 
   // NEW: deliverability + metrics configuration
@@ -627,11 +635,12 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
     }
 
-    // Reputation gate: blocks / uniqueSentCount (unchanged)
+    // Reputation gate: blocks / uniqueSentCount (tiered thresholds)
     if (senderUserID) {
       const rep = await getUserReputation(ddb, senderUserID);
       const ratio = rep.uniqueSentCount > 0 ? (rep.blocks / rep.uniqueSentCount) : 0;
-      if (ratio > RATIO_THRESHOLD) {
+   const threshold = getBlockRatioThreshold(rep.uniqueSentCount);
+   if (ratio > threshold) {
         return {
           ok: false,
           error: "sender_reputation_blocked",
@@ -639,7 +648,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           uniqueSentCount: rep.uniqueSentCount,
           blocks: rep.blocks,
           ratio,
-          threshold: RATIO_THRESHOLD,
+       threshold,
+       tier: (rep.uniqueSentCount >= RATIO_TIER_BREAK) ? ">=50" : "<50",
         };
       }
     }
