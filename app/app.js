@@ -125,37 +125,37 @@ const json88 = {
 };
 
 const toVector = v => {
-    try {
-        if (!v) return null;
+  try {
+    if (!v) return null;
 
-        // Accept: real array, JSON stringified array, comma-separated string,
-        //         or a Float32Array stored via Buffer.from(..).toString('base64')
-        let arr;
+    // Accept: real array, JSON stringified array, comma-separated string,
+    //         or a Float32Array stored via Buffer.from(..).toString('base64')
+    let arr;
 
-        if (Array.isArray(v)) {
-            arr = v;
-        } else if (typeof v === 'string') {
-            // Quick check: looks like JSON?
-            if (v.trim().startsWith('[')) {
-                arr = JSON.parse(v);
-            } else if (v.includes(',')) {
-                arr = v.split(',').map(Number);
-            } else {
-                // Not JSON & no commas – probably base-64 or something unknown
-                return null;
-            }
-        } else {
-            return null; // unsupported type
-        }
-
-        if (!Array.isArray(arr) || arr.some(x => typeof x !== 'number')) return null;
-
-        const len = Math.hypot(...arr);
-        return len ? arr.map(x => x / len) : null;
-    } catch (_) {
-        // swallow errors and treat the vector as "missing"
+    if (Array.isArray(v)) {
+      arr = v;
+    } else if (typeof v === 'string') {
+      // Quick check: looks like JSON?
+      if (v.trim().startsWith('[')) {
+        arr = JSON.parse(v);
+      } else if (v.includes(',')) {
+        arr = v.split(',').map(Number);
+      } else {
+        // Not JSON & no commas – probably base-64 or something unknown
         return null;
+      }
+    } else {
+      return null; // unsupported type
     }
+
+    if (!Array.isArray(arr) || arr.some(x => typeof x !== 'number')) return null;
+
+    const len = Math.hypot(...arr);
+    return len ? arr.map(x => x / len) : null;
+  } catch (_) {
+    // swallow errors and treat the vector as "missing"
+    return null;
+  }
 };
 
 const scaledEuclidean = (a, b) =>
@@ -272,157 +272,157 @@ app.post('/api/ingest', async (req, res) => {
 let cookiesRouterPromise; // Promise<express.Router>
 
 async function getCookiesRouter() {
-    if (!cookiesRouterPromise) {
-        cookiesRouterPromise = (async () => {
-            const privateKey = await getPrivateKey();
-            return setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
-        })();
-    }
-    return cookiesRouterPromise;
+  if (!cookiesRouterPromise) {
+    cookiesRouterPromise = (async () => {
+      const privateKey = await getPrivateKey();
+      return setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic);
+    })();
+  }
+  return cookiesRouterPromise;
 }
 
 // Single mount; per-request we await the router and hand off to it
 app.use('/:type(cookies|url)', async (req, res, next) => {
-    try {
-        req.type = req.params.type;        // keep your "type" flag
-        const router = await getCookiesRouter();
-        return router(req, res, next);     // hand this SAME request to the router
-    } catch (err) {
-        next(err);
-    }
+  try {
+    req.type = req.params.type;        // keep your "type" flag
+    const router = await getCookiesRouter();
+    return router(req, res, next);     // hand this SAME request to the router
+  } catch (err) {
+    next(err);
+  }
 });
 
 const entities = {
-    search: async (singleObject) => {
-        if (!singleObject || typeof singleObject !== 'object') {
-            throw new Error('entities.search expects a breadcrumb object');
+  search: async (singleObject) => {
+    if (!singleObject || typeof singleObject !== 'object') {
+      throw new Error('entities.search expects a breadcrumb object');
+    }
+
+    let obj = JSON.stringify(singleObject);
+    console.log("obj", obj)
+    /* ── 1. create embedding exactly once ─────────────────── */
+    const { data } = await openai.embeddings.create({
+      model: 'text-embedding-3-large',
+      input: obj
+    });
+    const embedding = data[0].embedding;   // ← keep raw array (no toVector)
+
+    console.log("embedding", embedding)
+    /* ── 2. pull “/domain/root” record ────────────────────── */
+    const [breadcrumb] = Object.keys(singleObject);
+    const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
+    if (!domain || !root) return null;
+
+    let dynamoRecord = null;
+    try {
+      const { Items } = await dynamodb.query({
+        TableName: `i_${domain}`,
+        KeyConditionExpression: '#r = :pk',
+        ExpressionAttributeNames: { '#r': 'root' },
+        ExpressionAttributeValues: { ':pk': root },
+        Limit: 1
+      }).promise();
+      dynamoRecord = Items?.[0] ?? null;
+      console.log("dynamoRecord",dynamoRecord)
+    } catch (err) {
+      console.error('DynamoDB query failed:', err);
+    }
+
+    /* ── 3. cosine distance helper (same as Method 1) ─────── */
+    const cosineDist = (a, b) => {
+      let dot = 0, na = 0, nb = 0;
+      for (let i = 0; i < a.length; i++) {
+        dot += a[i] * b[i];
+        na  += a[i] * a[i];
+        nb  += b[i] * b[i];
+      }
+      return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+    };
+
+    /* ── 4. compute dist1…dist5 exactly as Method 1 ───────── */
+    const distances = {};
+    if (dynamoRecord) {
+      for (let i = 1; i <= 5; i++) {
+        const raw = dynamoRecord[`emb${i}`];
+        let ref = null;
+
+        if (typeof raw === 'string') {
+          try { ref = JSON.parse(raw); } catch { /* ignore */ }
+        } else if (Array.isArray(raw)) {
+          ref = raw;
         }
 
-        let obj = JSON.stringify(singleObject);
-        console.log("obj", obj)
-        /* ── 1. create embedding exactly once ─────────────────── */
-        const { data } = await openai.embeddings.create({
-            model: 'text-embedding-3-large',
-            input: obj
-        });
-        const embedding = data[0].embedding;   // ← keep raw array (no toVector)
-
-        console.log("embedding", embedding)
-        /* ── 2. pull “/domain/root” record ────────────────────── */
-        const [breadcrumb] = Object.keys(singleObject);
-        const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
-        if (!domain || !root) return null;
-
-        let dynamoRecord = null;
-        try {
-            const { Items } = await dynamodb.query({
-                TableName: `i_${domain}`,
-                KeyConditionExpression: '#r = :pk',
-                ExpressionAttributeNames: { '#r': 'root' },
-                ExpressionAttributeValues: { ':pk': root },
-                Limit: 1
-            }).promise();
-            dynamoRecord = Items?.[0] ?? null;
-            console.log("dynamoRecord", dynamoRecord)
-        } catch (err) {
-            console.error('DynamoDB query failed:', err);
+        if (Array.isArray(ref) && ref.length === embedding.length) {
+          distances[`dist${i}`] = cosineDist(embedding, ref);
+        } else {
+          distances[`dist${i}`] = null;
         }
+      }
+    }
+    console.log(distances)
+    /* ── 5. optional sub-domain match (unchanged) ─────────── */
+    const { dist1, dist2, dist3, dist4, dist5 } = distances;
+    const pathKey = `/${domain}/${root}`;
+    const delta   = 0.005;
+    let subdomainMatches = [];
 
-        /* ── 3. cosine distance helper (same as Method 1) ─────── */
-        const cosineDist = (a, b) => {
-            let dot = 0, na = 0, nb = 0;
-            for (let i = 0; i < a.length; i++) {
-                dot += a[i] * b[i];
-                na += a[i] * a[i];
-                nb += b[i] * b[i];
-            }
-            return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+    if (dist1 != null) {
+      try {
+        const params = {
+          TableName: 'subdomains',
+          IndexName: 'path-index',
+          KeyConditionExpression:
+            '#p = :path AND #d1 BETWEEN :d1lo AND :d1hi',
+          ExpressionAttributeNames: {
+            '#p':  'path',
+            '#d1': 'dist1',
+            '#d2': 'dist2',
+            '#d3': 'dist3',
+            '#d4': 'dist4',
+            '#d5': 'dist5'
+          },
+          ExpressionAttributeValues: {
+            ':path': pathKey,
+            ':d1lo': dist1 - delta,
+            ':d1hi': dist1 + delta,
+            ':d2lo': dist2 - delta,
+            ':d2hi': dist2 + delta,
+            ':d3lo': dist3 - delta,
+            ':d3hi': dist3 + delta,
+            ':d4lo': dist4 - delta,
+            ':d4hi': dist4 + delta,
+            ':d5lo': dist5 - delta,
+            ':d5hi': dist5 + delta
+          },
+          FilterExpression:
+            '#d2 BETWEEN :d2lo AND :d2hi AND ' +
+            '#d3 BETWEEN :d3lo AND :d3hi AND ' +
+            '#d4 BETWEEN :d4lo AND :d4hi AND ' +
+            '#d5 BETWEEN :d5lo AND :d5hi',
+          ScanIndexForward: true
         };
 
-        /* ── 4. compute dist1…dist5 exactly as Method 1 ───────── */
-        const distances = {};
-        if (dynamoRecord) {
-            for (let i = 1; i <= 5; i++) {
-                const raw = dynamoRecord[`emb${i}`];
-                let ref = null;
+        console.log("params", params)
 
-                if (typeof raw === 'string') {
-                    try { ref = JSON.parse(raw); } catch { /* ignore */ }
-                } else if (Array.isArray(raw)) {
-                    ref = raw;
-                }
-
-                if (Array.isArray(ref) && ref.length === embedding.length) {
-                    distances[`dist${i}`] = cosineDist(embedding, ref);
-                } else {
-                    distances[`dist${i}`] = null;
-                }
-            }
-        }
-        console.log(distances)
-        /* ── 5. optional sub-domain match (unchanged) ─────────── */
-        const { dist1, dist2, dist3, dist4, dist5 } = distances;
-        const pathKey = `/${domain}/${root}`;
-        const delta = 0.005;
-        let subdomainMatches = [];
-
-        if (dist1 != null) {
-            try {
-                const params = {
-                    TableName: 'subdomains',
-                    IndexName: 'path-index',
-                    KeyConditionExpression:
-                        '#p = :path AND #d1 BETWEEN :d1lo AND :d1hi',
-                    ExpressionAttributeNames: {
-                        '#p': 'path',
-                        '#d1': 'dist1',
-                        '#d2': 'dist2',
-                        '#d3': 'dist3',
-                        '#d4': 'dist4',
-                        '#d5': 'dist5'
-                    },
-                    ExpressionAttributeValues: {
-                        ':path': pathKey,
-                        ':d1lo': dist1 - delta,
-                        ':d1hi': dist1 + delta,
-                        ':d2lo': dist2 - delta,
-                        ':d2hi': dist2 + delta,
-                        ':d3lo': dist3 - delta,
-                        ':d3hi': dist3 + delta,
-                        ':d4lo': dist4 - delta,
-                        ':d4hi': dist4 + delta,
-                        ':d5lo': dist5 - delta,
-                        ':d5hi': dist5 + delta
-                    },
-                    FilterExpression:
-                        '#d2 BETWEEN :d2lo AND :d2hi AND ' +
-                        '#d3 BETWEEN :d3lo AND :d3hi AND ' +
-                        '#d4 BETWEEN :d4lo AND :d4hi AND ' +
-                        '#d5 BETWEEN :d5lo AND :d5hi',
-                    ScanIndexForward: true
-                };
-
-                console.log("params", params)
-
-                const { Items } = await dynamodb.query(params).promise();
-                console.log("Items", Items)
-                subdomainMatches = Items ?? [];
-            } catch (err) {
-                console.error('subdomains GSI query failed:', err);
-            }
-        }
-        console.log("subdomainMatches", subdomainMatches)
-        /* ── 6. return same structure your pipeline expects ───── */
-        let result = {
-            breadcrumb,
-            embedding,
-            ...distances,
-            dynamoRecord,
-            subdomainMatches
-        }
-
-        return result;
+        const { Items } = await dynamodb.query(params).promise();
+        console.log("Items", Items)
+        subdomainMatches = Items ?? [];
+      } catch (err) {
+        console.error('subdomains GSI query failed:', err);
+      }
     }
+    console.log("subdomainMatches", subdomainMatches)
+    /* ── 6. return same structure your pipeline expects ───── */
+    let result = {
+      breadcrumb,
+      embedding,
+      ...distances,
+      dynamoRecord,
+      subdomainMatches
+    }
+
+    return result;
+  }
 };
 
 app.all('/blocks/*',
@@ -542,31 +542,34 @@ const automate = async (url) => {
 
 /** helper: case-insensitive tag lookup, returns first string value */
 function getTag(tags, wanted) {
-    if (!tags || typeof tags !== "object") return undefined;
-    const wantedLc = String(wanted).toLowerCase();
-    for (const k of Object.keys(tags)) {
-        if (String(k).toLowerCase() === wantedLc) {
-            const v = tags[k];
-            return Array.isArray(v) ? v[0] : v;
-        }
+  if (!tags || typeof tags !== "object") return undefined;
+  const wantedLc = String(wanted).toLowerCase();
+  for (const k of Object.keys(tags)) {
+    if (String(k).toLowerCase() === wantedLc) {
+      const v = tags[k];
+      return Array.isArray(v) ? v[0] : v;
     }
-    return undefined;
+  }
+  return undefined;
 }
 
 /** helper: resolve users.userID by emailHash via GSI */
 async function getUserIdByEmailHash(emailHash) {
-    if (!emailHash) return undefined;
-    const q = await dynamodb.query({
-        TableName: "users",
-        IndexName: "emailHashIndex",
-        KeyConditionExpression: "emailHash = :eh",
-        ExpressionAttributeValues: { ":eh": String(emailHash) },
-        ProjectionExpression: "userID",
-        Limit: 1,
-        // (ConsistentRead is not supported on GSIs)
-    }).promise();
-    const item = q?.Items?.[0];
-    return item?.userID != null ? Number(item.userID) : undefined;
+    console.log("emailHash", emailHash)
+  if (!emailHash) return undefined;
+  const q = await dynamodb.query({
+    TableName: "users",
+    IndexName: "emailHashIndex",
+    KeyConditionExpression: "emailHash = :eh",
+    ExpressionAttributeValues: { ":eh": String(emailHash) },
+    ProjectionExpression: "userID",
+    Limit: 1,
+    // (ConsistentRead is not supported on GSIs)
+  }).promise();
+  const item = q?.Items?.[0];
+  console.log("q", q)
+  console.log("item", item)
+  return item?.userID != null ? Number(item.userID) : undefined;
 }
 
 
@@ -576,203 +579,202 @@ const lambdaHandler = async (event, context) => {
 
     console.log("lambdaHandler event", event)
     console.log("lambdaHandler event", JSON.stringify(event, null, 2))
+    console.log("event?.source", event?.source)
+    console.log("event?.['detail-type']", event?.["detail-type"])
+if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
+    console.log("INSIDE EVENT")
+    const detail = event.detail || {};
+    const mail = detail.mail || {};
+    const bounce = detail.bounce || {};
+    const messageId = mail.messageId;
+    const recipients = Array.isArray(bounce.bouncedRecipients) ? bounce.bouncedRecipients : [];
+    const bounceType = bounce.bounceType || "Unknown";
 
-    if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
-        const detail = event.detail || {};
-        const mail = detail.mail || {};
-        const bounce = detail.bounce || {};
-        const messageId = mail.messageId;
-        const recipients = Array.isArray(bounce.bouncedRecipients) ? bounce.bouncedRecipients : [];
-        const bounceType = bounce.bounceType || "Unknown";
+    // Pull your custom tags (senderHash, recipientHash) that you set in SendRawEmail
+    const tags = mail.tags || {};
+    const senderHash = getTag(tags, "senderHash");       // <= emailHash of the sender
+    const recipientHash = getTag(tags, "recipientHash"); // <= emailHash of the recipient (optional here)
 
-        // Pull your custom tags (senderHash, recipientHash) that you set in SendRawEmail
-        const tags = mail.tags || {};
-        const senderHash = getTag(tags, "senderHash");       // <= emailHash of the sender
-        const recipientHash = getTag(tags, "recipientHash"); // <= emailHash of the recipient (optional here)
+    // We only need sender → userID to count "how many emails a user sends that bounce"
+    const senderUserID = await getUserIdByEmailHash(senderHash);
+    if (!Number.isFinite(senderUserID)) {
+      console.warn("Bounce received but no senderUserID could be resolved from emailHash", { senderHash, messageId });
+      return { statusCode: 200, body: "No senderUserID, skipping count" };
+    }
 
-        // We only need sender → userID to count "how many emails a user sends that bounce"
-        const senderUserID = await getUserIdByEmailHash(senderHash);
-        if (!Number.isFinite(senderUserID)) {
-            console.warn("Bounce received but no senderUserID could be resolved from emailHash", { senderHash, messageId });
-            return { statusCode: 200, body: "No senderUserID, skipping count" };
-        }
+    // Idempotency: dedupe per (messageId, bouncedRecipientEmail)
+    const now = Date.now();
+    const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000); // 90 days
+    let uniqueCount = 0;
 
-        // Idempotency: dedupe per (messageId, bouncedRecipientEmail)
-        const now = Date.now();
-        const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000); // 90 days
-        let uniqueCount = 0;
+    for (const r of recipients) {
+      const email = r?.emailAddress || "unknown";
+      const id = `${messageId}#${email}`;
+      try {
+        await dynamodb.put({
+          TableName: "email_bounce_events",
+          Item: { id, ttl },
+          ConditionExpression: "attribute_not_exists(id)",
+        }).promise();
+        uniqueCount += 1;
+      } catch (e) {
+        if (e.code !== "ConditionalCheckFailedException") throw e; // already seen -> ignore
+      }
+    }
 
-        for (const r of recipients) {
-            const email = r?.emailAddress || "unknown";
-            const id = `${messageId}#${email}`;
-            try {
-                await dynamodb.put({
-                    TableName: "email_bounce_events",
-                    Item: { id, ttl },
-                    ConditionExpression: "attribute_not_exists(id)",
-                }).promise();
-                uniqueCount += 1;
-            } catch (e) {
-                if (e.code !== "ConditionalCheckFailedException") throw e; // already seen -> ignore
+    if (uniqueCount === 0) {
+      return { statusCode: 200, body: "All bounce recipients already counted" };
+    }
+
+    // Increment per-sender totals
+    const update = {
+      TableName: "users",
+      Key: { userID: Number(senderUserID) },
+      UpdateExpression: "ADD #b :inc SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
+      ExpressionAttributeNames: {
+        "#b": "bounces",
+        "#bt": "bouncesByType",
+        "#t": String(bounceType),
+      },
+      ExpressionAttributeValues: {
+        ":inc": uniqueCount,
+        ":zero": 0,
+      },
+      ReturnValues: "UPDATED_NEW",
+    };
+    const resUpd = await dynamodb.update(update).promise();
+
+    console.log("Bounce counted", {
+      senderUserID,
+      uniqueCount,
+      bounceType,
+      updated: resUpd.Attributes,
+      messageId,
+      recipientHash, // available if you ever want per-recipient stats
+    });
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true, counted: uniqueCount }) };
+  }
+
+if (event.Records && event.Records[0].eventSource === "aws:ses") {
+  const rec = event.Records[0].ses;
+
+  // Prefer the canonical recipients list from the receipt, fall back to commonHeaders.to
+  const rawRecipients =
+    (rec.receipt && Array.isArray(rec.receipt.recipients) && rec.receipt.recipients) ||
+    (rec.mail && rec.mail.commonHeaders && Array.isArray(rec.mail.commonHeaders.to) && rec.mail.commonHeaders.to) ||
+    [];
+
+  // Helper to extract plain email from "Name <email@x>" or plain "email@x"
+  const extractEmail = (s) => {
+    if (!s) return "";
+    const m = String(s).match(/<([^>]+)>/);
+    return (m ? m[1] : String(s)).trim();
+  };
+
+  // Find the first recipient on *your* domain
+  const ourRecipient = rawRecipients
+    .map(extractEmail)
+    .find((addr) => addr.toLowerCase().endsWith("@email.1var.com"));
+
+  // If not for our domain, do nothing — this avoids calling Dynamo with su=""
+  if (!ourRecipient) {
+    console.log("Inbound SES message not for our domain. Skipping getSub(). Recipients:", rawRecipients);
+    return { statusCode: 200, body: JSON.stringify("Ignored: not our domain") };
+  }
+
+  const emailTarget = ourRecipient.split("@")[0]; // su/local-part
+
+  // Extra guard (shouldn’t happen, but keep Dynamo safe)
+  if (!emailTarget) {
+    console.log("Empty local-part after domain check; skipping.");
+    return { statusCode: 200, body: JSON.stringify("Ignored: empty target") };
+  }
+
+  // ==== your existing logic below this point is now safe ====
+  const emailId = rec.mail.messageId;
+  const emailSubject = rec.mail.commonHeaders?.subject;
+  const emailDate = rec.mail.commonHeaders?.date;
+  const returnPath = rec.mail.commonHeaders?.returnPath;
+
+  // Only call getSub when we actually have a non-empty su
+  let subEmail = await getSub(emailTarget, "su", dynamodb);
+
+  const isPublic = String(subEmail?.Items?.[0]?.z ?? "false");
+  const fileLocation = (isPublic === "true") ? "public" : "private";
+
+  const getParams = { Bucket: `${fileLocation}.1var.com`, Key: emailTarget };
+  const data = await s3.getObject(getParams).promise().catch(err => {
+    console.warn("s3.getObject failed", err.code);
+    return null; // if no existing file, you may want to create one instead of failing
+  });
+
+  if (data && data.ContentType === "application/json") {
+    const s3JSON = JSON.parse(data.Body.toString());
+    s3JSON.email = Array.isArray(s3JSON.email) ? s3JSON.email : [];
+    s3JSON.email.unshift({
+      from: returnPath,
+      to: emailTarget,
+      subject: emailSubject,
+      date: emailDate,
+      emailID: emailId,
+    });
+
+    const putParams = {
+      Bucket: `${fileLocation}.1var.com`,
+      Key: emailTarget,
+      Body: JSON.stringify(s3JSON),
+      ContentType: "application/json",
+    };
+    await s3.putObject(putParams).promise();
+  }
+
+  return { statusCode: 200, body: JSON.stringify("Email processed") };
+}
+
+  //OLD event condition
+  /*
+    if (event.Records && event.Records[0].eventSource === "aws:ses") {
+
+        let emailId = event.Records[0].ses.mail.messageId
+        let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
+        let emailDate = event.Records[0].ses.mail.commonHeaders.date
+        let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
+        let emailTo = event.Records[0].ses.mail.commonHeaders.to
+        let emailTarget = ""
+        for (let to in emailTo) {
+            if (emailTo[to].endsWith("email.1var.com")) {
+                emailTarget = emailTo[to].split("@")[0]
             }
         }
+        let subEmail = await getSub(emailTarget, "su", dynamodb)
 
-        if (uniqueCount === 0) {
-            return { statusCode: 200, body: "All bounce recipients already counted" };
+        let isPublic = subEmail.Items[0].z.toString()
+
+        let fileLocation = "private"
+        if (isPublic == "true" || isPublic == true) {
+            fileLocation = "public"
         }
+        const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
+        const data = await s3.getObject(params).promise();
+        if (data.ContentType == "application/json") {
+            let s3JSON = await JSON.parse(data.Body.toString());
+            s3JSON.email.unshift({ "from": returnPath, "to": emailTarget, "subject": emailSubject, "date": emailDate, "emailID": emailId })
 
-        // Increment per-sender totals
-        const update = {
-            TableName: "users",
-            Key: { userID: Number(senderUserID) },
-            // ORDER MATTERS: SET ... then ADD ...
-            UpdateExpression:
-                "SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc " +
-                "ADD #b :inc",
-            ExpressionAttributeNames: {
-                "#b": "bounces",
-                "#bt": "bouncesByType",
-                "#t": String(bounceType),
-            },
-            ExpressionAttributeValues: {
-                ":inc": uniqueCount,
-                ":zero": 0,
-            },
-            ReturnValues: "UPDATED_NEW",
-        };
-        const resUpd = await dynamodb.update(update).promise();
-
-        console.log("Bounce counted", {
-            senderUserID,
-            uniqueCount,
-            bounceType,
-            updated: resUpd.Attributes,
-            messageId,
-            recipientHash, // available if you ever want per-recipient stats
-        });
-
-        return { statusCode: 200, body: JSON.stringify({ ok: true, counted: uniqueCount }) };
-    }
-
-    if (event.Records && event.Records[0].eventSource === "aws:ses") {
-        const rec = event.Records[0].ses;
-
-        // Prefer the canonical recipients list from the receipt, fall back to commonHeaders.to
-        const rawRecipients =
-            (rec.receipt && Array.isArray(rec.receipt.recipients) && rec.receipt.recipients) ||
-            (rec.mail && rec.mail.commonHeaders && Array.isArray(rec.mail.commonHeaders.to) && rec.mail.commonHeaders.to) ||
-            [];
-
-        // Helper to extract plain email from "Name <email@x>" or plain "email@x"
-        const extractEmail = (s) => {
-            if (!s) return "";
-            const m = String(s).match(/<([^>]+)>/);
-            return (m ? m[1] : String(s)).trim();
-        };
-
-        // Find the first recipient on *your* domain
-        const ourRecipient = rawRecipients
-            .map(extractEmail)
-            .find((addr) => addr.toLowerCase().endsWith("@email.1var.com"));
-
-        // If not for our domain, do nothing — this avoids calling Dynamo with su=""
-        if (!ourRecipient) {
-            console.log("Inbound SES message not for our domain. Skipping getSub(). Recipients:", rawRecipients);
-            return { statusCode: 200, body: JSON.stringify("Ignored: not our domain") };
-        }
-
-        const emailTarget = ourRecipient.split("@")[0]; // su/local-part
-
-        // Extra guard (shouldn’t happen, but keep Dynamo safe)
-        if (!emailTarget) {
-            console.log("Empty local-part after domain check; skipping.");
-            return { statusCode: 200, body: JSON.stringify("Ignored: empty target") };
-        }
-
-        // ==== your existing logic below this point is now safe ====
-        const emailId = rec.mail.messageId;
-        const emailSubject = rec.mail.commonHeaders?.subject;
-        const emailDate = rec.mail.commonHeaders?.date;
-        const returnPath = rec.mail.commonHeaders?.returnPath;
-
-        // Only call getSub when we actually have a non-empty su
-        let subEmail = await getSub(emailTarget, "su", dynamodb);
-
-        const isPublic = String(subEmail?.Items?.[0]?.z ?? "false");
-        const fileLocation = (isPublic === "true") ? "public" : "private";
-
-        const getParams = { Bucket: `${fileLocation}.1var.com`, Key: emailTarget };
-        const data = await s3.getObject(getParams).promise().catch(err => {
-            console.warn("s3.getObject failed", err.code);
-            return null; // if no existing file, you may want to create one instead of failing
-        });
-
-        if (data && data.ContentType === "application/json") {
-            const s3JSON = JSON.parse(data.Body.toString());
-            s3JSON.email = Array.isArray(s3JSON.email) ? s3JSON.email : [];
-            s3JSON.email.unshift({
-                from: returnPath,
-                to: emailTarget,
-                subject: emailSubject,
-                date: emailDate,
-                emailID: emailId,
-            });
-
-            const putParams = {
-                Bucket: `${fileLocation}.1var.com`,
+            const params = {
+                Bucket: fileLocation + ".1var.com",
                 Key: emailTarget,
                 Body: JSON.stringify(s3JSON),
-                ContentType: "application/json",
+                ContentType: "application/json"
             };
-            await s3.putObject(putParams).promise();
+            await s3.putObject(params).promise();
         }
 
-        return { statusCode: 200, body: JSON.stringify("Email processed") };
-    }
 
-    //OLD event condition
-    /*
-      if (event.Records && event.Records[0].eventSource === "aws:ses") {
-  
-          let emailId = event.Records[0].ses.mail.messageId
-          let emailSubject = event.Records[0].ses.mail.commonHeaders.subject
-          let emailDate = event.Records[0].ses.mail.commonHeaders.date
-          let returnPath = event.Records[0].ses.mail.commonHeaders.returnPath
-          let emailTo = event.Records[0].ses.mail.commonHeaders.to
-          let emailTarget = ""
-          for (let to in emailTo) {
-              if (emailTo[to].endsWith("email.1var.com")) {
-                  emailTarget = emailTo[to].split("@")[0]
-              }
-          }
-          let subEmail = await getSub(emailTarget, "su", dynamodb)
-  
-          let isPublic = subEmail.Items[0].z.toString()
-  
-          let fileLocation = "private"
-          if (isPublic == "true" || isPublic == true) {
-              fileLocation = "public"
-          }
-          const params = { Bucket: fileLocation + '.1var.com', Key: emailTarget };
-          const data = await s3.getObject(params).promise();
-          if (data.ContentType == "application/json") {
-              let s3JSON = await JSON.parse(data.Body.toString());
-              s3JSON.email.unshift({ "from": returnPath, "to": emailTarget, "subject": emailSubject, "date": emailDate, "emailID": emailId })
-  
-              const params = {
-                  Bucket: fileLocation + ".1var.com",
-                  Key: emailTarget,
-                  Body: JSON.stringify(s3JSON),
-                  ContentType: "application/json"
-              };
-              await s3.putObject(params).promise();
-          }
-  
-  
-  
-          return { statusCode: 200, body: JSON.stringify('Email processed') };
-      }
-  */
+
+        return { statusCode: 200, body: JSON.stringify('Email processed') };
+    }
+*/
     if (event.automate) {
 
         function isTimeInInterval(timeInDay, st, itInMinutes) {
@@ -1020,29 +1022,29 @@ app.all('/auth/*',
 //-------------------------------------/////////////////////////////////////////////////////////
 
 
-async function deepMerge(target, source) {
-    if (source && typeof source === "object" && !Array.isArray(source)) {
-        if (!target || typeof target !== "object" || Array.isArray(target)) {
-            target = {};
+    async function deepMerge(target, source) {
+        if (source && typeof source === "object" && !Array.isArray(source)) {
+            if (!target || typeof target !== "object" || Array.isArray(target)) {
+                target = {};
+            }
+            const merged = { ...target };
+            for (const key of Object.keys(source)) {
+                merged[key] = await deepMerge(target[key], source[key]);
+            }
+            return merged;
+        } else if (Array.isArray(source)) {
+            if (!Array.isArray(target)) {
+                target = [];
+            }
+            const merged = [...target];
+            for (let i = 0; i < source.length; i++) {
+                merged[i] = await deepMerge(target[i], source[i]);
+            }
+            return merged;
+        } else {
+            return source;
         }
-        const merged = { ...target };
-        for (const key of Object.keys(source)) {
-            merged[key] = await deepMerge(target[key], source[key]);
-        }
-        return merged;
-    } else if (Array.isArray(source)) {
-        if (!Array.isArray(target)) {
-            target = [];
-        }
-        const merged = [...target];
-        for (let i = 0; i < source.length; i++) {
-            merged[i] = await deepMerge(target[i], source[i]);
-        }
-        return merged;
-    } else {
-        return source;
     }
-}
 
 
 async function runApp(oldReq, res, next) {
@@ -1052,7 +1054,7 @@ async function runApp(oldReq, res, next) {
     console.log("runApp req.path;", req.path)
     return new Promise(async (resolve, reject) => {
 
-        console.log("1")
+            console.log("1")
         try {
             req.lib = {
                 modules: {},
@@ -1068,7 +1070,7 @@ async function runApp(oldReq, res, next) {
                     req.dynPath.startsWith("/cookies/"))
             ) {
 
-                console.log("2")
+            console.log("2")
                 req.blocks = false;
                 req.lib.middlewareCache =
                     await initializeMiddleware(req, res, next);
@@ -1077,13 +1079,13 @@ async function runApp(oldReq, res, next) {
             console.log("3")
             if (req.lib.middlewareCache.length === 0) {
 
-                console.log("4", req._headerSent);
+            console.log("4", req._headerSent);
                 if (!req._headerSent) res.send("no access");
                 console.log("4.1", req.lib.middlewareCache.length)
                 return resolve({ chainParams: undefined });
             }
             const runMiddleware = async (index) => {
-                console.log("5")
+            console.log("5")
                 if (index >= req.lib.middlewareCache.length) return;
 
                 const maybe = await req.lib.middlewareCache[index](
@@ -1091,7 +1093,7 @@ async function runApp(oldReq, res, next) {
                     res,
                     async () => runMiddleware(index + 1)
                 );
-                console.log("6", maybe)
+            console.log("6", maybe)
 
                 if (
                     maybe &&
@@ -1099,11 +1101,11 @@ async function runApp(oldReq, res, next) {
                     maybe._isFunction !== undefined &&
                     maybe.chainParams !== undefined
                 ) {
-                    console.log("7")
+            console.log("7")
                     console.log("maybe && isFunction && chainParams", maybe)
                     return maybe;
                 }
-                console.log("8")
+            console.log("8")
                 return maybe;
             };
 
@@ -1229,25 +1231,25 @@ function splitObjectPath(str = '') {
  * Returns the resolved value or '' if the walk fails midway.
  */
 function walkPath(root, tokens) {
-    let cur = root;
-    for (const t of tokens) {
-        if (cur == null) return '';
+  let cur = root;
+  for (const t of tokens) {
+    if (cur == null) return '';
 
-        // numeric token → array index
-        if (/^\d+$/.test(t)) {
-            if (!Array.isArray(cur)) return '';
-            cur = cur[Number(t)];
-            continue;
-        }
-
-        // normal object key
-        if (Object.prototype.hasOwnProperty.call(cur, t)) {
-            cur = cur[t].value !== undefined ? cur[t].value : cur[t];
-        } else {
-            return '';
-        }
+    // numeric token → array index
+    if (/^\d+$/.test(t)) {
+      if (!Array.isArray(cur)) return '';
+      cur = cur[Number(t)];
+      continue;
     }
-    return cur;
+
+    // normal object key
+    if (Object.prototype.hasOwnProperty.call(cur, t)) {
+      cur = cur[t].value !== undefined ? cur[t].value : cur[t];
+    } else {
+      return '';
+    }
+  }
+  return cur;
 }
 
 function _parseArrowKey(rawKey, libs) {
@@ -1255,7 +1257,7 @@ function _parseArrowKey(rawKey, libs) {
     const normalised = rawKey
         .replace(/^\{\|/, '')        // leading "{|"
         .replace(/\|\}!$/, '')       // trailing "|}!"
-        .replace(/\|\}$/, '');      // trailing "|}"
+        .replace(/\|\}$/,  '');      // trailing "|}"
 
     const [lhs, rhs] = normalised.split('=>');
     if (!rhs) return null;                      // no arrow ⇒ treat as normal key
@@ -1272,18 +1274,18 @@ function _parseArrowKey(rawKey, libs) {
         };
     }
 
-    /* “…path[ idx ].rest.of.path” (new, relaxed) ------------------ */
-    const indexed = rhs.match(/^(.*?)\[(.*?)\](?:\.(.*))?$/);
-    if (indexed) {
-        const before = indexed[1];                // may be ""
-        const after = indexed[3] || "";          // may be ""
-        const full = (before ? before + '.' : '') + after;
-        return {
-            contextParts,
-            objectParts: full ? splitObjectPath(full) : [],
-            index: _resolveIdx(indexed[2], libs),
-        };
-    }
+  /* “…path[ idx ].rest.of.path” (new, relaxed) ------------------ */
+  const indexed = rhs.match(/^(.*?)\[(.*?)\](?:\.(.*))?$/);
+  if (indexed) {
+      const before = indexed[1];                // may be ""
+      const after  = indexed[3] || "";          // may be ""
+      const full   = (before ? before + '.' : '') + after;
+      return {
+          contextParts,
+          objectParts: full ? splitObjectPath(full) : [],
+          index: _resolveIdx(indexed[2], libs),
+      };
+  }
 
     /* plain RHS --------------------------------------------------- */
     return {
@@ -1405,15 +1407,15 @@ async function initializeMiddleware(req, res, next) {
         } else {
             let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
-            if (typeof entity.Items[0].z == "string") {
+            if (typeof entity.Items[0].z == "string" ){
                 console.log("parent", parent)
-                console.log("reqPath", reqPath)
+                console.log("reqPath",reqPath)
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
                 head = await getHead("su", subByE.Items[0].su, dynamodb)
                 cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
                 parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
-
-                console.log("subByE ==>", subByE)
+                
+                console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
                 reqPath = "/" + subByE.Items[0].su
                 req.dynPath = reqPath
@@ -1469,8 +1471,8 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.Promise = { "value": Promise, "context": {} }
                         req.lib.root.context.entities = { "value": entities, "context": {} }
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("3.1", req.body)
-                        console.log("3.2", req.body.params)
+                        console.log("3.1",req.body)
+                        console.log("3.2",req.body.params)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
@@ -1493,38 +1495,38 @@ async function initializeMiddleware(req, res, next) {
 
 async function initializeModules(libs, config, req, res, next) {
     await require('module').Module._initPaths();
-    let pendingElse = null;        // ← remember last if status
-    for (const action of config.actions) {
-        /* ----------------------------------------------------------
-         *  1) Stand-alone ELSE wrapper?
-         * -------------------------------------------------------- */
-        if (action.hasOwnProperty("else")) {
-            if (pendingElse === false) {                // ↙ previous IF failed
-                await runAction(
-                    action.else, libs, "root", req, res, next
-                );
-            }
-            pendingElse = null;           // reset and continue to next action
-            continue;
-        }
-
-        /* ----------------------------------------------------------
-         *  2) Normal or IF action
-         * -------------------------------------------------------- */
-        const runResponse = await runAction(
-            typeof action === "string"
-                ? await getValFromDB(action, req, res, next)
-                : action,
-            libs, "root", req, res, next
+  let pendingElse = null;        // ← remember last if status
+  for (const action of config.actions) {
+    /* ----------------------------------------------------------
+     *  1) Stand-alone ELSE wrapper?
+     * -------------------------------------------------------- */
+    if (action.hasOwnProperty("else")) {
+      if (pendingElse === false) {                // ↙ previous IF failed
+        await runAction(
+          action.else, libs, "root", req, res, next
         );
+      }
+      pendingElse = null;           // reset and continue to next action
+      continue;
+    }
 
-        /* special “IF skipped” marker? */
-        if (runResponse && runResponse.__kind === "if") {
-            pendingElse = runResponse.executed;    // true or false
-            continue;                              // no further checks needed
-        } else {
-            pendingElse = null;                    // not an IF → clear flag
-        }
+    /* ----------------------------------------------------------
+     *  2) Normal or IF action
+     * -------------------------------------------------------- */
+    const runResponse = await runAction(
+      typeof action === "string"
+        ? await getValFromDB(action, req, res, next)
+        : action,
+      libs, "root", req, res, next
+    );
+
+    /* special “IF skipped” marker? */
+    if (runResponse && runResponse.__kind === "if") {
+      pendingElse = runResponse.executed;    // true or false
+      continue;                              // no further checks needed
+    } else {
+      pendingElse = null;                    // not an IF → clear flag
+    }
 
         //OLD
         /*
@@ -1536,12 +1538,12 @@ async function initializeModules(libs, config, req, res, next) {
 
         //NEW
         if (
-            runResponse &&
-            typeof runResponse === "object" &&
-            runResponse._isFunction !== undefined
-        ) {
-            return runResponse;
-        }
+    runResponse &&
+    typeof runResponse === "object" &&
+    runResponse._isFunction !== undefined
+) {
+    return runResponse;
+}
         if (runResponse == "contune") {
             continue
         }
@@ -1714,9 +1716,9 @@ async function checkCondition(left, condition, right, libs, nestedPath) {
     }
     left = await replacePlaceholders(left, libs, nestedPath, leftExecuted)
     right = await replacePlaceholders(right, libs, nestedPath, rightExecuted)
-    console.log("left", left)
-    console.log("condition", condition)
-    console.log("right", right)
+    console.log("left",left)
+    console.log("condition",condition)
+    console.log("right",right)
     switch (condition) {
         case '==': return left == right;
         case '===': return left === right;
@@ -1856,71 +1858,71 @@ function isNestedArrayPlaceholder(str) {
 
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     let json = libs.root.context
-    function getValueFromJson2(path, json, nestedPath, forceRoot) {
-        let current = json;
+function getValueFromJson2(path, json, nestedPath, forceRoot) {
+    let current = json;
 
-        /* ────────────────────── 1. optional “nestedPath” walk ─────────────────── */
-        if (!forceRoot && nestedPath) {
-            for (const part of splitObjectPath(nestedPath)) {
-                if (current && Object.prototype.hasOwnProperty.call(current, part)) {
-                    current = current[part];
-                } else {
-                    console.error(`Nested path ${nestedPath} not found in JSON.`);
-                    return '';
-                }
+    /* ────────────────────── 1. optional “nestedPath” walk ─────────────────── */
+    if (!forceRoot && nestedPath) {
+        for (const part of splitObjectPath(nestedPath)) {
+            if (current && Object.prototype.hasOwnProperty.call(current, part)) {
+                current = current[part];
+            } else {
+                console.error(`Nested path ${nestedPath} not found in JSON.`);
+                return '';
             }
         }
+    }
 
-        /* ────────────────────── 2. split “lhs=>rhs” ───────────────────────────── */
-        const [base, rhs] = path.split('=>');
+    /* ────────────────────── 2. split “lhs=>rhs” ───────────────────────────── */
+    const [base, rhs] = path.split('=>');
 
-        /* ---------- walk the LHS (“foo.bar”) – keep old .context fallback ------- */
-        for (const part of splitObjectPath(base)) {
-            let slot;
-            if (current && Object.prototype.hasOwnProperty.call(current, part)) {
-                slot = current[part];
+    /* ---------- walk the LHS (“foo.bar”) – keep old .context fallback ------- */
+    for (const part of splitObjectPath(base)) {
+        let slot;
+        if (current && Object.prototype.hasOwnProperty.call(current, part)) {
+            slot = current[part];
+        } else if (current && current.context &&
+                   Object.prototype.hasOwnProperty.call(current.context, part)) {
+            slot = current.context[part];
+        } else {
+            return '';
+        }
+
+        current = slot.value !== undefined ? slot.value : slot;
+    }
+
+    /* ────────────────────── 3. walk the RHS (if any) ──────────────────────── */
+    if (rhs !== undefined) {
+        for (const token of splitObjectPath(rhs)) {
+            /* array index ---------------------------------------------------- */
+            if (/^\d+$/.test(token)) {
+                const idx = Number(token);
+                if (!Array.isArray(current) || idx < 0 || idx >= current.length) {
+                    console.error(`Index ${idx} out of bounds for array.`);
+                    return '';
+                }
+                current = current[idx];
+                continue;
+            }
+
+            /* object key  (with .context fallback, mirroring LHS) ------------ */
+            if (current && Object.prototype.hasOwnProperty.call(current, token)) {
+                current = current[token].value !== undefined
+                        ? current[token].value
+                        : current[token];
             } else if (current && current.context &&
-                Object.prototype.hasOwnProperty.call(current.context, part)) {
-                slot = current.context[part];
+                       Object.prototype.hasOwnProperty.call(current.context, token)) {
+                current = current.context[token].value !== undefined
+                        ? current.context[token].value
+                        : current.context[token];
             } else {
                 return '';
             }
-
-            current = slot.value !== undefined ? slot.value : slot;
         }
-
-        /* ────────────────────── 3. walk the RHS (if any) ──────────────────────── */
-        if (rhs !== undefined) {
-            for (const token of splitObjectPath(rhs)) {
-                /* array index ---------------------------------------------------- */
-                if (/^\d+$/.test(token)) {
-                    const idx = Number(token);
-                    if (!Array.isArray(current) || idx < 0 || idx >= current.length) {
-                        console.error(`Index ${idx} out of bounds for array.`);
-                        return '';
-                    }
-                    current = current[idx];
-                    continue;
-                }
-
-                /* object key  (with .context fallback, mirroring LHS) ------------ */
-                if (current && Object.prototype.hasOwnProperty.call(current, token)) {
-                    current = current[token].value !== undefined
-                        ? current[token].value
-                        : current[token];
-                } else if (current && current.context &&
-                    Object.prototype.hasOwnProperty.call(current.context, token)) {
-                    current = current.context[token].value !== undefined
-                        ? current.context[token].value
-                        : current.context[token];
-                } else {
-                    return '';
-                }
-            }
-        }
-
-        return current;
     }
+
+    return current;
+}
 
 
     async function replace2(str, nestedPath) {
@@ -2051,9 +2053,9 @@ async function replacePlaceholders2(str, libs, nestedPath = "") {
 }
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
-    console.log("processString", processString)
-    console.log("str", str)
-    console.log("nestedPath", nestedPath)
+    console.log("processString",processString)
+    console.log("str",str)
+    console.log("nestedPath",nestedPath)
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
         newNestedPath = newNestedPath.replace("root.", "")
@@ -2085,97 +2087,95 @@ async function processString(str, libs, nestedPath, isExecuted, returnEx) {
 }
 
 async function runAction(action, libs, nestedPath, req, res, next) {
-    if (!action) return "";
+  if (!action) return "";
 
-    /* ---------- 1) IF-conditions ----------------------------------- */
-    if (Array.isArray(action.if)) {
-        let allPass = true;
-        for (const ifObj of action.if) {
-            const pass = await condition(
-                ifObj[0], ifObj[1], ifObj[2], ifObj[3], libs, nestedPath
-            );
-            if (!pass) { allPass = false; break; }
-        }
-
-        /*  NEW  – tell caller what happened  */
-        if (!allPass) {
-            return { __kind: "if", executed: false };
-        }
-
+  /* ---------- 1) IF-conditions ----------------------------------- */
+  if (Array.isArray(action.if)) {
+    let allPass = true;
+    for (const ifObj of action.if) {
+      const pass = await condition(
+        ifObj[0], ifObj[1], ifObj[2], ifObj[3], libs, nestedPath
+      );
+      if (!pass) { allPass = false; break; }
     }
 
-    /* ---------- 2) WHILE ------------------------------------------- */
-    let output;                                   // ← final result to propagate
-
-    if (action.while) {
-        let whileCounter = 0;
-
-        for (const whileCond of action.while) {
-            const lExec = whileCond[0].endsWith("|}!");
-            const rExec = whileCond[2].endsWith("|}!");
-
-            while (await condition(
-                await replacePlaceholders(whileCond[0], libs, nestedPath, lExec),
-                [{
-                    condition: whileCond[1],
-                    right: await replacePlaceholders(
-                        whileCond[2], libs, nestedPath, rExec)
-                }],
-                null, "&&", libs, nestedPath
-            )) {
-
-                output = await processAction(action, libs, nestedPath, req, res, next);
-                console.log("output 01", output)
-
-                /* special wrapper → bubble up immediately */
-                if (output && typeof output === "object" && output._isFunction !== undefined) {
-                    return output;
-                }
-
-                if (++whileCounter >= req.lib.whileLimit) break;
-            }
-        }
+    /*  NEW  – tell caller what happened  */
+    if (!allPass) {
+      return { __kind: "if", executed: false };
     }
-    else {
-        /* ---------- 3) single execution ------------------------------ */
+    
+  }
+
+  /* ---------- 2) WHILE ------------------------------------------- */
+  let output;                                   // ← final result to propagate
+
+  if (action.while) {
+    let whileCounter = 0;
+
+    for (const whileCond of action.while) {
+      const lExec = whileCond[0].endsWith("|}!");
+      const rExec = whileCond[2].endsWith("|}!");
+
+      while (await condition(
+               await replacePlaceholders(whileCond[0], libs, nestedPath, lExec),
+               [{ condition: whileCond[1],
+                  right: await replacePlaceholders(
+                           whileCond[2], libs, nestedPath, rExec) }],
+               null, "&&", libs, nestedPath
+             )) {
+
         output = await processAction(action, libs, nestedPath, req, res, next);
-        console.log("output 02", output)
+    console.log("output 01", output)
+
+        /* special wrapper → bubble up immediately */
         if (output && typeof output === "object" && output._isFunction !== undefined) {
-            return output;                            // propagate special wrapper
+          return output;
         }
+
+        if (++whileCounter >= req.lib.whileLimit) break;
+      }
     }
+  }
+  else {
+    /* ---------- 3) single execution ------------------------------ */
+    output = await processAction(action, libs, nestedPath, req, res, next);
+    console.log("output 02", output)
+    if (output && typeof output === "object" && output._isFunction !== undefined) {
+      return output;                            // propagate special wrapper
+    }
+  }
 
-    /* ---------- 4) task-type short-cuts ----------------------------- */
-    if (action.assign && action.params) return "continue";
-    if (action.execute) return "continue";
+  /* ---------- 4) task-type short-cuts ----------------------------- */
+  if (action.assign && action.params) return "continue";
+  if (action.execute)                    return "continue";
 
-    /* ---------- 5) normal return ----------------------------------- */
-    if (output !== undefined) return output;      // ← keep primitive/array/object
+  /* ---------- 5) normal return ----------------------------------- */
+  if (output !== undefined) return output;      // ← keep primitive/array/object
 
-    return "";
+  return "";
 }
 
 function isPureNumberString(str) {
-    return /^-?\d+(\.\d+)?$/.test(str.trim());
+  return /^-?\d+(\.\d+)?$/.test(str.trim());
 }
 
 async function addValueToNestedKey(key, nestedContext, value) {
-    if (typeof value === "string" && isPureNumberString(value)) {
-        value = Number(value);
-    }
+  if (typeof value === "string" && isPureNumberString(value)) {
+    value = Number(value);
+  }
 
-    if (value === undefined || key === undefined) return;
+  if (value === undefined || key === undefined) return;
 
-    key = key.replace("~/", "");
-    if (!nestedContext.hasOwnProperty(key)) {
-        nestedContext[key] = { value: {}, context: {} };
-    }
-    nestedContext[key].value = value;
+  key = key.replace("~/", "");
+  if (!nestedContext.hasOwnProperty(key)) {
+    nestedContext[key] = { value: {}, context: {} };
+  }
+  nestedContext[key].value = value;
 
-    /* DEBUG — remove when happy */
-    if (key === "counter") {
-        console.log("counter now =", value);
-    }
+  /* DEBUG — remove when happy */
+  if (key === "counter") {
+    console.log("counter now =", value);
+  }
 }
 
 async function putValueIntoContext(contextPath, objectPath, value, libs, index) {
@@ -2227,9 +2227,9 @@ async function processAction(action, libs, nestedPath, req, res, next) {
     * RUN `nestedActions` FIRST (if present)
     * ---------------------------------------------------------------- */
     if (Array.isArray(action.nestedActions)) {
-        for (const sub of action.nestedActions) {
-            await runAction(sub, libs, nestedPath, req, res, next);
-        }
+      for (const sub of action.nestedActions) {
+       await runAction(sub, libs, nestedPath, req, res, next);
+      }
     }
     let timeoutLength = action.timeout || 0;
     if (timeoutLength > 0) {
@@ -2256,7 +2256,7 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const arrow = _parseArrowKey(keyClean, libs);
             console.log("arrow", arrow)
             if (arrow) {
-                console.log("action.set[key]", action.set[key])
+                console.log("action.set[key]",action.set[key])
                 const value = await replacePlaceholders(action.set[key], libs, nestedPath, keyExecuted);
                 await putValueIntoContext(
                     arrow.contextParts,
@@ -2308,13 +2308,13 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             /* caller wants the *raw* promise (do NOT await here) */
             const tmp = applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
-            console.log("tmp", tmp)
+            console.log("tmp",tmp)
             chainResult = execKey ? await tmp : tmp;   // ← extra await only if “! ”
         } else {
             /* normal mode – already awaited */
             chainResult = await applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
-            console.log("chainResult", chainResult)
+                console.log("chainResult",chainResult)
         }
 
         /* assign-to-context part is unchanged … */
@@ -2337,12 +2337,12 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
 
-        console.log("chainResult99", chainResult)
+        console.log("chainResult99",chainResult)
         /* ----------------------------------------------------------------------- */
         if (chainResult && chainResult._isFunction) return chainResult;
         if (action.promise === 'raw') return chainResult;
 
-
+        
     }
 
     else if (action.assign) {
@@ -2398,10 +2398,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
-    console.log("libs.root.cntext 1 =", libs.root.context)
-    console.log("target36", target)
-    console.log("action36", action)
-    console.log("assignExecuted36", assignExecuted)
+    console.log("libs.root.cntext 1 =",libs.root.context)
+    console.log("target36",target)
+    console.log("action36",action)
+    console.log("assignExecuted36",assignExecuted)
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -2423,7 +2423,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             if (chainAction.params) {
                 console.log("req.body", req.body)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
-                console.log("chainParams", chainParams)
+                console.log("chainParams",chainParams)
             }
             let accessClean = chainAction.access
             if (accessClean) {
@@ -2466,7 +2466,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                         /* ───────────── Non-Express branch (patched) ────────── */
                         else {
                             console.log(target, req.lib.root.context);
-                            console.log("chainParams", chainParams)
+                            console.log("chainParams",chainParams)
                             try {
                                 /* tidy numeric arg → string */
                                 if (chainParams && chainParams.length > 0 &&
@@ -2479,16 +2479,16 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     if ((accessClean === 'json' || accessClean === 'pdf') &&
                                         action.target.replace('{|', '').replace('|}!', '').replace('|}', '') === 'res') {
 
-                                        console.log("accessClean", accessClean)
+                                            console.log("accessClean", accessClean)
                                         chainParams[0] = JSON.stringify(chainParams[0]);
 
-                                        console.log("req.body", req.body)
-                                        console.log("req.body._isFunction", req.body._isFunction)
+                                            console.log("req.body", req.body)
+                                        console.log("req.body._isFunction",req.body._isFunction)
 
-                                        console.log("libs.root.cntext 2 =", libs.root.context)
+    console.log("libs.root.cntext 2 =",libs.root.context)
                                         if (req.body && req.body._isFunction) {
 
-                                            console.log("chainParams55.0", chainParams)
+                                            console.log("chainParams55.0",chainParams)
                                             return chainParams.length === 1
                                                 ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
                                                 : { chainParams, _isFunction: req.body._isFunction };
@@ -2500,23 +2500,23 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         // thinnk about the reason body.body exist.
                                         // rework the logic in areas so they all just use body, not body.body
 
-                                        console.log("action.promise", action.promise)
+                                        console.log("action.promise",action.promise )
                                         /* ↓↓↓ PATCH ↓↓↓ */
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
-                                            console.log("result", result)
+                                            console.log("result",result)
                                         } else {
-                                            console.log("chainParams55.1", chainParams)
+                                            console.log("chainParams55.1",chainParams)
                                             result = await result[accessClean](...chainParams);
-                                            console.log("result", result)
+                                            console.log("result",result)
                                         }
                                     }
 
                                     /* all other calls inside assignExecuted === true */
                                     else {
-                                        console.log("accessClean", accessClean)
-                                        console.log("req.body", req.body)
-                                        console.log("req.body._isFunction", req.body._isFunction)
+                                            console.log("accessClean", accessClean)
+                                            console.log("req.body", req.body)
+                                        console.log("req.body._isFunction",req.body._isFunction)
                                         if (accessClean === 'send' &&
                                             req.body && req.body._isFunction) {
 
@@ -2529,7 +2529,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
                                         } else {
-                                            console.log("chainParams55.2", chainParams)
+                                            console.log("chainParams55.2",chainParams)
                                             result = await result[accessClean](...chainParams);
                                         }
 
@@ -2541,7 +2541,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                                 /* assignExecuted === false  → we still need to call the fn */
                                 else {
-                                    console.log("else result 00", action.promise)
+                                    console.log("else result 00",action.promise)
                                     /* ↓↓↓ PATCH ↓↓↓ */
                                     if (action.promise === 'raw') {
                                         result = result[accessClean](...(chainParams || []));
@@ -2648,27 +2648,27 @@ async function createFunctionFromAction(action, libs, nestedPath, req, res, next
         }
 
         if (action.nestedActions) {
-            let finalResult = undefined;
-            for (const act of action.nestedActions) {
-                const newNestedPath = `${nestedPath}.${assign.key}`;
+           let finalResult = undefined;
+           for (const act of action.nestedActions) {
+               const newNestedPath = `${nestedPath}.${assign.key}`;
 
-                // run the current nested action
-                const out = await runAction(act, libs, newNestedPath, req, res, next);
+               // run the current nested action
+               const out = await runAction(act, libs, newNestedPath, req, res, next);
 
-                /* 1)  If this nested action itself contains `"return": …`
-                 *     OR
-                 * 2)  runAction gave us back a non-empty value,
-                 * then we have reached the terminating action.
-                 */
-                if (Object.prototype.hasOwnProperty.call(act, 'return') ||
-                    (out !== undefined && out !== '')) {
-                    finalResult = out;
-                    break;          // ← stop processing further nestedActions
-                }
-            }
+               /* 1)  If this nested action itself contains `"return": …`
+                *     OR
+                * 2)  runAction gave us back a non-empty value,
+                * then we have reached the terminating action.
+                */
+               if (Object.prototype.hasOwnProperty.call(act, 'return') ||
+                   (out !== undefined && out !== '')) {
+                   finalResult = out;
+                   break;          // ← stop processing further nestedActions
+               }
+           }
 
-            // Whatever we captured (may be undefined if no "return" found)
-            result = finalResult;
+           // Whatever we captured (may be undefined if no "return" found)
+           result = finalResult;
         }
         return result;
 
