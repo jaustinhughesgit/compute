@@ -539,12 +539,117 @@ const automate = async (url) => {
     }
 };
 
+
+/** helper: case-insensitive tag lookup, returns first string value */
+function getTag(tags, wanted) {
+  if (!tags || typeof tags !== "object") return undefined;
+  const wantedLc = String(wanted).toLowerCase();
+  for (const k of Object.keys(tags)) {
+    if (String(k).toLowerCase() === wantedLc) {
+      const v = tags[k];
+      return Array.isArray(v) ? v[0] : v;
+    }
+  }
+  return undefined;
+}
+
+/** helper: resolve users.userID by emailHash via GSI */
+async function getUserIdByEmailHash(emailHash) {
+  if (!emailHash) return undefined;
+  const q = await dynamodb.query({
+    TableName: USERS_TABLE,
+    IndexName: USERS_EMAIL_HASH_GSI,
+    KeyConditionExpression: "emailHash = :eh",
+    ExpressionAttributeValues: { ":eh": String(emailHash) },
+    ProjectionExpression: "userID",
+    Limit: 1,
+    // (ConsistentRead is not supported on GSIs)
+  }).promise();
+  const item = q?.Items?.[0];
+  return item?.userID != null ? Number(item.userID) : undefined;
+}
+
+
 const serverlessHandler = serverless(app);
 
 const lambdaHandler = async (event, context) => {
 
     console.log("lambdaHandler event", event)
     console.log("lambdaHandler event", JSON.stringify(event, null, 2))
+
+if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
+    const detail = event.detail || {};
+    const mail = detail.mail || {};
+    const bounce = detail.bounce || {};
+    const messageId = mail.messageId;
+    const recipients = Array.isArray(bounce.bouncedRecipients) ? bounce.bouncedRecipients : [];
+    const bounceType = bounce.bounceType || "Unknown";
+
+    // Pull your custom tags (senderHash, recipientHash) that you set in SendRawEmail
+    const tags = mail.tags || {};
+    const senderHash = getTag(tags, "senderHash");       // <= emailHash of the sender
+    const recipientHash = getTag(tags, "recipientHash"); // <= emailHash of the recipient (optional here)
+
+    // We only need sender → userID to count "how many emails a user sends that bounce"
+    const senderUserID = await getUserIdByEmailHash(senderHash);
+    if (!Number.isFinite(senderUserID)) {
+      console.warn("Bounce received but no senderUserID could be resolved from emailHash", { senderHash, messageId });
+      return { statusCode: 200, body: "No senderUserID, skipping count" };
+    }
+
+    // Idempotency: dedupe per (messageId, bouncedRecipientEmail)
+    const now = Date.now();
+    const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000); // 90 days
+    let uniqueCount = 0;
+
+    for (const r of recipients) {
+      const email = r?.emailAddress || "unknown";
+      const id = `${messageId}#${email}`;
+      try {
+        await dynamodb.put({
+          TableName: DEDUPE_TABLE,
+          Item: { id, ttl },
+          ConditionExpression: "attribute_not_exists(id)",
+        }).promise();
+        uniqueCount += 1;
+      } catch (e) {
+        if (e.code !== "ConditionalCheckFailedException") throw e; // already seen -> ignore
+      }
+    }
+
+    if (uniqueCount === 0) {
+      return { statusCode: 200, body: "All bounce recipients already counted" };
+    }
+
+    // Increment per-sender totals
+    const update = {
+      TableName: USERS_TABLE,
+      Key: { userID: Number(senderUserID) },
+      UpdateExpression: "ADD #b :inc SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
+      ExpressionAttributeNames: {
+        "#b": "bounces",
+        "#bt": "bouncesByType",
+        "#t": String(bounceType),
+      },
+      ExpressionAttributeValues: {
+        ":inc": uniqueCount,
+        ":zero": 0,
+      },
+      ReturnValues: "UPDATED_NEW",
+    };
+    const resUpd = await dynamodb.update(update).promise();
+
+    console.log("Bounce counted", {
+      senderUserID,
+      uniqueCount,
+      bounceType,
+      updated: resUpd.Attributes,
+      messageId,
+      recipientHash, // available if you ever want per-recipient stats
+    });
+
+    return { statusCode: 200, body: JSON.stringify({ ok: true, counted: uniqueCount }) };
+  }
 
     if (event.Records && event.Records[0].eventSource === "aws:ses") {
 
