@@ -33,7 +33,15 @@ function register({ on, use }) {
   // --- Reputation constants + helpers -----------------------------------
   const RATIO_THRESHOLD = 0.10;
   const CONFIG_SET = process.env.SES_CONFIG_SET || "ses-events";
-  
+
+  // NEW: deliverability + metrics configuration
+  const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks"; // NEW
+  const METRICS_TABLE  = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";          // NEW
+  const RATE_WINDOW_DAYS = 14;                                                              // NEW
+  const MIN_RATE_VOLUME  = 500;                                                             // NEW
+  const BOUNCE_WARN_RATE = 0.02; // 2% → warn/limit                                        // NEW
+  const BOUNCE_BLOCK_RATE = 0.05; // 5% → block + review                                   // NEW
+  const BOUNCE_HARD_BLOCK_RATE = 0.10; // 10% → hard block                                 // NEW
 
   const safeNum = (v) => {
     const n = Number(v);
@@ -49,6 +57,79 @@ function register({ on, use }) {
     if (maybeSet.values && Array.isArray(maybeSet.values)) return maybeSet.values; // DocumentClient Set
     return [];
   };
+
+  // NEW: simple YYYY-MM-DD key
+  const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0,10); // NEW
+
+  // NEW: add to daily metrics (sends / bounces / complaints, etc.)
+  async function addDailyMetric(ddb, senderUserID, fields) { // NEW
+    if (!(senderUserID > 0) || !fields || typeof fields !== "object") return;
+    const day = dayKey();
+    const names = Object.keys(fields);
+    if (!names.length) return;
+
+    const expr = "ADD " + names.map((n,i)=>`#f${i} :v${i}`).join(", ");
+    const ExpressionAttributeNames = {};
+    const ExpressionAttributeValues = {};
+    names.forEach((n,i)=>{ ExpressionAttributeNames[`#f${i}`]=n; ExpressionAttributeValues[`:v${i}`]=safeNum(fields[n]); });
+
+    await ddb.update({
+      TableName: METRICS_TABLE,
+      Key: { senderUserID: Number(senderUserID), day },
+      UpdateExpression: expr,
+      ExpressionAttributeNames,
+      ExpressionAttributeValues
+    }).promise();
+  }
+
+  // NEW: compute last-14-day hard-bounce rate
+  async function getBounceRate14d(ddb, senderUserID) { // NEW
+    if (!(senderUserID > 0)) return { sends14d: 0, bHard14d: 0, rate: 0 };
+    const days = Array.from({length: RATE_WINDOW_DAYS}, (_,i)=> dayKey(Date.now() - i*86400000));
+    const keys = days.map(day => ({ senderUserID: Number(senderUserID), day }));
+
+    const res = await ddb.batchGet({
+      RequestItems: {
+        [METRICS_TABLE]: { Keys: keys }
+      }
+    }).promise();
+
+    const items = res?.Responses?.[METRICS_TABLE] || [];
+    let sends14d = 0, bHard14d = 0;
+    for (const it of items) {
+      sends14d  += safeNum(it.sends);
+      bHard14d  += safeNum(it.b_hard);
+    }
+    const rate = sends14d > 0 ? (bHard14d / sends14d) : 0;
+    return { sends14d, bHard14d, rate };
+  }
+
+  // NEW: local deliverability suppression check
+  async function isDeliverabilitySuppressed(ddb, recipientHash, senderUserID) { // NEW
+    if (!recipientHash) return false;
+    const keys = [{ recipientHash, scope: "*" }];
+    if (senderUserID > 0) keys.push({ recipientHash, scope: String(senderUserID) });
+
+    const res = await ddb.batchGet({
+      RequestItems: { [SUPPRESS_TABLE]: { Keys: keys } }
+    }).promise();
+
+    const now = Date.now();
+    const items = res?.Responses?.[SUPPRESS_TABLE] || [];
+    for (const it of items) {
+      if (safeNum(it.expiresAt) === 0) return true; // permanent
+      if (safeNum(it.expiresAt) > now) return true; // active window
+    }
+    return false;
+  }
+
+  // NEW: scale daily limit if sender is in warn zone
+  function scaleDailyLimit(base, sends14d, rate) { // NEW
+    if (sends14d >= MIN_RATE_VOLUME && rate >= BOUNCE_WARN_RATE && rate < BOUNCE_BLOCK_RATE) {
+      return Math.max(5, Math.ceil(base * 0.5)); // cut by 50% but keep a tiny floor
+    }
+    return base;
+  }
 
   // Read blocks + uniqueSent count for a user
   async function getUserReputation(ddb, userID) {
@@ -149,6 +230,9 @@ function register({ on, use }) {
 
   const escapeHeader = (s) => String(s).replace(/"/g, '\\"');
 
+
+
+
   // --- RATE LIMIT: reservation-based sliding 24h window (dynamic per-sender limit) ---
   async function reserveEmailSlot(ddb, senderHash, dailyLimit = 50) {
     const now = Date.now();                       // ms
@@ -234,15 +318,20 @@ function register({ on, use }) {
     const days = Math.floor((now - createdMs) / DAY_MS);
     return BASE + Math.max(0, days);
   }
-
+  
   // --- INTERNAL: create/ensure user via manageCookie (no cookie sent back) & send invite ---
-  async function initEmail(ddb, ses, input, ctx) {
+  async function initEmail(ddb, ses, input, ctx, senderUserID) { // CHANGED: added senderUserID
     console.log(">>>initEmail", initEmail);
     const {
       recipientEmail, recipientHash, senderHash, senderName = "A 1var user",
       previewText = "", fromEmail = "noreply@email.1var.com", fromName = "1 VAR",
       brand = "1var", linksHost = "https://email.1var.com", apiHost = "https://abc.api.1var.com",
     } = input;
+
+    // BEFORE sending, enforce local deliverability suppression (global or per-sender) // NEW
+    if (await isDeliverabilitySuppressed(ddb, recipientHash, senderUserID)) { // NEW
+      return { ok: true, createdUser: true, sent: false, blocked: true, reason: "deliverability_suppressed" }; // NEW
+    } // NEW
 
     const blockCookieBack = true;
     const mcMain = {
@@ -290,15 +379,14 @@ function register({ on, use }) {
       }
     }
 
-    // Invite links
+    // Invite links (unchanged) ...
     const allowUrl       = `${linksHost}/opt-in/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
     const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
     const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
     const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
 
     const subject = `${senderName} invited you to receive messages from ${brand}`;
-    const textBody =
-`You’re getting this one-time invite because ${senderName} entered your email on ${brand}.
+    const textBody = /* unchanged */ `You’re getting this one-time invite because ${senderName} entered your email on ${brand}.
 We won’t email you again about ${senderName} unless you choose to allow messages.
 
 Preview of ${senderName}'s message:
@@ -316,8 +404,7 @@ Block all: ${blockAllUrl}
 ${brand.toUpperCase()} • 11010 Lake Grove Blvd Ste 100-440, Morrisville, NC 27560
 Privacy: https://1var.com/privacy`;
 
-    const htmlBody =
-`<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;">
+    const htmlBody = /* unchanged */ `<div style="font-family:Arial,Helvetica,sans-serif;font-size:16px;line-height:1.5;">
   <p>You’re getting this one-time invite because <b>${escapeHtml(senderName)}</b> entered your email on ${escapeHtml(brand)}.
      We won’t email you again about ${escapeHtml(senderName)} unless you choose to allow messages.</p>
   <p><b>Preview of ${escapeHtml(senderName)}’s message:</b><br>
@@ -360,11 +447,14 @@ Privacy: https://1var.com/privacy`;
         ]
       }).promise();
 
+    // NEW: count successful, SES-accepted send in metrics
+    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 }); // NEW
+
     return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: Number(e) };
   }
 
   // --- INTERNAL: for existing users (respect block/allow; send normal email content) ---
-  async function generalEmail(ddb, ses, input, userRecord) {
+  async function generalEmail(ddb, ses, input, userRecord, senderUserID) { // CHANGED: added senderUserID
     console.log(">>>generalEmail", generalEmail);
     const {
       recipientEmail, recipientHash, senderHash,
@@ -379,12 +469,17 @@ Privacy: https://1var.com/privacy`;
       apiHost = "https://abc.api.1var.com",
     } = input;
 
-    // Enforce recipient block rules before reserving a slot
+    // Enforce user-managed block rules before anything else
     if (isBlocked(userRecord, senderHash)) {
       return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
     }
 
-    // Provide convenient block links in footer
+    // NEW: local deliverability suppression (global/per-sender)
+    if (await isDeliverabilitySuppressed(ddb, recipientHash, senderUserID)) { // NEW
+      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "deliverability_suppressed" }; // NEW
+    } // NEW
+
+    // Provide convenient block links in footer (unchanged)
     const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
     const blockAllUrl    = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
     const listUnsubPost  = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
@@ -437,6 +532,9 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         }
       )
       .promise();
+
+    // NEW: count successful, SES-accepted send in metrics
+    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 }); // NEW
 
     return {
       ok: true,
@@ -529,7 +627,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       console.warn("sendEmail: could not resolve sender emailHash; using su fallback");
     }
 
-    // Reputation gate: blocks / uniqueSentCount
+    // Reputation gate: blocks / uniqueSentCount (unchanged)
     if (senderUserID) {
       const rep = await getUserReputation(ddb, senderUserID);
       const ratio = rep.uniqueSentCount > 0 ? (rep.blocks / rep.uniqueSentCount) : 0;
@@ -545,6 +643,19 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         };
       }
     }
+
+    // NEW: check sender bounce rate over last 14 days and gate
+    let rateInfo = { sends14d: 0, bHard14d: 0, rate: 0 }; // NEW
+    if (senderUserID) rateInfo = await getBounceRate14d(ddb, senderUserID); // NEW
+    if (senderUserID && (rateInfo.rate >= BOUNCE_HARD_BLOCK_RATE || (rateInfo.sends14d >= MIN_RATE_VOLUME && rateInfo.rate >= BOUNCE_BLOCK_RATE))) { // NEW
+      return { // NEW
+        ok: false,
+        error: "sender_reputation_blocked",
+        reason: "bounce_rate_threshold",
+        details: rateInfo,
+        thresholds: { WARN: BOUNCE_WARN_RATE, BLOCK: BOUNCE_BLOCK_RATE, HARD: BOUNCE_HARD_BLOCK_RATE, WINDOW_DAYS: RATE_WINDOW_DAYS, MIN_RATE_VOLUME } // NEW
+      }; // NEW
+    } // NEW
 
     // Lookup recipient (decide path)
     let existingUser = null;
@@ -562,9 +673,11 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       return { ok: false, error: "lookup_failed" };
     }
 
-    // Dynamic per-sender daily limit
-    const DAILY_LIMIT = await getSenderDailyLimit(ddb, senderEmailHash, senderCreatedMs);
-    console.log("DAILY_LIMIT", DAILY_LIMIT);
+    // Dynamic per-sender daily limit (then scale if in warn zone)
+    let DAILY_LIMIT = await getSenderDailyLimit(ddb, senderEmailHash, senderCreatedMs);
+    console.log("DAILY_LIMIT(base)", DAILY_LIMIT);
+    DAILY_LIMIT = scaleDailyLimit(DAILY_LIMIT, rateInfo.sends14d, rateInfo.rate); // NEW
+    console.log("DAILY_LIMIT(scaled)", DAILY_LIMIT); // NEW
 
     if (!existingUser) {
       // New user → initEmail flow
@@ -578,7 +691,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           ddb,
           ses,
           { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
-          ctx
+          ctx,
+          senderUserID // NEW
         );
 
         // Add recipient userID to sender.uniqueSent on successful send
@@ -608,7 +722,8 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
           ddb,
           ses,
           { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
-          existingUser
+          existingUser,
+          senderUserID // NEW
         );
 
         // Add recipient userID to sender.uniqueSent on successful send

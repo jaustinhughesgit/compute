@@ -19,6 +19,7 @@ const child_process = require('child_process')
 const exec = util.promisify(child_process.exec);
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
 
+
 const boundAxios = {
     constructor: axios.constructor.bind(axios),
     request: axios.request.bind(axios),
@@ -75,10 +76,17 @@ s3 = new AWS.S3();
 ses = new AWS.SES();
 
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
+const { createShared } = require("./routes/shared");
+let _shared;                                          // NEW
+const ensureShared = () => (_shared ?? (_shared = createShared({ dynamodb }))); // NEW
 
+const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks";
+const METRICS_TABLE  = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";
+const RATE_WINDOW_DAYS = 14;
+const ONE_DAY = 24 * 3600 * 1000;
+const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0,10);
+const nowMs = () => Date.now();
 
-
-/* not needed for LLM*/
 
 var cookiesRouter;
 var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
@@ -88,6 +96,8 @@ const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
 
+
+/* not needed for LLM*/
 
 app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
@@ -555,7 +565,7 @@ function getTag(tags, wanted) {
 
 /** helper: resolve users.userID by emailHash via GSI */
 async function getUserIdByEmailHash(emailHash) {
-    console.log("emailHash", emailHash)
+  console.log("emailHash", emailHash)
   if (!emailHash) return undefined;
   const q = await dynamodb.query({
     TableName: "users",
@@ -564,7 +574,6 @@ async function getUserIdByEmailHash(emailHash) {
     ExpressionAttributeValues: { ":eh": String(emailHash) },
     ProjectionExpression: "userID",
     Limit: 1,
-    // (ConsistentRead is not supported on GSIs)
   }).promise();
   const item = q?.Items?.[0];
   console.log("q", q)
@@ -572,16 +581,92 @@ async function getUserIdByEmailHash(emailHash) {
   return item?.userID != null ? Number(item.userID) : undefined;
 }
 
+async function addDailyMetric(senderUserID, fields) {
+  if (!(senderUserID > 0) || !fields) return;
+  const day = dayKey();
+  const names = Object.keys(fields);
+  if (!names.length) return;
+
+  const expr = "ADD " + names.map((n,i)=>`#f${i} :v${i}`).join(", ");
+  const ExpressionAttributeNames = {};
+  const ExpressionAttributeValues = {};
+  names.forEach((n,i)=>{ ExpressionAttributeNames[`#f${i}`]=n; ExpressionAttributeValues[`:v${i}`]=Number(fields[n]||0); });
+
+  await dynamodb.update({
+    TableName: METRICS_TABLE,
+    Key: { senderUserID: Number(senderUserID), day },
+    UpdateExpression: expr,
+    ExpressionAttributeNames,
+    ExpressionAttributeValues
+  }).promise();
+}
+
+// Global (per-recipient) permanent suppression for hard bounces
+async function upsertPermanentSuppression(recipientHash, reason = "hard_bounce") {
+  if (!recipientHash) return;
+  const now = nowMs();
+  const expiresAt = now + 365*ONE_DAY;             // 1 year
+  const ttl = Math.floor((expiresAt + 5*ONE_DAY)/1000);
+  await dynamodb.update({
+    TableName: SUPPRESS_TABLE,
+    Key: { recipientHash, scope: "*" },
+    UpdateExpression: "SET reason = :r, firstAt = if_not_exists(firstAt, :now), expiresAt = :exp, ttl = :ttl",
+    ExpressionAttributeValues: { ":r": reason, ":now": now, ":exp": expiresAt, ":ttl": ttl }
+  }).promise();
+}
+
+
+// Per-sender temp suppression for soft bounces (3 in 72h ⇒ 7 days)
+async function handleSoftBounce(recipientHash, senderUserID, incrementBy) {
+  if (!recipientHash || !(senderUserID > 0)) return;
+  const key = { recipientHash, scope: String(senderUserID) };
+  const now = nowMs();
+  const windowMs = 72*3600*1000; // 72h
+  const tempSuppMs = 7*ONE_DAY;  // 7 days
+  const ttl = Math.floor((now + tempSuppMs + 3*ONE_DAY) / 1000);
+
+  const cur = await dynamodb.get({ TableName: SUPPRESS_TABLE, Key: key }).promise();
+  const it = cur?.Item;
+  let firstSoftAt = it?.firstSoftAt && Number(it.firstSoftAt) > 0 ? Number(it.firstSoftAt) : now;
+  let softCount = (it?.softCount || 0) + (incrementBy || 1);
+
+  if (now - firstSoftAt > windowMs) {
+    firstSoftAt = now;
+    softCount = (incrementBy || 1);
+  }
+
+  let expiresAt = it?.expiresAt || 0;
+  let reason = it?.reason || "soft_bounce";
+
+  if (softCount >= 3) {
+    expiresAt = now + tempSuppMs;
+    reason = "soft_bounce_temp";
+  }
+
+  await dynamodb.put({
+    TableName: SUPPRESS_TABLE,
+    Item: {
+      ...key,
+      reason,
+      firstSoftAt,
+      softCount,
+      lastSoftAt: now,
+      expiresAt,
+      ttl
+    }
+  }).promise();
+}
+
 
 const serverlessHandler = serverless(app);
 
 const lambdaHandler = async (event, context) => {
+ console.log("lambdaHandler event", event)
+  console.log("lambdaHandler event", JSON.stringify(event, null, 2))
+  console.log("event?.source", event?.source)
+  console.log("event?.['detail-type']", event?.["detail-type"])
 
-    console.log("lambdaHandler event", event)
-    console.log("lambdaHandler event", JSON.stringify(event, null, 2))
-    console.log("event?.source", event?.source)
-    console.log("event?.['detail-type']", event?.["detail-type"])
-if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
+  if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     console.log("INSIDE EVENT")
     const detail = event.detail || {};
     const mail = detail.mail || {};
@@ -590,22 +675,25 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     const recipients = Array.isArray(bounce.bouncedRecipients) ? bounce.bouncedRecipients : [];
     const bounceType = bounce.bounceType || "Unknown";
 
-    // Pull your custom tags (senderHash, recipientHash) that you set in SendRawEmail
+    // Use your SES tags
     const tags = mail.tags || {};
-    const senderHash = getTag(tags, "senderHash");       // <= emailHash of the sender
-    const recipientHash = getTag(tags, "recipientHash"); // <= emailHash of the recipient (optional here)
+    const senderHash = getTag(tags, "senderHash");
+    const taggedRecipientHash = getTag(tags, "recipientHash");
 
-    // We only need sender → userID to count "how many emails a user sends that bounce"
+    // Pull shared hashing utils (PEPPER-aware)
+    const { normalizeEmail, hashEmail } = ensureShared(); // NEW
+
+    // Resolve sender → userID
     const senderUserID = await getUserIdByEmailHash(senderHash);
-    console.log("senderUserID",senderUserID)
+    console.log("senderUserID", senderUserID)
     if (!Number.isFinite(senderUserID)) {
       console.warn("Bounce received but no senderUserID could be resolved from emailHash", { senderHash, messageId });
       return { statusCode: 200, body: "No senderUserID, skipping count" };
     }
 
-    // Idempotency: dedupe per (messageId, bouncedRecipientEmail)
-    const now = Date.now();
-    const ttl = Math.floor((now + 90 * 24 * 3600 * 1000) / 1000); // 90 days
+    // Idempotent counting per (messageId, recipient)
+    const now = nowMs();
+    const ttl = Math.floor((now + 90 * ONE_DAY) / 1000); // 90 days
     let uniqueCount = 0;
 
     for (const r of recipients) {
@@ -618,8 +706,19 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
           ConditionExpression: "attribute_not_exists(id)",
         }).promise();
         uniqueCount += 1;
+
+        // 👉 Use shared normalizeEmail + hashEmail for recipientHash fallback
+        const recipientHash =
+          taggedRecipientHash ||
+          (email !== "unknown" ? hashEmail(normalizeEmail(email)) : undefined);
+
+        if (bounceType === "Permanent") {
+          await upsertPermanentSuppression(recipientHash, "hard_bounce");
+        } else if (bounceType === "Transient") {
+          await handleSoftBounce(recipientHash, senderUserID, 1);
+        }
       } catch (e) {
-        if (e.code !== "ConditionalCheckFailedException") throw e; // already seen -> ignore
+        if (e.code !== "ConditionalCheckFailedException") throw e; // already seen
       }
     }
 
@@ -627,34 +726,40 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
       return { statusCode: 200, body: "All bounce recipients already counted" };
     }
 
-    // 1) Ensure the parent map exists (idempotent)
-await dynamodb.update({
-  TableName: "users",
-  Key: { userID: Number(senderUserID) },
-  UpdateExpression: "SET #bt = if_not_exists(#bt, :empty)",
-  ExpressionAttributeNames: { "#bt": "bouncesByType" },
-  ExpressionAttributeValues: { ":empty": {} },
-  ReturnValues: "NONE",
-}).promise();
+    // Maintain your per-user counters
+    await dynamodb.update({
+      TableName: "users",
+      Key: { userID: Number(senderUserID) },
+      UpdateExpression: "SET #bt = if_not_exists(#bt, :empty)",
+      ExpressionAttributeNames: { "#bt": "bouncesByType" },
+      ExpressionAttributeValues: { ":empty": {} },
+      ReturnValues: "NONE",
+    }).promise();
 
-// 2) Now safely increment both counters (parent exists, no overlap)
-const resUpd = await dynamodb.update({
-  TableName: "users",
-  Key: { userID: Number(senderUserID) },
-  UpdateExpression:
-    "SET #b = if_not_exists(#b, :zero) + :inc, " +
-    "#bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
-  ExpressionAttributeNames: {
-    "#b": "bounces",
-    "#bt": "bouncesByType",
-    "#t": String(bounceType), // "Permanent", "Transient", etc.
-  },
-  ExpressionAttributeValues: {
-    ":inc": uniqueCount,
-    ":zero": 0,
-  },
-  ReturnValues: "UPDATED_NEW",
-}).promise();
+    const resUpd = await dynamodb.update({
+      TableName: "users",
+      Key: { userID: Number(senderUserID) },
+      UpdateExpression:
+        "SET #b = if_not_exists(#b, :zero) + :inc, " +
+        "#bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
+      ExpressionAttributeNames: {
+        "#b": "bounces",
+        "#bt": "bouncesByType",
+        "#t": String(bounceType),
+      },
+      ExpressionAttributeValues: {
+        ":inc": uniqueCount,
+        ":zero": 0,
+      },
+      ReturnValues: "UPDATED_NEW",
+    }).promise();
+
+    // Record daily metrics for your 14-day rate calc
+    if (bounceType === "Permanent") {
+      await addDailyMetric(senderUserID, { b_hard: uniqueCount });
+    } else {
+      await addDailyMetric(senderUserID, { b_soft: uniqueCount });
+    }
 
     console.log("Bounce counted", {
       senderUserID,
@@ -662,7 +767,7 @@ const resUpd = await dynamodb.update({
       bounceType,
       updated: resUpd.Attributes,
       messageId,
-      recipientHash, // available if you ever want per-recipient stats
+      recipientHash: taggedRecipientHash, // tag may be null
     });
 
     return { statusCode: 200, body: JSON.stringify({ ok: true, counted: uniqueCount }) };
