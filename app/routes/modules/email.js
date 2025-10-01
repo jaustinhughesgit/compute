@@ -717,62 +717,85 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
         return { ok: false, error: "init_email_failed" };
       }
     } else {
-      // Existing user → generalEmail flow
-      if (isBlocked(existingUser, senderEmailHash)) {
-        return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
-      }
+    // Existing user
+    if (isBlocked(existingUser, senderEmailHash)) {
+      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
+    }
 
+    // Determine opt-in status
+    const whitelist = setToArray(existingUser.whitelist);
+    const optedIn = (existingUser.whitelistAll === true) ||
+                    (!!senderEmailHash && whitelist.includes(senderEmailHash));
 
-      // If sender has already contacted this recipient, require prior opt-in
-      if (senderUserID && existingUser?.userID != null) {
-        try {
-          const sentRes = await ddb.get({
-            TableName: "users",
-            Key: { userID: Number(senderUserID) },
-            ProjectionExpression: "uniqueSent",
-          }).promise();
-          const sentSet = setToArray(sentRes?.Item?.uniqueSent);
-          const alreadyContacted = Array.isArray(sentSet) && sentSet.includes(Number(existingUser.userID));
-          if (alreadyContacted) {
-            const whitelist = setToArray(existingUser.whitelist);
-            const optedIn = (existingUser.whitelistAll === true) ||
-                            (!!senderEmailHash && whitelist.includes(senderEmailHash));
-            if (!optedIn) {
-              return { ok: true, createdUser: false, sent: false, blocked: true, reason: "awaiting_opt_in" };
-            }
-          }
-        } catch (err) {
-          console.warn("sendEmail: uniqueSent lookup failed", err);
-          // fail-open here so we don't hard-break send flow on read blips
-        }
-      }
-
-
-      const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
-      if (!reservation.ok) {
-        return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
-      }
-
+    // Has this sender ever successfully sent this recipient before?
+    let alreadyContacted = false;
+    if (senderUserID && existingUser?.userID != null) {
       try {
-        const res = await generalEmail(
-          ddb,
-          ses,
-          { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
-          existingUser,
-          senderUserID // NEW
-        );
-
-        // Add recipient userID to sender.uniqueSent on successful send
-        if (res?.sent && senderUserID && res?.userID > 0) {
-          await addUniqueSent(ddb, senderUserID, Number(res.userID));
-        }
-
-        return res;
+        const sentRes = await ddb.get({
+          TableName: "users",
+          Key: { userID: Number(senderUserID) },
+          ProjectionExpression: "uniqueSent",
+        }).promise();
+        const sentSet = setToArray(sentRes?.Item?.uniqueSent);
+        alreadyContacted = Array.isArray(sentSet) && sentSet.includes(Number(existingUser.userID));
       } catch (err) {
-        await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
-        console.error("sendEmail:generalEmail failed", err);
-        return { ok: false, error: "general_email_failed" };
+        console.warn("sendEmail: uniqueSent lookup failed", err);
+        // If we can't tell, treat as first contact to be safe (invite instead of general).
+        alreadyContacted = false;
       }
+    }
+
+    // If not opted-in, send invite on first contact; otherwise block pending opt-in.
+    if (!optedIn) {
+      if (!alreadyContacted) {
+        const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
+        if (!reservation.ok) {
+          return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
+        }
+        try {
+          const res = await initEmail(
+            ddb,
+            ses,
+            { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
+            ctx,
+            senderUserID
+          );
+          if (res?.sent && senderUserID && res?.userID > 0) {
+            await addUniqueSent(ddb, senderUserID, Number(res.userID));
+          }
+          return res;
+        } catch (err) {
+          await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
+          console.error("sendEmail:initEmail (existing user, first contact) failed", err);
+          return { ok: false, error: "init_email_failed" };
+        }
+      }
+      // alreadyContacted but not opted in → do not send again
+      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "awaiting_opt_in" };
+    }
+
+    // Opted in → proceed with general email
+    const reservation = await reserveEmailSlot(ddb, senderEmailHash, DAILY_LIMIT);
+    if (!reservation.ok) {
+      return { ok: false, error: "too_many_emails", retryAfterMs: reservation.retryAfterMs };
+    }
+    try {
+      const res = await generalEmail(
+        ddb,
+        ses,
+        { ...input, recipientEmail, recipientHash, senderHash: senderEmailHash },
+        existingUser,
+        senderUserID
+      );
+      if (res?.sent && senderUserID && res?.userID > 0) {
+        await addUniqueSent(ddb, senderUserID, Number(res.userID));
+      }
+      return res;
+    } catch (err) {
+      await releaseEmailSlot(ddb, senderEmailHash, reservation.ts);
+      console.error("sendEmail:generalEmail failed", err);
+      return { ok: false, error: "general_email_failed" };
+    }
     }
   });
 
