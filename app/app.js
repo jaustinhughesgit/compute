@@ -557,8 +557,8 @@ function getTag(tags, wanted) {
 async function getUserIdByEmailHash(emailHash) {
   if (!emailHash) return undefined;
   const q = await dynamodb.query({
-    TableName: USERS_TABLE,
-    IndexName: USERS_EMAIL_HASH_GSI,
+    TableName: "users",
+    IndexName: "emailHashIndex",
     KeyConditionExpression: "emailHash = :eh",
     ExpressionAttributeValues: { ":eh": String(emailHash) },
     ProjectionExpression: "userID",
@@ -607,7 +607,7 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
       const id = `${messageId}#${email}`;
       try {
         await dynamodb.put({
-          TableName: DEDUPE_TABLE,
+          TableName: "email_bounce_events",
           Item: { id, ttl },
           ConditionExpression: "attribute_not_exists(id)",
         }).promise();
@@ -623,7 +623,7 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
 
     // Increment per-sender totals
     const update = {
-      TableName: USERS_TABLE,
+      TableName: "users",
       Key: { userID: Number(senderUserID) },
       UpdateExpression: "ADD #b :inc SET #bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
       ExpressionAttributeNames: {
