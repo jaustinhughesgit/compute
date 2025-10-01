@@ -627,27 +627,34 @@ if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
       return { statusCode: 200, body: "All bounce recipients already counted" };
     }
 
-    // Increment per-sender totals
-const update = {
+    // 1) Ensure the parent map exists (idempotent)
+await dynamodb.update({
+  TableName: "users",
+  Key: { userID: Number(senderUserID) },
+  UpdateExpression: "SET #bt = if_not_exists(#bt, :empty)",
+  ExpressionAttributeNames: { "#bt": "bouncesByType" },
+  ExpressionAttributeValues: { ":empty": {} },
+  ReturnValues: "NONE",
+}).promise();
+
+// 2) Now safely increment both counters (parent exists, no overlap)
+const resUpd = await dynamodb.update({
   TableName: "users",
   Key: { userID: Number(senderUserID) },
   UpdateExpression:
     "SET #b = if_not_exists(#b, :zero) + :inc, " +
-    "#bt = if_not_exists(#bt, :empty), " +
     "#bt.#t = if_not_exists(#bt.#t, :zero) + :inc",
   ExpressionAttributeNames: {
     "#b": "bounces",
     "#bt": "bouncesByType",
-    "#t": String(bounceType), // e.g. "Permanent"
+    "#t": String(bounceType), // "Permanent", "Transient", etc.
   },
   ExpressionAttributeValues: {
     ":inc": uniqueCount,
     ":zero": 0,
-    ":empty": {}, // initialize parent map
   },
   ReturnValues: "UPDATED_NEW",
-};
-    const resUpd = await dynamodb.update(update).promise();
+}).promise();
 
     console.log("Bounce counted", {
       senderUserID,
