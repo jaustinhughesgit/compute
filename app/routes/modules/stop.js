@@ -21,7 +21,7 @@ function register({ on, use }) {
         ExpressionAttributeValues: { ":eh": emailHash },
         ProjectionExpression: "userID",
         Limit: 1,
-        ConsistentRead: true,
+        // IMPORTANT: ConsistentRead is NOT supported on GSIs; do NOT set it here.
       }).promise();
       const item = q?.Items?.[0];
       return item?.userID ?? null;
@@ -64,15 +64,13 @@ function register({ on, use }) {
       }
 
       // Find the recipient user by emailHash (GSI: emailHashIndex)
-      const q = await ddb
-        .query({
-          TableName: "users",
-          IndexName: "emailHashIndex",
-          KeyConditionExpression: "emailHash = :eh",
-          ExpressionAttributeValues: { ":eh": recipientHash },
-          Limit: 1,
-        })
-        .promise();
+      const q = await ddb.query({
+        TableName: "users",
+        IndexName: "emailHashIndex",
+        KeyConditionExpression: "emailHash = :eh",
+        ExpressionAttributeValues: { ":eh": recipientHash },
+        Limit: 1,
+      }).promise();
 
       const recipient = q.Items && q.Items[0];
       if (!recipient) {
@@ -81,14 +79,12 @@ function register({ on, use }) {
 
       // If blockAll flag is present/true OR there is no senderHash, block all
       if (blockAllFlag || !senderHash) {
-        await ddb
-          .update({
-            TableName: "users",
-            Key: { userID: recipient.userID },
-            UpdateExpression: "SET blockAll = :true",
-            ExpressionAttributeValues: { ":true": true },
-          })
-          .promise();
+        await ddb.update({
+          TableName: "users",
+          Key: { userID: recipient.userID },
+          UpdateExpression: "SET blockAll = :true",
+          ExpressionAttributeValues: { ":true": true },
+        }).promise();
 
         return {
           ok: true,
@@ -99,14 +95,13 @@ function register({ on, use }) {
       // Per-sender block:
       // 1) Find sender's userID by their emailHash (senderHash)
       const senderUserID = await getUserIdByEmailHash(ddb, senderHash);
+      if (senderUserID == null) {
+        console.warn("stop: could not resolve sender by emailHash; blocks will not increment", { senderHash });
+      }
 
       // 2) Atomically:
       //   - ADD senderHash to recipient.blacklist (only if not already present)
       //   - ADD 1 to sender.blocks (only if we found a sender user)
-      //
-      // We use a transaction with a ConditionExpression on the recipient update to
-      // ensure we only increment blocks when this is the FIRST time they’re being blocked
-      // by this recipient.
       const transactItems = [
         {
           Update: {
@@ -142,7 +137,6 @@ function register({ on, use }) {
           blocksIncremented: senderUserID != null ? 1 : 0,
         };
       } catch (txErr) {
-        // If the condition failed, the sender was already in the blacklist.
         if (txErr && txErr.code === "ConditionalCheckFailedException") {
           return {
             ok: true,
