@@ -5,9 +5,12 @@ function register({ on, use }) {
 const { getDocClient, hashEmail /* , getS3, deps */ } = use();
 
   function unwrapBody(b) {
-    if (!b || typeof b !== "object") return b;
-    if (b.body && typeof b.body === "object") return b.body; // legacy { body: { ... } }
-    return b; 
+  if (!b) return b;
+  if (typeof b === "string") {
+    try { return JSON.parse(b); } catch { return b; }
+  }
+  if (typeof b === "object" && b.body && typeof b.body === "object") return b.body; // legacy
+  return b;
   }
 
 
