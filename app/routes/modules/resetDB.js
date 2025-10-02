@@ -22,12 +22,13 @@ function register({ on, use }) {
     'words',
     'verified',
     'paths',
+    'users',
+    'passphrases',
     'versions',
     'email_bounce_events',
     'email_sends',
     'deliverability_blocks',
-    'email_metrics_daily',
-    'users',
+    'email_metrics_daily'
 
   ];
 
@@ -59,6 +60,7 @@ function register({ on, use }) {
     'verified': { partitionKey: 'vi' },
     'paths': { partitionKey: 'pi' },
     'users': { partitionKey: 'userID' },
+    'passphrases': { partitionKey: 'passphraseID' },
     'versions': { partitionKey: 'v', sortKey: 'd' },
     'email_bounce_events': { partitionKey: 'id' },
     'email_sends': { partitionKey: 'senderHash', sortKey: 'ts' },
