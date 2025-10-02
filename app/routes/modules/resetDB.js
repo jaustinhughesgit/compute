@@ -27,6 +27,7 @@ function register({ on, use }) {
     'email_sends',
     'deliverability_blocks',
     'email_metrics_daily',
+    'users',
 
   ];
 
@@ -57,6 +58,7 @@ function register({ on, use }) {
     'words':    { partitionKey: 'a' },
     'verified': { partitionKey: 'vi' },
     'paths': { partitionKey: 'pi' },
+    'users': { partitionKey: 'userID' },
     'versions': { partitionKey: 'v', sortKey: 'd' },
     'email_bounce_events': { partitionKey: 'id' },
     'email_sends': { partitionKey: 'senderHash', sortKey: 'ts' },
