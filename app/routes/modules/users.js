@@ -188,6 +188,124 @@ const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
     };
   });
 
+  // ───────────────────────────────────────────────────────────────────────────────
+  // ACTION: checkEmailVerified
+  // Body: { entity|su }
+  // Returns: { ok:true, emailVerified:boolean, userID }
+  on("checkEmailVerified", async (ctx) => {
+    const ddb = getDocClient();
+    const outer = ctx?.req?.body || {};
+    const body  = unwrapBody(outer) || {};
+
+    const su = String(ctx?.req?.entity || body.entity || body.su || "").trim();
+    if (!su) return { statusCode: 400, body: JSON.stringify({ error: "entity (su) is required" }) };
+
+    const userID = await resolveUserIdBySu(ddb, su);
+    if (!(userID > 0)) return { statusCode: 404, body: JSON.stringify({ error: "unknown entity (su)" }) };
+
+    const res = await ddb.get({ TableName: "users", Key: { userID } }).promise();
+    if (!res?.Item) return { statusCode: 404, body: JSON.stringify({ error: "user not found" }) };
+
+    return { ok: true, emailVerified: !!res.Item.emailVerified, userID };
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // ACTION: checkEmailVerifySent
+  // Body: { entity|su, email? }
+  // If email is provided, we confirm the sent-flag corresponds to this exact emailHash.
+  // Returns: { ok:true, alreadySent:boolean, alreadyVerified:boolean, verifyUrl:string, userID }
+  on("checkEmailVerifySent", async (ctx) => {
+    const ddb = getDocClient();
+    const outer = ctx?.req?.body || {};
+    const body  = unwrapBody(outer) || {};
+
+    const su    = String(ctx?.req?.entity || body.entity || body.su || "").trim();
+    const email = String(body.email || "").trim();
+
+    if (!su) return { statusCode: 400, body: JSON.stringify({ error: "entity (su) is required" }) };
+
+    const userID = await resolveUserIdBySu(ddb, su);
+    if (!(userID > 0)) return { statusCode: 404, body: JSON.stringify({ error: "unknown entity (su)" }) };
+
+    const res = await ddb.get({ TableName: "users", Key: { userID } }).promise();
+    if (!res?.Item) return { statusCode: 404, body: JSON.stringify({ error: "user not found" }) };
+
+    const currentHash      = res.Item.emailHash || null;
+    const alreadyVerified  = !!res.Item.emailVerified;
+    const sentFlag         = !!res.Item.emailVerifySent;
+
+    // If client passed an email, ensure "already sent" refers to this exact email hash.
+    let forThisEmail = true;
+    if (email) {
+      const wantedHash = hashEmail(email);
+      forThisEmail = (wantedHash && currentHash && wantedHash === currentHash);
+    }
+
+    const linksHost = String(body.linksHost || DEFAULT_VERIFY_LINKS_HOST);
+    const verifyUrl = currentHash
+      ? `${linksHost}/email-verify?eh=${encodeURIComponent(currentHash)}&su=${encodeURIComponent(su)}`
+      : null;
+
+    return {
+      ok: true,
+      alreadySent: sentFlag && forThisEmail,
+      alreadyVerified,
+      verifyUrl,
+      userID
+    };
+  });
+
+  // ───────────────────────────────────────────────────────────────────────────────
+  // ACTION: emailVerify  (called by your /email-verify client page)
+  // Body: { su|entity, eh|emailHash?, email? }
+  // Accept either an 'emailHash' (preferred, matches the link) or a plaintext 'email'.
+  // Confirms the hash matches what we currently have for the user; if so, sets emailVerified=true.
+  // Returns: { ok:true, emailVerified:true, userID } on success
+  on("emailVerify", async (ctx) => {
+    const ddb = getDocClient();
+    const outer = ctx?.req?.body || {};
+    const body  = unwrapBody(outer) || {};
+
+    const su        = String(ctx?.req?.entity || body.entity || body.su || "").trim();
+    const emailHash = String(body.eh || body.emailHash || "").trim();
+    const email     = String(body.email || "").trim();
+
+    if (!su) return { statusCode: 400, body: JSON.stringify({ error: "entity (su) is required" }) };
+    if (!emailHash && !email) {
+      return { statusCode: 400, body: JSON.stringify({ error: "eh (emailHash) or email is required" }) };
+    }
+
+    const userID = await resolveUserIdBySu(ddb, su);
+    if (!(userID > 0)) return { statusCode: 404, body: JSON.stringify({ error: "unknown entity (su)" }) };
+
+    const res = await ddb.get({ TableName: "users", Key: { userID } }).promise();
+    if (!res?.Item) return { statusCode: 404, body: JSON.stringify({ error: "user not found" }) };
+
+    const currentHash = res.Item.emailHash || null;
+    const checkHash   = emailHash || (email ? hashEmail(email) : null);
+
+    if (!currentHash || !checkHash || currentHash !== checkHash) {
+      return { statusCode: 403, body: JSON.stringify({ error: "email_hash_mismatch" }) };
+    }
+
+    // Idempotent: if already verified, just confirm success.
+    if (res.Item.emailVerified === true) {
+      return { ok: true, emailVerified: true, userID };
+    }
+
+    const now = Date.now();
+    await ddb.update({
+      TableName: "users",
+      Key: { userID },
+      UpdateExpression: "SET emailVerified = :t, emailVerifiedAt = :now, #upd = :now",
+      ExpressionAttributeNames: { "#upd": "updated" },
+      ExpressionAttributeValues: { ":t": true, ":now": now }
+    }).promise();
+
+    return { ok: true, emailVerified: true, userID };
+  });
+
+
   return { name: "users" };
 }
 
