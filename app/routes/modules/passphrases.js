@@ -88,7 +88,7 @@ function register({ on, use }) {
       return { statusCode: 401, body: JSON.stringify({ error: "missing or invalid session" }) };
     }
     if (String(cookieE) !== String(userID)) {
-      return { statusCode: 403, body: JSON.stringify({ error: "passphrase access denied" }) };
+      return { statusCode: 403, requestId, body: JSON.stringify({ error: "passphrase access denied" }) };
     }
     // --- END NEW CHECK ---
 
