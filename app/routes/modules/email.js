@@ -332,7 +332,7 @@ function register({ on, use }) {
     console.log(">>>initEmail", initEmail);
     const {
       recipientEmail, recipientHash, senderHash, senderName = "A 1var user",
-      previewText = "", fromEmail = "noreply@email.1var.com", fromName = "1 VAR",
+      previewText = "", fromEmail = senderHash+"@email.1var.com", fromName = "1 VAR",
       brand = "1var", linksHost = "https://email.1var.com", apiHost = "https://abc.api.1var.com",
     } = input;
 
@@ -470,7 +470,7 @@ Privacy: https://1var.com/privacy`;
       messageText = "",
       messageHtml = "",
       senderName = "A 1var user",
-      fromEmail = "noreply@email.1var.com",
+      fromEmail = senderHash+"@email.1var.com",
       fromName = "1 VAR",
       brand = "1var",
       linksHost = "https://email.1var.com",
