@@ -84,8 +84,6 @@ function createShared(deps = {}) {
     };
   };
 
-  
-
   const dispatch = async (action, ctx = {}, extra = {}) => {
     const handler = actions.get(action);
     if (!handler) return null;
@@ -146,6 +144,7 @@ function createShared(deps = {}) {
     _isPublic = val === true || val === "true";
     return _isPublic;
   };
+
   const fileLocation = (val) => (val === true || val === "true" ? "public" : "private");
 
   const cache = {
@@ -302,6 +301,7 @@ function createShared(deps = {}) {
   }
 
   const makeLinkId = (wholeE, partE) => `lnk#${wholeE}#${partE}`;
+
   const makeCKey = (wholeE, partE) => `${wholeE}|${partE}`;
 
   async function putLink(wholeE, partE, propE, ddb = dynamodb) {
@@ -1207,16 +1207,16 @@ function createShared(deps = {}) {
     return { obj, paths, paths2, id2Path, groups: groupList };
   }
 
-
   function sendBack(res, type, val, isShorthand) {
     if (val == null) val = {};
     if (isShorthand) return val;
     return res?.json?.(val);
   }
 
-
   const getDocClient = () => dynamodb;
+
   const getS3 = () => s3;
+
   const getSES = () => ses;
 
   return {
