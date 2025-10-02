@@ -2,7 +2,7 @@
 "use strict";
 
 function register({ on, use }) {
-  const { getDocClient /* , getS3, deps */ } = use();
+const { getDocClient, hashEmail /* , getS3, deps */ } = use();
 
   function unwrapBody(b) {
     if (!b || typeof b !== "object") return b;
@@ -15,12 +15,32 @@ function register({ on, use }) {
     const { req /* , res, path, type, signer */ } = ctx;
     const body = unwrapBody(req.body) || {};
 
+    // Validate and normalize inputs
+    const userIDNum = parseInt(body.userID, 10);
+    if (!Number.isFinite(userIDNum)) {
+      return {
+       statusCode: 400,
+       body: JSON.stringify({ error: "userID must be a number" }),
+      };
+    }
+
+    // Accept a pre-hashed value (internal path) or hash a provided email (external path)
+    const derivedEmailHash =
+      body.emailHash ||
+      (body.email ? hashEmail(body.email) : undefined);
+   if (!derivedEmailHash) {
+      return {
+        statusCode: 400,
+        body: JSON.stringify({ error: "emailHash (or email) is required" }),
+      };
+    }
+
     const now = Date.now();
     const newUser = {
-      userID: parseInt(body.userID, 10),
-      emailHash: body.emailHash,
-      pubEnc: body.pubEnc,
-      pubSig: body.pubSig,
+      userID: userIDNum,
+      emailHash: derivedEmailHash,
+      pubEnc: body.pubEnc ?? null,
+      pubSig: body.pubSig ?? null,
       created: now,
       revoked: !!body.revoked,
       latestKeyVersion: body.latestKeyVersion ?? 1,
@@ -29,14 +49,15 @@ function register({ on, use }) {
     const params = {
       TableName: "users",
       Item: newUser,
-      ConditionExpression: "attribute_not_exists(e)",
+      ConditionExpression: "attribute_not_exists(userID)",
     };
 
     try {
       await getDocClient().put(params).promise();
     } catch (err) {
       if (err && err.code === "ConditionalCheckFailedException") {
-        console.error("User already exists");
+        // Fine: user already created (e.g., concurrent calls from manageCookie)
+        console.warn("createUser: user already exists (no-op)", { userID: userIDNum });
       } else {
         throw err;
       }
