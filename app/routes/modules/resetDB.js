@@ -23,6 +23,11 @@ function register({ on, use }) {
     'verified',
     'paths',
     'versions',
+    'email_bounce_events',
+    'email_sends',
+    'deliverability_blocks',
+    'email_metrics_daily',
+
   ];
 
   const countersToReset = [
@@ -52,7 +57,11 @@ function register({ on, use }) {
     'words':    { partitionKey: 'a' },
     'verified': { partitionKey: 'vi' },
     'paths': { partitionKey: 'pi' },
-    'versions': { partitionKey: 'v', sortKey: 'd' }
+    'versions': { partitionKey: 'v', sortKey: 'd' },
+    'email_bounce_events': { partitionKey: 'id' },
+    'email_sends': { partitionKey: 'senderHash', sortKey: 'ts' },
+    'deliverability_blocks': { partitionKey: 'recipientHash', sortKey: 'scope' },
+    'email_metrics_daily': { partitionKey: 'senderUserID', sortKey: 'day'  },
   };
 
   // ────────────────────────────────────────────────────────────────────────────
