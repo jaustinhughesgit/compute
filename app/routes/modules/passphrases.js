@@ -52,6 +52,46 @@ function register({ on, use }) {
       return { statusCode: 400, body: JSON.stringify({ error: "passphraseID and userID required" }) };
     }
 
+    // --- NEW: enforce cookie.e === userID before proceeding ---
+    // Prefer what the router middleware already looked up via akIndex:
+    // ctx.cookie is the cookies-row (ci, gi, ex, ak, e)
+    let cookieE = ctx?.cookie?.e;
+
+    // Fallback: if for some reason ctx.cookie isn't present, try to locate by ak manually.
+    const getAccessToken = () =>
+      ctx?.xAccessToken ||
+      req?.get?.("X-accessToken") ||
+      req?.headers?.["x-accesstoken"] ||
+      req?.headers?.["x-accessToken"] ||
+      req?.cookies?.accessToken ||
+      req?.cookies?.ak ||
+      null;
+
+    if (!cookieE) {
+      const ak = getAccessToken();
+      if (ak) {
+        const q = await dynamodb
+          .query({
+            TableName: "cookies",
+            IndexName: "akIndex",
+            KeyConditionExpression: "ak = :ak",
+            ExpressionAttributeValues: { ":ak": ak },
+            ProjectionExpression: "e",
+          })
+          .promise();
+        cookieE = q.Items?.[0]?.e;
+      }
+    }
+
+    // No cookie or mismatch => deny
+    if (!cookieE) {
+      return { statusCode: 401, body: JSON.stringify({ error: "missing or invalid session" }) };
+    }
+    if (String(cookieE) !== String(userID)) {
+      return { statusCode: 403, body: JSON.stringify({ error: "passphrase access denied" }) };
+    }
+    // --- END NEW CHECK ---
+
     const params = {
       TableName: "passphrases",
       Key: { passphraseID },
