@@ -2,7 +2,7 @@
 "use strict";
 
 function register({ on, use }) {
-const { getDocClient, hashEmail /* , getS3, deps */ } = use();
+const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
 
   function unwrapBody(b) {
   if (!b) return b;
