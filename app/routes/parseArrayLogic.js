@@ -1870,7 +1870,7 @@ async function parseArrayLogic({
       console.log("999 body?.input?.name", body?.input?.name)
       console.log("999 body?.input?.title",body?.input?.title)
       console.log("999 body?.input?.entity",body?.input?.entity)
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      //const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
       
       const entName = sanitize(entNameRaw);
