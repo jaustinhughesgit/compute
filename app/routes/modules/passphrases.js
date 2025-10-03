@@ -1,6 +1,24 @@
 // modules/passphrases.js
 "use strict";
 
+// put this near the top, inside the module file (outside register)
+async function nextPpId(dynamodb) {
+  // assumes a "counters" table keyed by { name: string }
+  const { Attributes } = await dynamodb.update({
+    TableName: "counters",
+    Key: { name: "ppCounter" },
+    // ADD is atomic; if the item/attr doesn't exist, it starts at :inc
+    UpdateExpression: "ADD #v :inc SET #u = :now",
+    ExpressionAttributeNames: { "#v": "value", "#u": "updatedAt" },
+    ExpressionAttributeValues: { ":inc": 1, ":now": new Date().toISOString() },
+    ReturnValues: "UPDATED_NEW",
+  }).promise();
+
+  const pp = Attributes?.value;            // the new integer value
+  return `pp-${pp}`;                       // no padding per your note
+  // If you ever want zero-padding: return `pp-${String(pp).padStart(3, "0")}`;
+}
+
 function register({ on, use }) {
   const { getDocClient } = use();
   const dynamodb = getDocClient();
@@ -17,26 +35,111 @@ function register({ on, use }) {
   const upsertWrappedPassphrase = async (ctx) => {
     const { req } = ctx;
     const body = pickBody(req);
-    const { passphraseID, keyVersion, wrapped } = body || {};
+    let { passphraseID, keyVersion, wrapped } = body || {};
 
-    // Legacy validation + response shape
-    if (!passphraseID || !keyVersion || !wrapped || typeof wrapped !== "object") {
+    // normalize and allow blank (server will mint)
+    if (typeof passphraseID === "string") passphraseID = passphraseID.trim();
+    if (!passphraseID) passphraseID = null;
+
+    // Validation (keyVersion optional; wrapped required)
+    if (!wrapped || typeof wrapped !== "object") {
       return { error: "Invalid payload" };
     }
+    if (Object.keys(wrapped).length === 0) {
+      return { error: "Invalid payload: wrapped map is empty" };
+    }
+    // Mint a new ID iff missing
+    if (!passphraseID) {
+      passphraseID = await nextPpId(dynamodb);
+    }
 
-    const params = {
-      TableName: "passphrases",
-      Item: {
-        passphraseID,
-        keyVersion: Number(keyVersion),
-        wrapped,
-        created: new Date().toISOString(),
-      },
-      ConditionExpression: "attribute_not_exists(passphraseID)",
-    };
+    const now = new Date().toISOString();
 
-    await dynamodb.put(params).promise(); // errors bubble to router (legacy behavior)
-    return { success: true };
+    // Branch 1: auto-minted ID → version is always 1 (create only)
+    if (body.keyVersion == null || body.keyVersion === "") {
+      if (!body.passphraseID) {
+        await dynamodb.put({
+          TableName: "passphrases",
+          Item: {
+            passphraseID,
+            keyVersion: 1,
+            wrapped,
+            created: now,
+            updated: now,
+          },
+          ConditionExpression: "attribute_not_exists(passphraseID)",
+        }).promise();
+        return { success: true, passphraseID, keyVersion: 1 };
+      }
+    }
+
+    // Branch 2: user supplied an existing passphraseID and left keyVersion blank → increment atomically
+    if (body.keyVersion == null || body.keyVersion === "") {
+      try {
+        const { Attributes } = await dynamodb.update({
+          TableName: "passphrases",
+          Key: { passphraseID },
+          UpdateExpression: "ADD #kv :one SET #wr = :wrapped, #upd = :now",
+          ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped", "#upd": "updated" },
+          ExpressionAttributeValues: { ":one": 1, ":wrapped": wrapped, ":now": now },
+          ConditionExpression: "attribute_exists(passphraseID)",
+          ReturnValues: "UPDATED_NEW",
+        }).promise();
+        const newVersion = Number(Attributes?.keyVersion);
+        return { success: true, passphraseID, keyVersion: newVersion };
+      } catch (err) {
+        if (err && err.code === "ConditionalCheckFailedException") {
+          // Passphrase doesn't exist yet → create as v1
+          await dynamodb.put({
+            TableName: "passphrases",
+            Item: {
+              passphraseID,
+              keyVersion: 1,
+              wrapped,
+              created: now,
+              updated: now,
+            },
+            ConditionExpression: "attribute_not_exists(passphraseID)",
+          }).promise();
+          return { success: true, passphraseID, keyVersion: 1 };
+        }
+        throw err;
+      }
+    }
+
+    // Branch 3: explicit keyVersion provided → set to that value
+    const kv = Number(keyVersion);
+    if (!Number.isFinite(kv) || kv < 1) return { error: "Invalid keyVersion" };
+
+    // Try update-if-exists; otherwise create
+    try {
+      await dynamodb.update({
+        TableName: "passphrases",
+        Key: { passphraseID },
+        UpdateExpression: "SET #kv = :kv, #wr = :wrapped, #upd = :now",
+        ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped", "#upd": "updated" },
+        ExpressionAttributeValues: { ":kv": kv, ":wrapped": wrapped, ":now": now },
+        ConditionExpression: "attribute_exists(passphraseID)",
+      }).promise();
+    } catch (err) {
+      if (err && err.code === "ConditionalCheckFailedException") {
+        await dynamodb.put({
+          TableName: "passphrases",
+          Item: {
+            passphraseID,
+            keyVersion: kv,
+            wrapped,
+            created: now,
+            updated: now,
+          },
+          ConditionExpression: "attribute_not_exists(passphraseID)",
+        }).promise();
+      } else {
+        throw err;
+      }
+    }
+
+    return { success: true, passphraseID, keyVersion: kv };
   };
 
   on("addPassphrase", upsertWrappedPassphrase);
