@@ -25,8 +25,9 @@ function register({ on, use }) {
         const parts = url.pathname.split("/").filter(Boolean); // drop empty segments
         const optInIndex = parts.indexOf("opt-in");
         if (optInIndex !== -1) {
-          senderHash = senderHash || parts[optInIndex + 1];
-          recipientHash = recipientHash || parts[optInIndex + 2];
+ // email.js builds /opt-in/{recipientHash}/{senderHash}
+ recipientHash = recipientHash || parts[optInIndex + 1];
+ senderHash    = senderHash    || parts[optInIndex + 2];
         }
       }
 
