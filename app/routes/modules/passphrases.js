@@ -35,7 +35,7 @@ function logStart(label, meta = {}) {
 async function nextPpId(dynamodb) {
   const op = logStart("nextPpId");
   try {
-    const table = "counters";
+    const table = "ppCounters";
     const key = { name: "ppCounter" };
     log("DDB update BEFORE", { table, key, update: "ADD #x :inc SET #u = :now" });
 
