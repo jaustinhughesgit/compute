@@ -462,6 +462,25 @@ Privacy: https://1var.com/privacy`;
     // NEW: count successful, SES-accepted send in metrics
     if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 }); // NEW
 
+
+    // NEW: treat the initial invite as a verification email having been sent
+    // (so the user doesn't need a separate verify-send later).
+    try {
+      if (e) {
+        const now = Date.now();
+        await ddb.update({
+          TableName: "users",
+          Key: { userID: Number(e) },
+          UpdateExpression:
+            "SET emailVerifySent = :t, emailVerifySentAt = :now, #upd = :now",
+          ExpressionAttributeNames: { "#upd": "updated" },
+          ExpressionAttributeValues: { ":t": true, ":now": now }
+        }).promise();
+      }
+    } catch (err) {
+      console.warn("initEmail: failed to set emailVerifySent flags (non-fatal)", err);
+    }
+
     return { ok: true, createdUser: true, sent: true, messageId: sendRes?.MessageId, userID: Number(e) };
   }
 

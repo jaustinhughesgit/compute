@@ -51,32 +51,39 @@ function register({ on, use }) {
       }
 
       if (senderHash) {
-        // Single-sender opt-in
-        await ddb
-          .update({
-            TableName: "users",
-            Key: { userID: user.userID },
-            UpdateExpression: "ADD whitelist :s",
-            ExpressionAttributeValues: {
-              ":s": ddb.createSet([senderHash]),
-            },
-          })
-          .promise();
+        // Single-sender opt-in → also mark email verified
+        await ddb.update({
+          TableName: "users",
+          Key: { userID: user.userID },
+          UpdateExpression:
+            "SET emailVerified = :true, emailVerifiedAt = :now, #upd = :now " +
+            "ADD whitelist :s",
+          ExpressionAttributeNames: { "#upd": "updated" },
+          ExpressionAttributeValues: {
+            ":true": true,
+            ":now": Date.now(),
+            ":s": ddb.createSet([senderHash]),
+          },
+        }).promise();
 
         return {
           ok: true,
           message: `Sender ${senderHash} allowed for recipient ${recipientHash}`,
         };
       } else {
-        // Opt-in for all senders
-        await ddb
-          .update({
-            TableName: "users",
-            Key: { userID: user.userID },
-            UpdateExpression: "SET whitelistAll = :true",
-            ExpressionAttributeValues: { ":true": true },
-          })
-          .promise();
+
+        // Opt-in for all senders → also mark email verified
+        await ddb.update({
+          TableName: "users",
+          Key: { userID: user.userID },
+          UpdateExpression:
+            "SET whitelistAll = :true, emailVerified = :true, emailVerifiedAt = :now, #upd = :now",
+          ExpressionAttributeNames: { "#upd": "updated" },
+          ExpressionAttributeValues: {
+            ":true": true,
+            ":now": Date.now(),
+          },
+        }).promise();
 
         return {
           ok: true,
