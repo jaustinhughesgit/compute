@@ -188,6 +188,18 @@ const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
     };
   });
 
+  async function resolveUserIdBySu(ddb, su) {
+  if (!su) return null;
+  try {
+    const sub = await getSub(su, "su"); // subdomains PK = su
+    const e = sub?.Items?.[0]?.e;
+    return (e != null) ? Number(e) : null;
+  } catch (err) {
+    console.warn("resolveUserIdBySu failed", err);
+    return null;
+  }
+}
+
   // ───────────────────────────────────────────────────────────────────────────────
   // ACTION: checkEmailVerified
   // Body: { entity|su }

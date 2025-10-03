@@ -804,17 +804,24 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
   });
 
 
-async function resolveUserIdBySu(ddb, su) {
-  if (!su) return null;
-  try {
-    const sub = await getSub(su, "su"); // subdomains PK = su
-    const e = sub?.Items?.[0]?.e;
-    return (e != null) ? Number(e) : null;
-  } catch (err) {
-    console.warn("resolveUserIdBySu failed", err);
-    return null;
+  async function resolveUserIdBySu(ddb, su) {
+    if (!su) return null;
+    try {
+      const q = await ddb.query({
+        TableName: "subdomains",
+        KeyConditionExpression: "su = :su",
+        ExpressionAttributeValues: { ":su": su },
+        Limit: 1,
+        ProjectionExpression: "e",
+        ConsistentRead: true
+      }).promise();
+      const e = q?.Items?.[0]?.e;
+      return (e != null) ? Number(e) : null;
+    } catch (err) {
+      console.warn("resolveUserIdBySu failed", err);
+      return null;
+    }
   }
-}
 
   // ───────────────────────────────────────────────────────────────────────────────
   // ACTION: requestEmailVerify (owned by email.js)
