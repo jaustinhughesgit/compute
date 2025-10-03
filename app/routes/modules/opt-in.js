@@ -10,7 +10,7 @@ function register({ on, use }) {
     console.log("ctx",ctx);
     console.log("ctx?.req",ctx?.req);
     console.log("ctx?.req?.headers",ctx?.req?.headers);
-    const hostHeader = ctx?.req?.headers?.["X-Original-Host"];
+    const hostHeader = ctx?.req?.headers?.["x-original-host"];
     console.log("hostHeader", hostHeader)
     if (!hostHeader) {
       return { ok: false, error: "Missing X-Original-Host header" };
@@ -33,8 +33,11 @@ function register({ on, use }) {
  senderHash    = senderHash    || parts[optInIndex + 2];
         }
       }
+      console.log("recipientHash",recipientHash);
+      console.log("senderHash",senderHash);
 
       if (!recipientHash) {
+        console.log("Missing recipientHash (email param)")
         return { ok: false, error: "Missing recipientHash (email param)" };
       }
 
@@ -48,13 +51,17 @@ function register({ on, use }) {
           Limit: 1,
         })
         .promise();
-
+        console.log("q",q)
       const user = q.Items && q.Items[0];
+      console.log("user", user)
       if (!user) {
         return { ok: false, error: "Recipient not found" };
       }
 
+      console.log("senderHash", senderHash)
       if (senderHash) {
+
+        console.log("888888")
         // Single-sender opt-in → also mark email verified
         await ddb.update({
           TableName: "users",
@@ -69,13 +76,14 @@ function register({ on, use }) {
             ":s": ddb.createSet([senderHash]),
           },
         }).promise();
-
+        console.log("99999")
         return {
           ok: true,
           message: `Sender ${senderHash} allowed for recipient ${recipientHash}`,
         };
       } else {
 
+        console.log("AAAAA")
         // Opt-in for all senders → also mark email verified
         await ddb.update({
           TableName: "users",
@@ -88,6 +96,8 @@ function register({ on, use }) {
             ":now": Date.now(),
           },
         }).promise();
+
+        console.log("BBBBBB")
 
         return {
           ok: true,
