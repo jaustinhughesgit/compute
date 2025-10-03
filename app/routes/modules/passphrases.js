@@ -3,20 +3,20 @@
 
 // put this near the top, inside the module file (outside register)
 async function nextPpId(dynamodb) {
-  // assumes a "counters" table keyed by { name: string }
+  // "counters" table keyed by { name: "ppCounter" }, numeric attribute is "x"
   const { Attributes } = await dynamodb.update({
     TableName: "counters",
     Key: { name: "ppCounter" },
-    // ADD is atomic; if the item/attr doesn't exist, it starts at :inc
-    UpdateExpression: "ADD #v :inc SET #u = :now",
-    ExpressionAttributeNames: { "#v": "value", "#u": "updatedAt" },
+    // ADD is atomic; creates "x" if missing and increments it
+    UpdateExpression: "ADD #x :inc SET #u = :now",
+    ExpressionAttributeNames: { "#x": "x", "#u": "updatedAt" },
     ExpressionAttributeValues: { ":inc": 1, ":now": new Date().toISOString() },
     ReturnValues: "UPDATED_NEW",
   }).promise();
 
-  const pp = Attributes?.value;            // the new integer value
-  return `pp-${pp}`;                       // no padding per your note
-  // If you ever want zero-padding: return `pp-${String(pp).padStart(3, "0")}`;
+  const pp = Number(Attributes?.x);
+  if (!Number.isFinite(pp)) throw new Error("ppCounter.x is not a number");
+  return `pp-${pp}`; // no padding; use padStart if you ever want pp-001 style
 }
 
 function register({ on, use }) {
