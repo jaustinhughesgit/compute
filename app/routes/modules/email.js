@@ -870,8 +870,15 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     }
 
     const linksHost = String(body.linksHost || DEFAULT_VERIFY_LINKS_HOST);
+    console.log("linksHost",linksHost)
+    console.log("body.linksHost",body.linksHost)
+
     const verifyUrl = `${linksHost}/email-verify?eh=${encodeURIComponent(emailHash)}&su=${encodeURIComponent(su)}`;
 
+    console.log("verifyUrl",verifyUrl)
+    console.log("alreadyVer",alreadyVer)
+    console.log("currentHash",currentHash)
+    console.log("emailHash",emailHash)
     // If verified → do not send again
     if (alreadyVer && currentHash === emailHash) {
       return { ok: true, sent: false, alreadyVerified: true, verifyUrl, userID };
