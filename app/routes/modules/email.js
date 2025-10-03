@@ -35,7 +35,8 @@ function register({ on, use }) {
   const RATIO_TIER_BREAK = 50;          // switch at 50 unique recipients
   const RATIO_THRESHOLD_LOW = 0.05;    // < 50 uniques → 5%
   const RATIO_THRESHOLD_HIGH = 0.02;    // ≥ 50 uniques → 2%
-  const DEFAULT_VERIFY_LINKS_HOST = process.env.VERIFY_LINKS_HOST || "https://email.1var.com";
+  const DEFAULT_VERIFY_LINKS_HOST =
+  process.env.VERIFY_LINKS_HOST || "https://email.1var.com";
   const DEFAULT_VERIFY_FROM_EMAIL = process.env.VERIFY_FROM_EMAIL || "noreply@email.1var.com";
   const DEFAULT_VERIFY_FROM_NAME = process.env.VERIFY_FROM_NAME || "1 VAR";
 
@@ -803,24 +804,17 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
   });
 
 
-  async function resolveUserIdBySu(ddb, su) {
-    if (!su) return null;
-    try {
-      const q = await ddb.query({
-        TableName: "subdomains",
-        KeyConditionExpression: "su = :su",
-        ExpressionAttributeValues: { ":su": su },
-        Limit: 1,
-        ProjectionExpression: "e",
-        ConsistentRead: true
-      }).promise();
-      const e = q?.Items?.[0]?.e;
-      return (e != null) ? Number(e) : null;
-    } catch (err) {
-      console.warn("resolveUserIdBySu failed", err);
-      return null;
-    }
+async function resolveUserIdBySu(ddb, su) {
+  if (!su) return null;
+  try {
+    const sub = await getSub(su, "su"); // subdomains PK = su
+    const e = sub?.Items?.[0]?.e;
+    return (e != null) ? Number(e) : null;
+  } catch (err) {
+    console.warn("resolveUserIdBySu failed", err);
+    return null;
   }
+}
 
   // ───────────────────────────────────────────────────────────────────────────────
   // ACTION: requestEmailVerify (owned by email.js)
