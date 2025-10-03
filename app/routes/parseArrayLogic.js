@@ -1257,6 +1257,7 @@ const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
+  console.log("callOpenAIIIIII", str)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1476,6 +1477,7 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
 };
 
 const classifyDomains = async ({ openai, text }) => {
+  console.log("classifyDomainsssss", text);
   const domain = await callOpenAI({
     openai, str: JSON.stringify(text),
     list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
