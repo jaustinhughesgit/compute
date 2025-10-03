@@ -2,9 +2,97 @@
 "use strict";
 
 function register({ on, use }) {
-  const { getDocClient } = use();
+  // pull helpers from shared.js
+  const shared = use();
+  const {
+    getDocClient,
+    getCookie,
+    incrementCounterAndGetNewValue,
+    getUUID,
+    createCookie,
+  } = shared;
 
-  // Shared handler logic
+  const COOKIE_DOMAIN = ".1var.com";
+  const DEFAULT_TTL_SECONDS = 86400; // 24h
+
+  // ---- cookie helpers ----
+  async function fetchCookieByUserE(ddb, userID) {
+    // Prefer shared.getCookie(..., "e"), fall back to a direct query if needed
+    if (typeof getCookie === "function") {
+      const res = await getCookie(String(userID), "e", ddb);
+      return res?.Items || [];
+    }
+    const res = await ddb.query({
+      TableName: "cookies",
+      IndexName: "eIndex",
+      KeyConditionExpression: "e = :e",
+      ExpressionAttributeValues: { ":e": String(userID) },
+    }).promise();
+    return res?.Items || [];
+  }
+
+  async function createNewCookieForUser(ddb, userID) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const ex = nowSec + DEFAULT_TTL_SECONDS;
+    const ak = await getUUID();
+    const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+    const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+    await createCookie(String(ci), String(gi), ex, ak, String(userID), ddb);
+    return { ci: String(ci), gi: String(gi), ex, ak, e: String(userID) };
+  }
+
+  async function getBestCookieRecord(ddb, userID) {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const items = await fetchCookieByUserE(ddb, userID);
+
+    // choose the one with the latest (future) expiry; otherwise null
+    const best = (items || [])
+      .filter(it => it && typeof it.ex === "number" && it.ak)
+      .sort((a, b) => (b.ex || 0) - (a.ex || 0))[0];
+
+    if (best && best.ex > nowSec) return best;
+    return null;
+  }
+
+  function browserAlreadyHasCookie(req) {
+    if (req?.cookies?.accessToken) return true;
+    const raw = req?.headers?.cookie;
+    return typeof raw === "string" && /(^|;\s*)accessToken=/.test(raw);
+  }
+
+  function setAccessTokenCookie(res, ak, maxAgeMs) {
+    // conservative clamp: never set negative or zero maxAge
+    const safeMaxAge = Math.max(maxAgeMs | 0, 1 * 60 * 1000); // at least 1 minute
+    res?.cookie?.("accessToken", ak, {
+      domain: COOKIE_DOMAIN,
+      maxAge: safeMaxAge,
+      httpOnly: true,
+      secure: true,
+      sameSite: "None",
+    });
+  }
+
+  async function maybeGiveAccountCookie(ctx, userID) {
+    const ddb = getDocClient();
+
+    if (browserAlreadyHasCookie(ctx?.req)) {
+      return { cookieSet: false, reason: "already-present" };
+    }
+
+    // try to reuse an existing unexpired cookie
+    let record = await getBestCookieRecord(ddb, userID);
+
+    // otherwise create a fresh one for this user
+    if (!record) {
+      record = await createNewCookieForUser(ddb, userID);
+    }
+
+    const msRemaining = Math.max(0, (record.ex * 1000) - Date.now());
+    setAccessTokenCookie(ctx?.res, record.ak, msRemaining || (DEFAULT_TTL_SECONDS * 1000));
+    return { cookieSet: true, cookieExpiresAt: record.ex };
+  }
+
+  // ---- Existing handler with cookie hand-off added ----
   const handleOptIn = async (ctx) => {
     const ddb = getDocClient();
     const hostHeader = ctx?.req?.headers?.["x-original-host"];
@@ -50,8 +138,8 @@ function register({ on, use }) {
         return { ok: false, error: "Recipient not found" };
       }
 
+      // --- perform whitelist/verification as before ---
       if (senderHash) {
-        // Single-sender opt-in → also mark email verified
         await ddb.update({
           TableName: "users",
           Key: { userID: user.userID },
@@ -66,13 +154,17 @@ function register({ on, use }) {
           },
         }).promise();
 
+        // NEW: Give them their account cookie if the browser doesn't have one yet
+        const cookieOutcome = await maybeGiveAccountCookie(ctx, user.userID);
+
         return {
           ok: true,
           message: `Sender ${senderHash} allowed for recipient ${recipientHash}`,
+          ...(cookieOutcome.cookieSet
+            ? { cookie: { set: true, expiresAt: cookieOutcome.cookieExpiresAt } }
+            : { cookie: { set: false, reason: cookieOutcome.reason } }),
         };
       } else {
-
-        // Opt-in for all senders → also mark email verified
         await ddb.update({
           TableName: "users",
           Key: { userID: user.userID },
@@ -85,9 +177,15 @@ function register({ on, use }) {
           },
         }).promise();
 
+        // NEW: Give them their account cookie if the browser doesn't have one yet
+        const cookieOutcome = await maybeGiveAccountCookie(ctx, user.userID);
+
         return {
           ok: true,
           message: `All senders allowed for recipient ${recipientHash}`,
+          ...(cookieOutcome.cookieSet
+            ? { cookie: { set: true, expiresAt: cookieOutcome.cookieExpiresAt } }
+            : { cookie: { set: false, reason: cookieOutcome.reason } }),
         };
       }
     } catch (err) {
@@ -96,7 +194,6 @@ function register({ on, use }) {
     }
   };
 
-  // Register both aliases with the same handler
   on("optIn", handleOptIn);
   on("opt-in", handleOptIn);
 
