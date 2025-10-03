@@ -7,8 +7,11 @@ function register({ on, use }) {
   // Shared handler logic
   const handleOptIn = async (ctx) => {
     const ddb = getDocClient();
-    const hostHeader = ctx?.req?.headers?.["x-original-host"];
-
+    console.log("ctx",ctx);
+    console.log("ctx?.req",ctx?.req);
+    console.log("ctx?.req?.headers",ctx?.req?.headers);
+    const hostHeader = ctx?.req?.headers?.["X-Original-Host"];
+    console.log("hostHeader", hostHeader)
     if (!hostHeader) {
       return { ok: false, error: "Missing X-Original-Host header" };
     }
