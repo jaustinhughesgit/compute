@@ -1825,6 +1825,41 @@ async function parseArrayLogic({
         console.log("999 routeRowNewIndex", routeRowNewIndex)
         continue;
       }*/
+      if (actionFile) {
+        const existing = await loadExistingEntityRow(actionFile);
+        const pbStr = buildPb(possessedCombined, dist1);
+
+        // Always (re)position the provided entity with current metadata.
+        shorthand.push([
+          "ROUTE",
+          {
+            "body": {
+              description: "provided entity (fallback)",
+              domain,
+              subdomain,
+              embedding,
+              entity: actionFile,
+              pb: pbStr,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb,
+              // prefer explicit output, else the lemma we sent in (out), else blank
+              output: fixedOutput || out || ""
+            }
+          },
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
+
+        // Optionally try to run the entity (safe even if it's a stub).
+        shorthand.push([
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ]);
+
+        routeRowNewIndex = shorthand.length;
+        continue; // IMPORTANT: don't create a new $noName entity
+      }
       console.log("999 after continue")
       // create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
@@ -1836,6 +1871,8 @@ async function parseArrayLogic({
       console.log("999 body?.input?.title",body?.input?.title)
       console.log("999 body?.input?.entity",body?.input?.entity)
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
+      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
+      
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;

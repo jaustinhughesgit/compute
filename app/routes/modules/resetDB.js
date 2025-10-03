@@ -44,7 +44,8 @@ function register({ on, use }) {
     { tableName: 'vCounter', primaryKey: 'vCounter' },
     { tableName: 'viCounter', primaryKey: 'viCounter' },
     { tableName: 'wCounter', primaryKey: 'wCounter' },
-    { tableName: 'pCounter', primaryKey: 'pCounter' }
+    { tableName: 'pCounter', primaryKey: 'pCounter' },
+    { tableName: 'ppCounter', primaryKey: 'ppCounter' }
   ];
 
   const keySchemaMap = {
