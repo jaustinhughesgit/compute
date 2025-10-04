@@ -1852,7 +1852,9 @@ async function parseArrayLogic({
 
     const base = 1000000000000000.0;
     const domainIndex = 10000000000000 * di;
-    const subdomainIndex = 100000000000 * si;
+    //const subdomainIndex = 100000000000 * si;
+    const idxSub = Math.max((DOMAIN_SUBS[domain] || []).indexOf(subdomain), 0);
+const subdomainIndex = 100000000000 * idxSub;
     const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
@@ -1869,31 +1871,45 @@ async function parseArrayLogic({
     // get subdomain vector refs (DocClient is fine; no pb touched)
     let dynamoRecord = null;
     let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
-    try {
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: "#r = :pk",
-          ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomainNorm },
-          Limit: 1
-        })
-        .promise();
+try {
+  // primary: tables store root as the bare subdomain (e.g., "higher")
+  const { Items } = await dynamodb.query({
+    TableName: `i_${domain}`,
+    KeyConditionExpression: "#r = :pk",
+    ExpressionAttributeNames: { "#r": "root" },
+    ExpressionAttributeValues: { ":pk": subdomain },
+    Limit: 1
+  }).promise();
+  dynamoRecord = Items?.[0] ?? null;
 
-      dynamoRecord = Items?.[0] ?? null;
-    } catch (err) {
-      console.error("DynamoDB query failed:", err);
-    }
+  // optional fallback: in case your table’s "root" was stored as "domain/subdomain"
+  if (!dynamoRecord) {
+    const alt = `${domain}/${subdomain}`;
+    const { Items: Items2 } = await dynamodb.query({
+      TableName: `i_${domain}`,
+      KeyConditionExpression: "#r = :pk",
+      ExpressionAttributeNames: { "#r": "root" },
+      ExpressionAttributeValues: { ":pk": alt },
+      Limit: 1
+    }).promise();
+    dynamoRecord = Items2?.[0] ?? null;
+    if (dynamoRecord) console.warn("Used alt root format:", alt);
+  }
+} catch (err) {
+  console.error("DynamoDB query failed:", err);
+}
 
-    if (dynamoRecord) {
-      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
-        const ref = parseVector(dynamoRecord[k]);
-        return Array.isArray(ref) && ref.length === embedding.length
-          ? cosineDist(embedding, ref)
-          : null;
-      });
-    }
+if (dynamoRecord) {
+  const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
+  [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+    const ref = parseVector(dynamoRecord[k]);
+    return Array.isArray(ref) && ref.length === embedding.length
+      ? cosineDist(embedding, ref)
+      : null;
+  });
+} else {
+  console.warn("No i_%s row found for root=%s", domain, subdomain);
+}
 
     // low-level pb-index query (to avoid 36-digit precision loss)
     let subdomainMatches = [];
