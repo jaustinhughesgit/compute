@@ -1198,6 +1198,7 @@ async function classifyDomainsByEmbeddingFromS3({
   key = DOMAIN_INDEX_KEY,
   textForEmbedding
 }) {
+  console.log("textForEmbedding------",textForEmbedding)
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
