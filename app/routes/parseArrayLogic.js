@@ -1131,21 +1131,20 @@ const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
 
 
-
 // ─────────────────────────────────────────────────────────────────────────────
-// S3-only embedding-based domain/subdomain selection
-// Bucket: public.1var.com   Key: nestedDomainIndex.json
+// Deterministic subdomain selector (S3-only), global argmin with stable ties
+// Bucket: public.1var.com, Key: nestedDomainIndex.json (or override via ENV)
 // ─────────────────────────────────────────────────────────────────────────────
 
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
 const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
 let _domainIndexCache = null;
+let _embedCache = new Map(); // canonical text -> unit embedding array
 
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
-  let s = 0;
-  for (let i = 0; i < v.length; i++) s += v[i] * v[i];
+  let s = 0; for (let i = 0; i < v.length; i++) s += v[i]*v[i];
   const inv = 1 / (Math.sqrt(s) + 1e-12);
   const out = new Array(v.length);
   for (let i = 0; i < v.length; i++) out[i] = v[i] * inv;
@@ -1159,14 +1158,8 @@ const _ensureUnit = (v) => {
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
-  const obj = await s3.getObject({
-    Bucket: DOMAIN_INDEX_BUCKET,
-    Key: key
-  }).promise(); // ← mirrors your putObject style
-
+  const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
-
-  // Precompute unit vectors
   for (const [, dNode] of Object.entries(idx.domains || {})) {
     dNode._embU = _ensureUnit(dNode.embedding);
     for (const [, sNode] of Object.entries(dNode.subdomains || {})) {
@@ -1177,78 +1170,101 @@ async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   return idx;
 }
 
-async function _embedUnit({ openai, text }) {
-  const { data: [{ embedding }] } = await openai.embeddings.create({
-    model: "text-embedding-3-large",
-    input: text
-  });
-  return _normalizeVec(embedding);
-}
-
 const _cosineDistUnit = (a, b) => {
-  // a and b must be unit vectors
-  let dot = 0;
-  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  let dot = 0; for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
   return 1 - dot;
 };
 
-async function classifyDomainsByEmbeddingFromS3({
+// Canonicalize input so "east%20carolina%20university" === "East Carolina University"
+function _canonText(raw) {
+  if (raw == null) raw = "";
+  let s = String(raw);
+  try { s = decodeURIComponent(s); } catch { /* ignore */ }
+  s = s.toLowerCase();
+  s = s.replace(/[_\-]+/g, " ");         // normalize hyphens/underscores to spaces
+  s = s.replace(/[^\p{L}\p{N}\s]/gu, ""); // drop punctuation/symbols
+  s = s.replace(/\s+/g, " ").trim();
+  return s;
+}
+
+// Small lexical nudge to settle near-ties deterministically (tunable or remove)
+const LEX = {
+  education: {
+    higher:  ["university","college","campus","undergraduate","graduate","alumni"],
+    medical: ["medical","med","medicine","residency","nursing","dental","pharmacy"]
+  }
+};
+function _lexBoost(canon, domain, sub) {
+  const kws = (LEX[domain] && LEX[domain][sub]) || [];
+  for (const kw of kws) if (canon.includes(kw)) return -0.02; // better score by 0.02
+  return 0;
+}
+
+async function _embedUnitDeterministic({ openai, canon }) {
+  if (_embedCache.has(canon)) return _embedCache.get(canon);
+  const { data: [{ embedding }] } = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: canon
+  });
+  const u = _normalizeVec(embedding);
+  _embedCache.set(canon, u);
+  return u;
+}
+
+/**
+ * Deterministic global argmin:
+ * score = subDist + (0.05 * domainDist) + lexicalBoost
+ * Ties (|Δ| <= EPS) break by domain name, then subdomain name (alphabetical).
+ */
+async function classifyStableFromS3({
   s3,
   openai,
   key = DOMAIN_INDEX_KEY,
-  textForEmbedding
+  rawText
 }) {
   const idx = await _loadDomainIndexFromS3({ s3, key });
-  const q = await _embedUnit({ openai, text: textForEmbedding });
+  const canon = _canonText(rawText);
+  const q = await _embedUnitDeterministic({ openai, canon });
+  if (!q) throw new Error("Failed to embed input.");
 
-  // 1) pick best domain by centroid distance
-  const domainScores = [];
+  const EPS = 1e-9;
+  const candidates = [];
+
   for (const [dName, dNode] of Object.entries(idx.domains || {})) {
     if (!dNode?._embU || dNode._embU.length !== q.length) continue;
-    domainScores.push({ domain: dName, dist: _cosineDistUnit(q, dNode._embU) });
-  }
-  if (!domainScores.length) throw new Error("No usable domain embeddings in index.");
+    const domDist = _cosineDistUnit(q, dNode._embU);
 
-  domainScores.sort((a, b) => a.dist - b.dist);
-  const best = domainScores[0];
-  const runnerUp = domainScores[1] || { dist: Infinity };
-  const margin = runnerUp.dist - best.dist; // larger = clearer win
-
-  // Helpers to pick subdomain
-  const pickSubWithin = (dName) => {
-    const subs = [];
-    for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
+    for (const [sName, sNode] of Object.entries(dNode.subdomains || {})) {
       if (!sNode?._embU || sNode._embU.length !== q.length) continue;
-      subs.push({ subdomain: sName, dist: _cosineDistUnit(q, sNode._embU) });
+      const subDist = _cosineDistUnit(q, sNode._embU);
+      const score = subDist + 0.05 * domDist + _lexBoost(canon, dName, sName);
+      candidates.push({ domain: dName, subdomain: sName, score, subDist, domDist });
     }
-    subs.sort((a, b) => a.dist - b.dist);
-    return subs[0] || null;
-  };
-
-  const pickSubGlobally = () => {
-    const all = [];
-    for (const [dName, dNode] of Object.entries(idx.domains || {})) {
-      for (const [sName, sNode] of Object.entries(dNode.subdomains || {})) {
-        if (!sNode?._embU || sNode._embU.length !== q.length) continue;
-        all.push({ domain: dName, subdomain: sName, dist: _cosineDistUnit(q, sNode._embU) });
-      }
-    }
-    all.sort((a, b) => a.dist - b.dist);
-    return all[0] || null;
-  };
-
-  // 2) ambiguity guard (helps with polysemy like "speaker")
-  const AMBIG_MARGIN = 0.008;
-  if (margin <= AMBIG_MARGIN) {
-    const subBest = pickSubGlobally();
-    if (!subBest) throw new Error("No usable subdomain embeddings.");
-    return { domain: subBest.domain, subdomain: subBest.subdomain, debug: { method: "global-subdomain", margin } };
-  } else {
-    const subBest = pickSubWithin(best.domain);
-    if (!subBest) throw new Error(`Domain '${best.domain}' has no usable subdomains.`);
-    return { domain: best.domain, subdomain: subBest.subdomain, debug: { method: "domain-then-subdomain", margin } };
   }
+
+  if (!candidates.length) throw new Error("No usable subdomain embeddings in index.");
+
+  candidates.sort((a, b) => {
+    const d = a.score - b.score;
+    if (Math.abs(d) > EPS) return d < 0 ? -1 : 1;
+    // stable tie-breakers
+    if (a.domain !== b.domain) return a.domain < b.domain ? -1 : 1;
+    return a.subdomain < b.subdomain ? -1 : 1;
+  });
+
+  const best = candidates[0];
+  return {
+    domain: best.domain,
+    subdomain: best.subdomain,
+    debug: {
+      canon,
+      score: +best.score.toFixed(12),
+      subDist: +best.subDist.toFixed(12),
+      domDist: +best.domDist.toFixed(12)
+    }
+  };
 }
+
 
 
 
@@ -1765,17 +1781,17 @@ async function parseArrayLogic({
 
     //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
-    const textForEmbedding =
+const textForEmbedding =
   (elem?.[Object.keys(elem)[0]]?.input?.name) ||
   (elem?.[Object.keys(elem)[0]]?.input?.title) ||
   (typeof out === "string" && out) ||
-  JSON.stringify(elem);
+  ""; // last resort
 
-const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
+const { domain, subdomain } = await classifyStableFromS3({
   s3,
   openai,
-  key: "nestedDomainIndex.json", // or leave default via DOMAIN_INDEX_KEY
-  textForEmbedding
+  key: "nestedDomainIndex.json", // or leave default via env
+  rawText: textForEmbedding
 });
 
     // possessedCombined base & indexes
