@@ -705,7 +705,7 @@ async function parseArrayLogic({
     //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
     
    // Prefer the *user's request* when requestOnly === true
-   const b = elem?.[Object.keys(elem)[0]];
+   const b = elem[bc]; // you already computed bc above; reuse it
    const inp = b?.input && typeof b.input === 'object' ? b.input : {};
    let userReqText = null;
    // $essence path provides the raw user request in `out`
@@ -714,16 +714,14 @@ async function parseArrayLogic({
    if (!userReqText) {
      const candidate =
        inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
-     if (Array.isArray(candidate)) userReqText = candidate.join(' ');
-     else if (typeof candidate === 'string') userReqText = candidate;
+     if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
+     else if (typeof candidate === 'string') userReqText = candidate.trim();
    }
-   // When requestOnly, embed the most specific request text; else keep legacy behavior
-   const textForEmbedding =
-     (requestOnly && userReqText) ||
-    b?.input?.name ||
-    b?.input?.title ||
-     (typeof out === "string" && out) ||
-     JSON.stringify(elem);
+   // Build a single source of truth for both classification and distance embedding
+   const textForEmbedding = requestOnly
+     ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
+     : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
+
 
 
 const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
@@ -741,12 +739,13 @@ const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding
-   // Use the same textForEmbedding for the *distance* embedding when requestOnly is set
-   const embInput = (requestOnly && userReqText) ? userReqText : JSON.stringify(elem);
-   const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
-     model: "text-embedding-3-large",
-     input: embInput
-   });
+   // Use EXACTLY the same text that powered classification to compute dists/pb
+const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
+const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
+const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
+  model: "text-embedding-3-large",
+  input: embText
+});
     const embedding = toVector(rawEmb);
 
     // get subdomain vector refs (DocClient is fine; no pb touched)
