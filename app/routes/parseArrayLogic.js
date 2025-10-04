@@ -1111,20 +1111,6 @@ const DOMAIN_SUBS = {
     ]
 };
 
-//const domains = {...}
-//const DOMAIN_SUBS = {...}
-
-
-
-
-
-
-
-
-
-
-
-
 
                 // Drop-in replacement that keeps your logic intact but makes every pb touchpoint
 // DynamoDB low-level compliant (no IEEE-754 loss).
@@ -1140,6 +1126,135 @@ const { Converter } = DynamoDB;
 
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
+
+
+
+
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S3-only embedding-based domain/subdomain selection
+// Bucket: public.1var.com   Key: nestedDomainIndex.json
+// ─────────────────────────────────────────────────────────────────────────────
+
+const DOMAIN_INDEX_BUCKET = "public.1var.com";
+const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
+
+let _domainIndexCache = null;
+
+const _normalizeVec = (v) => {
+  if (!Array.isArray(v) || v.length === 0) return null;
+  let s = 0;
+  for (let i = 0; i < v.length; i++) s += v[i] * v[i];
+  const inv = 1 / (Math.sqrt(s) + 1e-12);
+  const out = new Array(v.length);
+  for (let i = 0; i < v.length; i++) out[i] = v[i] * inv;
+  return out;
+};
+
+const _ensureUnit = (v) => {
+  const arr = Array.isArray(v) ? v : (typeof v === "string" ? JSON.parse(v) : null);
+  return _normalizeVec(arr);
+};
+
+async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
+  if (_domainIndexCache) return _domainIndexCache;
+  const obj = await s3.getObject({
+    Bucket: DOMAIN_INDEX_BUCKET,
+    Key: key
+  }).promise(); // ← mirrors your putObject style
+
+  const idx = JSON.parse(obj.Body.toString("utf8"));
+
+  // Precompute unit vectors
+  for (const [, dNode] of Object.entries(idx.domains || {})) {
+    dNode._embU = _ensureUnit(dNode.embedding);
+    for (const [, sNode] of Object.entries(dNode.subdomains || {})) {
+      sNode._embU = _ensureUnit(sNode.embedding);
+    }
+  }
+  _domainIndexCache = idx;
+  return idx;
+}
+
+async function _embedUnit({ openai, text }) {
+  const { data: [{ embedding }] } = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: text
+  });
+  return _normalizeVec(embedding);
+}
+
+const _cosineDistUnit = (a, b) => {
+  // a and b must be unit vectors
+  let dot = 0;
+  for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
+  return 1 - dot;
+};
+
+async function classifyDomainsByEmbeddingFromS3({
+  s3,
+  openai,
+  key = DOMAIN_INDEX_KEY,
+  textForEmbedding
+}) {
+  const idx = await _loadDomainIndexFromS3({ s3, key });
+  const q = await _embedUnit({ openai, text: textForEmbedding });
+
+  // 1) pick best domain by centroid distance
+  const domainScores = [];
+  for (const [dName, dNode] of Object.entries(idx.domains || {})) {
+    if (!dNode?._embU || dNode._embU.length !== q.length) continue;
+    domainScores.push({ domain: dName, dist: _cosineDistUnit(q, dNode._embU) });
+  }
+  if (!domainScores.length) throw new Error("No usable domain embeddings in index.");
+
+  domainScores.sort((a, b) => a.dist - b.dist);
+  const best = domainScores[0];
+  const runnerUp = domainScores[1] || { dist: Infinity };
+  const margin = runnerUp.dist - best.dist; // larger = clearer win
+
+  // Helpers to pick subdomain
+  const pickSubWithin = (dName) => {
+    const subs = [];
+    for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
+      if (!sNode?._embU || sNode._embU.length !== q.length) continue;
+      subs.push({ subdomain: sName, dist: _cosineDistUnit(q, sNode._embU) });
+    }
+    subs.sort((a, b) => a.dist - b.dist);
+    return subs[0] || null;
+  };
+
+  const pickSubGlobally = () => {
+    const all = [];
+    for (const [dName, dNode] of Object.entries(idx.domains || {})) {
+      for (const [sName, sNode] of Object.entries(dNode.subdomains || {})) {
+        if (!sNode?._embU || sNode._embU.length !== q.length) continue;
+        all.push({ domain: dName, subdomain: sName, dist: _cosineDistUnit(q, sNode._embU) });
+      }
+    }
+    all.sort((a, b) => a.dist - b.dist);
+    return all[0] || null;
+  };
+
+  // 2) ambiguity guard (helps with polysemy like "speaker")
+  const AMBIG_MARGIN = 0.008;
+  if (margin <= AMBIG_MARGIN) {
+    const subBest = pickSubGlobally();
+    if (!subBest) throw new Error("No usable subdomain embeddings.");
+    return { domain: subBest.domain, subdomain: subBest.subdomain, debug: { method: "global-subdomain", margin } };
+  } else {
+    const subBest = pickSubWithin(best.domain);
+    if (!subBest) throw new Error(`Domain '${best.domain}' has no usable subdomains.`);
+    return { domain: best.domain, subdomain: subBest.subdomain, debug: { method: "domain-then-subdomain", margin } };
+  }
+}
+
+
+
+
+
+
 
 
 const parseVector = v => {
@@ -1648,7 +1763,20 @@ async function parseArrayLogic({
     const body = elem[breadcrumb];
     const origBody = origElem[breadcrumb];
 
-    const { domain, subdomain } = await classifyDomains({ openai, text: elem });
+    //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
+
+    const textForEmbedding =
+  (elem?.[Object.keys(elem)[0]]?.input?.name) ||
+  (elem?.[Object.keys(elem)[0]]?.input?.title) ||
+  (typeof out === "string" && out) ||
+  JSON.stringify(elem);
+
+const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
+  s3,
+  openai,
+  key: "nestedDomainIndex.json", // or leave default via DOMAIN_INDEX_KEY
+  textForEmbedding
+});
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
