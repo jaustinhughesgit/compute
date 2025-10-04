@@ -4,1115 +4,1131 @@
 /* ------------------------------------------------------------------ */
 
 const DOMAINS = [
-    "agriculture",
-    "architecture",
-    "biology",
-    "business",
-    "characteristic",
-    "chemistry",
-    "community",
-    "cosmology",
-    "economics",
-    "education",
-    "entertainment",
-    "environment",
-    "event",
-    "food",
-    "geology",
-    "geography",
-    "government",
-    "health",
-    "history",
-    "language",
-    "law",
-    "manufacturing",
-    "mathematics",
-    "people",
-    "psychology",
-    "philosophy",
-    "religion",
-    "sports",
-    "technology",
-    "transportation"
+  "agriculture",
+  "architecture",
+  "biology",
+  "business",
+  "characteristic",
+  "chemistry",
+  "community",
+  "cosmology",
+  "economics",
+  "education",
+  "entertainment",
+  "environment",
+  "event",
+  "food",
+  "geology",
+  "geography",
+  "government",
+  "health",
+  "history",
+  "language",
+  "law",
+  "manufacturing",
+  "mathematics",
+  "people",
+  "psychology",
+  "philosophy",
+  "religion",
+  "sports",
+  "technology",
+  "transportation"
 ]
 
 const DOMAIN_SUBS = {
-    "agriculture": [
-        "agroeconomics",
-        "agrochemicals",
-        "agronomy",
-        "agtech",
-        "animal-health",
-        "aquaculture",
-        "aquaponics",
-        "biodiversity",
-        "biotechnology",
-        "certification",
-        "climate",
-        "crop-production",
-        "dairy",
-        "data",
-        "education",
-        "engineering",
-        "farm-equipment",
-        "farm-management",
-        "finance",
-        "food-processing",
-        "food-safety",
-        "forestry",
-        "genetics",
-        "horticulture",
-        "hydroponics",
-        "irrigation",
-        "labor",
-        "land-use",
-        "livestock",
-        "marketing",
-        "mechanization",
-        "nutrition",
-        "organic-farming",
-        "pest-management",
-        "plant-health",
-        "policy",
-        "postharvest",
-        "precision-farming",
-        "research",
-        "robotics",
-        "rural-development",
-        "soil-science",
-        "supply-chain",
-        "sustainability",
-        "vertical-farming",
-        "waste-management",
-        "water-management",
-        "weed-management"
-    ],
-    "architecture": [
-        "styles",
-        "typologies",
-        "approaches",
-        "cultures",
-        "domains",
-        "structures",
-        "theory",
-        "history",
-        "practice",
-        "technology",
-        "construction",
-        "experience",
-        "safety",
-        "climate",
-        "materials",
-        "society",
-        "education"
-    ],
-    "biology": [
-        "anatomy",
-        "astrobiology",
-        "biochemistry",
-        "bioengineering",
-        "bioinformatics",
-        "biogeography",
-        "biomechanics",
-        "biomedical science",
-        "biophysics",
-        "biotechnology",
-        "botany",
-        "cell biology",
-        "chronobiology",
-        "conservation",
-        "cytogenetics",
-        "developmental biology",
-        "ecology",
-        "endocrinology",
-        "entomology",
-        "environmental biology",
-        "epidemiology",
-        "epigenetics",
-        "ethology",
-        "evolutionary biology",
-        "evo-devo",
-        "genetics",
-        "genomics",
-        "histology",
-        "immunology",
-        "marine biology",
-        "medical biology",
-        "microbiology",
-        "molecular biology",
-        "molecular genetics",
-        "mycology",
-        "neuroscience",
-        "nutritional biology",
-        "ornithology",
-        "paleobiology",
-        "parasitology",
-        "pathology",
-        "pharmacology",
-        "physiology",
-        "population biology",
-        "proteomics",
-        "public health",
-        "research",
-        "structural biology",
-        "systems biology",
-        "taxonomy",
-        "theoretical biology",
-        "toxicology",
-        "veterinary science",
-        "virology",
-        "wildlife biology",
-        "xenobiology"
-    ],
-    "business": [
-        "accounting",
-        "advertising",
-        "analytics",
-        "business-development",
-        "compliance",
-        "consulting",
-        "customer-service",
-        "data-science",
-        "economics",
-        "entrepreneurship",
-        "finance",
-        "human-resources",
-        "innovation",
-        "international-business",
-        "legal",
-        "logistics",
-        "management",
-        "marketing",
-        "operations",
-        "procurement",
-        "product-management",
-        "project-management",
-        "public-relations",
-        "research-and-development",
-        "sales",
-        "strategy",
-        "supply-chain",
-        "sustainability",
-        "taxation",
-        "training"
-    ],
-    "characteristic": [
-        "abstraction",
-        "aesthetics",
-        "authenticity",
-        "balance",
-        "calmness",
-        "clarity",
-        "color",
-        "complexity",
-        "consistency",
-        "contrast",
-        "convergence",
-        "density",
-        "dimension",
-        "durability",
-        "dynamism",
-        "elegance",
-        "energy",
-        "expression",
-        "fluidity",
-        "form",
-        "functionality",
-        "hardness",
-        "innovation",
-        "integration",
-        "intensity",
-        "logic",
-        "luster",
-        "movement",
-        "naturalness",
-        "novelty",
-        "nuance",
-        "passion",
-        "precision",
-        "proportion",
-        "rhythm",
-        "rigidity",
-        "scale",
-        "sensitivity",
-        "shape",
-        "sincerity",
-        "solidity",
-        "sophistication",
-        "structure",
-        "temperature",
-        "temporality",
-        "texture",
-        "timelessness",
-        "transformation",
-        "transparency",
-        "viscosity",
-        "weight"
-    ],
-    "chemistry": [
-        "agrochemical",
-        "analytical",
-        "atmospheric",
-        "biochemical",
-        "ceramic",
-        "chemical biology",
-        "chemical engineering",
-        "cheminformatics",
-        "computational",
-        "coordination",
-        "cosmetic",
-        "dye",
-        "electrochemical",
-        "energy",
-        "environmental",
-        "explosives",
-        "food",
-        "forensic",
-        "glass",
-        "green",
-        "industrial",
-        "inorganic",
-        "materials",
-        "medicinal",
-        "nanochemical",
-        "nuclear",
-        "organic",
-        "petrochemical",
-        "pharmaceutical",
-        "photochemistry",
-        "physical",
-        "polymer",
-        "pulp",
-        "quantum",
-        "radiochemistry",
-        "solid-state",
-        "stereochemistry",
-        "supramolecular",
-        "surface",
-        "textile",
-        "theoretical",
-        "water"
-    ],
-    "community": [
-        "activism",
-        "activities",
-        "athletes",
-        "classmates",
-        "colleges",
-        "commuting",
-        "countrymen",
-        "employees",
-        "events",
-        "family",
-        "friends",
-        "gaming",
-        "global",
-        "joint ventures",
-        "leaders",
-        "local",
-        "meet-ups",
-        "memberships",
-        "mentees",
-        "mentors",
-        "message boards",
-        "national",
-        "neighbors",
-        "organizations",
-        "peers",
-        "relationships",
-        "rivals",
-        "social",
-        "state",
-        "teams",
-        "volunteers"
-    ],
-    "cosmology": [
-        "alternative-gravity",
-        "astrobiology",
-        "astronomy",
-        "astrophysics",
-        "baryogenesis",
-        "baryon-acoustic-oscillations",
-        "big-bang",
-        "black-holes",
-        "celestial-mechanics",
-        "cmb-anisotropies",
-        "cosmic-microwave-background",
-        "cosmic-topology",
-        "cosmochemistry",
-        "cosmological-parameters",
-        "dark-energy",
-        "dark-matter",
-        "exoplanets",
-        "expansion",
-        "galaxies",
-        "general-relativity",
-        "gravitational-lensing",
-        "gravitational-waves",
-        "inflation",
-        "interstellar-medium",
-        "large-scale-structure",
-        "multiverse",
-        "numerical-cosmology",
-        "observational-cosmology",
-        "particle-cosmology",
-        "planetary-science",
-        "quantum-cosmology",
-        "radio-astronomy",
-        "redshift",
-        "reionization",
-        "solar-physics",
-        "space-exploration",
-        "space-telescopes",
-        "spectroscopy",
-        "star-formation",
-        "stellar-evolution",
-        "structure-formation",
-        "supernovae",
-        "time-dilation",
-        "x-ray-astronomy"
-    ],
-    "economics": [
-        "behavioral",
-        "development",
-        "financial",
-        "environmental",
-        "game-theory",
-        "macroeconomics",
-        "labor",
-        "computational",
-        "consumer",
-        "corporate",
-        "digital",
-        "econometrics",
-        "energy",
-        "fiscal policy",
-        "agricultural",
-        "austrian",
-        "business",
-        "chicago school",
-        "comparative",
-        "cultural",
-        "defense & military",
-        "education",
-        "entrepreneurial",
-        "ethics in economics",
-        "experimental",
-        "gender",
-        "global",
-        "health",
-        "history of economic thought",
-        "housing",
-        "industrial",
-        "information",
-        "innovation",
-        "innovation & network",
-        "institutional",
-        "international",
-        "keynesian",
-        "law & economics",
-        "maritime",
-        "marxian",
-        "mathematical",
-        "media",
-        "microeconomics",
-        "migration",
-        "monetary",
-        "neuro",
-        "optimization & decision theory",
-        "political economy",
-        "post-keynesian"
-    ],
-    "education": [
-        "adult",
-        "bilingual",
-        "curriculum-development",
-        "educational-technology-edtech",
-        "experiential-learning",
-        "financial-literacy",
-        "history-of-education",
-        "alternative",
-        "assessment-evaluation",
-        "career-technical-education-cte",
-        "classroom-management",
-        "coaching-mentorship",
-        "comparative",
-        "continuing",
-        "early-childhood",
-        "education-policy-administration",
-        "education-psychology",
-        "educational-equity-inclusion",
-        "educational-leadership",
-        "educational-research",
-        "environmental",
-        "gifted-talented",
-        "higher",
-        "home-schooling",
-        "informal",
-        "instructional-design",
-        "language",
-        "special-needs",
-        "lifelong-learning",
-        "mathematics",
-        "medical",
-        "military-training",
-        "montessori-waldorf",
-        "multicultural",
-        "music",
-        "online-blended-learning",
-        "open-education-resources-oer",
-        "outdoor-adventure",
-        "parental-involvement-in-education",
-        "performing-arts",
-        "philosophy-of-education",
-        "physical-education-pe",
-        "professional-development-for-educators",
-        "religious",
-        "science",
-        "sex",
-        "social-emotional-learning-sel",
-        "special",
-        "standardized-testing-and-assessment",
-        "stem-steam",
-        "teacher-training-and-professional-development",
-        "technical-and-vocational-education-tvet",
-        "workplace-and-corporate-training",
-        "writing-and-literacy-education"
-    ],
-    "entertainment": [
-        "acting",
-        "adult",
-        "animation",
-        "awards",
-        "broadcasting",
-        "casting",
-        "celebrity",
-        "concerts",
-        "comedy",
-        "cultural",
-        "dance",
-        "digital media",
-        "distribution",
-        "esports",
-        "events",
-        "fashion",
-        "fan culture",
-        "festivals",
-        "gaming",
-        "immersive",
-        "licensing",
-        "merchandising",
-        "music",
-        "performing arts",
-        "podcasting",
-        "publishing",
-        "radio",
-        "screenwriting",
-        "social media",
-        "sports",
-        "streaming",
-        "management",
-        "television",
-        "theater",
-        "theme parks",
-        "ticketing",
-        "production",
-        "visual effects (vfx)",
-        "voice",
-        "web"
-    ],
-    "environment": [
-        "activism",
-        "air-pollution",
-        "biodiversity",
-        "carbon-management",
-        "circular-economy",
-        "climate-change",
-        "coastal-conservation",
-        "deforestation",
-        "eco-tourism",
-        "education",
-        "ecosystems",
-        "ethics",
-        "forestry",
-        "freshwater",
-        "green-building",
-        "green-energy",
-        "health",
-        "industrial-ecology",
-        "invasive-species",
-        "land-degradation",
-        "land-use",
-        "law",
-        "management",
-        "noise",
-        "nuclear-safety",
-        "organic-farming",
-        "pollution-control",
-        "remote-sensing",
-        "restoration",
-        "resources",
-        "soil-conservation",
-        "sustainability",
-        "toxicology",
-        "urban-ecology",
-        "waste-management"
-    ],
-    "event": [
-        "cognitive",
-        "commercial",
-        "communication",
-        "cosmic",
-        "creative",
-        "detection",
-        "emotional",
-        "environmental",
-        "legal",
-        "lifecycle",
-        "operational",
-        "recreational",
-        "regulatory",
-        "security",
-        "social",
-        "state",
-        "system",
-        "task"
-    ],
-    "food": [
-        "agriculture",
-        "beverages",
-        "cuisines",
-        "dining",
-        "events",
-        "food-science",
-        "gastronomy",
-        "health",
-        "ingredients",
-        "food",
-        "cooking",
-        "lifestyle",
-        "meals",
-        "nutrition",
-        "organic",
-        "production",
-        "quality",
-        "restaurants",
-        "sustainability",
-        "techniques",
-        "types",
-        "urban",
-        "variety",
-        "world",
-        "x-factor",
-        "yields",
-        "zest"
-    ],
-    "geology": [
-        "cartography",
-        "climatology",
-        "crystallography",
-        "earthquake-seismology",
-        "economic",
-        "environmental",
-        "geochemistry",
-        "geochronology",
-        "geodynamics",
-        "geohazards",
-        "geomorphology",
-        "geophysics",
-        "engineering",
-        "hydrogeology",
-        "mineralogy",
-        "mining",
-        "oceanography",
-        "paleoclimatology",
-        "paleontology",
-        "petroleum",
-        "petrology",
-        "planetary",
-        "remote-sensing",
-        "research",
-        "sedimentology",
-        "soil-science",
-        "stratigraphy",
-        "structural",
-        "tectonics",
-        "volcanology",
-        "water-resources"
-    ],
-    "geography": [
-        "physical",
-        "human",
-        "urban",
-        "regional",
-        "economic",
-        "political",
-        "cultural",
-        "geospatial",
-        "environmental",
-        "historical",
-        "transportation",
-        "climatology",
-        "biogeography",
-        "hazards",
-        "location"
-    ],
-    "government": [
-        "administration",
-        "budget-and-finance",
-        "civil-service",
-        "defense",
-        "diplomacy",
-        "economic-development",
-        "education-policy",
-        "elections-and-voting",
-        "emergency-management",
-        "environmental-regulation",
-        "foreign-affairs",
-        "healthcare-policy",
-        "homeland-security",
-        "housing-and-urban-development",
-        "identity-and-records",
-        "immigration",
-        "infrastructure",
-        "intelligence-and-security",
-        "international-cooperation",
-        "judicial-affairs",
-        "law-enforcement",
-        "legislative-affairs",
-        "local-government",
-        "national-security",
-        "policy-analysis",
-        "public-administration",
-        "public-health",
-        "public-safety",
-        "public-works",
-        "regulation",
-        "research",
-        "social-services",
-        "taxation-and-revenue",
-        "transportation",
-        "urban-planning",
-        "veterans-affairs",
-        "welfare-programs"
-    ],
-    "health": [
-        "public-health",
-        "clinical",
-        "mental-health",
-        "nutrition",
-        "epidemiology",
-        "prevention",
-        "policy",
-        "global-health",
-        "environmental-health",
-        "occupational-health",
-        "dental",
-        "pharmaceutical",
-        "health-management",
-        "fitness"
-    ],
-    "history": [
-        "ancient",
-        "archaeology",
-        "archival-studies",
-        "art",
-        "biographical",
-        "colonial",
-        "cultural",
-        "diplomatic",
-        "economic",
-        "environmental",
-        "genealogy",
-        "heritage-conservation",
-        "historical-geography",
-        "historical-linguistics",
-        "historiography",
-        "history-education",
-        "industrial",
-        "intellectual",
-        "medieval",
-        "military",
-        "modern",
-        "museum-studies",
-        "oral-history",
-        "paleography",
-        "political",
-        "public",
-        "religious",
-        "renaissance-studies",
-        "research",
-        "social-history",
-        "technology",
-        "urban",
-        "world"
-    ],
-    "language": [
-        "constructed",
-        "body",
-        "braille",
-        "programming",
-        "sign",
-        "spoken",
-        "symbolic",
-        "written"
-    ],
-    "law": [
-        "administrative",
-        "constitutional",
-        "criminal",
-        "contract",
-        "corporate",
-        "environmental",
-        "family",
-        "health",
-        "human-rights",
-        "immigration",
-        "intellectual-property",
-        "international",
-        "labor-employment",
-        "real-estate"
-    ],
-    "manufacturing": [
-        "additive",
-        "casting",
-        "electronics",
-        "green",
-        "high-precision",
-        "nanomanufacturing",
-        "welding",
-        "biomanufacturing",
-        "die casting",
-        "fabrication",
-        "injection",
-        "just-in-time",
-        "kaizen",
-        "lean",
-        "mass production",
-        "on-demand",
-        "plastics",
-        "quality",
-        "robotics",
-        "smart",
-        "tooling",
-        "upcycling",
-        "vertical",
-        "xerography",
-        "yield",
-        "zero waste"
-    ],
-    "mathematics": [
-        "algebra",
-        "algorithms",
-        "applied",
-        "calculus",
-        "combinatorics",
-        "computational",
-        "cryptography",
-        "data analysis",
-        "differential equations",
-        "discrete",
-        "econometrics",
-        "financial",
-        "game theory",
-        "geometry",
-        "graph theory",
-        "logic",
-        "mathematical biology",
-        "mathematical modeling",
-        "mathematical physics",
-        "number theory",
-        "numerical analysis",
-        "operations research",
-        "optimization",
-        "probability",
-        "pure mathematics",
-        "quantitative finance",
-        "quantum computing",
-        "research",
-        "set theory",
-        "statistics",
-        "stochastics",
-        "education",
-        "theoretical",
-        "topology",
-        "trigonometry"
-    ],
-    "people": [
-        "activists",
-        "artists",
-        "athletes",
-        "authors",
-        "celebrities",
-        "children",
-        "coaches",
-        "communities",
-        "consumers",
-        "creators",
-        "educators",
-        "employees",
-        "entrepreneurs",
-        "executives",
-        "families",
-        "freelancers",
-        "government-officials",
-        "influencers",
-        "investors",
-        "leaders",
-        "managers",
-        "media-personalities",
-        "mentors",
-        "musicians",
-        "partners",
-        "patients",
-        "performers",
-        "professionals",
-        "public-figures",
-        "researchers",
-        "scientists",
-        "seniors",
-        "speakers",
-        "specialists",
-        "students",
-        "teachers",
-        "teams",
-        "volunteers",
-        "workers"
-    ],
-    "psychology": [
-        "abnormal",
-        "behavioral",
-        "clinical",
-        "cognitive",
-        "comparative",
-        "community",
-        "counseling",
-        "developmental",
-        "educational",
-        "environmental",
-        "evolutionary",
-        "experimental",
-        "forensic",
-        "health",
-        "human factors",
-        "i/o",
-        "jungian",
-        "kinesics",
-        "learning",
-        "multicultural",
-        "neuropsychology",
-        "occupational",
-        "personality",
-        "positive",
-        "psychometrics",
-        "quantitative",
-        "rehabilitation",
-        "social",
-        "sport",
-        "transpersonal",
-        "unconscious",
-        "vocational",
-        "wellness",
-        "xenopsychology",
-        "youth",
-        "zen"
-    ],
-    "philosophy": [
-        "advocacy",
-        "campaign management",
-        "civil rights",
-        "communications",
-        "community organizing",
-        "conflict resolution",
-        "diplomacy",
-        "economic policy",
-        "education policy",
-        "elections",
-        "environmental policy",
-        "foreign policy",
-        "governance",
-        "grassroots organizing",
-        "health policy",
-        "human rights",
-        "immigration policy",
-        "international relations",
-        "legislation",
-        "lobbying",
-        "media and journalism",
-        "national security",
-        "nonprofit management",
-        "political analysis",
-        "political consulting",
-        "political economy",
-        "political science",
-        "polling and surveys",
-        "public administration",
-        "public opinion",
-        "public policy",
-        "regulatory affairs",
-        "research",
-        "social justice",
-        "think tanks",
-        "urban policy",
-        "voting rights"
-    ],
-    "religion": [
-        "abrahamic",
-        "buddhism",
-        "christianity",
-        "taoism",
-        "esoteric",
-        "folk",
-        "gnosticism",
-        "hinduism",
-        "islam",
-        "judaism",
-        "kabbalah",
-        "liturgy",
-        "mysticism",
-        "new age",
-        "orthodox",
-        "pagan",
-        "quakerism",
-        "reformation",
-        "shinto",
-        "theology",
-        "universalism",
-        "vedic",
-        "wicca",
-        "xuanxue",
-        "yazidism",
-        "zen"
-    ],
-    "sports": [
-        "athletics",
-        "basketball",
-        "baseball",
-        "cricket",
-        "diving",
-        "e-sports",
-        "football",
-        "golf",
-        "hockey",
-        "ice skating",
-        "judo",
-        "karate",
-        "lacrosse",
-        "mma",
-        "netball",
-        "orienteering",
-        "polo",
-        "quidditch",
-        "rugby",
-        "skateboarding",
-        "tennis",
-        "ultimate",
-        "volleyball",
-        "wrestling",
-        "x games",
-        "yachting",
-        "zumba"
-    ],
-    "technology": [
-        "actuators",
-        "aerospace",
-        "agtech",
-        "ai",
-        "analytics",
-        "applications",
-        "ar/vr",
-        "automation",
-        "automotive",
-        "biotech",
-        "blockchain",
-        "cables",
-        "circuit boards",
-        "cloud",
-        "communication",
-        "consulting",
-        "cybersecurity",
-        "data science",
-        "e-commerce",
-        "edtech",
-        "embedded systems",
-        "energy",
-        "engineering",
-        "enterprise",
-        "entertainment",
-        "environment",
-        "fintech",
-        "forecasting",
-        "gaming",
-        "hardware",
-        "health",
-        "infrastructure",
-        "iot",
-        "logistics",
-        "manufacturing",
-        "maritime",
-        "mobile",
-        "nanotech",
-        "networking",
-        "peripherals",
-        "platforms",
-        "policy",
-        "power management",
-        "process",
-        "programming",
-        "proptech",
-        "protocols",
-        "quantum",
-        "rail",
-        "robotics",
-        "saas",
-        "semiconductors",
-        "sensors",
-        "smart home",
-        "social media",
-        "software",
-        "storage",
-        "telecom",
-        "web"
-    ],
-    "transportation": [
-        "aerospace",
-        "autonomous vehicles",
-        "aviation",
-        "cargo and freight",
-        "civil engineering",
-        "electric vehicles (ev)",
-        "fleet management",
-        "high-speed rail",
-        "infrastructure",
-        "intelligent transport systems",
-        "logistics",
-        "marine transportation",
-        "mass transit",
-        "mobility-as-a-service (maas)",
-        "passenger rail",
-        "public transportation",
-        "railroads",
-        "research",
-        "roadway safety",
-        "shipping",
-        "smart cities",
-        "supply chain",
-        "traffic engineering",
-        "transit planning",
-        "transportation economics",
-        "transportation policy",
-        "transportation safety",
-        "trucking",
-        "urban mobility",
-        "vehicle electrification",
-        "vehicle manufacturing",
-        "vehicle sharing",
-        "warehousing"
-    ]
+  "agriculture": [
+    "agroeconomics",
+    "agrochemicals",
+    "agronomy",
+    "agtech",
+    "animal-health",
+    "aquaculture",
+    "aquaponics",
+    "biodiversity",
+    "biotechnology",
+    "certification",
+    "climate",
+    "crop-production",
+    "dairy",
+    "data",
+    "education",
+    "engineering",
+    "farm-equipment",
+    "farm-management",
+    "finance",
+    "food-processing",
+    "food-safety",
+    "forestry",
+    "genetics",
+    "horticulture",
+    "hydroponics",
+    "irrigation",
+    "labor",
+    "land-use",
+    "livestock",
+    "marketing",
+    "mechanization",
+    "nutrition",
+    "organic-farming",
+    "pest-management",
+    "plant-health",
+    "policy",
+    "postharvest",
+    "precision-farming",
+    "research",
+    "robotics",
+    "rural-development",
+    "soil-science",
+    "supply-chain",
+    "sustainability",
+    "vertical-farming",
+    "waste-management",
+    "water-management",
+    "weed-management"
+  ],
+  "architecture": [
+    "styles",
+    "typologies",
+    "approaches",
+    "cultures",
+    "domains",
+    "structures",
+    "theory",
+    "history",
+    "practice",
+    "technology",
+    "construction",
+    "experience",
+    "safety",
+    "climate",
+    "materials",
+    "society",
+    "education"
+  ],
+  "biology": [
+    "anatomy",
+    "astrobiology",
+    "biochemistry",
+    "bioengineering",
+    "bioinformatics",
+    "biogeography",
+    "biomechanics",
+    "biomedical science",
+    "biophysics",
+    "biotechnology",
+    "botany",
+    "cell biology",
+    "chronobiology",
+    "conservation",
+    "cytogenetics",
+    "developmental biology",
+    "ecology",
+    "endocrinology",
+    "entomology",
+    "environmental biology",
+    "epidemiology",
+    "epigenetics",
+    "ethology",
+    "evolutionary biology",
+    "evo-devo",
+    "genetics",
+    "genomics",
+    "histology",
+    "immunology",
+    "marine biology",
+    "medical biology",
+    "microbiology",
+    "molecular biology",
+    "molecular genetics",
+    "mycology",
+    "neuroscience",
+    "nutritional biology",
+    "ornithology",
+    "paleobiology",
+    "parasitology",
+    "pathology",
+    "pharmacology",
+    "physiology",
+    "population biology",
+    "proteomics",
+    "public health",
+    "research",
+    "structural biology",
+    "systems biology",
+    "taxonomy",
+    "theoretical biology",
+    "toxicology",
+    "veterinary science",
+    "virology",
+    "wildlife biology",
+    "xenobiology"
+  ],
+  "business": [
+    "accounting",
+    "advertising",
+    "analytics",
+    "business-development",
+    "compliance",
+    "consulting",
+    "customer-service",
+    "data-science",
+    "economics",
+    "entrepreneurship",
+    "finance",
+    "human-resources",
+    "innovation",
+    "international-business",
+    "legal",
+    "logistics",
+    "management",
+    "marketing",
+    "operations",
+    "procurement",
+    "product-management",
+    "project-management",
+    "public-relations",
+    "research-and-development",
+    "sales",
+    "strategy",
+    "supply-chain",
+    "sustainability",
+    "taxation",
+    "training"
+  ],
+  "characteristic": [
+    "abstraction",
+    "aesthetics",
+    "authenticity",
+    "balance",
+    "calmness",
+    "clarity",
+    "color",
+    "complexity",
+    "consistency",
+    "contrast",
+    "convergence",
+    "density",
+    "dimension",
+    "durability",
+    "dynamism",
+    "elegance",
+    "energy",
+    "expression",
+    "fluidity",
+    "form",
+    "functionality",
+    "hardness",
+    "innovation",
+    "integration",
+    "intensity",
+    "logic",
+    "luster",
+    "movement",
+    "naturalness",
+    "novelty",
+    "nuance",
+    "passion",
+    "precision",
+    "proportion",
+    "rhythm",
+    "rigidity",
+    "scale",
+    "sensitivity",
+    "shape",
+    "sincerity",
+    "solidity",
+    "sophistication",
+    "structure",
+    "temperature",
+    "temporality",
+    "texture",
+    "timelessness",
+    "transformation",
+    "transparency",
+    "viscosity",
+    "weight"
+  ],
+  "chemistry": [
+    "agrochemical",
+    "analytical",
+    "atmospheric",
+    "biochemical",
+    "ceramic",
+    "chemical biology",
+    "chemical engineering",
+    "cheminformatics",
+    "computational",
+    "coordination",
+    "cosmetic",
+    "dye",
+    "electrochemical",
+    "energy",
+    "environmental",
+    "explosives",
+    "food",
+    "forensic",
+    "glass",
+    "green",
+    "industrial",
+    "inorganic",
+    "materials",
+    "medicinal",
+    "nanochemical",
+    "nuclear",
+    "organic",
+    "petrochemical",
+    "pharmaceutical",
+    "photochemistry",
+    "physical",
+    "polymer",
+    "pulp",
+    "quantum",
+    "radiochemistry",
+    "solid-state",
+    "stereochemistry",
+    "supramolecular",
+    "surface",
+    "textile",
+    "theoretical",
+    "water"
+  ],
+  "community": [
+    "activism",
+    "activities",
+    "athletes",
+    "classmates",
+    "colleges",
+    "commuting",
+    "countrymen",
+    "employees",
+    "events",
+    "family",
+    "friends",
+    "gaming",
+    "global",
+    "joint ventures",
+    "leaders",
+    "local",
+    "meet-ups",
+    "memberships",
+    "mentees",
+    "mentors",
+    "message boards",
+    "national",
+    "neighbors",
+    "organizations",
+    "peers",
+    "relationships",
+    "rivals",
+    "social",
+    "state",
+    "teams",
+    "volunteers"
+  ],
+  "cosmology": [
+    "alternative-gravity",
+    "astrobiology",
+    "astronomy",
+    "astrophysics",
+    "baryogenesis",
+    "baryon-acoustic-oscillations",
+    "big-bang",
+    "black-holes",
+    "celestial-mechanics",
+    "cmb-anisotropies",
+    "cosmic-microwave-background",
+    "cosmic-topology",
+    "cosmochemistry",
+    "cosmological-parameters",
+    "dark-energy",
+    "dark-matter",
+    "exoplanets",
+    "expansion",
+    "galaxies",
+    "general-relativity",
+    "gravitational-lensing",
+    "gravitational-waves",
+    "inflation",
+    "interstellar-medium",
+    "large-scale-structure",
+    "multiverse",
+    "numerical-cosmology",
+    "observational-cosmology",
+    "particle-cosmology",
+    "planetary-science",
+    "quantum-cosmology",
+    "radio-astronomy",
+    "redshift",
+    "reionization",
+    "solar-physics",
+    "space-exploration",
+    "space-telescopes",
+    "spectroscopy",
+    "star-formation",
+    "stellar-evolution",
+    "structure-formation",
+    "supernovae",
+    "time-dilation",
+    "x-ray-astronomy"
+  ],
+  "economics": [
+    "behavioral",
+    "development",
+    "financial",
+    "environmental",
+    "game-theory",
+    "macroeconomics",
+    "labor",
+    "computational",
+    "consumer",
+    "corporate",
+    "digital",
+    "econometrics",
+    "energy",
+    "fiscal policy",
+    "agricultural",
+    "austrian",
+    "business",
+    "chicago school",
+    "comparative",
+    "cultural",
+    "defense & military",
+    "education",
+    "entrepreneurial",
+    "ethics in economics",
+    "experimental",
+    "gender",
+    "global",
+    "health",
+    "history of economic thought",
+    "housing",
+    "industrial",
+    "information",
+    "innovation",
+    "innovation & network",
+    "institutional",
+    "international",
+    "keynesian",
+    "law & economics",
+    "maritime",
+    "marxian",
+    "mathematical",
+    "media",
+    "microeconomics",
+    "migration",
+    "monetary",
+    "neuro",
+    "optimization & decision theory",
+    "political economy",
+    "post-keynesian"
+  ],
+  "education": [
+    "adult",
+    "bilingual",
+    "curriculum-development",
+    "educational-technology-edtech",
+    "experiential-learning",
+    "financial-literacy",
+    "history-of-education",
+    "alternative",
+    "assessment-evaluation",
+    "career-technical-education-cte",
+    "classroom-management",
+    "coaching-mentorship",
+    "comparative",
+    "continuing",
+    "early-childhood",
+    "education-policy-administration",
+    "education-psychology",
+    "educational-equity-inclusion",
+    "educational-leadership",
+    "educational-research",
+    "environmental",
+    "gifted-talented",
+    "higher",
+    "home-schooling",
+    "informal",
+    "instructional-design",
+    "language",
+    "special-needs",
+    "lifelong-learning",
+    "mathematics",
+    "medical",
+    "military-training",
+    "montessori-waldorf",
+    "multicultural",
+    "music",
+    "online-blended-learning",
+    "open-education-resources-oer",
+    "outdoor-adventure",
+    "parental-involvement-in-education",
+    "performing-arts",
+    "philosophy-of-education",
+    "physical-education-pe",
+    "professional-development-for-educators",
+    "religious",
+    "science",
+    "sex",
+    "social-emotional-learning-sel",
+    "special",
+    "standardized-testing-and-assessment",
+    "stem-steam",
+    "teacher-training-and-professional-development",
+    "technical-and-vocational-education-tvet",
+    "workplace-and-corporate-training",
+    "writing-and-literacy-education"
+  ],
+  "entertainment": [
+    "acting",
+    "adult",
+    "animation",
+    "awards",
+    "broadcasting",
+    "casting",
+    "celebrity",
+    "concerts",
+    "comedy",
+    "cultural",
+    "dance",
+    "digital media",
+    "distribution",
+    "esports",
+    "events",
+    "fashion",
+    "fan culture",
+    "festivals",
+    "gaming",
+    "immersive",
+    "licensing",
+    "merchandising",
+    "music",
+    "performing arts",
+    "podcasting",
+    "publishing",
+    "radio",
+    "screenwriting",
+    "social media",
+    "sports",
+    "streaming",
+    "management",
+    "television",
+    "theater",
+    "theme parks",
+    "ticketing",
+    "production",
+    "visual effects (vfx)",
+    "voice",
+    "web"
+  ],
+  "environment": [
+    "activism",
+    "air-pollution",
+    "biodiversity",
+    "carbon-management",
+    "circular-economy",
+    "climate-change",
+    "coastal-conservation",
+    "deforestation",
+    "eco-tourism",
+    "education",
+    "ecosystems",
+    "ethics",
+    "forestry",
+    "freshwater",
+    "green-building",
+    "green-energy",
+    "health",
+    "industrial-ecology",
+    "invasive-species",
+    "land-degradation",
+    "land-use",
+    "law",
+    "management",
+    "noise",
+    "nuclear-safety",
+    "organic-farming",
+    "pollution-control",
+    "remote-sensing",
+    "restoration",
+    "resources",
+    "soil-conservation",
+    "sustainability",
+    "toxicology",
+    "urban-ecology",
+    "waste-management"
+  ],
+  "event": [
+    "cognitive",
+    "commercial",
+    "communication",
+    "cosmic",
+    "creative",
+    "detection",
+    "emotional",
+    "environmental",
+    "legal",
+    "lifecycle",
+    "operational",
+    "recreational",
+    "regulatory",
+    "security",
+    "social",
+    "state",
+    "system",
+    "task"
+  ],
+  "food": [
+    "agriculture",
+    "beverages",
+    "cuisines",
+    "dining",
+    "events",
+    "food-science",
+    "gastronomy",
+    "health",
+    "ingredients",
+    "food",
+    "cooking",
+    "lifestyle",
+    "meals",
+    "nutrition",
+    "organic",
+    "production",
+    "quality",
+    "restaurants",
+    "sustainability",
+    "techniques",
+    "types",
+    "urban",
+    "variety",
+    "world",
+    "x-factor",
+    "yields",
+    "zest"
+  ],
+  "geology": [
+    "cartography",
+    "climatology",
+    "crystallography",
+    "earthquake-seismology",
+    "economic",
+    "environmental",
+    "geochemistry",
+    "geochronology",
+    "geodynamics",
+    "geohazards",
+    "geomorphology",
+    "geophysics",
+    "engineering",
+    "hydrogeology",
+    "mineralogy",
+    "mining",
+    "oceanography",
+    "paleoclimatology",
+    "paleontology",
+    "petroleum",
+    "petrology",
+    "planetary",
+    "remote-sensing",
+    "research",
+    "sedimentology",
+    "soil-science",
+    "stratigraphy",
+    "structural",
+    "tectonics",
+    "volcanology",
+    "water-resources"
+  ],
+  "geography": [
+    "physical",
+    "human",
+    "urban",
+    "regional",
+    "economic",
+    "political",
+    "cultural",
+    "geospatial",
+    "environmental",
+    "historical",
+    "transportation",
+    "climatology",
+    "biogeography",
+    "hazards",
+    "location"
+  ],
+  "government": [
+    "administration",
+    "budget-and-finance",
+    "civil-service",
+    "defense",
+    "diplomacy",
+    "economic-development",
+    "education-policy",
+    "elections-and-voting",
+    "emergency-management",
+    "environmental-regulation",
+    "foreign-affairs",
+    "healthcare-policy",
+    "homeland-security",
+    "housing-and-urban-development",
+    "identity-and-records",
+    "immigration",
+    "infrastructure",
+    "intelligence-and-security",
+    "international-cooperation",
+    "judicial-affairs",
+    "law-enforcement",
+    "legislative-affairs",
+    "local-government",
+    "national-security",
+    "policy-analysis",
+    "public-administration",
+    "public-health",
+    "public-safety",
+    "public-works",
+    "regulation",
+    "research",
+    "social-services",
+    "taxation-and-revenue",
+    "transportation",
+    "urban-planning",
+    "veterans-affairs",
+    "welfare-programs"
+  ],
+  "health": [
+    "public-health",
+    "clinical",
+    "mental-health",
+    "nutrition",
+    "epidemiology",
+    "prevention",
+    "policy",
+    "global-health",
+    "environmental-health",
+    "occupational-health",
+    "dental",
+    "pharmaceutical",
+    "health-management",
+    "fitness"
+  ],
+  "history": [
+    "ancient",
+    "archaeology",
+    "archival-studies",
+    "art",
+    "biographical",
+    "colonial",
+    "cultural",
+    "diplomatic",
+    "economic",
+    "environmental",
+    "genealogy",
+    "heritage-conservation",
+    "historical-geography",
+    "historical-linguistics",
+    "historiography",
+    "history-education",
+    "industrial",
+    "intellectual",
+    "medieval",
+    "military",
+    "modern",
+    "museum-studies",
+    "oral-history",
+    "paleography",
+    "political",
+    "public",
+    "religious",
+    "renaissance-studies",
+    "research",
+    "social-history",
+    "technology",
+    "urban",
+    "world"
+  ],
+  "language": [
+    "constructed",
+    "body",
+    "braille",
+    "programming",
+    "sign",
+    "spoken",
+    "symbolic",
+    "written"
+  ],
+  "law": [
+    "administrative",
+    "constitutional",
+    "criminal",
+    "contract",
+    "corporate",
+    "environmental",
+    "family",
+    "health",
+    "human-rights",
+    "immigration",
+    "intellectual-property",
+    "international",
+    "labor-employment",
+    "real-estate"
+  ],
+  "manufacturing": [
+    "additive",
+    "casting",
+    "electronics",
+    "green",
+    "high-precision",
+    "nanomanufacturing",
+    "welding",
+    "biomanufacturing",
+    "die casting",
+    "fabrication",
+    "injection",
+    "just-in-time",
+    "kaizen",
+    "lean",
+    "mass production",
+    "on-demand",
+    "plastics",
+    "quality",
+    "robotics",
+    "smart",
+    "tooling",
+    "upcycling",
+    "vertical",
+    "xerography",
+    "yield",
+    "zero waste"
+  ],
+  "mathematics": [
+    "algebra",
+    "algorithms",
+    "applied",
+    "calculus",
+    "combinatorics",
+    "computational",
+    "cryptography",
+    "data analysis",
+    "differential equations",
+    "discrete",
+    "econometrics",
+    "financial",
+    "game theory",
+    "geometry",
+    "graph theory",
+    "logic",
+    "mathematical biology",
+    "mathematical modeling",
+    "mathematical physics",
+    "number theory",
+    "numerical analysis",
+    "operations research",
+    "optimization",
+    "probability",
+    "pure mathematics",
+    "quantitative finance",
+    "quantum computing",
+    "research",
+    "set theory",
+    "statistics",
+    "stochastics",
+    "education",
+    "theoretical",
+    "topology",
+    "trigonometry"
+  ],
+  "people": [
+    "activists",
+    "artists",
+    "athletes",
+    "authors",
+    "celebrities",
+    "children",
+    "coaches",
+    "communities",
+    "consumers",
+    "creators",
+    "educators",
+    "employees",
+    "entrepreneurs",
+    "executives",
+    "families",
+    "freelancers",
+    "government-officials",
+    "influencers",
+    "investors",
+    "leaders",
+    "managers",
+    "media-personalities",
+    "mentors",
+    "musicians",
+    "partners",
+    "patients",
+    "performers",
+    "professionals",
+    "public-figures",
+    "researchers",
+    "scientists",
+    "seniors",
+    "speakers",
+    "specialists",
+    "students",
+    "teachers",
+    "teams",
+    "volunteers",
+    "workers"
+  ],
+  "psychology": [
+    "abnormal",
+    "behavioral",
+    "clinical",
+    "cognitive",
+    "comparative",
+    "community",
+    "counseling",
+    "developmental",
+    "educational",
+    "environmental",
+    "evolutionary",
+    "experimental",
+    "forensic",
+    "health",
+    "human factors",
+    "i/o",
+    "jungian",
+    "kinesics",
+    "learning",
+    "multicultural",
+    "neuropsychology",
+    "occupational",
+    "personality",
+    "positive",
+    "psychometrics",
+    "quantitative",
+    "rehabilitation",
+    "social",
+    "sport",
+    "transpersonal",
+    "unconscious",
+    "vocational",
+    "wellness",
+    "xenopsychology",
+    "youth",
+    "zen"
+  ],
+  "philosophy": [
+    "advocacy",
+    "campaign management",
+    "civil rights",
+    "communications",
+    "community organizing",
+    "conflict resolution",
+    "diplomacy",
+    "economic policy",
+    "education policy",
+    "elections",
+    "environmental policy",
+    "foreign policy",
+    "governance",
+    "grassroots organizing",
+    "health policy",
+    "human rights",
+    "immigration policy",
+    "international relations",
+    "legislation",
+    "lobbying",
+    "media and journalism",
+    "national security",
+    "nonprofit management",
+    "political analysis",
+    "political consulting",
+    "political economy",
+    "political science",
+    "polling and surveys",
+    "public administration",
+    "public opinion",
+    "public policy",
+    "regulatory affairs",
+    "research",
+    "social justice",
+    "think tanks",
+    "urban policy",
+    "voting rights"
+  ],
+  "religion": [
+    "abrahamic",
+    "buddhism",
+    "christianity",
+    "taoism",
+    "esoteric",
+    "folk",
+    "gnosticism",
+    "hinduism",
+    "islam",
+    "judaism",
+    "kabbalah",
+    "liturgy",
+    "mysticism",
+    "new age",
+    "orthodox",
+    "pagan",
+    "quakerism",
+    "reformation",
+    "shinto",
+    "theology",
+    "universalism",
+    "vedic",
+    "wicca",
+    "xuanxue",
+    "yazidism",
+    "zen"
+  ],
+  "sports": [
+    "athletics",
+    "basketball",
+    "baseball",
+    "cricket",
+    "diving",
+    "e-sports",
+    "football",
+    "golf",
+    "hockey",
+    "ice skating",
+    "judo",
+    "karate",
+    "lacrosse",
+    "mma",
+    "netball",
+    "orienteering",
+    "polo",
+    "quidditch",
+    "rugby",
+    "skateboarding",
+    "tennis",
+    "ultimate",
+    "volleyball",
+    "wrestling",
+    "x games",
+    "yachting",
+    "zumba"
+  ],
+  "technology": [
+    "actuators",
+    "aerospace",
+    "agtech",
+    "ai",
+    "analytics",
+    "applications",
+    "ar/vr",
+    "automation",
+    "automotive",
+    "biotech",
+    "blockchain",
+    "cables",
+    "circuit boards",
+    "cloud",
+    "communication",
+    "consulting",
+    "cybersecurity",
+    "data science",
+    "e-commerce",
+    "edtech",
+    "embedded systems",
+    "energy",
+    "engineering",
+    "enterprise",
+    "entertainment",
+    "environment",
+    "fintech",
+    "forecasting",
+    "gaming",
+    "hardware",
+    "health",
+    "infrastructure",
+    "iot",
+    "logistics",
+    "manufacturing",
+    "maritime",
+    "mobile",
+    "nanotech",
+    "networking",
+    "peripherals",
+    "platforms",
+    "policy",
+    "power management",
+    "process",
+    "programming",
+    "proptech",
+    "protocols",
+    "quantum",
+    "rail",
+    "robotics",
+    "saas",
+    "semiconductors",
+    "sensors",
+    "smart home",
+    "social media",
+    "software",
+    "storage",
+    "telecom",
+    "web"
+  ],
+  "transportation": [
+    "aerospace",
+    "autonomous vehicles",
+    "aviation",
+    "cargo and freight",
+    "civil engineering",
+    "electric vehicles (ev)",
+    "fleet management",
+    "high-speed rail",
+    "infrastructure",
+    "intelligent transport systems",
+    "logistics",
+    "marine transportation",
+    "mass transit",
+    "mobility-as-a-service (maas)",
+    "passenger rail",
+    "public transportation",
+    "railroads",
+    "research",
+    "roadway safety",
+    "shipping",
+    "smart cities",
+    "supply chain",
+    "traffic engineering",
+    "transit planning",
+    "transportation economics",
+    "transportation policy",
+    "transportation safety",
+    "trucking",
+    "urban mobility",
+    "vehicle electrification",
+    "vehicle manufacturing",
+    "vehicle sharing",
+    "warehousing"
+  ]
 };
 
+const _slug = s =>
+  String(s || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}]+/gu, "-");
 
-                // Drop-in replacement that keeps your logic intact but makes every pb touchpoint
+// Map of canonical slugs → official label from DOMAIN_SUBS (per domain)
+const SUB_SLUGS = Object.fromEntries(
+  Object.entries(DOMAIN_SUBS).map(([d, subs]) => [
+    d,
+    subs.reduce((m, s) => {
+      m[_slug(s)] = s;
+      return m;
+    }, {})
+  ])
+);
+
+// Drop-in replacement that keeps your logic intact but makes every pb touchpoint
 // DynamoDB low-level compliant (no IEEE-754 loss).
 //
 // Assumptions:
@@ -1144,7 +1160,7 @@ let _embedCache = new Map(); // canonical text -> unit embedding array
 
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
-  let s = 0; for (let i = 0; i < v.length; i++) s += v[i]*v[i];
+  let s = 0; for (let i = 0; i < v.length; i++) s += v[i] * v[i];
   const inv = 1 / (Math.sqrt(s) + 1e-12);
   const out = new Array(v.length);
   for (let i = 0; i < v.length; i++) out[i] = v[i] * inv;
@@ -1190,8 +1206,8 @@ function _canonText(raw) {
 // Small lexical nudge to settle near-ties deterministically (tunable or remove)
 const LEX = {
   education: {
-    higher:  ["university","college","campus","undergraduate","graduate","alumni"],
-    medical: ["medical","med","medicine","residency","nursing","dental","pharmacy"]
+    higher: ["university", "college", "campus", "undergraduate", "graduate", "alumni"],
+    medical: ["medical", "med", "medicine", "residency", "nursing", "dental", "pharmacy"]
   }
 };
 function _lexBoost(canon, domain, sub) {
@@ -1234,11 +1250,20 @@ async function classifyStableFromS3({
     if (!dNode?._embU || dNode._embU.length !== q.length) continue;
     const domDist = _cosineDistUnit(q, dNode._embU);
 
-    for (const [sName, sNode] of Object.entries(dNode.subdomains || {})) {
+    for (const [sKey, sNode] of Object.entries(dNode.subdomains || {})) {
       if (!sNode?._embU || sNode._embU.length !== q.length) continue;
+
+      const subName = _deriveSubName(dName, sKey, sNode);  // <-- NEW
+      if (!subName) continue; // skip broken entries
+
       const subDist = _cosineDistUnit(q, sNode._embU);
-      const score = subDist + 0.05 * domDist + _lexBoost(canon, dName, sName);
-      candidates.push({ domain: dName, subdomain: sName, score, subDist, domDist });
+      const score = subDist + 0.05 * domDist + _lexBoost(canon, dName, subName);
+
+      candidates.push({
+        domain: dName,
+        subdomain: subName,       // <-- use canonical subdomain
+        score, subDist, domDist
+      });
     }
   }
 
@@ -1265,7 +1290,29 @@ async function classifyStableFromS3({
   };
 }
 
+function _deriveSubName(dName, sKey, sNode) {
+  // if the key already looks like a real subdomain (not 'body' or a number), keep it
+  if (sKey && sKey !== "body" && sKey !== "text" && !/^\d+$/.test(sKey)) return sKey;
 
+  // otherwise try to extract from "domain/subdomain" in sNode.text
+  const t = typeof sNode?.text === "string" ? sNode.text.trim() : "";
+  if (t) {
+    // prefer "domain/subdomain" -> subdomain
+    if (t.startsWith(dName + "/")) {
+      const rest = t.slice(dName.length + 1).trim();
+      if (rest) return rest;
+    }
+    // fallback: last path segment
+    const last = t.split("/").pop();
+    if (last) return last;
+  }
+
+  // other fallbacks
+  if (typeof sNode?.name === "string" && sNode.name.trim()) return sNode.name.trim();
+
+  // give back the original key if we have nothing better
+  return sKey || "";
+}
 
 
 
@@ -1430,163 +1477,163 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
 
 
 const buildLogicSchema = {
-    "name": "build_logic",
-    "description": "Create a structured modules/actions JSON payload for the logic runner.",
-    "parameters": {
+  "name": "build_logic",
+  "description": "Create a structured modules/actions JSON payload for the logic runner.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["modules", "actions"],
+    "properties": {
+      "modules": {
         "type": "object",
-        "additionalProperties": false,
-        "required": ["modules", "actions"],
-        "properties": {
-            "modules": {
-                "type": "object",
-                "description": "Map from local alias → npm-package name.",
-                "additionalProperties": {
-                    "type": "string",
-                    "description": "Exact name of the npm package to `require`."
-                }
-            },
-            "actions": { "$ref": "#/$defs/actionList" }
-        },
-
-        "$defs": {
-            /* ─────────── any JSON value ─────────── */
-            "jsonVal": {
-                "oneOf": [
-                    { "type": "string" },
-                    { "type": "number" },
-                    { "type": "boolean" },
-                    { "type": "object" },
-                    { "type": "array", "items": {} }
-                ]
-            },
-
-            /* ────────── decorators (unchanged) ────────── */
-            "decorators": {
-                "type": "object",
-                "properties": {
-                    "if": { "$ref": "#/$defs/conditionArray" },
-                    "while": { "$ref": "#/$defs/conditionArray" },
-                    "timeout": { "type": "integer", "minimum": 0 },
-                    "next": { "type": "boolean" },
-                    "promise": { "enum": ["raw", "await"] }
-                },
-                "additionalProperties": false
-            },
-
-            /* ───────── chain helpers (unchanged) ───────── */
-            "chainItem": {
-                "type": "object",
-                "required": ["access"],
-                "additionalProperties": false,
-                "properties": {
-                    "access": { "type": "string" },
-                    "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
-                    "new": { "type": "boolean" },
-                    "express": { "type": "boolean" },
-                    "next": { "type": "boolean" },
-                    "return": { "$ref": "#/$defs/jsonVal" }
-                }
-            },
-            "chainArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/chainItem" }
-            },
-
-            /* ───────── condition helpers (unchanged) ───────── */
-            "conditionTuple": {
-                "type": "array",
-                "minItems": 3,
-                "maxItems": 3,
-                "prefixItems": [
-                    { "type": "string" },
-                    { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
-                    { "$ref": "#/$defs/jsonVal" }
-                ],
-                "items": {}
-            },
-            "conditionArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/conditionTuple" }
-            },
-
-            /* ───────── list of actions ───────── */
-            "actionList": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/actionObject" }
-            },
-
-            /* ─────────── ACTION object ─────────── */
-            "actionObject": {
-                "type": "object",
-                "allOf": [
-                    { "$ref": "#/$defs/decorators" },
-                    {
-                        "additionalProperties": false,
-                        "oneOf": [
-
-                            { /* SET */ "required": ["set"],
-                                "properties": {
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* TARGET */ "required": ["target", "chain"],
-                                "properties": {
-                                    "target": { "type": "string" },
-                                    "chain": { "$ref": "#/$defs/chainArray" },
-                                    "assign": { "type": "string" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* IF */ "required": ["if", "set"],
-                                "properties": {
-                                    "if": { "$ref": "#/$defs/conditionArray" },
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* WHILE */ "required": ["while", "nestedActions"],
-                                "properties": {
-                                    "while": { "$ref": "#/$defs/conditionArray" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
-                                "properties": {
-                                    "assign": { "type": "string" },
-                                    "params": { "type": "array", "items": { "type": "string" } },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* RETURN */ "required": ["return"],
-                                "properties": {
-                                    "return": { "$ref": "#/$defs/jsonVal" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            /* ★ NEW ─────────── ELSE wrapper ─────────── */
-                            {
-                                "title": "else",
-                                "required": ["else"],
-                                "properties": {
-                                    /* inner payload is ONE action object
-                                       (matches the pattern you showed: {"else":{ "set":{…}}} ) */
-                                    "else": { "$ref": "#/$defs/actionObject" }
-                                }
-                            }
-                            /* ★ END NEW */
-                        ]
-                    }
-                ]
-            }
+        "description": "Map from local alias → npm-package name.",
+        "additionalProperties": {
+          "type": "string",
+          "description": "Exact name of the npm package to `require`."
         }
+      },
+      "actions": { "$ref": "#/$defs/actionList" }
+    },
+
+    "$defs": {
+      /* ─────────── any JSON value ─────────── */
+      "jsonVal": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "object" },
+          { "type": "array", "items": {} }
+        ]
+      },
+
+      /* ────────── decorators (unchanged) ────────── */
+      "decorators": {
+        "type": "object",
+        "properties": {
+          "if": { "$ref": "#/$defs/conditionArray" },
+          "while": { "$ref": "#/$defs/conditionArray" },
+          "timeout": { "type": "integer", "minimum": 0 },
+          "next": { "type": "boolean" },
+          "promise": { "enum": ["raw", "await"] }
+        },
+        "additionalProperties": false
+      },
+
+      /* ───────── chain helpers (unchanged) ───────── */
+      "chainItem": {
+        "type": "object",
+        "required": ["access"],
+        "additionalProperties": false,
+        "properties": {
+          "access": { "type": "string" },
+          "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
+          "new": { "type": "boolean" },
+          "express": { "type": "boolean" },
+          "next": { "type": "boolean" },
+          "return": { "$ref": "#/$defs/jsonVal" }
+        }
+      },
+      "chainArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/chainItem" }
+      },
+
+      /* ───────── condition helpers (unchanged) ───────── */
+      "conditionTuple": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "prefixItems": [
+          { "type": "string" },
+          { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
+          { "$ref": "#/$defs/jsonVal" }
+        ],
+        "items": {}
+      },
+      "conditionArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/conditionTuple" }
+      },
+
+      /* ───────── list of actions ───────── */
+      "actionList": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/actionObject" }
+      },
+
+      /* ─────────── ACTION object ─────────── */
+      "actionObject": {
+        "type": "object",
+        "allOf": [
+          { "$ref": "#/$defs/decorators" },
+          {
+            "additionalProperties": false,
+            "oneOf": [
+
+              { /* SET */ "required": ["set"],
+                "properties": {
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              { /* TARGET */ "required": ["target", "chain"],
+                "properties": {
+                  "target": { "type": "string" },
+                  "chain": { "$ref": "#/$defs/chainArray" },
+                  "assign": { "type": "string" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              { /* IF */ "required": ["if", "set"],
+                "properties": {
+                  "if": { "$ref": "#/$defs/conditionArray" },
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              { /* WHILE */ "required": ["while", "nestedActions"],
+                "properties": {
+                  "while": { "$ref": "#/$defs/conditionArray" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
+                "properties": {
+                  "assign": { "type": "string" },
+                  "params": { "type": "array", "items": { "type": "string" } },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              { /* RETURN */ "required": ["return"],
+                "properties": {
+                  "return": { "$ref": "#/$defs/jsonVal" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+
+              /* ★ NEW ─────────── ELSE wrapper ─────────── */
+              {
+                "title": "else",
+                "required": ["else"],
+                "properties": {
+                  /* inner payload is ONE action object
+                     (matches the pattern you showed: {"else":{ "set":{…}}} ) */
+                  "else": { "$ref": "#/$defs/actionObject" }
+                }
+              }
+              /* ★ END NEW */
+            ]
+          }
+        ]
+      }
     }
+  }
 }
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
@@ -1781,34 +1828,43 @@ async function parseArrayLogic({
 
     //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
-const textForEmbedding =
-  (elem?.[Object.keys(elem)[0]]?.input?.name) ||
-  (elem?.[Object.keys(elem)[0]]?.input?.title) ||
-  (typeof out === "string" && out) ||
-  ""; // last resort
+    const textForEmbedding =
+      (elem?.[Object.keys(elem)[0]]?.input?.name) ||
+      (elem?.[Object.keys(elem)[0]]?.input?.title) ||
+      (typeof out === "string" && out) ||
+      ""; // last resort
 
-const { domain, subdomain } = await classifyStableFromS3({
-  s3,
-  openai,
-  key: "nestedDomainIndex.json", // or leave default via env
-  rawText: textForEmbedding
-});
+    const { domain, subdomain, debug } = await classifyStableFromS3({
+      s3,
+      openai,
+      key: "nestedDomainIndex.json", // or leave default via env
+      rawText: textForEmbedding
+    });
 
-    // possessedCombined base & indexes
+    // Normalize the subdomain so it matches your DOMAIN_SUBS + Dynamo "root" keys
+    const subSlug = _slug(subdomain);
+    const subdomainNorm = SUB_SLUGS[domain]?.[subSlug] || subdomain;
+
+    // Safe/clamped indices (avoid -1 and keep pb stable)
+    const di = Math.max(DOMAINS.indexOf(domain), 0);
+    const siRaw = (DOMAIN_SUBS[domain] || []).indexOf(subdomainNorm);
+    const si = Math.max(siRaw, 0);
+
     const base = 1000000000000000.0;
-    const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
-    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
+    const domainIndex = 10000000000000 * di;
+    const subdomainIndex = 100000000000 * si;
     const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
-    // embedding
+    // IMPORTANT: embed the same canonical text used for classification
     const {
       data: [{ embedding: rawEmb }]
     } = await openai.embeddings.create({
       model: "text-embedding-3-large",
-      input: JSON.stringify(elem)
+      input: debug.canon
     });
     const embedding = toVector(rawEmb);
+
 
     // get subdomain vector refs (DocClient is fine; no pb touched)
     let dynamoRecord = null;
@@ -1819,10 +1875,11 @@ const { domain, subdomain } = await classifyStableFromS3({
           TableName: `i_${domain}`,
           KeyConditionExpression: "#r = :pk",
           ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomain },
+          ExpressionAttributeValues: { ":pk": subdomainNorm },
           Limit: 1
         })
         .promise();
+
       dynamoRecord = Items?.[0] ?? null;
     } catch (err) {
       console.error("DynamoDB query failed:", err);
@@ -2011,14 +2068,14 @@ const { domain, subdomain } = await classifyStableFromS3({
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
-      console.log("999 body?.schema?.const",body?.schema?.const)
+      console.log("999 body?.schema?.const", body?.schema?.const)
       console.log("999 fixedOutput", fixedOutput)
       console.log("999 body?.input?.name", body?.input?.name)
-      console.log("999 body?.input?.title",body?.input?.title)
-      console.log("999 body?.input?.entity",body?.input?.entity)
+      console.log("999 body?.input?.title", body?.input?.title)
+      console.log("999 body?.input?.entity", body?.input?.entity)
       //const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      
+
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
@@ -2054,32 +2111,32 @@ const { domain, subdomain } = await classifyStableFromS3({
         console.log("999 elem", elem)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
-        console.log("999 desiredObj",desiredObj)
+        console.log("999 desiredObj", desiredObj)
 
 
-                let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-                newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-                newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
-                newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
-                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
+        let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+        newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+        newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
+        newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
+        newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
+        newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
 
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
         console.log("999 objectJPL", JSON.stringify(objectJPL))
-        console.log("999 actions",padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
+        console.log("999 actions", padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
 
         shorthand.push(
           ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
         ); //actions: [ [Object], [Object], [Object] ],
 
         if (objectJPL.modules) {
-          console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
+          console.log("999 modules if", padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
           );// modules: {}
         } else {
-          console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
+          console.log("999 modules else", padRef(routeRowNewIndex + 4), {})
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
           );// modules: {}
@@ -2090,11 +2147,11 @@ const { domain, subdomain } = await classifyStableFromS3({
 
         console.log("999 createdEntities", createdEntities)
 
-        console.log("padRef(routeRowNewIndex + 1)",padRef(routeRowNewIndex + 1));
-        console.log("padRef(routeRowNewIndex + 2)",padRef(routeRowNewIndex + 2));
-        console.log("padRef(routeRowNewIndex + 3)",padRef(routeRowNewIndex + 3));
-        console.log("padRef(routeRowNewIndex + 4)",padRef(routeRowNewIndex + 4));
-        console.log("padRef(routeRowNewIndex + 5)",padRef(routeRowNewIndex + 5));
+        console.log("padRef(routeRowNewIndex + 1)", padRef(routeRowNewIndex + 1));
+        console.log("padRef(routeRowNewIndex + 2)", padRef(routeRowNewIndex + 2));
+        console.log("padRef(routeRowNewIndex + 3)", padRef(routeRowNewIndex + 3));
+        console.log("padRef(routeRowNewIndex + 4)", padRef(routeRowNewIndex + 4));
+        console.log("padRef(routeRowNewIndex + 5)", padRef(routeRowNewIndex + 5));
         shorthand.push(
           [
             "ROUTE",
@@ -2116,7 +2173,8 @@ const { domain, subdomain } = await classifyStableFromS3({
         {
           "body": {
             description: "auto created entity",
-            domain, subdomain,
+            domain,
+            subdomain: subdomainNorm,
             embedding,
             entity: padRef(routeRowNewIndex + 1),
             pb: pbStr2,
@@ -2129,7 +2187,8 @@ const { domain, subdomain } = await classifyStableFromS3({
         "position",
         padRef(routeRowNewIndex + 1),
         ""
-      ]);// { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
+      ]);
+      // { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
 
       if (fixedOutput) {
         shorthand.push([
@@ -2161,7 +2220,7 @@ const { domain, subdomain } = await classifyStableFromS3({
           "body": {
             description: "auto matched entity",
             domain,
-            subdomain,
+            subdomain: subdomainNorm,
             embedding,
             entity: bestMatch.su,
             pb: pbStr,
@@ -2175,6 +2234,7 @@ const { domain, subdomain } = await classifyStableFromS3({
         bestMatch.su,
         ""
       ]);
+
     }
 
     routeRowNewIndex = shorthand.length;
@@ -2191,12 +2251,12 @@ const { domain, subdomain } = await classifyStableFromS3({
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      { 
-          entity: "", 
-          name: "_new", 
-          contentType: "text",
-          id:"_new"
-        }
+      {
+        entity: "",
+        name: "_new",
+        contentType: "text",
+        id: "_new"
+      }
     ]); //try adding entities using ADDPROPTERY
 
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
@@ -2206,13 +2266,13 @@ const { domain, subdomain } = await classifyStableFromS3({
       "000",
       padRef(getRowIndex + 3)
     ]); //and then pushing that to 000
-    
+
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities",JSON.stringify(createdEntities, null, 4))
+  console.log("createdEntities", JSON.stringify(createdEntities, null, 4))
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
