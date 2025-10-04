@@ -1765,7 +1765,7 @@ async function parseArrayLogic({
     const origBody = origElem[breadcrumb];
 
     //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
-
+    console.log("classifyDomainsByEmbeddingFromS3 elm", elm)
     const textForEmbedding =
   (elem?.[Object.keys(elem)[0]]?.input?.name) ||
   (elem?.[Object.keys(elem)[0]]?.input?.title) ||
