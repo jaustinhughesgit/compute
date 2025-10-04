@@ -56,6 +56,7 @@ function register({ on, use }) {
 
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
+      const requestOnly = !!body.body?.requestOnly;
 
       if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
@@ -314,7 +315,8 @@ function subdomains(domain){
         sourceType,
         actionFile,
         out,
-        e
+        e,
+        requestOnly
       });
 
       let newShorthand = null;
