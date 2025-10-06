@@ -1,0 +1,63 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Build Anchor Artifacts</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }
+      form { display: grid; gap: 12px; max-width: 560px; }
+      label { font-weight: 600; }
+      input[type="text"], input[type="number"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; }
+      button { padding: 10px 14px; border-radius: 8px; border: 0; background:#111827; color:#fff; cursor:pointer; }
+      .row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center; }
+      .note { color:#6b7280; font-size: 13px; }
+      pre { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow:auto; }
+    </style>
+  </head>
+  <body>
+    <h1>Build Anchor Artifacts</h1>
+    <p class="note">This bundles embeddings from <code><%= embTable %></code> into <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code> and uploads to S3.</p>
+
+    <form id="artifactForm" method="POST" action="/anchors/build-artifacts">
+      <div class="row">
+        <label for="bucket">S3 Bucket</label>
+        <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
+      </div>
+      <div class="row">
+        <label for="anchor_set_id">Anchor Set ID</label>
+        <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
+      </div>
+      <div class="row">
+        <label for="prefix">S3 Prefix</label>
+        <input type="text" id="prefix" name="prefix" value="anchor_sets/<%= anchorSetId %>/training/" />
+      </div>
+      <div class="row">
+        <label for="band_scale">Band Scale</label>
+        <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
+      </div>
+      <button type="submit">Build & Upload Artifacts</button>
+    </form>
+
+    <h3>Response</h3>
+    <pre id="rsp">(click the button to run)</pre>
+
+    <script>
+      const form = document.getElementById('artifactForm');
+      const rsp  = document.getElementById('rsp');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const body = new URLSearchParams(fd);
+        rsp.textContent = 'Building...';
+        try {
+          const res = await fetch(form.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+          const json = await res.json();
+          rsp.textContent = JSON.stringify(json, null, 2);
+        } catch (err) {
+          rsp.textContent = 'Error: ' + err.message;
+        }
+      });
+    </script>
+  </body>
+</html>

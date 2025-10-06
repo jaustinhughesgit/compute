@@ -96,6 +96,7 @@ const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
 const migrateRouter = require('./routes/migrate');
+const artifactsRouter = require('./routes/artifacts');
 
 
 /* not needed for LLM*/
@@ -105,6 +106,7 @@ app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
+app.use('/artiracts', artifactsRouter);
 
 app.use('/', indexRouter);
 
@@ -356,9 +358,200 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
 
 
 
+/* -----------------------------
+   Anchor Artifacts: build & upload
+   ----------------------------- */
+
+const DEFAULT_ANCHOR_SET_ID = process.env.ANCHOR_SET_ID || 'anchors_v1';
+const DEFAULT_BAND_SCALE    = Number(process.env.BAND_SCALE || 2000);
+const DEFAULT_S3_BUCKET     = process.env.ANCHOR_S3_BUCKET || 'public.1var.com';
+
+function _unitNormalize(arr) {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  let ss = 0;
+  for (let i = 0; i < arr.length; i++) { const x = +arr[i]; if (!Number.isFinite(x)) return null; ss += x * x; }
+  const n = Math.sqrt(ss);
+  if (!Number.isFinite(n) || n < 1e-12) return null;
+  const out = new Array(arr.length);
+  const inv = 1 / n;
+  for (let i = 0; i < arr.length; i++) out[i] = arr[i] * inv;
+  return out;
+}
+
+async function _scanEmbPathsAll({ projection = 'id, path, emb' } = {}) {
+  const items = [];
+  let ExclusiveStartKey = undefined;
+  do {
+    const { Items, LastEvaluatedKey } = await dynamodb.scan({
+      TableName: EMBPATHS_TABLE,
+      ProjectionExpression: projection
+    }).promise();
+    if (Items && Items.length) items.push(...Items);
+    ExclusiveStartKey = LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+function _float32RowMajorBuffer(rows, dim) {
+  const f32 = new Float32Array(rows.length * dim);
+  let off = 0;
+  for (const r of rows) {
+    for (let j = 0; j < dim; j++) f32[off++] = r.emb[j];
+  }
+  return Buffer.from(f32.buffer); // little-endian
+}
+
+function _computeStats(rows) {
+  // Norm stats are all ~1 after normalization, but compute to verify.
+  let minN = Infinity, maxN = -Infinity, sumN = 0;
+  for (const r of rows) {
+    let ss = 0; for (const x of r.emb) ss += x * x;
+    const n = Math.sqrt(ss);
+    if (n < minN) minN = n; if (n > maxN) maxN = n; sumN += n;
+  }
+  const N = rows.length;
+  // Pairwise cosine distance on a small random sample of pairs
+  const pairs = Math.min(200, (N * (N - 1)) / 2);
+  let minD = Infinity, maxD = -Infinity, sumD = 0, cntD = 0;
+  if (N > 1 && pairs > 0) {
+    const randIdx = () => Math.floor(Math.random() * N);
+    for (let k = 0; k < pairs; k++) {
+      let i = randIdx(), j = randIdx();
+      if (i === j) { j = (j + 1) % N; }
+      const a = rows[i].emb, b = rows[j].emb;
+      let dot = 0; for (let t = 0; t < a.length; t++) dot += a[t] * b[t];
+      const dist = 1 - dot; // cosine distance (unit vectors)
+      if (dist < minD) minD = dist;
+      if (dist > maxD) maxD = dist;
+      sumD += dist; cntD++;
+    }
+  }
+  return {
+    norm: { min: minN, mean: N ? sumN / N : 0, max: maxN },
+    pairwise_cosine_dist_sample: cntD ? { min: minD, mean: sumD / cntD, max: maxD } : null
+  };
+}
+
+async function _putJSONtoS3({ Bucket, Key, obj }) {
+  const Body = Buffer.from(JSON.stringify(obj, null, 2), 'utf8');
+  await s3.putObject({ Bucket, Key, Body, ContentType: 'application/json' }).promise();
+  return { Bucket, Key };
+}
+
+async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
+  await s3.putObject({ Bucket, Key, Body: BufferBody, ContentType }).promise();
+  return { Bucket, Key };
+}
+
+/**
+ * Build artifacts bundle:
+ * - embeddings.f32 (Float32, row-major, N x d)
+ * - ids.jsonl ({"id": "...", "path":"..."} per line)
+ * - meta.json (N, d, model_id, source_table, anchor_set_id, band_scale, created_at)
+ * - stats.json (sanity)
+ */
+app.post('/anchors/build-artifacts', async (req, res) => {
+  const t0 = Date.now();
+  const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
+  const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
+  const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
+  // prefix like: anchor_sets/anchors_v1/training/
+  let prefix = req.body.prefix || `anchor_sets/${anchor_set_id}/training/`;
+  if (!prefix.endsWith('/')) prefix += '/';
+
+  try {
+    // 1) Read all rows from embPaths
+    const raw = await _scanEmbPathsAll({ projection: 'id, path, emb' });
+    if (!raw.length) return res.status(400).json({ ok:false, error: `No rows in ${EMBPATHS_TABLE}` });
+
+    // 2) Normalize & validate
+    const rows = [];
+    let d = null, zeroOrBad = 0, dimMismatch = 0;
+    for (const it of raw) {
+      const id = it.id || it.ID || it.pk || it.PK;
+      const path = it.path || '';
+      // `emb` might already be an array of numbers (DocumentClient), or a stringified array
+      let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
+      if (!v) { zeroOrBad++; continue; }
+      if (d == null) d = v.length;
+      if (v.length !== d) { dimMismatch++; continue; }
+      const u = _unitNormalize(v);
+      if (!u) { zeroOrBad++; continue; }
+      rows.push({ id: String(id), path: String(path), emb: u });
+    }
+
+    if (!rows.length) {
+      return res.status(400).json({
+        ok:false,
+        error: 'No valid embeddings after normalization',
+        stats: { scanned: raw.length, zeroOrBad, dimMismatch }
+      });
+    }
+
+    // 3) Build artifacts in-memory
+    const N = rows.length;
+    const embeddingsBuf = _float32RowMajorBuffer(rows, d);
+    const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
+    const created_at = new Date().toISOString();
+    const meta = {
+      N, d,
+      model_id: EMB_MODEL,
+      source_table: EMBPATHS_TABLE,
+      anchor_set_id,
+      band_scale,
+      created_at
+    };
+    const stats = _computeStats(rows);
+
+    // 4) Upload to S3
+    const uploads = [];
+    uploads.push(_putBufferToS3({
+      Bucket,
+      Key: `${prefix}embeddings.f32`,
+      BufferBody: embeddingsBuf,
+      ContentType: 'application/octet-stream'
+    }));
+    uploads.push(_putBufferToS3({
+      Bucket,
+      Key: `${prefix}ids.jsonl`,
+      BufferBody: Buffer.from(idsJsonl, 'utf8'),
+      ContentType: 'application/jsonl'
+    }));
+    uploads.push(_putJSONtoS3({ Bucket, Key: `${prefix}meta.json`,  obj: meta  }));
+    uploads.push(_putJSONtoS3({ Bucket, Key: `${prefix}stats.json`, obj: stats }));
+
+    const results = await Promise.all(uploads);
+
+    const ms = Date.now() - t0;
+    return res.json({
+      ok: true,
+      message: 'Artifacts built and uploaded.',
+      s3: results,
+      meta,
+      sanity: stats,
+      counts: {
+        scanned: raw.length,
+        kept: N,
+        zeroOrBad,
+        dimMismatch
+      },
+      durationMs: ms
+    });
+  } catch (err) {
+    console.error('build-artifacts error:', err);
+    return res.status(500).json({ ok:false, error: err.message || String(err) });
+  }
+});
 
 
-
+app.get('/anchors/artifacts', (req, res) => {
+  res.render('artifacts', {
+    embTable: EMBPATHS_TABLE,
+    bucket: DEFAULT_S3_BUCKET,
+    anchorSetId: DEFAULT_ANCHOR_SET_ID,
+    bandScale: DEFAULT_BAND_SCALE
+  });
+});
 
 
 
