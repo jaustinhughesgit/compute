@@ -416,42 +416,52 @@ async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
   await s3.putObject({ Bucket, Key, Body: BufferBody, ContentType }).promise();
   return { Bucket, Key };
 }
+function projection(fields) {
+  const ExpressionAttributeNames = {};
+  const ProjectionExpression = fields.map(f => {
+    const alias = '#' + f.replace(/[^\w]/g, '_');
+    ExpressionAttributeNames[alias] = f;
+    return alias;
+  }).join(', ');
+  return { ProjectionExpression, ExpressionAttributeNames };
+}
+
 
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
-async function _fetchEmbRows({ id, skip = 0, limit = 0, projection = 'id, path, emb' } = {}) {
+async function _fetchEmbRows({ id, skip = 0, limit = 0 } = {}) {
+  const proj = projection(['id','path','emb']);
+
   if (id) {
-    const { Item } = await dynamodb.get({ TableName: EMBPATHS_TABLE, Key: { id } }).promise();
+    const { Item } = await dynamodb.get({
+      TableName: EMBPATHS_TABLE,
+      Key: { id },
+      ...proj
+    }).promise();
     return Item ? [Item] : [];
   }
 
-  // Safety clamps
   skip  = Math.max(0, Number(skip)  || 0);
   limit = Math.max(0, Number(limit) || 0);
   if (!limit) return [];
 
   const rows = [];
-  let ExclusiveStartKey = undefined;
-  let skipped = 0;
+  let ExclusiveStartKey, skipped = 0;
 
-  // We scan in pages of up to 200 and drop the first `skip` items, then take `limit`.
-  // NOTE: DynamoDB Scan order is not guaranteed. For deterministic paging, consider
-  // adding a monotonic "seq" attribute and a GSI to Query instead of Scan.
   while (rows.length < limit) {
     const { Items, LastEvaluatedKey } = await dynamodb.scan({
       TableName: EMBPATHS_TABLE,
-      ProjectionExpression: projection,
       Limit: 200,
-      ExclusiveStartKey
+      ExclusiveStartKey,
+      ...proj
     }).promise();
 
-    if (!Items || Items.length === 0) break;
+    if (!Items || !Items.length) break;
 
     for (const it of Items) {
       if (skipped < skip) { skipped++; continue; }
       if (rows.length < limit) rows.push(it);
       if (rows.length >= limit) break;
     }
-
     ExclusiveStartKey = LastEvaluatedKey;
     if (!ExclusiveStartKey) break;
   }
