@@ -106,7 +106,7 @@ app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
-app.use('/artiracts', artifactsRouter);
+app.use('/artifacts', artifactsRouter);
 
 app.use('/', indexRouter);
 
