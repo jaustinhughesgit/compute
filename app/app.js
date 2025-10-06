@@ -204,18 +204,24 @@ async function queryAllByRoot(table, root) {
 }
 
 // --- The GET route: creates table (if needed) + migrates ---
-app.get('/admin/migrate-embpaths', async (req, res) => {
+app.post('/admin/migrate-embpaths', async (req, res) => {
   const t0 = Date.now();
-  const dryRun = String(req.query.dryRun || '').toLowerCase() === '1' || String(req.query.dryRun || '').toLowerCase() === 'true';
 
-  // tables param (optional) lets you pass a JSON map of { "i_table": ["root1","root2", ...], ... }
-  // Example: ?tables={"i_agriculture":["agroeconomics","agrochemicals"],"i_biology":["anatomy"]}
-  let requestedMap = DOMAIN_SUBS;
-  if (req.query.tables) {
-    try {
-      requestedMap = JSON.parse(req.query.tables);
-    } catch (e) {
-      return res.status(400).json({ ok: false, error: "Invalid JSON in 'tables' query param" });
+  // body: { tables?: { "i_table": [ "root1", ... ], ... }, dryRun?: boolean }
+  let requestedMap = DOMAIN_SUBS; // fallback
+  const dryRun = !!req.body?.dryRun;
+
+  if (req.body?.tables) {
+    if (typeof req.body.tables === 'string') {
+      try {
+        requestedMap = JSON.parse(req.body.tables);
+      } catch (e) {
+        return res.status(400).json({ ok: false, error: "Invalid JSON in body.tables string" });
+      }
+    } else if (typeof req.body.tables === 'object') {
+      requestedMap = req.body.tables;
+    } else {
+      return res.status(400).json({ ok: false, error: "body.tables must be an object or a JSON string" });
     }
   }
 
@@ -236,11 +242,9 @@ app.get('/admin/migrate-embpaths', async (req, res) => {
       let tableWritten = 0;
 
       for (const subdomain of roots) {
-        // Pull all items where partition key 'root' = subdomain
         const records = await queryAllByRoot(tableName, subdomain);
         tableSourceItems += records.length;
 
-        // Build put requests (max 5 per record)
         const puts = [];
         for (const rec of records) {
           for (let idx = 1; idx <= 5; idx++) {
