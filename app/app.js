@@ -454,6 +454,31 @@ const encodeCursor = obj => Buffer.from(JSON.stringify(obj), 'utf8').toString('b
 const decodeCursor = s => JSON.parse(Buffer.from(String(s || ''), 'base64').toString('utf8'));
 const pad5 = n => String(n).padStart(5, '0');
 
+async function _fetchUpToNRows({ cursor = null, target = 1000, perScanLimit = 200, maxScans = 5, softMillisBudget = 7000 }) {
+  const ExprNames = { '#id': 'id', '#path': 'path', '#emb': 'emb' };
+  const ProjExpr  = '#id, #path, #emb';
+  let items = [];
+  let nextCursor = cursor || null;
+  const t0 = Date.now();
+
+  for (let scans = 0; scans < maxScans && items.length < target; scans++) {
+    const { Items = [], LastEvaluatedKey } = await dynamodb.scan({
+      TableName: EMBPATHS_TABLE,
+      ProjectionExpression: ProjExpr,
+      ExpressionAttributeNames: ExprNames,
+      // ask for what's left, but per-call cap keeps latency low
+      Limit: Math.min(perScanLimit, target - items.length)
+    }).promise();
+
+    items.push(...Items);
+    nextCursor = LastEvaluatedKey || null;
+    if (!nextCursor) break;                      // table exhausted
+    if ((Date.now() - t0) > softMillisBudget) break; // avoid 504s
+  }
+
+  return { items, nextCursor };
+}
+
 async function _fetchEmbRowsPage({ cursor = null, pageSize = 1000 }) {
   const ExprNames = { '#id': 'id', '#path': 'path', '#emb': 'emb' };
   const ProjExpr  = '#id, #path, #emb';
@@ -463,7 +488,7 @@ async function _fetchEmbRowsPage({ cursor = null, pageSize = 1000 }) {
     TableName: EMBPATHS_TABLE,
     ProjectionExpression: ProjExpr,
     ExpressionAttributeNames: ExprNames,
-    Limit: Math.min(Math.max(1, pageSize), 200) // DynamoDB page limit: keep small to avoid timeouts
+    Limit: Math.min(Math.max(1, pageSize), 1000) // DynamoDB lets you ask for more, but 1 MB cap still applies
   }).promise();
 
   return {
@@ -565,7 +590,10 @@ app.post('/anchors/build-artifacts-chunk', async (req, res) => {
   if (!prefix.endsWith('/')) prefix += '/';
   const basePrefix    = prefix;  // parent folder for chunks
 
-  const chunk_size        = Math.max(1, Math.min(Number(req.body.chunk_size || 150), 200));
+  const chunk_size = Math.max(1, Number(req.body.chunk_size || 150));
+  const max_scans  = Math.max(1, Number(req.body.max_scans_per_chunk || 5));
+  const per_scan   = Math.min(Math.max(50, Number(req.body.per_scan_limit || 200)), 1000);
+  const budget_ms  = Math.max(1000, Number(req.body.soft_budget_ms || 7000));
   const cursorB64         = req.body.cursor ? String(req.body.cursor) : null;
   const cursor            = cursorB64 ? decodeCursor(cursorB64) : null;
   const chunkIndex        = Number(req.body.chunk_index || 1);
@@ -573,7 +601,9 @@ app.post('/anchors/build-artifacts-chunk', async (req, res) => {
 
   try {
     // 1) Page from DynamoDB
-    const { items, nextCursor } = await _fetchEmbRowsPage({ cursor, pageSize: chunk_size });
+   const { items, nextCursor } = await _fetchUpToNRows({
+     cursor, target: chunk_size, perScanLimit: per_scan, maxScans: max_scans, softMillisBudget: budget_ms
+   });
 
     if (!items.length) {
       return res.json({
