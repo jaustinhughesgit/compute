@@ -169,7 +169,6 @@ async function ensureEmbPathsTable() {
     if (err.code !== 'ResourceNotFoundException') throw err;
   }
 
-  // Create table
   await dynamodbLL.createTable({
     TableName: EMBPATHS_TABLE,
     BillingMode: 'PAY_PER_REQUEST',
@@ -185,7 +184,6 @@ async function ensureEmbPathsTable() {
     }]
   }).promise();
 
-  // Wait until ACTIVE
   await dynamodbLL.waitFor('tableExists', { TableName: EMBPATHS_TABLE }).promise();
 }
 
@@ -554,7 +552,15 @@ app.get('/anchors/artifacts', (req, res) => {
   });
 });
 
-
+app.post('/admin/ensure-embpaths', async (req, res) => {
+  try {
+    await ensureEmbPathsTable();
+    res.json({ ok: true, table: EMBPATHS_TABLE, message: 'embPaths is ready' });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ ok:false, error: e.message || String(e) });
+  }
+});
 
 
 
