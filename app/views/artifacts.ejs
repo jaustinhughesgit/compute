@@ -54,112 +54,34 @@
         <label for="limit">Limit</label>
         <input type="number" id="limit" name="limit" value="1" />
       </div>
+
 <div class="row">
-  <label for="chunk_size">Chunk size</label>
-  <input type="number" id="chunk_size" name="chunk_size" value="150" />
+  <label for="chunk_size">Chunk Size</label>
+  <input type="number" id="chunk_size" name="chunk_size" value="1012" />
 </div>
-<div class="row">
-  <label for="continue_on_error">Continue on error</label>
-  <input type="checkbox" id="continue_on_error" name="continue_on_error" checked />
-</div>
+
       <button type="submit">Build & Upload Artifacts</button>
-<button type="button" id="runChunked">Build in Chunks</button>
-<button type="button" id="finalize">Finalize Manifest</button>
     </form>
 
     <h3>Response</h3>
     <pre id="rsp">(click the button to run)</pre>
 
-<script>
-  const form = document.getElementById('artifactForm');
-  const rsp  = document.getElementById('rsp');
-
-  form.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const fd = new FormData(form);
-    const body = new URLSearchParams(fd);
-    rsp.textContent = 'Building...';
-    try {
-      const res = await fetch(form.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      rsp.textContent = JSON.stringify(json, null, 2);
-    } catch (err) {
-      rsp.textContent = 'Error: ' + err.message;
-    }
-  });
-
-  const btnChunked  = document.getElementById('runChunked');
-  const btnFinalize = document.getElementById('finalize');
-
-  btnChunked.addEventListener('click', async () => {
-    const fd = new FormData(form);
-    const base = Object.fromEntries(fd.entries());
-    base.continue_on_error = document.getElementById('continue_on_error').checked ? 'true' : 'false';
-
-    let cursor = null, chunkIndex = 1, done = false;
-    rsp.textContent = 'Running chunked build...\n';
-    btnChunked.disabled = true; btnFinalize.disabled = true;
-
-    try {
-      while (!done) {
-        const body = new URLSearchParams({
-          bucket: base.bucket,
-          prefix: base.prefix,
-          anchor_set_id: base.anchor_set_id,
-          band_scale: base.band_scale,
-          chunk_size: base.chunk_size || '150',
-          continue_on_error: base.continue_on_error,
-          ...(cursor ? { cursor } : {}),
-          chunk_index: String(chunkIndex)
-        });
-
-        const res = await fetch('/anchors/build-artifacts-chunk', {
-          method: 'POST',
-          headers: {'Content-Type':'application/x-www-form-urlencoded'},
-          body
-        });
-        if (!res.ok) throw new Error(await res.text());
-
-        const json = await res.json();
-        rsp.textContent += `Chunk ${chunkIndex} -> scanned ${json?.counts?.scanned ?? '?'} kept ${json?.counts?.kept ?? '?'}\n`;
-        rsp.textContent += JSON.stringify(json, null, 2) + '\n';
-
-        done = json.finished;
-        cursor = json.nextCursor;
-        chunkIndex = json.nextChunkIndex || (chunkIndex + 1);
-
-        await new Promise(r => setTimeout(r, 250));
-      }
-    } catch (err) {
-      rsp.textContent += 'Error: ' + err.message + '\n';
-    } finally {
-      btnChunked.disabled = false; btnFinalize.disabled = false;
-    }
-  });
-
-  btnFinalize.addEventListener('click', async () => {
-    const fd = new FormData(form);
-    const body = new URLSearchParams({ bucket: fd.get('bucket'), prefix: fd.get('prefix') });
-    rsp.textContent = 'Finalizing manifest...\n';
-    btnFinalize.disabled = true; btnChunked.disabled = true;
-    try {
-      const res = await fetch('/anchors/finalize-artifacts', {
-        method: 'POST',
-        headers: {'Content-Type':'application/x-www-form-urlencoded'},
-        body
+    <script>
+      const form = document.getElementById('artifactForm');
+      const rsp  = document.getElementById('rsp');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(form);
+        const body = new URLSearchParams(fd);
+        rsp.textContent = 'Building...';
+        try {
+          const res = await fetch(form.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+          const json = await res.json();
+          rsp.textContent = JSON.stringify(json, null, 2);
+        } catch (err) {
+          rsp.textContent = 'Error: ' + err.message;
+        }
       });
-      if (!res.ok) throw new Error(await res.text());
-      const json = await res.json();
-      rsp.textContent += JSON.stringify(json, null, 2) + '\n';
-    } catch (err) {
-      rsp.textContent += 'Error: ' + err.message + '\n';
-    } finally {
-      btnFinalize.disabled = false; btnChunked.disabled = false;
-    }
-  });
-</script>
-
-
+    </script>
   </body>
 </html>
