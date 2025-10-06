@@ -535,11 +535,23 @@ app.post('/anchors/build-artifacts', async (req, res) => {
   const start_on = Math.max(0, Number(req.body.start_on || 0));
   const limit    = idFilter ? 1 : Math.max(0, Number(req.body.limit || 0));
 
+  // NEW: chunk index supplied by the browser (used for folder naming)
+  const userChunkIndex = (req.body.chunk_index !== undefined && req.body.chunk_index !== null)
+    ? Math.max(0, Number(req.body.chunk_index))
+    : null;
+
   try {
     // 1) Fetch rows (single id OR paged)
-    const raw = await _fetchEmbRows({ id: idFilter, skip: start_on, limit, projection: 'id, path, emb' });
+    // NOTE: _fetchEmbRows should internally alias reserved names (e.g., "path")
+    // using ExpressionAttributeNames. Do not pass a raw ProjectionExpression here.
+    const raw = await _fetchEmbRows({ id: idFilter, skip: start_on, limit });
     if (!raw.length) {
-      return res.status(404).json({ ok:false, error: idFilter ? `No item found for id=${idFilter}` : `No rows found for start_on=${start_on} limit=${limit} in ${EMBPATHS_TABLE}` });
+      return res.status(404).json({
+        ok:false,
+        error: idFilter
+          ? `No item found for id=${idFilter}`
+          : `No rows found for start_on=${start_on} limit=${limit} in ${EMBPATHS_TABLE}`
+      });
     }
 
     // 2) Normalize & validate
@@ -576,8 +588,15 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     let chunkIndex = null;
     let chunkDir = null;
 
-    if (!idFilter && (start_on > 0 || (limit && limit !== 0))) {
+    // If the client provided a chunk index, ALWAYS use it.
+    if (userChunkIndex !== null && Number.isFinite(userChunkIndex)) {
+      chunkIndex = userChunkIndex;
+    } else if (!idFilter && (start_on > 0 || (limit && limit !== 0))) {
+      // Fallback to derived index when paging without explicit client index
       chunkIndex = Math.floor(start_on / Math.max(1, limit));
+    }
+
+    if (chunkIndex !== null) {
       const chunkIndexPad = String(chunkIndex).padStart(5, '0');
       chunkDir = `chunks/chunk-${chunkIndexPad}/`;
       baseKey = `${prefix}${chunkDir}`;
@@ -590,7 +609,14 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       anchor_set_id,
       band_scale,
       created_at,
-      ...(chunkDir ? { chunk: { index: chunkIndex, start_on, limit } } : {})
+      ...(chunkDir ? {
+        chunk: {
+          index: chunkIndex,
+          start_on,
+          limit,
+          provided_by_client: (userChunkIndex !== null && Number.isFinite(userChunkIndex))
+        }
+      } : {})
     };
     const stats = _computeStats(rows);
 
@@ -616,15 +642,21 @@ app.post('/anchors/build-artifacts', async (req, res) => {
         zeroOrBad,
         dimMismatch
       },
+      echoedChunkIndex: chunkIndex,                 // <- for your UI to confirm
       nextStartOn: chunkDir ? (start_on + N) : undefined,
       durationMs: ms,
-      note: idFilter ? `Single-record build for id=${idFilter}` : `start_on=${start_on}, limit=${limit}`
+      note: idFilter
+        ? `Single-record build for id=${idFilter}`
+        : (chunkDir
+            ? `chunk_index=${chunkIndex} (client:${userChunkIndex !== null}), start_on=${start_on}, limit=${limit}`
+            : `unchunked build`)
     });
   } catch (err) {
     console.error('build-artifacts error:', err);
     return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
+
 
 
 

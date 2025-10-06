@@ -29,51 +29,68 @@
 
     <!-- Build single or chunk -->
     <form id="artifactForm" class="card" method="POST" action="/anchors/build-artifacts">
-      <h3>Build & Upload (single or paged chunk)</h3>
+  <h3>Build & Upload (single or paged chunk)</h3>
 
-      <div class="row">
-        <label for="bucket">S3 Bucket</label>
-        <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
-      </div>
+  <div class="row">
+    <label for="bucket">S3 Bucket</label>
+    <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
+  </div>
 
-      <div class="row">
-        <label for="prefix">S3 Prefix</label>
-        <input type="text" id="prefix" name="prefix" value="artifacts/" />
-      </div>
+  <div class="row">
+    <label for="prefix">S3 Prefix</label>
+    <input type="text" id="prefix" name="prefix" value="artifacts/" />
+  </div>
 
-      <div class="row">
-        <label for="anchor_set_id">Anchor Set ID</label>
-        <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
-      </div>
+  <div class="row">
+    <label for="anchor_set_id">Anchor Set ID</label>
+    <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
+  </div>
 
-      <div class="row">
-        <label for="band_scale">Band Scale</label>
-        <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
-      </div>
+  <div class="row">
+    <label for="band_scale">Band Scale</label>
+    <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
+  </div>
 
-      <div class="row">
-        <label for="id">Single Record ID</label>
-        <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
-      </div>
+  <div class="row">
+    <label for="id">Single Record ID</label>
+    <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
+  </div>
 
-      <div class="row">
-        <label for="start_on">Start On (0-based)</label>
-        <input type="number" id="start_on" name="start_on" value="0" />
-      </div>
+  <div class="row">
+    <label for="start_on">Start On (0-based)</label>
+    <input type="number" id="start_on" name="start_on" value="0" />
+  </div>
 
-      <div class="row">
-        <label for="limit">Limit</label>
-        <input type="number" id="limit" name="limit" value="100" />
-      </div>
+  <div class="row">
+    <label for="limit">Limit</label>
+    <input type="number" id="limit" name="limit" value="100" />
+  </div>
 
-      <p class="note muted">
-        If <b>Single Record ID</b> is provided, paging is ignored and only that record is built.
-        Otherwise, <b>Start On</b> + <b>Limit</b> builds a chunk and uploads to
-        <code>artifacts/chunks/chunk-XXXXX/</code>.
-      </p>
+  <!-- NEW: Chunk counter (sent to server and shown on page) -->
+  <div class="row">
+    <label for="chunk_index">Chunk # (folder index)</label>
+    <input type="number" id="chunk_index" name="chunk_index" value="0" min="0" />
+  </div>
 
-      <button type="submit">Build & Upload</button>
-    </form>
+  <div class="row">
+    <label>Chunk Indicator</label>
+    <div class="hstack">
+      <span class="muted">Current chunk:</span>
+      <strong id="chunk_display">0</strong>
+      <button type="button" id="chunk_dec">-1</button>
+      <button type="button" id="chunk_inc">+1</button>
+      <label class="hstack"><input type="checkbox" id="auto_inc" /> Auto-increment after success</label>
+    </div>
+  </div>
+
+  <p class="note muted">
+    If <b>Chunk #</b> is provided, outputs go to
+    <code>artifacts/chunks/chunk-XXXXX/</code> using that exact number. This is
+    useful for Lambda where server memory between runs is lost.
+  </p>
+
+  <button type="submit">Build & Upload</button>
+</form>
 
     <!-- Merge -->
     <form id="mergeForm" class="card" method="POST" action="/anchors/merge-artifacts">
@@ -111,26 +128,63 @@
     <h3>Response</h3>
     <pre id="rsp">(click a button to run)</pre>
 
-    <script>
-      const rsp  = document.getElementById('rsp');
+<script>
+  const rsp  = document.getElementById('rsp');
 
-      async function handleForm(e) {
-        e.preventDefault();
-        const form = e.currentTarget;
-        const fd = new FormData(form);
-        const body = new URLSearchParams(fd);
-        rsp.textContent = 'Working...';
-        try {
-          const res = await fetch(form.action, { method: form.method || 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
-          const json = await res.json();
-          rsp.textContent = JSON.stringify(json, null, 2);
-        } catch (err) {
-          rsp.textContent = 'Error: ' + err.message;
-        }
+  // --- Chunk counter UI state ---
+  const chunkInput   = document.getElementById('chunk_index');
+  const chunkDisplay = document.getElementById('chunk_display');
+  const incBtn       = document.getElementById('chunk_inc');
+  const decBtn       = document.getElementById('chunk_dec');
+  const autoInc      = document.getElementById('auto_inc');
+
+  // Load/save in localStorage so the browser "remembers" across Lambda invocations.
+  function loadChunk() {
+    const saved = localStorage.getItem('artifact_chunk_index');
+    if (saved !== null) chunkInput.value = Number(saved);
+    chunkDisplay.textContent = chunkInput.value;
+  }
+  function saveChunk() {
+    localStorage.setItem('artifact_chunk_index', String(chunkInput.value));
+    chunkDisplay.textContent = chunkInput.value;
+  }
+
+  loadChunk();
+  chunkInput.addEventListener('input', saveChunk);
+  incBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1); saveChunk(); });
+  decBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) - 1); saveChunk(); });
+
+  async function handleForm(e) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    const body = new URLSearchParams(fd);
+
+    if (form.id === 'artifactForm') {
+      const n = Number(chunkInput.value || 0);
+      body.set('chunk_index', String(n)); // ensure we're sending the latest
+      rsp.textContent = `Working... (chunk #${n})`;
+    } else {
+      rsp.textContent = 'Working...';
+    }
+
+    try {
+      const res = await fetch(form.action, { method: form.method || 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+      const json = await res.json();
+      rsp.textContent = JSON.stringify(json, null, 2);
+
+      // Auto-increment after success to make paging easy
+      if (form.id === 'artifactForm' && autoInc.checked && json && json.ok) {
+        chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1);
+        saveChunk();
       }
+    } catch (err) {
+      rsp.textContent = 'Error: ' + err.message;
+    }
+  }
 
-      document.getElementById('artifactForm').addEventListener('submit', handleForm);
-      document.getElementById('mergeForm').addEventListener('submit', handleForm);
-    </script>
+  document.getElementById('artifactForm').addEventListener('submit', handleForm);
+  document.getElementById('mergeForm').addEventListener('submit', handleForm);
+</script>
   </body>
 </html>
