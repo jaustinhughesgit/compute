@@ -121,6 +121,43 @@ const DOMAIN_SUBS = {
   "i_agriculture": ["agroeconomics","agrochemicals"]
 };
 
+function parseEmbedding(val) {
+  // Accept:
+  // - real arrays: [n, n, ...]
+  // - JSON strings: "[-0.1, 0.2, ...]"
+  // - double-quoted strings: "\"[-0.1, 0.2]\""
+  // - arrays of strings: ["-0.1","0.2",...]
+  if (Array.isArray(val)) {
+    const nums = val.map(x => typeof x === 'number' ? x : parseFloat(x));
+    return nums.every(n => Number.isFinite(n)) ? nums : null;
+  }
+
+  if (typeof val !== 'string') return null;
+
+  let s = val.trim();
+
+  // Fast exit for obvious junk (e.g., CSV ellipses)
+  if (!s.includes('[') || !s.includes(']')) return null;
+
+  // If the entire thing is JSON-within-JSON (e.g., "\"[...]"\"), peel quotes repeatedly
+  while ((s.startsWith('"') && s.endsWith('"')) || (s.startsWith("'") && s.endsWith("'"))) {
+    s = s.slice(1, -1).trim();
+  }
+
+  // Extract the first [...] block to be resilient to accidental wrapper text
+  const m = s.match(/\[[\s\S]*\]/);
+  if (!m) return null;
+
+  try {
+    const parsed = JSON.parse(m[0]);
+    if (!Array.isArray(parsed)) return null;
+    const nums = parsed.map(x => typeof x === 'number' ? x : parseFloat(x));
+    return nums.every(n => Number.isFinite(n)) ? nums : null;
+  } catch {
+    return null;
+  }
+}
+
 // --- Helpers ---
 async function ensureEmbPathsTable() {
   try {
@@ -206,22 +243,17 @@ async function queryAllByRoot(table, root) {
 // --- The GET route: creates table (if needed) + migrates ---
 app.post('/admin/migrate-embpaths', async (req, res) => {
   const t0 = Date.now();
-
-  // body: { tables?: { "i_table": [ "root1", ... ], ... }, dryRun?: boolean }
-  let requestedMap = DOMAIN_SUBS; // fallback
+  let requestedMap = DOMAIN_SUBS;
   const dryRun = !!req.body?.dryRun;
 
   if (req.body?.tables) {
     if (typeof req.body.tables === 'string') {
-      try {
-        requestedMap = JSON.parse(req.body.tables);
-      } catch (e) {
-        return res.status(400).json({ ok: false, error: "Invalid JSON in body.tables string" });
-      }
+      try { requestedMap = JSON.parse(req.body.tables); }
+      catch { return res.status(400).json({ ok:false, error: "Invalid JSON in body.tables string" }); }
     } else if (typeof req.body.tables === 'object') {
       requestedMap = req.body.tables;
     } else {
-      return res.status(400).json({ ok: false, error: "body.tables must be an object or a JSON string" });
+      return res.status(400).json({ ok:false, error: "body.tables must be an object or JSON string" });
     }
   }
 
@@ -231,15 +263,17 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
     let totalSourceItems = 0;
     let totalPairs = 0;
     let totalWritten = 0;
+    let totalEmbeddingsSkipped = 0;
 
     const perTable = [];
 
     for (const [tableName, roots] of Object.entries(requestedMap)) {
       if (!Array.isArray(roots) || !roots.length) continue;
-      const domain = tableName.replace(/^i_/, ''); // e.g., i_agriculture -> agriculture
+      const domain = tableName.replace(/^i_/, '');
       let tableSourceItems = 0;
       let tablePairs = 0;
       let tableWritten = 0;
+      let tableEmbeddingsSkipped = 0;
 
       for (const subdomain of roots) {
         const records = await queryAllByRoot(tableName, subdomain);
@@ -249,27 +283,31 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
         for (const rec of records) {
           for (let idx = 1; idx <= 5; idx++) {
             const p = rec[`path${idx}`];
-            const e = asArrayEmbedding(rec[`emb${idx}`]);
-            if (!p || !e || !Array.isArray(e) || e.length === 0) continue;
+            const e = parseEmbedding(rec[`emb${idx}`]); // <- updated
+            if (!p || !e) { if (rec[`emb${idx}`]) tableEmbeddingsSkipped++; continue; }
 
             const fullPath = joinFullPath(domain, subdomain, p);
-            const item = {
-              id: uuidv4(),
-              path: fullPath,
-              domain,
-              subdomain,
-              emb: e,
-              sourceTable: tableName,
-              sourceRoot: rec.root,
-              sourceId: rec.id ?? null,
-              createdAt: new Date().toISOString()
-            };
-            puts.push({ PutRequest: { Item: item } });
+            puts.push({
+              PutRequest: {
+                Item: {
+                  id: uuidv4(),
+                  path: fullPath,
+                  domain,
+                  subdomain,
+                  emb: e,
+                  sourceTable: tableName,
+                  sourceRoot: rec.root,
+                  sourceId: rec.id ?? null,
+                  createdAt: new Date().toISOString()
+                }
+              }
+            });
           }
         }
 
         tablePairs += puts.length;
         totalPairs += puts.length;
+        totalEmbeddingsSkipped += tableEmbeddingsSkipped;
 
         if (!dryRun && puts.length) {
           const written = await batchWriteAll(puts);
@@ -284,6 +322,7 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
         rootsProcessed: roots.length,
         sourceItems: tableSourceItems,
         pathEmbPairsFound: tablePairs,
+        embeddingsSkipped: tableEmbeddingsSkipped,
         writtenToEmbPaths: dryRun ? 0 : tableWritten
       });
 
@@ -299,6 +338,7 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
         tablesProcessed: perTable.length,
         totalSourceItems,
         totalPathEmbPairs: totalPairs,
+        totalEmbeddingsSkipped,
         totalWritten: dryRun ? 0 : totalWritten,
         durationMs: ms
       },
@@ -306,9 +346,10 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
     });
   } catch (err) {
     console.error('Migration error:', err);
-    return res.status(500).json({ ok: false, error: err.message || String(err) });
+    return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
+
 
 
 
