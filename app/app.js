@@ -108,6 +108,221 @@ app.use('/indexing', indexingRouter);
 app.use('/', indexRouter);
 
 
+
+
+
+
+
+const EMBPATHS_TABLE = process.env.EMBPATHS_TABLE || 'embPaths';
+
+// Default set if you don't pass ?tables=
+const DOMAIN_SUBS = {
+  "i_agriculture": ["agroeconomics","agrochemicals"]
+};
+
+// --- Helpers ---
+async function ensureEmbPathsTable() {
+  try {
+    await dynamodbLL.describeTable({ TableName: EMBPATHS_TABLE }).promise();
+    return; // exists
+  } catch (err) {
+    if (err.code !== 'ResourceNotFoundException') throw err;
+  }
+
+  // Create table
+  await dynamodbLL.createTable({
+    TableName: EMBPATHS_TABLE,
+    BillingMode: 'PAY_PER_REQUEST',
+    AttributeDefinitions: [
+      { AttributeName: 'id',   AttributeType: 'S' },
+      { AttributeName: 'path', AttributeType: 'S' }
+    ],
+    KeySchema: [{ AttributeName: 'id', KeyType: 'HASH' }],
+    GlobalSecondaryIndexes: [{
+      IndexName: 'path-index',
+      KeySchema: [{ AttributeName: 'path', KeyType: 'HASH' }],
+      Projection: { ProjectionType: 'ALL' }
+    }]
+  }).promise();
+
+  // Wait until ACTIVE
+  await dynamodbLL.waitFor('tableExists', { TableName: EMBPATHS_TABLE }).promise();
+}
+
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function batchWriteAll(requestItems) {
+  // requestItems: [{ PutRequest: { Item } }, ...] (max 25 per batch)
+  let i = 0, written = 0;
+  while (i < requestItems.length) {
+    const chunk = requestItems.slice(i, i + 25);
+    let params = { RequestItems: { [EMBPATHS_TABLE]: chunk } };
+    let backoff = 100;
+
+    while (true) {
+      const rsp = await dynamodb.batchWrite(params).promise();
+      const un = rsp.UnprocessedItems && rsp.UnprocessedItems[EMBPATHS_TABLE] || [];
+      written += chunk.length - un.length;
+      if (!un.length) break; // done with this chunk
+      await sleep(backoff);
+      backoff = Math.min(backoff * 2, 2000);
+      params = { RequestItems: { [EMBPATHS_TABLE]: un } };
+    }
+    i += 25;
+  }
+  return written;
+}
+
+function asArrayEmbedding(val) {
+  if (!val) return null;
+  if (Array.isArray(val)) return val;
+  try { const parsed = JSON.parse(val); return Array.isArray(parsed) ? parsed : null; }
+  catch { return null; }
+}
+
+function joinFullPath(domain, sub, p) {
+  const clean = String(p || '').replace(/^\/+/, '');
+  return `${domain}/${sub}/${clean}`;
+}
+
+async function queryAllByRoot(table, root) {
+  const items = [];
+  let ExclusiveStartKey = undefined;
+  do {
+    const { Items, LastEvaluatedKey } = await dynamodb.query({
+      TableName: table,
+      KeyConditionExpression: '#r = :root',
+      ExpressionAttributeNames: { '#r': 'root' },
+      ExpressionAttributeValues: { ':root': root },
+      ExclusiveStartKey
+    }).promise();
+    if (Items && Items.length) items.push(...Items);
+    ExclusiveStartKey = LastEvaluatedKey;
+  } while (ExclusiveStartKey);
+  return items;
+}
+
+// --- The GET route: creates table (if needed) + migrates ---
+app.get('/admin/migrate-embpaths', async (req, res) => {
+  const t0 = Date.now();
+  const dryRun = String(req.query.dryRun || '').toLowerCase() === '1' || String(req.query.dryRun || '').toLowerCase() === 'true';
+
+  // tables param (optional) lets you pass a JSON map of { "i_table": ["root1","root2", ...], ... }
+  // Example: ?tables={"i_agriculture":["agroeconomics","agrochemicals"],"i_biology":["anatomy"]}
+  let requestedMap = DOMAIN_SUBS;
+  if (req.query.tables) {
+    try {
+      requestedMap = JSON.parse(req.query.tables);
+    } catch (e) {
+      return res.status(400).json({ ok: false, error: "Invalid JSON in 'tables' query param" });
+    }
+  }
+
+  try {
+    if (!dryRun) await ensureEmbPathsTable();
+
+    let totalSourceItems = 0;
+    let totalPairs = 0;
+    let totalWritten = 0;
+
+    const perTable = [];
+
+    for (const [tableName, roots] of Object.entries(requestedMap)) {
+      if (!Array.isArray(roots) || !roots.length) continue;
+      const domain = tableName.replace(/^i_/, ''); // e.g., i_agriculture -> agriculture
+      let tableSourceItems = 0;
+      let tablePairs = 0;
+      let tableWritten = 0;
+
+      for (const subdomain of roots) {
+        // Pull all items where partition key 'root' = subdomain
+        const records = await queryAllByRoot(tableName, subdomain);
+        tableSourceItems += records.length;
+
+        // Build put requests (max 5 per record)
+        const puts = [];
+        for (const rec of records) {
+          for (let idx = 1; idx <= 5; idx++) {
+            const p = rec[`path${idx}`];
+            const e = asArrayEmbedding(rec[`emb${idx}`]);
+            if (!p || !e || !Array.isArray(e) || e.length === 0) continue;
+
+            const fullPath = joinFullPath(domain, subdomain, p);
+            const item = {
+              id: uuidv4(),
+              path: fullPath,
+              domain,
+              subdomain,
+              emb: e,
+              sourceTable: tableName,
+              sourceRoot: rec.root,
+              sourceId: rec.id ?? null,
+              createdAt: new Date().toISOString()
+            };
+            puts.push({ PutRequest: { Item: item } });
+          }
+        }
+
+        tablePairs += puts.length;
+        totalPairs += puts.length;
+
+        if (!dryRun && puts.length) {
+          const written = await batchWriteAll(puts);
+          tableWritten += written;
+          totalWritten += written;
+        }
+      }
+
+      perTable.push({
+        table: tableName,
+        domain,
+        rootsProcessed: roots.length,
+        sourceItems: tableSourceItems,
+        pathEmbPairsFound: tablePairs,
+        writtenToEmbPaths: dryRun ? 0 : tableWritten
+      });
+
+      totalSourceItems += tableSourceItems;
+    }
+
+    const ms = Date.now() - t0;
+    return res.json({
+      ok: true,
+      dryRun,
+      embPathsTable: EMBPATHS_TABLE,
+      summary: {
+        tablesProcessed: perTable.length,
+        totalSourceItems,
+        totalPathEmbPairs: totalPairs,
+        totalWritten: dryRun ? 0 : totalWritten,
+        durationMs: ms
+      },
+      perTable
+    });
+  } catch (err) {
+    console.error('Migration error:', err);
+    return res.status(500).json({ ok: false, error: err.message || String(err) });
+  }
+});
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 /* Possiple to delete */
 
 const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";
