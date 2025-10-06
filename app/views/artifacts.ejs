@@ -19,7 +19,7 @@
   <body>
     <h1>Build Anchor Artifacts</h1>
     <p class="note">
-      This bundles embeddings from <code><%= embTable %></code> into
+      This bundles <em>all</em> embeddings from <code><%= embTable %></code> into
       <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code>,
       uploading to <code>s3://<%= bucket %>/artifacts/</code> by default.
     </p>
@@ -44,21 +44,6 @@
         <label for="band_scale">Band Scale</label>
         <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
       </div>
-
-      <div class="row">
-        <label for="id">Single Record ID</label>
-        <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
-      </div>
-
-      <div class="row">
-        <label for="limit">Limit</label>
-        <input type="number" id="limit" name="limit" value="1" />
-      </div>
-
-<div class="row">
-  <label for="chunk_size">Chunk Size</label>
-  <input type="number" id="chunk_size" name="chunk_size" value="1012" />
-</div>
 
       <button type="submit">Build & Upload Artifacts</button>
     </form>

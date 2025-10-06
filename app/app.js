@@ -20,48 +20,10 @@ const exec = util.promisify(child_process.exec);
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
 
 
-const boundAxios = {
-    constructor: axios.constructor.bind(axios),
-    request: axios.request.bind(axios),
-    _request: axios._request.bind(axios),
-    getUri: axios.getUri.bind(axios),
-    delete: axios.delete.bind(axios),
-    get: axios.get.bind(axios),
-    head: axios.head.bind(axios),
-    options: axios.options.bind(axios),
-    post: axios.post.bind(axios),
-    postForm: axios.postForm.bind(axios),
-    put: axios.put.bind(axios),
-    putForm: axios.putForm.bind(axios),
-    patch: axios.patch.bind(axios),
-    patchForm: axios.patchForm.bind(axios),
-    create: axios.create.bind(axios),
-    isCancel: axios.isCancel.bind(axios),
-    toFormData: axios.toFormData.bind(axios),
-    all: axios.all.bind(axios),
-    spread: axios.spread.bind(axios),
-    isAxiosError: axios.isAxiosError.bind(axios),
-    mergeConfig: axios.mergeConfig.bind(axios),
-
-    defaults: axios.defaults,
-    interceptors: axios.interceptors,
-    Axios: axios.Axios,
-    CanceledError: axios.CanceledError,
-    CancelToken: axios.CancelToken,
-    VERSION: axios.VERSION,
-    AxiosError: axios.AxiosError,
-    Cancel: axios.Cancel,
-    AxiosHeaders: axios.AxiosHeaders,
-    formToJSON: axios.formToJSON,
-    getAdapter: axios.getAdapter,
-    HttpStatusCode: axios.HttpStatusCode
-}
-
 const OpenAI = require("openai");
 const openai = new OpenAI();
 const EMB_MODEL = 'text-embedding-3-large';
 
-const Anthropic = require('@anthropic-ai/sdk');
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(session({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: true, cookie: { secure: true } }));
@@ -75,40 +37,16 @@ SM = new AWS.SecretsManager();
 s3 = new AWS.S3();
 ses = new AWS.SES();
 
-let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
-const { createShared } = require("./routes/shared");
-let _shared;                                          // NEW
-const ensureShared = () => (_shared ?? (_shared = createShared({ dynamodb }))); // NEW
 
-const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks";
-const METRICS_TABLE  = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";
-const RATE_WINDOW_DAYS = 14;
-const ONE_DAY = 24 * 3600 * 1000;
-const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0,10);
-const nowMs = () => Date.now();
-
-
-var cookiesRouter;
-var controllerRouter = require('./routes/controller')(dynamodb, dynamodbLL, uuidv4);
-var indexRouter = require('./routes/index');
-var indexingRouter = require('./routes/indexing');
-const embeddingsRouter = require('./routes/embeddings');
-const pineconeRouter = require('./routes/pinecone');
-const schemaRouter = require('./routes/schema');
 const migrateRouter = require('./routes/migrate');
 const artifactsRouter = require('./routes/artifacts');
 
 
 /* not needed for LLM*/
 
-app.use('/embeddings', embeddingsRouter);
-app.use('/pinecone', pineconeRouter);
-app.use('/schema', schemaRouter);
-app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
 app.use('/artifacts', artifactsRouter);
 
-app.use('/', indexRouter);
 
 
 
@@ -364,7 +302,6 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
 const DEFAULT_ANCHOR_SET_ID = process.env.ANCHOR_SET_ID || 'anchors_v1';
 const DEFAULT_BAND_SCALE    = Number(process.env.BAND_SCALE || 2000);
 const DEFAULT_S3_BUCKET     = process.env.ANCHOR_S3_BUCKET || 'public.1var.com';
-const DEFAULT_CHUNK_SIZE = Number(process.env.ARTIFACT_CHUNK_SIZE || 1012);
 
 function _unitNormalize(arr) {
   if (!Array.isArray(arr) || !arr.length) return null;
@@ -383,7 +320,6 @@ function _float32RowMajorBuffer(rows, dim) {
   return Buffer.from(f32.buffer);
 }
 
-
 function _computeStats(rows) {
   const N = rows.length;
   let minN = Infinity, maxN = -Infinity, sumN = 0;
@@ -394,24 +330,20 @@ function _computeStats(rows) {
   }
   let sample = null;
   if (N > 1) {
-    const maxPairs = Math.floor((N * (N - 1)) / 2);
-    const pairs = Math.min(200, maxPairs);
-    if (pairs > 0) {
-      let minD = Infinity, maxD = -Infinity, sumD = 0;
-      for (let k = 0; k < pairs; k++) {
-        const i = Math.floor(Math.random() * N);
-        let j = Math.floor(Math.random() * N); if (j === i) j = (j + 1) % N;
-        const a = rows[i].emb, b = rows[j].emb;
-        let dot = 0; for (let t = 0; t < a.length; t++) dot += a[t] * b[t];
-        const dist = 1 - dot;
-        if (dist < minD) minD = dist; if (dist > maxD) maxD = dist; sumD += dist;
-      }
-      sample = { min: minD, mean: sumD / pairs, max: maxD };
+    const pairs = Math.min(200, (N * (N - 1)) / 2);
+    let minD = Infinity, maxD = -Infinity, sumD = 0;
+    for (let k = 0; k < pairs; k++) {
+      const i = Math.floor(Math.random() * N);
+      let j = Math.floor(Math.random() * N); if (j === i) j = (j + 1) % N;
+      const a = rows[i].emb, b = rows[j].emb;
+      let dot = 0; for (let t = 0; t < a.length; t++) dot += a[t] * b[t];
+      const dist = 1 - dot;
+      if (dist < minD) minD = dist; if (dist > maxD) maxD = dist; sumD += dist;
     }
+     sample = { min: minD, mean: pairs ? (sumD / pairs) : null, max: maxD };
   }
   return { norm: { min: minN, mean: N ? sumN / N : 0, max: maxN }, pairwise_cosine_dist_sample: sample };
 }
-
 
 async function _putJSONtoS3({ Bucket, Key, obj }) {
   const Body = Buffer.from(JSON.stringify(obj, null, 2), 'utf8');
@@ -424,61 +356,22 @@ async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
 }
 
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
-// Fetch exactly one item by id (if provided), else scan up to `limit` items.
-// If `limit` is 0 or omitted, fetch ALL items (streamed scan).
-async function _fetchEmbRows({ id, limit } = {}) {
-  const TableName = EMBPATHS_TABLE;
-
-  // Use aliases because "path" is a DynamoDB reserved word.
-  const proj = {
-    ProjectionExpression: '#id, #p, #e',
-    ExpressionAttributeNames: {
-      '#id': 'id',
-      '#p':  'path',
-      '#e':  'emb'
-    }
-  };
-
-  if (id) {
-    const { Item } = await dynamodb.get({
-      TableName,
-      Key: { id },
-      ...proj
-    }).promise();
-    return Item ? [Item] : [];
-  }
-
+// Fetch ALL rows (paginated scan). Escape reserved "path" with ExpressionAttributeNames.
+async function _fetchAllEmbRows() {
   const items = [];
   let ExclusiveStartKey;
-  const target = Number.isFinite(Number(limit)) ? Number(limit) : 0; // 0 => all
-
   do {
-    const batchLimit = target > 0
-      ? Math.min(200, Math.max(1, target - items.length))
-      : 200;
-
     const { Items, LastEvaluatedKey } = await dynamodb.scan({
-      TableName,
-      Limit: batchLimit,
-      ExclusiveStartKey,
-      ...proj
+      TableName: EMBPATHS_TABLE,
+      ProjectionExpression: '#id, #p, emb',
+      ExpressionAttributeNames: { '#id': 'id', '#p': 'path' },
+      Limit: 200
     }).promise();
-
     if (Items && Items.length) items.push(...Items);
     ExclusiveStartKey = LastEvaluatedKey;
-  } while (ExclusiveStartKey && (target === 0 || items.length < target));
-
-  return target > 0 ? items.slice(0, target) : items;
+  } while (ExclusiveStartKey);
+  return items;
 }
-
-
-function chunkArray(arr, size) {
-  const out = [];
-  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
-  return out;
-}
-
-function sanitizeRunId(s) { return s.replace(/[:.]/g, '-'); }
 
 /**
  * Build artifacts bundle:
@@ -500,33 +393,45 @@ app.post('/anchors/build-artifacts', async (req, res) => {
   const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
   const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
   const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
-
+  // Default to artifacts/ so outputs land at s3://public.1var.com/artifacts/...
   let prefix = (req.body.prefix || 'artifacts/').trim();
   if (!prefix.endsWith('/')) prefix += '/';
-
-  const idFilter = typeof req.body.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
-
-  // limit=0 => ALL (fixed behavior)
-  const limit = idFilter ? 1 : Number(req.body.limit || 0);
-
-  // chunking: body.chunk_size > 0 => force chunking; else use default if any
-  const chunk_size = Math.max(0, Number(req.body.chunk_size || DEFAULT_CHUNK_SIZE) || 0);
+  // Always process ALL records
+  const idFilter = null;
 
   try {
-    // 1) Fetch rows
-    const raw = await _fetchEmbRows({ id: idFilter, limit, projection: 'id, path, emb' });
+    // 1) Fetch ALL rows (safe for reserved "path")
+    const raw = await _fetchAllEmbRows();
     if (!raw.length) {
-      return res.status(404).json({ ok:false, error: idFilter ? `No item found for id=${idFilter}` : `No rows in ${EMBPATHS_TABLE}` });
+      return res.status(404).json({ ok:false, error: `No rows in ${EMBPATHS_TABLE}` });
     }
 
     // 2) Normalize & validate
     const rows = [];
     let d = null, zeroOrBad = 0, dimMismatch = 0;
+    const rowErrors = []; // collect reasons, but keep going
+    const MAX_ERRS = 200;
     for (const it of raw) {
       const id = it.id || it.ID || it.pk || it.PK;
       const path = it.path || '';
       let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
-      if (!v) { zeroOrBad++; continue; }
+      if (!v) {
+        zeroOrBad++;
+        if (rowErrors.length < MAX_ERRS) rowErrors.push({ id, reason: 'invalid or unparsable emb' });
+        continue;
+     }
+      if (d == null) d = v.length;
+      if (v.length !== d) {
+        dimMismatch++;
+        if (rowErrors.length < MAX_ERRS) rowErrors.push({ id, reason: `dim mismatch: got ${v.length}, expected ${d}` });
+        continue;
+      }
+      const u = _unitNormalize(v);
+      if (!u) {
+        zeroOrBad++;
+        if (rowErrors.length < MAX_ERRS) rowErrors.push({ id, reason: 'zero or non-finite norm' });
+        continue;
+      }
       if (d == null) d = v.length;
       if (v.length !== d) { dimMismatch++; continue; }
       const u = _unitNormalize(v);
@@ -538,123 +443,70 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       return res.status(400).json({
         ok:false,
         error: 'No valid embeddings after normalization',
-        stats: { scanned: raw.length, zeroOrBad, dimMismatch }
+        stats: { scanned: raw.length, zeroOrBad, dimMismatch, sampleErrors: rowErrors }
       });
     }
 
-    // 3) Decide chunking
-    const doChunk = !idFilter && chunk_size > 0 && rows.length > chunk_size;
+    // 3) Build artifacts
+    const N = rows.length;
+    const embeddingsBuf = _float32RowMajorBuffer(rows, d);
+    const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
     const created_at = new Date().toISOString();
-    const run_id = `run-${sanitizeRunId(created_at)}`;
+    const meta = {
+      N, d,
+      model_id: EMB_MODEL,
+      source_table: EMBPATHS_TABLE,
+      anchor_set_id,
+      band_scale,
+      created_at
+    };
+    const stats = _computeStats(rows);
 
-    const buildOne = async (partRows, chunkIndex, totalChunks, globalOffset) => {
-      // Build artifacts for the given rows
-      const N = partRows.length;
-      const embeddingsBuf = _float32RowMajorBuffer(partRows, d);
-      const idsJsonl = partRows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
-
-      const meta = {
-        N, d,
-        model_id: EMB_MODEL,
-        source_table: EMBPATHS_TABLE,
-        anchor_set_id,
-        band_scale,
-        created_at,
-        run_id,
-        chunk_index: chunkIndex,          // 1-based
-        total_chunks: totalChunks,
-        chunk_size,
-        offset: globalOffset              // 0-based start index in the full set
-      };
-
-      const stats = _computeStats(partRows);
-
-      // Per-chunk directory: artifacts/<run_id>/chunk-0001/
-      const chunkDir = doChunk
-        ? `${prefix}${run_id}/chunk-${String(chunkIndex).padStart(4,'0')}/`
-        : `${prefix}`;
-
-      const uploads = await Promise.all([
-        _putBufferToS3({ Bucket, Key: `${chunkDir}embeddings.f32`, BufferBody: embeddingsBuf, ContentType: 'application/octet-stream' }),
-        _putBufferToS3({ Bucket, Key: `${chunkDir}ids.jsonl`,      BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }),
-        _putJSONtoS3({ Bucket, Key: `${chunkDir}meta.json`,        obj: meta }),
-        _putJSONtoS3({ Bucket, Key: `${chunkDir}stats.json`,       obj: stats })
-      ]);
-
-      return {
-        index: chunkIndex,
-        where: `s3://${Bucket}/${chunkDir}`,
-        s3: uploads,
-        meta,
-        sanity: stats,
-        counts: {
-          kept: N
-        }
-      };
+    // 4) Upload to S3 at artifacts/
+    // 4) Upload to S3 at artifacts/ — try each, log and continue (never abort the whole run)
+    const baseKey = `${prefix}`; // e.g., artifacts/
+    const uploads = [];
+    const uploadErrors = [];
+    const tryUpload = async (label, fn) => {
+      try {
+        const out = await fn();
+        uploads.push({ label, ...out });
+      } catch (e) {
+        console.error(`Upload failed for ${label}:`, e);
+        uploadErrors.push({ label, error: e?.message || String(e) });
+      }
     };
 
-    let result;
-    if (doChunk) {
-      const parts = chunkArray(rows, chunk_size);
-      const totalChunks = parts.length;
-      let globalOffset = 0;
-      const chunks = [];
-      for (let i = 0; i < totalChunks; i++) {
-        const partRows = parts[i];
-        const out = await buildOne(partRows, i + 1, totalChunks, globalOffset);
-        chunks.push(out);
-        globalOffset += partRows.length;
-      }
-      const ms = Date.now() - t0;
-      result = {
-        ok: true,
-        message: `Artifacts built in ${totalChunks} chunks.`,
-        bucket: Bucket,
-        run_id,
-        base_prefix: prefix,
-        where_all: `s3://${Bucket}/${prefix}${run_id}/`,
-        meta_summary: {
-          anchor_set_id,
-          band_scale,
-          created_at,
-          total_chunks: totalChunks,
-          chunk_size,
-          total_rows: rows.length
-        },
-        chunks,
-        counts: {
-          scanned: raw.length,
-          kept: rows.length,
-          zeroOrBad,
-          dimMismatch
-        },
-        durationMs: ms,
-        note: limit ? `Limited to ${limit} records (chunked)` : 'All records (chunked)'
-      };
-    } else {
-      // Single artifact set (legacy path, still supported)
-      const out = await buildOne(rows, 1, 1, 0);
-      const ms = Date.now() - t0;
-      result = {
-        ok: true,
-        message: 'Artifacts built and uploaded.',
-        bucket: Bucket,
-        where: out.where,
-        s3: out.s3,
-        meta: out.meta,
-        sanity: out.sanity,
-        counts: {
-          scanned: raw.length,
-          kept: rows.length,
-          zeroOrBad,
-          dimMismatch
-        },
-        durationMs: ms,
-        note: idFilter ? `Single-record build for id=${idFilter}` : (limit ? `Limited to ${limit} records` : 'All records')
-      };
-    }
+    await tryUpload('embeddings.f32', () => _putBufferToS3({
+      Bucket, Key: `${baseKey}embeddings.f32`, BufferBody: embeddingsBuf, ContentType: 'application/octet-stream'
+    }));
+    await tryUpload('ids.jsonl', () => _putBufferToS3({
+      Bucket, Key: `${baseKey}ids.jsonl`, BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson'
+    }));
+    await tryUpload('meta.json', () => _putJSONtoS3({ Bucket, Key: `${baseKey}meta.json`, obj: meta }));
+    await tryUpload('stats.json', () => _putJSONtoS3({ Bucket, Key: `${baseKey}stats.json`, obj: stats }));
+ 
 
-    return res.json(result);
+    const ms = Date.now() - t0;
+    return res.json({
+      ok: uploadErrors.length === 0,           // true if all uploaded
+      partial_uploads: uploadErrors.length>0,  // true if something failed but we kept going
+      message: uploadErrors.length ? 'Artifacts built; partial upload (see uploadErrors).' : 'Artifacts built and uploaded.',
+     s3: uploads,              // successful uploads
+     uploadErrors,             // failed uploads (if any)
+      where: `s3://${Bucket}/${baseKey}`,
+      meta,
+      sanity: stats,
+      counts: {
+        scanned: raw.length,
+        kept: N,
+        zeroOrBad,
+        dimMismatch
+      },
+      durationMs: ms,
+      sampleRowErrors: rowErrors,  // truncated list of per-row issues, for visibility
+      note: 'All records'
+   });
   } catch (err) {
     console.error('build-artifacts error:', err);
     return res.status(500).json({ ok:false, error: err.message || String(err) });
