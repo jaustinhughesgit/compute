@@ -450,6 +450,222 @@ async function _fetchEmbRows({ id, limit } = {}) {
   return items.slice(0, target || items.length);
 }
 
+const encodeCursor = obj => Buffer.from(JSON.stringify(obj), 'utf8').toString('base64');
+const decodeCursor = s => JSON.parse(Buffer.from(String(s || ''), 'base64').toString('utf8'));
+const pad5 = n => String(n).padStart(5, '0');
+
+async function _fetchEmbRowsPage({ cursor = null, pageSize = 1000 }) {
+  const ExprNames = { '#id': 'id', '#path': 'path', '#emb': 'emb' };
+  const ProjExpr  = '#id, #path, #emb';
+
+  let ExclusiveStartKey = cursor || undefined;
+  const { Items = [], LastEvaluatedKey } = await dynamodb.scan({
+    TableName: EMBPATHS_TABLE,
+    ProjectionExpression: ProjExpr,
+    ExpressionAttributeNames: ExprNames,
+    Limit: Math.min(Math.max(1, pageSize), 200) // DynamoDB page limit: keep small to avoid timeouts
+  }).promise();
+
+  return {
+    items: Items,
+    nextCursor: LastEvaluatedKey ? LastEvaluatedKey : null
+  };
+}
+
+// --- add to app.js, reuse your existing helpers (_unitNormalize, _float32RowMajorBuffer, _computeStats, _put*ToS3) ---
+
+async function _buildAndUploadChunk({
+  rawRows, bucket, basePrefix, chunkIndex,
+  anchor_set_id, band_scale, continueOnError = true, maxErrorLog = 200
+}) {
+  const errors = [];
+  const rows = [];
+  let d = null, zeroOrBad = 0, dimMismatch = 0;
+
+  // Per-row normalization with error capture (continue-on-error)
+  for (const it of rawRows) {
+    try {
+      const id   = it.id || it.ID || it.pk || it.PK;
+      const path = it.path || '';
+      let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
+      if (!v) { zeroOrBad++; continue; }
+      if (d == null) d = v.length;
+      if (v.length !== d) { dimMismatch++; continue; }
+      const u = _unitNormalize(v);
+      if (!u) { zeroOrBad++; continue; }
+      rows.push({ id: String(id), path: String(path), emb: u });
+    } catch (e) {
+      if (continueOnError) {
+        if (errors.length < maxErrorLog) errors.push({ id: it?.id, error: String(e?.message || e) });
+        continue;
+      } else {
+        throw e;
+      }
+    }
+  }
+
+  // Nothing usable
+  if (!rows.length) {
+    return {
+      wrote: false,
+      counts: { scanned: rawRows.length, kept: 0, zeroOrBad, dimMismatch },
+      errors
+    };
+  }
+
+  // Build artifacts for this chunk
+  const N = rows.length;
+  const embeddingsBuf = _float32RowMajorBuffer(rows, d);
+  const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
+  const created_at = new Date().toISOString();
+  const meta = {
+    N, d,
+    model_id: EMB_MODEL,
+    source_table: EMBPATHS_TABLE,
+    anchor_set_id,
+    band_scale,
+    created_at,
+    chunkIndex
+  };
+  const stats = _computeStats(rows);
+
+  // Write under .../<prefix>/chunks/00001/
+  const chunkKey = `chunks/${pad5(chunkIndex)}/`;
+  const KeyEmb   = `${basePrefix}${chunkKey}embeddings-${pad5(chunkIndex)}.f32`;
+  const KeyIds   = `${basePrefix}${chunkKey}ids-${pad5(chunkIndex)}.jsonl`;
+  const KeyMeta  = `${basePrefix}${chunkKey}meta-${pad5(chunkIndex)}.json`;
+  const KeyStats = `${basePrefix}${chunkKey}stats-${pad5(chunkIndex)}.json`;
+  const KeyErrs  = `${basePrefix}${chunkKey}errors-${pad5(chunkIndex)}.jsonl`;
+
+  // Upload (errors file only if there are any)
+  const uploads = [];
+  uploads.push(await _putBufferToS3({ Bucket: bucket, Key: KeyEmb,  BufferBody: embeddingsBuf, ContentType: 'application/octet-stream' }));
+  uploads.push(await _putBufferToS3({ Bucket: bucket, Key: KeyIds,  BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }));
+  uploads.push(await _putJSONtoS3   ({ Bucket: bucket, Key: KeyMeta, obj: meta }));
+  uploads.push(await _putJSONtoS3   ({ Bucket: bucket, Key: KeyStats, obj: stats }));
+  if (errors.length) {
+    const errsJsonl = errors.map(e => JSON.stringify(e)).join('\n') + '\n';
+    uploads.push(await _putBufferToS3({ Bucket: bucket, Key: KeyErrs, BufferBody: Buffer.from(errsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }));
+  }
+
+  return {
+    wrote: true,
+    uploads,
+    keys: { KeyEmb, KeyIds, KeyMeta, KeyStats, KeyErrs: errors.length ? KeyErrs : null },
+    counts: { scanned: rawRows.length, kept: N, zeroOrBad, dimMismatch },
+    meta, stats
+  };
+}
+app.post('/anchors/build-artifacts-chunk', async (req, res) => {
+  const t0 = Date.now();
+  const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
+  const band_scale    = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
+  const Bucket        = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
+  let   prefix        = (req.body.prefix || 'artifacts/').trim();
+  if (!prefix.endsWith('/')) prefix += '/';
+  const basePrefix    = prefix;  // parent folder for chunks
+
+  const chunk_size        = Math.max(1, Math.min(Number(req.body.chunk_size || 150), 200));
+  const cursorB64         = req.body.cursor ? String(req.body.cursor) : null;
+  const cursor            = cursorB64 ? decodeCursor(cursorB64) : null;
+  const chunkIndex        = Number(req.body.chunk_index || 1);
+  const continueOnError   = req.body.continue_on_error === undefined ? true : !!JSON.parse(String(req.body.continue_on_error));
+
+  try {
+    // 1) Page from DynamoDB
+    const { items, nextCursor } = await _fetchEmbRowsPage({ cursor, pageSize: chunk_size });
+
+    if (!items.length) {
+      return res.json({
+        ok: true,
+        finished: true,
+        message: 'No more items to process.',
+        chunkIndex,
+        durationMs: Date.now() - t0,
+        nextCursor: null,
+        where: `s3://${Bucket}/${basePrefix}`
+      });
+    }
+
+    // 2) Build & upload this chunk (fail-soft)
+    const result = await _buildAndUploadChunk({
+      rawRows: items,
+      bucket: Bucket,
+      basePrefix,
+      chunkIndex,
+      anchor_set_id,
+      band_scale,
+      continueOnError
+    });
+
+    const rsp = {
+      ok: true,
+      finished: !nextCursor,
+      chunkIndex,
+      nextChunkIndex: nextCursor ? (chunkIndex + 1) : null,
+      nextCursor: nextCursor ? encodeCursor(nextCursor) : null,
+      counts: result.counts,
+      s3: result.uploads,
+      keys: result.keys,
+      meta: result.meta,
+      sanity: result.stats,
+      where: `s3://${Bucket}/${basePrefix}`,
+      durationMs: Date.now() - t0
+    };
+    return res.json(rsp);
+
+  } catch (err) {
+    console.error('build-artifacts-chunk error:', err);
+    return res.status(500).json({ ok:false, error: err.message || String(err) });
+  }
+});
+
+app.post('/anchors/finalize-artifacts', async (req, res) => {
+  const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
+  let prefix   = (req.body.prefix || 'artifacts/').trim();
+  if (!prefix.endsWith('/')) prefix += '/';
+
+  try {
+    const list = [];
+    let ContinuationToken;
+    do {
+      const out = await s3.listObjectsV2({
+        Bucket,
+        Prefix: `${prefix}chunks/`,
+        ContinuationToken
+      }).promise();
+      (out.Contents || []).forEach(o => list.push(o.Key));
+      ContinuationToken = out.IsTruncated ? out.NextContinuationToken : undefined;
+    } while (ContinuationToken);
+
+    const chunks = {};
+    for (const k of list) {
+      const m = k.match(/chunks\/(\d{5})\/(embeddings|ids|meta|stats|errors)-\1\./);
+      if (!m) continue;
+      const idx = m[1];
+      chunks[idx] = chunks[idx] || { index: Number(idx) };
+      const kind = m[2];
+      chunks[idx][kind] = k;
+    }
+
+    const ordered = Object.values(chunks).sort((a,b)=>a.index-b.index);
+    const manifest = {
+      created_at: new Date().toISOString(),
+      bucket: Bucket,
+      base: `s3://${Bucket}/${prefix}`,
+      chunks: ordered,
+      totals: { chunks: ordered.length }
+    };
+
+    await _putJSONtoS3({ Bucket, Key: `${prefix}manifest.json`, obj: manifest });
+    return res.json({ ok:true, manifestKey: `${prefix}manifest.json`, totals: manifest.totals });
+
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ ok:false, error: e.message || String(e) });
+  }
+});
+
 /**
  * Build artifacts bundle:
  * - embeddings.f32 (Float32, row-major, N x d)

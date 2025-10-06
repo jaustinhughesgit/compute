@@ -54,8 +54,17 @@
         <label for="limit">Limit</label>
         <input type="number" id="limit" name="limit" value="1" />
       </div>
-
+<div class="row">
+  <label for="chunk_size">Chunk size</label>
+  <input type="number" id="chunk_size" name="chunk_size" value="150" />
+</div>
+<div class="row">
+  <label for="continue_on_error">Continue on error</label>
+  <input type="checkbox" id="continue_on_error" name="continue_on_error" checked />
+</div>
       <button type="submit">Build & Upload Artifacts</button>
+<button type="button" id="runChunked">Build in Chunks</button>
+<button type="button" id="finalize">Finalize Manifest</button>
     </form>
 
     <h3>Response</h3>
@@ -77,6 +86,68 @@
           rsp.textContent = 'Error: ' + err.message;
         }
       });
+
+
+  const rsp  = document.getElementById('rsp');
+  const btnChunked = document.getElementById('runChunked');
+  const btnFinalize = document.getElementById('finalize');
+
+  btnChunked.addEventListener('click', async () => {
+    const fd = new FormData(document.getElementById('artifactForm'));
+    const base = Object.fromEntries(fd.entries());
+    base.continue_on_error = document.getElementById('continue_on_error').checked ? 'true' : 'false';
+
+    let cursor = null, chunkIndex = 1, done = false;
+    rsp.textContent = 'Running chunked build...\n';
+
+    while (!done) {
+      const body = new URLSearchParams({
+        bucket: base.bucket,
+        prefix: base.prefix,
+        anchor_set_id: base.anchor_set_id,
+        band_scale: base.band_scale,
+        chunk_size: base.chunk_size || '150',
+        continue_on_error: base.continue_on_error,
+        ...(cursor ? { cursor } : {}),
+        chunk_index: String(chunkIndex)
+      });
+
+      try {
+        const res = await fetch('/anchors/build-artifacts-chunk', {
+          method: 'POST',
+          headers: {'Content-Type':'application/x-www-form-urlencoded'},
+          body
+        });
+        const json = await res.json();
+        rsp.textContent += JSON.stringify(json, null, 2) + '\n';
+
+        done = json.finished;
+        cursor = json.nextCursor;
+        chunkIndex = json.nextChunkIndex || chunkIndex + 1;
+
+        // Small breather to play nice with Lambda concurrency limits
+        await new Promise(r => setTimeout(r, 250));
+      } catch (err) {
+        rsp.textContent += 'Error: ' + err.message + '\n';
+        break;
+      }
+    }
+  });
+
+  btnFinalize.addEventListener('click', async () => {
+    const fd = new FormData(document.getElementById('artifactForm'));
+    const body = new URLSearchParams({ bucket: fd.get('bucket'), prefix: fd.get('prefix') });
+    rsp.textContent = 'Finalizing manifest...\n';
+    try {
+      const res = await fetch('/anchors/finalize-artifacts', {
+        method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body
+      });
+      const json = await res.json();
+      rsp.textContent += JSON.stringify(json, null, 2) + '\n';
+    } catch (err) {
+      rsp.textContent += 'Error: ' + err.message + '\n';
+    }
+  });
     </script>
   </body>
 </html>
