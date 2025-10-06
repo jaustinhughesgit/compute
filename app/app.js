@@ -417,37 +417,20 @@ async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
 
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
-async function _fetchEmbRows({ id, limit } = {}) {
+async function _fetchEmbRowsPage({ cursor = null, pageSize = 1000 }) {
   const ExprNames = { '#id': 'id', '#path': 'path', '#emb': 'emb' };
   const ProjExpr  = '#id, #path, #emb';
 
-  if (id) {
-    const { Item } = await dynamodb.get({
-      TableName: EMBPATHS_TABLE,
-      Key: { id },
-      ProjectionExpression: ProjExpr,
-      ExpressionAttributeNames: ExprNames
-    }).promise();
-    return Item ? [Item] : [];
-  }
+  const params = {
+    TableName: EMBPATHS_TABLE,
+    ProjectionExpression: ProjExpr,
+    ExpressionAttributeNames: ExprNames,
+    Limit: Math.min(Math.max(1, pageSize), 200),
+    ...(cursor ? { ExclusiveStartKey: cursor } : {})   // <-- IMPORTANT
+  };
 
-  const items = [];
-  let ExclusiveStartKey;
-  const target = Math.max(1, Math.min(Number(limit) || 0, 5000));
-  do {
-    const { Items, LastEvaluatedKey } = await dynamodb.scan({
-      TableName: EMBPATHS_TABLE,
-      ProjectionExpression: ProjExpr,
-      ExpressionAttributeNames: ExprNames,
-      Limit: Math.min(200, Math.max(1, target - items.length)),
-      ExclusiveStartKey
-    }).promise();
-
-    if (Items && Items.length) items.push(...Items);
-    ExclusiveStartKey = LastEvaluatedKey;
-  } while (ExclusiveStartKey && items.length < target);
-
-  return items.slice(0, target || items.length);
+  const { Items = [], LastEvaluatedKey } = await dynamodb.scan(params).promise();
+  return { items: Items, nextCursor: LastEvaluatedKey || null };
 }
 
 const encodeCursor = obj => Buffer.from(JSON.stringify(obj), 'utf8').toString('base64');
