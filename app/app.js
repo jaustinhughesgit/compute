@@ -531,40 +531,46 @@ app.post('/anchors/build-artifacts', async (req, res) => {
   let   prefix        = (req.body.prefix || 'artifacts/').trim();
   if (!prefix.endsWith('/')) prefix += '/';
 
+  // Single-record override (bypasses GSI)
   const idFilter = typeof req.body.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
 
-  // Preferred paging: cursor (LastEvaluatedKey) provided by client, base64-encoded JSON.
+  // GSI query params (fast path)
+  const sourceTable = typeof req.body.source_table === 'string' ? req.body.source_table.trim() : '';
+  const fromCreated = (typeof req.body.from_created_at === 'string' && req.body.from_created_at.trim())
+    ? req.body.from_created_at.trim()
+    : '1970-01-01T00:00:00.000Z';
+  const toCreated   = (typeof req.body.to_created_at === 'string' && req.body.to_created_at.trim())
+    ? req.body.to_created_at.trim()
+    : null; // open-ended by default
+  const scanForward = String(req.body.scan_forward || 'asc').toLowerCase() !== 'desc'; // true = ASC
+
+  // Cursor paging via LastEvaluatedKey (base64)
   const startKeyB64 = (typeof req.body.start_key === 'string' && req.body.start_key.trim())
     ? req.body.start_key.trim()
     : null;
 
-  // Legacy/fallback: numeric skip (best-effort; non-deterministic with Scan)
-  const start_on = Math.max(0, Number(req.body.start_on || 0));
-
-  const limit    = idFilter ? 1 : Math.max(1, Number(req.body.limit || 0) || 100);
-
-  // Client-provided chunk folder index (for naming only)
+  // Chunking & limit
+  const limit = idFilter ? 1 : Math.max(1, Number(req.body.limit || 0) || 100);
   const userChunkIndex = (req.body.chunk_index !== undefined && req.body.chunk_index !== null)
     ? Math.max(0, Number(req.body.chunk_index))
     : null;
 
-  // Helper to decode/encode LEK
-  const decodeStartKey = (b64) => {
-    try { return JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch { return undefined; }
-  };
+  // Helpers
   const encodeStartKey = (obj) => {
     try { return obj ? Buffer.from(JSON.stringify(obj), 'utf8').toString('base64') : null; } catch { return null; }
   };
+  const decodeStartKey = (b64) => {
+    try { return b64 ? JSON.parse(Buffer.from(b64, 'base64').toString('utf8')) : undefined; } catch { return undefined; }
+  };
+  const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb', '#st': 'sourceTable', '#ca': 'createdAt' };
+  const projExpr  = '#id, #p, #e, #st, #ca';
 
   try {
-    // 1) Fetch rows (single id OR paged via Scan cursor)
     let raw = [];
     let nextLEK = null;
 
     if (idFilter) {
-      // Alias reserved names even for Get (harmless)
-      const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb' };
-      const projExpr  = '#id, #p, #e';
+      // Exact Get by id
       const { Item } = await dynamodb.get({
         TableName: EMBPATHS_TABLE,
         Key: { id: idFilter },
@@ -573,48 +579,38 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       }).promise();
       raw = Item ? [Item] : [];
     } else {
-      const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb' };
-      const projExpr  = '#id, #p, #e';
-
-      let ExclusiveStartKey = startKeyB64 ? decodeStartKey(startKeyB64) : undefined;
-      let remaining = limit;
-
-      // Best-effort skip if no cursor is provided (NOT deterministic with Scan).
-      let toSkip = (!ExclusiveStartKey && start_on > 0) ? start_on : 0;
-
-      while (remaining > 0) {
-        const pageLimit = Math.min(200, Math.max(1, remaining + toSkip)); // fetch enough to satisfy skip+take
-        const resp = await dynamodb.scan({
-          TableName: EMBPATHS_TABLE,
-          ProjectionExpression: projExpr,
-          ExpressionAttributeNames: projNames,
-          Limit: pageLimit,
-          ExclusiveStartKey
-        }).promise();
-
-        const Items = resp.Items || [];
-
-        // Apply local skip if needed
-        let startIdx = 0;
-        if (toSkip > 0) {
-          const drop = Math.min(toSkip, Items.length);
-          toSkip -= drop;
-          startIdx = drop;
-        }
-
-        // Take up to remaining
-        const take = Math.min(remaining, Math.max(0, Items.length - startIdx));
-        if (take > 0) {
-          raw.push(...Items.slice(startIdx, startIdx + take));
-          remaining -= take;
-        }
-
-        if (!resp.LastEvaluatedKey || (remaining <= 0 && toSkip <= 0)) {
-          nextLEK = resp.LastEvaluatedKey ? resp.LastEvaluatedKey : null;
-          break;
-        }
-        ExclusiveStartKey = resp.LastEvaluatedKey;
+      if (!sourceTable || sourceTable === 'i_*') {
+        return res.status(400).json({
+          ok: false,
+          error: 'source_table is required and must be an exact partition key (e.g., "i_characteristic"). DynamoDB cannot Query partition key with begins_with.'
+        });
       }
+
+      // Key condition for createdAt range
+      let KeyConditionExpression;
+      const ExpressionAttributeValues = { ':st': sourceTable, ':from': fromCreated };
+      if (toCreated) {
+        KeyConditionExpression = '#st = :st AND #ca BETWEEN :from AND :to';
+        ExpressionAttributeValues[':to'] = toCreated;
+      } else {
+        KeyConditionExpression = '#st = :st AND #ca >= :from';
+      }
+
+      // Query the GSI with deterministic order and tight limit
+      const resp = await dynamodb.query({
+        TableName: EMBPATHS_TABLE,
+        IndexName: 'createdAt-index',
+        ProjectionExpression: projExpr,
+        ExpressionAttributeNames: projNames,
+        KeyConditionExpression,
+        ExpressionAttributeValues,
+        ScanIndexForward: scanForward, // true = oldest→newest
+        Limit: limit,
+        ExclusiveStartKey: decodeStartKey(startKeyB64)
+      }).promise();
+
+      raw = resp.Items || [];
+      nextLEK = resp.LastEvaluatedKey || null;
     }
 
     if (!raw.length) {
@@ -622,11 +618,11 @@ app.post('/anchors/build-artifacts', async (req, res) => {
         ok: false,
         error: idFilter
           ? `No item found for id=${idFilter}`
-          : `No rows found (cursor mode). If you used start_on without start_key, remember Scan order is not deterministic.`,
+          : `No rows found for source_table=${sourceTable} (from=${fromCreated}${toCreated ? ` to=${toCreated}` : ''}).`
       });
     }
 
-    // 2) Normalize & validate
+    // Normalize & validate
     const rows = [];
     let d = null, zeroOrBad = 0, dimMismatch = 0;
     for (const it of raw) {
@@ -649,50 +645,39 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       });
     }
 
-    // 3) Build artifacts
+    // Build artifacts
     const N = rows.length;
     const embeddingsBuf = _float32RowMajorBuffer(rows, d);
     const idsJsonl      = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
     const created_at    = new Date().toISOString();
 
-    // Determine output key base
+    // Output key base (use client-provided chunk index if present)
     let baseKey = `${prefix}`;
     let chunkIndex = null;
     let chunkDir = null;
 
     if (userChunkIndex !== null && Number.isFinite(userChunkIndex)) {
       chunkIndex = userChunkIndex;
-    } else if (!idFilter && (startKeyB64 || start_on > 0)) {
-      // Derive a chunk index only for display if client didn't supply one
-      chunkIndex = Math.floor((start_on || 0) / Math.max(1, limit));
-    }
-
-    if (chunkIndex !== null) {
-      const chunkIndexPad = String(chunkIndex).padStart(5, '0');
-      chunkDir = `chunks/chunk-${chunkIndexPad}/`;
+      const pad = String(chunkIndex).padStart(5, '0');
+      chunkDir = `chunks/chunk-${pad}/`;
       baseKey  = `${prefix}${chunkDir}`;
     }
 
     const meta = {
       N, d,
       model_id: EMB_MODEL,
-      source_table: EMBPATHS_TABLE,
+      source_table: sourceTable || (raw[0] && raw[0].sourceTable) || null,
+      source_table_time_window: { from: fromCreated, to: toCreated || null },
+      source_table_scan_forward: scanForward,
+      source_table_index: 'createdAt-index',
+      created_at,
       anchor_set_id,
       band_scale,
-      created_at,
-      ...(chunkDir ? {
-        chunk: {
-          index: chunkIndex,
-          // We include both for traceability; cursor is the one that matters
-          start_on,
-          limit,
-          cursor_supplied: Boolean(startKeyB64)
-        }
-      } : {})
+      ...(chunkDir ? { chunk: { index: chunkIndex } } : {})
     };
     const stats = _computeStats(rows);
 
-    // 4) Upload to S3
+    // Upload to S3
     const uploads = await Promise.all([
       _putBufferToS3({ Bucket, Key: `${baseKey}embeddings.f32`, BufferBody: embeddingsBuf, ContentType: 'application/octet-stream' }),
       _putBufferToS3({ Bucket, Key: `${baseKey}ids.jsonl`,      BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }),
@@ -702,9 +687,6 @@ app.post('/anchors/build-artifacts', async (req, res) => {
 
     const ms = Date.now() - t0;
 
-    // Encode next cursor (may be null if no more data)
-    const next_start_key = encodeStartKey(nextLEK);
-
     return res.json({
       ok: true,
       message: chunkDir ? `Chunk ${chunkIndex} built and uploaded.` : 'Artifacts built and uploaded.',
@@ -712,32 +694,21 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       where: `s3://${Bucket}/${baseKey}`,
       meta,
       sanity: stats,
-      counts: {
-        scanned: raw.length,
-        kept: N,
-        zeroOrBad,
-        dimMismatch
-      },
+      counts: { scanned: raw.length, kept: N, zeroOrBad, dimMismatch },
       echoedChunkIndex: chunkIndex,
-      // Cursor-based paging
       used_start_key: startKeyB64 || null,
-      next_start_key,
-      // For visibility if someone still uses start_on
-      warning: (!startKeyB64 && start_on > 0)
-        ? 'start_on with Scan is not deterministic; use start_key (cursor) for reliable paging.'
-        : undefined,
+      next_start_key: encodeStartKey(nextLEK),
       durationMs: ms,
       note: idFilter
         ? `Single-record build for id=${idFilter}`
-        : (chunkDir
-            ? `chunk_index=${chunkIndex} (client:${userChunkIndex !== null}), limit=${limit}`
-            : `unchunked build`)
+        : `GSI query on source_table=${sourceTable}, limit=${limit}, scan_forward=${scanForward}`
     });
   } catch (err) {
     console.error('build-artifacts error:', err);
     return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
+
 
 
 
