@@ -1,4 +1,3 @@
-<!-- views/artifacts.ejs -->
 <!doctype html>
 <html>
   <head>
@@ -7,24 +6,31 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }
-      form { display: grid; gap: 12px; max-width: 620px; }
+      form { display: grid; gap: 12px; max-width: 720px; margin-bottom: 28px; }
       label { font-weight: 600; }
       input[type="text"], input[type="number"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; }
       button { padding: 10px 14px; border-radius: 8px; border: 0; background:#111827; color:#fff; cursor:pointer; }
-      .row { display: grid; grid-template-columns: 180px 1fr; gap: 10px; align-items: center; }
+      .row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: center; }
       .note { color:#6b7280; font-size: 13px; }
       pre { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow:auto; }
+      .hstack { display:flex; gap:10px; align-items:center; }
+      .card { border:1px solid #e5e7eb; border-radius:10px; padding:16px; }
+      .muted { color:#6b7280; }
     </style>
   </head>
   <body>
     <h1>Build Anchor Artifacts</h1>
     <p class="note">
-      This bundles <em>all</em> embeddings from <code><%= embTable %></code> into
-      <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code>,
-      uploading to <code>s3://<%= bucket %>/artifacts/</code> by default.
+      This bundles embeddings from <code><%= embTable %></code> into
+      <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code>.
+      By default uploads to <code>s3://<%= bucket %>/artifacts/</code>. Use <b>Start On</b> + <b>Limit</b> to build a paged chunk at
+      <code>artifacts/chunks/chunk-XXXXX/</code>.
     </p>
 
-    <form id="artifactForm" method="POST" action="/anchors/build-artifacts">
+    <!-- Build single or chunk -->
+    <form id="artifactForm" class="card" method="POST" action="/anchors/build-artifacts">
+      <h3>Build & Upload (single or paged chunk)</h3>
+
       <div class="row">
         <label for="bucket">S3 Bucket</label>
         <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
@@ -45,28 +51,86 @@
         <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
       </div>
 
-      <button type="submit">Build & Upload Artifacts</button>
+      <div class="row">
+        <label for="id">Single Record ID</label>
+        <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
+      </div>
+
+      <div class="row">
+        <label for="start_on">Start On (0-based)</label>
+        <input type="number" id="start_on" name="start_on" value="0" />
+      </div>
+
+      <div class="row">
+        <label for="limit">Limit</label>
+        <input type="number" id="limit" name="limit" value="100" />
+      </div>
+
+      <p class="note muted">
+        If <b>Single Record ID</b> is provided, paging is ignored and only that record is built.
+        Otherwise, <b>Start On</b> + <b>Limit</b> builds a chunk and uploads to
+        <code>artifacts/chunks/chunk-XXXXX/</code>.
+      </p>
+
+      <button type="submit">Build & Upload</button>
+    </form>
+
+    <!-- Merge -->
+    <form id="mergeForm" class="card" method="POST" action="/anchors/merge-artifacts">
+      <h3>Merge Artifacts (stitch all chunks)</h3>
+
+      <div class="row">
+        <label for="m_bucket">S3 Bucket</label>
+        <input type="text" id="m_bucket" name="bucket" value="<%= bucket %>" />
+      </div>
+
+      <div class="row">
+        <label for="m_prefix">S3 Prefix (base)</label>
+        <input type="text" id="m_prefix" name="prefix" value="artifacts/" />
+      </div>
+
+      <div class="row">
+        <label for="m_total_chunks">Total Chunks</label>
+        <input type="number" id="m_total_chunks" name="total_chunks" placeholder="e.g., 42" />
+      </div>
+
+      <div class="row">
+        <label for="m_out_prefix">Output Prefix</label>
+        <input type="text" id="m_out_prefix" name="out_prefix" value="artifacts/final/" />
+      </div>
+
+      <p class="note muted">
+        If <b>Total Chunks</b> is provided, the merge expects
+        <code>artifacts/chunks/chunk-00000/</code> … <code>chunk-XXXXX/</code> to exist.
+        If empty, the server will auto-list chunks under <code>artifacts/chunks/</code>.
+      </p>
+
+      <button type="submit">Merge Artifacts</button>
     </form>
 
     <h3>Response</h3>
-    <pre id="rsp">(click the button to run)</pre>
+    <pre id="rsp">(click a button to run)</pre>
 
     <script>
-      const form = document.getElementById('artifactForm');
       const rsp  = document.getElementById('rsp');
-      form.addEventListener('submit', async (e) => {
+
+      async function handleForm(e) {
         e.preventDefault();
+        const form = e.currentTarget;
         const fd = new FormData(form);
         const body = new URLSearchParams(fd);
-        rsp.textContent = 'Building...';
+        rsp.textContent = 'Working...';
         try {
-          const res = await fetch(form.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+          const res = await fetch(form.action, { method: form.method || 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
           const json = await res.json();
           rsp.textContent = JSON.stringify(json, null, 2);
         } catch (err) {
           rsp.textContent = 'Error: ' + err.message;
         }
-      });
+      }
+
+      document.getElementById('artifactForm').addEventListener('submit', handleForm);
+      document.getElementById('mergeForm').addEventListener('submit', handleForm);
     </script>
   </body>
 </html>
