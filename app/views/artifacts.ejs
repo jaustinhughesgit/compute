@@ -6,7 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }
-      form { display: grid; gap: 12px; max-width: 560px; }
+      form { display: grid; gap: 12px; max-width: 620px; }
       label { font-weight: 600; }
       input[type="text"], input[type="number"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; }
       button { padding: 10px 14px; border-radius: 8px; border: 0; background:#111827; color:#fff; cursor:pointer; }
@@ -17,25 +17,43 @@
   </head>
   <body>
     <h1>Build Anchor Artifacts</h1>
-    <p class="note">This bundles embeddings from <code><%= embTable %></code> into <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code> and uploads to S3.</p>
+    <p class="note">
+      This bundles embeddings from <code><%= embTable %></code> into
+      <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code>,
+      uploading to <code>s3://<%= bucket %>/artifacts/</code> by default.
+    </p>
 
     <form id="artifactForm" method="POST" action="/anchors/build-artifacts">
       <div class="row">
         <label for="bucket">S3 Bucket</label>
         <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
       </div>
+
+      <div class="row">
+        <label for="prefix">S3 Prefix</label>
+        <input type="text" id="prefix" name="prefix" value="artifacts/" />
+      </div>
+
       <div class="row">
         <label for="anchor_set_id">Anchor Set ID</label>
         <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
       </div>
-      <div class="row">
-        <label for="prefix">S3 Prefix</label>
-        <input type="text" id="prefix" name="prefix" value="anchor_sets/<%= anchorSetId %>/training/" />
-      </div>
+
       <div class="row">
         <label for="band_scale">Band Scale</label>
         <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
       </div>
+
+      <div class="row">
+        <label for="id">Single Record ID</label>
+        <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
+      </div>
+
+      <div class="row">
+        <label for="limit">Limit</label>
+        <input type="number" id="limit" name="limit" value="1" />
+      </div>
+
       <button type="submit">Build & Upload Artifacts</button>
     </form>
 

@@ -357,9 +357,8 @@ app.post('/admin/migrate-embpaths', async (req, res) => {
 
 
 
-
 /* -----------------------------
-   Anchor Artifacts: build & upload
+   Anchor Artifacts: build & upload (single-record friendly)
    ----------------------------- */
 
 const DEFAULT_ANCHOR_SET_ID = process.env.ANCHOR_SET_ID || 'anchors_v1';
@@ -372,64 +371,40 @@ function _unitNormalize(arr) {
   for (let i = 0; i < arr.length; i++) { const x = +arr[i]; if (!Number.isFinite(x)) return null; ss += x * x; }
   const n = Math.sqrt(ss);
   if (!Number.isFinite(n) || n < 1e-12) return null;
-  const out = new Array(arr.length);
   const inv = 1 / n;
-  for (let i = 0; i < arr.length; i++) out[i] = arr[i] * inv;
-  return out;
-}
-
-async function _scanEmbPathsAll({ projection = 'id, path, emb' } = {}) {
-  const items = [];
-  let ExclusiveStartKey = undefined;
-  do {
-    const { Items, LastEvaluatedKey } = await dynamodb.scan({
-      TableName: EMBPATHS_TABLE,
-      ProjectionExpression: projection
-    }).promise();
-    if (Items && Items.length) items.push(...Items);
-    ExclusiveStartKey = LastEvaluatedKey;
-  } while (ExclusiveStartKey);
-  return items;
+  return arr.map(v => v * inv);
 }
 
 function _float32RowMajorBuffer(rows, dim) {
   const f32 = new Float32Array(rows.length * dim);
   let off = 0;
-  for (const r of rows) {
-    for (let j = 0; j < dim; j++) f32[off++] = r.emb[j];
-  }
-  return Buffer.from(f32.buffer); // little-endian
+  for (const r of rows) for (let j = 0; j < dim; j++) f32[off++] = r.emb[j];
+  return Buffer.from(f32.buffer);
 }
 
 function _computeStats(rows) {
-  // Norm stats are all ~1 after normalization, but compute to verify.
+  const N = rows.length;
   let minN = Infinity, maxN = -Infinity, sumN = 0;
   for (const r of rows) {
     let ss = 0; for (const x of r.emb) ss += x * x;
     const n = Math.sqrt(ss);
     if (n < minN) minN = n; if (n > maxN) maxN = n; sumN += n;
   }
-  const N = rows.length;
-  // Pairwise cosine distance on a small random sample of pairs
-  const pairs = Math.min(200, (N * (N - 1)) / 2);
-  let minD = Infinity, maxD = -Infinity, sumD = 0, cntD = 0;
-  if (N > 1 && pairs > 0) {
-    const randIdx = () => Math.floor(Math.random() * N);
+  let sample = null;
+  if (N > 1) {
+    const pairs = Math.min(200, (N * (N - 1)) / 2);
+    let minD = Infinity, maxD = -Infinity, sumD = 0;
     for (let k = 0; k < pairs; k++) {
-      let i = randIdx(), j = randIdx();
-      if (i === j) { j = (j + 1) % N; }
+      const i = Math.floor(Math.random() * N);
+      let j = Math.floor(Math.random() * N); if (j === i) j = (j + 1) % N;
       const a = rows[i].emb, b = rows[j].emb;
       let dot = 0; for (let t = 0; t < a.length; t++) dot += a[t] * b[t];
-      const dist = 1 - dot; // cosine distance (unit vectors)
-      if (dist < minD) minD = dist;
-      if (dist > maxD) maxD = dist;
-      sumD += dist; cntD++;
+      const dist = 1 - dot;
+      if (dist < minD) minD = dist; if (dist > maxD) maxD = dist; sumD += dist;
     }
+    sample = { min: minD, mean: sumD / Math.min(pairs, 1), max: maxD };
   }
-  return {
-    norm: { min: minN, mean: N ? sumN / N : 0, max: maxN },
-    pairwise_cosine_dist_sample: cntD ? { min: minD, mean: sumD / cntD, max: maxD } : null
-  };
+  return { norm: { min: minN, mean: N ? sumN / N : 0, max: maxN }, pairwise_cosine_dist_sample: sample };
 }
 
 async function _putJSONtoS3({ Bucket, Key, obj }) {
@@ -437,32 +412,66 @@ async function _putJSONtoS3({ Bucket, Key, obj }) {
   await s3.putObject({ Bucket, Key, Body, ContentType: 'application/json' }).promise();
   return { Bucket, Key };
 }
-
 async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
   await s3.putObject({ Bucket, Key, Body: BufferBody, ContentType }).promise();
   return { Bucket, Key };
 }
 
+// Fetch exactly one item by id (if provided), else scan up to `limit` items
+async function _fetchEmbRows({ id, limit, projection = 'id, path, emb' } = {}) {
+  if (id) {
+    const { Item } = await dynamodb.get({ TableName: EMBPATHS_TABLE, Key: { id } }).promise();
+    return Item ? [Item] : [];
+  }
+  // fallback: scan up to `limit`
+  const items = [];
+  let ExclusiveStartKey;
+  const target = Math.max(1, Math.min(Number(limit) || 0, 5000)); // safety
+  do {
+    const { Items, LastEvaluatedKey } = await dynamodb.scan({
+      TableName: EMBPATHS_TABLE,
+      ProjectionExpression: projection,
+      Limit: Math.min(200, Math.max(1, target - items.length))
+    }).promise();
+    if (Items && Items.length) items.push(...Items);
+    ExclusiveStartKey = LastEvaluatedKey;
+  } while (ExclusiveStartKey && items.length < target);
+  return items.slice(0, target || items.length);
+}
+
 /**
  * Build artifacts bundle:
  * - embeddings.f32 (Float32, row-major, N x d)
- * - ids.jsonl ({"id": "...", "path":"..."} per line)
- * - meta.json (N, d, model_id, source_table, anchor_set_id, band_scale, created_at)
- * - stats.json (sanity)
+ * - ids.jsonl     ({"id": "...", "path":"..."} per line)
+ * - meta.json     (N, d, model_id, source_table, anchor_set_id, band_scale, created_at)
+ * - stats.json    (sanity)
+ *
+ * Body params:
+ * - id            (optional: build artifacts from this single id)
+ * - limit         (optional: e.g., 1 for smoke test)
+ * - bucket        (defaults to public.1var.com)
+ * - prefix        (defaults to 'artifacts/')
+ * - anchor_set_id (defaults to anchors_v1)
+ * - band_scale    (defaults to 2000)
  */
 app.post('/anchors/build-artifacts', async (req, res) => {
   const t0 = Date.now();
   const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
   const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
   const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
-  // prefix like: anchor_sets/anchors_v1/training/
-  let prefix = req.body.prefix || `anchor_sets/${anchor_set_id}/training/`;
+  // Default to artifacts/ so outputs land at s3://public.1var.com/artifacts/...
+  let prefix = (req.body.prefix || 'artifacts/').trim();
   if (!prefix.endsWith('/')) prefix += '/';
 
+  const idFilter = typeof req.body.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
+  const limit = idFilter ? 1 : Number(req.body.limit || 0); // if id provided, force single-row
+
   try {
-    // 1) Read all rows from embPaths
-    const raw = await _scanEmbPathsAll({ projection: 'id, path, emb' });
-    if (!raw.length) return res.status(400).json({ ok:false, error: `No rows in ${EMBPATHS_TABLE}` });
+    // 1) Fetch rows
+    const raw = await _fetchEmbRows({ id: idFilter, limit, projection: 'id, path, emb' });
+    if (!raw.length) {
+      return res.status(404).json({ ok:false, error: idFilter ? `No item found for id=${idFilter}` : `No rows in ${EMBPATHS_TABLE}` });
+    }
 
     // 2) Normalize & validate
     const rows = [];
@@ -470,7 +479,6 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     for (const it of raw) {
       const id = it.id || it.ID || it.pk || it.PK;
       const path = it.path || '';
-      // `emb` might already be an array of numbers (DocumentClient), or a stringified array
       let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
       if (!v) { zeroOrBad++; continue; }
       if (d == null) d = v.length;
@@ -488,7 +496,7 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       });
     }
 
-    // 3) Build artifacts in-memory
+    // 3) Build artifacts
     const N = rows.length;
     const embeddingsBuf = _float32RowMajorBuffer(rows, d);
     const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
@@ -503,30 +511,21 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     };
     const stats = _computeStats(rows);
 
-    // 4) Upload to S3
-    const uploads = [];
-    uploads.push(_putBufferToS3({
-      Bucket,
-      Key: `${prefix}embeddings.f32`,
-      BufferBody: embeddingsBuf,
-      ContentType: 'application/octet-stream'
-    }));
-    uploads.push(_putBufferToS3({
-      Bucket,
-      Key: `${prefix}ids.jsonl`,
-      BufferBody: Buffer.from(idsJsonl, 'utf8'),
-      ContentType: 'application/jsonl'
-    }));
-    uploads.push(_putJSONtoS3({ Bucket, Key: `${prefix}meta.json`,  obj: meta  }));
-    uploads.push(_putJSONtoS3({ Bucket, Key: `${prefix}stats.json`, obj: stats }));
-
-    const results = await Promise.all(uploads);
+    // 4) Upload to S3 at artifacts/
+    const baseKey = `${prefix}`; // e.g., artifacts/
+    const uploads = await Promise.all([
+      _putBufferToS3({ Bucket, Key: `${baseKey}embeddings.f32`, BufferBody: embeddingsBuf, ContentType: 'application/octet-stream' }),
+      _putBufferToS3({ Bucket, Key: `${baseKey}ids.jsonl`,      BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }),
+      _putJSONtoS3({ Bucket, Key: `${baseKey}meta.json`,        obj: meta }),
+      _putJSONtoS3({ Bucket, Key: `${baseKey}stats.json`,       obj: stats })
+    ]);
 
     const ms = Date.now() - t0;
     return res.json({
       ok: true,
       message: 'Artifacts built and uploaded.',
-      s3: results,
+      s3: uploads,
+      where: `s3://${Bucket}/${baseKey}`,
       meta,
       sanity: stats,
       counts: {
@@ -535,13 +534,15 @@ app.post('/anchors/build-artifacts', async (req, res) => {
         zeroOrBad,
         dimMismatch
       },
-      durationMs: ms
+      durationMs: ms,
+      note: idFilter ? `Single-record build for id=${idFilter}` : (limit ? `Limited to ${limit} records` : 'All records')
     });
   } catch (err) {
     console.error('build-artifacts error:', err);
     return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
+
 
 
 app.get('/anchors/artifacts', (req, res) => {
