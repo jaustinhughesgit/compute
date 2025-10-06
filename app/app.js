@@ -434,8 +434,6 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       }
       if (d == null) d = v.length;
       if (v.length !== d) { dimMismatch++; continue; }
-      const u = _unitNormalize(v);
-      if (!u) { zeroOrBad++; continue; }
       rows.push({ id: String(id), path: String(path), emb: u });
     }
 
