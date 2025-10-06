@@ -95,6 +95,7 @@ var indexingRouter = require('./routes/indexing');
 const embeddingsRouter = require('./routes/embeddings');
 const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
+const migrateRouter = require('./routes/migrate');
 
 
 /* not needed for LLM*/
@@ -103,7 +104,7 @@ app.use('/embeddings', embeddingsRouter);
 app.use('/pinecone', pineconeRouter);
 app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
-app.use('/indexing', indexingRouter);
+app.use('/migrate', migrateRouter);
 
 app.use('/', indexRouter);
 
