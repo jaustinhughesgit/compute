@@ -526,31 +526,103 @@ async function _listChunkPrefixes(Bucket, basePrefix) {
 app.post('/anchors/build-artifacts', async (req, res) => {
   const t0 = Date.now();
   const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
-  const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
-  const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
-  let prefix = (req.body.prefix || 'artifacts/').trim();
+  const band_scale    = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
+  const Bucket        = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
+  let   prefix        = (req.body.prefix || 'artifacts/').trim();
   if (!prefix.endsWith('/')) prefix += '/';
 
   const idFilter = typeof req.body.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
-  const start_on = Math.max(0, Number(req.body.start_on || 0));
-  const limit    = idFilter ? 1 : Math.max(0, Number(req.body.limit || 0));
 
-  // NEW: chunk index supplied by the browser (used for folder naming)
+  // Preferred paging: cursor (LastEvaluatedKey) provided by client, base64-encoded JSON.
+  const startKeyB64 = (typeof req.body.start_key === 'string' && req.body.start_key.trim())
+    ? req.body.start_key.trim()
+    : null;
+
+  // Legacy/fallback: numeric skip (best-effort; non-deterministic with Scan)
+  const start_on = Math.max(0, Number(req.body.start_on || 0));
+
+  const limit    = idFilter ? 1 : Math.max(1, Number(req.body.limit || 0) || 100);
+
+  // Client-provided chunk folder index (for naming only)
   const userChunkIndex = (req.body.chunk_index !== undefined && req.body.chunk_index !== null)
     ? Math.max(0, Number(req.body.chunk_index))
     : null;
 
+  // Helper to decode/encode LEK
+  const decodeStartKey = (b64) => {
+    try { return JSON.parse(Buffer.from(b64, 'base64').toString('utf8')); } catch { return undefined; }
+  };
+  const encodeStartKey = (obj) => {
+    try { return obj ? Buffer.from(JSON.stringify(obj), 'utf8').toString('base64') : null; } catch { return null; }
+  };
+
   try {
-    // 1) Fetch rows (single id OR paged)
-    // NOTE: _fetchEmbRows should internally alias reserved names (e.g., "path")
-    // using ExpressionAttributeNames. Do not pass a raw ProjectionExpression here.
-    const raw = await _fetchEmbRows({ id: idFilter, skip: start_on, limit });
+    // 1) Fetch rows (single id OR paged via Scan cursor)
+    let raw = [];
+    let nextLEK = null;
+
+    if (idFilter) {
+      // Alias reserved names even for Get (harmless)
+      const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb' };
+      const projExpr  = '#id, #p, #e';
+      const { Item } = await dynamodb.get({
+        TableName: EMBPATHS_TABLE,
+        Key: { id: idFilter },
+        ProjectionExpression: projExpr,
+        ExpressionAttributeNames: projNames
+      }).promise();
+      raw = Item ? [Item] : [];
+    } else {
+      const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb' };
+      const projExpr  = '#id, #p, #e';
+
+      let ExclusiveStartKey = startKeyB64 ? decodeStartKey(startKeyB64) : undefined;
+      let remaining = limit;
+
+      // Best-effort skip if no cursor is provided (NOT deterministic with Scan).
+      let toSkip = (!ExclusiveStartKey && start_on > 0) ? start_on : 0;
+
+      while (remaining > 0) {
+        const pageLimit = Math.min(200, Math.max(1, remaining + toSkip)); // fetch enough to satisfy skip+take
+        const resp = await dynamodb.scan({
+          TableName: EMBPATHS_TABLE,
+          ProjectionExpression: projExpr,
+          ExpressionAttributeNames: projNames,
+          Limit: pageLimit,
+          ExclusiveStartKey
+        }).promise();
+
+        const Items = resp.Items || [];
+
+        // Apply local skip if needed
+        let startIdx = 0;
+        if (toSkip > 0) {
+          const drop = Math.min(toSkip, Items.length);
+          toSkip -= drop;
+          startIdx = drop;
+        }
+
+        // Take up to remaining
+        const take = Math.min(remaining, Math.max(0, Items.length - startIdx));
+        if (take > 0) {
+          raw.push(...Items.slice(startIdx, startIdx + take));
+          remaining -= take;
+        }
+
+        if (!resp.LastEvaluatedKey || (remaining <= 0 && toSkip <= 0)) {
+          nextLEK = resp.LastEvaluatedKey ? resp.LastEvaluatedKey : null;
+          break;
+        }
+        ExclusiveStartKey = resp.LastEvaluatedKey;
+      }
+    }
+
     if (!raw.length) {
       return res.status(404).json({
-        ok:false,
+        ok: false,
         error: idFilter
           ? `No item found for id=${idFilter}`
-          : `No rows found for start_on=${start_on} limit=${limit} in ${EMBPATHS_TABLE}`
+          : `No rows found (cursor mode). If you used start_on without start_key, remember Scan order is not deterministic.`,
       });
     }
 
@@ -558,7 +630,7 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     const rows = [];
     let d = null, zeroOrBad = 0, dimMismatch = 0;
     for (const it of raw) {
-      const id = it.id || it.ID || it.pk || it.PK;
+      const id   = it.id || it.ID || it.pk || it.PK;
       const path = it.path || '';
       let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
       if (!v) { zeroOrBad++; continue; }
@@ -580,26 +652,25 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     // 3) Build artifacts
     const N = rows.length;
     const embeddingsBuf = _float32RowMajorBuffer(rows, d);
-    const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
-    const created_at = new Date().toISOString();
+    const idsJsonl      = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
+    const created_at    = new Date().toISOString();
 
-    // Determine chunking & output key base
+    // Determine output key base
     let baseKey = `${prefix}`;
     let chunkIndex = null;
     let chunkDir = null;
 
-    // If the client provided a chunk index, ALWAYS use it.
     if (userChunkIndex !== null && Number.isFinite(userChunkIndex)) {
       chunkIndex = userChunkIndex;
-    } else if (!idFilter && (start_on > 0 || (limit && limit !== 0))) {
-      // Fallback to derived index when paging without explicit client index
-      chunkIndex = Math.floor(start_on / Math.max(1, limit));
+    } else if (!idFilter && (startKeyB64 || start_on > 0)) {
+      // Derive a chunk index only for display if client didn't supply one
+      chunkIndex = Math.floor((start_on || 0) / Math.max(1, limit));
     }
 
     if (chunkIndex !== null) {
       const chunkIndexPad = String(chunkIndex).padStart(5, '0');
       chunkDir = `chunks/chunk-${chunkIndexPad}/`;
-      baseKey = `${prefix}${chunkDir}`;
+      baseKey  = `${prefix}${chunkDir}`;
     }
 
     const meta = {
@@ -612,9 +683,10 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       ...(chunkDir ? {
         chunk: {
           index: chunkIndex,
+          // We include both for traceability; cursor is the one that matters
           start_on,
           limit,
-          provided_by_client: (userChunkIndex !== null && Number.isFinite(userChunkIndex))
+          cursor_supplied: Boolean(startKeyB64)
         }
       } : {})
     };
@@ -629,6 +701,10 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     ]);
 
     const ms = Date.now() - t0;
+
+    // Encode next cursor (may be null if no more data)
+    const next_start_key = encodeStartKey(nextLEK);
+
     return res.json({
       ok: true,
       message: chunkDir ? `Chunk ${chunkIndex} built and uploaded.` : 'Artifacts built and uploaded.',
@@ -642,13 +718,19 @@ app.post('/anchors/build-artifacts', async (req, res) => {
         zeroOrBad,
         dimMismatch
       },
-      echoedChunkIndex: chunkIndex,                 // <- for your UI to confirm
-      nextStartOn: chunkDir ? (start_on + N) : undefined,
+      echoedChunkIndex: chunkIndex,
+      // Cursor-based paging
+      used_start_key: startKeyB64 || null,
+      next_start_key,
+      // For visibility if someone still uses start_on
+      warning: (!startKeyB64 && start_on > 0)
+        ? 'start_on with Scan is not deterministic; use start_key (cursor) for reliable paging.'
+        : undefined,
       durationMs: ms,
       note: idFilter
         ? `Single-record build for id=${idFilter}`
         : (chunkDir
-            ? `chunk_index=${chunkIndex} (client:${userChunkIndex !== null}), start_on=${start_on}, limit=${limit}`
+            ? `chunk_index=${chunkIndex} (client:${userChunkIndex !== null}), limit=${limit}`
             : `unchunked build`)
     });
   } catch (err) {
@@ -656,6 +738,7 @@ app.post('/anchors/build-artifacts', async (req, res) => {
     return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
+
 
 
 
