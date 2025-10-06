@@ -424,24 +424,44 @@ async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
 }
 
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
-async function _fetchEmbRows({ id, limit, projection = 'id, path, emb' } = {}) {
+// Fetch exactly one item by id (if provided), else scan up to `limit` items.
+// If `limit` is 0 or omitted, fetch ALL items (streamed scan).
+async function _fetchEmbRows({ id, limit } = {}) {
+  const TableName = EMBPATHS_TABLE;
+
+  // Use aliases because "path" is a DynamoDB reserved word.
+  const proj = {
+    ProjectionExpression: '#id, #p, #e',
+    ExpressionAttributeNames: {
+      '#id': 'id',
+      '#p':  'path',
+      '#e':  'emb'
+    }
+  };
+
   if (id) {
-    const { Item } = await dynamodb.get({ TableName: EMBPATHS_TABLE, Key: { id } }).promise();
+    const { Item } = await dynamodb.get({
+      TableName,
+      Key: { id },
+      ...proj
+    }).promise();
     return Item ? [Item] : [];
   }
+
   const items = [];
   let ExclusiveStartKey;
   const target = Number.isFinite(Number(limit)) ? Number(limit) : 0; // 0 => all
+
   do {
     const batchLimit = target > 0
       ? Math.min(200, Math.max(1, target - items.length))
       : 200;
-    if (target > 0 && items.length >= target) break;
 
     const { Items, LastEvaluatedKey } = await dynamodb.scan({
-      TableName: EMBPATHS_TABLE,
-      ProjectionExpression: projection,
-      Limit: batchLimit
+      TableName,
+      Limit: batchLimit,
+      ExclusiveStartKey,
+      ...proj
     }).promise();
 
     if (Items && Items.length) items.push(...Items);
@@ -450,6 +470,7 @@ async function _fetchEmbRows({ id, limit, projection = 'id, path, emb' } = {}) {
 
   return target > 0 ? items.slice(0, target) : items;
 }
+
 
 function chunkArray(arr, size) {
   const out = [];
