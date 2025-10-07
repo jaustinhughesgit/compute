@@ -1,0 +1,192 @@
+// routes/modules/position.js
+"use strict";
+
+/**
+ * Anchor-based positioner:
+ * - expects body.body: { domain, subdomain, entity, embedding? (number[]), text?, output?, path? }
+ * - computes/normalizes embedding if needed (using OpenAI if `text` is provided)
+ * - loads anchors (L0/L1) from S3
+ * - assigns to top-L0 → nearest L1
+ * - writes postings to `anchor_bands`
+ * - updates `subdomains` with { anchor: {...}, domain, subdomain, output, path }
+ */
+
+// ⬅⬅⬅  PATH FIX: use routes/anchors instead of lib/anchors
+const anchorsUtil = require("../anchors");
+
+const DEFAULT_SET_ID     = process.env.ANCHOR_SET_ID || "anchors_v1";
+const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
+const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
+const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
+const EMB_MODEL_ID       = process.env.EMB_MODEL || "text-embedding-3-large";
+
+function register({ on, use }) {
+  const { getDocClient, deps } = use();
+  const doc = getDocClient();       // DocumentClient
+  const s3  = deps.s3;
+  const openai = deps.openai;
+
+  const getBody = (req) => {
+    const b = req?.body;
+    if (!b || typeof b !== "object") return {};
+    return b.body && typeof b.body === "object" ? b.body : b;
+  };
+
+  const isNum = (x) => typeof x === "number" && Number.isFinite(x);
+  const asUnit = (arr) => {
+    if (!Array.isArray(arr) || !arr.length) return null;
+    let ss = 0;
+    for (const v of arr) { const f = +v; if (!Number.isFinite(f)) return null; ss += f*f; }
+    const n = Math.sqrt(ss);
+    if (n < 1e-12) return null;
+    return arr.map(v => +v / n);
+  };
+
+  const batchWriteAll = async (table, puts) => {
+    let i = 0, total = 0;
+    while (i < puts.length) {
+      const chunk = puts.slice(i, i + 25);
+      const params = { RequestItems: { [table]: chunk.map(Item => ({ PutRequest: { Item } })) } };
+      // retry unprocessed
+      let backoff = 100;
+      while (true) {
+        const rsp = await doc.batchWrite(params).promise();
+        const un = (rsp.UnprocessedItems && rsp.UnprocessedItems[table]) || [];
+        total += chunk.length - un.length;
+        if (!un.length) break;
+        await new Promise(r => setTimeout(r, backoff));
+        backoff = Math.min(2000, backoff * 2);
+        params.RequestItems = { [table]: un };
+      }
+      i += 25;
+    }
+    return total;
+  };
+
+  on("position", async (ctx) => {
+    const { req, res } = ctx;
+    const body = getBody(req);
+
+    const domain    = body.domain;
+    const subdomain = body.subdomain;
+    const su        = body.entity;    // required (your subdomains.su)
+    const output    = body.output ?? null;
+    const pathStr   = (typeof body.path === "string" && body.path.trim()) ? body.path : `/${domain}/${subdomain}`;
+
+    if (!domain || !subdomain || !su) {
+      res.status(400).json({ ok:false, error: "domain, subdomain, and entity (su) are required" });
+      return { __handled: true };
+    }
+
+    // 1) Prepare embedding (prefer provided; else compute if text given)
+    let eU = null;
+    if (Array.isArray(body.embedding) && body.embedding.every(isNum)) {
+      eU = asUnit(body.embedding);
+    } else if (typeof body.text === "string" && body.text.trim()) {
+      const q = body.text.trim();
+      const { data: [{ embedding }] } = await openai.embeddings.create({
+        model: EMB_MODEL_ID,
+        input: q
+      });
+      eU = asUnit(embedding);
+    }
+    if (!eU) {
+      res.status(400).json({ ok:false, error: "embedding (number[]) or text is required" });
+      return { __handled: true };
+    }
+
+    // 2) Load anchors
+    const setId     = body.anchor_set_id || DEFAULT_SET_ID;
+    const bandScale = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
+    const topL0     = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 2;
+    const numShards = Number.isFinite(+body.num_shards) ? +body.num_shards : DEFAULT_NUM_SHARDS;
+
+    const anchors = await anchorsUtil.loadAnchors({ s3, setId, band_scale: bandScale, num_shards: numShards });
+
+    if (eU.length !== anchors.d) {
+      res.status(400).json({ ok:false, error: `embedding dim ${eU.length} != anchors.d ${anchors.d}` });
+      return { __handled: true };
+    }
+
+    // 3) Assign to anchors
+    const assigns = anchorsUtil.assign(eU, anchors, { topL0, band_scale: bandScale, num_shards: numShards })
+      .map(a => ({ ...a, shard: anchorsUtil.shardOf(String(su), numShards) }));
+
+    if (!assigns.length) {
+      res.status(500).json({ ok:false, error: "no anchor assignments (unexpected)" });
+      return { __handled: true };
+    }
+
+    // 4) Write postings to anchor_bands
+    const nowIso = new Date().toISOString();
+    const postings = assigns.map(a => {
+      const post = anchorsUtil.makePosting({ setId, su: String(su), assign: a, type: "su", shards: numShards });
+      return {
+        ...post,
+        setId,
+        updatedAt: nowIso
+      };
+    });
+
+    const written = await batchWriteAll(ANCHOR_BANDS_TABLE, postings);
+
+    // 5) Update subdomains row with anchor metadata (+ labels)
+    const anchorObj = {
+      setId,
+      emb_model: EMB_MODEL_ID,
+      dim: anchors.d,
+      topL0,
+      band_scale: bandScale,
+      num_shards: numShards,
+      assigns: assigns.map(({ l0, l1, band, dist_q16 }) => ({ l0, l1, band, dist_q16 })),
+      updatedAt: nowIso
+    };
+
+    await doc.update({
+      TableName: "subdomains",
+      Key: { su: String(su) },
+      UpdateExpression: `
+        SET #anchor = :anchor,
+            #domain = :domain,
+            #subdomain = :subdomain,
+            #path = :path,
+            #output = :output
+      `,
+      ExpressionAttributeNames: {
+        "#anchor": "anchor",
+        "#domain": "domain",
+        "#subdomain": "subdomain",
+        "#path": "path",
+        "#output": "output"
+      },
+      ExpressionAttributeValues: {
+        ":anchor": anchorObj,
+        ":domain": domain,
+        ":subdomain": subdomain,
+        ":path": pathStr,
+        ":output": output
+      }
+    }).promise();
+
+    const sample = postings[0] || null;
+    return {
+      ok: true,
+      response: {
+        action: "position",
+        entity: su,
+        domain,
+        subdomain,
+        path: pathStr,
+        output,
+        anchor: anchorObj,
+        postingsWritten: written,
+        samplePK: sample?.pk,
+        sampleSK: sample?.sk
+      }
+    };
+  });
+
+  return { name: "position" };
+}
+
+module.exports = { register };
