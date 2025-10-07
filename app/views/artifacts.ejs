@@ -1,3 +1,4 @@
+<!-- views/artifacts.ejs -->
 <!doctype html>
 <html>
   <head>
@@ -6,238 +7,217 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 24px; }
-      form { display: grid; gap: 12px; max-width: 720px; margin-bottom: 28px; }
+      form { display: grid; gap: 12px; max-width: 780px; }
       label { font-weight: 600; }
-      input[type="text"], input[type="number"] { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; }
+      input[type="text"], input[type="number"], select { padding: 8px 10px; border: 1px solid #d0d7de; border-radius: 6px; }
       button { padding: 10px 14px; border-radius: 8px; border: 0; background:#111827; color:#fff; cursor:pointer; }
-      .row { display: grid; grid-template-columns: 220px 1fr; gap: 10px; align-items: center; }
+      .row { display: grid; grid-template-columns: 200px 1fr; gap: 10px; align-items: center; }
       .note { color:#6b7280; font-size: 13px; }
-      pre { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow:auto; }
-      .hstack { display:flex; gap:10px; align-items:center; }
-      .card { border:1px solid #e5e7eb; border-radius:10px; padding:16px; }
-      .muted { color:#6b7280; }
+      .pill { display:inline-flex; align-items:center; gap:6px; background:#eef2ff; color:#1f2937; padding:6px 10px; border-radius:999px; margin:4px 6px 0 0; }
+      .pill button { background: transparent; color:#6b7280; padding:0; cursor:pointer; }
+      .stack { display:grid; gap:6px; }
+      .section { margin: 26px 0 16px; font-size: 18px; }
+      pre { background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 8px; overflow:auto; max-height: 360px; }
+      .hr { height:1px; background:#e5e7eb; margin:24px 0; }
     </style>
   </head>
   <body>
     <h1>Build Anchor Artifacts</h1>
     <p class="note">
-      This bundles embeddings from <code><%= embTable %></code> into
-      <code>embeddings.f32</code>, <code>ids.jsonl</code>, <code>meta.json</code>, and <code>stats.json</code>.
-      By default uploads to <code>s3://<%= bucket %>/artifacts/</code>. Use <b>Start On</b> + <b>Limit</b> to build a paged chunk at
-      <code>artifacts/chunks/chunk-XXXXX/</code>.
+      Build artifacts in <b>chunks per <code>sourceTable</code></b> (using GSI <code>sourceTable-index</code>), then merge them.
+      Outputs land in <code>s3://&lt;bucket&gt;/artifacts/&lt;anchor_set_id&gt;/&lt;sourceTable&gt;/...</code> and finally a combined bundle in
+      <code>.../artifacts/&lt;anchor_set_id&gt;/_combined/</code>.
     </p>
 
-    <!-- Build single or chunk -->
-<form id="artifactForm" class="card" method="POST" action="/anchors/build-artifacts">
-  <h3>Build & Upload (single or paged chunk)</h3>
-
-  <div class="row">
-    <label for="bucket">S3 Bucket</label>
-    <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
-  </div>
-
-  <div class="row">
-    <label for="prefix">S3 Prefix</label>
-    <input type="text" id="prefix" name="prefix" value="artifacts/" />
-  </div>
-
-  <div class="row">
-    <label for="anchor_set_id">Anchor Set ID</label>
-    <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
-  </div>
-
-  <div class="row">
-    <label for="band_scale">Band Scale</label>
-    <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
-  </div>
-
-  <div class="row">
-    <label for="id">Single Record ID</label>
-    <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
-  </div>
-
-  <!-- GSI query params -->
-  <div class="row">
-    <label for="source_table">Source Table (PK)</label>
-    <input type="text" id="source_table" name="source_table" placeholder="e.g. i_characteristic" />
-  </div>
-
-  <div class="row">
-    <label for="from_created_at">From createdAt</label>
-    <input type="text" id="from_created_at" name="from_created_at" placeholder="e.g. 2025-01-01T00:00:00.000Z" />
-  </div>
-
-  <div class="row">
-    <label for="to_created_at">To createdAt (optional)</label>
-    <input type="text" id="to_created_at" name="to_created_at" placeholder="leave blank for open-ended" />
-  </div>
-
-  <div class="row">
-    <label for="scan_forward">Order</label>
-    <select id="scan_forward" name="scan_forward">
-      <option value="asc" selected>Oldest → Newest (ASC)</option>
-      <option value="desc">Newest → Oldest (DESC)</option>
-    </select>
-  </div>
-
-  <div class="row">
-    <label for="limit">Limit (rows per chunk)</label>
-    <input type="number" id="limit" name="limit" value="100" />
-  </div>
-
-  <!-- Cursor (LastEvaluatedKey) wiring -->
-  <input type="hidden" id="start_key" name="start_key" />
-  <div class="row">
-    <label>Cursor</label>
-    <div class="hstack">
-      <span class="muted">start_key:</span>
-      <code id="start_key_display" class="muted">(none)</code>
-      <button type="button" id="cursor_reset">Reset</button>
-    </div>
-  </div>
-
-  <!-- Chunk counter (S3 folder index) -->
-  <div class="row">
-    <label for="chunk_index">Chunk # (folder index)</label>
-    <input type="number" id="chunk_index" name="chunk_index" value="0" min="0" />
-  </div>
-
-  <div class="row">
-    <label>Chunk Indicator</label>
-    <div class="hstack">
-      <span class="muted">Current chunk:</span>
-      <strong id="chunk_display">0</strong>
-      <button type="button" id="chunk_dec">-1</button>
-      <button type="button" id="chunk_inc">+1</button>
-      <label class="hstack"><input type="checkbox" id="auto_inc" /> Auto-increment after success</label>
-    </div>
-  </div>
-
-  <p class="note muted">
-    Uses GSI <code>createdAt-index</code> (PK=<code>sourceTable</code>, SK=<code>createdAt</code>) with a cursor (<code>start_key</code>) for fast, deterministic paging.
-  </p>
-
-  <button type="submit">Build & Upload</button>
-</form>
-    <!-- Merge -->
-    <form id="mergeForm" class="card" method="POST" action="/anchors/merge-artifacts">
-      <h3>Merge Artifacts (stitch all chunks)</h3>
-
+    <!-- ========== CHUNK BUILDER (one sourceTable at a time) ========== -->
+    <div class="section">Chunk builder (per <code>sourceTable</code>)</div>
+    <form id="chunkForm" method="POST" action="/anchors/build-artifacts">
       <div class="row">
-        <label for="m_bucket">S3 Bucket</label>
-        <input type="text" id="m_bucket" name="bucket" value="<%= bucket %>" />
+        <label for="bucket">S3 Bucket</label>
+        <input type="text" id="bucket" name="bucket" value="<%= bucket %>" />
       </div>
 
       <div class="row">
-        <label for="m_prefix">S3 Prefix (base)</label>
-        <input type="text" id="m_prefix" name="prefix" value="artifacts/" />
+        <label for="prefix">Base S3 Prefix</label>
+        <input type="text" id="prefix" name="prefix" value="artifacts/" />
       </div>
 
       <div class="row">
-        <label for="m_total_chunks">Total Chunks</label>
-        <input type="number" id="m_total_chunks" name="total_chunks" placeholder="e.g., 42" />
+        <label for="anchor_set_id">Anchor Set ID</label>
+        <input type="text" id="anchor_set_id" name="anchor_set_id" value="<%= anchorSetId %>" />
       </div>
 
       <div class="row">
-        <label for="m_out_prefix">Output Prefix</label>
-        <input type="text" id="m_out_prefix" name="out_prefix" value="artifacts/final/" />
+        <label for="band_scale">Band Scale</label>
+        <input type="number" id="band_scale" name="band_scale" value="<%= bandScale %>" />
       </div>
 
-      <p class="note muted">
-        If <b>Total Chunks</b> is provided, the merge expects
-        <code>artifacts/chunks/chunk-00000/</code> … <code>chunk-XXXXX/</code> to exist.
-        If empty, the server will auto-list chunks under <code>artifacts/chunks/</code>.
-      </p>
+      <div class="row">
+        <label for="sourceTableSelect">sourceTable</label>
+        <div class="stack">
+          <select id="sourceTableSelect"></select>
+          <div class="note">Populated from <code>sourceTable-index</code></div>
+        </div>
+      </div>
 
-      <button type="submit">Merge Artifacts</button>
+      <div class="row">
+        <label>&nbsp;</label>
+        <div class="stack">
+          <button type="button" id="addSourceBtn">Add to list</button>
+          <div id="selectedSources"></div>
+          <div class="note">This list accumulates the chunks you plan to combine later.</div>
+        </div>
+      </div>
+
+      <div class="row">
+        <label for="id">Single Record ID</label>
+        <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
+      </div>
+
+      <div class="row">
+        <label for="limit">Limit (safety)</label>
+        <input type="number" id="limit" name="limit" value="0" />
+      </div>
+
+      <input type="hidden" id="sourceTable" name="sourceTable" />
+      <button type="submit">Build Chunk for Selected sourceTable</button>
     </form>
 
-    <h3>Response</h3>
-    <pre id="rsp">(click a button to run)</pre>
+    <h3>Chunk Response</h3>
+    <pre id="rspChunk">(choose a source and click “Build”)</pre>
 
-<script>
-  const rsp  = document.getElementById('rsp');
+    <div class="hr"></div>
 
-  // --- Chunk counter UI state ---
-  const chunkInput   = document.getElementById('chunk_index');
-  const chunkDisplay = document.getElementById('chunk_display');
-  const incBtn       = document.getElementById('chunk_inc');
-  const decBtn       = document.getElementById('chunk_dec');
-  const autoInc      = document.getElementById('auto_inc');
+    <!-- ========== COMBINE ========== -->
+    <div class="section">Combine built chunks</div>
+    <form id="combineForm" method="POST" action="/anchors/combine-artifacts">
+      <div class="row">
+        <label for="bucket2">S3 Bucket</label>
+        <input type="text" id="bucket2" name="bucket" value="<%= bucket %>" />
+      </div>
 
-  // --- Cursor wiring ---
-  const startKeyInput   = document.getElementById('start_key');
-  const startKeyDisplay = document.getElementById('start_key_display');
-  const cursorResetBtn  = document.getElementById('cursor_reset');
-  const CURSOR_KEY      = 'artifact_next_start_key';
+      <div class="row">
+        <label for="prefix2">Base S3 Prefix</label>
+        <input type="text" id="prefix2" name="prefix" value="artifacts/" />
+      </div>
 
-  function loadChunk() {
-    const saved = localStorage.getItem('artifact_chunk_index');
-    if (saved !== null) chunkInput.value = Number(saved);
-    chunkDisplay.textContent = chunkInput.value;
-  }
-  function saveChunk() {
-    localStorage.setItem('artifact_chunk_index', String(chunkInput.value));
-    chunkDisplay.textContent = chunkInput.value;
-  }
+      <div class="row">
+        <label for="anchor_set_id2">Anchor Set ID</label>
+        <input type="text" id="anchor_set_id2" name="anchor_set_id" value="<%= anchorSetId %>" />
+      </div>
 
-  function loadCursor() {
-    const saved = localStorage.getItem(CURSOR_KEY);
-    if (saved) {
-      startKeyInput.value = saved;
-      startKeyDisplay.textContent = saved.slice(0, 28) + '…';
-    } else {
-      startKeyInput.value = '';
-      startKeyDisplay.textContent = '(none)';
-    }
-  }
-  function resetCursor() {
-    localStorage.removeItem(CURSOR_KEY);
-    loadCursor();
-  }
+      <div class="row">
+        <label for="band_scale2">Band Scale</label>
+        <input type="number" id="band_scale2" name="band_scale" value="<%= bandScale %>" />
+      </div>
 
-  loadChunk();
-  loadCursor();
+      <div class="row">
+        <label for="out_suffix">Output Suffix</label>
+        <input type="text" id="out_suffix" name="out_suffix" value="_combined" />
+      </div>
 
-  chunkInput.addEventListener('input', saveChunk);
-  incBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1); saveChunk(); });
-  decBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) - 1); saveChunk(); });
-  cursorResetBtn.addEventListener('click', resetCursor);
+      <input type="hidden" id="sourcesJson" name="sources" />
+      <button type="submit">Combine All Listed Chunks</button>
+    </form>
 
-  async function handleForm(e) {
-    e.preventDefault();
-    const form = e.currentTarget;
-    const fd = new FormData(form);
+    <h3>Combine Response</h3>
+    <pre id="rspCombine">(click “Combine” when you’re ready)</pre>
 
-    // Ensure we submit the latest chunk index + cursor
-    fd.set('chunk_index', String(Number(chunkInput.value || 0)));
-    const body = new URLSearchParams(fd);
+    <script>
+      const sel = document.getElementById('sourceTableSelect');
+      const listEl = document.getElementById('selectedSources');
+      const addBtn = document.getElementById('addSourceBtn');
+      const chunkForm = document.getElementById('chunkForm');
+      const combineForm = document.getElementById('combineForm');
+      const rspChunk = document.getElementById('rspChunk');
+      const rspCombine = document.getElementById('rspCombine');
+      const hiddenSource = document.getElementById('sourceTable');
+      const hiddenSourcesJson = document.getElementById('sourcesJson');
 
-    const n = Number(chunkInput.value || 0);
-    rsp.textContent = `Working... (chunk #${n})`;
+      let selected = JSON.parse(localStorage.getItem('selectedSources') || '[]');
 
-    try {
-      const res = await fetch(form.action, { method: form.method || 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
-      const json = await res.json();
-      rsp.textContent = JSON.stringify(json, null, 2);
-
-      // Save next cursor if provided
-      if (json && typeof json.next_start_key === 'string' && json.next_start_key.length) {
-        localStorage.setItem(CURSOR_KEY, json.next_start_key);
-        loadCursor();
+      function renderSelected() {
+        listEl.innerHTML = '';
+        selected.forEach((name, idx) => {
+          const pill = document.createElement('span');
+          pill.className = 'pill';
+          pill.innerHTML = `<span>${name}</span>`;
+          const rm = document.createElement('button');
+          rm.type = 'button';
+          rm.textContent = '×';
+          rm.addEventListener('click', () => {
+            selected.splice(idx, 1);
+            localStorage.setItem('selectedSources', JSON.stringify(selected));
+            renderSelected();
+          });
+          pill.appendChild(rm);
+          listEl.appendChild(pill);
+        });
       }
 
-      // Auto-increment chunk counter after success
-      if (autoInc.checked && json && json.ok) {
-        chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1);
-        saveChunk();
+      async function loadSourceTables() {
+        try {
+          const res = await fetch('/anchors/source-tables');
+          const json = await res.json();
+          sel.innerHTML = '';
+          (json.sourceTables || []).forEach(st => {
+            const opt = document.createElement('option');
+            opt.value = st;
+            opt.textContent = st;
+            sel.appendChild(opt);
+          });
+        } catch (e) {
+          sel.innerHTML = '<option value="">(error loading)</option>';
+        }
       }
-    } catch (err) {
-      rsp.textContent = 'Error: ' + err.message;
-    }
-  }
 
-  document.getElementById('artifactForm').addEventListener('submit', handleForm);
-</script>
+      addBtn.addEventListener('click', () => {
+        const v = sel.value;
+        if (!v) return;
+        if (!selected.includes(v)) {
+          selected.push(v);
+          localStorage.setItem('selectedSources', JSON.stringify(selected));
+          renderSelected();
+        }
+      });
+
+      chunkForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const chosen = sel.value;
+        if (!chosen) { alert('Pick a sourceTable first.'); return; }
+        hiddenSource.value = chosen;
+
+        const fd = new FormData(chunkForm);
+        const body = new URLSearchParams(fd);
+        rspChunk.textContent = 'Building chunk...';
+        try {
+          const res = await fetch(chunkForm.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+          const json = await res.json();
+          rspChunk.textContent = JSON.stringify(json, null, 2);
+        } catch (err) {
+          rspChunk.textContent = 'Error: ' + err.message;
+        }
+      });
+
+      combineForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        if (!selected.length) { alert('Add at least one sourceTable to the list.'); return; }
+        hiddenSourcesJson.value = JSON.stringify(selected);
+
+        const fd = new FormData(combineForm);
+        const body = new URLSearchParams(fd);
+        rspCombine.textContent = 'Combining...';
+        try {
+          const res = await fetch(combineForm.action, { method: 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
+          const json = await res.json();
+          rspCombine.textContent = JSON.stringify(json, null, 2);
+        } catch (err) {
+          rspCombine.textContent = 'Error: ' + err.message;
+        }
+      });
+
+      renderSelected();
+      loadSourceTables();
+    </script>
   </body>
 </html>

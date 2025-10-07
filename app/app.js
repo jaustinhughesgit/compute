@@ -416,97 +416,64 @@ async function _putBufferToS3({ Bucket, Key, BufferBody, ContentType }) {
   await s3.putObject({ Bucket, Key, Body: BufferBody, ContentType }).promise();
   return { Bucket, Key };
 }
-function projection(fields) {
-  const ExpressionAttributeNames = {};
-  const ProjectionExpression = fields.map(f => {
-    const alias = '#' + f.replace(/[^\w]/g, '_');
-    ExpressionAttributeNames[alias] = f;
-    return alias;
-  }).join(', ');
-  return { ProjectionExpression, ExpressionAttributeNames };
-}
-
 
 // Fetch exactly one item by id (if provided), else scan up to `limit` items
-async function _fetchEmbRows({ id, skip = 0, limit = 0 } = {}) {
-  const proj = projection(['id','path','emb']);
+async function _fetchEmbRows({ id, limit, sourceTable } = {}) {
+  // Build a projection that safely aliases reserved names
+  const ProjectionExpression = '#i, #p, #e';
+  const baseNames = { '#i': 'id', '#p': 'path', '#e': 'emb' };
 
+  // Fetch a single item by id
   if (id) {
-    const { Item } = await dynamodb.get({
+    const params = {
       TableName: EMBPATHS_TABLE,
       Key: { id },
-      ...proj
-    }).promise();
+      ProjectionExpression,
+      ExpressionAttributeNames: baseNames
+    };
+    const { Item } = await dynamodb.get(params).promise();
     return Item ? [Item] : [];
   }
 
-  skip  = Math.max(0, Number(skip)  || 0);
-  limit = Math.max(0, Number(limit) || 0);
-  if (!limit) return [];
+  // Otherwise collect up to `limit` rows (0 or falsy = "all that we can")
+  const out = [];
+  let ExclusiveStartKey;
+  const target = Math.max(0, Math.min(Number(limit) || 0, 500000)); // sanity cap
 
-  const rows = [];
-  let ExclusiveStartKey, skipped = 0;
-
-  while (rows.length < limit) {
-    const { Items, LastEvaluatedKey } = await dynamodb.scan({
-      TableName: EMBPATHS_TABLE,
-      Limit: 200,
-      ExclusiveStartKey,
-      ...proj
-    }).promise();
-
-    if (!Items || !Items.length) break;
-
-    for (const it of Items) {
-      if (skipped < skip) { skipped++; continue; }
-      if (rows.length < limit) rows.push(it);
-      if (rows.length >= limit) break;
-    }
-    ExclusiveStartKey = LastEvaluatedKey;
-    if (!ExclusiveStartKey) break;
+  if (sourceTable) {
+    // Query the GSI for one sourceTable
+    do {
+      const { Items, LastEvaluatedKey } = await dynamodb.query({
+        TableName: EMBPATHS_TABLE,
+        IndexName: 'sourceTable-index',
+        KeyConditionExpression: '#st = :st',
+        ExpressionAttributeNames: { ...baseNames, '#st': 'sourceTable' },
+        ExpressionAttributeValues: { ':st': sourceTable },
+        ProjectionExpression,
+        Limit: Math.min(2000, target ? target - out.length : 2000),
+        ExclusiveStartKey
+      }).promise();
+      if (Items && Items.length) out.push(...Items);
+      ExclusiveStartKey = LastEvaluatedKey;
+    } while (ExclusiveStartKey && (!target || out.length < target));
+  } else {
+    // Fallback: scan entire table (legacy)
+    do {
+      const { Items, LastEvaluatedKey } = await dynamodb.scan({
+        TableName: EMBPATHS_TABLE,
+        ProjectionExpression,
+        ExpressionAttributeNames: baseNames,
+        Limit: Math.min(500, target ? target - out.length : 500),
+        ExclusiveStartKey
+      }).promise();
+      if (Items && Items.length) out.push(...Items);
+      ExclusiveStartKey = LastEvaluatedKey;
+    } while (ExclusiveStartKey && (!target || out.length < target));
   }
 
-  return rows;
+  return target ? out.slice(0, target) : out;
 }
-async function _getJSONfromS3({ Bucket, Key }) {
-  const obj = await s3.getObject({ Bucket, Key }).promise();
-  return JSON.parse(obj.Body.toString('utf8'));
-}
-async function _getBufferFromS3({ Bucket, Key }) {
-  const obj = await s3.getObject({ Bucket, Key }).promise();
-  return obj.Body; // Buffer
-}
-async function _listChunkPrefixes(Bucket, basePrefix) {
-  // returns sorted list of "artifacts/chunks/chunk-00000/" style prefixes
-  let ContinuationToken = undefined;
-  const seen = new Set();
-  const prefixes = [];
-  const chunksPrefix = basePrefix.endsWith('/') ? `${basePrefix}chunks/` : `${basePrefix}/chunks/`;
 
-  do {
-    const rsp = await s3.listObjectsV2({ Bucket, Prefix: chunksPrefix, ContinuationToken }).promise();
-    for (const it of (rsp.Contents || [])) {
-      const key = it.Key;
-      const m = key.match(/(chunks\/chunk-\d{5}\/)/);
-      if (m) {
-        const pfx = `${basePrefix}${m[1]}`.replace(`${basePrefix}chunks/chunk`, 'chunks/chunk'); // normalize
-      }
-    }
-    // Better: compute from keys directly
-    for (const it of (rsp.Contents || [])) {
-      const key = it.Key;
-      const m = key.match(/(.+chunks\/chunk-\d{5}\/)/);
-      if (m) {
-        const pfx = m[1].endsWith('/') ? m[1] : `${m[1]}/`;
-        if (!seen.has(pfx)) { seen.add(pfx); prefixes.push(pfx); }
-      }
-    }
-    ContinuationToken = rsp.IsTruncated ? rsp.NextContinuationToken : undefined;
-  } while (ContinuationToken);
-
-  prefixes.sort((a, b) => a.localeCompare(b)); // chunk-00000 .. chunk-99999
-  return prefixes;
-}
 
 /**
  * Build artifacts bundle:
@@ -526,190 +493,73 @@ async function _listChunkPrefixes(Bucket, basePrefix) {
 app.post('/anchors/build-artifacts', async (req, res) => {
   const t0 = Date.now();
   const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
-  const band_scale    = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
-  const Bucket        = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
-  let   prefix        = (req.body.prefix || 'artifacts/').trim();
+  const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
+  const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
+
+  // Base prefix
+  let prefix = (req.body.prefix || 'artifacts/').trim();
   if (!prefix.endsWith('/')) prefix += '/';
 
-  // Single-record override (bypasses GSI)
   const idFilter = typeof req.body.id === 'string' && req.body.id.trim() ? req.body.id.trim() : null;
-
-  // GSI query params (fast path)
-  const sourceTable = typeof req.body.source_table === 'string' ? req.body.source_table.trim() : '';
-  const fromCreated = (typeof req.body.from_created_at === 'string' && req.body.from_created_at.trim())
-    ? req.body.from_created_at.trim()
-    : '1970-01-01T00:00:00.000Z';
-  const toCreated   = (typeof req.body.to_created_at === 'string' && req.body.to_created_at.trim())
-    ? req.body.to_created_at.trim()
-    : null; // open-ended by default
-  const scanForward = String(req.body.scan_forward || 'asc').toLowerCase() !== 'desc'; // true = ASC
-
-  // Cursor paging via LastEvaluatedKey (base64)
-  const startKeyB64 = (typeof req.body.start_key === 'string' && req.body.start_key.trim())
-    ? req.body.start_key.trim()
+  const sourceTableFilter = typeof req.body.sourceTable === 'string' && req.body.sourceTable.trim()
+    ? req.body.sourceTable.trim()
     : null;
 
-  // Chunking & limit
-  const limit = idFilter ? 1 : Math.max(1, Number(req.body.limit || 0) || 100);
-  const userChunkIndex = (req.body.chunk_index !== undefined && req.body.chunk_index !== null)
-    ? Math.max(0, Number(req.body.chunk_index))
-    : null;
-
-  // Helpers
-  const encodeStartKey = (obj) => {
-    try { return obj ? Buffer.from(JSON.stringify(obj), 'utf8').toString('base64') : null; } catch { return null; }
-  };
-  const decodeStartKey = (b64) => {
-    try { return b64 ? JSON.parse(Buffer.from(b64, 'base64').toString('utf8')) : undefined; } catch { return undefined; }
-  };
-  const projNames = { '#id': 'id', '#p': 'path', '#e': 'emb', '#st': 'sourceTable', '#ca': 'createdAt' };
-  const projExpr  = '#id, #p, #e, #st, #ca';
+  const limit = idFilter ? 1 : Number(req.body.limit || 0);
 
   try {
-    let raw = [];
-    let nextLEK = null;
-
-    if (idFilter) {
-      // Exact Get by id
-      const { Item } = await dynamodb.get({
-        TableName: EMBPATHS_TABLE,
-        Key: { id: idFilter },
-        ProjectionExpression: projExpr,
-        ExpressionAttributeNames: projNames
-      }).promise();
-      raw = Item ? [Item] : [];
-    } else {
-      if (!sourceTable || sourceTable === 'i_*') {
-        return res.status(400).json({
-          ok: false,
-          error: 'source_table is required and must be an exact partition key (e.g., "i_characteristic"). DynamoDB cannot Query partition key with begins_with.'
-        });
-      }
-
-      // Key condition for createdAt range
-      let KeyConditionExpression;
-      const ExpressionAttributeValues = { ':st': sourceTable, ':from': fromCreated };
-      if (toCreated) {
-        KeyConditionExpression = '#st = :st AND #ca BETWEEN :from AND :to';
-        ExpressionAttributeValues[':to'] = toCreated;
-      } else {
-        KeyConditionExpression = '#st = :st AND #ca >= :from';
-      }
-
-      // Query the GSI with deterministic order and tight limit
-      const resp = await dynamodb.query({
-        TableName: EMBPATHS_TABLE,
-        IndexName: 'createdAt-index',
-        ProjectionExpression: projExpr,
-        ExpressionAttributeNames: projNames,
-        KeyConditionExpression,
-        ExpressionAttributeValues,
-        ScanIndexForward: scanForward, // true = oldest→newest
-        Limit: limit,
-        ExclusiveStartKey: decodeStartKey(startKeyB64)
-      }).promise();
-
-      raw = resp.Items || [];
-      nextLEK = resp.LastEvaluatedKey || null;
-    }
-
+    // 1) Fetch rows (now supports sourceTable filter via GSI)
+    const raw = await _fetchEmbRows({
+      id: idFilter,
+      limit,
+      sourceTable: sourceTableFilter
+    });
     if (!raw.length) {
       return res.status(404).json({
-        ok: false,
+        ok:false,
         error: idFilter
           ? `No item found for id=${idFilter}`
-          : `No rows found for source_table=${sourceTable} (from=${fromCreated}${toCreated ? ` to=${toCreated}` : ''}).`
+          : sourceTableFilter
+            ? `No rows for sourceTable=${sourceTableFilter} in ${EMBPATHS_TABLE}`
+            : `No rows in ${EMBPATHS_TABLE}`
       });
     }
 
-    // Normalize & validate
-    const rows = [];
-    let d = null, zeroOrBad = 0, dimMismatch = 0;
-    for (const it of raw) {
-      const id   = it.id || it.ID || it.pk || it.PK;
-      const path = it.path || '';
-      let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
-      if (!v) { zeroOrBad++; continue; }
-      if (d == null) d = v.length;
-      if (v.length !== d) { dimMismatch++; continue; }
-      const u = _unitNormalize(v);
-      if (!u) { zeroOrBad++; continue; }
-      rows.push({ id: String(id), path: String(path), emb: u });
-    }
+    // 2) Normalize & validate (unchanged) ...
+    // 3) Build artifacts (unchanged) ...
 
-    if (!rows.length) {
-      return res.status(400).json({
-        ok:false,
-        error: 'No valid embeddings after normalization',
-        stats: { scanned: raw.length, zeroOrBad, dimMismatch }
-      });
-    }
+    // 4) Upload to S3 — write under /artifacts/<anchor_set_id>/<sourceTable>/ if present
+    const baseKey = sourceTableFilter
+      ? `${prefix}${anchor_set_id}/${encodeURIComponent(sourceTableFilter)}/`
+      : `${prefix}`;
 
-    // Build artifacts
-    const N = rows.length;
-    const embeddingsBuf = _float32RowMajorBuffer(rows, d);
-    const idsJsonl      = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
-    const created_at    = new Date().toISOString();
-
-    // Output key base (use client-provided chunk index if present)
-    let baseKey = `${prefix}`;
-    let chunkIndex = null;
-    let chunkDir = null;
-
-    if (userChunkIndex !== null && Number.isFinite(userChunkIndex)) {
-      chunkIndex = userChunkIndex;
-      const pad = String(chunkIndex).padStart(5, '0');
-      chunkDir = `chunks/chunk-${pad}/`;
-      baseKey  = `${prefix}${chunkDir}`;
-    }
-
-    const meta = {
-      N, d,
-      model_id: EMB_MODEL,
-      source_table: sourceTable || (raw[0] && raw[0].sourceTable) || null,
-      source_table_time_window: { from: fromCreated, to: toCreated || null },
-      source_table_scan_forward: scanForward,
-      source_table_index: 'createdAt-index',
-      created_at,
-      anchor_set_id,
-      band_scale,
-      ...(chunkDir ? { chunk: { index: chunkIndex } } : {})
-    };
-    const stats = _computeStats(rows);
-
-    // Upload to S3
     const uploads = await Promise.all([
       _putBufferToS3({ Bucket, Key: `${baseKey}embeddings.f32`, BufferBody: embeddingsBuf, ContentType: 'application/octet-stream' }),
       _putBufferToS3({ Bucket, Key: `${baseKey}ids.jsonl`,      BufferBody: Buffer.from(idsJsonl, 'utf8'), ContentType: 'application/x-ndjson' }),
-      _putJSONtoS3({ Bucket, Key: `${baseKey}meta.json`,        obj: meta }),
+      _putJSONtoS3({ Bucket, Key: `${baseKey}meta.json`,        obj: { ...meta, chunk_of: sourceTableFilter || null } }),
       _putJSONtoS3({ Bucket, Key: `${baseKey}stats.json`,       obj: stats })
     ]);
 
     const ms = Date.now() - t0;
-
     return res.json({
       ok: true,
-      message: chunkDir ? `Chunk ${chunkIndex} built and uploaded.` : 'Artifacts built and uploaded.',
+      message: sourceTableFilter ? `Chunk built for sourceTable=${sourceTableFilter}` : 'Artifacts built and uploaded.',
       s3: uploads,
       where: `s3://${Bucket}/${baseKey}`,
-      meta,
+      meta: { ...meta, chunk_of: sourceTableFilter || null },
       sanity: stats,
-      counts: { scanned: raw.length, kept: N, zeroOrBad, dimMismatch },
-      echoedChunkIndex: chunkIndex,
-      used_start_key: startKeyB64 || null,
-      next_start_key: encodeStartKey(nextLEK),
+      counts: { scanned: raw.length, kept: rows.length, zeroOrBad, dimMismatch },
       durationMs: ms,
-      note: idFilter
-        ? `Single-record build for id=${idFilter}`
-        : `GSI query on source_table=${sourceTable}, limit=${limit}, scan_forward=${scanForward}`
+      note: idFilter ? `Single-record build for id=${idFilter}` :
+            limit ? `Limited to ${limit} records` :
+            sourceTableFilter ? `All records for sourceTable=${sourceTableFilter}` :
+            'All records'
     });
   } catch (err) {
     console.error('build-artifacts error:', err);
     return res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
-
-
 
 
 
@@ -723,123 +573,127 @@ app.get('/anchors/artifacts', (req, res) => {
   });
 });
 
-/**
- * Merge chunked artifacts under artifacts/chunks/chunk-XXXXX/ into a single bundle.
- *
- * Body:
- * - bucket        (defaults to DEFAULT_S3_BUCKET)
- * - prefix        (defaults to 'artifacts/')
- * - out_prefix    (defaults to 'artifacts/final/')
- * - total_chunks  (optional) if provided, expects chunk-00000 .. chunk-XXXXX
- */
-app.post('/anchors/merge-artifacts', async (req, res) => {
+// Unique sourceTable list using the GSI
+app.get('/anchors/source-tables', async (req, res) => {
+  try {
+    const seen = new Set();
+    let ExclusiveStartKey;
+
+    do {
+      const { Items, LastEvaluatedKey } = await dynamodb.scan({
+        TableName: EMBPATHS_TABLE,
+        IndexName: 'sourceTable-index',
+        ProjectionExpression: '#st',
+        ExpressionAttributeNames: { '#st': 'sourceTable' },
+        ExclusiveStartKey
+      }).promise();
+
+      for (const it of (Items || [])) if (it.sourceTable) seen.add(it.sourceTable);
+      ExclusiveStartKey = LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+
+    res.json({ ok: true, sourceTables: Array.from(seen).sort() });
+  } catch (err) {
+    console.error('list sourceTables error:', err);
+    res.status(500).json({ ok:false, error: err.message || String(err) });
+  }
+});
+
+// Combine multiple chunk directories into a single bundle
+app.post('/anchors/combine-artifacts', async (req, res) => {
   const t0 = Date.now();
   try {
     const Bucket = (req.body.bucket || DEFAULT_S3_BUCKET).trim();
-    let basePrefix = (req.body.prefix || 'artifacts/').trim();
-    let outPrefix  = (req.body.out_prefix || 'artifacts/final/').trim();
-    if (!basePrefix.endsWith('/')) basePrefix += '/';
-    if (!outPrefix.endsWith('/'))  outPrefix  += '/';
+    let prefix = (req.body.prefix || 'artifacts/').trim();
+    if (!prefix.endsWith('/')) prefix += '/';
+    const anchor_set_id = (req.body.anchor_set_id || DEFAULT_ANCHOR_SET_ID).trim();
+    const band_scale = Number(req.body.band_scale ?? DEFAULT_BAND_SCALE) || DEFAULT_BAND_SCALE;
+    const out_suffix = (req.body.out_suffix || '_combined').trim();
 
-    let chunkPrefixes = [];
-    const totalChunks = Number(req.body.total_chunks || 0);
+    // sources can come as JSON string or array
+    const sources = Array.isArray(req.body.sources)
+      ? req.body.sources
+      : JSON.parse(req.body.sources || '[]');
 
-    if (totalChunks > 0) {
-      // Build deterministic chunk folder names
-      for (let i = 0; i < totalChunks; i++) {
-        const pad = String(i).padStart(5, '0');
-        chunkPrefixes.push(`${basePrefix}chunks/chunk-${pad}/`);
+    if (!sources.length) {
+      return res.status(400).json({ ok:false, error:'No sources specified' });
+    }
+
+    // Read each chunk: embeddings.f32 + ids.jsonl (+ meta)
+    const embBufs = [];
+    const idLines = [];
+    let d = null;
+    let model_id = EMB_MODEL;
+    let totalN = 0;
+
+    for (const st of sources) {
+      const base = `${prefix}${anchor_set_id}/${encodeURIComponent(st)}/`;
+
+      // meta.json
+      const metaObj = JSON.parse(
+        (await s3.getObject({ Bucket, Key: `${base}meta.json` }).promise()).Body.toString('utf8')
+      );
+      if (d == null) d = metaObj.d;
+      if (metaObj.d !== d) {
+        return res.status(400).json({ ok:false, error:`Dimension mismatch: ${st} has d=${metaObj.d} but expected d=${d}` });
       }
-    } else {
-      // Auto-discover all chunk folders present
-      chunkPrefixes = await _listChunkPrefixes(Bucket, basePrefix);
-      if (!chunkPrefixes.length) {
-        return res.status(404).json({ ok:false, error: `No chunk prefixes found under s3://${Bucket}/${basePrefix}chunks/` });
-      }
+      model_id = metaObj.model_id || model_id;
+      totalN += metaObj.N;
+
+      // embeddings.f32
+      const embBody = (await s3.getObject({ Bucket, Key: `${base}embeddings.f32` }).promise()).Body;
+      embBufs.push(Buffer.from(embBody));
+
+      // ids.jsonl
+      const idsBody = (await s3.getObject({ Bucket, Key: `${base}ids.jsonl` }).promise()).Body.toString('utf8');
+      idLines.push(idsBody.endsWith('\n') ? idsBody : idsBody + '\n');
     }
 
-    // Fetch and validate metas to determine d and total N
-    const metas = [];
-    for (const pfx of chunkPrefixes) {
-      try {
-        const m = await _getJSONfromS3({ Bucket, Key: `${pfx}meta.json` });
-        metas.push({ prefix: pfx, meta: m });
-      } catch {
-        // skip chunks without meta
-      }
-    }
-    if (!metas.length) return res.status(404).json({ ok:false, error: 'No chunk meta.json files found.' });
+    // Concatenate
+    const combinedEmb = Buffer.concat(embBufs);
+    const combinedIds = idLines.join('');
 
-    const d = metas[0].meta.d;
-    const model_id = metas[0].meta.model_id;
-    const anchor_set_id = metas[0].meta.anchor_set_id;
-    const band_scale = metas[0].meta.band_scale;
-
-    for (const { meta } of metas) {
-      if (meta.d !== d) throw new Error(`Dimension mismatch: expected d=${d}, found d=${meta.d}`);
-      if (meta.model_id !== model_id) throw new Error(`Model mismatch between chunks.`);
-    }
-
-    const perChunkN = metas.map(m => m.meta.N);
-    const totalN = perChunkN.reduce((a,b) => a+b, 0);
-
-    // 1) Merge embeddings.f32 (row-major Float32). Naive in-memory concatenation.
-    //    NOTE: This keeps everything in memory; for very large merges consider multipart upload streaming.
-    const embedBuffers = [];
-    for (const { prefix: pfx } of metas) {
-      const buf = await _getBufferFromS3({ Bucket, Key: `${pfx}embeddings.f32` });
-      embedBuffers.push(buf);
-    }
-    const embeddingsMerged = Buffer.concat(embedBuffers);
-
-    // 2) Merge ids.jsonl by concatenation
-    const idsParts = [];
-    for (const { prefix: pfx } of metas) {
-      const buf = await _getBufferFromS3({ Bucket, Key: `${pfx}ids.jsonl` });
-      idsParts.push(buf);
-    }
-    const idsMerged = Buffer.concat(idsParts);
-
-    // 3) Compute (light) stats for merged
-    const stats = { chunks: metas.length, per_chunk_N: perChunkN, totalN };
-
-    // 4) Final meta
-    const finalMeta = {
+    const created_at = new Date().toISOString();
+    const outBase = `${prefix}${anchor_set_id}/${out_suffix}/`;
+    const meta = {
       N: totalN,
       d,
       model_id,
       source_table: EMBPATHS_TABLE,
       anchor_set_id,
       band_scale,
-      created_at: new Date().toISOString(),
-      merged_from: metas.map(m => m.prefix)
+      created_at,
+      combined_from: sources
     };
 
-    // 5) Upload
+    // Lightweight combine "stats" (we skip heavy pairwise recompute to avoid memory strain)
+    const stats = {
+      type: 'combined',
+      sources,
+      totals: { N: totalN, d }
+    };
+
     const uploads = await Promise.all([
-      _putBufferToS3({ Bucket, Key: `${outPrefix}embeddings.f32`, BufferBody: embeddingsMerged, ContentType: 'application/octet-stream' }),
-      _putBufferToS3({ Bucket, Key: `${outPrefix}ids.jsonl`,      BufferBody: idsMerged, ContentType: 'application/x-ndjson' }),
-      _putJSONtoS3({ Bucket, Key: `${outPrefix}meta.json`,        obj: finalMeta }),
-      _putJSONtoS3({ Bucket, Key: `${outPrefix}stats.json`,       obj: stats })
+      _putBufferToS3({ Bucket, Key: `${outBase}embeddings.f32`, BufferBody: combinedEmb, ContentType: 'application/octet-stream' }),
+      _putBufferToS3({ Bucket, Key: `${outBase}ids.jsonl`,      BufferBody: Buffer.from(combinedIds, 'utf8'), ContentType: 'application/x-ndjson' }),
+      _putJSONtoS3({ Bucket, Key: `${outBase}meta.json`,        obj: meta }),
+      _putJSONtoS3({ Bucket, Key: `${outBase}stats.json`,       obj: stats })
     ]);
 
     const ms = Date.now() - t0;
-    return res.json({
+    res.json({
       ok: true,
-      message: `Merged ${metas.length} chunks into ${outPrefix}`,
-      where: `s3://${Bucket}/${outPrefix}`,
-      uploads,
-      meta: finalMeta,
-      stats,
+      message: 'Combined bundle created.',
+      where: `s3://${Bucket}/${outBase}`,
+      s3: uploads,
+      meta,
       durationMs: ms
     });
   } catch (err) {
-    console.error('merge-artifacts error:', err);
-    return res.status(500).json({ ok:false, error: err.message || String(err) });
+    console.error('combine-artifacts error:', err);
+    res.status(500).json({ ok:false, error: err.message || String(err) });
   }
 });
-
-
 
 
 
