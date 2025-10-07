@@ -4,7 +4,7 @@
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const anchorsUtil = require("./routes/anchors");
+const anchorsUtil = require("./anchors");
 
 // You'll paste your full DOMAINS/DOMAIN_SUBS below. DOMAINS is used for classification display only here.
 const DOMAINS = [
