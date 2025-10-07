@@ -525,8 +525,53 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       });
     }
 
-    // 2) Normalize & validate (unchanged) ...
-    // 3) Build artifacts (unchanged) ...
+// 2) Normalize & validate
+    const rows = [];
+    let d = null;
+    let zeroOrBad = 0;
+    let dimMismatch = 0;
+
+    for (const it of raw) {
+      // tolerate a few alternate key casings just in case
+      const id   = it.id   ?? it.ID   ?? it.pk ?? it.PK;
+      const path = it.path ?? it.Path ?? it.PATH ?? '';
+      let v = Array.isArray(it.emb) ? it.emb : parseEmbedding(it.emb);
+
+      if (!id || !path || !v) { zeroOrBad++; continue; }
+
+      if (d == null) d = v.length;
+      if (v.length !== d) { dimMismatch++; continue; }
+
+      const u = _unitNormalize(v);
+      if (!u) { zeroOrBad++; continue; }
+
+      rows.push({ id: String(id), path: String(path), emb: u });
+    }
+
+    if (!rows.length) {
+      return res.status(400).json({
+        ok: false,
+        error: 'No valid embeddings after normalization',
+        stats: { scanned: raw.length, zeroOrBad, dimMismatch }
+      });
+    }
+
+    // 3) Build artifacts in-memory
+    const N = rows.length;
+    const embeddingsBuf = _float32RowMajorBuffer(rows, d);
+    const idsJsonl = rows.map(r => JSON.stringify({ id: r.id, path: r.path })).join('\n') + '\n';
+    const created_at = new Date().toISOString();
+
+    const meta = {
+      N, d,
+      model_id: EMB_MODEL,
+      source_table: EMBPATHS_TABLE,
+      anchor_set_id,
+      band_scale,
+      created_at
+    };
+
+    const stats = _computeStats(rows);
 
     // 4) Upload to S3 — write under /artifacts/<anchor_set_id>/<sourceTable>/ if present
     const baseKey = sourceTableFilter
