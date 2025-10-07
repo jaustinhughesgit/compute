@@ -28,7 +28,7 @@
     </p>
 
     <!-- Build single or chunk -->
-    <form id="artifactForm" class="card" method="POST" action="/anchors/build-artifacts">
+<form id="artifactForm" class="card" method="POST" action="/anchors/build-artifacts">
   <h3>Build & Upload (single or paged chunk)</h3>
 
   <div class="row">
@@ -56,22 +56,47 @@
     <input type="text" id="id" name="id" placeholder="(optional) exact id to build only this one" />
   </div>
 
+  <!-- GSI query params -->
   <div class="row">
-    <label for="start_on">Start On (0-based)</label>
-    <input type="number" id="start_on" name="start_on" value="0" />
+    <label for="source_table">Source Table (PK)</label>
+    <input type="text" id="source_table" name="source_table" placeholder="e.g. i_characteristic" />
   </div>
 
   <div class="row">
-    <label for="limit">Limit</label>
+    <label for="from_created_at">From createdAt</label>
+    <input type="text" id="from_created_at" name="from_created_at" placeholder="e.g. 2025-01-01T00:00:00.000Z" />
+  </div>
+
+  <div class="row">
+    <label for="to_created_at">To createdAt (optional)</label>
+    <input type="text" id="to_created_at" name="to_created_at" placeholder="leave blank for open-ended" />
+  </div>
+
+  <div class="row">
+    <label for="scan_forward">Order</label>
+    <select id="scan_forward" name="scan_forward">
+      <option value="asc" selected>Oldest → Newest (ASC)</option>
+      <option value="desc">Newest → Oldest (DESC)</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <label for="limit">Limit (rows per chunk)</label>
     <input type="number" id="limit" name="limit" value="100" />
   </div>
 
+  <!-- Cursor (LastEvaluatedKey) wiring -->
+  <input type="hidden" id="start_key" name="start_key" />
   <div class="row">
-    <label for="limit">Source Table</label>
-    <input type="text" id="sourceTable" name="sourceTable" value="" />
+    <label>Cursor</label>
+    <div class="hstack">
+      <span class="muted">start_key:</span>
+      <code id="start_key_display" class="muted">(none)</code>
+      <button type="button" id="cursor_reset">Reset</button>
+    </div>
   </div>
 
-  <!-- NEW: Chunk counter (sent to server and shown on page) -->
+  <!-- Chunk counter (S3 folder index) -->
   <div class="row">
     <label for="chunk_index">Chunk # (folder index)</label>
     <input type="number" id="chunk_index" name="chunk_index" value="0" min="0" />
@@ -89,14 +114,11 @@
   </div>
 
   <p class="note muted">
-    If <b>Chunk #</b> is provided, outputs go to
-    <code>artifacts/chunks/chunk-XXXXX/</code> using that exact number. This is
-    useful for Lambda where server memory between runs is lost.
+    Uses GSI <code>createdAt-index</code> (PK=<code>sourceTable</code>, SK=<code>createdAt</code>) with a cursor (<code>start_key</code>) for fast, deterministic paging.
   </p>
 
   <button type="submit">Build & Upload</button>
 </form>
-
     <!-- Merge -->
     <form id="mergeForm" class="card" method="POST" action="/anchors/merge-artifacts">
       <h3>Merge Artifacts (stitch all chunks)</h3>
@@ -143,7 +165,12 @@
   const decBtn       = document.getElementById('chunk_dec');
   const autoInc      = document.getElementById('auto_inc');
 
-  // Load/save in localStorage so the browser "remembers" across Lambda invocations.
+  // --- Cursor wiring ---
+  const startKeyInput   = document.getElementById('start_key');
+  const startKeyDisplay = document.getElementById('start_key_display');
+  const cursorResetBtn  = document.getElementById('cursor_reset');
+  const CURSOR_KEY      = 'artifact_next_start_key';
+
   function loadChunk() {
     const saved = localStorage.getItem('artifact_chunk_index');
     if (saved !== null) chunkInput.value = Number(saved);
@@ -154,32 +181,54 @@
     chunkDisplay.textContent = chunkInput.value;
   }
 
+  function loadCursor() {
+    const saved = localStorage.getItem(CURSOR_KEY);
+    if (saved) {
+      startKeyInput.value = saved;
+      startKeyDisplay.textContent = saved.slice(0, 28) + '…';
+    } else {
+      startKeyInput.value = '';
+      startKeyDisplay.textContent = '(none)';
+    }
+  }
+  function resetCursor() {
+    localStorage.removeItem(CURSOR_KEY);
+    loadCursor();
+  }
+
   loadChunk();
+  loadCursor();
+
   chunkInput.addEventListener('input', saveChunk);
   incBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1); saveChunk(); });
   decBtn.addEventListener('click', () => { chunkInput.value = Math.max(0, Number(chunkInput.value || 0) - 1); saveChunk(); });
+  cursorResetBtn.addEventListener('click', resetCursor);
 
   async function handleForm(e) {
     e.preventDefault();
     const form = e.currentTarget;
     const fd = new FormData(form);
+
+    // Ensure we submit the latest chunk index + cursor
+    fd.set('chunk_index', String(Number(chunkInput.value || 0)));
     const body = new URLSearchParams(fd);
 
-    if (form.id === 'artifactForm') {
-      const n = Number(chunkInput.value || 0);
-      body.set('chunk_index', String(n)); // ensure we're sending the latest
-      rsp.textContent = `Working... (chunk #${n})`;
-    } else {
-      rsp.textContent = 'Working...';
-    }
+    const n = Number(chunkInput.value || 0);
+    rsp.textContent = `Working... (chunk #${n})`;
 
     try {
       const res = await fetch(form.action, { method: form.method || 'POST', headers: {'Content-Type':'application/x-www-form-urlencoded'}, body });
       const json = await res.json();
       rsp.textContent = JSON.stringify(json, null, 2);
 
-      // Auto-increment after success to make paging easy
-      if (form.id === 'artifactForm' && autoInc.checked && json && json.ok) {
+      // Save next cursor if provided
+      if (json && typeof json.next_start_key === 'string' && json.next_start_key.length) {
+        localStorage.setItem(CURSOR_KEY, json.next_start_key);
+        loadCursor();
+      }
+
+      // Auto-increment chunk counter after success
+      if (autoInc.checked && json && json.ok) {
         chunkInput.value = Math.max(0, Number(chunkInput.value || 0) + 1);
         saveChunk();
       }
@@ -189,7 +238,6 @@
   }
 
   document.getElementById('artifactForm').addEventListener('submit', handleForm);
-  document.getElementById('mergeForm').addEventListener('submit', handleForm);
 </script>
   </body>
 </html>
