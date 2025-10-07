@@ -1648,6 +1648,14 @@ async function parseArrayLogic({
     if (elem[bc].hasOwnProperty("possessedBy")) { fixedPossessed = elem[bc].possessedBy; delete elem[bc].possessedBy; }
     if (elem[bc].hasOwnProperty("date")) { fixedDate = elem[bc].date; delete elem[bc].date; }
 
+
+    console.log("susu : out", out)
+    const essenceWord = (typeof out === "string" && out.trim()) ? out.trim() : "";
+if (!fixedOutput && essenceWord) {
+  fixedOutput = essenceWord; // ensures logs show it and “position” saves it
+}
+const outputToSave = (fixedOutput ?? essenceWord ?? "");
+
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
 
@@ -1809,7 +1817,7 @@ async function parseArrayLogic({
             domain, subdomain, embedding,
             entity: fileSu, pb: pbStr,
             dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: fixedOutput || out || ""
+            path: breadcrumb, output: outputToSave
         }},
         {}, "position", fileSu, ""
       ]);
@@ -1873,7 +1881,7 @@ async function parseArrayLogic({
             domain, subdomain, embedding,
             entity: fileSuRefToken,
             pb: pbStr2, dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: fixedOutput
+            path: breadcrumb, output: outputToSave
         }},
         {}, "position", fileSuRefToken, ""
       ]);
@@ -1904,7 +1912,7 @@ async function parseArrayLogic({
             domain, subdomain, embedding,
             entity: bestSu,
             pb: pbStr, dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: fixedOutput
+            path: breadcrumb, output: outputToSave
         }},
         {}, "position", bestSu, ""
       ]);

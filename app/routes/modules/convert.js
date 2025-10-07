@@ -48,9 +48,17 @@ let actionFile = (convertIdx >= 0 ? segs[convertIdx + 1] : segs[segs.length - 1]
 
 
       let out;
-      if (req?.body?.output === "$essence") {
-        out = req?.body?.body?.prompt?.userRequest;
-      }
+if (req?.body?.output === "$essence") {
+  out = req?.body?.body?.prompt?.userRequest;
+}
+
+// NEW: if essence flag wasn't sent but requestOnly=true, still treat prompt.userRequest as the essence
+if (!out && requestOnly) {
+  try {
+    const p = typeof body.body?.prompt === "string" ? JSON.parse(body.body.prompt) : body.body?.prompt;
+    if (p?.userRequest) out = String(p.userRequest);
+  } catch {}
+}
 
       let mainObj = {};
       let sourceType;
