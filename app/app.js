@@ -593,7 +593,7 @@ app.post('/anchors/build-artifacts', async (req, res) => {
       where: `s3://${Bucket}/${baseKey}`,
       meta: { ...meta, chunk_of: sourceTableFilter || null },
       sanity: stats,
-      counts: { scanned: raw.length, kept: rows.length, zeroOrBad, dimMismatch },
+      counts: { scanned: raw.length, kept: N, zeroOrBad, dimMismatch },
       durationMs: ms,
       note: idFilter ? `Single-record build for id=${idFilter}` :
             limit ? `Limited to ${limit} records` :
