@@ -9,6 +9,7 @@ function register({ on, use }) {
       const { req, res, path, signer } = ctx;
       const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
+      // Normalize headers (preserve legacy X-accessToken casing)
       if (req) {
         req.body = req.body || {};
         const rawHeaders = req.headers || {};
@@ -20,9 +21,7 @@ function register({ on, use }) {
         }
       }
 
-      // ───────────────────────────────────────────────────────────────────────
-      // Resolve user id from cookie (keep default 0 to avoid breaking callers)
-      // ───────────────────────────────────────────────────────────────────────
+      // Resolve user id from cookie (default 0 to preserve legacy flows)
       let e = 0;
       try {
         const xAccessToken = req?.body?.headers?.["X-accessToken"];
@@ -32,34 +31,50 @@ function register({ on, use }) {
           if (Number.isFinite(Number(maybeE))) e = Number(maybeE);
         }
       } catch {
-        // Swallow cookie lookup errors to preserve legacy flow
+        // ignore cookie errors
       }
 
+      // Envelope normalization
       const rawBody = (req && req.body) || {};
       const body =
         rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
           ? rawBody
           : { body: rawBody };
 
-const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
-// Expect paths like /cookies/convert/<workspaceId>
-const convertIdx = segs.findIndex(s => s === "convert");
-let actionFile = (convertIdx >= 0 ? segs[convertIdx + 1] : segs[segs.length - 1]) || "";
+      // Workspace id from path: /cookies/convert/<workspaceId>
+      const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
+      const convertIdx = segs.findIndex((s) => s === "convert");
+      let actionFile = (convertIdx >= 0 ? segs[convertIdx + 1] : segs[segs.length - 1]) || "";
 
+      // ─────────────────────────────────────────────────────────────
+      // Determine requestOnly FIRST (so it exists before any usage)
+      // ─────────────────────────────────────────────────────────────
+      const requestOnly = !!body.body?.requestOnly;
 
-      let out;
-if (req?.body?.output === "$essence") {
-  out = req?.body?.body?.prompt?.userRequest;
-}
+      // Safe prompt parse helper
+      function parsePrompt(p) {
+        if (!p) return {};
+        if (typeof p === "string") {
+          try {
+            return JSON.parse(p);
+          } catch {
+            return {};
+          }
+        }
+        return p;
+      }
+      const promptObjForEssence = parsePrompt(body.body?.prompt);
 
-// NEW: if essence flag wasn't sent but requestOnly=true, still treat prompt.userRequest as the essence
-if (!out && requestOnly) {
-  try {
-    const p = typeof body.body?.prompt === "string" ? JSON.parse(body.body.prompt) : body.body?.prompt;
-    if (p?.userRequest) out = String(p.userRequest);
-  } catch {}
-}
+      // Essence word extraction (when output === "$essence", or requestOnly mode)
+      let out = "";
+      if (req?.body?.output === "$essence") {
+        out = String(promptObjForEssence?.userRequest || "");
+      }
+      if (!out && requestOnly) {
+        out = String(promptObjForEssence?.userRequest || "");
+      }
 
+      // Main flow
       let mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
@@ -67,15 +82,35 @@ if (!out && requestOnly) {
 
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
-      const requestOnly = !!body.body?.requestOnly;
 
+      // If prompt supplied, we build arrayLogic from your fixed prompt template
       if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
-        const promptObj = typeof prompt === "string" ? (JSON.parse(prompt || "{}")) : prompt;
+        const promptObj = typeof prompt === "string" ? JSON.parse(prompt || "{}") : prompt;
 
         const userPath = 1000000000000128;
 
-        const fixedPrompt = `directive = [
+        // ↓↓↓ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↓↓↓
+        // It must assign the giant template literal to `fixedPrompt`.
+        // For example:
+        //
+        // const fixedPrompt = `... your very long prompt string literal ...`;
+        //
+        // (Do NOT change its contents; just paste the same string you already use.)
+
+
+
+
+
+
+
+        const fixedPrompt = /* PASTE YOUR EXISTING LONG PROMPT STRING LITERAL HERE (UNCHANGED) */ (
+          () => {
+            // This placeholder keeps the file syntactically valid until you paste the string.
+            // Replace this IIFE with your actual template literal.
+            return String(
+              // minimal, harmless fallback so local editors don't crash before you paste:
+              `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
   \`When the user supplies a new persistent fact or resource, **create a single breadcrumb whose method/action pair ends in “/get”.**\`,
@@ -306,14 +341,20 @@ function subdomains(domain){
     let subsArray = require('./'+domain);
     return subsArray
 }
-//RESPOND LIKE THE EXAMPLES ONLY`;
+//RESPOND LIKE THE EXAMPLES ONLY`
+            );
+          }
+        )();
+        // ↑↑↑ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↑↑↑
 
+        // Use your fixedPrompt to drive arrayLogic creation on the server
         arrayLogic = fixedPrompt;
       } else if (typeof arrayLogic === "string" && arrayLogic.trim().startsWith("[")) {
         arrayLogic = JSON.parse(arrayLogic);
         sourceType = "arrayLogic";
       }
 
+      // Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
       const parseResults = await parseArrayLogic({
         arrayLogic,
         dynamodb,
@@ -327,17 +368,18 @@ function subdomains(domain){
         actionFile,
         out,
         e,
-        requestOnly
+        requestOnly,
       });
 
-let newShorthand = null;
-let conclusion = null;
-let createdEntities = [];
-let entityFromConclusion = null;
+      let newShorthand = null;
+      let conclusion = null;
+      let createdEntities = [];
+      let entityFromConclusion = null;
 
       if (parseResults?.shorthand) {
         const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
 
+        // Try to load existing published logic for this actionFile
         let jsonpl = null;
         try {
           jsonpl = await retrieveAndParseJSON(actionFile, true);
@@ -346,10 +388,12 @@ let entityFromConclusion = null;
         }
 
         if (jsonpl?.published) {
+          // Clone and prepare for runner
           const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
           const blocks = shorthandLogic.published?.blocks ?? [];
           const originalPublished = shorthandLogic.published;
 
+          // Feed both "physical" and "virtual" inputs to runner
           shorthandLogic.input = [{ virtual: virtualArray }];
           shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
@@ -380,37 +424,39 @@ let entityFromConclusion = null;
             ctx.xAccessToken
           );
 
-          // Preserve original blocks
+          // Preserve original block listing
           if (newShorthand?.published) {
             newShorthand.published.blocks = blocks;
           }
 
-          // Extract conclusion (runner may pack as { value, createdEntities })
-const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
-const conclusionValue =
-  rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
-    ? rawConclusion.value
-    : rawConclusion;
-createdEntities = (rawConclusion && Array.isArray(rawConclusion.createdEntities))
-  ? rawConclusion.createdEntities
-  : [];
-entityFromConclusion =
-  (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity)
-  || (createdEntities[0]?.entity)
-  || null;
-conclusion = conclusionValue;
+          // Extract conclusion payload (runner may wrap it)
+          const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
+          const conclusionValue =
+            rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
+              ? rawConclusion.value
+              : rawConclusion;
+          createdEntities = rawConclusion && Array.isArray(rawConclusion.createdEntities)
+            ? rawConclusion.createdEntities
+            : [];
+          entityFromConclusion =
+            (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity) ||
+            (createdEntities[0]?.entity) ||
+            null;
+          conclusion = conclusionValue;
 
-
+          // Cleanup fields we don't want to echo
           if (newShorthand) {
             delete newShorthand.input;
             delete newShorthand.conclusion;
           }
 
+          // Equality hint
           if (parseResults) {
             parseResults.isPublishedEqual =
               JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
           }
 
+          // Persist updated published logic when actionFile is provided
           if (actionFile) {
             try {
               await s3
@@ -423,23 +469,23 @@ conclusion = conclusionValue;
                 .promise();
             } catch (err) {
               console.error("S3 putObject failed:", err && err.message);
-              
             }
           }
-        } // end if jsonpl?.published
-      } // end if parseResults?.shorthand
+        }
+      }
 
+      // Final response envelope
       mainObj = {
-  parseResults,
-  newShorthand,
-  arrayLogic: parseResults?.arrayLogic,
-  conclusion,
-  entity: entityFromConclusion || "",
-  createdEntities,
-};
+        parseResults,
+        newShorthand,
+        arrayLogic: parseResults?.arrayLogic,
+        conclusion,
+        entity: entityFromConclusion || "",
+        createdEntities,
+      };
 
-mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
-mainObj.file = String((entityFromConclusion || actionFile || ""));
+      mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
+      mainObj.file = String(entityFromConclusion || actionFile || "");
 
       return { ok: true, response: mainObj };
     } catch (err) {
