@@ -41,8 +41,11 @@ function register({ on, use }) {
           ? rawBody
           : { body: rawBody };
 
-      const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
-      let actionFile = segs[0] || "";
+const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
+// Expect paths like /cookies/convert/<workspaceId>
+const convertIdx = segs.findIndex(s => s === "convert");
+let actionFile = (convertIdx >= 0 ? segs[convertIdx + 1] : segs[segs.length - 1]) || "";
+
 
       let out;
       if (req?.body?.output === "$essence") {
@@ -319,9 +322,10 @@ function subdomains(domain){
         requestOnly
       });
 
-      let newShorthand = null;
-      let conclusion = null;
-      let createdEntities = [];
+let newShorthand = null;
+let conclusion = null;
+let createdEntities = [];
+let entityFromConclusion = null;
 
       if (parseResults?.shorthand) {
         const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
@@ -374,15 +378,20 @@ function subdomains(domain){
           }
 
           // Extract conclusion (runner may pack as { value, createdEntities })
-          const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
-          const conclusionValue =
-            rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
-              ? rawConclusion.value
-              : rawConclusion;
-          createdEntities = (rawConclusion && Array.isArray(rawConclusion.createdEntities))
-            ? rawConclusion.createdEntities
-            : [];
-          conclusion = conclusionValue;
+const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
+const conclusionValue =
+  rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
+    ? rawConclusion.value
+    : rawConclusion;
+createdEntities = (rawConclusion && Array.isArray(rawConclusion.createdEntities))
+  ? rawConclusion.createdEntities
+  : [];
+entityFromConclusion =
+  (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity)
+  || (createdEntities[0]?.entity)
+  || null;
+conclusion = conclusionValue;
+
 
           if (newShorthand) {
             delete newShorthand.input;
@@ -413,15 +422,16 @@ function subdomains(domain){
       } // end if parseResults?.shorthand
 
       mainObj = {
-        parseResults,
-        newShorthand,
-        arrayLogic: parseResults?.arrayLogic,
-        conclusion,
-        createdEntities: newShorthand?.published?.createdEntities,
-      };
+  parseResults,
+  newShorthand,
+  arrayLogic: parseResults?.arrayLogic,
+  conclusion,
+  entity: entityFromConclusion || "",
+  createdEntities,
+};
 
-      mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
-      mainObj.file = String(actionFile || "");
+mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
+mainObj.file = String((entityFromConclusion || actionFile || ""));
 
       return { ok: true, response: mainObj };
     } catch (err) {
