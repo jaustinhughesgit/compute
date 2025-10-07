@@ -1817,7 +1817,7 @@ async function parseArrayLogic({
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      console.log("susu :  body", body?)
+      console.log("susu :  body", body)
       console.log("susu : body?.schema", body?.schema)
       console.log("susu : body?.schema?.const", body?.schema?.const)
       console.log("susu : body?.input", body?.input)
@@ -1825,9 +1825,10 @@ async function parseArrayLogic({
       console.log("susu : body?.input?.title", body?.input?.title)
       console.log("susu : body?.input?.entity", body?.input?.entity)
       console.log("susu : out", out)
-
+      console.log("susu : entNameRaw", entNameRaw)
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
+      console.log("susu : fixedOutput", fixedOutput)
 
       // 1) newGroup
       shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", entName, entName]);
@@ -1877,6 +1878,8 @@ async function parseArrayLogic({
 
       // 5) run the new entity
       shorthand.push(["ROUTE", inputParam, {}, "runEntity", fileSuRefToken, ""]);
+
+      console.log("susu : shorthand", JSON.stringify(shorthand, null, 4))
 
     } else {
       // Use the best match SU; ensure the file exists
