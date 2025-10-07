@@ -746,6 +746,246 @@ app.post('/anchors/combine-artifacts', async (req, res) => {
 
 
 
+/* -----------------------------
+   L0 training (spherical k-means++)
+   ----------------------------- */
+
+function lcg(seed=42){ // tiny deterministic RNG for k++ sampling
+  let s = seed >>> 0;
+  return () => (s = (1664525*s + 1013904223)>>>0, (s/0x100000000));
+}
+
+function dot(a, aOff, b, bOff, d){
+  let s=0; for(let i=0;i<d;i++) s += a[aOff+i]*b[bOff+i]; return s;
+}
+function addInto(acc, accOff, v, vOff, d){
+  for(let i=0;i<d;i++) acc[accOff+i] += v[vOff+i];
+}
+function normAndZeroSmall(v, off, d){
+  let ss=0; for(let i=0;i<d;i++){ const x=v[off+i]; ss+=x*x; }
+  const n = Math.sqrt(ss);
+  if (n < 1e-12) { for(let i=0;i<d;i++) v[off+i]=0; return 0; }
+  const inv = 1/n; for(let i=0;i<d;i++) v[off+i]*=inv; return n;
+}
+
+async function _getJSON(Bucket, Key){
+  const { Body } = await s3.getObject({ Bucket, Key }).promise();
+  return JSON.parse(Body.toString('utf8'));
+}
+async function _getF32(Bucket, Key){
+  const { Body } = await s3.getObject({ Bucket, Key }).promise();
+  const buf = Buffer.isBuffer(Body) ? Body : Buffer.from(Body);
+  return new Float32Array(buf.buffer, buf.byteOffset, buf.byteLength/4);
+}
+async function _putF32(Bucket, Key, f32){
+  const buf = Buffer.from(new Float32Array(f32).buffer);
+  await s3.putObject({ Bucket, Key, Body: buf, ContentType: 'application/octet-stream' }).promise();
+}
+
+function kmeansPlusPlusInit(data, N, d, K, rng){
+  // data is Float32Array row-major
+  const centers = new Float32Array(K * d);
+  // pick first center uniformly
+  let c0 = Math.floor(rng()*N);
+  centers.set(data.subarray(c0*d, c0*d + d), 0);
+  normAndZeroSmall(centers, 0, d);
+
+  const dist2 = new Float32Array(N); // D^2 to nearest center so far
+  for (let i=0;i<N;i++){
+    const s = 1 - dot(data, i*d, centers, 0, d); // cosine dist (unit data)
+    dist2[i] = s*s;
+  }
+
+  for (let k=1;k<K;k++){
+    // sample next center proportional to D^2
+    let total=0; for (let i=0;i<N;i++) total += dist2[i];
+    let r = rng()*total;
+    let idx=0, run=0;
+    for (; idx<N-1; idx++){ run += dist2[idx]; if (run >= r) break; }
+    centers.set(data.subarray(idx*d, idx*d + d), k*d);
+    normAndZeroSmall(centers, k*d, d);
+
+    // update D^2
+    for (let i=0;i<N;i++){
+      const s = 1 - dot(data, i*d, centers, k*d, d);
+      const s2 = s*s;
+      if (s2 < dist2[i]) dist2[i] = s2;
+    }
+  }
+  return centers;
+}
+
+function sphericalKMeans(data, N, d, K, iters=20, seed=42){
+  const rng = lcg(seed);
+  const C = kmeansPlusPlusInit(data, N, d, K, rng); // K x d
+  const assign = new Int16Array(N);
+  const counts = new Int32Array(K);
+
+  for (let it=0; it<iters; it++){
+    // assignment (nearest by max dot, i.e., min cosine distance)
+    for (let i=0;i<N;i++){
+      let bestK=0, bestDot=-Infinity;
+      for (let k=0;k<K;k++){
+        const s = dot(data, i*d, C, k*d, d);
+        if (s>bestDot){bestDot=s; bestK=k;}
+      }
+      assign[i]=bestK;
+    }
+
+    // update centroids (sum then normalize)
+    C.fill(0);
+    counts.fill(0);
+    for (let i=0;i<N;i++){
+      const k = assign[i]; counts[k]++;
+      addInto(C, k*d, data, i*d, d);
+    }
+    for (let k=0;k<K;k++){
+      if (counts[k]===0){
+        // re-seed empty center randomly
+        const ridx = Math.floor(rng()*N);
+        C.set(data.subarray(ridx*d, ridx*d+d), k*d);
+      }
+      normAndZeroSmall(C, k*d, d);
+    }
+  }
+
+  // inertia (sum of cosine distances)
+  let inertia=0;
+  for (let i=0;i<N;i++){
+    const k = assign[i];
+    const s = 1 - dot(data, i*d, C, k*d, d);
+    inertia += s;
+  }
+  return { centers: C, assign, counts: Array.from(counts), inertia };
+}
+
+app.post('/anchors/train-l0', async (req,res)=>{
+  try{
+    const Bucket = (req.body.bucket || 'public.1var.com').trim();
+    const artifactsPrefix = (req.body.artifacts_prefix || 'artifacts/').trim(); // where embeddings.f32 lives
+    const anchor_set_id = (req.body.anchor_set_id || 'anchors_v1').trim();
+    const K0 = Math.max(2, Math.min(1024, Number(req.body.K0)||8));
+    const iters = Math.max(5, Math.min(200, Number(req.body.iters)||25));
+    const seed = Number.isFinite(+req.body.seed) ? +req.body.seed : 42;
+
+    const meta = await _getJSON(Bucket, `${artifactsPrefix}meta.json`);
+    const data = await _getF32(Bucket, `${artifactsPrefix}embeddings.f32`);
+    const { N, d } = meta;
+
+    if (data.length !== N*d) {
+      return res.status(400).json({ ok:false, error:`embeddings.f32 size (${data.length}) != N*d (${N*d})`});
+    }
+
+    // data expected unit-normalized from Step 1
+    const t0 = Date.now();
+    const { centers, assign, counts, inertia } = sphericalKMeans(data, N, d, K0, iters, seed);
+    const ms = Date.now()-t0;
+
+    // save artifacts
+    const base = `anchor_sets/${anchor_set_id}/L0/`;
+    await _putF32(Bucket, `${base}centroids.f32`, centers);
+    await _putJSONtoS3({ Bucket, Key:`${base}meta.json`, obj:{
+      anchor_set_id, level:"L0", K0, iters, seed, N, d, inertia, counts
+    }});
+    // (optional) write assignments so L1 training can consume
+    await _putBufferToS3({ Bucket, Key:`${base}assignments.i16`, BufferBody: Buffer.from(assign.buffer), ContentType:'application/octet-stream' });
+
+    res.json({
+      ok:true,
+      trained:{ K0, iters, inertia, counts, tookMs: ms },
+      s3:{ centroids:`s3://${Bucket}/${base}centroids.f32`, meta:`s3://${Bucket}/${base}meta.json`, assignments:`s3://${Bucket}/${base}assignments.i16` }
+    });
+  }catch(e){
+    console.error(e);
+    res.status(500).json({ ok:false, error: e.message || String(e) });
+  }
+});
+
+
+/* -----------------------------
+   L1 training (per L0 cell)
+   ----------------------------- */
+
+async function _getI16(Bucket, Key){
+  const { Body } = await s3.getObject({ Bucket, Key }).promise();
+  const buf = Buffer.isBuffer(Body) ? Body : Buffer.from(Body);
+  return new Int16Array(buf.buffer, buf.byteOffset, buf.byteLength/2);
+}
+
+app.post('/anchors/train-l1', async (req,res)=>{
+  try{
+    const Bucket = (req.body.bucket || 'public.1var.com').trim();
+    const artifactsPrefix = (req.body.artifacts_prefix || 'artifacts/').trim();
+    const anchor_set_id = (req.body.anchor_set_id || 'anchors_v1').trim();
+    const targetCell = Math.max(50, Math.min(1000, Number(req.body.target_cell_size)||100));
+    const iters = Math.max(5, Math.min(200, Number(req.body.iters)||20));
+    const seed = Number.isFinite(+req.body.seed) ? +req.body.seed : 123;
+
+    const meta = await _getJSON(Bucket, `${artifactsPrefix}meta.json`);
+    const data = await _getF32(Bucket, `${artifactsPrefix}embeddings.f32`);
+    const { N, d } = meta;
+
+    const l0meta = await _getJSON(Bucket, `anchor_sets/${anchor_set_id}/L0/meta.json`);
+    const assign = await _getI16(Bucket, `anchor_sets/${anchor_set_id}/L0/assignments.i16`);
+    const K0 = l0meta.K0;
+
+    if (assign.length !== N) return res.status(400).json({ ok:false, error:`assignments.i16 length ${assign.length} != N ${N}` });
+
+    const byCell = Array.from({length: K0}, ()=>[]);
+    for (let i=0;i<N;i++){ const k = assign[i]; if (k>=0 && k<K0) byCell[k].push(i); }
+
+    const l1Index = {}; // mapping L0 k -> { start, count, K1, sizes[] }
+    const allL1 = [];   // will concatenate all L1 centroids into one Float32Array
+
+    const rngSeedBase = seed;
+    let totalL1=0, trainedCells=0;
+
+    for (let k=0;k<K0;k++){
+      const idxs = byCell[k];
+      const n = idxs.length;
+      if (!n){ l1Index[k]={start: totalL1, K1:0, count:0, sizes:[]}; continue; }
+
+      const K1 = Math.max(1, Math.ceil(n / targetCell));
+      const sub = new Float32Array(n * d);
+      for (let t=0;t<n;t++){
+        const i = idxs[t];
+        sub.set(data.subarray(i*d, i*d+d), t*d);
+      }
+
+      const { centers, assign: a1, counts } = sphericalKMeans(sub, n, d, K1, iters, rngSeedBase + k);
+      allL1.push(centers); // defer concat
+      l1Index[k] = { start: totalL1, K1, count: n, sizes: counts };
+      totalL1 += K1;
+      trainedCells++;
+    }
+
+    const L1all = new Float32Array(totalL1 * d);
+    let off=0;
+    for (const slab of allL1){ L1all.set(slab, off); off += slab.length; }
+
+    const base = `anchor_sets/${anchor_set_id}/L1/`;
+    await _putF32(Bucket, `${base}centroids.f32`, L1all);
+    await _putJSONtoS3({ Bucket, Key:`${base}index.json`, obj: { anchor_set_id, level:'L1', K0, totalL1, d, targetCell, l1Index } });
+
+    res.json({
+      ok:true,
+      trainedCells, totalL1, targetCell,
+      s3:{ centroids:`s3://${Bucket}/${base}centroids.f32`, index:`s3://${Bucket}/${base}index.json` }
+    });
+
+  }catch(e){
+    console.error(e);
+    res.status(500).json({ ok:false, error: e.message || String(e) });
+  }
+});
+
+
+
+
+
+
+
+
 /* Possiple to delete */
 
 const str88 = "{{={{people.{{first}}{{last}}.age}} + 10}}";

@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Anchor Training (L0 → L1)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { --fg:#0f172a; --muted:#64748b; --bg:#f8fafc; --card:#ffffff; --accent:#2563eb; --ok:#16a34a; --err:#dc2626; }
+    html,body { margin:0; padding:0; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif; }
+    .wrap { max-width:960px; margin:32px auto; padding:0 16px; }
+    .card { background:var(--card); border:1px solid #e5e7eb; border-radius:12px; padding:20px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+    h1 { margin:0 0 8px; font-size:20px; }
+    p.sub { margin:0 0 16px; color:var(--muted); }
+    .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:12px; }
+    .field { display:flex; flex-direction:column; gap:6px; }
+    label { font-weight:600; font-size:13px; }
+    input[type="text"], input[type="number"] {
+      padding:10px 12px; border:1px solid #e5e7eb; border-radius:10px; background:white;
+      font-size:14px; outline:none;
+    }
+    input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(37, 99, 235, 0.12); }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .btn {
+      appearance:none; border:0; padding:10px 14px; border-radius:10px; cursor:pointer; font-weight:600;
+      background:var(--accent); color:white; transition:transform .02s ease, opacity .2s;
+    }
+    .btn.secondary { background:#111827; }
+    .btn:disabled { opacity:.6; cursor:not-allowed; }
+    .muted { color:var(--muted); }
+    .log { background:#0b1020; color:#e5e7eb; border-radius:10px; padding:12px; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:12px; max-height:360px; overflow:auto; }
+    .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; background:#eef2ff; color:#3730a3; margin-right:6px; }
+    .pill { border-radius:999px; padding:2px 10px; background:#ecfeff; color:#155e75; font-weight:600; font-size:12px; }
+    .ok { color:var(--ok); }
+    .err { color:var(--err); }
+    .hr { height:1px; background:#e5e7eb; margin:16px 0; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <h1>Train Anchors (L0 → L1)</h1>
+      <p class="sub">This fits coarse L0 centroids and per-cell L1 centroids using your <code>artifacts/</code> snapshot (embeddings.f32, meta.json).</p>
+
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="field">
+          <label>S3 bucket</label>
+          <input id="bucket" type="text" value="<%= cfg.bucket %>" />
+        </div>
+        <div class="field">
+          <label>Artifacts prefix</label>
+          <input id="artifacts_prefix" type="text" value="<%= cfg.artifactsPrefix %>" />
+        </div>
+        <div class="field">
+          <label>Anchor Set ID</label>
+          <input id="anchor_set_id" type="text" value="<%= cfg.anchorSetId %>" />
+        </div>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="field">
+          <label>L0: K0 (centroids)</label>
+          <input id="K0" type="number" min="2" max="1024" step="1" value="<%= cfg.K0 %>" />
+        </div>
+        <div class="field">
+          <label>L0: iterations</label>
+          <input id="iters0" type="number" min="5" max="200" step="1" value="<%= cfg.iters0 %>" />
+        </div>
+        <div class="field">
+          <label>L0: seed</label>
+          <input id="seed0" type="number" step="1" value="<%= cfg.seed0 %>" />
+        </div>
+      </div>
+
+      <div class="grid" style="margin-bottom:12px;">
+        <div class="field">
+          <label>L1: target cell size (~items per subcell)</label>
+          <input id="target_cell_size" type="number" min="50" max="1000" step="10" value="<%= cfg.targetCellSize %>" />
+        </div>
+        <div class="field">
+          <label>L1: iterations</label>
+          <input id="iters1" type="number" min="5" max="200" step="1" value="<%= cfg.iters1 %>" />
+        </div>
+        <div class="field">
+          <label>L1: seed</label>
+          <input id="seed1" type="number" step="1" value="<%= cfg.seed1 %>" />
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:4px;">
+        <button id="trainAll" class="btn">Train L0 ➜ L1</button>
+        <button id="trainL0" class="btn secondary">Train L0 only</button>
+        <button id="trainL1" class="btn secondary">Train L1 only</button>
+        <span id="status" class="muted"></span>
+      </div>
+
+      <div style="margin-top:12px;">
+        <span class="tag">POST /anchors/train-l0</span>
+        <span class="tag">POST /anchors/train-l1</span>
+        <span class="pill" id="setTag">anchors_v1</span>
+      </div>
+
+      <div class="hr"></div>
+
+      <div class="field">
+        <label>Logs</label>
+        <pre id="log" class="log"></pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const logEl = $('log');
+    const statusEl = $('status');
+    const setPill = $('setTag');
+
+    function val(id){ return $(id).value.trim(); }
+
+    function setBusy(b){
+      $('trainAll').disabled = b;
+      $('trainL0').disabled = b;
+      $('trainL1').disabled = b;
+      statusEl.textContent = b ? 'working…' : '';
+    }
+    function log(line, cls){
+      const t = new Date().toISOString().replace('T',' ').replace('Z','');
+      const span = document.createElement('span');
+      if (cls) span.className = cls;
+      span.textContent = `[${t}] ${line}\n`;
+      logEl.appendChild(span);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+    async function postJSON(url, body){
+      const rsp = await fetch(url, {
+        method:'POST',
+        headers:{ 'content-type':'application/json' },
+        body: JSON.stringify(body)
+      });
+      const text = await rsp.text();
+      let json;
+      try { json = JSON.parse(text); } catch { throw new Error(`Bad JSON from ${url}: ${text}`); }
+      if (!rsp.ok || json.ok === false) {
+        throw new Error(json.error || `HTTP ${rsp.status} ${rsp.statusText}`);
+      }
+      return json;
+    }
+
+    async function trainL0(){
+      const body = {
+        bucket: val('bucket'),
+        artifacts_prefix: val('artifacts_prefix'),
+        anchor_set_id: val('anchor_set_id'),
+        K0: Number(val('K0')),
+        iters: Number(val('iters0')),
+        seed: Number(val('seed0'))
+      };
+      setPill.textContent = body.anchor_set_id;
+      log(`L0 ➜ starting (K0=${body.K0}, iters=${body.iters}, seed=${body.seed})`);
+      const j = await postJSON('/anchors/train-l0', body);
+      log(`L0 ✓ inertia=${j.trained.inertia?.toFixed?.(4) ?? j.trained.inertia}  counts=${(j.trained.counts||[]).join(',')}`, 'ok');
+      log(`L0 artifacts: ${j.s3.centroids}`);
+      return j;
+    }
+
+    async function trainL1(){
+      const body = {
+        bucket: val('bucket'),
+        artifacts_prefix: val('artifacts_prefix'),
+        anchor_set_id: val('anchor_set_id'),
+        target_cell_size: Number(val('target_cell_size')),
+        iters: Number(val('iters1')),
+        seed: Number(val('seed1'))
+      };
+      setPill.textContent = body.anchor_set_id;
+      log(`L1 ➜ starting (target_cell_size=${body.target_cell_size}, iters=${body.iters}, seed=${body.seed})`);
+      const j = await postJSON('/anchors/train-l1', body);
+      log(`L1 ✓ cells=${j.trainedCells}, totalL1=${j.totalL1}`, 'ok');
+      log(`L1 artifacts: ${j.s3.centroids}`);
+      return j;
+    }
+
+    async function runTrainAll(){
+      setBusy(true);
+      try {
+        await trainL0();
+        await trainL1();
+        log('All done ✓', 'ok');
+        statusEl.textContent = 'done';
+      } catch (e) {
+        console.error(e);
+        log(`ERROR: ${e.message}`, 'err');
+        statusEl.textContent = 'error';
+      } finally {
+        setBusy(false);
+      }
+    }
+
+    $('trainAll').addEventListener('click', runTrainAll);
+    $('trainL0').addEventListener('click', async ()=>{ setBusy(true); try { await trainL0(); statusEl.textContent='done'; } catch(e){ log(`ERROR: ${e.message}`, 'err'); statusEl.textContent='error'; } finally{ setBusy(false); }});
+    $('trainL1').addEventListener('click', async ()=>{ setBusy(true); try { await trainL1(); statusEl.textContent='done'; } catch(e){ log(`ERROR: ${e.message}`, 'err'); statusEl.textContent='error'; } finally{ setBusy(false); }});
+  </script>
+</body>
+</html>
