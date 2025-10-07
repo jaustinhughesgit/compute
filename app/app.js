@@ -15,9 +15,10 @@ const axios = require('axios');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const util = require('util');
-const child_process = require('child_process')
+const child_process = require('child_process');
 const exec = util.promisify(child_process.exec);
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
+const anchorsUtil = require('./routes/anchors');
 
 
 const boundAxios = {
@@ -98,6 +99,7 @@ const schemaRouter = require('./routes/schema');
 const migrateRouter = require('./routes/migrate');
 const artifactsRouter = require('./routes/artifacts');
 const trainRouter = require('./routes/train');
+const anchorsDebugRouter = require('./routes/anchorsDebug');
 
 
 /* not needed for LLM*/
@@ -109,6 +111,7 @@ app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
 app.use('/artifacts', artifactsRouter);
 app.use('/train', trainRouter);
+app.use('/debug', anchorsDebugRouter); // GET /debug/anchors -> page
 
 app.use('/', indexRouter);
 
@@ -981,7 +984,83 @@ app.post('/anchors/train-l1', async (req,res)=>{
   }
 });
 
+// === STEP 2: Debug — assign an embedding/text to anchors (no writes) ===
+app.post('/debug/anchors-assign', async (req, res) => {
+  try {
+    const { text, id, emb, topL0, band_scale, su, normalize = true } = req.body || {};
 
+    // 1) Resolve an embedding: direct emb[] OR embPaths id OR text->OpenAI
+    let v = null, source = null;
+
+    if (Array.isArray(emb)) {
+      v = emb.map(Number);
+      source = 'emb';
+    } else if (typeof id === 'string' && id.trim()) {
+      const { Item } = await dynamodb.get({
+        TableName: EMBPATHS_TABLE,
+        Key: { id }
+      }).promise();
+      if (!Item) return res.status(404).json({ ok:false, error:`No embPaths row for id=${id}` });
+      // your helper already supports arrays-of-strings etc.
+      v = parseEmbedding(Item.emb);
+      source = 'embPaths:id';
+    } else if (typeof text === 'string' && text.trim()) {
+      const rsp = await openai.embeddings.create({ model: EMB_MODEL, input: text.trim() });
+      v = rsp.data[0].embedding;
+      source = 'openai:text';
+    } else {
+      return res.status(400).json({ ok:false, error:'Provide one of: text, id, emb[]' });
+    }
+
+    if (!Array.isArray(v) || !v.length) {
+      return res.status(400).json({ ok:false, error:'Bad or empty embedding' });
+    }
+
+    // 2) Unit-normalize unless the caller says not to
+    const eU = normalize ? anchorsUtil.unit(v) : v;
+    if (!eU) return res.status(400).json({ ok:false, error:'Failed to normalize embedding' });
+
+    // 3) Load anchors (L0/L1) from S3 (cached) & assign
+    const anchors = await anchorsUtil.loadAnchors({ s3 });
+    const assigns = anchorsUtil.assign(eU, anchors, {
+      topL0: Number(topL0) || 2,
+      band_scale: band_scale ? Number(band_scale) : undefined
+    });
+
+    // 4) Optionally compute a shard for a given su (useful to see shard fanout)
+    const shard = (typeof su === 'string' && su) ? anchorsUtil.shardOf(su, anchors.num_shards) : null;
+    const withShard = assigns.map(a => ({ ...a, shard: shard ?? a.shard }));
+
+    // 5) Return a clean JSON payload
+    res.json({
+      ok: true,
+      used: {
+        source,
+        dim: eU.length,
+        normalize: !!normalize,
+        text_len: typeof text === 'string' ? text.length : undefined
+      },
+      anchors: {
+        setId: anchors.setId,
+        K0: anchors.K0,
+        totalL1: anchors.totalL1,
+        d: anchors.d,
+        band_scale: anchors.band_scale,
+        num_shards: anchors.num_shards
+      },
+      options: {
+        topL0: Number(topL0) || 2,
+        band_scale: band_scale ? Number(band_scale) : anchors.band_scale,
+        suForShard: su || null
+      },
+      assignments: withShard
+      // each item: { l0, l1, band, dist, dist_q16, shard }
+    });
+  } catch (err) {
+    console.error('debug/anchors-assign error', err);
+    res.status(500).json({ ok:false, error: err.message || String(err) });
+  }
+});
 
 
 

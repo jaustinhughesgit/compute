@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Anchor Assign Debug</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+    body { margin: 24px; }
+    h1 { margin: 0 0 16px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+    .card { border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fff; }
+    textarea, input[type="text"], input[type="number"] { width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-size: 14px; }
+    label { display: block; font-size: 13px; margin: 8px 0 6px; color: #333; }
+    .controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 12px; }
+    button { appearance: none; border: 1px solid #444; background: #111; color: #fff; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 14px; }
+    button.secondary { background: #fafafa; color: #111; border-color: #ccc; }
+    .muted { color: #666; font-size: 12px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; line-height: 1.4; }
+    .status { font-size: 12px; color: #444; margin-top: 6px; }
+    .kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; background:#f3f3f3; border:1px solid #ddd; border-bottom-width:2px; padding:2px 6px; border-radius:4px; }
+    details { margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Anchor Assign Debug</h1>
+  <p class="muted">Send text (or an existing <span class="kbd">embPaths.id</span> or raw <span class="kbd">emb[]</span>) to <span class="kbd"><%= postUrl %></span> and inspect results.</p>
+
+  <div class="row">
+    <div class="card">
+
+      <label for="text">Text (fallback if no id/emb provided)</label>
+      <textarea id="text" rows="6" placeholder="Type something like: east carolina university"></textarea>
+
+      <details>
+        <summary>Advanced (optional)</summary>
+        <div style="margin-top:10px;">
+          <label for="idVal">embPaths id</label>
+          <input id="idVal" type="text" placeholder="52f40d33-...">
+
+          <label for="embVal">Raw embedding JSON array (overrides id/text if provided)</label>
+          <textarea id="embVal" rows="6" placeholder="[-0.05461086, 0.0021668253, 0.008057465, ...]"></textarea>
+
+          <div class="controls">
+            <label>topL0 <input id="topL0" type="number" min="1" value="2" style="width:80px;"></label>
+            <label>band_scale <input id="band_scale" type="number" step="1" placeholder="(default)" style="width:120px;"></label>
+            <label>su (for shard preview) <input id="su" type="text" placeholder="optional su id" style="width:200px;"></label>
+            <label style="display:flex; align-items:center; gap:6px;">
+              <input type="checkbox" id="normalize" checked> normalize
+            </label>
+          </div>
+        </div>
+      </details>
+
+      <div class="controls">
+        <button id="runBtn">Submit</button>
+        <button class="secondary" id="ex1Btn" type="button">Try “east carolina”</button>
+        <button class="secondary" id="ex2Btn" type="button">Try “east carolina university”</button>
+        <span class="status" id="status"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin-top:0;">Response</h3>
+      <div id="out" style="min-height:180px; background:#fbfbfb; border:1px dashed #ddd; border-radius:6px; padding:10px; overflow:auto;">
+        <pre id="preOut" aria-live="polite" aria-busy="false">Submit to see JSON…</pre>
+      </div>
+
+      <h4>Request Echo</h4>
+      <div style="background:#fffef6; border:1px solid #f2e7b9; border-radius:6px; padding:10px;">
+        <pre id="preReq">{}</pre>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const POST_URL = "<%= postUrl %>"; // e.g. /debug/anchors-assign
+
+    const el = (id) => document.getElementById(id);
+    const text = el('text');
+    const idVal = el('idVal');
+    const embVal = el('embVal');
+    const topL0 = el('topL0');
+    const band_scale = el('band_scale');
+    const su = el('su');
+    const normalize = el('normalize');
+
+    const runBtn = el('runBtn');
+    const ex1Btn = el('ex1Btn');
+    const ex2Btn = el('ex2Btn');
+    const status = el('status');
+    const preOut = el('preOut');
+    const preReq = el('preReq');
+
+    ex1Btn.addEventListener('click', () => { text.value = 'east carolina'; });
+    ex2Btn.addEventListener('click', () => { text.value = 'east carolina university'; });
+
+    async function run() {
+      status.textContent = 'Submitting…';
+      preOut.textContent = '…';
+      preOut.setAttribute('aria-busy', 'true');
+
+      const body = {};
+      const embRaw = embVal.value.trim();
+      const idRaw = idVal.value.trim();
+      const textRaw = text.value.trim();
+
+      try {
+        if (embRaw) {
+          try {
+            const arr = JSON.parse(embRaw);
+            if (!Array.isArray(arr)) throw new Error('emb must be an array');
+            body.emb = arr;
+          } catch (e) {
+            throw new Error('Could not parse emb JSON array: ' + e.message);
+          }
+        } else if (idRaw) {
+          body.id = idRaw;
+        } else if (textRaw) {
+          body.text = textRaw;
+        } else {
+          throw new Error('Provide text, an embPaths id, or a raw emb array.');
+        }
+
+        if (topL0.value) body.topL0 = Number(topL0.value);
+        if (band_scale.value) body.band_scale = Number(band_scale.value);
+        if (su.value) body.su = su.value;
+        body.normalize = !!normalize.checked;
+
+        preReq.textContent = JSON.stringify(body, null, 2);
+
+        const rsp = await fetch(POST_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+
+        const json = await rsp.json();
+        preOut.textContent = JSON.stringify(json, null, 2);
+        status.textContent = rsp.ok ? 'OK' : ('HTTP ' + rsp.status);
+      } catch (err) {
+        preOut.textContent = JSON.stringify({ ok:false, error: err.message }, null, 2);
+        status.textContent = 'Error';
+      } finally {
+        preOut.setAttribute('aria-busy', 'false');
+      }
+    }
+
+    runBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      run();
+    });
+  </script>
+</body>
+</html>

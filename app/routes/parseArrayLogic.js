@@ -1118,13 +1118,11 @@ const { Converter } = DynamoDB;
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 
-
-
-
-
-
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
 const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
+
+//nestedDomainIndex.json format
+// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embeddinig:[]},"<domain>":{"text":"...","embedding":[]} }}
 
 let _domainIndexCache = null;
 
@@ -1895,74 +1893,11 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
 
     console.log("999 bestMatch", bestMatch)
     if (!bestMatch) {
-      // If caller provided an entity, ensure distances/pb exist, then run it
       console.log("999 actionFile", actionFile)
-      /*if (actionFile) {
-        const existing = await loadExistingEntityRow(actionFile);
-        const needsDists =
-          !existing ||
-          [1, 2, 3, 4, 5].some(i2 => existing[`dist${i2}`] == null);
-        const needsPb = !existing || existing.pb == null;
-
-        const pbStr = buildPb(possessedCombined, dist1);
-
-        if (needsDists || needsPb) {
-          shorthand.push([
-            "ROUTE",
-            {
-              "body": {
-                description: "provided entity (fallback, ensure distances)",
-                domain,
-                subdomain,
-                embedding,
-                entity: actionFile,
-                pb: pbStr ?? null,
-                path: breadcrumb,
-                output: fixedOutput
-              }
-            },
-            {},
-            "position",
-            actionFile,
-            ""
-          ]);
-        }
-
-        shorthand.push([
-          "ROUTE",
-          {
-            "body": {
-              description: "provided entity (fallback)",
-              domain,
-              subdomain,
-              embedding,
-              entity: actionFile,
-              pb: pbStr,
-              dist1, dist2, dist3, dist4, dist5,
-              path: breadcrumb,
-              output: fixedOutput
-            }
-          },
-          {},
-          "position",
-          actionFile,
-          ""
-        ]);
-
-        // Now run the provided entity
-        shorthand.push([
-          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-        ]);
-
-        routeRowNewIndex = shorthand.length;
-        console.log("999 routeRowNewIndex", routeRowNewIndex)
-        continue;
-      }*/
+      
       if (actionFile) {
         const existing = await loadExistingEntityRow(actionFile);
         const pbStr = buildPb(possessedCombined, dist1);
-
-        // Always (re)position the provided entity with current metadata.
         shorthand.push([
           "ROUTE",
           {
@@ -1975,7 +1910,6 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
               pb: pbStr,
               dist1, dist2, dist3, dist4, dist5,
               path: breadcrumb,
-              // prefer explicit output, else the lemma we sent in (out), else blank
               output: fixedOutput || out || ""
             }
           },
@@ -1985,7 +1919,6 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
           ""
         ]);
 
-        // Optionally try to run the entity (safe even if it's a stub).
         shorthand.push([
           "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
         ]);
