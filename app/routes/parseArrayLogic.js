@@ -1789,6 +1789,8 @@ async function parseArrayLogic({
     };
 
     if (actionFile) {
+      console.log("susu : actionFile", actionFile)
+      console.log("susu : fixedOutput", fixedOutput)
       // Provided SU takes precedence (keeps entity SU == file SU)
       const fileSu = String(actionFile);
       lastSuRef = fileSu; lastSuIsRefToken = false;
@@ -1882,6 +1884,9 @@ async function parseArrayLogic({
       console.log("susu : shorthand", JSON.stringify(shorthand, null, 4))
 
     } else {
+      console.log("susu : bestMatch", bestMatch)
+      console.log("susu : bestMatch.su", bestMatch.su)
+      console.log("susu : fixedOutput", fixedOutput)
       // Use the best match SU; ensure the file exists
       const bestSu = bestMatch.su;
       lastSuRef = bestSu; lastSuIsRefToken = false;
