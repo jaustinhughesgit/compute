@@ -1921,42 +1921,63 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
     routeRowBase = shorthand.length;
   }
 
-  // Ensure sync-server-lite can always extract the SU we used.
-  // We add:
-  //   - root.response.entity  = <SU or ref>
-  //   - root.response.createdEntities[0].entity = <same SU or ref>
-  //   - rowresult to surface final object
-  const lastIndex = shorthand.length + 1;
 
-  // Add empty createdEntities array with one slot we fill immediately after
-  shorthand.push(["ADDPROPERTY", "000!!", "createdEntities", [{
-    entity: "", name: "_new", contentType: "text", id: "_new"
-  }]]); // +1
-  // Replace createdEntities[0].entity with our lastSuRef
-  shorthand.push([
-    "NESTED",
-    padRef(lastIndex),
-    "createdEntities=>[0]",
-    "entity",
-    lastSuRef // can be a literal SU or a ref token
-  ]); // +2
 
-  // root.response.entity = lastSuRef (using ADDPROPERTY if literal, or NESTED if token)
-  if (lastSuIsRefToken) {
-    shorthand.push(["ADDPROPERTY", "000!!", "entity", ""]);              // +3
-    shorthand.push(["NESTED", padRef(lastIndex + 2), "entity", lastSuRef]); // +4
-  } else {
-    shorthand.push(["ADDPROPERTY", "000!!", "entity", lastSuRef]);       // +3 (no +4)
+    /* ------------------------------------------------------------------ */
+  /* Tail: restore legacy shorthand semantics                           */
+  /* ------------------------------------------------------------------ */
+
+  // Only append the legacy tail when the *last* original element included `conclusion`
+  const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
+  if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    // Use the last routed row as the "conclusion" target; fall back to current length if unset
+    const targetIndex = (typeof routeRowBase === "number" ? routeRowBase : shorthand.length);
+
+    const getRowIndex = shorthand.push(
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(targetIndex)]
+    ) - 1;
+
+    // createdEntities as an OBJECT (legacy contract)
+    shorthand.push([
+      "ADDPROPERTY",
+      padRef(getRowIndex + 1),
+      "createdEntities",
+      {
+        entity: "",
+        name: "_new",
+        contentType: "text",
+        id: "_new"
+      }
+    ]);
+
+    // Set createdEntities.entity to the SU we actually used
+    // (works whether lastSuRef is a ref token like "012!!" or a literal SU string)
+    shorthand.push([
+      "NESTED",
+      padRef(getRowIndex + 2),
+      "createdEntities",
+      "entity",
+      lastSuRef
+    ]);
+
+    // Surface final object (legacy ROWRESULT placement)
+    shorthand.push([
+      "ROWRESULT",
+      "000",
+      padRef(getRowIndex + 3)
+    ]);
   }
-
-  // Surface the whole response row
-  shorthand.push(["ROWRESULT", "000", padRef(shorthand.length)]);
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-  console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] })
+  console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] });
 
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
+
+
+
+
+
 }
 
 module.exports = { parseArrayLogic };
