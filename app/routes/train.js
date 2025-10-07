@@ -6,12 +6,14 @@ const DEFAULT_S3_BUCKET        = process.env.ANCHOR_S3_BUCKET || 'public.1var.co
 const DEFAULT_ANCHOR_SET_ID    = process.env.ANCHOR_SET_ID || 'anchors_v1';
 const DEFAULT_ARTIFACTS_PREFIX = process.env.ANCHORS_ARTIFACTS_PREFIX || 'artifacts/anchors_v1/_combined/';
 
+// L0 — coarse anchors
 const DEFAULT_K0               = Number(process.env.ANCHORS_K0 || 8);
-const DEFAULT_ITERS0           = Number(process.env.ANCHORS_ITERS0 || 12);
+const DEFAULT_ITERS0           = Number(process.env.ANCHORS_ITERS0 || 6);   // was 12 → 6 for Lambda
 const DEFAULT_SEED0            = Number(process.env.ANCHORS_SEED0 || 42);
 
-const DEFAULT_TARGET_CELL_SIZE = Number(process.env.ANCHORS_TARGET_CELL || 200);
-const DEFAULT_ITERS1           = Number(process.env.ANCHORS_ITERS1 || 8);
+// L1 — subcells
+const DEFAULT_TARGET_CELL_SIZE = Number(process.env.ANCHORS_TARGET_CELL || 240); // was 200 → 240 (~21 subcells total)
+const DEFAULT_ITERS1           = Number(process.env.ANCHORS_ITERS1 || 6);        // was 8  → 6 for Lambda
 const DEFAULT_SEED1            = Number(process.env.ANCHORS_SEED1 || 123);
 
 const DEFAULT_METHOD           = (process.env.ANCHORS_METHOD || 'kmeans').toLowerCase(); // 'kmeans' | 'fps'
