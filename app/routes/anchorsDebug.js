@@ -1,10 +1,10 @@
-// routes/anchorsDebug.js
-const express = require('express');
-const router = express.Router();
+// ./routes/anchors.js
+var express = require('express');
+var router = express.Router();
 
-// Serves the debug page; uses your existing POST route at /debug/anchors-assign
-router.get('/anchors', (req, res) => {
-  res.render('debug-anchors', { postUrl: '/debug/anchors-assign' });
+// Render the simple test page
+router.get('/', async function(req, res) {
+  res.render('anchorsDebug', {});
 });
 
 module.exports = router;

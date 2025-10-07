@@ -99,7 +99,7 @@ const schemaRouter = require('./routes/schema');
 const migrateRouter = require('./routes/migrate');
 const artifactsRouter = require('./routes/artifacts');
 const trainRouter = require('./routes/train');
-const anchorsDebugRouter = require('./routes/anchorsDebug');
+const anchorsRouter = require('./routes/anchorsDebug');
 
 
 /* not needed for LLM*/
@@ -111,7 +111,7 @@ app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
 app.use('/artifacts', artifactsRouter);
 app.use('/train', trainRouter);
-app.use('/debug', anchorsDebugRouter); // GET /debug/anchors -> page
+app.use('/anchorsDebug', anchorsRouter);
 
 app.use('/', indexRouter);
 
