@@ -97,6 +97,7 @@ const pineconeRouter = require('./routes/pinecone');
 const schemaRouter = require('./routes/schema');
 const migrateRouter = require('./routes/migrate');
 const artifactsRouter = require('./routes/artifacts');
+const trainRouter = require('./routes/train');
 
 
 /* not needed for LLM*/
@@ -107,6 +108,7 @@ app.use('/schema', schemaRouter);
 app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
 app.use('/artifacts', artifactsRouter);
+app.use('/train', trainRouter);
 
 app.use('/', indexRouter);
 
