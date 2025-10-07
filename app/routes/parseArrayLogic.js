@@ -1642,6 +1642,8 @@ async function parseArrayLogic({
     }
 
     const bc = Object.keys(elem)[0];
+    console.log("susu : bc", bc)
+    console.log("susu : elem[bc]", elem[bc])
     if (elem[bc].hasOwnProperty("output")) { fixedOutput = elem[bc].output; delete elem[bc].output; }
     if (elem[bc].hasOwnProperty("possessedBy")) { fixedPossessed = elem[bc].possessedBy; delete elem[bc].possessedBy; }
     if (elem[bc].hasOwnProperty("date")) { fixedDate = elem[bc].date; delete elem[bc].date; }
@@ -1663,6 +1665,8 @@ async function parseArrayLogic({
     const textForEmbedding = requestOnly
       ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
+
+    console.log("susu : textForEmbedding", textForEmbedding)
 
     const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
       s3, openai, key: "nestedDomainIndex.json", textForEmbedding
@@ -1813,6 +1817,15 @@ async function parseArrayLogic({
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
+      console.log("susu :  body", body?)
+      console.log("susu : body?.schema", body?.schema)
+      console.log("susu : body?.schema?.const", body?.schema?.const)
+      console.log("susu : body?.input", body?.input)
+      console.log("susu : body?.input?.name", body?.input?.name)
+      console.log("susu : body?.input?.title", body?.input?.title)
+      console.log("susu : body?.input?.entity", body?.input?.entity)
+      console.log("susu : out", out)
+
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
 
@@ -1847,6 +1860,7 @@ async function parseArrayLogic({
       // saveFile (write)
       shorthand.push(["ROUTE", padRef(routeRowBase + 5), {}, "saveFile", fileSuRefToken, ""]);
 
+    
       // 4) position
       const pbStr2 = buildPb(possessedCombined, dist1);
       shorthand.push([
@@ -1923,6 +1937,8 @@ async function parseArrayLogic({
   shorthand.push(["ROWRESULT", "000", padRef(shorthand.length)]);
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
+
+  console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] })
 
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
 }
