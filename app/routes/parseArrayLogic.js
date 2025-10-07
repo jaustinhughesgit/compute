@@ -1,41 +1,22 @@
+
 // parseArrayLogic.js
 /* ------------------------------------------------------------------ */
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const DOMAINS = [
-    "agriculture",
-    "architecture",
-    "biology",
-    "business",
-    "characteristic",
-    "chemistry",
-    "community",
-    "cosmology",
-    "economics",
-    "education",
-    "entertainment",
-    "environment",
-    "event",
-    "food",
-    "geology",
-    "geography",
-    "government",
-    "health",
-    "history",
-    "language",
-    "law",
-    "manufacturing",
-    "mathematics",
-    "people",
-    "psychology",
-    "philosophy",
-    "religion",
-    "sports",
-    "technology",
-    "transportation"
-]
+const anchorsUtil = require("./routes/anchors");
 
+// You'll paste your full DOMAINS/DOMAIN_SUBS below. DOMAINS is used for classification display only here.
+const DOMAINS = [
+  "agriculture","architecture","biology","business","characteristic","chemistry","community","cosmology",
+  "economics","education","entertainment","environment","event","food","geology","geography","government",
+  "health","history","language","law","manufacturing","mathematics","people","psychology","philosophy",
+  "religion","sports","technology","transportation"
+];
+
+// ───────────────────────────────────────────────────────────
+// PASTE your full DOMAIN_SUBS here (I kept a tiny stub)
+// ───────────────────────────────────────────────────────────
 const DOMAIN_SUBS = {
     "agriculture": [
         "agroeconomics",
@@ -1111,18 +1092,21 @@ const DOMAIN_SUBS = {
     ]
 };
 
+/* ------------------------------------------------------------------ */
+/* Env knobs for anchor index                                         */
+/* ------------------------------------------------------------------ */
 
-const { DynamoDB } = require('aws-sdk');
-const { Converter } = DynamoDB;
+const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
+const DEFAULT_SET_ID     = process.env.ANCHOR_SET_ID || "anchors_v1";
+const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
+const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
 
-// marshal helper for low-level numeric attributes
-const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
+/* ------------------------------------------------------------------ */
+/* Domain index (S3) classification                                   */
+/* ------------------------------------------------------------------ */
 
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
-const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
-
-//nestedDomainIndex.json format
-// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embeddinig:[]},"<domain>":{"text":"...","embedding":[]} }}
+const DOMAIN_INDEX_KEY    = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
 let _domainIndexCache = null;
 
@@ -1135,7 +1119,6 @@ const _normalizeVec = (v) => {
   for (let i = 0; i < v.length; i++) out[i] = v[i] * inv;
   return out;
 };
-
 const _ensureUnit = (v) => {
   const arr = Array.isArray(v) ? v : (typeof v === "string" ? JSON.parse(v) : null);
   return _normalizeVec(arr);
@@ -1143,11 +1126,7 @@ const _ensureUnit = (v) => {
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
-  const obj = await s3.getObject({
-    Bucket: DOMAIN_INDEX_BUCKET,
-    Key: key
-  }).promise(); // ← mirrors your putObject style
-
+  const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
 
   // Precompute unit vectors
@@ -1170,7 +1149,6 @@ async function _embedUnit({ openai, text }) {
 }
 
 const _cosineDistUnit = (a, b) => {
-  // a and b must be unit vectors
   let dot = 0;
   for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
   return 1 - dot;
@@ -1182,7 +1160,6 @@ async function classifyDomainsByEmbeddingFromS3({
   key = DOMAIN_INDEX_KEY,
   textForEmbedding
 }) {
-  console.log("textForEmbedding------",textForEmbedding)
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
@@ -1199,7 +1176,7 @@ async function classifyDomainsByEmbeddingFromS3({
   const runnerUp = domainScores[1] || { dist: Infinity };
   const margin = runnerUp.dist - best.dist; // larger = clearer win
 
-  // Helpers to pick subdomain
+  // pick subdomain
   const pickSubWithin = (dName) => {
     const subs = [];
     for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
@@ -1235,32 +1212,9 @@ async function classifyDomainsByEmbeddingFromS3({
   }
 }
 
-
-
-
-
-
-
-
-const parseVector = v => {
-  if (!v) return null;
-  if (Array.isArray(v)) return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return null;
-  }
-};
-
-const cosineDist = (a, b) => {
-  let dot = 0, na = 0, nb = 0;
-  for (let i = 0; i < a.length; i++) {
-    dot += a[i] * b[i];
-    na += a[i] * a[i];
-    nb += b[i] * b[i];
-  }
-  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
-};
+/* ------------------------------------------------------------------ */
+/* Small helpers                                                       */
+/* ------------------------------------------------------------------ */
 
 const toVector = v => {
   if (!v) return null;
@@ -1276,19 +1230,6 @@ const createArrayOfRootKeys = schema => {
   return properties && typeof properties === "object"
     ? Object.keys(properties)
     : [];
-};
-
-const calcMatchScore = (elementDists, item) => {
-  let sum = 0, count = 0;
-  for (let i = 1; i <= 5; i++) {
-    const e = elementDists[`dist${i}`];
-    const t = item[`dist${i}`];
-    if (typeof e === "number" && typeof t === "number") {
-      sum += Math.abs(e - t);
-      count++;
-    }
-  }
-  return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
@@ -1357,7 +1298,6 @@ const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-  console.log("callOpenAIIIIII", str)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1394,8 +1334,6 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   });
   return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
-
-// your real schema goes here
 
 
 const buildLogicSchema = {
@@ -1577,7 +1515,6 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
 };
 
 const classifyDomains = async ({ openai, text }) => {
-  console.log("classifyDomainsssss", text);
   const domain = await callOpenAI({
     openai, str: JSON.stringify(text),
     list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
@@ -1655,15 +1592,177 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
   return JSON.parse(text);
 }
 
+/* ------------------------------------------------------------------ */
+/* Anchor-based retrieval helpers                                      */
+/* ------------------------------------------------------------------ */
+
+const pad2    = (n) => String(n).padStart(2, "0");
+const padBand = (b) => String(b).padStart(5, "0");
+const asUnit  = (arr) => {
+  if (!Array.isArray(arr) || !arr.length) return null;
+  let s = 0;
+  for (const v of arr) { const f = +v; if (!Number.isFinite(f)) return null; s += f*f; }
+  const n = Math.sqrt(s);
+  if (n < 1e-12) return null;
+  return arr.map(v => +v / n);
+};
+
+const parseSuFromSk = (sk) => {
+  if (typeof sk !== "string") return null;
+  const m = /(?:^|#)SU=([^#]+)/.exec(sk);
+  return m ? m[1] : null;
+};
+const parseBandFromSk = (sk) => {
+  const m = /(?:^|#)B=(\d{1,6})/.exec(sk);
+  return m ? Number(m[1]) : null;
+};
+
+async function _batchGetSubs(doc, keys /* [{su}] */) {
+  if (!keys.length) return new Map();
+  const out = new Map();
+  let i = 0;
+  while (i < keys.length) {
+    const chunk = keys.slice(i, i + 100);
+    const rsp = await doc.batchGet({ RequestItems: { subdomains: { Keys: chunk } } }).promise();
+    const rows = rsp.Responses?.subdomains || [];
+    for (const r of rows) out.set(String(r.su), r);
+    i += 100;
+  }
+  return out;
+}
+
+async function _queryWindow(doc, { pk, bandCenter, delta, numShards, limitPerAssign = 500 }) {
+  const bLo = Math.max(0, bandCenter - delta);
+  const bHi = bandCenter + delta;
+  const skLo = `B=${padBand(bLo)}#S=00`;
+  const skHi = `B=${padBand(bHi)}#S=${pad2(numShards - 1)}`;
+
+  const { Items } = await doc.query({
+    TableName: ANCHOR_BANDS_TABLE,
+    KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :lo AND :hi",
+    ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
+    ExpressionAttributeValues: { ":pk": pk, ":lo": skLo, ":hi": skHi },
+    Limit: Number(limitPerAssign || 500)
+  }).promise();
+
+  return Items || [];
+}
+
+/**
+ * Anchor-based best-match finder.
+ * Tries tenant-PK first (AB#<setId>#U=<e>#L0=..#L1=..), then global PK; dedupes by su;
+ * optionally filters by (domain, subdomain) via subdomains table.
+ */
+async function findBestMatchByAnchors({
+  doc,              // DocumentClient
+  s3,               // for anchorsUtil.loadAnchors
+  setId = DEFAULT_SET_ID,
+  bandScale = DEFAULT_BAND_SCALE,
+  numShards = DEFAULT_NUM_SHARDS,
+  topL0 = 2,
+  bandWindow = 12,
+  limitPerAssign = 500,
+  topK = 50,
+  e = 0,            // user id
+  eU,               // query embedding (unit vector)
+  wantDomain = null,
+  wantSubdomain = null
+}) {
+  const anchors = await anchorsUtil.loadAnchors({
+    s3, setId, band_scale: bandScale, num_shards: numShards
+  });
+  if (!anchors?.d || anchors.d !== eU.length) return null;
+
+  const assigns = anchorsUtil.assign(eU, anchors, {
+    topL0, band_scale: bandScale, num_shards: numShards
+  });
+
+  const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+  const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+
+  let anyTenant = false;
+  const bucket = new Map(); // su -> best { bandDelta }
+
+  for (const a of assigns) {
+    // tenant first
+    let rows = [];
+    try {
+      rows = await _queryWindow(doc, {
+        pk: makePkTenant(a),
+        bandCenter: a.band,
+        delta: bandWindow,
+        numShards,
+        limitPerAssign
+      });
+    } catch {}
+
+    if (rows?.length) anyTenant = true;
+
+    // fallback to global
+    if (!rows?.length) {
+      try {
+        rows = await _queryWindow(doc, {
+          pk: makePkGlobal(a),
+          bandCenter: a.band,
+          delta: bandWindow,
+          numShards,
+          limitPerAssign
+        });
+      } catch {}
+    }
+
+    for (const r of rows || []) {
+      const su  = r.su || parseSuFromSk(r.sk);
+      const ib  = Number.isFinite(r.band) ? r.band : parseBandFromSk(r.sk);
+      if (!su || !Number.isFinite(ib)) continue;
+      const bandDelta = Math.abs(ib - a.band);
+      const cur = bucket.get(su);
+      if (!cur || bandDelta < cur.bandDelta) bucket.set(su, { su, bandDelta });
+    }
+  }
+
+  if (!bucket.size) return null;
+
+  // sort by nearest band
+  let candidates = Array.from(bucket.values()).sort((a, b) => a.bandDelta - b.bandDelta);
+  if (candidates.length > topK) candidates = candidates.slice(0, topK);
+
+  // If global-only or domain filters, check subdomains table
+  if (!anyTenant || wantDomain || wantSubdomain) {
+    const keys = candidates.map(c => ({ su: String(c.su) }));
+    const subMap = await _batchGetSubs(doc, keys);
+
+    candidates = candidates.filter(c => {
+      const row = subMap.get(String(c.su));
+      if (!row) return false;
+
+      if (!anyTenant && row.e != null && String(row.e) !== String(e)) return false;
+      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
+      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
+
+      return true;
+    });
+
+    if (!candidates.length) return null;
+  }
+
+  const pick = candidates[0];
+  return { su: pick.su, bandDelta: pick.bandDelta, usedTenantPK: anyTenant };
+}
+
+/* ------------------------------------------------------------------ */
+/* Main                                                               */
+/* ------------------------------------------------------------------ */
+
 async function parseArrayLogic({
   arrayLogic = [],
-  dynamodb,    // DocumentClient (safe for non-pb ops)
+  dynamodb,    // DocumentClient
   uuidv4,
   s3,
   ses,
   openai,
   Anthropic,
-  dynamodbLL,  // Low-level DynamoDB for pb ops
+  dynamodbLL,  // unused now (kept for signature compatibility)
   sourceType,
   actionFile,
   out,
@@ -1685,21 +1784,14 @@ async function parseArrayLogic({
   const results = [];
   let routeRowNewIndex = null;
 
-  // helper to safely build the huge numeric pb as a string representation
-  const buildPb = (possessedCombined, d1) =>
-    (d1 != null)
-      ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}`
-      : null;
-
   // presence check only (uses DocumentClient)
   const loadExistingEntityRow = async (su) => {
     try {
       const { Item } = await dynamodb.get({
         TableName: "subdomains",
         Key: { su }
-        // If you want to avoid ever returning pb from DocClient, add ProjectionExpression here.
       }).promise();
-      return Item || null;
+    return Item || null;
     } catch (e) {
       console.error("subdomains.get failed", e);
       return null;
@@ -1747,157 +1839,76 @@ async function parseArrayLogic({
 
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
-    const origBody = origElem[breadcrumb];
 
-    //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
-    
-   // Prefer the *user's request* when requestOnly === true
-   const b = elem[bc]; // you already computed bc above; reuse it
-   const inp = b?.input && typeof b.input === 'object' ? b.input : {};
-   let userReqText = null;
-   // $essence path provides the raw user request in `out`
-   if (typeof out === "string" && out.trim()) userReqText = out.trim();
-   // Common input field names (singular/plural) as fallbacks
-   if (!userReqText) {
-     const candidate =
-       inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
-     if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
-     else if (typeof candidate === 'string') userReqText = candidate.trim();
-   }
-   // Build a single source of truth for both classification and distance embedding
-   const textForEmbedding = requestOnly
-     ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
-     : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
-
-
-
-const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
-  s3,
-  openai,
-  key: "nestedDomainIndex.json", // or leave default via DOMAIN_INDEX_KEY
-  textForEmbedding
-});
-
-    // possessedCombined base & indexes
-    const base = 1000000000000000.0;
-    const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
-    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
-    const userID = e;
-    const possessedCombined = base + domainIndex + subdomainIndex + userID;
-
-    // embedding
-   // Use EXACTLY the same text that powered classification to compute dists/pb
-const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
-const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
-const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
-  model: "text-embedding-3-large",
-  input: embText
-});
-    const embedding = toVector(rawEmb);
-
-    // get subdomain vector refs (DocClient is fine; no pb touched)
-    let dynamoRecord = null;
-    let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
-    try {
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: "#r = :pk",
-          ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomain },
-          Limit: 1
-        })
-        .promise();
-      dynamoRecord = Items?.[0] ?? null;
-    } catch (err) {
-      console.error("DynamoDB query failed:", err);
+    // Prefer the *user's request* when requestOnly === true
+    const b = elem[bc];
+    const inp = b?.input && typeof b.input === 'object' ? b.input : {};
+    let userReqText = null;
+    if (typeof out === "string" && out.trim()) userReqText = out.trim();
+    if (!userReqText) {
+      const candidate =
+        inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
+      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
+      else if (typeof candidate === 'string') userReqText = candidate.trim();
     }
+    const textForEmbedding = requestOnly
+      ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
+      : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
 
-    if (dynamoRecord) {
-      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
-        const ref = parseVector(dynamoRecord[k]);
-        return Array.isArray(ref) && ref.length === embedding.length
-          ? cosineDist(embedding, ref)
-          : null;
-      });
-    }
+    // classify (domain/subdomain) via S3 index
+    const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
+      s3,
+      openai,
+      key: "nestedDomainIndex.json",
+      textForEmbedding
+    });
 
-    // low-level pb-index query (to avoid 36-digit precision loss)
-    let subdomainMatches = [];
-    if (dist1 != null) {
-      const pbStr = buildPb(possessedCombined, dist1);
+    // embedding (unit)
+    const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
+    const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
+    const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: embText
+    });
+    const embedding = toVector(rawEmb);        // already unit
+    const eU = asUnit(embedding) || embedding; // ensure unit
 
-      try {
-        const ExpressionAttributeNames = {
-          '#p': 'pb',
-          '#d1': 'dist1',
-          '#d2': 'dist2',
-          '#d3': 'dist3',
-          '#d4': 'dist4',
-          '#d5': 'dist5',
-        };
-
-        const ExpressionAttributeValues = {
-          ':pb': n(pbStr),
-          ':d1lo': n(dist1 - 0.01),
-          ':d1hi': n(dist1 + 0.01),
-        };
-
-        const filterParts = [];
-        [dist2, dist3, dist4, dist5].forEach((v, idx) => {
-          const i2 = idx + 2;
-          if (Number.isFinite(v)) {
-            ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
-            ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
-            filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
-          }
-        });
-
-        const params = {
-          TableName: 'subdomains',
-          IndexName: 'pb-index',
-          KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
-          ExpressionAttributeNames,
-          ExpressionAttributeValues,
-          ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
-          ScanIndexForward: true,
-        };
-
-        const { Items } = await dynamodbLL.query(params).promise();
-        // AV -> plain JS (dist* become numbers; pb would be a stringified big number if you wrapNumbers)
-        subdomainMatches = (Items || []).map(Converter.unmarshall);
-      } catch (err) {
-        console.error('subdomains GSI query failed:', err);
-      }
-    }
-
-    // pick best match
+    // ───────────────────────────────────────────────────────────────
+    // ANCHOR-BASED bestMatch (tenant-first, fall back to global)
+    // ───────────────────────────────────────────────────────────────
     let bestMatch = null;
-    if (subdomainMatches.length) {
-      bestMatch = subdomainMatches.reduce(
-        (best, item) => {
-          const score = calcMatchScore(
-            { dist1, dist2, dist3, dist4, dist5 },
-            item
-          );
-          return score < best.score ? { item, score } : best;
-        },
-        { item: null, score: Number.POSITIVE_INFINITY }
-      ).item;
+    try {
+      const anchorPick = await findBestMatchByAnchors({
+        doc: dynamodb,
+        s3,
+        setId: DEFAULT_SET_ID,
+        bandScale: DEFAULT_BAND_SCALE,
+        numShards: DEFAULT_NUM_SHARDS,
+        topL0: 2,
+        bandWindow: 12,
+        limitPerAssign: 500,
+        topK: 50,
+        e,            // user id
+        eU,           // unit embedding
+        wantDomain: domain,
+        wantSubdomain: subdomain
+      });
+      if (anchorPick?.su) {
+        bestMatch = { su: anchorPick.su, bandDelta: anchorPick.bandDelta, usedTenantPK: anchorPick.usedTenantPK };
+      }
+    } catch (err) {
+      console.error("anchor bestMatch lookup failed:", err);
     }
 
-    const inputParam = convertShorthandRefs(body.input);
+    const inputParam   = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
-    const schemaParam = convertShorthandRefs(expectedKeys);
+    const schemaParam  = convertShorthandRefs(expectedKeys);
 
-    console.log("999 bestMatch", bestMatch)
     if (!bestMatch) {
-      console.log("999 actionFile", actionFile)
-      
+      // optional explicit actionFile (user provided entity)
       if (actionFile) {
-        const existing = await loadExistingEntityRow(actionFile);
-        const pbStr = buildPb(possessedCombined, dist1);
+        await loadExistingEntityRow(actionFile); // no-op presence check; ignore result
+
         shorthand.push([
           "ROUTE",
           {
@@ -1907,10 +1918,13 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
               subdomain,
               embedding,
               entity: actionFile,
-              pb: pbStr,
-              dist1, dist2, dist3, dist4, dist5,
               path: breadcrumb,
-              output: fixedOutput || out || ""
+              output: fixedOutput || out || "",
+              // anchor knobs
+              anchor_set_id: DEFAULT_SET_ID,
+              band_scale: DEFAULT_BAND_SCALE,
+              num_shards: DEFAULT_NUM_SHARDS,
+              topL0: 2
             }
           },
           {},
@@ -1924,26 +1938,17 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         ]);
 
         routeRowNewIndex = shorthand.length;
-        continue; // IMPORTANT: don't create a new $noName entity
+        continue;
       }
-      console.log("999 after continue")
+
       // create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
-
-      console.log("999 body?.schema?.const",body?.schema?.const)
-      console.log("999 fixedOutput", fixedOutput)
-      console.log("999 body?.input?.name", body?.input?.name)
-      console.log("999 body?.input?.title",body?.input?.title)
-      console.log("999 body?.input?.entity",body?.input?.entity)
-      //const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      
+      const entNameRaw =
+        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
-      console.log("999 entNameRaw", entNameRaw)
-      console.log("999 entName", entName)
 
       shorthand.push([
         "ROUTE",
@@ -1952,15 +1957,13 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         "newGroup",
         groupName,
         entName
-      ]); //{response: {..., file: '1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30',entity: '2'}
+      ]);
 
       routeRowNewIndex = shorthand.length;
 
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]); //1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
-      console.log("999 fixedOutput", fixedOutput)
       if (fixedOutput) {
-        console.log("999 LETS GENERATE A JPL")
         shorthand.push([
           "ROUTE",
           {},
@@ -1968,13 +1971,11 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
           "getFile",
           padRef(routeRowNewIndex + 1),
           ""
-        ]); // ok: true, response: { input: [], published: { blocks: [Array], modules: {}, actions: [Array], function: {}, automation: [], menu: [Object], commands: [Object], calls: [Object], te
+        ]);
 
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]); // { input: [], published: { blocks: [ [Object] ], modules: {}, actions: [ [Object] ], function: {}, automation: [], menu: { ready: [Object] }, commands: { ready: [Object], back: [Obje
-        console.log("999 elem", elem)
-        const desiredObj = structuredClone(elem);
-        if (fixedOutput) desiredObj.response = fixedOutput;
-        console.log("999 desiredObj",desiredObj)
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
+
+        // Build a JPL (unchanged from your flow; keep your generator contents)
 
 
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
@@ -1986,35 +1987,21 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
 
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-        console.log("999 objectJPL", JSON.stringify(objectJPL))
-        console.log("999 actions",padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
 
         shorthand.push(
           ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-        ); //actions: [ [Object], [Object], [Object] ],
+        );
 
         if (objectJPL.modules) {
-          console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-          );// modules: {}
+          );
         } else {
-          console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
           shorthand.push(
             ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-          );// modules: {}
-        } //modules: {}
+          );
+        }
 
-
-        console.log("999 pushing to createdEntities")
-
-        console.log("999 createdEntities", createdEntities)
-
-        console.log("padRef(routeRowNewIndex + 1)",padRef(routeRowNewIndex + 1));
-        console.log("padRef(routeRowNewIndex + 2)",padRef(routeRowNewIndex + 2));
-        console.log("padRef(routeRowNewIndex + 3)",padRef(routeRowNewIndex + 3));
-        console.log("padRef(routeRowNewIndex + 4)",padRef(routeRowNewIndex + 4));
-        console.log("padRef(routeRowNewIndex + 5)",padRef(routeRowNewIndex + 5));
         shorthand.push(
           [
             "ROUTE",
@@ -2027,9 +2014,8 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         );
       }
 
-      // record positioning for the new entity (pb must be safe)
+      // position the new entity via anchors
       const pathStr = breadcrumb;
-      const pbStr2 = buildPb(possessedCombined, dist1);
 
       shorthand.push([
         "ROUTE",
@@ -2039,17 +2025,20 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
             domain, subdomain,
             embedding,
             entity: padRef(routeRowNewIndex + 1),
-            pb: pbStr2,
-            dist1, dist2, dist3, dist4, dist5,
             path: pathStr,
-            output: fixedOutput
+            output: fixedOutput,
+            // anchor knobs
+            anchor_set_id: DEFAULT_SET_ID,
+            band_scale: DEFAULT_BAND_SCALE,
+            num_shards: DEFAULT_NUM_SHARDS,
+            topL0: 2
           }
         },
         {},
         "position",
         padRef(routeRowNewIndex + 1),
         ""
-      ]);// { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
+      ]);
 
       if (fixedOutput) {
         shorthand.push([
@@ -2059,7 +2048,7 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
           "runEntity",
           padRef(routeRowNewIndex + 1),
           ""
-        ]); // $noName  (this is the cached output that is saved to the database record). Entity didn't run.
+        ]);
       } else {
         shorthand.push([fixedOutput]);
       }
@@ -2070,11 +2059,7 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
       ]);
 
-
-
-      // refresh positioning metadata, with pb built from current dist1
-      const pbStr = buildPb(possessedCombined, dist1);
-
+      // refresh positioning metadata for the matched entity (anchors)
       shorthand.push([
         "ROUTE",
         {
@@ -2084,10 +2069,13 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
             subdomain,
             embedding,
             entity: bestMatch.su,
-            pb: pbStr,
-            dist1, dist2, dist3, dist4, dist5,
             path: breadcrumb,
-            output: fixedOutput
+            output: fixedOutput,
+            // anchor knobs
+            anchor_set_id: DEFAULT_SET_ID,
+            band_scale: DEFAULT_BAND_SCALE,
+            num_shards: DEFAULT_NUM_SHARDS,
+            topL0: 2
           }
         },
         {},
@@ -2106,18 +2094,17 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
       ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
 
-
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      { 
-          entity: "", 
-          name: "_new", 
-          contentType: "text",
-          id:"_new"
-        }
-    ]); //try adding entities using ADDPROPTERY
+      {
+        entity: "",
+        name: "_new",
+        contentType: "text",
+        id: "_new"
+      }
+    ]);
 
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
@@ -2125,14 +2112,13 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
       "ROWRESULT",
       "000",
       padRef(getRowIndex + 3)
-    ]); //and then pushing that to 000
-    
+    ]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities",JSON.stringify(createdEntities, null, 4))
+  console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
