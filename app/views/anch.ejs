@@ -1,0 +1,159 @@
+<!-- ./views/anch.ejs -->
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Anchor Assign Tester</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; margin: 24px; }
+    h1 { font-size: 20px; margin-bottom: 12px; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    label { display:block; font-weight: 600; margin: 12px 0 6px; }
+    textarea, input[type="text"], input[type="number"] {
+      width: 100%; box-sizing: border-box; padding: 10px; border: 1px solid #ccc; border-radius: 6px; font-family: inherit;
+    }
+    textarea { min-height: 90px; }
+    .help { color: #666; font-size: 12px; margin-top: 6px; }
+    .controls { margin-top: 16px; display: flex; gap: 10px; align-items: center; }
+    button {
+      appearance: none; border: none; background: #111827; color: #fff; padding: 10px 14px; border-radius: 6px;
+      cursor: pointer; font-weight: 600;
+    }
+    button[disabled] { opacity: 0.6; cursor: not-allowed; }
+    .out { margin-top: 24px; border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; background: #fafafa; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    .pill { display:inline-block; font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #eef2ff; color:#3730a3; margin-left: 8px; }
+    .fine { display:flex; gap:12px; align-items:center; flex-wrap: wrap; }
+    .hr { height:1px; background:#eee; margin:16px 0; }
+  </style>
+</head>
+<body>
+  <h1>Anchor Assign Tester <span class="pill">/debug/anchors-assign</span></h1>
+
+  <p class="help">Fill in <b>one</b> of the inputs below (priority: <code>emb</code> &gt; <code>id</code> &gt; <code>text</code>). Click <b>Submit</b> to POST to <code>/debug/anchors-assign</code> and see the JSON response.</p>
+
+  <div class="row">
+    <div>
+      <label for="text">Text</label>
+      <textarea id="text" placeholder="e.g., east carolina university"></textarea>
+      <div class="help">If provided, the server will embed this with your <code>EMB_MODEL</code>.</div>
+    </div>
+    <div>
+      <label for="id">embPaths ID</label>
+      <input id="id" type="text" placeholder="e.g., 52f40d33-3d6d-4851-9f3d-5ac3f763f44a" />
+      <div class="help">If provided, the server will load the embedding from DynamoDB <code>embPaths</code>.</div>
+    </div>
+  </div>
+
+  <label for="emb">Raw embedding (JSON array)</label>
+  <textarea id="emb" placeholder='e.g., [-0.05461086, 0.0021668253, 0.008057465, ...]'></textarea>
+  <div class="help">If provided, this takes precedence over <b>id</b> and <b>text</b>.</div>
+
+  <div class="hr"></div>
+
+  <div class="row">
+    <div>
+      <label for="topL0">topL0 (optional)</label>
+      <input id="topL0" type="number" min="1" placeholder="2" />
+      <div class="help">How many L0 cells to consider (default 2).</div>
+    </div>
+    <div>
+      <label for="band_scale">band_scale (optional)</label>
+      <input id="band_scale" type="number" min="1" placeholder="2000" />
+      <div class="help">Override band scaling if you want (usually leave blank).</div>
+    </div>
+  </div>
+
+  <div class="fine">
+    <label><input id="normalize" type="checkbox" checked /> Unit-normalize before assign</label>
+    <label for="su">Shard by su (optional): </label>
+    <input id="su" type="text" placeholder="optional su value" />
+  </div>
+
+  <div class="controls">
+    <button id="go">Submit</button>
+    <span id="status" class="help"></span>
+  </div>
+
+  <div class="out">
+    <pre id="out">(results will appear here)</pre>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+
+    function pickPayload() {
+      // Priority: emb > id > text
+      const embRaw = $('emb').value.trim();
+      const id = $('id').value.trim();
+      const text = $('text').value.trim();
+
+      const body = {};
+      if (embRaw) {
+        try {
+          const arr = JSON.parse(embRaw);
+          if (!Array.isArray(arr)) throw new Error('emb must be an array');
+          body.emb = arr;
+        } catch (e) {
+          throw new Error('Invalid JSON for emb: ' + e.message);
+        }
+      } else if (id) {
+        body.id = id;
+      } else if (text) {
+        body.text = text;
+      } else {
+        throw new Error('Provide at least one of: emb, id, or text');
+      }
+
+      const topL0 = $('topL0').value.trim();
+      const band_scale = $('band_scale').value.trim();
+      const normalize = $('normalize').checked;
+      const su = $('su').value.trim();
+
+      if (topL0) body.topL0 = Number(topL0);
+      if (band_scale) body.band_scale = Number(band_scale);
+      body.normalize = !!normalize;
+      if (su) body.su = su;
+
+      return body;
+    }
+
+    async function submit() {
+      $('status').textContent = 'Submitting...';
+      $('go').disabled = true;
+      $('out').textContent = '';
+
+      let payload;
+      try {
+        payload = pickPayload();
+      } catch (err) {
+        $('status').textContent = err.message;
+        $('go').disabled = false;
+        return;
+      }
+
+      try {
+        const rsp = await fetch('/debug/anchors-assign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await rsp.json();
+        $('out').textContent = JSON.stringify(data, null, 2);
+        $('status').textContent = rsp.ok ? 'Done' : 'Error';
+      } catch (err) {
+        $('out').textContent = String(err);
+        $('status').textContent = 'Network error';
+      } finally {
+        $('go').disabled = false;
+      }
+    }
+
+    $('go').addEventListener('click', (e) => {
+      e.preventDefault();
+      submit();
+    });
+  </script>
+</body>
+</html>
