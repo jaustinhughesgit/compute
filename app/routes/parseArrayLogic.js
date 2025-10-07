@@ -1,73 +1,109 @@
 
+
+
+
+
+
+
+
+
+
+
 // parseArrayLogic.js
 /* ------------------------------------------------------------------ */
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const anchorsUtil = require("./anchors");
+const anchorsUtil = require("./routes/anchors");
+const { DynamoDB } = require("aws-sdk");
+const { Converter } = DynamoDB; // (not strictly needed now, but kept for parity)
 
-// You'll paste your full DOMAINS/DOMAIN_SUBS below. DOMAINS is used for classification display only here.
+/* ───────────────────────────── Domains ───────────────────────────── */
 const DOMAINS = [
-  "agriculture","architecture","biology","business","characteristic","chemistry","community","cosmology",
-  "economics","education","entertainment","environment","event","food","geology","geography","government",
-  "health","history","language","law","manufacturing","mathematics","people","psychology","philosophy",
-  "religion","sports","technology","transportation"
+  "agriculture",
+  "architecture",
+  "biology",
+  "business",
+  "characteristic",
+  "chemistry",
+  "community",
+  "cosmology",
+  "economics",
+  "education",
+  "entertainment",
+  "environment",
+  "event",
+  "food",
+  "geology",
+  "geography",
+  "government",
+  "health",
+  "history",
+  "language",
+  "law",
+  "manufacturing",
+  "mathematics",
+  "people",
+  "psychology",
+  "philosophy",
+  "religion",
+  "sports",
+  "technology",
+  "transportation"
 ];
 
-// ───────────────────────────────────────────────────────────
-// PASTE your full DOMAIN_SUBS here (I kept a tiny stub)
-// ───────────────────────────────────────────────────────────
+// ⬇⬇ Replace with your full list; kept here minimal so file is runnable
 const DOMAIN_SUBS = {
-    "agriculture": [
-        "agroeconomics",
-        "agrochemicals",
-        "agronomy",
-        "agtech",
-        "animal-health",
-        "aquaculture",
-        "aquaponics",
-        "biodiversity",
-        "biotechnology",
-        "certification",
-        "climate",
-        "crop-production",
-        "dairy",
-        "data",
-        "education",
-        "engineering",
-        "farm-equipment",
-        "farm-management",
-        "finance",
-        "food-processing",
-        "food-safety",
-        "forestry",
-        "genetics",
-        "horticulture",
-        "hydroponics",
-        "irrigation",
-        "labor",
-        "land-use",
-        "livestock",
-        "marketing",
-        "mechanization",
-        "nutrition",
-        "organic-farming",
-        "pest-management",
-        "plant-health",
-        "policy",
-        "postharvest",
-        "precision-farming",
-        "research",
-        "robotics",
-        "rural-development",
-        "soil-science",
-        "supply-chain",
-        "sustainability",
-        "vertical-farming",
-        "waste-management",
-        "water-management",
-        "weed-management"
-    ],
+  "agriculture": [
+    "agroeconomics",
+    "agrochemicals",
+    "agronomy",
+    "agtech",
+    "animal-health",
+    "aquaculture",
+    "aquaponics",
+    "biodiversity",
+    "biotechnology",
+    "certification",
+    "climate",
+    "crop-production",
+    "dairy",
+    "data",
+    "education",
+    "engineering",
+    "farm-equipment",
+    "farm-management",
+    "finance",
+    "food-processing",
+    "food-safety",
+    "forestry",
+    "genetics",
+    "horticulture",
+    "hydroponics",
+    "irrigation",
+    "labor",
+    "land-use",
+    "livestock",
+    "marketing",
+    "mechanization",
+    "nutrition",
+    "organic-farming",
+    "pest-management",
+    "plant-health",
+    "policy",
+    "postharvest",
+    "precision-farming",
+    "research",
+    "robotics",
+    "rural-development",
+    "soil-science",
+    "supply-chain",
+    "sustainability",
+    "vertical-farming",
+    "waste-management",
+    "water-management",
+    "weed-management"
+  ],
     "architecture": [
         "styles",
         "typologies",
@@ -1092,24 +1128,19 @@ const DOMAIN_SUBS = {
     ]
 };
 
-/* ------------------------------------------------------------------ */
-/* Env knobs for anchor index                                         */
-/* ------------------------------------------------------------------ */
-
+/* ─────────────────────── Anchor table defaults ───────────────────── */
 const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
-const DEFAULT_SET_ID     = process.env.ANCHOR_SET_ID || "anchors_v1";
+const DEFAULT_SET_ID     = process.env.ANCHOR_SET_ID       || "anchors_v1";
 const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
 const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
 
-/* ------------------------------------------------------------------ */
-/* Domain index (S3) classification                                   */
-/* ------------------------------------------------------------------ */
-
+/* ───────────────────────── Domain index (S3) ─────────────────────── */
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
-const DOMAIN_INDEX_KEY    = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
+const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
-let _domainIndexCache = null;
-
+/* ------------------------------------------------------------------ */
+/* Vector helpers                                                     */
+/* ------------------------------------------------------------------ */
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
   let s = 0;
@@ -1123,13 +1154,24 @@ const _ensureUnit = (v) => {
   const arr = Array.isArray(v) ? v : (typeof v === "string" ? JSON.parse(v) : null);
   return _normalizeVec(arr);
 };
+const toVector = v => {
+  if (!v) return null;
+  const arr = Array.isArray(v) ? v : JSON.parse(v);
+  if (!Array.isArray(arr)) return null;
+  const len = Math.hypot(...arr);
+  return len ? arr.map(x => x / len) : null;
+};
+const asUnit = (arr) => _normalizeVec(arr);
+
+/* ------------------------------------------------------------------ */
+/* Domain/subdomain classification via S3 index                       */
+/* ------------------------------------------------------------------ */
+let _domainIndexCache = null;
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
   const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
-
-  // Precompute unit vectors
   for (const [, dNode] of Object.entries(idx.domains || {})) {
     dNode._embU = _ensureUnit(dNode.embedding);
     for (const [, sNode] of Object.entries(dNode.subdomains || {})) {
@@ -1163,7 +1205,6 @@ async function classifyDomainsByEmbeddingFromS3({
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
-  // 1) pick best domain by centroid distance
   const domainScores = [];
   for (const [dName, dNode] of Object.entries(idx.domains || {})) {
     if (!dNode?._embU || dNode._embU.length !== q.length) continue;
@@ -1174,9 +1215,8 @@ async function classifyDomainsByEmbeddingFromS3({
   domainScores.sort((a, b) => a.dist - b.dist);
   const best = domainScores[0];
   const runnerUp = domainScores[1] || { dist: Infinity };
-  const margin = runnerUp.dist - best.dist; // larger = clearer win
+  const margin = runnerUp.dist - best.dist;
 
-  // pick subdomain
   const pickSubWithin = (dName) => {
     const subs = [];
     for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
@@ -1199,7 +1239,6 @@ async function classifyDomainsByEmbeddingFromS3({
     return all[0] || null;
   };
 
-  // 2) ambiguity guard (helps with polysemy like "speaker")
   const AMBIG_MARGIN = 0.008;
   if (margin <= AMBIG_MARGIN) {
     const subBest = pickSubGlobally();
@@ -1213,25 +1252,8 @@ async function classifyDomainsByEmbeddingFromS3({
 }
 
 /* ------------------------------------------------------------------ */
-/* Small helpers                                                       */
+/* ArrayLogic plumbling                                                */
 /* ------------------------------------------------------------------ */
-
-const toVector = v => {
-  if (!v) return null;
-  const arr = Array.isArray(v) ? v : JSON.parse(v);
-  if (!Array.isArray(arr)) return null;
-  const len = Math.hypot(...arr);
-  return len ? arr.map(x => x / len) : null;
-};
-
-const createArrayOfRootKeys = schema => {
-  if (!schema || typeof schema !== "object") return [];
-  const { properties } = schema;
-  return properties && typeof properties === "object"
-    ? Object.keys(properties)
-    : [];
-};
-
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
@@ -1253,9 +1275,7 @@ function resolveArrayLogic(arrayLogic) {
     }
     if (Array.isArray(val)) return val.map(deepResolve);
     if (val && typeof val === "object")
-      return Object.fromEntries(Object.entries(val).map(
-        ([k, v]) => [k, deepResolve(v)]
-      ));
+      return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, deepResolve(v)]));
     return val;
   };
 
@@ -1283,9 +1303,7 @@ const convertShorthandRefs = v => {
   }
   if (Array.isArray(v)) return v.map(convertShorthandRefs);
   if (v && typeof v === "object")
-    return Object.fromEntries(Object.entries(v).map(
-      ([k, val]) => [k, convertShorthandRefs(val)]
-    ));
+    return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, convertShorthandRefs(val)]));
   return v;
 };
 
@@ -1297,6 +1315,15 @@ const isOperationElem = obj =>
 const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
+const createArrayOfRootKeys = schema => {
+  if (!schema || typeof schema !== "object") return [];
+  const { properties } = schema;
+  return properties && typeof properties === "object" ? Object.keys(properties) : [];
+};
+
+/* ------------------------------------------------------------------ */
+/* Tiny helper classifiers (domain/subdomain via discrete list)       */
+/* ------------------------------------------------------------------ */
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1335,185 +1362,6 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
-
-const buildLogicSchema = {
-    "name": "build_logic",
-    "description": "Create a structured modules/actions JSON payload for the logic runner.",
-    "parameters": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": ["modules", "actions"],
-        "properties": {
-            "modules": {
-                "type": "object",
-                "description": "Map from local alias → npm-package name.",
-                "additionalProperties": {
-                    "type": "string",
-                    "description": "Exact name of the npm package to `require`."
-                }
-            },
-            "actions": { "$ref": "#/$defs/actionList" }
-        },
-
-        "$defs": {
-            /* ─────────── any JSON value ─────────── */
-            "jsonVal": {
-                "oneOf": [
-                    { "type": "string" },
-                    { "type": "number" },
-                    { "type": "boolean" },
-                    { "type": "object" },
-                    { "type": "array", "items": {} }
-                ]
-            },
-
-            /* ────────── decorators (unchanged) ────────── */
-            "decorators": {
-                "type": "object",
-                "properties": {
-                    "if": { "$ref": "#/$defs/conditionArray" },
-                    "while": { "$ref": "#/$defs/conditionArray" },
-                    "timeout": { "type": "integer", "minimum": 0 },
-                    "next": { "type": "boolean" },
-                    "promise": { "enum": ["raw", "await"] }
-                },
-                "additionalProperties": false
-            },
-
-            /* ───────── chain helpers (unchanged) ───────── */
-            "chainItem": {
-                "type": "object",
-                "required": ["access"],
-                "additionalProperties": false,
-                "properties": {
-                    "access": { "type": "string" },
-                    "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
-                    "new": { "type": "boolean" },
-                    "express": { "type": "boolean" },
-                    "next": { "type": "boolean" },
-                    "return": { "$ref": "#/$defs/jsonVal" }
-                }
-            },
-            "chainArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/chainItem" }
-            },
-
-            /* ───────── condition helpers (unchanged) ───────── */
-            "conditionTuple": {
-                "type": "array",
-                "minItems": 3,
-                "maxItems": 3,
-                "prefixItems": [
-                    { "type": "string" },
-                    { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
-                    { "$ref": "#/$defs/jsonVal" }
-                ],
-                "items": {}
-            },
-            "conditionArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/conditionTuple" }
-            },
-
-            /* ───────── list of actions ───────── */
-            "actionList": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/actionObject" }
-            },
-
-            /* ─────────── ACTION object ─────────── */
-            "actionObject": {
-                "type": "object",
-                "allOf": [
-                    { "$ref": "#/$defs/decorators" },
-                    {
-                        "additionalProperties": false,
-                        "oneOf": [
-
-                            { /* SET */ "required": ["set"],
-                                "properties": {
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* TARGET */ "required": ["target", "chain"],
-                                "properties": {
-                                    "target": { "type": "string" },
-                                    "chain": { "$ref": "#/$defs/chainArray" },
-                                    "assign": { "type": "string" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* IF */ "required": ["if", "set"],
-                                "properties": {
-                                    "if": { "$ref": "#/$defs/conditionArray" },
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* WHILE */ "required": ["while", "nestedActions"],
-                                "properties": {
-                                    "while": { "$ref": "#/$defs/conditionArray" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
-                                "properties": {
-                                    "assign": { "type": "string" },
-                                    "params": { "type": "array", "items": { "type": "string" } },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* RETURN */ "required": ["return"],
-                                "properties": {
-                                    "return": { "$ref": "#/$defs/jsonVal" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            /* ★ NEW ─────────── ELSE wrapper ─────────── */
-                            {
-                                "title": "else",
-                                "required": ["else"],
-                                "properties": {
-                                    /* inner payload is ONE action object
-                                       (matches the pattern you showed: {"else":{ "set":{…}}} ) */
-                                    "else": { "$ref": "#/$defs/actionObject" }
-                                }
-                            }
-                            /* ★ END NEW */
-                        ]
-                    }
-                ]
-            }
-        }
-    }
-}
-
-const buildBreadcrumbApp = async ({ openai, str }) => {
-  const rsp = await openai.chat.completions.create({
-    model: "gpt-4o-2024-08-06",
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
-      { role: "user", content: str }
-    ],
-    functions: [buildLogicSchema],
-    function_call: { name: "build_logic" }
-  });
-
-  const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
-  const args = JSON.parse(fc.arguments);
-  return args;
-};
-
 const classifyDomains = async ({ openai, text }) => {
   const domain = await callOpenAI({
     openai, str: JSON.stringify(text),
@@ -1529,6 +1377,143 @@ const classifyDomains = async ({ openai, text }) => {
   return { domain, subdomain };
 };
 
+/* ------------------------------------------------------------------ */
+/* Anchor utilities                                                    */
+/* ------------------------------------------------------------------ */
+const pad2    = (n) => String(n).padStart(2, "0");
+const padBand = (b) => String(b).padStart(5, "0");
+
+const parseSuFromSk = (sk) => {
+  if (typeof sk !== "string") return null;
+  const m = /(?:^|#)SU=([^#]+)/.exec(sk);
+  return m ? m[1] : null;
+};
+const parseBandFromSk = (sk) => {
+  const m = /(?:^|#)B=(\d{1,6})/.exec(sk);
+  return m ? Number(m[1]) : null;
+};
+
+async function _batchGetSubs(doc, keys /* [{su}] */) {
+  if (!keys.length) return new Map();
+  const out = new Map();
+  let i = 0;
+  while (i < keys.length) {
+    const chunk = keys.slice(i, i + 100);
+    const rsp = await doc.batchGet({ RequestItems: { subdomains: { Keys: chunk } } }).promise();
+    const rows = rsp.Responses?.subdomains || [];
+    for (const r of rows) out.set(String(r.su), r);
+    i += 100;
+  }
+  return out;
+}
+
+async function _queryWindow(doc, { pk, bandCenter, delta, numShards, limitPerAssign = 500 }) {
+  const bLo = Math.max(0, bandCenter - delta);
+  const bHi = bandCenter + delta;
+  const skLo = `B=${padBand(bLo)}#S=00`;
+  const skHi = `B=${padBand(bHi)}#S=${pad2(numShards - 1)}`;
+
+  const { Items } = await doc.query({
+    TableName: ANCHOR_BANDS_TABLE,
+    KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :lo AND :hi",
+    ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
+    ExpressionAttributeValues: { ":pk": pk, ":lo": skLo, ":hi": skHi },
+    Limit: Number(limitPerAssign || 500)
+  }).promise();
+
+  return Items || [];
+}
+
+async function findBestMatchByAnchors({
+  doc,
+  s3,
+  setId = DEFAULT_SET_ID,
+  bandScale = DEFAULT_BAND_SCALE,
+  numShards = DEFAULT_NUM_SHARDS,
+  topL0 = 2,
+  bandWindow = 12,
+  limitPerAssign = 500,
+  topK = 50,
+  e = 0,
+  eU,
+  wantDomain = null,
+  wantSubdomain = null
+}) {
+  const anchors = await anchorsUtil.loadAnchors({ s3, setId, band_scale: bandScale, num_shards: numShards });
+  if (!anchors?.d || anchors.d !== eU.length) return null;
+
+  const assigns = anchorsUtil.assign(eU, anchors, { topL0, band_scale: bandScale, num_shards: numShards });
+  const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+  const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+
+  let anyTenant = false;
+  const bucket = new Map(); // su -> { su, bandDelta }
+
+  for (const a of assigns) {
+    let rows = [];
+    try {
+      rows = await _queryWindow(doc, {
+        pk: makePkTenant(a),
+        bandCenter: a.band,
+        delta: bandWindow,
+        numShards,
+        limitPerAssign
+      });
+    } catch {}
+
+    if (rows?.length) anyTenant = true;
+
+    if (!rows?.length) {
+      try {
+        rows = await _queryWindow(doc, {
+          pk: makePkGlobal(a),
+          bandCenter: a.band,
+          delta: bandWindow,
+          numShards,
+          limitPerAssign
+        });
+      } catch {}
+    }
+
+    for (const r of rows || []) {
+      const su  = r.su || parseSuFromSk(r.sk);
+      const ib  = Number.isFinite(r.band) ? r.band : parseBandFromSk(r.sk);
+      if (!su || !Number.isFinite(ib)) continue;
+
+      const bandDelta = Math.abs(ib - a.band);
+      const cur = bucket.get(su);
+      if (!cur || bandDelta < cur.bandDelta) bucket.set(su, { su, bandDelta });
+    }
+  }
+
+  if (!bucket.size) return null;
+
+  let candidates = Array.from(bucket.values()).sort((a, b) => a.bandDelta - b.bandDelta);
+  if (candidates.length > topK) candidates = candidates.slice(0, topK);
+
+  if (!anyTenant || wantDomain || wantSubdomain) {
+    const keys = candidates.map(c => ({ su: String(c.su) }));
+    const subMap = await _batchGetSubs(doc, keys);
+
+    candidates = candidates.filter(c => {
+      const row = subMap.get(String(c.su));
+      if (!row) return false;
+      if (!anyTenant && row.e != null && String(row.e) !== String(e)) return false;
+      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
+      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
+      return true;
+    });
+
+    if (!candidates.length) return null;
+  }
+
+  const pick = candidates[0];
+  return { ...pick, usedTenantPK: anyTenant };
+}
+
+/* ------------------------------------------------------------------ */
+/* Build-from-prompt (unchanged)                                      */
+/* ------------------------------------------------------------------ */
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1593,176 +1578,179 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Anchor-based retrieval helpers                                      */
+/* Action schema (kept here so file runs; replace with your own)      */
 /* ------------------------------------------------------------------ */
+const buildLogicSchema = {
+  "name": "build_logic",
+  "description": "Create a structured modules/actions JSON payload for the logic runner.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["modules", "actions"],
+    "properties": {
+      "modules": {
+        "type": "object",
+        "description": "Map from local alias → npm-package name.",
+        "additionalProperties": {
+          "type": "string",
+          "description": "Exact name of the npm package to `require`."
+        }
+      },
+      "actions": { "$ref": "#/$defs/actionList" }
+    },
 
-const pad2    = (n) => String(n).padStart(2, "0");
-const padBand = (b) => String(b).padStart(5, "0");
-const asUnit  = (arr) => {
-  if (!Array.isArray(arr) || !arr.length) return null;
-  let s = 0;
-  for (const v of arr) { const f = +v; if (!Number.isFinite(f)) return null; s += f*f; }
-  const n = Math.sqrt(s);
-  if (n < 1e-12) return null;
-  return arr.map(v => +v / n);
-};
-
-const parseSuFromSk = (sk) => {
-  if (typeof sk !== "string") return null;
-  const m = /(?:^|#)SU=([^#]+)/.exec(sk);
-  return m ? m[1] : null;
-};
-const parseBandFromSk = (sk) => {
-  const m = /(?:^|#)B=(\d{1,6})/.exec(sk);
-  return m ? Number(m[1]) : null;
-};
-
-async function _batchGetSubs(doc, keys /* [{su}] */) {
-  if (!keys.length) return new Map();
-  const out = new Map();
-  let i = 0;
-  while (i < keys.length) {
-    const chunk = keys.slice(i, i + 100);
-    const rsp = await doc.batchGet({ RequestItems: { subdomains: { Keys: chunk } } }).promise();
-    const rows = rsp.Responses?.subdomains || [];
-    for (const r of rows) out.set(String(r.su), r);
-    i += 100;
-  }
-  return out;
-}
-
-async function _queryWindow(doc, { pk, bandCenter, delta, numShards, limitPerAssign = 500 }) {
-  const bLo = Math.max(0, bandCenter - delta);
-  const bHi = bandCenter + delta;
-  const skLo = `B=${padBand(bLo)}#S=00`;
-  const skHi = `B=${padBand(bHi)}#S=${pad2(numShards - 1)}`;
-
-  const { Items } = await doc.query({
-    TableName: ANCHOR_BANDS_TABLE,
-    KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :lo AND :hi",
-    ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
-    ExpressionAttributeValues: { ":pk": pk, ":lo": skLo, ":hi": skHi },
-    Limit: Number(limitPerAssign || 500)
-  }).promise();
-
-  return Items || [];
-}
-
-/**
- * Anchor-based best-match finder.
- * Tries tenant-PK first (AB#<setId>#U=<e>#L0=..#L1=..), then global PK; dedupes by su;
- * optionally filters by (domain, subdomain) via subdomains table.
- */
-async function findBestMatchByAnchors({
-  doc,              // DocumentClient
-  s3,               // for anchorsUtil.loadAnchors
-  setId = DEFAULT_SET_ID,
-  bandScale = DEFAULT_BAND_SCALE,
-  numShards = DEFAULT_NUM_SHARDS,
-  topL0 = 2,
-  bandWindow = 12,
-  limitPerAssign = 500,
-  topK = 50,
-  e = 0,            // user id
-  eU,               // query embedding (unit vector)
-  wantDomain = null,
-  wantSubdomain = null
-}) {
-  const anchors = await anchorsUtil.loadAnchors({
-    s3, setId, band_scale: bandScale, num_shards: numShards
-  });
-  if (!anchors?.d || anchors.d !== eU.length) return null;
-
-  const assigns = anchorsUtil.assign(eU, anchors, {
-    topL0, band_scale: bandScale, num_shards: numShards
-  });
-
-  const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-  const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-
-  let anyTenant = false;
-  const bucket = new Map(); // su -> best { bandDelta }
-
-  for (const a of assigns) {
-    // tenant first
-    let rows = [];
-    try {
-      rows = await _queryWindow(doc, {
-        pk: makePkTenant(a),
-        bandCenter: a.band,
-        delta: bandWindow,
-        numShards,
-        limitPerAssign
-      });
-    } catch {}
-
-    if (rows?.length) anyTenant = true;
-
-    // fallback to global
-    if (!rows?.length) {
-      try {
-        rows = await _queryWindow(doc, {
-          pk: makePkGlobal(a),
-          bandCenter: a.band,
-          delta: bandWindow,
-          numShards,
-          limitPerAssign
-        });
-      } catch {}
+    "$defs": {
+      "jsonVal": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "object" },
+          { "type": "array", "items": {} }
+        ]
+      },
+      "decorators": {
+        "type": "object",
+        "properties": {
+          "if": { "$ref": "#/$defs/conditionArray" },
+          "while": { "$ref": "#/$defs/conditionArray" },
+          "timeout": { "type": "integer", "minimum": 0 },
+          "next": { "type": "boolean" },
+          "promise": { "enum": ["raw", "await"] }
+        },
+        "additionalProperties": false
+      },
+      "chainItem": {
+        "type": "object",
+        "required": ["access"],
+        "additionalProperties": false,
+        "properties": {
+          "access": { "type": "string" },
+          "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
+          "new": { "type": "boolean" },
+          "express": { "type": "boolean" },
+          "next": { "type": "boolean" },
+          "return": { "$ref": "#/$defs/jsonVal" }
+        }
+      },
+      "chainArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/chainItem" }
+      },
+      "conditionTuple": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "prefixItems": [
+          { "type": "string" },
+          { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
+          { "$ref": "#/$defs/jsonVal" }
+        ],
+        "items": {}
+      },
+      "conditionArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/conditionTuple" }
+      },
+      "actionList": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/actionObject" }
+      },
+      "actionObject": {
+        "type": "object",
+        "allOf": [
+          { "$ref": "#/$defs/decorators" },
+          {
+            "additionalProperties": false,
+            "oneOf": [
+              { "required": ["set"],
+                "properties": {
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["target", "chain"],
+                "properties": {
+                  "target": { "type": "string" },
+                  "chain": { "$ref": "#/$defs/chainArray" },
+                  "assign": { "type": "string" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["if", "set"],
+                "properties": {
+                  "if": { "$ref": "#/$defs/conditionArray" },
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["while", "nestedActions"],
+                "properties": {
+                  "while": { "$ref": "#/$defs/conditionArray" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["assign", "params", "nestedActions"],
+                "properties": {
+                  "assign": { "type": "string" },
+                  "params": { "type": "array", "items": { "type": "string" } },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["return"],
+                "properties": {
+                  "return": { "$ref": "#/$defs/jsonVal" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              {
+                "title": "else",
+                "required": ["else"],
+                "properties": {
+                  "else": { "$ref": "#/$defs/actionObject" }
+                }
+              }
+            ]
+          }
+        ]
+      }
     }
-
-    for (const r of rows || []) {
-      const su  = r.su || parseSuFromSk(r.sk);
-      const ib  = Number.isFinite(r.band) ? r.band : parseBandFromSk(r.sk);
-      if (!su || !Number.isFinite(ib)) continue;
-      const bandDelta = Math.abs(ib - a.band);
-      const cur = bucket.get(su);
-      if (!cur || bandDelta < cur.bandDelta) bucket.set(su, { su, bandDelta });
-    }
   }
+};
 
-  if (!bucket.size) return null;
+/* ------------------------------------------------------------------ */
+/* Builder for the “breadcrumb app” (unchanged)                       */
+/* ------------------------------------------------------------------ */
+const buildBreadcrumbApp = async ({ openai, str }) => {
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-2024-08-06",
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
+      { role: "user", content: str }
+    ],
+    functions: [buildLogicSchema],
+    function_call: { name: "build_logic" }
+  });
 
-  // sort by nearest band
-  let candidates = Array.from(bucket.values()).sort((a, b) => a.bandDelta - b.bandDelta);
-  if (candidates.length > topK) candidates = candidates.slice(0, topK);
-
-  // If global-only or domain filters, check subdomains table
-  if (!anyTenant || wantDomain || wantSubdomain) {
-    const keys = candidates.map(c => ({ su: String(c.su) }));
-    const subMap = await _batchGetSubs(doc, keys);
-
-    candidates = candidates.filter(c => {
-      const row = subMap.get(String(c.su));
-      if (!row) return false;
-
-      if (!anyTenant && row.e != null && String(row.e) !== String(e)) return false;
-      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
-      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
-
-      return true;
-    });
-
-    if (!candidates.length) return null;
-  }
-
-  const pick = candidates[0];
-  return { su: pick.su, bandDelta: pick.bandDelta, usedTenantPK: anyTenant };
-}
+  const fc = rsp.choices[0].message.function_call;
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  const args = JSON.parse(fc.arguments);
+  return args;
+};
 
 /* ------------------------------------------------------------------ */
 /* Main                                                               */
 /* ------------------------------------------------------------------ */
-
 async function parseArrayLogic({
   arrayLogic = [],
-  dynamodb,    // DocumentClient
+  dynamodb,     // DocumentClient
   uuidv4,
   s3,
   ses,
   openai,
   Anthropic,
-  dynamodbLL,  // unused now (kept for signature compatibility)
+  dynamodbLL,   // unused now
   sourceType,
   actionFile,
   out,
@@ -1782,9 +1770,10 @@ async function parseArrayLogic({
   const shorthand = [];
   const createdEntities = [];
   const results = [];
+
   let routeRowNewIndex = null;
 
-  // presence check only (uses DocumentClient)
+  // presence check only
   const loadExistingEntityRow = async (su) => {
     try {
       const { Item } = await dynamodb.get({
@@ -1798,9 +1787,12 @@ async function parseArrayLogic({
     }
   };
 
+  // Track the last entity/file so we can expose them in the final response
+  let lastEntityRef = null; // can be a literal su or a padRef(...) to a GET row
+  let lastFileRef   = null; // padRef to the GET file row when creating
+
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
-
     if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
       continue;
     }
@@ -1840,7 +1832,7 @@ async function parseArrayLogic({
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
 
-    // Prefer the *user's request* when requestOnly === true
+    // Prefer raw request text when requestOnly === true
     const b = elem[bc];
     const inp = b?.input && typeof b.input === 'object' ? b.input : {};
     let userReqText = null;
@@ -1851,30 +1843,27 @@ async function parseArrayLogic({
       if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
       else if (typeof candidate === 'string') userReqText = candidate.trim();
     }
+
     const textForEmbedding = requestOnly
       ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
 
-    // classify (domain/subdomain) via S3 index
     const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
-      s3,
-      openai,
-      key: "nestedDomainIndex.json",
-      textForEmbedding
+      s3, openai, key: "nestedDomainIndex.json", textForEmbedding
     });
 
-    // embedding (unit)
+    // Query embedding (unit)
     const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
     const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
     const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
       model: "text-embedding-3-large",
       input: embText
     });
-    const embedding = toVector(rawEmb);        // already unit
-    const eU = asUnit(embedding) || embedding; // ensure unit
+    const embedding = toVector(rawEmb);
+    const eU = asUnit(embedding);
 
     // ───────────────────────────────────────────────────────────────
-    // ANCHOR-BASED bestMatch (tenant-first, fall back to global)
+    // ANCHOR-BASED MATCH
     // ───────────────────────────────────────────────────────────────
     let bestMatch = null;
     try {
@@ -1888,8 +1877,8 @@ async function parseArrayLogic({
         bandWindow: 12,
         limitPerAssign: 500,
         topK: 50,
-        e,            // user id
-        eU,           // unit embedding
+        e,
+        eU,
         wantDomain: domain,
         wantSubdomain: subdomain
       });
@@ -1900,15 +1889,16 @@ async function parseArrayLogic({
       console.error("anchor bestMatch lookup failed:", err);
     }
 
-    const inputParam   = convertShorthandRefs(body.input);
+    const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
-    const schemaParam  = convertShorthandRefs(expectedKeys);
+    const schemaParam = convertShorthandRefs(expectedKeys);
 
     if (!bestMatch) {
-      // optional explicit actionFile (user provided entity)
+      // Provided entity fallback
       if (actionFile) {
-        await loadExistingEntityRow(actionFile); // no-op presence check; ignore result
+        await loadExistingEntityRow(actionFile);
 
+        // Position using anchors (no pb/dist*)
         shorthand.push([
           "ROUTE",
           {
@@ -1933,50 +1923,48 @@ async function parseArrayLogic({
           ""
         ]);
 
-        shorthand.push([
-          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-        ]);
+        // Run the provided entity
+        shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""]);
 
+        // Surface SU for server-sync-lite
+        shorthand.push(["ADDPROPERTY", "000!!", "entity", actionFile]);
+
+        lastEntityRef = actionFile;
         routeRowNewIndex = shorthand.length;
         continue;
       }
 
-      // create a new entity/group
+      // Create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
-      const entNameRaw =
-        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
+      const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
+
+      const entNameRaw = pick(
+        body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out
+      ) || "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
 
-      shorthand.push([
-        "ROUTE",
-        { output: entName },
-        {},
-        "newGroup",
-        groupName,
-        entName
-      ]);
-
+      // 1) new group → returns { response: { file, entity } }
+      shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", groupName, entName]);
       routeRowNewIndex = shorthand.length;
 
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      // 2) Capture file + entity (two GETs so we can reference both)
+      // file id
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);    // -> A+1
+      const fileRefRow = routeRowNewIndex + 1;
+      // entity su
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "entity"]);  // -> A+2
+      const entityRefRow = routeRowNewIndex + 2;
 
-      if (fixedOutput) {
-        shorthand.push([
-          "ROUTE",
-          {},
-          {},
-          "getFile",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]);
+      // 3) load file
+      shorthand.push(["ROUTE", {}, {}, "getFile", padRef(fileRefRow), ""]);     // -> A+3
+      // 4) GET file response
+      shorthand.push(["GET", padRef(routeRowNewIndex + 3), "response"]);        // -> A+4
 
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-
-        // Build a JPL (unchanged from your flow; keep your generator contents)
-
+      // 5) Build JPL from desired object
+      const desiredObj = structuredClone(elem);
+      if (fixedOutput) desiredObj.response = fixedOutput;
 
                 let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
                 newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
@@ -1985,38 +1973,17 @@ async function parseArrayLogic({
                 newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
                 newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
 
+      const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
-        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+      // 6) Inject actions/modules into loaded file's published tree
+      shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "actions", objectJPL.actions]);
+      shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", (objectJPL.modules || {})]);
 
-        shorthand.push(
-          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-        );
+      // 7) Save the file
+      shorthand.push(["ROUTE", padRef(routeRowNewIndex + 1), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
 
-        if (objectJPL.modules) {
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-          );
-        } else {
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-          );
-        }
-
-        shorthand.push(
-          [
-            "ROUTE",
-            padRef(routeRowNewIndex + 5),
-            {},
-            "saveFile",
-            padRef(routeRowNewIndex + 1),
-            ""
-          ]
-        );
-      }
-
-      // position the new entity via anchors
+      // 8) Anchor-based position for the NEW entity (use entityRefRow)
       const pathStr = breadcrumb;
-
       shorthand.push([
         "ROUTE",
         {
@@ -2024,10 +1991,9 @@ async function parseArrayLogic({
             description: "auto created entity",
             domain, subdomain,
             embedding,
-            entity: padRef(routeRowNewIndex + 1),
+            entity: padRef(entityRefRow),       // <- SU row
             path: pathStr,
             output: fixedOutput,
-            // anchor knobs
             anchor_set_id: DEFAULT_SET_ID,
             band_scale: DEFAULT_BAND_SCALE,
             num_shards: DEFAULT_NUM_SHARDS,
@@ -2036,42 +2002,45 @@ async function parseArrayLogic({
         },
         {},
         "position",
-        padRef(routeRowNewIndex + 1),
+        padRef(entityRefRow),
         ""
       ]);
 
+      // 9) Run the new entity (optional, like before)
       if (fixedOutput) {
-        shorthand.push([
-          "ROUTE",
-          inputParam,
-          {},
-          "runEntity",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]);
+        shorthand.push(["ROUTE", inputParam, {}, "runEntity", padRef(entityRefRow), ""]);
       } else {
         shorthand.push([fixedOutput]);
       }
 
-    } else {
-      // run best match
+      // 10) Surface SU + file for server-sync-lite
+      shorthand.push(["ADDPROPERTY", "000!!", "entity", padRef(entityRefRow)]);
+      shorthand.push(["ADDPROPERTY", "000!!", "file",   padRef(fileRefRow)]);
       shorthand.push([
-        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
+        "ADDPROPERTY",
+        "000!!",
+        "createdEntities",
+        [{ entity: padRef(entityRefRow), name: entName, contentType: "text", id: padRef(entityRefRow) }]
       ]);
 
-      // refresh positioning metadata for the matched entity (anchors)
+      lastEntityRef = padRef(entityRefRow);
+      lastFileRef   = padRef(fileRefRow);
+
+    } else {
+      // Run best match
+      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
+
+      // Anchor-based position for matched entity
       shorthand.push([
         "ROUTE",
         {
           "body": {
             description: "auto matched entity",
-            domain,
-            subdomain,
+            domain, subdomain,
             embedding,
             entity: bestMatch.su,
             path: breadcrumb,
             output: fixedOutput,
-            // anchor knobs
             anchor_set_id: DEFAULT_SET_ID,
             band_scale: DEFAULT_BAND_SCALE,
             num_shards: DEFAULT_NUM_SHARDS,
@@ -2083,42 +2052,38 @@ async function parseArrayLogic({
         bestMatch.su,
         ""
       ]);
+
+      // Surface SU for server-sync-lite
+      shorthand.push(["ADDPROPERTY", "000!!", "entity", bestMatch.su]);
+      lastEntityRef = bestMatch.su;
     }
 
-    routeRowNewIndex = shorthand.length;
-  }
+  } // end for
 
+  // If the last element is a conclusion block, keep your existing summary wiring
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    // make sure we still surface the last SU/file
+    if (lastEntityRef) shorthand.push(["ADDPROPERTY", "000!!", "entity", lastEntityRef]);
+    if (lastFileRef)   shorthand.push(["ADDPROPERTY", "000!!", "file",   lastFileRef]);
+
     const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(shorthand.length)]
     ) - 1;
-
-    shorthand.push([
-      "ADDPROPERTY",
-      padRef(getRowIndex + 1),
-      "createdEntities",
-      {
-        entity: "",
-        name: "_new",
-        contentType: "text",
-        id: "_new"
-      }
-    ]);
-
-    shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
     shorthand.push([
       "ROWRESULT",
       "000",
-      padRef(getRowIndex + 3)
+      padRef(getRowIndex + 1)
     ]);
+  } else {
+    // No explicit conclusion → still return a row that includes entity/file
+    if (lastEntityRef) shorthand.push(["ADDPROPERTY", "000!!", "entity", lastEntityRef]);
+    if (lastFileRef)   shorthand.push(["ADDPROPERTY", "000!!", "file",   lastFileRef]);
+    shorthand.push(["ROWRESULT", "000", padRef(shorthand.length)]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
-
-  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
