@@ -1,58 +1,21 @@
-
-
-
-
-
-
-
-
-
-
-
-// parseArrayLogic.js
+// modules/parseArrayLogic.js
 /* ------------------------------------------------------------------ */
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
 const anchorsUtil = require("./routes/anchors");
 const { DynamoDB } = require("aws-sdk");
-const { Converter } = DynamoDB; // (not strictly needed now, but kept for parity)
+const { Converter } = DynamoDB;
 
-/* ───────────────────────────── Domains ───────────────────────────── */
 const DOMAINS = [
-  "agriculture",
-  "architecture",
-  "biology",
-  "business",
-  "characteristic",
-  "chemistry",
-  "community",
-  "cosmology",
-  "economics",
-  "education",
-  "entertainment",
-  "environment",
-  "event",
-  "food",
-  "geology",
-  "geography",
-  "government",
-  "health",
-  "history",
-  "language",
-  "law",
-  "manufacturing",
-  "mathematics",
-  "people",
-  "psychology",
-  "philosophy",
-  "religion",
-  "sports",
-  "technology",
-  "transportation"
+  "agriculture","architecture","biology","business","characteristic","chemistry",
+  "community","cosmology","economics","education","entertainment","environment",
+  "event","food","geology","geography","government","health","history","language",
+  "law","manufacturing","mathematics","people","psychology","philosophy","religion",
+  "sports","technology","transportation"
 ];
 
-// ⬇⬇ Replace with your full list; kept here minimal so file is runnable
+// ── paste your full DOMAIN_SUBS map here ─────────────────────────────
 const DOMAIN_SUBS = {
   "agriculture": [
     "agroeconomics",
@@ -1128,19 +1091,17 @@ const DOMAIN_SUBS = {
     ]
 };
 
-/* ─────────────────────── Anchor table defaults ───────────────────── */
-const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
-const DEFAULT_SET_ID     = process.env.ANCHOR_SET_ID       || "anchors_v1";
-const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
-const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
+// marshal helper for low-level numeric attributes
+const n = (x) => ({ N: typeof x === "string" ? x : String(x) });
 
-/* ───────────────────────── Domain index (S3) ─────────────────────── */
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
 const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
-/* ------------------------------------------------------------------ */
-/* Vector helpers                                                     */
-/* ------------------------------------------------------------------ */
+//nestedDomainIndex.json format
+// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embedding":[]}, ... }}
+
+let _domainIndexCache = null;
+
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
   let s = 0;
@@ -1150,28 +1111,17 @@ const _normalizeVec = (v) => {
   for (let i = 0; i < v.length; i++) out[i] = v[i] * inv;
   return out;
 };
+
 const _ensureUnit = (v) => {
   const arr = Array.isArray(v) ? v : (typeof v === "string" ? JSON.parse(v) : null);
   return _normalizeVec(arr);
 };
-const toVector = v => {
-  if (!v) return null;
-  const arr = Array.isArray(v) ? v : JSON.parse(v);
-  if (!Array.isArray(arr)) return null;
-  const len = Math.hypot(...arr);
-  return len ? arr.map(x => x / len) : null;
-};
-const asUnit = (arr) => _normalizeVec(arr);
-
-/* ------------------------------------------------------------------ */
-/* Domain/subdomain classification via S3 index                       */
-/* ------------------------------------------------------------------ */
-let _domainIndexCache = null;
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
   const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
+  // Precompute unit vectors
   for (const [, dNode] of Object.entries(idx.domains || {})) {
     dNode._embU = _ensureUnit(dNode.embedding);
     for (const [, sNode] of Object.entries(dNode.subdomains || {})) {
@@ -1197,14 +1147,12 @@ const _cosineDistUnit = (a, b) => {
 };
 
 async function classifyDomainsByEmbeddingFromS3({
-  s3,
-  openai,
-  key = DOMAIN_INDEX_KEY,
-  textForEmbedding
+  s3, openai, key = DOMAIN_INDEX_KEY, textForEmbedding
 }) {
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
+  // 1) pick best domain by centroid distance
   const domainScores = [];
   for (const [dName, dNode] of Object.entries(idx.domains || {})) {
     if (!dNode?._embU || dNode._embU.length !== q.length) continue;
@@ -1217,6 +1165,7 @@ async function classifyDomainsByEmbeddingFromS3({
   const runnerUp = domainScores[1] || { dist: Infinity };
   const margin = runnerUp.dist - best.dist;
 
+  // Helpers to pick subdomain
   const pickSubWithin = (dName) => {
     const subs = [];
     for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
@@ -1239,6 +1188,7 @@ async function classifyDomainsByEmbeddingFromS3({
     return all[0] || null;
   };
 
+  // 2) ambiguity guard (helps with polysemy like "speaker")
   const AMBIG_MARGIN = 0.008;
   if (margin <= AMBIG_MARGIN) {
     const subBest = pickSubGlobally();
@@ -1252,8 +1202,51 @@ async function classifyDomainsByEmbeddingFromS3({
 }
 
 /* ------------------------------------------------------------------ */
-/* ArrayLogic plumbling                                                */
+/* Helpers                                                            */
 /* ------------------------------------------------------------------ */
+
+const parseVector = v => {
+  if (!v) return null;
+  if (Array.isArray(v)) return v;
+  try { return JSON.parse(v); } catch { return null; }
+};
+
+const cosineDist = (a, b) => {
+  let dot = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    na += a[i] * a[i];
+    nb += b[i] * b[i];
+  }
+  return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+};
+
+const toVector = v => {
+  if (!v) return null;
+  const arr = Array.isArray(v) ? v : JSON.parse(v);
+  if (!Array.isArray(arr)) return null;
+  const len = Math.hypot(...arr);
+  return len ? arr.map(x => x / len) : null;
+};
+
+const createArrayOfRootKeys = schema => {
+  if (!schema || typeof schema !== "object") return [];
+  const { properties } = schema;
+  return properties && typeof properties === "object" ? Object.keys(properties) : [];
+};
+
+const calcMatchScore = (elementDists, item) => {
+  let sum = 0, count = 0;
+  for (let i = 1; i <= 5; i++) {
+    const e = elementDists[`dist${i}`];
+    const t = item[`dist${i}`];
+    if (typeof e === "number" && typeof t === "number") {
+      sum += Math.abs(e - t); count++;
+    }
+  }
+  return count ? sum / count : Number.POSITIVE_INFINITY;
+};
+
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
@@ -1315,34 +1308,22 @@ const isOperationElem = obj =>
 const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
-const createArrayOfRootKeys = schema => {
-  if (!schema || typeof schema !== "object") return [];
-  const { properties } = schema;
-  return properties && typeof properties === "object" ? Object.keys(properties) : [];
-};
+/* ------------------------------------------------------------------ */
+/* OpenAI bits (unchanged)                                            */
+/* ------------------------------------------------------------------ */
 
-/* ------------------------------------------------------------------ */
-/* Tiny helper classifiers (domain/subdomain via discrete list)       */
-/* ------------------------------------------------------------------ */
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
-    messages: [{
-      role: "user",
-      content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
-    }]
+    temperature: 0, top_p: 0, seed: 42,
+    messages: [{ role: "user", content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}` }]
   });
   const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
   if (list.includes(guess)) return guess;
 
   const strict = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
+    temperature: 0, top_p: 0, seed: 42,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -1362,224 +1343,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
-const classifyDomains = async ({ openai, text }) => {
-  const domain = await callOpenAI({
-    openai, str: JSON.stringify(text),
-    list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
-  });
-  const subList = DOMAIN_SUBS[domain] ?? [];
-  let subdomain = "";
-  if (subList.length)
-    subdomain = await callOpenAI({
-      openai, str: JSON.stringify(text), list: subList,
-      promptLabel: "subdomain", schemaName: "subdomain_classification"
-    });
-  return { domain, subdomain };
-};
-
-/* ------------------------------------------------------------------ */
-/* Anchor utilities                                                    */
-/* ------------------------------------------------------------------ */
-const pad2    = (n) => String(n).padStart(2, "0");
-const padBand = (b) => String(b).padStart(5, "0");
-
-const parseSuFromSk = (sk) => {
-  if (typeof sk !== "string") return null;
-  const m = /(?:^|#)SU=([^#]+)/.exec(sk);
-  return m ? m[1] : null;
-};
-const parseBandFromSk = (sk) => {
-  const m = /(?:^|#)B=(\d{1,6})/.exec(sk);
-  return m ? Number(m[1]) : null;
-};
-
-async function _batchGetSubs(doc, keys /* [{su}] */) {
-  if (!keys.length) return new Map();
-  const out = new Map();
-  let i = 0;
-  while (i < keys.length) {
-    const chunk = keys.slice(i, i + 100);
-    const rsp = await doc.batchGet({ RequestItems: { subdomains: { Keys: chunk } } }).promise();
-    const rows = rsp.Responses?.subdomains || [];
-    for (const r of rows) out.set(String(r.su), r);
-    i += 100;
-  }
-  return out;
-}
-
-async function _queryWindow(doc, { pk, bandCenter, delta, numShards, limitPerAssign = 500 }) {
-  const bLo = Math.max(0, bandCenter - delta);
-  const bHi = bandCenter + delta;
-  const skLo = `B=${padBand(bLo)}#S=00`;
-  const skHi = `B=${padBand(bHi)}#S=${pad2(numShards - 1)}`;
-
-  const { Items } = await doc.query({
-    TableName: ANCHOR_BANDS_TABLE,
-    KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :lo AND :hi",
-    ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
-    ExpressionAttributeValues: { ":pk": pk, ":lo": skLo, ":hi": skHi },
-    Limit: Number(limitPerAssign || 500)
-  }).promise();
-
-  return Items || [];
-}
-
-async function findBestMatchByAnchors({
-  doc,
-  s3,
-  setId = DEFAULT_SET_ID,
-  bandScale = DEFAULT_BAND_SCALE,
-  numShards = DEFAULT_NUM_SHARDS,
-  topL0 = 2,
-  bandWindow = 12,
-  limitPerAssign = 500,
-  topK = 50,
-  e = 0,
-  eU,
-  wantDomain = null,
-  wantSubdomain = null
-}) {
-  const anchors = await anchorsUtil.loadAnchors({ s3, setId, band_scale: bandScale, num_shards: numShards });
-  if (!anchors?.d || anchors.d !== eU.length) return null;
-
-  const assigns = anchorsUtil.assign(eU, anchors, { topL0, band_scale: bandScale, num_shards: numShards });
-  const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-  const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-
-  let anyTenant = false;
-  const bucket = new Map(); // su -> { su, bandDelta }
-
-  for (const a of assigns) {
-    let rows = [];
-    try {
-      rows = await _queryWindow(doc, {
-        pk: makePkTenant(a),
-        bandCenter: a.band,
-        delta: bandWindow,
-        numShards,
-        limitPerAssign
-      });
-    } catch {}
-
-    if (rows?.length) anyTenant = true;
-
-    if (!rows?.length) {
-      try {
-        rows = await _queryWindow(doc, {
-          pk: makePkGlobal(a),
-          bandCenter: a.band,
-          delta: bandWindow,
-          numShards,
-          limitPerAssign
-        });
-      } catch {}
-    }
-
-    for (const r of rows || []) {
-      const su  = r.su || parseSuFromSk(r.sk);
-      const ib  = Number.isFinite(r.band) ? r.band : parseBandFromSk(r.sk);
-      if (!su || !Number.isFinite(ib)) continue;
-
-      const bandDelta = Math.abs(ib - a.band);
-      const cur = bucket.get(su);
-      if (!cur || bandDelta < cur.bandDelta) bucket.set(su, { su, bandDelta });
-    }
-  }
-
-  if (!bucket.size) return null;
-
-  let candidates = Array.from(bucket.values()).sort((a, b) => a.bandDelta - b.bandDelta);
-  if (candidates.length > topK) candidates = candidates.slice(0, topK);
-
-  if (!anyTenant || wantDomain || wantSubdomain) {
-    const keys = candidates.map(c => ({ su: String(c.su) }));
-    const subMap = await _batchGetSubs(doc, keys);
-
-    candidates = candidates.filter(c => {
-      const row = subMap.get(String(c.su));
-      if (!row) return false;
-      if (!anyTenant && row.e != null && String(row.e) !== String(e)) return false;
-      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
-      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
-      return true;
-    });
-
-    if (!candidates.length) return null;
-  }
-
-  const pick = candidates[0];
-  return { ...pick, usedTenantPK: anyTenant };
-}
-
-/* ------------------------------------------------------------------ */
-/* Build-from-prompt (unchanged)                                      */
-/* ------------------------------------------------------------------ */
-async function buildArrayLogicFromPrompt({ openai, prompt }) {
-  const rsp = await openai.chat.completions.create({
-    model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
-    messages: [{
-      role: "system",
-      content:
-        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
-        "array—the arrayLogic representation of the user’s request. " +
-        "No prose. No markdown. No code fences. No comments!!"
-    },
-    { role: "user", content: prompt }
-    ]
-  });
-  let text = rsp.choices[0].message.content.trim();
-
-  function stripComments(jsonLike) {
-    let out = '';
-    let inString = false, quote = '', escaped = false;
-    let inSL = false, inML = false;
-
-    for (let i = 0; i < jsonLike.length; i++) {
-      const c = jsonLike[i], n = jsonLike[i + 1];
-
-      if (inSL) {
-        if (c === '\n' || c === '\r') { inSL = false; out += c; }
-        continue;
-      }
-      if (inML) {
-        if (c === '*' && n === '/') { inML = false; i++; }
-        continue;
-      }
-      if (inString) {
-        out += c;
-        if (!escaped && c === quote) { inString = false; quote = ''; }
-        escaped = !escaped && c === '\\';
-        continue;
-      }
-      if (c === '"' || c === "'") {
-        inString = true; quote = c; out += c; continue;
-      }
-      if (c === '/' && n === '/') { inSL = true; i++; continue; }
-      if (c === '/' && n === '*') { inML = true; i++; continue; }
-
-      out += c;
-    }
-    return out;
-  }
-
-  text = stripComments(text);
-
-  const start = text.indexOf("[");
-  const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1) {
-    throw new Error("Model response did not contain a JSON array.");
-  }
-
-  text = text.slice(start, end + 1);
-  return JSON.parse(text);
-}
-
-/* ------------------------------------------------------------------ */
-/* Action schema (kept here so file runs; replace with your own)      */
-/* ------------------------------------------------------------------ */
+// ── paste your full buildLogicSchema here (unchanged from your version) ─────
 const buildLogicSchema = {
   "name": "build_logic",
   "description": "Create a structured modules/actions JSON payload for the logic runner.",
@@ -1718,9 +1482,6 @@ const buildLogicSchema = {
   }
 };
 
-/* ------------------------------------------------------------------ */
-/* Builder for the “breadcrumb app” (unchanged)                       */
-/* ------------------------------------------------------------------ */
 const buildBreadcrumbApp = async ({ openai, str }) => {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-2024-08-06",
@@ -1734,25 +1495,80 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
   });
 
   const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, "{|req=>body.body");
   const args = JSON.parse(fc.arguments);
   return args;
 };
 
+const classifyDomains = async ({ openai, text }) => {
+  const domain = await callOpenAI({
+    openai, str: JSON.stringify(text),
+    list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
+  });
+  const subList = DOMAIN_SUBS[domain] ?? [];
+  let subdomain = "";
+  if (subList.length)
+    subdomain = await callOpenAI({
+      openai, str: JSON.stringify(text), list: subList,
+      promptLabel: "subdomain", schemaName: "subdomain_classification"
+    });
+  return { domain, subdomain };
+};
+
+async function buildArrayLogicFromPrompt({ openai, prompt }) {
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0, top_p: 0, seed: 42,
+    messages: [{
+      role: "system",
+      content:
+        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
+        "array—the arrayLogic representation of the user’s request. " +
+        "No prose. No markdown. No code fences. No comments!!"
+    }, { role: "user", content: prompt }]
+  });
+  let text = rsp.choices[0].message.content.trim();
+
+  function stripComments(jsonLike) {
+    let out = "";
+    let inString = false, quote = "", escaped = false;
+    let inSL = false, inML = false;
+    for (let i = 0; i < jsonLike.length; i++) {
+      const c = jsonLike[i], n = jsonLike[i + 1];
+      if (inSL) { if (c === "\n" || c === "\r") { inSL = false; out += c; } continue; }
+      if (inML) { if (c === "*" && n === "/") { inML = false; i++; } continue; }
+      if (inString) { out += c; if (!escaped && c === quote) { inString = false; quote = ""; } escaped = !escaped && c === "\\"; continue; }
+      if (c === '"' || c === "'") { inString = true; quote = c; out += c; continue; }
+      if (c === "/" && n === "/") { inSL = true; i++; continue; }
+      if (c === "/" && n === "*") { inML = true; i++; continue; }
+      out += c;
+    }
+    return out;
+  }
+
+  text = stripComments(text);
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start === -1 || end === -1) throw new Error("Model response did not contain a JSON array.");
+  text = text.slice(start, end + 1);
+  return JSON.parse(text);
+}
+
 /* ------------------------------------------------------------------ */
-/* Main                                                               */
+/* parseArrayLogic                                                    */
 /* ------------------------------------------------------------------ */
+
 async function parseArrayLogic({
   arrayLogic = [],
-  dynamodb,     // DocumentClient
+  dynamodb,    // DocumentClient (safe for non-pb ops)
   uuidv4,
   s3,
   ses,
   openai,
   Anthropic,
-  dynamodbLL,   // unused now
+  dynamodbLL,  // Low-level DynamoDB for pb ops
   sourceType,
-  actionFile,
+  actionFile,  // optional: force a specific file/SU
   out,
   e,
   requestOnly = false
@@ -1768,34 +1584,45 @@ async function parseArrayLogic({
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   const shorthand = [];
-  const createdEntities = [];
   const results = [];
+  let routeRowBase = null;
 
-  let routeRowNewIndex = null;
+  // helper to safely build the huge numeric pb as a string representation
+  const buildPb = (possessedCombined, d1) =>
+    (d1 != null)
+      ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}`
+      : null;
 
-  // presence check only
+  // presence check only (uses DocumentClient)
   const loadExistingEntityRow = async (su) => {
     try {
       const { Item } = await dynamodb.get({
         TableName: "subdomains",
         Key: { su }
       }).promise();
-    return Item || null;
+      return Item || null;
     } catch (e) {
       console.error("subdomains.get failed", e);
       return null;
     }
   };
 
-  // Track the last entity/file so we can expose them in the final response
-  let lastEntityRef = null; // can be a literal su or a padRef(...) to a GET row
-  let lastFileRef   = null; // padRef to the GET file row when creating
+  const s3FileExists = async (key) => {
+    try {
+      await s3.headObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // We'll track the most-relevant SU so the caller always gets the one we used.
+  let lastSuRef = "";           // may be a literal SU or a padRef("nnn!!")
+  let lastSuIsRefToken = false; // true if lastSuRef is a "nnn!!" pointer
 
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
-    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
-      continue;
-    }
+    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) continue;
 
     const elem = resolvedLogic[i];
 
@@ -1815,35 +1642,24 @@ async function parseArrayLogic({
     }
 
     const bc = Object.keys(elem)[0];
-
-    if (elem[bc].hasOwnProperty("output")) {
-      fixedOutput = elem[bc].output;
-      delete elem[bc].output;
-    }
-    if (elem[bc].hasOwnProperty("possessedBy")) {
-      fixedPossessed = elem[bc].possessedBy;
-      delete elem[bc].possessedBy;
-    }
-    if (elem[bc].hasOwnProperty("date")) {
-      fixedDate = elem[bc].date;
-      delete elem[bc].date;
-    }
+    if (elem[bc].hasOwnProperty("output")) { fixedOutput = elem[bc].output; delete elem[bc].output; }
+    if (elem[bc].hasOwnProperty("possessedBy")) { fixedPossessed = elem[bc].possessedBy; delete elem[bc].possessedBy; }
+    if (elem[bc].hasOwnProperty("date")) { fixedDate = elem[bc].date; delete elem[bc].date; }
 
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
 
-    // Prefer raw request text when requestOnly === true
+    // Prefer the *user's request* when requestOnly === true
     const b = elem[bc];
-    const inp = b?.input && typeof b.input === 'object' ? b.input : {};
+    const inp = b?.input && typeof b.input === "object" ? b.input : {};
     let userReqText = null;
     if (typeof out === "string" && out.trim()) userReqText = out.trim();
     if (!userReqText) {
       const candidate =
         inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
-      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
-      else if (typeof candidate === 'string') userReqText = candidate.trim();
+      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(" ").trim();
+      else if (typeof candidate === "string") userReqText = candidate.trim();
     }
-
     const textForEmbedding = requestOnly
       ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
@@ -1852,239 +1668,263 @@ async function parseArrayLogic({
       s3, openai, key: "nestedDomainIndex.json", textForEmbedding
     });
 
-    // Query embedding (unit)
+    // possessedCombined base & indexes
+    const base = 1000000000000000.0;
+    const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
+    const subdomainIndex = 100000000000 * (DOMAIN_SUBS[domain]?.indexOf(subdomain) ?? 0);
+    const userID = e;
+    const possessedCombined = base + domainIndex + subdomainIndex + userID;
+
+    // embedding (use same text as classification when requestOnly)
     const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
-    const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
+    const embText = typeof embInput === "string" ? embInput.trim() : String(embInput);
     const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
       model: "text-embedding-3-large",
       input: embText
     });
     const embedding = toVector(rawEmb);
-    const eU = asUnit(embedding);
 
-    // ───────────────────────────────────────────────────────────────
-    // ANCHOR-BASED MATCH
-    // ───────────────────────────────────────────────────────────────
-    let bestMatch = null;
+    // get subdomain vector refs
+    let dynamoRecord = null;
+    let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
     try {
-      const anchorPick = await findBestMatchByAnchors({
-        doc: dynamodb,
-        s3,
-        setId: DEFAULT_SET_ID,
-        bandScale: DEFAULT_BAND_SCALE,
-        numShards: DEFAULT_NUM_SHARDS,
-        topL0: 2,
-        bandWindow: 12,
-        limitPerAssign: 500,
-        topK: 50,
-        e,
-        eU,
-        wantDomain: domain,
-        wantSubdomain: subdomain
-      });
-      if (anchorPick?.su) {
-        bestMatch = { su: anchorPick.su, bandDelta: anchorPick.bandDelta, usedTenantPK: anchorPick.usedTenantPK };
-      }
+      const { Items } = await dynamodb.query({
+        TableName: `i_${domain}`,
+        KeyConditionExpression: "#r = :pk",
+        ExpressionAttributeNames: { "#r": "root" },
+        ExpressionAttributeValues: { ":pk": subdomain },
+        Limit: 1
+      }).promise();
+      dynamoRecord = Items?.[0] ?? null;
     } catch (err) {
-      console.error("anchor bestMatch lookup failed:", err);
+      console.error("DynamoDB query failed:", err);
+    }
+
+    if (dynamoRecord) {
+      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
+      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+        const ref = parseVector(dynamoRecord[k]);
+        return Array.isArray(ref) && ref.length === embedding.length
+          ? cosineDist(embedding, ref)
+          : null;
+      });
+    }
+
+    // pb-index query
+    let subdomainMatches = [];
+    if (dist1 != null) {
+      const pbStr = buildPb(possessedCombined, dist1);
+      try {
+        const ExpressionAttributeNames = {
+          "#p": "pb", "#d1": "dist1", "#d2": "dist2", "#d3": "dist3", "#d4": "dist4", "#d5": "dist5",
+        };
+        const ExpressionAttributeValues = {
+          ":pb": n(pbStr), ":d1lo": n(dist1 - 0.01), ":d1hi": n(dist1 + 0.01),
+        };
+        const filterParts = [];
+        [dist2, dist3, dist4, dist5].forEach((v, idx) => {
+          const i2 = idx + 2;
+          if (Number.isFinite(v)) {
+            ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
+            ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
+            filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
+          }
+        });
+
+        const params = {
+          TableName: "subdomains",
+          IndexName: "pb-index",
+          KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
+          ExpressionAttributeNames,
+          ExpressionAttributeValues,
+          ...(filterParts.length ? { FilterExpression: filterParts.join(" AND ") } : {}),
+          ScanIndexForward: true,
+        };
+
+        const { Items } = await dynamodbLL.query(params).promise();
+        subdomainMatches = (Items || []).map(Converter.unmarshall);
+      } catch (err) {
+        console.error("subdomains GSI query failed:", err);
+      }
+    }
+
+    // best match (if any)
+    let bestMatch = null;
+    if (subdomainMatches.length) {
+      bestMatch = subdomainMatches.reduce(
+        (best, item) => {
+          const score = calcMatchScore({ dist1, dist2, dist3, dist4, dist5 }, item);
+          return score < best.score ? { item, score } : best;
+        },
+        { item: null, score: Number.POSITIVE_INFINITY }
+      ).item;
     }
 
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
-    if (!bestMatch) {
-      // Provided entity fallback
-      if (actionFile) {
-        await loadExistingEntityRow(actionFile);
+    // ─────────────────────────────────────────────────────────────
+    // Stable SU handling:
+    // - If actionFile is given → use that SU everywhere; ensure file exists in S3.
+    // - Else if bestMatch → use bestMatch.su; ensure file exists in S3.
+    // - Else create a new group, capture the returned file SU once, and reuse it for:
+    //   getFile → write logic → saveFile → position → runEntity.
+    // Also, at the very end we expose `entity` + `createdEntities[0].entity`
+    // pointing to the SAME SU (literal or padRef), so sync can always extract it.
+    // ─────────────────────────────────────────────────────────────
 
-        // Position using anchors (no pb/dist*)
-        shorthand.push([
-          "ROUTE",
-          {
-            "body": {
-              description: "provided entity (fallback)",
-              domain,
-              subdomain,
-              embedding,
-              entity: actionFile,
-              path: breadcrumb,
-              output: fixedOutput || out || "",
-              // anchor knobs
-              anchor_set_id: DEFAULT_SET_ID,
-              band_scale: DEFAULT_BAND_SCALE,
-              num_shards: DEFAULT_NUM_SHARDS,
-              topL0: 2
-            }
-          },
-          {},
-          "position",
-          actionFile,
-          ""
-        ]);
+    const ensureFileHydratedShorthand = (suLiteral) => {
+      // Pull the existing file and re-save it so the S3 object is guaranteed present.
+      // Returns the index after pushing 3 rows.
+      const base = shorthand.length + 1;
+      shorthand.push(["ROUTE", {}, {}, "getFile", suLiteral, ""]);              // +1
+      shorthand.push(["GET",   padRef(base), "response"]);                       // +2
+      shorthand.push(["ROUTE", padRef(base + 1), {}, "saveFile", suLiteral, ""]); // +3
+      return base + 2;
+    };
 
-        // Run the provided entity
-        shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""]);
+    if (actionFile) {
+      // Provided SU takes precedence (keeps entity SU == file SU)
+      const fileSu = String(actionFile);
+      lastSuRef = fileSu; lastSuIsRefToken = false;
 
-        // Surface SU for server-sync-lite
-        shorthand.push(["ADDPROPERTY", "000!!", "entity", actionFile]);
+      // Make sure a file exists for this SU (hydrate if missing)
+      const exists = await s3FileExists(fileSu);
+      if (!exists) ensureFileHydratedShorthand(fileSu);
 
-        lastEntityRef = actionFile;
-        routeRowNewIndex = shorthand.length;
-        continue;
-      }
+      // Position + Run
+      const pbStr = buildPb(possessedCombined, dist1);
+      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", fileSu, ""]);
+      shorthand.push([
+        "ROUTE",
+        { body: {
+            description: "provided entity (fallback)",
+            domain, subdomain, embedding,
+            entity: fileSu, pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb, output: fixedOutput || out || ""
+        }},
+        {}, "position", fileSu, ""
+      ]);
 
+    } else if (!bestMatch) {
       // Create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
-
-      const entNameRaw = pick(
-        body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out
-      ) || "$noName";
+      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
-      const groupName = entName;
 
-      // 1) new group → returns { response: { file, entity } }
-      shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", groupName, entName]);
-      routeRowNewIndex = shorthand.length;
+      // 1) newGroup
+      shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", entName, entName]);
+      routeRowBase = shorthand.length;
 
-      // 2) Capture file + entity (two GETs so we can reference both)
-      // file id
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);    // -> A+1
-      const fileRefRow = routeRowNewIndex + 1;
-      // entity su
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "entity"]);  // -> A+2
-      const entityRefRow = routeRowNewIndex + 2;
+      // 2) capture the file SU once and reuse the SAME pointer everywhere
+      // GET (response.file)
+      const fileSuRefRow = routeRowBase + 1;              // the GET row index
+      shorthand.push(["GET", padRef(routeRowBase), "response", "file"]);
+      const fileSuRefToken = padRef(fileSuRefRow);
+      lastSuRef = fileSuRefToken; lastSuIsRefToken = true;
 
-      // 3) load file
-      shorthand.push(["ROUTE", {}, {}, "getFile", padRef(fileRefRow), ""]);     // -> A+3
-      // 4) GET file response
-      shorthand.push(["GET", padRef(routeRowNewIndex + 3), "response"]);        // -> A+4
-
-      // 5) Build JPL from desired object
+      // 3) getFile → saveFile (ensures file is materialized)
+      shorthand.push(["ROUTE", {}, {}, "getFile", fileSuRefToken, ""]);
+      shorthand.push(["GET", padRef(routeRowBase + 2), "response"]);
+      // generate logic (optional – your JPL creation)
       const desiredObj = structuredClone(elem);
       if (fixedOutput) desiredObj.response = fixedOutput;
 
-                let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-                newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-                newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
-                newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
-                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
+      let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+      newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+      newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
       const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
-      // 6) Inject actions/modules into loaded file's published tree
-      shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "actions", objectJPL.actions]);
-      shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", (objectJPL.modules || {})]);
+      // NESTED publish
+      shorthand.push(["NESTED", padRef(routeRowBase + 3), "published", "actions", objectJPL.actions || []]);
+      shorthand.push(["NESTED", padRef(routeRowBase + 4), "published", "modules", objectJPL.modules || {}]);
 
-      // 7) Save the file
-      shorthand.push(["ROUTE", padRef(routeRowNewIndex + 1), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
+      // saveFile (write)
+      shorthand.push(["ROUTE", padRef(routeRowBase + 5), {}, "saveFile", fileSuRefToken, ""]);
 
-      // 8) Anchor-based position for the NEW entity (use entityRefRow)
-      const pathStr = breadcrumb;
+      // 4) position
+      const pbStr2 = buildPb(possessedCombined, dist1);
       shorthand.push([
         "ROUTE",
-        {
-          "body": {
+        { body: {
             description: "auto created entity",
-            domain, subdomain,
-            embedding,
-            entity: padRef(entityRefRow),       // <- SU row
-            path: pathStr,
-            output: fixedOutput,
-            anchor_set_id: DEFAULT_SET_ID,
-            band_scale: DEFAULT_BAND_SCALE,
-            num_shards: DEFAULT_NUM_SHARDS,
-            topL0: 2
-          }
-        },
-        {},
-        "position",
-        padRef(entityRefRow),
-        ""
+            domain, subdomain, embedding,
+            entity: fileSuRefToken,
+            pb: pbStr2, dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb, output: fixedOutput
+        }},
+        {}, "position", fileSuRefToken, ""
       ]);
 
-      // 9) Run the new entity (optional, like before)
-      if (fixedOutput) {
-        shorthand.push(["ROUTE", inputParam, {}, "runEntity", padRef(entityRefRow), ""]);
-      } else {
-        shorthand.push([fixedOutput]);
-      }
-
-      // 10) Surface SU + file for server-sync-lite
-      shorthand.push(["ADDPROPERTY", "000!!", "entity", padRef(entityRefRow)]);
-      shorthand.push(["ADDPROPERTY", "000!!", "file",   padRef(fileRefRow)]);
-      shorthand.push([
-        "ADDPROPERTY",
-        "000!!",
-        "createdEntities",
-        [{ entity: padRef(entityRefRow), name: entName, contentType: "text", id: padRef(entityRefRow) }]
-      ]);
-
-      lastEntityRef = padRef(entityRefRow);
-      lastFileRef   = padRef(fileRefRow);
+      // 5) run the new entity
+      shorthand.push(["ROUTE", inputParam, {}, "runEntity", fileSuRefToken, ""]);
 
     } else {
-      // Run best match
-      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
+      // Use the best match SU; ensure the file exists
+      const bestSu = bestMatch.su;
+      lastSuRef = bestSu; lastSuIsRefToken = false;
 
-      // Anchor-based position for matched entity
+      const exists = await s3FileExists(bestSu);
+      if (!exists) ensureFileHydratedShorthand(bestSu);
+
+      const pbStr = buildPb(possessedCombined, dist1);
+
+      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestSu, ""]);
       shorthand.push([
         "ROUTE",
-        {
-          "body": {
+        { body: {
             description: "auto matched entity",
-            domain, subdomain,
-            embedding,
-            entity: bestMatch.su,
-            path: breadcrumb,
-            output: fixedOutput,
-            anchor_set_id: DEFAULT_SET_ID,
-            band_scale: DEFAULT_BAND_SCALE,
-            num_shards: DEFAULT_NUM_SHARDS,
-            topL0: 2
-          }
-        },
-        {},
-        "position",
-        bestMatch.su,
-        ""
+            domain, subdomain, embedding,
+            entity: bestSu,
+            pb: pbStr, dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb, output: fixedOutput
+        }},
+        {}, "position", bestSu, ""
       ]);
-
-      // Surface SU for server-sync-lite
-      shorthand.push(["ADDPROPERTY", "000!!", "entity", bestMatch.su]);
-      lastEntityRef = bestMatch.su;
     }
 
-  } // end for
-
-  // If the last element is a conclusion block, keep your existing summary wiring
-  const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
-  if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-    // make sure we still surface the last SU/file
-    if (lastEntityRef) shorthand.push(["ADDPROPERTY", "000!!", "entity", lastEntityRef]);
-    if (lastFileRef)   shorthand.push(["ADDPROPERTY", "000!!", "file",   lastFileRef]);
-
-    const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(shorthand.length)]
-    ) - 1;
-
-    shorthand.push([
-      "ROWRESULT",
-      "000",
-      padRef(getRowIndex + 1)
-    ]);
-  } else {
-    // No explicit conclusion → still return a row that includes entity/file
-    if (lastEntityRef) shorthand.push(["ADDPROPERTY", "000!!", "entity", lastEntityRef]);
-    if (lastFileRef)   shorthand.push(["ADDPROPERTY", "000!!", "file",   lastFileRef]);
-    shorthand.push(["ROWRESULT", "000", padRef(shorthand.length)]);
+    routeRowBase = shorthand.length;
   }
 
+  // Ensure sync-server-lite can always extract the SU we used.
+  // We add:
+  //   - root.response.entity  = <SU or ref>
+  //   - root.response.createdEntities[0].entity = <same SU or ref>
+  //   - rowresult to surface final object
+  const lastIndex = shorthand.length + 1;
+
+  // Add empty createdEntities array with one slot we fill immediately after
+  shorthand.push(["ADDPROPERTY", "000!!", "createdEntities", [{
+    entity: "", name: "_new", contentType: "text", id: "_new"
+  }]]); // +1
+  // Replace createdEntities[0].entity with our lastSuRef
+  shorthand.push([
+    "NESTED",
+    padRef(lastIndex),
+    "createdEntities=>[0]",
+    "entity",
+    lastSuRef // can be a literal SU or a ref token
+  ]); // +2
+
+  // root.response.entity = lastSuRef (using ADDPROPERTY if literal, or NESTED if token)
+  if (lastSuIsRefToken) {
+    shorthand.push(["ADDPROPERTY", "000!!", "entity", ""]);              // +3
+    shorthand.push(["NESTED", padRef(lastIndex + 2), "entity", lastSuRef]); // +4
+  } else {
+    shorthand.push(["ADDPROPERTY", "000!!", "entity", lastSuRef]);       // +3 (no +4)
+  }
+
+  // Surface the whole response row
+  shorthand.push(["ROWRESULT", "000", padRef(shorthand.length)]);
+
   const finalShorthand = shorthand.map(convertShorthandRefs);
-  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
+
+  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
 }
 
 module.exports = { parseArrayLogic };
