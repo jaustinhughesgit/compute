@@ -1927,12 +1927,17 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
   /* Tail: restore legacy shorthand semantics                           */
   /* ------------------------------------------------------------------ */
 
+  // Only append the legacy tail when the *last* original element included `conclusion`
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    // Use the last routed row as the "conclusion" target; fall back to current length if unset
+    const targetIndex = (typeof routeRowBase === "number" ? routeRowBase : shorthand.length);
+
     const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(targetIndex)]
     ) - 1;
 
+    // createdEntities as an OBJECT (legacy contract)
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
@@ -1945,8 +1950,17 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
       }
     ]);
 
-    shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
+    // Set createdEntities.entity to the SU we actually used
+    // (works whether lastSuRef is a ref token like "012!!" or a literal SU string)
+    shorthand.push([
+      "NESTED",
+      padRef(getRowIndex + 2),
+      "createdEntities",
+      "entity",
+      lastSuRef
+    ]);
 
+    // Surface final object (legacy ROWRESULT placement)
     shorthand.push([
       "ROWRESULT",
       "000",
@@ -1956,10 +1970,9 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
-  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
+  console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] });
 
+  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
 
 
 
