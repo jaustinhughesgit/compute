@@ -111,6 +111,7 @@ app.use('/controller', controllerRouter);
 app.use('/migrate', migrateRouter);
 app.use('/artifacts', artifactsRouter);
 app.use('/train', trainRouter);
+
 app.use('/anchorsD', anchorsDRouter);
 
 app.use('/', indexRouter);
@@ -984,6 +985,9 @@ app.post('/anchors/train-l1', async (req,res)=>{
   }
 });
 
+
+
+/*
 // === STEP 2: Debug — assign an embedding/text to anchors (no writes) ===
 app.post('/debug/anchors-assign', async (req, res) => {
   try {
@@ -1060,7 +1064,7 @@ app.post('/debug/anchors-assign', async (req, res) => {
     console.error('debug/anchors-assign error', err);
     res.status(500).json({ ok:false, error: err.message || String(err) });
   }
-});
+});*/
 
 
 
