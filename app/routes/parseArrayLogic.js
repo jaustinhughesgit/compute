@@ -1114,6 +1114,7 @@ const DOMAIN_SUBS = {
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
+const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || 'anchor_bands';
 
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
@@ -1737,6 +1738,37 @@ async function parseArrayLogic({
     }
   };
 
+  // ---- anchor_bands helpers (writes postings) ----
+  async function _putAllBatched(table, items) {
+    if (!items || !items.length) return 0;
+    let written = 0;
+    for (let i = 0; i < items.length; i += 25) {
+      const chunk = items.slice(i, i + 25).map(Item => ({ PutRequest: { Item } }));
+      const params = { RequestItems: { [table]: chunk } };
+      // simple retry for UnprocessedItems
+      let backoff = 100;
+      while (true) {
+        const rsp = await dynamodb.batchWrite(params).promise();
+        const un = rsp.UnprocessedItems?.[table] || [];
+        written += chunk.length - un.length;
+        if (!un.length) break;
+        await new Promise(r => setTimeout(r, backoff));
+        backoff = Math.min(backoff * 2, 2000);
+        params.RequestItems[table] = un;
+      }
+    }
+    return written;
+  }
+
+  async function _fanoutAnchorBands({ su, setId, anchor, type = 'su' }) {
+    const assigns = anchor?.assigns || [];
+    if (!su || !setId || !assigns.length) return 0;
+    const rows = assigns.map(a =>
+      anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS })
+    );
+    return _putAllBatched(ANCHOR_BANDS_TABLE, rows);
+  }
+
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
 
@@ -1951,6 +1983,15 @@ async function parseArrayLogic({
   };
   if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
 
+  if (positionBodyAF.anchor) {
+    await _fanoutAnchorBands({
+      su: actionFile,
+      setId: positionBodyAF.anchor.setId,
+      anchor: positionBodyAF.anchor,
+      type: 'su'
+    });
+  }
+
   shorthand.push([
     "ROUTE",
     { "body": positionBodyAF },
@@ -2093,6 +2134,16 @@ async function parseArrayLogic({
       // Only add anchor if it computed successfully
       if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
 
+        if (positionBodyCreated.anchor) {
+    await _fanoutAnchorBands({
+      su: padRef(routeRowNewIndex + 1),
+      setId: positionBodyCreated.anchor.setId,
+      anchor: positionBodyCreated.anchor,
+      type: 'su'
+    });
+  }
+
+
       shorthand.push([
         "ROUTE",
         { "body": positionBodyCreated },
@@ -2147,6 +2198,14 @@ const positionBodyMatched = {
 };
 
 if (anchorPayloadMatch) positionBodyMatched.anchor = anchorPayloadMatch;
+if (positionBodyMatched.anchor) {
+  await _fanoutAnchorBands({
+    su: bestMatch.su,
+    setId: positionBodyMatched.anchor.setId,
+    anchor: positionBodyMatched.anchor,
+    type: 'su'
+  });
+}
 
 shorthand.push([
   "ROUTE",
