@@ -693,7 +693,11 @@ function createShared(deps = {}) {
       const cookie = await getCookie(xAccessToken, "ak", ddb);
       return cookie.Items?.[0];
     } else {
-     
+    // Special: some routes (like /opt-in) do NOT want a new cookie/subdomain pre-created.
+   if (mainObj?.suppressNewCookie === true) {
+     // Return a minimal placeholder; the action (opt-in) will set the real cookie.
+      return { e: "0", gi: "0", existing: false };
+    }
       const ttl = 86400;
       const ak = await getUUID(uuid);
       const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
@@ -702,8 +706,10 @@ function createShared(deps = {}) {
 
       let eForCookie = "0";
       let suDocForEmail = null;
-
-      try {
+    try {
+      if (mainObj?.skipNewGroupPreCreate === true) {
+        throw new Error("skipNewGroupPreCreate"); // skip pre-create silently
+      }
         // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
         const newGroupHandler = actions.get("newGroup");
         if (typeof newGroupHandler === "function") {

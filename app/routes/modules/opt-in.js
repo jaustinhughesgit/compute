@@ -41,17 +41,16 @@ function register({ on, use }) {
     return { ci: String(ci), gi: String(gi), ex, ak, e: String(userID) };
   }
 
-  async function getBestCookieRecord(ddb, userID) {
+ async function getBestCookieRecord(ddb, userID) {
     const nowSec = Math.floor(Date.now() / 1000);
     const items = await fetchCookieByUserE(ddb, userID);
-
-    // choose the one with the latest (future) expiry; otherwise null
-    const best = (items || [])
-      .filter(it => it && typeof it.ex === "number" && it.ak)
-      .sort((a, b) => (b.ex || 0) - (a.ex || 0))[0];
-
-    if (best && best.ex > nowSec) return best;
-    return null;
+    // Prefer the earliest cookie (smallest ci) that is still valid.
+    const typed = (items || [])
+      .filter(it => it && typeof it.ex === "number" && it.ak && it.ex > nowSec)
+      .map(it => ({ ...it, _ciNum: Number(it.ci) || 0 }));
+    if (!typed.length) return null;
+    typed.sort((a, b) => a._ciNum - b._ciNum);
+    return typed[0];
   }
 
   function browserAlreadyHasCookie(req) {

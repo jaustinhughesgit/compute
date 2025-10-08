@@ -62,6 +62,14 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   _shared.use(async (ctx) => {
     const main = {};
+    // If this is an opt-in request, do not create a new cookie or pre-create a group.
+    // We'll set the existing (invite-time) cookie inside the opt-in handler itself.
+    const p = String(ctx.path || "");
+    if (p.includes("/opt-in")) {
+      main.blockCookieBack = true;       // do not set a browser cookie here
+      main.skipNewGroupPreCreate = true; // do not call newGroup from manageCookie
+      main.suppressNewCookie = true;     // do not create a new cookie record at all
+    }
     const ck = await _shared.manageCookie(
       main,
       ctx.xAccessToken,
