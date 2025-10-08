@@ -132,6 +132,12 @@ function register({ on, use }) {
 
     console.log("QQ : body", body)
     console.log("QQ : body.text", body.text)
+    console.log("QQ : body.query", body.query)
+
+    let searchString = body.text
+    if (!searchString){
+      searchString = body.query
+    }
 
     try {
       // ---- inputs / defaults
@@ -144,7 +150,7 @@ function register({ on, use }) {
       const topK           = Number.isFinite(+body.topK) ? +body.topK : 50;
 
       const e              = await getUserIdFromReq(req, body);
-      const eU             = await ensureQueryEmbedding({ embedding: body.embedding, text: body.text });
+      const eU             = await ensureQueryEmbedding({ embedding: body.embedding, text: searchStringt });
 
       // ---- compute query assignments (L0/L1 + band)
       const assigns = await anchorAssignments(eU, { setId, bandScale, topL0, numShards });
@@ -283,7 +289,7 @@ function register({ on, use }) {
             bandScale, topL0, bandWindow, numShards, topK
           },
           query: {
-            text: body.text ?? null,
+            text: searchString ?? null,
             hasEmbedding: Array.isArray(body.embedding),
             e
           },
