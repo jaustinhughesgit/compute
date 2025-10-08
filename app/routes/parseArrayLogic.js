@@ -1586,6 +1586,7 @@ async function parseArrayLogic({
   const shorthand = [];
   const results = [];
   let routeRowBase = null;
+  let routeRowNewIndex = 0;
 
   // helper to safely build the huge numeric pb as a string representation
   const buildPb = (possessedCombined, d1) =>
@@ -1776,149 +1777,199 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
-    // ─────────────────────────────────────────────────────────────
-    // Stable SU handling:
-    // - If actionFile is given → use that SU everywhere; ensure file exists in S3.
-    // - Else if bestMatch → use bestMatch.su; ensure file exists in S3.
-    // - Else create a new group, capture the returned file SU once, and reuse it for:
-    //   getFile → write logic → saveFile → position → runEntity.
-    // Also, at the very end we expose `entity` + `createdEntities[0].entity`
-    // pointing to the SAME SU (literal or padRef), so sync can always extract it.
-    // ─────────────────────────────────────────────────────────────
+    console.log("999 bestMatch", bestMatch);
+    console.log("999 actionFile", actionFile);
 
-    const ensureFileHydratedShorthand = (suLiteral) => {
-      // Pull the existing file and re-save it so the S3 object is guaranteed present.
-      // Returns the index after pushing 3 rows.
-      const base = shorthand.length + 1;
-      shorthand.push(["ROUTE", {}, {}, "getFile", suLiteral, ""]);              // +1
-      shorthand.push(["GET",   padRef(base), "response"]);                       // +2
-      shorthand.push(["ROUTE", padRef(base + 1), {}, "saveFile", suLiteral, ""]); // +3
-      return base + 2;
-    };
+    // IMPORTANT (legacy order): prefer bestMatch → fallback to actionFile → else create new entity
+    if (!bestMatch) {
+      console.log("999 no bestMatch; checking actionFile...");
 
-    if (actionFile) {
-      console.log("susu : actionFile", actionFile)
-      console.log("susu : fixedOutput", fixedOutput)
-      // Provided SU takes precedence (keeps entity SU == file SU)
-      const fileSu = String(actionFile);
-      lastSuRef = fileSu; lastSuIsRefToken = false;
+      if (actionFile) {
+        const fileSu = String(actionFile);
+        console.log("999 using actionFile fallback", fileSu);
+        lastSuRef = fileSu; lastSuIsRefToken = false;
 
-      // Make sure a file exists for this SU (hydrate if missing)
-      const exists = await s3FileExists(fileSu);
-      if (!exists) ensureFileHydratedShorthand(fileSu);
+        // Hydrate S3 object if it's missing
+        const exists = await s3FileExists(fileSu);
+        if (!exists) {
+          console.log("999 hydrating missing S3 file for actionFile", fileSu);
+          ensureFileHydratedShorthand(fileSu);
+        }
 
-      // Position + Run
-      const pbStr = buildPb(possessedCombined, dist1);
-      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", fileSu, ""]);
-      shorthand.push([
-        "ROUTE",
-        { body: {
-            description: "provided entity (fallback)",
-            domain, subdomain, embedding,
-            entity: fileSu, pb: pbStr,
-            dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: outputToSave
-        }},
-        {}, "position", fileSu, ""
-      ]);
+        const pbStr = buildPb(possessedCombined, dist1);
+        shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", fileSu, ""]);
+        shorthand.push([
+          "ROUTE",
+          { body: {
+              description: "provided entity (fallback)",
+              domain, subdomain, embedding,
+              entity: fileSu, pb: pbStr,
+              dist1, dist2, dist3, dist4, dist5,
+              path: breadcrumb, output: outputToSave
+          }},
+          {}, "position", fileSu, ""
+        ]);
 
-    } else if (!bestMatch) {
+        routeRowNewIndex = shorthand.length;
+        console.log("999 routeRowNewIndex after actionFile fallback", routeRowNewIndex);
+        continue; // IMPORTANT: don't create a new $noName entity
+      }
+
+      console.log("999 creating a NEW entity/group...");
+
       // Create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
       const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      console.log("susu :  body", body)
-      console.log("susu : body?.schema", body?.schema)
-      console.log("susu : body?.schema?.const", body?.schema?.const)
-      console.log("susu : body?.input", body?.input)
-      console.log("susu : body?.input?.name", body?.input?.name)
-      console.log("susu : body?.input?.title", body?.input?.title)
-      console.log("susu : body?.input?.entity", body?.input?.entity)
-      console.log("susu : out", out)
-      console.log("susu : entNameRaw", entNameRaw)
+      console.log("999 body?.schema?.const", body?.schema?.const);
+      console.log("999 fixedOutput (pre-pick)", fixedOutput);
+      console.log("999 body?.input?.name", body?.input?.name);
+      console.log("999 body?.input?.title", body?.input?.title);
+      console.log("999 body?.input?.entity", body?.input?.entity);
+      console.log("999 out", out);
+
+      const entNameRaw = pick(
+        body?.schema?.const,
+        fixedOutput,
+        body?.input?.name,
+        body?.input?.title,
+        body?.input?.entity,
+        out
+      ) || "$noName";
+
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
-      console.log("susu : fixedOutput", fixedOutput)
+
+      console.log("999 entNameRaw", entNameRaw);
+      console.log("999 entName", entName);
 
       // 1) newGroup
-      shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", entName, entName]);
-      routeRowBase = shorthand.length;
+      shorthand.push([
+        "ROUTE",
+        { output: entName },
+        {},
+        "newGroup",
+        entName,
+        entName
+      ]);
 
-      // 2) capture the file SU once and reuse the SAME pointer everywhere
-      // GET (response.file)
-      const fileSuRefRow = routeRowBase + 1;              // the GET row index
-      shorthand.push(["GET", padRef(routeRowBase), "response", "file"]);
-      const fileSuRefToken = padRef(fileSuRefRow);
-      lastSuRef = fileSuRefToken; lastSuIsRefToken = true;
+      // anchor for padRef(...) references
+      routeRowNewIndex = shorthand.length;
+      routeRowBase = routeRowNewIndex;
+      console.log("999 routeRowNewIndex after newGroup", routeRowNewIndex);
 
-      // 3) getFile → saveFile (ensures file is materialized)
-      shorthand.push(["ROUTE", {}, {}, "getFile", fileSuRefToken, ""]);
-      shorthand.push(["GET", padRef(routeRowBase + 2), "response"]);
-      // generate logic (optional – your JPL creation)
-      const desiredObj = structuredClone(elem);
-      if (fixedOutput) desiredObj.response = fixedOutput;
+      // 2) capture SU of new file
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      const newSuRef = padRef(routeRowNewIndex + 1);
+      lastSuRef = newSuRef; lastSuIsRefToken = true;
+      console.log("999 newSuRef", newSuRef);
 
-      let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-      newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-      newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
+      // 3) hydrate + build logic (JPL) + save
+      if (fixedOutput) {
+        console.log("999 LETS GENERATE A JPL");
+        shorthand.push(["ROUTE", {}, {}, "getFile", newSuRef, ""]);
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
-      const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+        const desiredObj = structuredClone(elem);
+        if (fixedOutput) desiredObj.response = fixedOutput;
+        console.log("999 desiredObj", desiredObj);
 
-      // NESTED publish
-      shorthand.push(["NESTED", padRef(routeRowBase + 3), "published", "actions", objectJPL.actions || []]);
-      shorthand.push(["NESTED", padRef(routeRowBase + 4), "published", "modules", objectJPL.modules || {}]);
+        let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+        newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+        newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
-      // saveFile (write)
-      shorthand.push(["ROUTE", padRef(routeRowBase + 5), {}, "saveFile", fileSuRefToken, ""]);
+        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+        console.log("999 objectJPL.actions", JSON.stringify(objectJPL.actions));
+        console.log("999 objectJPL.modules", JSON.stringify(objectJPL.modules || {}));
 
-    
-      // 4) position
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions || []]);
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
+
+        shorthand.push([
+          "ROUTE",
+          padRef(routeRowNewIndex + 5),
+          {},
+          "saveFile",
+          newSuRef,
+          ""
+        ]);
+      }
+
+      // 4) position (pb must be safe)
       const pbStr2 = buildPb(possessedCombined, dist1);
       shorthand.push([
         "ROUTE",
-        { body: {
+        {
+          body: {
             description: "auto created entity",
-            domain, subdomain, embedding,
-            entity: fileSuRefToken,
-            pb: pbStr2, dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: outputToSave
-        }},
-        {}, "position", fileSuRefToken, ""
+            domain, subdomain,
+            embedding,
+            entity: newSuRef,
+            pb: pbStr2,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: fixedOutput
+          }
+        },
+        {},
+        "position",
+        newSuRef,
+        ""
       ]);
 
-      // 5) run the new entity
-      shorthand.push(["ROUTE", inputParam, {}, "runEntity", fileSuRefToken, ""]);
-
-      console.log("susu : shorthand", JSON.stringify(shorthand, null, 4))
+      // 5) run the new entity (legacy: {} for schema on cold run)
+      shorthand.push([
+        "ROUTE",
+        inputParam,
+        {},
+        "runEntity",
+        newSuRef,
+        ""
+      ]);
 
     } else {
-      console.log("susu : bestMatch", bestMatch)
-      console.log("susu : bestMatch.su", bestMatch.su)
-      console.log("susu : fixedOutput", fixedOutput)
-      // Use the best match SU; ensure the file exists
+      // bestMatch exists → prefer it over actionFile (legacy)
       const bestSu = bestMatch.su;
+      console.log("999 using bestMatch.su", bestSu);
       lastSuRef = bestSu; lastSuIsRefToken = false;
 
       const exists = await s3FileExists(bestSu);
-      if (!exists) ensureFileHydratedShorthand(bestSu);
+      if (!exists) {
+        console.log("999 hydrating missing S3 file for bestMatch", bestSu);
+        ensureFileHydratedShorthand(bestSu);
+      }
 
       const pbStr = buildPb(possessedCombined, dist1);
-
-      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestSu, ""]);
+      shorthand.push([
+        "ROUTE", inputParam, schemaParam, "runEntity", bestSu, ""
+      ]);
       shorthand.push([
         "ROUTE",
-        { body: {
+        {
+          body: {
             description: "auto matched entity",
-            domain, subdomain, embedding,
+            domain,
+            subdomain,
+            embedding,
             entity: bestSu,
-            pb: pbStr, dist1, dist2, dist3, dist4, dist5,
-            path: breadcrumb, output: outputToSave
-        }},
-        {}, "position", bestSu, ""
+            pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: outputToSave
+          }
+        },
+        {},
+        "position",
+        bestSu,
+        ""
       ]);
     }
 
-    routeRowBase = shorthand.length;
+    // keep both trackers in sync
+    routeRowNewIndex = shorthand.length;
+    routeRowBase = routeRowNewIndex;
+    console.log("999 routeRowNewIndex end-of-iter", routeRowNewIndex);
+
+
   }
 
 
@@ -1971,6 +2022,8 @@ const outputToSave = (fixedOutput ?? essenceWord ?? "");
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] });
+  console.log("999 final shorthand length", finalShorthand.length);
+  console.log("999 lastSuRef (for createdEntities tail)", lastSuRef, "isRef?", lastSuIsRefToken);
 
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
 
