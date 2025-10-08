@@ -703,28 +703,40 @@ function createShared(deps = {}) {
       let eForCookie = "0";
       let suDocForEmail = null;
 
-      try {
-        // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
-        const newGroupHandler = actions.get("newGroup");
-        if (typeof newGroupHandler === "function") {
-          const ctxForNewGroup = {
-            path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
-            req: { body: {} },
-            res,
-            xAccessToken: null,
-          };
-
-          // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
-          const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
-          console.log("ngResult", ngResult)
-          // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
-          eForCookie = ngResult?.response?.entity;
-          suDocForEmail = ngResult?.response?.file;
-        } else {
-          console.warn("manageCookie: newGroup action not registered; proceeding without e");
+      // If caller provided recipientHash, try to reuse existing user
+      if (mainObj?.recipientHash) {
+        try {
+          const q = await ddb.query({
+            TableName: "users",
+            IndexName: "emailHashIndex",
+            KeyConditionExpression: "emailHash = :eh",
+            ExpressionAttributeValues: { ":eh": String(mainObj.recipientHash) },
+            Limit: 1,
+            ProjectionExpression: "userID"
+          }).promise();
+          if (q?.Items?.[0]?.userID != null) {
+            eForCookie = String(q.Items[0].userID);
+          }
+        } catch (err) {
+          console.warn("manageCookie: lookup by recipientHash failed (non-fatal)", err);
         }
-      } catch (err) {
-        console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
+      }
+
+      // Only precreate a new (group,entity) when explicitly requested
+      if (eForCookie === "0" && mainObj?.precreate === true) {
+        try {
+          const newGroupHandler = actions.get("newGroup");
+          if (typeof newGroupHandler === "function") {
+            const ctxForNewGroup = { path: "/newUser/newUser", req: { body: {} }, res, xAccessToken: null };
+            const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+            eForCookie = ngResult?.response?.entity || "0";
+            suDocForEmail = ngResult?.response?.file || null;
+          } else {
+            console.warn("manageCookie: newGroup action not registered; skipping precreate");
+          }
+        } catch (err) {
+          console.warn("manageCookie: newGroup pre-creation failed; continuing without e", err);
+        }
       }
       console.log("eForCookie",eForCookie)
       // Create the cookie, now including e
