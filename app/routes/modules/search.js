@@ -159,13 +159,17 @@ function register({ on, use }) {
       // PK forms (must match what makePosting writes):
       //  - tenant: AB#<setId>#U=<e>#L0=<l0>#L1=<l1>
       //  - global: AB#<setId>#L0=<l0>#L1=<l1>
-      const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-      const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+      //const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+      //const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
+
+const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${a.l0}#L1=${a.l1}`;
+const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
 
       let anyTenantHit = false;
       const perAssignResults = [];
 
       for (const a of assigns) {
+        console.log('Q PK tenant:', makePkTenant(a), 'band', a.band);
         // try tenant key
         let rows = [];
         try {
