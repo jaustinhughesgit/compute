@@ -688,16 +688,12 @@ function createShared(deps = {}) {
     console.log("ddb", ddb);
     console.log("uuid", uuid);
 
-    const now = Math.floor(Date.now() / 1000);
     if (xAccessToken) {
       mainObj.status = "authenticated";
-      const cookieRes = await getCookie(xAccessToken, "ak", ddb);
-      const item = cookieRes.Items?.[0];
-      // Only treat as "existing" if the token resolves AND is not expired.
-      if (item && typeof item.ex === "number" && item.ex > now) {
-        return { ...item, existing: true };
-      }
-      // Token missing or expired → treat as no valid existing cookie and fall through to create a new one.
+      const cookie = await getCookie(xAccessToken, "ak", ddb);
+      let cookieObj = cookie.Items?.[0]
+      cookieObj.existing = true
+      return cookieObj;
     } else {
       // Special: some routes (like /opt-in) do NOT want a new cookie/subdomain pre-created.
       if (mainObj?.suppressNewCookie === true) {
@@ -799,7 +795,6 @@ function createShared(deps = {}) {
       }
 
       return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: false };
-
     }
   }
 
