@@ -1,92 +1,72 @@
-// parseArrayLogic.js
+// modules/parseArrayLogic.js
 /* ------------------------------------------------------------------ */
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const DOMAINS = [
-    "agriculture",
-    "architecture",
-    "biology",
-    "business",
-    "characteristic",
-    "chemistry",
-    "community",
-    "cosmology",
-    "economics",
-    "education",
-    "entertainment",
-    "environment",
-    "event",
-    "food",
-    "geology",
-    "geography",
-    "government",
-    "health",
-    "history",
-    "language",
-    "law",
-    "manufacturing",
-    "mathematics",
-    "people",
-    "psychology",
-    "philosophy",
-    "religion",
-    "sports",
-    "technology",
-    "transportation"
-]
+const anchorsUtil = require("./anchors");
+const { DynamoDB } = require("aws-sdk");
+const { Converter } = DynamoDB;
 
+const DOMAINS = [
+  "agriculture","architecture","biology","business","characteristic","chemistry",
+  "community","cosmology","economics","education","entertainment","environment",
+  "event","food","geology","geography","government","health","history","language",
+  "law","manufacturing","mathematics","people","psychology","philosophy","religion",
+  "sports","technology","transportation"
+];
+
+// ── paste your full DOMAIN_SUBS map here ─────────────────────────────
 const DOMAIN_SUBS = {
-    "agriculture": [
-        "agroeconomics",
-        "agrochemicals",
-        "agronomy",
-        "agtech",
-        "animal-health",
-        "aquaculture",
-        "aquaponics",
-        "biodiversity",
-        "biotechnology",
-        "certification",
-        "climate",
-        "crop-production",
-        "dairy",
-        "data",
-        "education",
-        "engineering",
-        "farm-equipment",
-        "farm-management",
-        "finance",
-        "food-processing",
-        "food-safety",
-        "forestry",
-        "genetics",
-        "horticulture",
-        "hydroponics",
-        "irrigation",
-        "labor",
-        "land-use",
-        "livestock",
-        "marketing",
-        "mechanization",
-        "nutrition",
-        "organic-farming",
-        "pest-management",
-        "plant-health",
-        "policy",
-        "postharvest",
-        "precision-farming",
-        "research",
-        "robotics",
-        "rural-development",
-        "soil-science",
-        "supply-chain",
-        "sustainability",
-        "vertical-farming",
-        "waste-management",
-        "water-management",
-        "weed-management"
-    ],
+  "agriculture": [
+    "agroeconomics",
+    "agrochemicals",
+    "agronomy",
+    "agtech",
+    "animal-health",
+    "aquaculture",
+    "aquaponics",
+    "biodiversity",
+    "biotechnology",
+    "certification",
+    "climate",
+    "crop-production",
+    "dairy",
+    "data",
+    "education",
+    "engineering",
+    "farm-equipment",
+    "farm-management",
+    "finance",
+    "food-processing",
+    "food-safety",
+    "forestry",
+    "genetics",
+    "horticulture",
+    "hydroponics",
+    "irrigation",
+    "labor",
+    "land-use",
+    "livestock",
+    "marketing",
+    "mechanization",
+    "nutrition",
+    "organic-farming",
+    "pest-management",
+    "plant-health",
+    "policy",
+    "postharvest",
+    "precision-farming",
+    "research",
+    "robotics",
+    "rural-development",
+    "soil-science",
+    "supply-chain",
+    "sustainability",
+    "vertical-farming",
+    "waste-management",
+    "water-management",
+    "weed-management"
+  ],
     "architecture": [
         "styles",
         "typologies",
@@ -1111,18 +1091,14 @@ const DOMAIN_SUBS = {
     ]
 };
 
-
-const { DynamoDB } = require('aws-sdk');
-const { Converter } = DynamoDB;
-
 // marshal helper for low-level numeric attributes
-const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
+const n = (x) => ({ N: typeof x === "string" ? x : String(x) });
 
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
 const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
 //nestedDomainIndex.json format
-// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embeddinig:[]},"<domain>":{"text":"...","embedding":[]} }}
+// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embedding":[]}, ... }}
 
 let _domainIndexCache = null;
 
@@ -1143,13 +1119,8 @@ const _ensureUnit = (v) => {
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
-  const obj = await s3.getObject({
-    Bucket: DOMAIN_INDEX_BUCKET,
-    Key: key
-  }).promise(); // ← mirrors your putObject style
-
+  const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
-
   // Precompute unit vectors
   for (const [, dNode] of Object.entries(idx.domains || {})) {
     dNode._embU = _ensureUnit(dNode.embedding);
@@ -1170,19 +1141,14 @@ async function _embedUnit({ openai, text }) {
 }
 
 const _cosineDistUnit = (a, b) => {
-  // a and b must be unit vectors
   let dot = 0;
   for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
   return 1 - dot;
 };
 
 async function classifyDomainsByEmbeddingFromS3({
-  s3,
-  openai,
-  key = DOMAIN_INDEX_KEY,
-  textForEmbedding
+  s3, openai, key = DOMAIN_INDEX_KEY, textForEmbedding
 }) {
-  console.log("textForEmbedding------",textForEmbedding)
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
@@ -1197,7 +1163,7 @@ async function classifyDomainsByEmbeddingFromS3({
   domainScores.sort((a, b) => a.dist - b.dist);
   const best = domainScores[0];
   const runnerUp = domainScores[1] || { dist: Infinity };
-  const margin = runnerUp.dist - best.dist; // larger = clearer win
+  const margin = runnerUp.dist - best.dist;
 
   // Helpers to pick subdomain
   const pickSubWithin = (dName) => {
@@ -1235,21 +1201,14 @@ async function classifyDomainsByEmbeddingFromS3({
   }
 }
 
-
-
-
-
-
-
+/* ------------------------------------------------------------------ */
+/* Helpers                                                            */
+/* ------------------------------------------------------------------ */
 
 const parseVector = v => {
   if (!v) return null;
   if (Array.isArray(v)) return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(v); } catch { return null; }
 };
 
 const cosineDist = (a, b) => {
@@ -1273,9 +1232,7 @@ const toVector = v => {
 const createArrayOfRootKeys = schema => {
   if (!schema || typeof schema !== "object") return [];
   const { properties } = schema;
-  return properties && typeof properties === "object"
-    ? Object.keys(properties)
-    : [];
+  return properties && typeof properties === "object" ? Object.keys(properties) : [];
 };
 
 const calcMatchScore = (elementDists, item) => {
@@ -1284,8 +1241,7 @@ const calcMatchScore = (elementDists, item) => {
     const e = elementDists[`dist${i}`];
     const t = item[`dist${i}`];
     if (typeof e === "number" && typeof t === "number") {
-      sum += Math.abs(e - t);
-      count++;
+      sum += Math.abs(e - t); count++;
     }
   }
   return count ? sum / count : Number.POSITIVE_INFINITY;
@@ -1312,9 +1268,7 @@ function resolveArrayLogic(arrayLogic) {
     }
     if (Array.isArray(val)) return val.map(deepResolve);
     if (val && typeof val === "object")
-      return Object.fromEntries(Object.entries(val).map(
-        ([k, v]) => [k, deepResolve(v)]
-      ));
+      return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, deepResolve(v)]));
     return val;
   };
 
@@ -1342,9 +1296,7 @@ const convertShorthandRefs = v => {
   }
   if (Array.isArray(v)) return v.map(convertShorthandRefs);
   if (v && typeof v === "object")
-    return Object.fromEntries(Object.entries(v).map(
-      ([k, val]) => [k, convertShorthandRefs(val)]
-    ));
+    return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, convertShorthandRefs(val)]));
   return v;
 };
 
@@ -1356,26 +1308,22 @@ const isOperationElem = obj =>
 const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
+/* ------------------------------------------------------------------ */
+/* OpenAI bits (unchanged)                                            */
+/* ------------------------------------------------------------------ */
+
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-  console.log("callOpenAIIIIII", str)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
-    messages: [{
-      role: "user",
-      content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}`
-    }]
+    temperature: 0, top_p: 0, seed: 42,
+    messages: [{ role: "user", content: `IN ONE WORD, which ${promptLabel} best fits:\n"${str}"\n${list.join(" ")}` }]
   });
   const guess = rsp.choices[0].message.content.trim().split(/\s+/)[0].toLowerCase();
   if (list.includes(guess)) return guess;
 
   const strict = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
+    temperature: 0, top_p: 0, seed: 42,
     response_format: {
       type: "json_schema",
       json_schema: {
@@ -1395,168 +1343,144 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
-// your real schema goes here
-
-
+// ── paste your full buildLogicSchema here (unchanged from your version) ─────
 const buildLogicSchema = {
-    "name": "build_logic",
-    "description": "Create a structured modules/actions JSON payload for the logic runner.",
-    "parameters": {
+  "name": "build_logic",
+  "description": "Create a structured modules/actions JSON payload for the logic runner.",
+  "parameters": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["modules", "actions"],
+    "properties": {
+      "modules": {
         "type": "object",
-        "additionalProperties": false,
-        "required": ["modules", "actions"],
-        "properties": {
-            "modules": {
-                "type": "object",
-                "description": "Map from local alias → npm-package name.",
-                "additionalProperties": {
-                    "type": "string",
-                    "description": "Exact name of the npm package to `require`."
-                }
-            },
-            "actions": { "$ref": "#/$defs/actionList" }
-        },
-
-        "$defs": {
-            /* ─────────── any JSON value ─────────── */
-            "jsonVal": {
-                "oneOf": [
-                    { "type": "string" },
-                    { "type": "number" },
-                    { "type": "boolean" },
-                    { "type": "object" },
-                    { "type": "array", "items": {} }
-                ]
-            },
-
-            /* ────────── decorators (unchanged) ────────── */
-            "decorators": {
-                "type": "object",
-                "properties": {
-                    "if": { "$ref": "#/$defs/conditionArray" },
-                    "while": { "$ref": "#/$defs/conditionArray" },
-                    "timeout": { "type": "integer", "minimum": 0 },
-                    "next": { "type": "boolean" },
-                    "promise": { "enum": ["raw", "await"] }
-                },
-                "additionalProperties": false
-            },
-
-            /* ───────── chain helpers (unchanged) ───────── */
-            "chainItem": {
-                "type": "object",
-                "required": ["access"],
-                "additionalProperties": false,
-                "properties": {
-                    "access": { "type": "string" },
-                    "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
-                    "new": { "type": "boolean" },
-                    "express": { "type": "boolean" },
-                    "next": { "type": "boolean" },
-                    "return": { "$ref": "#/$defs/jsonVal" }
-                }
-            },
-            "chainArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/chainItem" }
-            },
-
-            /* ───────── condition helpers (unchanged) ───────── */
-            "conditionTuple": {
-                "type": "array",
-                "minItems": 3,
-                "maxItems": 3,
-                "prefixItems": [
-                    { "type": "string" },
-                    { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
-                    { "$ref": "#/$defs/jsonVal" }
-                ],
-                "items": {}
-            },
-            "conditionArray": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/conditionTuple" }
-            },
-
-            /* ───────── list of actions ───────── */
-            "actionList": {
-                "type": "array",
-                "items": { "$ref": "#/$defs/actionObject" }
-            },
-
-            /* ─────────── ACTION object ─────────── */
-            "actionObject": {
-                "type": "object",
-                "allOf": [
-                    { "$ref": "#/$defs/decorators" },
-                    {
-                        "additionalProperties": false,
-                        "oneOf": [
-
-                            { /* SET */ "required": ["set"],
-                                "properties": {
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* TARGET */ "required": ["target", "chain"],
-                                "properties": {
-                                    "target": { "type": "string" },
-                                    "chain": { "$ref": "#/$defs/chainArray" },
-                                    "assign": { "type": "string" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* IF */ "required": ["if", "set"],
-                                "properties": {
-                                    "if": { "$ref": "#/$defs/conditionArray" },
-                                    "set": { "type": "object" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* WHILE */ "required": ["while", "nestedActions"],
-                                "properties": {
-                                    "while": { "$ref": "#/$defs/conditionArray" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
-                                "properties": {
-                                    "assign": { "type": "string" },
-                                    "params": { "type": "array", "items": { "type": "string" } },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            { /* RETURN */ "required": ["return"],
-                                "properties": {
-                                    "return": { "$ref": "#/$defs/jsonVal" },
-                                    "nestedActions": { "$ref": "#/$defs/actionList" }
-                                }
-                            },
-
-                            /* ★ NEW ─────────── ELSE wrapper ─────────── */
-                            {
-                                "title": "else",
-                                "required": ["else"],
-                                "properties": {
-                                    /* inner payload is ONE action object
-                                       (matches the pattern you showed: {"else":{ "set":{…}}} ) */
-                                    "else": { "$ref": "#/$defs/actionObject" }
-                                }
-                            }
-                            /* ★ END NEW */
-                        ]
-                    }
-                ]
-            }
+        "description": "Map from local alias → npm-package name.",
+        "additionalProperties": {
+          "type": "string",
+          "description": "Exact name of the npm package to `require`."
         }
+      },
+      "actions": { "$ref": "#/$defs/actionList" }
+    },
+
+    "$defs": {
+      "jsonVal": {
+        "oneOf": [
+          { "type": "string" },
+          { "type": "number" },
+          { "type": "boolean" },
+          { "type": "object" },
+          { "type": "array", "items": {} }
+        ]
+      },
+      "decorators": {
+        "type": "object",
+        "properties": {
+          "if": { "$ref": "#/$defs/conditionArray" },
+          "while": { "$ref": "#/$defs/conditionArray" },
+          "timeout": { "type": "integer", "minimum": 0 },
+          "next": { "type": "boolean" },
+          "promise": { "enum": ["raw", "await"] }
+        },
+        "additionalProperties": false
+      },
+      "chainItem": {
+        "type": "object",
+        "required": ["access"],
+        "additionalProperties": false,
+        "properties": {
+          "access": { "type": "string" },
+          "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
+          "new": { "type": "boolean" },
+          "express": { "type": "boolean" },
+          "next": { "type": "boolean" },
+          "return": { "$ref": "#/$defs/jsonVal" }
+        }
+      },
+      "chainArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/chainItem" }
+      },
+      "conditionTuple": {
+        "type": "array",
+        "minItems": 3,
+        "maxItems": 3,
+        "prefixItems": [
+          { "type": "string" },
+          { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
+          { "$ref": "#/$defs/jsonVal" }
+        ],
+        "items": {}
+      },
+      "conditionArray": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/conditionTuple" }
+      },
+      "actionList": {
+        "type": "array",
+        "items": { "$ref": "#/$defs/actionObject" }
+      },
+      "actionObject": {
+        "type": "object",
+        "allOf": [
+          { "$ref": "#/$defs/decorators" },
+          {
+            "additionalProperties": false,
+            "oneOf": [
+              { "required": ["set"],
+                "properties": {
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["target", "chain"],
+                "properties": {
+                  "target": { "type": "string" },
+                  "chain": { "$ref": "#/$defs/chainArray" },
+                  "assign": { "type": "string" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["if", "set"],
+                "properties": {
+                  "if": { "$ref": "#/$defs/conditionArray" },
+                  "set": { "type": "object" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["while", "nestedActions"],
+                "properties": {
+                  "while": { "$ref": "#/$defs/conditionArray" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["assign", "params", "nestedActions"],
+                "properties": {
+                  "assign": { "type": "string" },
+                  "params": { "type": "array", "items": { "type": "string" } },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              { "required": ["return"],
+                "properties": {
+                  "return": { "$ref": "#/$defs/jsonVal" },
+                  "nestedActions": { "$ref": "#/$defs/actionList" }
+                }
+              },
+              {
+                "title": "else",
+                "required": ["else"],
+                "properties": {
+                  "else": { "$ref": "#/$defs/actionObject" }
+                }
+              }
+            ]
+          }
+        ]
+      }
     }
-}
+  }
+};
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
   const rsp = await openai.chat.completions.create({
@@ -1571,13 +1495,12 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
   });
 
   const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, "{|req=>body.body");
   const args = JSON.parse(fc.arguments);
   return args;
 };
 
 const classifyDomains = async ({ openai, text }) => {
-  console.log("classifyDomainsssss", text);
   const domain = await callOpenAI({
     openai, str: JSON.stringify(text),
     list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
@@ -1595,65 +1518,45 @@ const classifyDomains = async ({ openai, text }) => {
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
-    temperature: 0,
-    top_p: 0,
-    seed: 42,
+    temperature: 0, top_p: 0, seed: 42,
     messages: [{
       role: "system",
       content:
         "You are a JSON-only assistant. Reply with **only** a valid JSON " +
         "array—the arrayLogic representation of the user’s request. " +
         "No prose. No markdown. No code fences. No comments!!"
-    },
-    { role: "user", content: prompt }
-    ]
+    }, { role: "user", content: prompt }]
   });
   let text = rsp.choices[0].message.content.trim();
 
   function stripComments(jsonLike) {
-    let out = '';
-    let inString = false, quote = '', escaped = false;
+    let out = "";
+    let inString = false, quote = "", escaped = false;
     let inSL = false, inML = false;
-
     for (let i = 0; i < jsonLike.length; i++) {
       const c = jsonLike[i], n = jsonLike[i + 1];
-
-      if (inSL) {
-        if (c === '\n' || c === '\r') { inSL = false; out += c; }
-        continue;
-      }
-      if (inML) {
-        if (c === '*' && n === '/') { inML = false; i++; }
-        continue;
-      }
-      if (inString) {
-        out += c;
-        if (!escaped && c === quote) { inString = false; quote = ''; }
-        escaped = !escaped && c === '\\';
-        continue;
-      }
-      if (c === '"' || c === "'") {
-        inString = true; quote = c; out += c; continue;
-      }
-      if (c === '/' && n === '/') { inSL = true; i++; continue; }
-      if (c === '/' && n === '*') { inML = true; i++; continue; }
-
+      if (inSL) { if (c === "\n" || c === "\r") { inSL = false; out += c; } continue; }
+      if (inML) { if (c === "*" && n === "/") { inML = false; i++; } continue; }
+      if (inString) { out += c; if (!escaped && c === quote) { inString = false; quote = ""; } escaped = !escaped && c === "\\"; continue; }
+      if (c === '"' || c === "'") { inString = true; quote = c; out += c; continue; }
+      if (c === "/" && n === "/") { inSL = true; i++; continue; }
+      if (c === "/" && n === "*") { inML = true; i++; continue; }
       out += c;
     }
     return out;
   }
 
   text = stripComments(text);
-
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1) {
-    throw new Error("Model response did not contain a JSON array.");
-  }
-
+  if (start === -1 || end === -1) throw new Error("Model response did not contain a JSON array.");
   text = text.slice(start, end + 1);
   return JSON.parse(text);
 }
+
+/* ------------------------------------------------------------------ */
+/* parseArrayLogic                                                    */
+/* ------------------------------------------------------------------ */
 
 async function parseArrayLogic({
   arrayLogic = [],
@@ -1665,7 +1568,7 @@ async function parseArrayLogic({
   Anthropic,
   dynamodbLL,  // Low-level DynamoDB for pb ops
   sourceType,
-  actionFile,
+  actionFile,  // optional: force a specific file/SU
   out,
   e,
   requestOnly = false
@@ -1681,9 +1584,9 @@ async function parseArrayLogic({
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   const shorthand = [];
-  const createdEntities = [];
   const results = [];
-  let routeRowNewIndex = null;
+  let routeRowBase = null;
+  let routeRowNewIndex = 0;
 
   // helper to safely build the huge numeric pb as a string representation
   const buildPb = (possessedCombined, d1) =>
@@ -1697,7 +1600,6 @@ async function parseArrayLogic({
       const { Item } = await dynamodb.get({
         TableName: "subdomains",
         Key: { su }
-        // If you want to avoid ever returning pb from DocClient, add ProjectionExpression here.
       }).promise();
       return Item || null;
     } catch (e) {
@@ -1706,12 +1608,22 @@ async function parseArrayLogic({
     }
   };
 
+  const s3FileExists = async (key) => {
+    try {
+      await s3.headObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
+  // We'll track the most-relevant SU so the caller always gets the one we used.
+  let lastSuRef = "";           // may be a literal SU or a padRef("nnn!!")
+  let lastSuIsRefToken = false; // true if lastSuRef is a "nnn!!" pointer
+
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
-
-    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
-      continue;
-    }
+    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) continue;
 
     const elem = resolvedLogic[i];
 
@@ -1731,83 +1643,71 @@ async function parseArrayLogic({
     }
 
     const bc = Object.keys(elem)[0];
+    console.log("susu : bc", bc)
+    console.log("susu : elem[bc]", elem[bc])
+    if (elem[bc].hasOwnProperty("output")) { fixedOutput = elem[bc].output; delete elem[bc].output; }
+    if (elem[bc].hasOwnProperty("possessedBy")) { fixedPossessed = elem[bc].possessedBy; delete elem[bc].possessedBy; }
+    if (elem[bc].hasOwnProperty("date")) { fixedDate = elem[bc].date; delete elem[bc].date; }
 
-    if (elem[bc].hasOwnProperty("output")) {
-      fixedOutput = elem[bc].output;
-      delete elem[bc].output;
-    }
-    if (elem[bc].hasOwnProperty("possessedBy")) {
-      fixedPossessed = elem[bc].possessedBy;
-      delete elem[bc].possessedBy;
-    }
-    if (elem[bc].hasOwnProperty("date")) {
-      fixedDate = elem[bc].date;
-      delete elem[bc].date;
-    }
+
+    console.log("susu : out", out)
+    const essenceWord = (typeof out === "string" && out.trim()) ? out.trim() : "";
+if (!fixedOutput && essenceWord) {
+  fixedOutput = essenceWord; // ensures logs show it and “position” saves it
+}
+const outputToSave = (fixedOutput ?? essenceWord ?? "");
 
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
-    const origBody = origElem[breadcrumb];
 
-    //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
-    
-   // Prefer the *user's request* when requestOnly === true
-   const b = elem[bc]; // you already computed bc above; reuse it
-   const inp = b?.input && typeof b.input === 'object' ? b.input : {};
-   let userReqText = null;
-   // $essence path provides the raw user request in `out`
-   if (typeof out === "string" && out.trim()) userReqText = out.trim();
-   // Common input field names (singular/plural) as fallbacks
-   if (!userReqText) {
-     const candidate =
-       inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
-     if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
-     else if (typeof candidate === 'string') userReqText = candidate.trim();
-   }
-   // Build a single source of truth for both classification and distance embedding
-   const textForEmbedding = requestOnly
-     ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
-     : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
+    // Prefer the *user's request* when requestOnly === true
+    const b = elem[bc];
+    const inp = b?.input && typeof b.input === "object" ? b.input : {};
+    let userReqText = null;
+    if (typeof out === "string" && out.trim()) userReqText = out.trim();
+    if (!userReqText) {
+      const candidate =
+        inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
+      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(" ").trim();
+      else if (typeof candidate === "string") userReqText = candidate.trim();
+    }
+    const textForEmbedding = requestOnly
+      ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
+      : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
 
+    console.log("susu : textForEmbedding", textForEmbedding)
 
-
-const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
-  s3,
-  openai,
-  key: "nestedDomainIndex.json", // or leave default via DOMAIN_INDEX_KEY
-  textForEmbedding
-});
+    const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
+      s3, openai, key: "nestedDomainIndex.json", textForEmbedding
+    });
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
     const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
-    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
+    const subdomainIndex = 100000000000 * (DOMAIN_SUBS[domain]?.indexOf(subdomain) ?? 0);
     const userID = e;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
-    // embedding
-   // Use EXACTLY the same text that powered classification to compute dists/pb
-const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
-const embText  = typeof embInput === 'string' ? embInput.trim() : String(embInput);
-const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
-  model: "text-embedding-3-large",
-  input: embText
-});
+    // embedding (use same text as classification when requestOnly)
+    const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
+    const embText = typeof embInput === "string" ? embInput.trim() : String(embInput);
+    const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
+      model: "text-embedding-3-large",
+      input: embText
+    });
     const embedding = toVector(rawEmb);
 
-    // get subdomain vector refs (DocClient is fine; no pb touched)
+    // get subdomain vector refs
     let dynamoRecord = null;
     let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
     try {
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: "#r = :pk",
-          ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomain },
-          Limit: 1
-        })
-        .promise();
+      const { Items } = await dynamodb.query({
+        TableName: `i_${domain}`,
+        KeyConditionExpression: "#r = :pk",
+        ExpressionAttributeNames: { "#r": "root" },
+        ExpressionAttributeValues: { ":pk": subdomain },
+        Limit: 1
+      }).promise();
       dynamoRecord = Items?.[0] ?? null;
     } catch (err) {
       console.error("DynamoDB query failed:", err);
@@ -1823,27 +1723,17 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
       });
     }
 
-    // low-level pb-index query (to avoid 36-digit precision loss)
+    // pb-index query
     let subdomainMatches = [];
     if (dist1 != null) {
       const pbStr = buildPb(possessedCombined, dist1);
-
       try {
         const ExpressionAttributeNames = {
-          '#p': 'pb',
-          '#d1': 'dist1',
-          '#d2': 'dist2',
-          '#d3': 'dist3',
-          '#d4': 'dist4',
-          '#d5': 'dist5',
+          "#p": "pb", "#d1": "dist1", "#d2": "dist2", "#d3": "dist3", "#d4": "dist4", "#d5": "dist5",
         };
-
         const ExpressionAttributeValues = {
-          ':pb': n(pbStr),
-          ':d1lo': n(dist1 - 0.01),
-          ':d1hi': n(dist1 + 0.01),
+          ":pb": n(pbStr), ":d1lo": n(dist1 - 0.01), ":d1hi": n(dist1 + 0.01),
         };
-
         const filterParts = [];
         [dist2, dist3, dist4, dist5].forEach((v, idx) => {
           const i2 = idx + 2;
@@ -1855,32 +1745,28 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         });
 
         const params = {
-          TableName: 'subdomains',
-          IndexName: 'pb-index',
-          KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
+          TableName: "subdomains",
+          IndexName: "pb-index",
+          KeyConditionExpression: "#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi",
           ExpressionAttributeNames,
           ExpressionAttributeValues,
-          ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
+          ...(filterParts.length ? { FilterExpression: filterParts.join(" AND ") } : {}),
           ScanIndexForward: true,
         };
 
         const { Items } = await dynamodbLL.query(params).promise();
-        // AV -> plain JS (dist* become numbers; pb would be a stringified big number if you wrapNumbers)
         subdomainMatches = (Items || []).map(Converter.unmarshall);
       } catch (err) {
-        console.error('subdomains GSI query failed:', err);
+        console.error("subdomains GSI query failed:", err);
       }
     }
 
-    // pick best match
+    // best match (if any)
     let bestMatch = null;
     if (subdomainMatches.length) {
       bestMatch = subdomainMatches.reduce(
         (best, item) => {
-          const score = calcMatchScore(
-            { dist1, dist2, dist3, dist4, dist5 },
-            item
-          );
+          const score = calcMatchScore({ dist1, dist2, dist3, dist4, dist5 }, item);
           return score < best.score ? { item, score } : best;
         },
         { item: null, score: Number.POSITIVE_INFINITY }
@@ -1891,200 +1777,134 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
-    console.log("999 bestMatch", bestMatch)
+    console.log("999 bestMatch", bestMatch);
+    console.log("999 actionFile", actionFile);
+
+    // IMPORTANT (legacy order): prefer bestMatch → fallback to actionFile → else create new entity
     if (!bestMatch) {
-      console.log("999 actionFile", actionFile)
-      
+      console.log("999 no bestMatch; checking actionFile...");
+
       if (actionFile) {
-        const existing = await loadExistingEntityRow(actionFile);
+        const fileSu = String(actionFile);
+        console.log("999 using actionFile fallback", fileSu);
+        lastSuRef = fileSu; lastSuIsRefToken = false;
+
+        // Hydrate S3 object if it's missing
+        const exists = await s3FileExists(fileSu);
+        if (!exists) {
+          console.log("999 hydrating missing S3 file for actionFile", fileSu);
+          ensureFileHydratedShorthand(fileSu);
+        }
+
         const pbStr = buildPb(possessedCombined, dist1);
+        shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", fileSu, ""]);
         shorthand.push([
           "ROUTE",
-          {
-            "body": {
+          { body: {
               description: "provided entity (fallback)",
-              domain,
-              subdomain,
-              embedding,
-              entity: actionFile,
-              pb: pbStr,
+              domain, subdomain, embedding,
+              entity: fileSu, pb: pbStr,
               dist1, dist2, dist3, dist4, dist5,
-              path: breadcrumb,
-              output: fixedOutput || out || ""
-            }
-          },
-          {},
-          "position",
-          actionFile,
-          ""
-        ]);
-
-        shorthand.push([
-          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+              path: breadcrumb, output: outputToSave
+          }},
+          {}, "position", fileSu, ""
         ]);
 
         routeRowNewIndex = shorthand.length;
+        console.log("999 routeRowNewIndex after actionFile fallback", routeRowNewIndex);
         continue; // IMPORTANT: don't create a new $noName entity
       }
-      console.log("999 after continue")
-      // create a new entity/group
-      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
 
-      console.log("999 body?.schema?.const",body?.schema?.const)
-      console.log("999 fixedOutput", fixedOutput)
-      console.log("999 body?.input?.name", body?.input?.name)
-      console.log("999 body?.input?.title",body?.input?.title)
-      console.log("999 body?.input?.entity",body?.input?.entity)
-      //const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      
+      console.log("999 creating a NEW entity/group...");
+
+      // Create a new entity/group
+      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+      const sanitize = s => s.replace(/[\/?#]/g, " ").trim();
+      console.log("999 body?.schema?.const", body?.schema?.const);
+      console.log("999 fixedOutput (pre-pick)", fixedOutput);
+      console.log("999 body?.input?.name", body?.input?.name);
+      console.log("999 body?.input?.title", body?.input?.title);
+      console.log("999 body?.input?.entity", body?.input?.entity);
+      console.log("999 out", out);
+
+      const entNameRaw = pick(
+        body?.schema?.const,
+        fixedOutput,
+        body?.input?.name,
+        body?.input?.title,
+        body?.input?.entity,
+        out
+      ) || "$noName";
+
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
-      const groupName = entName;
-      console.log("999 entNameRaw", entNameRaw)
-      console.log("999 entName", entName)
 
+      console.log("999 entNameRaw", entNameRaw);
+      console.log("999 entName", entName);
+
+      // 1) newGroup
       shorthand.push([
         "ROUTE",
         { output: entName },
         {},
         "newGroup",
-        groupName,
+        entName,
         entName
-      ]); //{response: {..., file: '1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30',entity: '2'}
+      ]);
 
+      // anchor for padRef(...) references
       routeRowNewIndex = shorthand.length;
+      routeRowBase = routeRowNewIndex;
+      console.log("999 routeRowNewIndex after newGroup", routeRowNewIndex);
 
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]); //1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30
+      // 2) capture SU of new file
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+      const newSuRef = padRef(routeRowNewIndex + 1);
+      lastSuRef = newSuRef; lastSuIsRefToken = true;
+      console.log("999 newSuRef", newSuRef);
 
-      console.log("999 fixedOutput", fixedOutput)
+      // 3) hydrate + build logic (JPL) + save
       if (fixedOutput) {
-        console.log("999 LETS GENERATE A JPL")
-        shorthand.push([
-          "ROUTE",
-          {},
-          {},
-          "getFile",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]); // ok: true, response: { input: [], published: { blocks: [Array], modules: {}, actions: [Array], function: {}, automation: [], menu: [Object], commands: [Object], calls: [Object], te
+        console.log("999 LETS GENERATE A JPL");
+        shorthand.push(["ROUTE", {}, {}, "getFile", newSuRef, ""]);
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]); // { input: [], published: { blocks: [ [Object] ], modules: {}, actions: [ [Object] ], function: {}, automation: [], menu: { ready: [Object] }, commands: { ready: [Object], back: [Obje
-        console.log("999 elem", elem)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
-        console.log("999 desiredObj",desiredObj)
+        console.log("999 desiredObj", desiredObj);
 
-
-                let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-                newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-                newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
-                newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-                newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
-                newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
-
+        let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+        newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+        newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-        console.log("999 objectJPL", JSON.stringify(objectJPL))
-        console.log("999 actions",padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
+        console.log("999 objectJPL.actions", JSON.stringify(objectJPL.actions));
+        console.log("999 objectJPL.modules", JSON.stringify(objectJPL.modules || {}));
 
-        shorthand.push(
-          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-        ); //actions: [ [Object], [Object], [Object] ],
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions || []]);
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
 
-        if (objectJPL.modules) {
-          console.log("999 modules if",padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-          );// modules: {}
-        } else {
-          console.log("999 modules else",padRef(routeRowNewIndex + 4), {})
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-          );// modules: {}
-        } //modules: {}
-
-
-        console.log("999 pushing to createdEntities")
-
-        console.log("999 createdEntities", createdEntities)
-
-        console.log("padRef(routeRowNewIndex + 1)",padRef(routeRowNewIndex + 1));
-        console.log("padRef(routeRowNewIndex + 2)",padRef(routeRowNewIndex + 2));
-        console.log("padRef(routeRowNewIndex + 3)",padRef(routeRowNewIndex + 3));
-        console.log("padRef(routeRowNewIndex + 4)",padRef(routeRowNewIndex + 4));
-        console.log("padRef(routeRowNewIndex + 5)",padRef(routeRowNewIndex + 5));
-        shorthand.push(
-          [
-            "ROUTE",
-            padRef(routeRowNewIndex + 5),
-            {},
-            "saveFile",
-            padRef(routeRowNewIndex + 1),
-            ""
-          ]
-        );
+        shorthand.push([
+          "ROUTE",
+          padRef(routeRowNewIndex + 5),
+          {},
+          "saveFile",
+          newSuRef,
+          ""
+        ]);
       }
 
-      // record positioning for the new entity (pb must be safe)
-      const pathStr = breadcrumb;
+      // 4) position (pb must be safe)
       const pbStr2 = buildPb(possessedCombined, dist1);
-
       shorthand.push([
         "ROUTE",
         {
-          "body": {
+          body: {
             description: "auto created entity",
             domain, subdomain,
             embedding,
-            entity: padRef(routeRowNewIndex + 1),
+            entity: newSuRef,
             pb: pbStr2,
-            dist1, dist2, dist3, dist4, dist5,
-            path: pathStr,
-            output: fixedOutput
-          }
-        },
-        {},
-        "position",
-        padRef(routeRowNewIndex + 1),
-        ""
-      ]);// { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
-
-      if (fixedOutput) {
-        shorthand.push([
-          "ROUTE",
-          inputParam,
-          {},
-          "runEntity",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]); // $noName  (this is the cached output that is saved to the database record). Entity didn't run.
-      } else {
-        shorthand.push([fixedOutput]);
-      }
-
-    } else {
-      // run best match
-      shorthand.push([
-        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
-      ]);
-
-
-
-      // refresh positioning metadata, with pb built from current dist1
-      const pbStr = buildPb(possessedCombined, dist1);
-
-      shorthand.push([
-        "ROUTE",
-        {
-          "body": {
-            description: "auto matched entity",
-            domain,
-            subdomain,
-            embedding,
-            entity: bestMatch.su,
-            pb: pbStr,
             dist1, dist2, dist3, dist4, dist5,
             path: breadcrumb,
             output: fixedOutput
@@ -2092,48 +1912,125 @@ const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
         },
         {},
         "position",
-        bestMatch.su,
+        newSuRef,
+        ""
+      ]);
+
+      // 5) run the new entity (legacy: {} for schema on cold run)
+      shorthand.push([
+        "ROUTE",
+        inputParam,
+        {},
+        "runEntity",
+        newSuRef,
+        ""
+      ]);
+
+    } else {
+      // bestMatch exists → prefer it over actionFile (legacy)
+      const bestSu = bestMatch.su;
+      console.log("999 using bestMatch.su", bestSu);
+      lastSuRef = bestSu; lastSuIsRefToken = false;
+
+      const exists = await s3FileExists(bestSu);
+      if (!exists) {
+        console.log("999 hydrating missing S3 file for bestMatch", bestSu);
+        ensureFileHydratedShorthand(bestSu);
+      }
+
+      const pbStr = buildPb(possessedCombined, dist1);
+      shorthand.push([
+        "ROUTE", inputParam, schemaParam, "runEntity", bestSu, ""
+      ]);
+      shorthand.push([
+        "ROUTE",
+        {
+          body: {
+            description: "auto matched entity",
+            domain,
+            subdomain,
+            embedding,
+            entity: bestSu,
+            pb: pbStr,
+            dist1, dist2, dist3, dist4, dist5,
+            path: breadcrumb,
+            output: outputToSave
+          }
+        },
+        {},
+        "position",
+        bestSu,
         ""
       ]);
     }
 
+    // keep both trackers in sync
     routeRowNewIndex = shorthand.length;
+    routeRowBase = routeRowNewIndex;
+    console.log("999 routeRowNewIndex end-of-iter", routeRowNewIndex);
+
+
   }
 
+
+
+    /* ------------------------------------------------------------------ */
+  /* Tail: restore legacy shorthand semantics                           */
+  /* ------------------------------------------------------------------ */
+
+  // Only append the legacy tail when the *last* original element included `conclusion`
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    // Use the last routed row as the "conclusion" target; fall back to current length if unset
+    const targetIndex = (typeof routeRowBase === "number" ? routeRowBase : shorthand.length);
+
     const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(targetIndex)]
     ) - 1;
 
-
+    // createdEntities as an OBJECT (legacy contract)
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      { 
-          entity: "", 
-          name: "_new", 
-          contentType: "text",
-          id:"_new"
-        }
-    ]); //try adding entities using ADDPROPTERY
+      {
+        entity: "",
+        name: "_new",
+        contentType: "text",
+        id: "_new"
+      }
+    ]);
 
-    shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
+    // Set createdEntities.entity to the SU we actually used
+    // (works whether lastSuRef is a ref token like "012!!" or a literal SU string)
+    shorthand.push([
+      "NESTED",
+      padRef(getRowIndex + 2),
+      "createdEntities",
+      "entity",
+      lastSuRef
+    ]);
 
+    // Surface final object (legacy ROWRESULT placement)
     shorthand.push([
       "ROWRESULT",
       "000",
       padRef(getRowIndex + 3)
-    ]); //and then pushing that to 000
-    
+    ]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-  console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities",JSON.stringify(createdEntities, null, 4))
-  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
+  console.log("susu : return", { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] });
+  console.log("999 final shorthand length", finalShorthand.length);
+  console.log("999 lastSuRef (for createdEntities tail)", lastSuRef, "isRef?", lastSuIsRefToken);
+
+  return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities: [] };
+
+
+
+
+
 }
 
 module.exports = { parseArrayLogic };
