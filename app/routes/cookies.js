@@ -62,13 +62,6 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   _shared.use(async (ctx) => {
     const main = {};
-    const p = String(ctx?.req?.headers?.["x-original-host"] || ctx?.req?.headers?.["X-Original-Host"]); //x-original-host has the users original path
-    console.log("ppp : ", p)
-    if (p.includes("/opt-in")) {
-      main.blockCookieBack = true;       // do not set a browser cookie here
-      main.skipNewGroupPreCreate = true; // do not call newGroup from manageCookie
-      main.suppressNewCookie = true;     // do not create a new cookie record at all
-    }
     const ck = await _shared.manageCookie(
       main,
       ctx.xAccessToken,
