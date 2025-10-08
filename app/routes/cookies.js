@@ -61,7 +61,9 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   _shared = createShared(_deps);
 
   _shared.use(async (ctx) => {
-    const main = {};
+   // This is the generic per-request cookie initializer.
+   // Do NOT precreate a group/entity here.
+   const main = { reason: "router", precreate: false };
     const ck = await _shared.manageCookie(
       main,
       ctx.xAccessToken,
