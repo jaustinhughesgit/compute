@@ -682,113 +682,204 @@ function createShared(deps = {}) {
     return "1v4r" + id;
   }
 
-  async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-    console.log("mainObj", mainObj);
-    console.log("xAccessToken", xAccessToken);
-    console.log("ddb", ddb);
-    console.log("uuid", uuid);
+async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
+  console.log("mainObj", mainObj);
+  console.log("xAccessToken", xAccessToken);
+  console.log("ddb", ddb);
+  console.log("uuid", uuid);
 
-    if (xAccessToken) {
+  // ---------- helpers ----------
+  const COOKIE_DOMAIN = ".1var.com";
+  const req = res && res.req ? res.req : null;
+  const hasBrowserCookie = (() => {
+    if (!req) return false;
+    if (req.cookies?.accessToken) return true;
+    const raw = req.headers?.cookie;
+    return typeof raw === "string" && /(^|;\s*)accessToken=/.test(raw);
+  })();
+  const pathish = (() => {
+    try {
+      const h = req?.headers?.["x-original-host"];
+      if (h) {
+        const u = new URL(h);
+        return u.pathname || "";
+      }
+    } catch {}
+    return req?.originalUrl || req?.url || req?.path || "";
+  })();
+  const isOptInRequest = /(^|\/)opt-?in(\/|$)/i.test(String(pathish || ""));
+
+  // If the caller sent us an access token, just authenticate and return the cookie record.
+  if (xAccessToken) {
+    mainObj.status = "authenticated";
+    const cookie = await getCookie(xAccessToken, "ak", ddb);
+    return cookie.Items?.[0];
+  }
+
+  // ---------- OPT-IN: DO NOT create a new cookie ----------
+  // Users hitting /opt-in should receive the cookie that was already created for them
+  // during the sender's invite flow. We try to find it by the recipientHash in the URL.
+  if (isOptInRequest) {
+    // If the browser already has a cookie, don't touch it.
+    if (hasBrowserCookie) {
       mainObj.status = "authenticated";
-      const cookie = await getCookie(xAccessToken, "ak", ddb);
-      return cookie.Items?.[0];
-    } else {
-     
-      const ttl = 86400;
-      const ak = await getUUID(uuid);
-      const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
-      const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
-      const ex = Math.floor(Date.now() / 1000) + ttl;
+      return { existing: true, cookieHandOff: "already-present" };
+    }
 
-      let eForCookie = "0";
-      let suDocForEmail = null;
-
-      try {
-        // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
-        const newGroupHandler = actions.get("newGroup");
-        if (typeof newGroupHandler === "function") {
-          const ctxForNewGroup = {
-            path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
-            req: { body: {} },
-            res,
-            xAccessToken: null,
-          };
-
-          // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
-          const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
-          console.log("ngResult", ngResult)
-          // ngResult is { ok: true, response: mainObj }, where response.file is the entity subdomain (suDoc)
-          eForCookie = ngResult?.response?.entity;
-          suDocForEmail = ngResult?.response?.file;
-        } else {
-          console.warn("manageCookie: newGroup action not registered; proceeding without e");
+    // Try to extract recipientHash & senderHash from query or path
+    let recipientHash = null;
+    try {
+      const hostHeader = req?.headers?.["x-original-host"];
+      if (hostHeader) {
+        const u = new URL(hostHeader);
+        recipientHash = u.searchParams.get("email");
+        if (!recipientHash && u.pathname.includes("/opt-in/")) {
+          const parts = u.pathname.split("/").filter(Boolean);
+          const idx = parts.indexOf("opt-in");
+          if (idx !== -1) recipientHash = parts[idx + 2] || null; // /opt-in/{sender}/{email}
         }
-      } catch (err) {
-        console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
+      } else if (pathish) {
+        const clean = String(pathish).split("?")[0];
+        const parts = clean.split("/").filter(Boolean);
+        const idx = parts.indexOf("opt-in");
+        if (idx !== -1) recipientHash = parts[idx + 2] || null;
       }
-      console.log("eForCookie",eForCookie)
-      // Create the cookie, now including e
-      await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
+    } catch (_) {
+      // best-effort parsing only
+    }
 
-
-      // Create the user record BEFORE returning the cookie.
-      // e = user id; suDoc drives the generated email <suDoc>@email.1var.com
+    if (recipientHash) {
       try {
-        console.log("eForCookie",eForCookie)
-        console.log("suDocForEmail",suDocForEmail)
-        if (eForCookie !== "0" && suDocForEmail) {
-          const createUserHandler = actions.get("createUser");
-          if (typeof createUserHandler === "function") {
-            await createUserHandler(
-              {
-                req: {
-                  body: {
-                    userID: eForCookie,
-                    emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
-                    pubEnc: null,
-                    pubSig: null,
-                    revoked: false,
-                    latestKeyVersion: 1,
-                  }
-                }
-              },
-              {}
-            );
-          } else {
-            console.warn("manageCookie: createUser action not registered; skipping user creation");
+        // Look up the user by emailHash (users GSI: emailHashIndex)
+        const uq = await ddb.query({
+          TableName: "users",
+          IndexName: "emailHashIndex",
+          KeyConditionExpression: "emailHash = :eh",
+          ExpressionAttributeValues: { ":eh": recipientHash },
+          Limit: 1,
+        }).promise();
+        const user = uq?.Items?.[0];
+
+        if (user?.userID != null) {
+          // Fetch their cookies by user e (cookies GSI: eIndex), choose first valid (earliest ci)
+          const ck = await getCookie(String(user.userID), "e", ddb);
+          const nowSec = Math.floor(Date.now() / 1000);
+          const valid = (ck?.Items || [])
+            .filter(it => it && typeof it.ex === "number" && it.ak && it.ex > nowSec)
+            .map(it => ({ ...it, _ciNum: Number(it.ci) || 0 }))
+            .sort((a, b) => a._ciNum - b._ciNum);
+
+          const record = valid[0] || null;
+          if (record) {
+            const msRemaining = Math.max(0, (record.ex * 1000) - Date.now());
+            res?.cookie?.("accessToken", record.ak, {
+              domain: COOKIE_DOMAIN,
+              maxAge: msRemaining || (86400 * 1000),
+              httpOnly: true,
+              secure: true,
+              sameSite: "None",
+            });
+            mainObj.status = "authenticated";
+            return { ...record, existing: true, cookieHandOff: "opt-in" };
           }
-        } else {
-          console.warn("manageCookie: missing e or suDoc; skipping user creation");
         }
       } catch (err) {
-        console.warn("manageCookie: createUser failed; continuing without blocking", err);
+        console.warn("manageCookie: opt-in cookie handoff failed", err);
       }
+    }
 
+    // We couldn't resolve a pre-created cookie. Do NOT create a new one here.
+    // The opt-in handler's own cookie handoff (maybeGiveAccountCookie) can still run.
+    return { existing: false, cookieHandOff: "opt-in-skip" };
+  }
+
+  // ---------- Default behavior (newGroup / everything else): create cookie ----------
+  const ttl = 86400;
+  const ak = await getUUID(uuid);
+  const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
+  const gi = await incrementCounterAndGetNewValue("giCounter", ddb);
+  const ex = Math.floor(Date.now() / 1000) + ttl;
+
+  let eForCookie = "0";
+  let suDocForEmail = null;
+
+  try {
+    // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
+    const newGroupHandler = actions.get("newGroup");
+    if (typeof newGroupHandler === "function") {
+      const ctxForNewGroup = {
+        path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
+        req: { body: {} },
+        res,
+        xAccessToken: null,
+      };
+
+      // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
+      const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+      console.log("ngResult", ngResult);
+      eForCookie = ngResult?.response?.entity;
+      suDocForEmail = ngResult?.response?.file;
+    } else {
+      console.warn("manageCookie: newGroup action not registered; proceeding without e");
+    }
+  } catch (err) {
+    console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
+  }
+  console.log("eForCookie", eForCookie);
+
+  // Create the cookie, now including e
+  await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
+
+  // Create the user record BEFORE returning the cookie.
+  try {
+    console.log("eForCookie", eForCookie);
+    console.log("suDocForEmail", suDocForEmail);
+    if (eForCookie !== "0" && suDocForEmail) {
+      const createUserHandler = actions.get("createUser");
+      if (typeof createUserHandler === "function") {
+        await createUserHandler(
+          {
+            req: {
+              body: {
+                userID: eForCookie,
+                emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
+                pubEnc: null,
+                pubSig: null,
+                revoked: false,
+                latestKeyVersion: 1,
+              }
+            }
+          },
+          {}
+        );
+      } else {
+        console.warn("manageCookie: createUser action not registered; skipping user creation");
+      }
+    } else {
+      console.warn("manageCookie: missing e or suDoc; skipping user creation");
+    }
+  } catch (err) {
+    console.warn("manageCookie: createUser failed; continuing without blocking", err);
+  }
 
   // Respect caller’s intent: block sending the cookie back to the current user.
-  // We still create the cookie server-side (so the *new* user can use it later),
-  // but we do not set a browser cookie or expose accessToken when blocked.
   const shouldSetBrowserCookie = !(mainObj?.blockCookieBack === true);
   if (shouldSetBrowserCookie) {
     mainObj.accessToken = ak;
-    // set browser cookie for *.1var.com
     res?.cookie?.("accessToken", ak, {
-      domain: ".1var.com",
+      domain: COOKIE_DOMAIN,
       maxAge: ttl * 1000,
       httpOnly: true,
       secure: true,
       sameSite: "None",
     });
   } else {
-    // Ensure we don't accidentally leak it via the response body:
-    if ("accessToken" in mainObj) {
-      delete mainObj.accessToken;
-    }
+    if ("accessToken" in mainObj) delete mainObj.accessToken;
   }
 
-      return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
-    }
-  }
+  return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
+}
+
 
   async function createAccess(ai, g, e, ex, at, to, va, ac, ddb = dynamodb) {
     await ddb
