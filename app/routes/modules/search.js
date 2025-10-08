@@ -250,7 +250,7 @@ function register({ on, use }) {
 
           if (needUserFilter) {
             // only keep matches owned by this user when we couldn't scope by tenant key
-            if (row.e != null && String(row.e) !== String(e)) return false;
+            //if (row.e != null && String(row.e) !== String(e)) return false;
           }
 
           if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
