@@ -42,11 +42,10 @@ function register({ on, use }) {
 
     setIsPublic(true);
 
-
-    // ---------- EARLY EXIT if manageCookie already created an entity ----------
-    // If manageCookie pre-created the (group, entity), it put the entity id in cookie.e.
-    // In that case: DO NOT create another pair. Reuse the existing entity/doc and return it.
-    if (ensuredCookie?.existing === true && ensuredCookie?.e && ensuredCookie.e !== "0") {
+    // ---------- EARLY EXIT if this cookie is already linked to an entity ----------
+    // If the cookie already has a non-zero entity id, DO NOT create another one
+    // and DO NOT modify cookie.e. Reuse the existing entity/doc and return it.
+    if (ensuredCookie?.e && ensuredCookie.e !== "0") {
 
       try {
         // Find a document subdomain tied to this entity (the one created by manageCookie's internal newGroup).
@@ -160,8 +159,15 @@ function register({ on, use }) {
     );
 
 
-    // --- NEW: tie the freshly created entity id to the user's cookie ---
+    // --- Only tie the freshly created entity id to the user's cookie when appropriate ---
     try {
+      const now = Math.floor(Date.now() / 1000);
+      const hasE = !!ensuredCookie?.e && ensuredCookie.e !== "0";
+      const isExpired = Number.isFinite(+ensuredCookie?.ex) && (+ensuredCookie.ex <= now);
+      // Optional: let callers opt-in to reassignment (e.g., regain access flow)
+      const forceReassign =
+        !!(ctx?.req?.body && (ctx.req.body.forceReassignE || ctx.req.body.body?.forceReassignE));
+
       // We prefer ci (PK). If not present, look it up via gi index.
       let ciKey = ensuredCookie?.ci;
       if (!ciKey && ensuredCookie?.gi) {
@@ -174,7 +180,11 @@ function register({ on, use }) {
         }).promise();
         ciKey = q?.Items?.[0]?.ci;
       }
-      if (ciKey) {
+      // Only set cookie.e if:
+      //   • there isn't one yet (e === "0"), OR
+      //   • the cookie is expired, OR
+      //   • the caller explicitly allows reassignment (regain flow).
+      if (ciKey && (!hasE || isExpired || forceReassign)) {
         await dynamodb.update({
           TableName: "cookies",
           Key: { ci: ciKey.toString() },
@@ -182,10 +192,15 @@ function register({ on, use }) {
           ExpressionAttributeNames: { "#e": "e" },
           ExpressionAttributeValues: { ":e": e.toString() },
         }).promise();
-      } else {
+      } else if (!ciKey) {
         console.warn("newGroup: could not resolve cookie ci to set e");
+     } else {
+       // Intentionally NOT changing cookie.e
+        if (hasE && !isExpired && !forceReassign) {
+          console.log("newGroup: preserving existing cookie.e; no reassignment during sync");
+        }
       }
-    } catch (err) {
+      } catch (err) {
       console.warn("newGroup: failed to update cookie.e", err);
     }
     // --- end NEW ---
