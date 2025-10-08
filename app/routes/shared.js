@@ -691,9 +691,11 @@ function createShared(deps = {}) {
     if (xAccessToken) {
       mainObj.status = "authenticated";
       const cookie = await getCookie(xAccessToken, "ak", ddb);
+      // mark as returning cookie
+      if (cookie.Items?.[0]) cookie.Items[0].existing = true;
       return cookie.Items?.[0];
     } else {
-     
+
       const ttl = 86400;
       const ak = await getUUID(uuid);
       const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
@@ -726,7 +728,7 @@ function createShared(deps = {}) {
       } catch (err) {
         console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
       }
-      console.log("eForCookie",eForCookie)
+      console.log("eForCookie", eForCookie)
       // Create the cookie, now including e
       await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
 
@@ -734,8 +736,8 @@ function createShared(deps = {}) {
       // Create the user record BEFORE returning the cookie.
       // e = user id; suDoc drives the generated email <suDoc>@email.1var.com
       try {
-        console.log("eForCookie",eForCookie)
-        console.log("suDocForEmail",suDocForEmail)
+        console.log("eForCookie", eForCookie)
+        console.log("suDocForEmail", suDocForEmail)
         if (eForCookie !== "0" && suDocForEmail) {
           const createUserHandler = actions.get("createUser");
           if (typeof createUserHandler === "function") {
@@ -765,28 +767,28 @@ function createShared(deps = {}) {
       }
 
 
-  // Respect caller’s intent: block sending the cookie back to the current user.
-  // We still create the cookie server-side (so the *new* user can use it later),
-  // but we do not set a browser cookie or expose accessToken when blocked.
-  const shouldSetBrowserCookie = !(mainObj?.blockCookieBack === true);
-  if (shouldSetBrowserCookie) {
-    mainObj.accessToken = ak;
-    // set browser cookie for *.1var.com
-    res?.cookie?.("accessToken", ak, {
-      domain: ".1var.com",
-      maxAge: ttl * 1000,
-      httpOnly: true,
-      secure: true,
-      sameSite: "None",
-    });
-  } else {
-    // Ensure we don't accidentally leak it via the response body:
-    if ("accessToken" in mainObj) {
-      delete mainObj.accessToken;
-    }
-  }
+      // Respect caller’s intent: block sending the cookie back to the current user.
+      // We still create the cookie server-side (so the *new* user can use it later),
+      // but we do not set a browser cookie or expose accessToken when blocked.
+      const shouldSetBrowserCookie = !(mainObj?.blockCookieBack === true);
+      if (shouldSetBrowserCookie) {
+        mainObj.accessToken = ak;
+        // set browser cookie for *.1var.com
+        res?.cookie?.("accessToken", ak, {
+          domain: ".1var.com",
+          maxAge: ttl * 1000,
+          httpOnly: true,
+          secure: true,
+          sameSite: "None",
+        });
+      } else {
+        // Ensure we don't accidentally leak it via the response body:
+        if ("accessToken" in mainObj) {
+          delete mainObj.accessToken;
+        }
+      }
 
-      return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: true };
+      return { ak, gi: String(gi), ex, ci: String(ci), e: eForCookie, existing: false };
     }
   }
 
