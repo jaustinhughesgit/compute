@@ -178,7 +178,7 @@ function register({ on, use }) {
         await dynamodb.update({
           TableName: "cookies",
           Key: { ci: ciKey.toString() },
-          UpdateExpression: "SET #e = :e",
+          UpdateExpression: "SET #e = if_not_exists(#e, :e)",
           ExpressionAttributeNames: { "#e": "e" },
           ExpressionAttributeValues: { ":e": e.toString() },
         }).promise();
