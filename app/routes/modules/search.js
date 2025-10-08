@@ -62,6 +62,7 @@ function register({ on, use }) {
   }
 
   async function ensureQueryEmbedding({ embedding, text }) {
+    console.log("QQ : text",text)
     if (Array.isArray(embedding) && embedding.every(isNum)) {
       const u = asUnit(embedding);
       if (u) return u;
@@ -128,6 +129,9 @@ function register({ on, use }) {
     const body = rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
       ? rawBody.body
       : rawBody;
+
+    console.log("QQ : body", body)
+    console.log("QQ : body.text", body.text)
 
     try {
       // ---- inputs / defaults
