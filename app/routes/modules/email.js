@@ -352,7 +352,6 @@ function register({ on, use }) {
       recipientHash,
       senderHash,
       blockCookieBack,
-      precreate: true, 
     };
     const resForCookie = blockCookieBack ? null : ctx?.res || null;
     let mc;
