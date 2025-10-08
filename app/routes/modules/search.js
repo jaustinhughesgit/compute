@@ -150,7 +150,7 @@ function register({ on, use }) {
       const topK           = Number.isFinite(+body.topK) ? +body.topK : 50;
 
       const e              = await getUserIdFromReq(req, body);
-      const eU             = await ensureQueryEmbedding({ embedding: body.embedding, text: searchStringt });
+      const eU             = await ensureQueryEmbedding({ embedding: body.embedding, text: searchString });
 
       // ---- compute query assignments (L0/L1 + band)
       const assigns = await anchorAssignments(eU, { setId, bandScale, topL0, numShards });
