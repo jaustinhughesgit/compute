@@ -46,7 +46,7 @@ function register({ on, use }) {
     // ---------- EARLY EXIT if manageCookie already created an entity ----------
     // If manageCookie pre-created the (group, entity), it put the entity id in cookie.e.
     // In that case: DO NOT create another pair. Reuse the existing entity/doc and return it.
-    if (ensuredCookie?.existing === true && ensuredCookie?.e && ensuredCookie.e !== "0") {
+    if (ensuredCookie?.e && ensuredCookie.e !== "0") {
 
       try {
         // Find a document subdomain tied to this entity (the one created by manageCookie's internal newGroup).

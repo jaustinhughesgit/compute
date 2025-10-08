@@ -62,9 +62,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
 
   _shared.use(async (ctx) => {
     const main = {};
-    // If this is an opt-in request, do not create a new cookie or pre-create a group.
-    // We'll set the existing (invite-time) cookie inside the opt-in handler itself.
-    const p = String(ctx?.req?.headers?.["x-original-host"] || ctx?.req?.headers?.["X-Original-Host"]);
+    const p = String(ctx?.req?.headers?.["x-original-host"] || ctx?.req?.headers?.["X-Original-Host"]); //x-original-host has the users original path
     console.log("ppp : ", p)
     if (p.includes("/opt-in")) {
       main.blockCookieBack = true;       // do not set a browser cookie here
