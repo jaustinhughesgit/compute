@@ -144,8 +144,9 @@ function register({ on, use }) {
       const setId          = body.setId || DEFAULT_SET_ID;
       const bandScale      = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
       const numShards      = Number.isFinite(+body.num_shards) ? +body.num_shards : DEFAULT_NUM_SHARDS;
-      const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 2;
-      const bandWindow     = Number.isFinite(+body.bandWindow) ? +body.bandWindow : 12; // in band units
+const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 3;
+const bandWindow     = Number.isFinite(+body.bandWindow) ? +body.bandWindow : 96; // safer default
+
       const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? +body.limitPerAssign : 500;
       const topK           = Number.isFinite(+body.topK) ? +body.topK : 50;
 
@@ -189,18 +190,34 @@ const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
         }
 
         // fallback to global
-        let rows2 = [];
-        try {
-          rows2 = await queryOneWindow({
-            pk: makePkGlobal(a),
-            bandCenter: a.band,
-            delta: bandWindow,
-            numShards,
-            limitPerAssign
-          });
-        } catch {/* swallow */}
+// fallback to global
+let rows2 = [];
+try {
+  const gpk = makePkGlobal(a);
+  const loBand = Math.max(0, a.band - bandWindow);
+  const hiBand = a.band + bandWindow;
+  console.log(
+    'Q PK global:', gpk,
+    'band', a.band, '±', bandWindow,
+    'SK range:',
+    `B=${padBand(loBand)}#S=00 → B=${padBand(hiBand)}#S=${pad2(numShards - 1)}`
+  );
 
-        perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
+  rows2 = await queryOneWindow({
+    pk: gpk,
+    bandCenter: a.band,
+    delta: bandWindow,
+    numShards,
+    limitPerAssign
+  });
+
+  console.log('Q PK global rows:', rows2?.length || 0);
+} catch (err) {
+  console.log('Q PK global error:', err && err.message);
+}
+
+perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
+
       }
 
       // ---- merge, dedupe by su, keep best (min bandDelta)
