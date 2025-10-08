@@ -1,225 +1,211 @@
-// routes/modules/position.js
+// modules/position.js
 "use strict";
 
-/**
- * Anchor-based positioner:
- * - expects body.body: { domain, subdomain, entity, embedding? (number[]), text?, output?, path? }
- * - computes/normalizes embedding if needed (using OpenAI if `text` is provided)
- * - loads anchors (L0/L1) from S3
- * - assigns to top-L0 → nearest L1
- * - writes postings to `anchor_bands`
- * - updates `subdomains` with { anchor: {...}, domain, subdomain, output, path }
- */
-
-// ⬅⬅⬅  PATH FIX: use routes/anchors instead of lib/anchors
-const anchorsUtil = require("../anchors");
-
-const DEFAULT_SET_ID = process.env.ANCHOR_SET_ID || "anchors_v1";
-const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
-const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
-const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
-const EMB_MODEL_ID = process.env.EMB_MODEL || "text-embedding-3-large";
+const AWS = require("aws-sdk"); // only for types/utilities if needed (low-level is already provided via deps)
 
 function register({ on, use }) {
-    const { getDocClient, deps } = use();
-    const doc = getDocClient();       // DocumentClient
-    const s3 = deps.s3;
-    const openai = deps.openai;
+  const { getDocClient, deps } = use();
+  const doc = getDocClient();          // DocumentClient (JSON in/out)
+  const ddb = deps.dynamodbLL;         // low-level AWS.DynamoDB (AttributeValue API)
 
-    const getBody = (req) => {
-        const b = req?.body;
-        if (!b || typeof b !== "object") return {};
-        return b.body && typeof b.body === "object" ? b.body : b;
-    };
+  // Keep legacy body handling parity: support both flattened req.body and legacy req.body.body
+  const getLegacyBody = (req) => {
+    const b = req?.body;
+    if (!b || typeof b !== "object") return b;
+    if (b.body && typeof b.body === "object") return b.body;
+    return b;
+  };
 
-    const isNum = (x) => typeof x === "number" && Number.isFinite(x);
-    const asUnit = (arr) => {
-        if (!Array.isArray(arr) || !arr.length) return null;
-        let ss = 0;
-        for (const v of arr) { const f = +v; if (!Number.isFinite(f)) return null; ss += f * f; }
-        const n = Math.sqrt(ss);
-        if (n < 1e-12) return null;
-        return arr.map(v => +v / n);
-    };
+  // Cosine distance (unchanged)
+  const cosineDist = (a, b) => {
+    let dot = 0, na = 0, nb = 0;
+    for (let i = 0; i < a.length; i++) {
+      dot += a[i] * b[i];
+      na += a[i] * a[i];
+      nb += b[i] * b[i];
+    }
+    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
+  };
 
-    const batchWriteAll = async (table, puts) => {
-        let i = 0, total = 0;
-        while (i < puts.length) {
-            const chunk = puts.slice(i, i + 25);
-            const params = { RequestItems: { [table]: chunk.map(Item => ({ PutRequest: { Item } })) } };
-            // retry unprocessed
-            let backoff = 100;
-            while (true) {
-                const rsp = await doc.batchWrite(params).promise();
-                const un = (rsp.UnprocessedItems && rsp.UnprocessedItems[table]) || [];
-                total += chunk.length - un.length;
-                if (!un.length) break;
-                await new Promise(r => setTimeout(r, backoff));
-                backoff = Math.min(2000, backoff * 2);
-                params.RequestItems = { [table]: un };
-            }
-            i += 25;
-        }
-        return total;
-    };
+  on("position", async (ctx, meta) => {
+    console.log("Position 1", ctx);
+    const { req, res /*, path, type, signer */ } = ctx;
 
-    on("position", async (ctx) => {
-        const { req, res } = ctx;
-        const body = getBody(req);
+    console.log("Position 2");
+    // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
+    const b = getLegacyBody(req);
+    console.log("b", b);
+    // NOTE: keep legacy shape (b.body || {}) to preserve behavior
+    const {
+      description, domain, subdomain, embedding, entity, pb, output, path
+    } = b?.body || {};
 
-        const domain = body.domain;
-        const subdomain = body.subdomain;
-        const su = body.entity;    // required (your subdomains.su)
-        const output = body.output ?? null;
-        const pathStr = (typeof body.path === "string" && body.path.trim()) ? body.path : `/${domain}/${subdomain}`;
+    console.log("Position 3");
+    // Legacy error shapes and codes:
+    if (!embedding || !domain || !subdomain || !entity) {
+      res.status(400).json({ error: "embedding, domain & subdomain required" });
+      return { __handled: true };
+    }
 
-        if (!domain || !subdomain || !su) {
-            res.status(400).json({ ok: false, error: "domain, subdomain, and entity (su) are required" });
-            return { __handled: true };
-        }
+    console.log("Position 4");
+    // 1️⃣ pull the record for that sub-domain from DynamoDB (unchanged)
+    const tableName = `i_${domain}`;
+    let item;
+    try {
+      const params = {
+        TableName: tableName,
+        KeyConditionExpression: "#r = :sub",
+        ExpressionAttributeNames: { "#r": "root" },
+        ExpressionAttributeValues: { ":sub": subdomain },
+        Limit: 1,
+      };
+      const data = await doc.query(params).promise();
+      if (!data.Items.length) {
+        res.status(404).json({ error: "no record for that sub-domain" });
+        return { __handled: true };
+      }
+      item = data.Items[0];
+    } catch (err) {
+      console.error("DynamoDB query failed:", err);
+      res.status(502).json({ error: "db-unavailable" });
+      return { __handled: true };
+    }
 
-        // 1) Prepare embedding (prefer provided; else compute if text given)
-        let eU = null;
-        if (Array.isArray(body.embedding) && body.embedding.every(isNum)) {
-            eU = asUnit(body.embedding);
-        } else if (typeof body.text === "string" && body.text.trim()) {
-            const q = body.text.trim();
-            const { data: [{ embedding }] } = await openai.embeddings.create({
-                model: EMB_MODEL_ID,
-                input: q
-            });
-            eU = asUnit(embedding);
-        }
-        if (!eU) {
-            res.status(400).json({ ok: false, error: "embedding (number[]) or text is required" });
-            return { __handled: true };
-        }
+    console.log("Position 5");
+    // 2️⃣ compare incoming embedding with emb1…emb5 (unchanged)
+    const distances = {};
+    for (let i = 1; i <= 5; i++) {
+      const attr = `emb${i}`;
+      const raw = item[attr];
+      let refArr = null;
 
-        // 2) Load anchors
-        const setId = body.anchor_set_id || DEFAULT_SET_ID;
-        const bandScale = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
-        const topL0 = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 2;
-        const numShards = Number.isFinite(+body.num_shards) ? +body.num_shards : DEFAULT_NUM_SHARDS;
-
-        const anchors = await anchorsUtil.loadAnchors({ s3, setId, band_scale: bandScale, num_shards: numShards });
-
-        if (eU.length !== anchors.d) {
-            res.status(400).json({ ok: false, error: `embedding dim ${eU.length} != anchors.d ${anchors.d}` });
-            return { __handled: true };
-        }
-
-        // 3) Assign to anchors
-        const assigns = anchorsUtil.assign(eU, anchors, { topL0, band_scale: bandScale, num_shards: numShards })
-            .map(a => ({ ...a, shard: anchorsUtil.shardOf(String(su), numShards) }));
-
-        if (!assigns.length) {
-            res.status(500).json({ ok: false, error: "no anchor assignments (unexpected)" });
-            return { __handled: true };
-        }
-
-        // 4) Write postings to anchor_bands (global + user-scoped)
-        const nowIso = new Date().toISOString();
-
-        const ownerId =
-            (typeof body.e === "number" || typeof body.e === "string") ? String(body.e) :
-                (typeof req?.body?.e === "number" || typeof req?.body?.e === "string") ? String(req.body.e) :
-                    null;
-
-        // If the subdomains row already has `e`, prefer that (so we don't require callers to pass e)
-        let ownerFromSub = null;
+      if (typeof raw === "string") {
         try {
-            const { Item } = await doc.get({ TableName: "subdomains", Key: { su: String(su) }, ProjectionExpression: "e" }).promise();
-            if (Item && (typeof Item.e === "number" || typeof Item.e === "string")) ownerFromSub = String(Item.e);
-        } catch (_) { }
+          refArr = JSON.parse(raw);
+        } catch (_e) {
+          // keep legacy permissive behavior: skip malformed
+          continue;
+        }
+      } else if (Array.isArray(raw)) {
+        refArr = raw;
+      }
 
-        const userId = ownerId || ownerFromSub || null;
+      if (!Array.isArray(refArr) || refArr.length !== embedding.length) continue;
+      distances[attr] = cosineDist(embedding, refArr);
+    }
 
-        // Build the postings (global)
-        const postingsGlobal = assigns.map(a => {
-            const post = anchorsUtil.makePosting({ setId, su: String(su), assign: a, type: "su", shards: numShards });
-            return { ...post, setId, updatedAt: nowIso };
-        });
+    console.log("Position 6");
+    // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
+    try {
 
-        // And user-scoped duplicates (if we have userId)
-        const pad = (n, w = 2) => String(n).padStart(w, "0");
-        const postingsUser = userId ? assigns.map(a => {
-            const pk = `AB#${setId}#U=${userId}#L0=${a.l0}#L1=${a.l1}`;
-            const sk = `B=${String(a.band).padStart(5, '0')}#S=${pad(anchorsUtil.shardOf(String(su), numShards))}#T=su#SU=${su}`;
-            return {
-                pk, sk,
-                su: String(su),
-                type: "su",
-                setId,
-                l0: a.l0,
-                l1: a.l1,
-                band: a.band,
-                dist_q16: a.dist_q16,
-                updatedAt: nowIso,
-                u: userId
-            };
-        }) : [];
+      // Prefer provided path; otherwise fallback to canonical domain/subdomain path
+      const resolvedPath = (typeof path === "string" && path.trim().length)
+        ? path
+        : `/${domain}/${subdomain}`;
 
-        // batch write
-        const written = await batchWriteAll(ANCHOR_BANDS_TABLE, postingsGlobal.concat(postingsUser));
+      const updateParams = {
+        TableName: "subdomains",
+        Key: { su: entity },
+        UpdateExpression: `
+          SET #d1 = :d1,
+              #d2 = :d2,
+              #d3 = :d3,
+              #d4 = :d4,
+              #d5 = :d5,
+              #path = :path,
+              #output = :output,
+              #domain = :domain,
+              #subdomain = :subdomain
+          `,
+          //,
+              //#embedding = :embedding
+        //`,
+        ExpressionAttributeNames: {
+          "#d1": "dist1",
+          "#d2": "dist2",
+          "#d3": "dist3",
+          "#d4": "dist4",
+          "#d5": "dist5",
+          "#path": "path",
+          "#output": "output",
+          "#domain": "domain",
+          "#subdomain": "subdomain"//,
+          //"#embedding": "embedding",
+        },
+        ExpressionAttributeValues: {
+          ":d1": distances.emb1 ?? null,
+          ":d2": distances.emb2 ?? null,
+          ":d3": distances.emb3 ?? null,
+          ":d4": distances.emb4 ?? null,
+          ":d5": distances.emb5 ?? null,
+          ":path": resolvedPath,
+          ":output": output ?? null,
+          ":domain": domain,
+          ":subdomain": subdomain//,
+          //":embedding": embedding,
+        },
+        ReturnValues: "UPDATED_NEW",
+      };
+      await doc.update(updateParams).promise();
+    } catch (err) {
+      console.error("Failed to update subdomains table (DocClient):", err);
+      res.status(502).json({ error: "failed to save distances" });
+      return { __handled: true };
+    }
 
+    console.log("Position 7");
+    // 4️⃣ Low-level update for pb as a DynamoDB Number (N) using AttributeValue API
+    try {
+      if (pb == null) {
+        // Keep behavior predictable: if pb is missing, skip this step silently.
+        // If you want strict legacy erroring on missing pb, replace this branch with:
+        // throw new Error("pb is required");
+      } else {
+        const pbStr = String(pb);
+        // Optional minimal guard: ensure it looks like a decimal/number string
+        // (DynamoDB will still validate; this just avoids obvious mistakes)
+        if (!/^-?\d+(\.\d+)?$/.test(pbStr)) {
+          throw new Error(`Invalid pb format: ${pbStr}`);
+        }
 
-        // 5) Update subdomains row with anchor metadata (+ labels)
-        const anchorObj = {
-            setId,
-            emb_model: EMB_MODEL_ID,
-            dim: anchors.d,
-            topL0,
-            band_scale: bandScale,
-            num_shards: numShards,
-            assigns: assigns.map(({ l0, l1, band, dist_q16 }) => ({ l0, l1, band, dist_q16 })),
-            updatedAt: nowIso
-        };
-
-        await doc.update({
-            TableName: "subdomains",
-            Key: { su: String(su) },
-            UpdateExpression: `
-        SET #anchor = :anchor,
-            #domain = :domain,
-            #subdomain = :subdomain,
-            #path = :path,
-            #output = :output
-      `,
-            ExpressionAttributeNames: {
-                "#anchor": "anchor",
-                "#domain": "domain",
-                "#subdomain": "subdomain",
-                "#path": "path",
-                "#output": "output"
-            },
-            ExpressionAttributeValues: {
-                ":anchor": anchorObj,
-                ":domain": domain,
-                ":subdomain": subdomain,
-                ":path": pathStr,
-                ":output": output
-            }
+        await ddb.updateItem({
+          TableName: "subdomains",
+          Key: { su: { S: String(entity) } },
+          UpdateExpression: "SET #pb = :pb",
+          ExpressionAttributeNames: { "#pb": "pb" },
+          ExpressionAttributeValues: { ":pb": { N: pbStr } }
         }).promise();
+      }
+    } catch (err) {
+      console.error("Failed to set pb (low-level):", err);
+      res.status(502).json({ error: "failed to save pb" });
+      return { __handled: true };
+    }
 
-        const sample = postings[0] || null;
-        return {
-            ok: true,
-            response: {
-                action: "position",
-                entity: su,
-                domain,
-                subdomain,
-                path: pathStr,
-                output,
-                anchor: anchorObj,
-                postingsWritten: written,
-                samplePK: sample?.pk,
-                sampleSK: sample?.sk
-            }
-        };
-    });
+    console.log("Position 8");
+    // Legacy response shape: wrapped in { ok: true, response }
+    const existing = meta?.cookie?.existing;
+    const response = {
+      action: "position",
+      position: {
+        dist1: distances.emb1 ?? null,
+        dist2: distances.emb2 ?? null,
+        dist3: distances.emb3 ?? null,
+        dist4: distances.emb4 ?? null,
+        dist5: distances.emb5 ?? null,
+      },
+      domain,
+      subdomain,
+      entity,
+      id: item.id ?? null,
+      existing,
+      file: "", // unchanged: convert appends file later when relevant
+    };
+    console.log("response", response);
+    return { ok: true, response };
+  });
 
-    return { name: "position" };
+  return { name: "position" };
 }
 
 module.exports = { register };
