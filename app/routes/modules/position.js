@@ -37,8 +37,8 @@ function register({ on, use }) {
     console.log("b", b);
     // NOTE: keep legacy shape (b.body || {}) to preserve behavior
     const {
-      description, domain, subdomain, embedding, entity, pb, output, path
-    } = b?.body || {};
+  description, domain, subdomain, embedding, entity, pb, output, path, anchor
+} = b?.body || {};
 
     console.log("Position 3");
     // Legacy error shapes and codes:
@@ -96,62 +96,73 @@ function register({ on, use }) {
 
     console.log("Position 6");
     // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
-    try {
+    // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
+try {
+  // Prefer provided path; otherwise fallback to canonical domain/subdomain path
+  const resolvedPath = (typeof path === "string" && path.trim().length)
+    ? path
+    : `/${domain}/${subdomain}`;
 
-      // Prefer provided path; otherwise fallback to canonical domain/subdomain path
-      const resolvedPath = (typeof path === "string" && path.trim().length)
-        ? path
-        : `/${domain}/${subdomain}`;
+  // Build a SET list dynamically so we only include #anchor if present
+  const setParts = [
+    "#d1 = :d1",
+    "#d2 = :d2",
+    "#d3 = :d3",
+    "#d4 = :d4",
+    "#d5 = :d5",
+    "#path = :path",
+    "#output = :output",
+    "#domain = :domain",
+    "#subdomain = :subdomain"
+  ];
 
-      const updateParams = {
-        TableName: "subdomains",
-        Key: { su: entity },
-        UpdateExpression: `
-          SET #d1 = :d1,
-              #d2 = :d2,
-              #d3 = :d3,
-              #d4 = :d4,
-              #d5 = :d5,
-              #path = :path,
-              #output = :output,
-              #domain = :domain,
-              #subdomain = :subdomain
-          `,
-          //,
-              //#embedding = :embedding
-        //`,
-        ExpressionAttributeNames: {
-          "#d1": "dist1",
-          "#d2": "dist2",
-          "#d3": "dist3",
-          "#d4": "dist4",
-          "#d5": "dist5",
-          "#path": "path",
-          "#output": "output",
-          "#domain": "domain",
-          "#subdomain": "subdomain"//,
-          //"#embedding": "embedding",
-        },
-        ExpressionAttributeValues: {
-          ":d1": distances.emb1 ?? null,
-          ":d2": distances.emb2 ?? null,
-          ":d3": distances.emb3 ?? null,
-          ":d4": distances.emb4 ?? null,
-          ":d5": distances.emb5 ?? null,
-          ":path": resolvedPath,
-          ":output": output ?? null,
-          ":domain": domain,
-          ":subdomain": subdomain//,
-          //":embedding": embedding,
-        },
-        ReturnValues: "UPDATED_NEW",
-      };
-      await doc.update(updateParams).promise();
-    } catch (err) {
-      console.error("Failed to update subdomains table (DocClient):", err);
-      res.status(502).json({ error: "failed to save distances" });
-      return { __handled: true };
-    }
+  const names = {
+    "#d1": "dist1",
+    "#d2": "dist2",
+    "#d3": "dist3",
+    "#d4": "dist4",
+    "#d5": "dist5",
+    "#path": "path",
+    "#output": "output",
+    "#domain": "domain",
+    "#subdomain": "subdomain"
+  };
+
+  const values = {
+    ":d1": distances.emb1 ?? null,
+    ":d2": distances.emb2 ?? null,
+    ":d3": distances.emb3 ?? null,
+    ":d4": distances.emb4 ?? null,
+    ":d5": distances.emb5 ?? null,
+    ":path": resolvedPath,
+    ":output": output ?? null,
+    ":domain": domain,
+    ":subdomain": subdomain
+  };
+
+  // ★ Only set anchor if the payload was provided by parseArrayLogic
+  if (anchor && typeof anchor === "object") {
+    setParts.push("#anchor = :anchor");
+    names["#anchor"] = "anchor";
+    values[":anchor"] = anchor; // shape: { setId, band_scale, num_shards, assigns:[{l0,l1,band,dist_q16}] }
+  }
+
+  const updateParams = {
+    TableName: "subdomains",
+    Key: { su: entity },
+    UpdateExpression: "SET " + setParts.join(",\n              "),
+    ExpressionAttributeNames: names,
+    ExpressionAttributeValues: values,
+    ReturnValues: "UPDATED_NEW",
+  };
+
+  await doc.update(updateParams).promise();
+} catch (err) {
+  console.error("Failed to update subdomains table (DocClient):", err);
+  res.status(502).json({ error: "failed to save distances/anchor" });
+  return { __handled: true };
+}
+
 
     console.log("Position 7");
     // 4️⃣ Low-level update for pb as a DynamoDB Number (N) using AttributeValue API

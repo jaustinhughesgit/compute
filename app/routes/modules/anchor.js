@@ -1,4 +1,4 @@
-// routes/modules/position.js
+// routes/modules/anchor.js
 "use strict";
 
 /**
@@ -63,7 +63,7 @@ function register({ on, use }) {
         return total;
     };
 
-    on("position", async (ctx) => {
+    on("anchor", async (ctx) => {
         const { req, res } = ctx;
         const body = getBody(req);
 
@@ -205,7 +205,7 @@ function register({ on, use }) {
         return {
             ok: true,
             response: {
-                action: "position",
+                action: "anchor",
                 entity: su,
                 domain,
                 subdomain,
@@ -219,7 +219,7 @@ function register({ on, use }) {
         };
     });
 
-    return { name: "position" };
+    return { name: "anchor" };
 }
 
 module.exports = { register };
