@@ -255,30 +255,14 @@ if (candidates.length > topK) candidates = candidates.slice(0, topK);
 // ---- batch join to subdomains, but DO NOT drop rows if join misses
 const needUserFilter = !anyTenantHit;
 let subMap = new Map();
-/*
+
 if (candidates.length) {
   const keys = candidates.map(c => ({ su: String(c.su) }));
   subMap = await batchGetSubdomains(keys);
 
   // optional domain/subdomain filters provided by caller
-  const wantDomain    = body.domain || null;
-  const wantSubdomain = body.subdomain || null;
 
-  candidates = candidates.filter(c => {
-    const row = subMap.get(String(c.su));
-    // Keep candidate even if row is missing — we’ll return anchor-only info.
-    // Only enforce filters when we actually have a row to inspect.
-    if (row) {
-      if (needUserFilter) {
-        // keep this disabled for your sanity test; re-enable later if needed:
-        // if (row.e != null && String(row.e) !== String(e)) return false;
-      }
-      //if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
-      //if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
-    }
-    return true;
-  });
-}*/
+}
 
 console.log('JOIN stage: candidates after optional filters =', candidates.length);
 
