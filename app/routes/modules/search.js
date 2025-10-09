@@ -251,7 +251,7 @@ let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDe
 console.log('JOIN stage: unique sus from anchor_bands =', candidates.length);
 
 if (candidates.length > topK) candidates = candidates.slice(0, topK);
-
+/*
 // ---- batch join to subdomains, but DO NOT drop rows if join misses
 const needUserFilter = !anyTenantHit;
 let subMap = new Map();
@@ -278,7 +278,7 @@ if (candidates.length) {
     }
     return true;
   });
-}
+}*/
 
 console.log('JOIN stage: candidates after optional filters =', candidates.length);
 
