@@ -219,67 +219,69 @@ try {
 perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
 
       }
+// ---- merge, dedupe by su, keep best (min bandDelta) + stronger logging
+const bySu = new Map();
 
-      // ---- merge, dedupe by su, keep best (min bandDelta)
-      const bySu = new Map();
+for (const { a, rows, pkType } of perAssignResults) {
+  for (const r of rows) {
+    const su = r?.su || parseSuFromSk(r?.sk);
+    const itemBand = isNum(r?.band) ? r.band : parseBandFromSk(r?.sk);
+    if (!su || !isNum(itemBand)) continue;
 
-      for (const { a, rows, pkType } of perAssignResults) {
-        for (const r of rows) {
-          const su = r.su || parseSuFromSk(r.sk);
-          if (!su) continue;
+    const bandDelta = Math.abs(itemBand - a.band);
+    const prev = bySu.get(su);
 
-          const itemBand = isNum(r.band) ? r.band : parseBandFromSk(r.sk);
-          if (!isNum(itemBand)) continue;
+    if (!prev || bandDelta < prev.bandDelta) {
+      bySu.set(su, {
+        su,
+        l0: a.l0,
+        l1: a.l1,
+        queryBand: a.band,
+        itemBand,
+        bandDelta,
+        pkType,
+        pk: r.pk,
+        sk: r.sk
+      });
+    }
+  }
+}
 
-          const bandDelta = Math.abs(itemBand - a.band);
-          const cur = bySu.get(su);
-          if (!cur || bandDelta < cur.bandDelta) {
-            bySu.set(su, {
-              su,
-              l0: a.l0,
-              l1: a.l1,
-              queryBand: a.band,
-              itemBand,
-              bandDelta,
-              pkType,
-              pk: r.pk,
-              sk: r.sk
-            });
-          }
-        }
+let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDelta);
+console.log('JOIN stage: unique sus from anchor_bands =', candidates.length);
+
+if (candidates.length > topK) candidates = candidates.slice(0, topK);
+
+// ---- batch join to subdomains, but DO NOT drop rows if join misses
+const needUserFilter = !anyTenantHit;
+let subMap = new Map();
+
+if (candidates.length) {
+  const keys = candidates.map(c => ({ su: String(c.su) }));
+  subMap = await batchGetSubdomains(keys);
+
+  // optional domain/subdomain filters provided by caller
+  const wantDomain    = body.domain || null;
+  const wantSubdomain = body.subdomain || null;
+
+  candidates = candidates.filter(c => {
+    const row = subMap.get(String(c.su));
+    // Keep candidate even if row is missing — we’ll return anchor-only info.
+    // Only enforce filters when we actually have a row to inspect.
+    if (row) {
+      if (needUserFilter) {
+        // keep this disabled for your sanity test; re-enable later if needed:
+        // if (row.e != null && String(row.e) !== String(e)) return false;
       }
+      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
+      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
+    }
+    return true;
+  });
+}
 
-      let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDelta);
-      if (candidates.length > topK) candidates = candidates.slice(0, topK);
+console.log('JOIN stage: candidates after optional filters =', candidates.length);
 
-      // ---- when we had to use GLOBAL PK for some/all assignments, filter by user e post-join
-      const needUserFilter = !anyTenantHit;
-      let subMap = new Map();
-
-      if (candidates.length) {
-        // batch get subdomain rows (also lets you optional-filter by domain/subdomain)
-        const keys = candidates.map(c => ({ su: String(c.su) }));
-        subMap = await batchGetSubdomains(keys);
-
-        // optional domain/subdomain filtering if caller provided
-        const wantDomain    = body.domain || null;
-        const wantSubdomain = body.subdomain || null;
-
-        candidates = candidates.filter(c => {
-          const row = subMap.get(String(c.su));
-          if (!row) return false;
-
-          if (needUserFilter) {
-            // only keep matches owned by this user when we couldn't scope by tenant key
-            //if (row.e != null && String(row.e) !== String(e)) return false;
-          }
-
-          if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
-          if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
-
-          return true;
-        });
-      }
 
       // shape output
       const enriched = candidates.map(c => {
