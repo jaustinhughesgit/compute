@@ -1,4 +1,4 @@
-// lib/anchors.js
+// routes/anchors.js
 const path = require('path');
 
 // ------- config (can override via env) -------
