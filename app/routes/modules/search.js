@@ -273,8 +273,8 @@ if (candidates.length) {
         // keep this disabled for your sanity test; re-enable later if needed:
         // if (row.e != null && String(row.e) !== String(e)) return false;
       }
-      if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
-      if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
+      //if (wantDomain && String(row.domain) !== String(wantDomain)) return false;
+      //if (wantSubdomain && String(row.subdomain) !== String(wantSubdomain)) return false;
     }
     return true;
   });
