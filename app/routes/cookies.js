@@ -64,14 +64,15 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
     const main = {};
     console.log("ctx", ctx)
 
-    const xA = ctx.xAccessToken || ctx.headers.xAccessToken
+    const xA = ctx.xAccessToken || ctx.req.headers.xAccessToken
+    console.log("ctx.req.headers", ctx.req.headers)
     console.log("ctx.xAccessToken", ctx.xAccessToken)
-    console.log("ctx.headers.xAccessToken", ctx.headers.xAccessToken)
+    console.log("ctx.headers.xAccessToken", ctx.req.headers.xAccessToken)
     console.log("xA", xA)
 
     const ck = await _shared.manageCookie(
       main,
-      ctx.xAccessToken,
+      xA,
       ctx.res
     );
 
