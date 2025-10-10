@@ -60,6 +60,8 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   _deps = { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic };
   _shared = createShared(_deps);
 
+  console.log("ctx", ctx)
+
   _shared.use(async (ctx) => {
     const main = {};
     const ck = await _shared.manageCookie(

@@ -682,56 +682,32 @@ function createShared(deps = {}) {
     return "1v4r" + id;
   }
 
-  const NO_NEW_COOKIE_PATHS = [
-  /(^|\/)opt-?in(\/|$)/i,
-  /(^|\/)email-verify(\/|$)/i,
-];
-
-/** Get a URL instance from the request (prefers x-original-host if present). */
-function requestUrl(req) {
-  try {
-    const h = req?.headers?.["x-original-host"];
-    if (h) return new URL(h);
-  } catch (_) {}
-  // Fallback: best-effort reconstruction using host + originalUrl if available.
-  try {
-    const proto = (req?.headers?.["x-forwarded-proto"] || "https").split(",")[0].trim();
-    const host  = req?.headers?.host;
-    const path  = req?.originalUrl || req?.url || req?.path || "/";
-    if (host) return new URL(`${proto}://${host}${path}`);
-  } catch (_) {}
-  return null;
-}
-
-/** Extract the path string we’ll use for routing. */
-function incomingPath(req) {
-  const u = requestUrl(req);
-  if (u) return u.pathname || "";
-  return req?.originalUrl || req?.url || req?.path || "";
-}
-
-// ---- Replace the "helpers" section inside manageCookie with this version ----
 async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
   console.log("mainObj", mainObj);
   console.log("xAccessToken", xAccessToken);
   console.log("ddb", ddb);
   console.log("uuid", uuid);
 
+  // ---------- helpers ----------
   const COOKIE_DOMAIN = ".1var.com";
   const req = res && res.req ? res.req : null;
-
   const hasBrowserCookie = (() => {
     if (!req) return false;
     if (req.cookies?.accessToken) return true;
     const raw = req.headers?.cookie;
     return typeof raw === "string" && /(^|;\s*)accessToken=/.test(raw);
   })();
-
-  const pathStr = incomingPath(req);
-  const urlObj  = requestUrl(req);
-
-  // One place to decide "no new cookie" pages
-  const isNoNewCookiePath = NO_NEW_COOKIE_PATHS.some((re) => re.test(String(pathStr || "")));
+  const pathish = (() => {
+    try {
+      const h = req?.headers?.["x-original-host"];
+      if (h) {
+        const u = new URL(h);
+        return u.pathname || "";
+      }
+    } catch {}
+    return req?.originalUrl || req?.url || req?.path || "";
+  })();
+  const isOptInRequest = /(^|\/)opt-?in(\/|$)/i.test(String(pathish || ""));
 
   // If the caller sent us an access token, just authenticate and return the cookie record.
   if (xAccessToken) {
@@ -740,51 +716,41 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
     return cookie.Items?.[0];
   }
 
-  // ---------- NO-NEW-COOKIE PAGES ----------
-  // Treat /opt-in and /email-verify uniformly: never mint a brand-new cookie here.
-  // (/opt-in keeps existing behavior of handing off an already-created cookie if we can find it;
-  // /email-verify also benefits from the same lookup so users don't get a NEW cookie.)
-  if (isNoNewCookiePath) {
+  // ---------- OPT-IN: DO NOT create a new cookie ----------
+  // Users hitting /opt-in should receive the cookie that was already created for them
+  // during the sender's invite flow. We try to find it by the recipientHash in the URL.
+  if (isOptInRequest) {
     // If the browser already has a cookie, don't touch it.
     if (hasBrowserCookie) {
       mainObj.status = "authenticated";
       return { existing: true, cookieHandOff: "already-present" };
     }
 
-    // Try to extract a recipient hash from either query or path
-    // Supported keys:
-    // - /opt-in?...&email=<recipientHash>
-    // - /email-verify?...&eh=<recipientHash>
-    // - /opt-in/{recipientHash}/{senderHash} (or /opt-in/{senderHash}/{recipientHash})
+    // Try to extract recipientHash & senderHash from query or path
     let recipientHash = null;
     try {
-      const search = urlObj?.searchParams;
-      recipientHash =
-        search?.get("email") ||
-        search?.get("eh") ||
-        (() => {
-          const parts = String(pathStr || "").split("?")[0].split("/").filter(Boolean);
-          const idx = parts.findIndex((p) => /^opt-?in$/i.test(p));
-          if (idx !== -1) {
-            // Accept either /opt-in/{recipient}/{sender} or /opt-in/{sender}/{recipient}
-            // Prefer a 64-hex style recipient if present.
-            const a = parts[idx + 1] || null;
-            const b = parts[idx + 2] || null;
-            const isHex = (s) => typeof s === "string" && /^[a-f0-9]{32,128}$/i.test(s);
-            if (isHex(a) && !isHex(b)) return a;
-            if (isHex(b) && !isHex(a)) return b;
-            // If both look hex, assume {recipient, sender}
-            if (isHex(a) && isHex(b)) return a;
-          }
-          return null;
-        })();
+      const hostHeader = req?.headers?.["x-original-host"];
+      if (hostHeader) {
+        const u = new URL(hostHeader);
+        recipientHash = u.searchParams.get("email");
+        if (!recipientHash && u.pathname.includes("/opt-in/")) {
+          const parts = u.pathname.split("/").filter(Boolean);
+          const idx = parts.indexOf("opt-in");
+          if (idx !== -1) recipientHash = parts[idx + 2] || null; // /opt-in/{sender}/{email}
+        }
+      } else if (pathish) {
+        const clean = String(pathish).split("?")[0];
+        const parts = clean.split("/").filter(Boolean);
+        const idx = parts.indexOf("opt-in");
+        if (idx !== -1) recipientHash = parts[idx + 2] || null;
+      }
     } catch (_) {
       // best-effort parsing only
     }
 
     if (recipientHash) {
       try {
-        // users GSI lookup by emailHash
+        // Look up the user by emailHash (users GSI: emailHashIndex)
         const uq = await ddb.query({
           TableName: "users",
           IndexName: "emailHashIndex",
@@ -795,7 +761,7 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
         const user = uq?.Items?.[0];
 
         if (user?.userID != null) {
-          // Fetch their cookies (cookies GSI: eIndex), pick first valid
+          // Fetch their cookies by user e (cookies GSI: eIndex), choose first valid (earliest ci)
           const ck = await getCookie(String(user.userID), "e", ddb);
           const nowSec = Math.floor(Date.now() / 1000);
           const valid = (ck?.Items || [])
@@ -805,7 +771,6 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
 
           const record = valid[0] || null;
           if (record) {
-            // Hand the existing cookie back to the browser (NOT a new cookie).
             const msRemaining = Math.max(0, (record.ex * 1000) - Date.now());
             res?.cookie?.("accessToken", record.ak, {
               domain: COOKIE_DOMAIN,
@@ -815,21 +780,20 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
               sameSite: "None",
             });
             mainObj.status = "authenticated";
-            // Tag the source for observability
-            const handoffSrc = /email-verify/i.test(pathStr) ? "email-verify" : "opt-in";
-            return { ...record, existing: true, cookieHandOff: handoffSrc };
+            return { ...record, existing: true, cookieHandOff: "opt-in" };
           }
         }
       } catch (err) {
-        console.warn("manageCookie: no-new-cookie path handoff failed", err);
+        console.warn("manageCookie: opt-in cookie handoff failed", err);
       }
     }
 
-    // Couldn’t resolve a pre-created cookie. Do NOT create a new one.
-    return { existing: false, cookieHandOff: "no-new-cookie-skip" };
+    // We couldn't resolve a pre-created cookie. Do NOT create a new one here.
+    // The opt-in handler's own cookie handoff (maybeGiveAccountCookie) can still run.
+    return { existing: false, cookieHandOff: "opt-in-skip" };
   }
 
-  // ---------- Default behavior (everything else): create cookie ----------
+  // ---------- Default behavior (newGroup / everything else): create cookie ----------
   const ttl = 86400;
   const ak = await getUUID(uuid);
   const ci = await incrementCounterAndGetNewValue("ciCounter", ddb);
@@ -840,15 +804,19 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
   let suDocForEmail = null;
 
   try {
+    // Call newGroup directly (bypass dispatch middleware to avoid recursion into manageCookie)
     const newGroupHandler = actions.get("newGroup");
     if (typeof newGroupHandler === "function") {
       const ctxForNewGroup = {
-        path: "/newUser/newUser",
+        path: "/newUser/newUser", // handler expects "/<name>/<head>/<uuid?>"
         req: { body: {} },
         res,
         xAccessToken: null,
       };
+
+      // Provide a cookie with the pre-allocated gi so newGroup uses it and doesn't call manageCookie
       const ngResult = await newGroupHandler(ctxForNewGroup, { cookie: { gi: String(gi) } });
+      console.log("ngResult", ngResult);
       eForCookie = ngResult?.response?.entity;
       suDocForEmail = ngResult?.response?.file;
     } else {
@@ -857,31 +825,44 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
   } catch (err) {
     console.warn("manageCookie: newGroup pre-creation failed; proceeding without e", err);
   }
+  console.log("eForCookie", eForCookie);
 
+  // Create the cookie, now including e
   await createCookie(String(ci), String(gi), ex, ak, eForCookie, ddb);
 
+  // Create the user record BEFORE returning the cookie.
   try {
+    console.log("eForCookie", eForCookie);
+    console.log("suDocForEmail", suDocForEmail);
     if (eForCookie !== "0" && suDocForEmail) {
       const createUserHandler = actions.get("createUser");
       if (typeof createUserHandler === "function") {
-        await createUserHandler({
-          req: {
-            body: {
-              userID: eForCookie,
-              emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
-              pubEnc: null,
-              pubSig: null,
-              revoked: false,
-              latestKeyVersion: 1,
+        await createUserHandler(
+          {
+            req: {
+              body: {
+                userID: eForCookie,
+                emailHash: hashEmail(`${suDocForEmail}@email.1var.com`),
+                pubEnc: null,
+                pubSig: null,
+                revoked: false,
+                latestKeyVersion: 1,
+              }
             }
-          }
-        }, {});
+          },
+          {}
+        );
+      } else {
+        console.warn("manageCookie: createUser action not registered; skipping user creation");
       }
+    } else {
+      console.warn("manageCookie: missing e or suDoc; skipping user creation");
     }
   } catch (err) {
     console.warn("manageCookie: createUser failed; continuing without blocking", err);
   }
 
+  // Respect caller’s intent: block sending the cookie back to the current user.
   const shouldSetBrowserCookie = !(mainObj?.blockCookieBack === true);
   if (shouldSetBrowserCookie) {
     mainObj.accessToken = ak;
