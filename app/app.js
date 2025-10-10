@@ -1259,6 +1259,7 @@ app.use('/:type(cookies|url)', async (req, res, next) => {
   try {
     req.type = req.params.type;        // keep your "type" flag
     const router = await getCookiesRouter();
+    console.log("getCookiesRouter", req)
     return router(req, res, next);     // hand this SAME request to the router
   } catch (err) {
     next(err);
@@ -1457,6 +1458,7 @@ function isSubset(jsonA, jsonB) {
 }
 
 async function isValid(req, res, data) {
+  console.log("isValid req", req)
     let originalHost = req.body.headers["X-Original-Host"];
     let splitOriginalHost = originalHost.split("1var.com")[1]
     let reqPath = splitOriginalHost.split("?")[0]
@@ -1472,6 +1474,7 @@ async function isValid(req, res, data) {
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
     if (isDataPresent) {
+      console.log("req",req)
         let xAccessToken = req.body.headers["X-accessToken"]
         let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
         const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
