@@ -28,7 +28,8 @@ function register({ on, use }) {
     'email_bounce_events',
     'email_sends',
     'deliverability_blocks',
-    'email_metrics_daily'
+    'email_metrics_daily',
+    'anchor_bands'
 
   ];
 
@@ -67,6 +68,7 @@ function register({ on, use }) {
     'email_sends': { partitionKey: 'senderHash', sortKey: 'ts' },
     'deliverability_blocks': { partitionKey: 'recipientHash', sortKey: 'scope' },
     'email_metrics_daily': { partitionKey: 'senderUserID', sortKey: 'day'  },
+    'anchor_bands': { partitionKey: 'pk', sortKey: 'sk'  },
   };
 
   // ────────────────────────────────────────────────────────────────────────────
