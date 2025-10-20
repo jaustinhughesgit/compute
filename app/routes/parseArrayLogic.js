@@ -1111,10 +1111,16 @@ const DOMAIN_SUBS = {
   ]
 };
 
+
+
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
-const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || 'anchor_bands';
+
+const ANCHOR_BANDS_TABLE     = process.env.ANCHOR_BANDS_TABLE     || 'anchor_bands';
+const PERM_GRANTS_TABLE      = process.env.PERM_GRANTS_TABLE      || 'perm_grants';
+const PERM_GSI_BY_PRINCIPAL  = process.env.PERM_GSI_BY_PRINCIPAL  || 'by_principal';
+const DEFAULT_POLICY_PREFIX  = process.env.POLICY_PREFIX          || 'entity';
 
 // marshal helper for low-level numeric attributes
 const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
@@ -1122,8 +1128,8 @@ const n = (x) => ({ N: typeof x === 'string' ? x : String(x) });
 const DOMAIN_INDEX_BUCKET = "public.1var.com";
 const DOMAIN_INDEX_KEY = process.env.DOMAIN_INDEX_KEY || "nestedDomainIndex.json";
 
-//nestedDomainIndex.json format
-// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embeddinig:[]},"<domain>":{"text":"...","embedding":[]} }}
+// nestedDomainIndex.json format
+// {domains:{"<domain>":{"text":"[<subdomain>,<subdomain>,...]","embedding":[],"subdomains":{...}},"<domain>":{...}}}
 
 let _domainIndexCache = null;
 
@@ -1144,11 +1150,7 @@ const _ensureUnit = (v) => {
 
 async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   if (_domainIndexCache) return _domainIndexCache;
-  const obj = await s3.getObject({
-    Bucket: DOMAIN_INDEX_BUCKET,
-    Key: key
-  }).promise(); // ← mirrors your putObject style
-
+  const obj = await s3.getObject({ Bucket: DOMAIN_INDEX_BUCKET, Key: key }).promise();
   const idx = JSON.parse(obj.Body.toString("utf8"));
 
   // Precompute unit vectors
@@ -1162,22 +1164,25 @@ async function _loadDomainIndexFromS3({ s3, key = DOMAIN_INDEX_KEY }) {
   return idx;
 }
 
+async function _embedUnit({ openai, text }) {
+  const { data: [{ embedding }] } = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: text
+  });
+  return _normalizeVec(embedding);
+}
+
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
     const t = String(text || '').trim();
     if (!t) return null;
 
-    // Load trained anchors (cached by lib/anchors.js)
     const anchors = await anchorsUtil.loadAnchors({ s3 });
-
-    // Embed the *word/phrase* we want to anchor (fixedOutput/$essence)
     const eU = await _embedUnit({ openai, text: t });
 
-    // Assign to anchors (topL0 is tunable via env, default 2)
     const topL0 = Number(process.env.ANCHORS_TOP_L0 || 2);
     const assigns = anchorsUtil.assign(eU, anchors, { topL0 });
 
-    // Keep only what we need in the subdomain record (no shard/postings yet)
     return {
       setId: anchors.setId,
       band_scale: anchors.band_scale,
@@ -1188,21 +1193,11 @@ async function _computeAnchorPayload({ s3, openai, text }) {
     };
   } catch (err) {
     console.error('anchor assign failed:', err && err.message);
-    return null; // never block the flow if anchors hiccup
+    return null;
   }
 }
 
-
-async function _embedUnit({ openai, text }) {
-  const { data: [{ embedding }] } = await openai.embeddings.create({
-    model: "text-embedding-3-large",
-    input: text
-  });
-  return _normalizeVec(embedding);
-}
-
 const _cosineDistUnit = (a, b) => {
-  // a and b must be unit vectors
   let dot = 0;
   for (let i = 0; i < a.length; i++) dot += a[i] * b[i];
   return 1 - dot;
@@ -1214,24 +1209,22 @@ async function classifyDomainsByEmbeddingFromS3({
   key = DOMAIN_INDEX_KEY,
   textForEmbedding
 }) {
-  console.log("textForEmbedding------", textForEmbedding)
   const idx = await _loadDomainIndexFromS3({ s3, key });
   const q = await _embedUnit({ openai, text: textForEmbedding });
 
-  // 1) pick best domain by centroid distance
+  // 1) best domain by centroid
   const domainScores = [];
   for (const [dName, dNode] of Object.entries(idx.domains || {})) {
     if (!dNode?._embU || dNode._embU.length !== q.length) continue;
     domainScores.push({ domain: dName, dist: _cosineDistUnit(q, dNode._embU) });
   }
   if (!domainScores.length) throw new Error("No usable domain embeddings in index.");
-
   domainScores.sort((a, b) => a.dist - b.dist);
   const best = domainScores[0];
   const runnerUp = domainScores[1] || { dist: Infinity };
-  const margin = runnerUp.dist - best.dist; // larger = clearer win
+  const margin = runnerUp.dist - best.dist;
 
-  // Helpers to pick subdomain
+  // 2) best subdomain
   const pickSubWithin = (dName) => {
     const subs = [];
     for (const [sName, sNode] of Object.entries(idx.domains[dName].subdomains || {})) {
@@ -1254,7 +1247,6 @@ async function classifyDomainsByEmbeddingFromS3({
     return all[0] || null;
   };
 
-  // 2) ambiguity guard (helps with polysemy like "speaker")
   const AMBIG_MARGIN = 0.008;
   if (margin <= AMBIG_MARGIN) {
     const subBest = pickSubGlobally();
@@ -1267,21 +1259,13 @@ async function classifyDomainsByEmbeddingFromS3({
   }
 }
 
-
-
-
-
-
-
-
+/* ------------------------------------------------------------------ */
+/* Small math/helpers                                                 */
+/* ------------------------------------------------------------------ */
 const parseVector = v => {
   if (!v) return null;
   if (Array.isArray(v)) return v;
-  try {
-    return JSON.parse(v);
-  } catch {
-    return null;
-  }
+  try { return JSON.parse(v); } catch { return null; }
 };
 
 const cosineDist = (a, b) => {
@@ -1323,6 +1307,9 @@ const calcMatchScore = (elementDists, item) => {
   return count ? sum / count : Number.POSITIVE_INFINITY;
 };
 
+/* ------------------------------------------------------------------ */
+/* ArrayLogic ref resolver & helpers                                  */
+/* ------------------------------------------------------------------ */
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
@@ -1388,8 +1375,113 @@ const isOperationElem = obj =>
 const isSchemaElem = obj =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
+/* ------------------------------------------------------------------ */
+/* Strict JSON-only app gen helper (unchanged API)                    */
+/* ------------------------------------------------------------------ */
+const buildLogicSchema = {
+  name: "build_logic",
+  description: "Create a structured modules/actions JSON payload for the logic runner.",
+  parameters: {
+    type: "object",
+    additionalProperties: false,
+    required: ["modules", "actions"],
+    properties: {
+      modules: {
+        type: "object",
+        description: "Map from local alias → npm-package name.",
+        additionalProperties: {
+          type: "string",
+          description: "Exact name of the npm package to `require`."
+        }
+      },
+      actions: { $ref: "#/$defs/actionList" }
+    },
+    $defs: {
+      jsonVal: {
+        oneOf: [
+          { type: "string" }, { type: "number" }, { type: "boolean" },
+          { type: "object" }, { type: "array", items: {} }
+        ]
+      },
+      decorators: {
+        type: "object",
+        properties: {
+          if: { $ref: "#/$defs/conditionArray" },
+          while: { $ref: "#/$defs/conditionArray" },
+          timeout: { type: "integer", minimum: 0 },
+          next: { type: "boolean" },
+          promise: { enum: ["raw", "await"] }
+        },
+        additionalProperties: false
+      },
+      chainItem: {
+        type: "object",
+        required: ["access"],
+        additionalProperties: false,
+        properties: {
+          access: { type: "string" },
+          params: { type: "array", items: { $ref: "#/$defs/jsonVal" } },
+          new: { type: "boolean" },
+          express: { type: "boolean" },
+          next: { type: "boolean" },
+          return: { $ref: "#/$defs/jsonVal" }
+        }
+      },
+      chainArray: { type: "array", items: { $ref: "#/$defs/chainItem" } },
+      conditionTuple: {
+        type: "array", minItems: 3, maxItems: 3,
+        prefixItems: [
+          { type: "string" },
+          { enum: ["==","!=", "<",">","<=",">=","===","!==","in","includes"] },
+          { $ref: "#/$defs/jsonVal" }
+        ]
+      },
+      conditionArray: { type: "array", items: { $ref: "#/$defs/conditionTuple" } },
+      actionList: { type: "array", items: { $ref: "#/$defs/actionObject" } },
+      actionObject: {
+        type: "object",
+        allOf: [
+          { $ref: "#/$defs/decorators" },
+          {
+            additionalProperties: false,
+            oneOf: [
+              { required: ["set"], properties: { set: { type: "object" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["target","chain"], properties: { target: { type: "string" }, chain: { $ref: "#/$defs/chainArray" }, assign: { type: "string" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["if","set"], properties: { if: { $ref: "#/$defs/conditionArray" }, set: { type: "object" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["while","nestedActions"], properties: { while: { $ref: "#/$defs/conditionArray" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["assign","params","nestedActions"], properties: { assign: { type: "string" }, params: { type: "array", items: { type: "string" } }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["return"], properties: { return: { $ref: "#/$defs/jsonVal" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { title: "else", required: ["else"], properties: { else: { $ref: "#/$defs/actionObject" } } }
+            ]
+          }
+        ]
+      }
+    }
+  }
+};
+
+const buildBreadcrumbApp = async ({ openai, str }) => {
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-2024-08-06",
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
+      { role: "user", content: str }
+    ],
+    functions: [buildLogicSchema],
+    function_call: { name: "build_logic" }
+  });
+
+  const fc = rsp.choices[0].message.function_call;
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  const args = JSON.parse(fc.arguments);
+  return args;
+};
+
+/* ------------------------------------------------------------------ */
+/* Optional domain classifier (string-only fallback; not used here)   */
+/* ------------------------------------------------------------------ */
 const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
-  console.log("callOpenAIIIIII", str)
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
@@ -1427,189 +1519,7 @@ const callOpenAI = async ({ openai, str, list, promptLabel, schemaName }) => {
   return JSON.parse(strict.choices[0].message.content)[promptLabel];
 };
 
-// your real schema goes here
-
-
-const buildLogicSchema = {
-  "name": "build_logic",
-  "description": "Create a structured modules/actions JSON payload for the logic runner.",
-  "parameters": {
-    "type": "object",
-    "additionalProperties": false,
-    "required": ["modules", "actions"],
-    "properties": {
-      "modules": {
-        "type": "object",
-        "description": "Map from local alias → npm-package name.",
-        "additionalProperties": {
-          "type": "string",
-          "description": "Exact name of the npm package to `require`."
-        }
-      },
-      "actions": { "$ref": "#/$defs/actionList" }
-    },
-
-    "$defs": {
-      /* ─────────── any JSON value ─────────── */
-      "jsonVal": {
-        "oneOf": [
-          { "type": "string" },
-          { "type": "number" },
-          { "type": "boolean" },
-          { "type": "object" },
-          { "type": "array", "items": {} }
-        ]
-      },
-
-      /* ────────── decorators (unchanged) ────────── */
-      "decorators": {
-        "type": "object",
-        "properties": {
-          "if": { "$ref": "#/$defs/conditionArray" },
-          "while": { "$ref": "#/$defs/conditionArray" },
-          "timeout": { "type": "integer", "minimum": 0 },
-          "next": { "type": "boolean" },
-          "promise": { "enum": ["raw", "await"] }
-        },
-        "additionalProperties": false
-      },
-
-      /* ───────── chain helpers (unchanged) ───────── */
-      "chainItem": {
-        "type": "object",
-        "required": ["access"],
-        "additionalProperties": false,
-        "properties": {
-          "access": { "type": "string" },
-          "params": { "type": "array", "items": { "$ref": "#/$defs/jsonVal" } },
-          "new": { "type": "boolean" },
-          "express": { "type": "boolean" },
-          "next": { "type": "boolean" },
-          "return": { "$ref": "#/$defs/jsonVal" }
-        }
-      },
-      "chainArray": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/chainItem" }
-      },
-
-      /* ───────── condition helpers (unchanged) ───────── */
-      "conditionTuple": {
-        "type": "array",
-        "minItems": 3,
-        "maxItems": 3,
-        "prefixItems": [
-          { "type": "string" },
-          { "enum": ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
-          { "$ref": "#/$defs/jsonVal" }
-        ],
-        "items": {}
-      },
-      "conditionArray": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/conditionTuple" }
-      },
-
-      /* ───────── list of actions ───────── */
-      "actionList": {
-        "type": "array",
-        "items": { "$ref": "#/$defs/actionObject" }
-      },
-
-      /* ─────────── ACTION object ─────────── */
-      "actionObject": {
-        "type": "object",
-        "allOf": [
-          { "$ref": "#/$defs/decorators" },
-          {
-            "additionalProperties": false,
-            "oneOf": [
-
-              { /* SET */ "required": ["set"],
-                "properties": {
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              { /* TARGET */ "required": ["target", "chain"],
-                "properties": {
-                  "target": { "type": "string" },
-                  "chain": { "$ref": "#/$defs/chainArray" },
-                  "assign": { "type": "string" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              { /* IF */ "required": ["if", "set"],
-                "properties": {
-                  "if": { "$ref": "#/$defs/conditionArray" },
-                  "set": { "type": "object" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              { /* WHILE */ "required": ["while", "nestedActions"],
-                "properties": {
-                  "while": { "$ref": "#/$defs/conditionArray" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              { /* ASSIGN FUNC */ "required": ["assign", "params", "nestedActions"],
-                "properties": {
-                  "assign": { "type": "string" },
-                  "params": { "type": "array", "items": { "type": "string" } },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              { /* RETURN */ "required": ["return"],
-                "properties": {
-                  "return": { "$ref": "#/$defs/jsonVal" },
-                  "nestedActions": { "$ref": "#/$defs/actionList" }
-                }
-              },
-
-              /* ★ NEW ─────────── ELSE wrapper ─────────── */
-              {
-                "title": "else",
-                "required": ["else"],
-                "properties": {
-                  /* inner payload is ONE action object
-                     (matches the pattern you showed: {"else":{ "set":{…}}} ) */
-                  "else": { "$ref": "#/$defs/actionObject" }
-                }
-              }
-              /* ★ END NEW */
-            ]
-          }
-        ]
-      }
-    }
-  }
-}
-
-const buildBreadcrumbApp = async ({ openai, str }) => {
-  const rsp = await openai.chat.completions.create({
-    model: "gpt-4o-2024-08-06",
-    response_format: { type: "json_object" },
-    messages: [
-      { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
-      { role: "user", content: str }
-    ],
-    functions: [buildLogicSchema],
-    function_call: { name: "build_logic" }
-  });
-
-  const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
-  const args = JSON.parse(fc.arguments);
-  return args;
-};
-
 const classifyDomains = async ({ openai, text }) => {
-  console.log("classifyDomainsssss", text);
   const domain = await callOpenAI({
     openai, str: JSON.stringify(text),
     list: DOMAINS, promptLabel: "domain", schemaName: "domain_classification"
@@ -1624,6 +1534,9 @@ const classifyDomains = async ({ openai, text }) => {
   return { domain, subdomain };
 };
 
+/* ------------------------------------------------------------------ */
+/* Prompt → arrayLogic (unchanged)                                    */
+/* ------------------------------------------------------------------ */
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -1687,6 +1600,30 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
   return JSON.parse(text);
 }
 
+/* ------------------------------------------------------------------ */
+/* ACL helpers                                                        */
+/* ------------------------------------------------------------------ */
+async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
+  try {
+    if (!su || !e) return;
+    const now = Math.floor(Date.now() / 1000);
+    await dynamodb.put({
+      TableName: PERM_GRANTS_TABLE,
+      Item: {
+        entityID: String(su),
+        principalID: `u:${e}`,
+        perms,
+        created: now
+      }
+    }).promise();
+  } catch (err) {
+    console.warn("perm_grants owner seed failed:", err && err.message);
+  }
+}
+
+/* ------------------------------------------------------------------ */
+/* Main                                                              */
+/* ------------------------------------------------------------------ */
 async function parseArrayLogic({
   arrayLogic = [],
   dynamodb,    // DocumentClient (safe for non-pb ops)
@@ -1729,7 +1666,6 @@ async function parseArrayLogic({
       const { Item } = await dynamodb.get({
         TableName: "subdomains",
         Key: { su }
-        // If you want to avoid ever returning pb from DocClient, add ProjectionExpression here.
       }).promise();
       return Item || null;
     } catch (e) {
@@ -1738,14 +1674,14 @@ async function parseArrayLogic({
     }
   };
 
-  // ---- anchor_bands helpers (writes postings) ----
+  /* ---- anchor_bands helpers (writes postings) ----
+     UPDATED: allow optional policy_id to be stamped on postings */
   async function _putAllBatched(table, items) {
     if (!items || !items.length) return 0;
     let written = 0;
     for (let i = 0; i < items.length; i += 25) {
       const chunk = items.slice(i, i + 25).map(Item => ({ PutRequest: { Item } }));
       const params = { RequestItems: { [table]: chunk } };
-      // simple retry for UnprocessedItems
       let backoff = 100;
       while (true) {
         const rsp = await dynamodb.batchWrite(params).promise();
@@ -1760,12 +1696,13 @@ async function parseArrayLogic({
     return written;
   }
 
-  async function _fanoutAnchorBands({ su, setId, anchor, type = 'su' }) {
+  async function _fanoutAnchorBands({ su, setId, anchor, type = 'su', policy_id }) {
     const assigns = anchor?.assigns || [];
     if (!su || !setId || !assigns.length) return 0;
-    const rows = assigns.map(a =>
-      anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS })
-    );
+    const rows = assigns.map(a => {
+      const base = anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS });
+      return policy_id ? { ...base, policy_id } : base;   // ★ attach policy pointer
+    });
     return _putAllBatched(ANCHOR_BANDS_TABLE, rows);
   }
 
@@ -1795,61 +1732,57 @@ async function parseArrayLogic({
 
     const bc = Object.keys(elem)[0];
 
-    if (elem[bc].hasOwnProperty("output")) {
+    if (Object.prototype.hasOwnProperty.call(elem[bc], "output")) {
       fixedOutput = elem[bc].output;
       delete elem[bc].output;
     }
-    if (elem[bc].hasOwnProperty("possessedBy")) {
+    if (Object.prototype.hasOwnProperty.call(elem[bc], "possessedBy")) {
       fixedPossessed = elem[bc].possessedBy;
       delete elem[bc].possessedBy;
     }
-    if (elem[bc].hasOwnProperty("date")) {
+    if (Object.prototype.hasOwnProperty.call(elem[bc], "date")) {
       fixedDate = elem[bc].date;
       delete elem[bc].date;
     }
 
     const [breadcrumb] = Object.keys(elem);
     const body = elem[breadcrumb];
-    const origBody = origElem[breadcrumb];
-
-    //const { domain, subdomain } = await classifyDomains({ openai, text: elem });
 
     // Prefer the *user's request* when requestOnly === true
-    const b = elem[bc]; // you already computed bc above; reuse it
+    const b = elem[bc];
     const inp = b?.input && typeof b.input === 'object' ? b.input : {};
     let userReqText = null;
-    // $essence path provides the raw user request in `out`
+
     if (typeof out === "string" && out.trim()) userReqText = out.trim();
-    // Common input field names (singular/plural) as fallbacks
+
     if (!userReqText) {
       const candidate =
         inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
       if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
       else if (typeof candidate === 'string') userReqText = candidate.trim();
     }
-    // Build a single source of truth for both classification and distance embedding
+
     const textForEmbedding = requestOnly
       ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
 
-
-
     const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
       s3,
       openai,
-      key: "nestedDomainIndex.json", // or leave default via DOMAIN_INDEX_KEY
+      key: "nestedDomainIndex.json",
       textForEmbedding
     });
 
     // possessedCombined base & indexes
     const base = 1000000000000000.0;
-    const domainIndex = 10000000000000 * DOMAINS.indexOf(domain);
-    const subdomainIndex = 100000000000 * DOMAIN_SUBS[domain].indexOf(subdomain);
-    const userID = e;
+    const domainIndex = 10000000000000 * (DOMAINS.indexOf(domain) >= 0 ? DOMAINS.indexOf(domain) : 0);
+    const subdomainIndex = 100000000000 * ((DOMAIN_SUBS[domain] || []).indexOf(subdomain) >= 0
+      ? (DOMAIN_SUBS[domain] || []).indexOf(subdomain)
+      : 0);
+    const userID = e || 0;
     const possessedCombined = base + domainIndex + subdomainIndex + userID;
 
     // embedding
-    // Use EXACTLY the same text that powered classification to compute dists/pb
     const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
     const embText = typeof embInput === 'string' ? embInput.trim() : String(embInput);
     const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
@@ -1858,7 +1791,7 @@ async function parseArrayLogic({
     });
     const embedding = toVector(rawEmb);
 
-    // get subdomain vector refs (DocClient is fine; no pb touched)
+    // get subdomain vector refs
     let dynamoRecord = null;
     let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
     try {
@@ -1886,7 +1819,7 @@ async function parseArrayLogic({
       });
     }
 
-    // low-level pb-index query (to avoid 36-digit precision loss)
+    // low-level pb-index query
     let subdomainMatches = [];
     if (dist1 != null) {
       const pbStr = buildPb(possessedCombined, dist1);
@@ -1928,7 +1861,6 @@ async function parseArrayLogic({
         };
 
         const { Items } = await dynamodbLL.query(params).promise();
-        // AV -> plain JS (dist* become numbers; pb would be a stringified big number if you wrapNumbers)
         subdomainMatches = (Items || []).map(Converter.unmarshall);
       } catch (err) {
         console.error('subdomains GSI query failed:', err);
@@ -1954,79 +1886,70 @@ async function parseArrayLogic({
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
-    console.log("999 bestMatch", bestMatch)
     if (!bestMatch) {
-      console.log("999 actionFile", actionFile)
-
+      // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
       if (actionFile) {
-  const existing = await loadExistingEntityRow(actionFile);
-  const pbStr = buildPb(possessedCombined, dist1);
+        const pbStr = buildPb(possessedCombined, dist1);
 
-  // Compute anchor from fixedOutput if present; otherwise use $essence
-  const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
-    ? fixedOutput
-    : (typeof out === "string" ? out.trim() : "");
-  const anchorPayloadAF = anchorWordAF
-    ? await _computeAnchorPayload({ s3, openai, text: anchorWordAF })
-    : null;
+        const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
+          ? fixedOutput
+          : (typeof out === "string" ? out.trim() : "");
+        const anchorPayloadAF = anchorWordAF
+          ? await _computeAnchorPayload({ s3, openai, text: anchorWordAF })
+          : null;
 
-  const positionBodyAF = {
-    description: "provided entity (fallback)",
-    domain,
-    subdomain,
-    embedding,
-    entity: actionFile,
-    pb: pbStr,
-    dist1, dist2, dist3, dist4, dist5,
-    path: breadcrumb,
-    output: fixedOutput || out || ""
-  };
-  if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
+        const positionBodyAF = {
+          description: "provided entity (fallback)",
+          domain,
+          subdomain,
+          embedding,
+          entity: actionFile,
+          pb: pbStr,
+          dist1, dist2, dist3, dist4, dist5,
+          path: breadcrumb,
+          output: fixedOutput || out || ""
+        };
+        if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
 
-  if (positionBodyAF.anchor) {
-    await _fanoutAnchorBands({
-      su: actionFile,
-      setId: positionBodyAF.anchor.setId,
-      anchor: positionBodyAF.anchor,
-      type: 'su'
-    });
-  }
+        // ★ policy pointer on postings
+        if (positionBodyAF.anchor) {
+          await _fanoutAnchorBands({
+            su: actionFile,
+            setId: positionBodyAF.anchor.setId,
+            anchor: positionBodyAF.anchor,
+            type: 'su',
+            policy_id: `${DEFAULT_POLICY_PREFIX}:${String(actionFile)}`
+          });
+        }
 
-  shorthand.push([
-    "ROUTE",
-    { "body": positionBodyAF },
-    {},
-    "position",
-    actionFile,
-    ""
-  ]);
+        // ★ ensure owner grant (optional; actionFile is typically caller-owned)
+        await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
-  shorthand.push([
-    "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-  ]);
+        shorthand.push([
+          "ROUTE",
+          { "body": positionBodyAF },
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
 
-  routeRowNewIndex = shorthand.length;
-  continue;
-}
+        shorthand.push([
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ]);
 
-      console.log("999 after continue")
+        routeRowNewIndex = shorthand.length;
+        continue;
+      }
+
       // create a new entity/group
       const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-      const sanitize = s => s.replace(/[\/?#]/g, ' ').trim();
+      const sanitize = s => String(s || '').replace(/[\/?#]/g, ' ').trim();
 
-      console.log("999 body?.schema?.const", body?.schema?.const)
-      console.log("999 fixedOutput", fixedOutput)
-      console.log("999 body?.input?.name", body?.input?.name)
-      console.log("999 body?.input?.title", body?.input?.title)
-      console.log("999 body?.input?.entity", body?.input?.entity)
-      //const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity) || "$noName";
       const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
-      console.log("999 entNameRaw", entNameRaw)
-      console.log("999 entName", entName)
 
       shorthand.push([
         "ROUTE",
@@ -2035,187 +1958,142 @@ async function parseArrayLogic({
         "newGroup",
         groupName,
         entName
-      ]); //{response: {..., file: '1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30',entity: '2'}
+      ]);
 
       routeRowNewIndex = shorthand.length;
 
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]); //1v4rff1eb42e-b06c-448d-90d4-50fa67e38f30
+      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
-      console.log("999 fixedOutput", fixedOutput)
       if (fixedOutput) {
-        console.log("999 LETS GENERATE A JPL")
-        shorthand.push([
-          "ROUTE",
-          {},
-          {},
-          "getFile",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]); // ok: true, response: { input: [], published: { blocks: [Array], modules: {}, actions: [Array], function: {}, automation: [], menu: [Object], commands: [Object], calls: [Object], te
+        // generate JPL to wire initial actions
+        shorthand.push(["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]);
+        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]); // { input: [], published: { blocks: [ [Object] ], modules: {}, actions: [ [Object] ], function: {}, automation: [], menu: { ready: [Object] }, commands: { ready: [Object], back: [Obje
-        console.log("999 elem", elem)
         const desiredObj = structuredClone(elem);
         if (fixedOutput) desiredObj.response = fixedOutput;
-        console.log("999 desiredObj", desiredObj)
 
-
-        let newJPL = `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", "Never response with axios URLs like example.com or domain.com because the app will crash.","respond with {"reason":"...text"} if it is impossible to build the app per the users request and rules", "you are a JSON logic app generator.", "You will review the 'example' json for understanding on how to program the 'logic' json object", "You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", "Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", "please give only the 'logic' object, meaning only respond with JSON", "Don't include any of the logic.modules already created.", "the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", "The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-        newJPL = newJPL + ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-        newJPL = newJPL + ` var example = {"modules":{ "{shuffle}":"lodash",/*shuffle = require('lodash').shuffle*/ "moment-timezone":"moment-timezone"/*moment-timezone = require('moment-timezone')*/ }, "actions":[ {"set":{"latestEmail":"{|email=>[0]|}"}},/*latestEmail = email[0]*/ {"set":{"latestSubject":"{|latestEmail=>subject|}"}},/*lastSubject = latestEmail.subject*/ {"set":{"userIP":"{|req=>ip|}"}},/*userIP = req.ip*/ {"set":{"userAgent":"{|req=>headers.user-agent|}"}},/*userAgent = req.headers['user-agent']*/ {"set":{"userMessage":"{|req=>body.message|}"}},/*userMessage = req.body.message*/ {"set":{"pending":[] }},/*pendingRequests = []*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"] }],"promise":"raw","assign":"{|pending=>[0]|}!"},/*pendingRequests[0] = axios.get("https://httpbin.org/ip")*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"] }],"promise":"raw","assign":"{|pending=>[1]|}!"},/*pendingRequests[1] = axios.get("https://httpbin.org/user-agent")*/ `;
-        newJPL = newJPL + `{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"] }],"assign":"{|results|}"},/*results = Promise.all(pendingRequests)*/ {"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},/*httpBinIP = results[0].data.origin*/ {"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},/*httpBinUA = results[1].data['user-agent']*/ {"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"] }],"assign":"{|geoData|}"},/*geoData = await axios.get("https://ipapi.co/"+userIP+"/json/")*/ {"set":{"city":"{|geoData=>data.city|}"}},/*city = geoData.data.city*/ {"set":{"timezone":"{|geoData=>data.timezone|}"}},//timezone = geoData.data.timezone {"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"] }],"assign":"{|now|}"},/*now = new momentTimezone.tz(timezone)*/ {"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"] }],"assign":"{|today|}"},/*today = now.format('YYYY-MM-DD')*/ {"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},`;
-        newJPL = newJPL + `/*hour = now.hour()*/ {"set":{"timeOfDay":"night"}},/*timeOfDay = "night"*/ {"if":[["{|hour|}",">=","{|=3+3|}"], ["{|hour|}","<", 12]],"set":{"timeOfDay":"morning"}},/*if (hour >= math(3+3) && hour < 12) {timeOfDay = "morning"}*/ {"if":[["{|hour|}",">=",12], ["{|hour|}","<", 18]],"set":{"timeOfDay":"afternoon"}},/*if(hour >= 12 && hour < 18) {timeOfDay = "afternoon"}*/ {"if":[["{|hour|}",">=","{|=36/2|}"], ["{|hour|}","<", 22]],"set":{"timeOfDay":"evening"}},/*if (hour >= math(36/2) && hour < 22) {timeOfDay = "evening"}*/ {"set":{"extra":3}},/*extra = 3*/ {"set":{"maxIterations":"{|=5+{|extra|}|}"}},/*maxIterations = math(5 + extra); //wrap nested placeholders like 5+{|extra|}*/ {"set":{"counter":0}},/*counter = 0*/ {"set":{"greetings":[]}},/*greetings = []*/ {"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},/*while (counter < maxIterations) {greetings[counter] = "Hello number " + counter;  counter = math(counter+1)}*/ {"assign":"{|generateSummary|}",`;
-        newJPL = newJPL + `"params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},/*generateSummary = (prefix, remark) => {generateSummary.prefix = prefix; generateSummary.remark = remark; generateSummary.localZone = timezone; return \`\${prefix} \${remark|} \${greetings[0]} Visitor from \${city} (IP \${userIP}) said '\${userMessage}'. Local timezone:\${localZone} · Time-of-day:\${timeOfDay} · Date:\${today}.\`}*/ {"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."] }],"assign":"{|message|}"},/*message = generateSummary("Hi.", "Here are the details.")*/ {"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}/*res.send(message)*/ ]}; // absolutley no example urls.`;
-
+        let newJPL =
+          `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", ` +
+          `"Never response with axios URLs like example.com or domain.com because the app will crash.",` +
+          `"respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", ` +
+          `"you are a JSON logic app generator.", ` +
+          `"You will review the 'example' json for understanding on how to program the 'logic' json object", ` +
+          `"You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", ` +
+          `"Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", ` +
+          `"please give only the 'logic' object, meaning only respond with JSON", ` +
+          `"Don't include any of the logic.modules already created.", ` +
+          `"the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", ` +
+          `"The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+        newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+        newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-        console.log("999 objectJPL", JSON.stringify(objectJPL))
-        console.log("999 actions", padRef(routeRowNewIndex + 3), JSON.stringify(objectJPL.actions))
 
-        shorthand.push(
-          ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]
-        ); //actions: [ [Object], [Object], [Object] ],
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]);
+        shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
 
-        if (objectJPL.modules) {
-          console.log("999 modules if", padRef(routeRowNewIndex + 4), JSON.stringify(objectJPL.modules))
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules]
-          );// modules: {}
-        } else {
-          console.log("999 modules else", padRef(routeRowNewIndex + 4), {})
-          shorthand.push(
-            ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", {}]
-          );// modules: {}
-        } //modules: {}
-
-
-        console.log("999 pushing to createdEntities")
-
-        console.log("999 createdEntities", createdEntities)
-
-        console.log("padRef(routeRowNewIndex + 1)", padRef(routeRowNewIndex + 1));
-        console.log("padRef(routeRowNewIndex + 2)", padRef(routeRowNewIndex + 2));
-        console.log("padRef(routeRowNewIndex + 3)", padRef(routeRowNewIndex + 3));
-        console.log("padRef(routeRowNewIndex + 4)", padRef(routeRowNewIndex + 4));
-        console.log("padRef(routeRowNewIndex + 5)", padRef(routeRowNewIndex + 5));
-        shorthand.push(
-          [
-            "ROUTE",
-            padRef(routeRowNewIndex + 5),
-            {},
-            "saveFile",
-            padRef(routeRowNewIndex + 1),
-            ""
-          ]
-        );
+        shorthand.push(["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
       }
 
-      // record positioning for the new entity (pb must be safe)
+      // record positioning for the new entity
       const pathStr = breadcrumb;
       const pbStr2 = buildPb(possessedCombined, dist1);
 
-      // ★ NEW: compute anchor from the user-facing name (fixedOutput)
       const anchorPayloadNew = await _computeAnchorPayload({
-        s3, openai, text: fixedOutput // the $essence word or chosen name
+        s3, openai, text: fixedOutput
       });
 
-      // Build the position payload (keep legacy fields)
+      const newSu = padRef(routeRowNewIndex + 1);
       const positionBodyCreated = {
         description: "auto created entity",
         domain, subdomain,
         embedding,
-        entity: padRef(routeRowNewIndex + 1),
+        entity: newSu,
         pb: pbStr2,
         dist1, dist2, dist3, dist4, dist5,
         path: pathStr,
         output: fixedOutput
       };
-
-      // Only add anchor if it computed successfully
       if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
 
-        if (positionBodyCreated.anchor) {
-    await _fanoutAnchorBands({
-      su: padRef(routeRowNewIndex + 1),
-      setId: positionBodyCreated.anchor.setId,
-      anchor: positionBodyCreated.anchor,
-      type: 'su'
-    });
-  }
+      // ★ fanout with policy pointer
+      if (positionBodyCreated.anchor) {
+        await _fanoutAnchorBands({
+          su: newSu,
+          setId: positionBodyCreated.anchor.setId,
+          anchor: positionBodyCreated.anchor,
+          type: 'su',
+          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(newSu)}`
+        });
+      }
 
+      // ★ seed owner grant for creator
+      await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
       shorthand.push([
         "ROUTE",
         { "body": positionBodyCreated },
         {},
         "position",
-        padRef(routeRowNewIndex + 1),
+        newSu,
         ""
-      ]);// { ok: true, response: { action: 'position', position: { dist1: 0.8048684311116505, dist2: 0.8013275596305993, dist3: 0.9058460913039105, dist4: 0.7830344118770627, dist5: 0.9
+      ]);
 
       if (fixedOutput) {
-        shorthand.push([
-          "ROUTE",
-          inputParam,
-          {},
-          "runEntity",
-          padRef(routeRowNewIndex + 1),
-          ""
-        ]); // $noName  (this is the cached output that is saved to the database record). Entity didn't run.
+        shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
       } else {
         shorthand.push([fixedOutput]);
       }
 
     } else {
-      // run best match
+      // MATCH: run and update position (+policy pointer & optional anchor)
+      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
+
+      const pbStr = buildPb(possessedCombined, dist1);
+
+      const anchorWord = (fixedOutput && String(fixedOutput).trim())
+        ? fixedOutput
+        : (typeof out === "string" ? out.trim() : "");
+      const anchorPayloadMatch = anchorWord
+        ? await _computeAnchorPayload({ s3, openai, text: anchorWord })
+        : null;
+
+      const positionBodyMatched = {
+        description: "auto matched entity",
+        domain,
+        subdomain,
+        embedding,
+        entity: bestMatch.su,
+        pb: pbStr,
+        dist1, dist2, dist3, dist4, dist5,
+        path: breadcrumb,
+        output: fixedOutput
+      };
+
+      if (anchorPayloadMatch) positionBodyMatched.anchor = anchorPayloadMatch;
+
+      if (positionBodyMatched.anchor) {
+        await _fanoutAnchorBands({
+          su: bestMatch.su,
+          setId: positionBodyMatched.anchor.setId,
+          anchor: positionBodyMatched.anchor,
+          type: 'su',
+          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(bestMatch.su)}`
+        });
+      }
+
+      // (Optional) ensure owner grant for matched entity if you want to backfill;
+      // typically ownership is seeded at creation time, so you can omit this:
+      // await _ensureOwnerGrant({ dynamodb, su: bestMatch.su, e });
+
       shorthand.push([
-        "ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""
+        "ROUTE",
+        { "body": positionBodyMatched },
+        {},
+        "position",
+        bestMatch.su,
+        ""
       ]);
-
-
-
-      // refresh positioning metadata, with pb built from current dist1
-const pbStr = buildPb(possessedCombined, dist1);
-
-// ★ NEW: compute anchor from fixedOutput if present; fallback to $essence
-const anchorWord = (fixedOutput && String(fixedOutput).trim())
-  ? fixedOutput
-  : (typeof out === "string" ? out.trim() : "");
-const anchorPayloadMatch = anchorWord
-  ? await _computeAnchorPayload({ s3, openai, text: anchorWord })
-  : null;
-
-const positionBodyMatched = {
-  description: "auto matched entity",
-  domain,
-  subdomain,
-  embedding,
-  entity: bestMatch.su,
-  pb: pbStr,
-  dist1, dist2, dist3, dist4, dist5,
-  path: breadcrumb,
-  output: fixedOutput
-};
-
-if (anchorPayloadMatch) positionBodyMatched.anchor = anchorPayloadMatch;
-if (positionBodyMatched.anchor) {
-  await _fanoutAnchorBands({
-    su: bestMatch.su,
-    setId: positionBodyMatched.anchor.setId,
-    anchor: positionBodyMatched.anchor,
-    type: 'su'
-  });
-}
-
-shorthand.push([
-  "ROUTE",
-  { "body": positionBodyMatched },
-  {},
-  "position",
-  bestMatch.su,
-  ""
-]);
-
     }
 
     routeRowNewIndex = shorthand.length;
@@ -2227,33 +2105,22 @@ shorthand.push([
       ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
 
-
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      {
-        entity: "",
-        name: "_new",
-        contentType: "text",
-        id: "_new"
-      }
-    ]); //try adding entities using ADDPROPTERY
+      { entity: "", name: "_new", contentType: "text", id: "_new" }
+    ]);
 
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
-    shorthand.push([
-      "ROWRESULT",
-      "000",
-      padRef(getRowIndex + 3)
-    ]); //and then pushing that to 000
-
+    shorthand.push(["ROWRESULT", "000", padRef(getRowIndex + 3)]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities", JSON.stringify(createdEntities, null, 4))
+  console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 

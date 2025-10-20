@@ -24,6 +24,9 @@ function register({ on, use }) {
     const dynamodb = getDocClient();
     const { uuidv4, ses } = deps;
 
+    // NEW: table env for owner grants
+    const PERM_GRANTS_TABLE = process.env.PERM_GRANTS_TABLE || "perm_grants";
+
     const segs = String(ctx.path || "").split("/").filter(Boolean);
     console.log("ctx.path~~~~~~~~", ctx.path);
     console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
@@ -42,25 +45,15 @@ function register({ on, use }) {
 
     setIsPublic(true);
 
-
     // ---------- EARLY EXIT if manageCookie already created an entity ----------
-    // If manageCookie pre-created the (group, entity), it put the entity id in cookie.e.
-    // In that case: DO NOT create another pair. Reuse the existing entity/doc and return it.
     if (ensuredCookie?.existing === true && ensuredCookie?.e && ensuredCookie.e !== "0") {
-
       try {
-        // Find a document subdomain tied to this entity (the one created by manageCookie's internal newGroup).
-       const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
+        const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
         const suDoc =
           (subByE?.Items || []).find(it => it.g === "0")?.su ||
           (subByE?.Items || [])[0]?.su;
 
-        // If, for any reason, there is no doc yet, we can still proceed by returning the head entity su.
-        // Worst case, we just return the first available su.
         if (!suDoc) {
-          // As a fallback, try the head (entity.h → su)
-          // but since we don't have entity record here, just stick with "no suDoc"
-          // convertToJSON requires a valid su; if none, synthesize a minimal response.
           return {
             ok: true,
             response: {
@@ -100,10 +93,9 @@ function register({ on, use }) {
         return { ok: true, response: mainObj };
       } catch (reuseErr) {
         console.warn("newGroup: reuse-path failed, falling back to create", reuseErr);
-        // If reuse fails, we fall through to creation path below.
       }
     }
-   // ---------- END EARLY EXIT ----------
+    // ---------- END EARLY EXIT ----------
 
     const aNewG = await incrementCounterAndGetNewValue("wCounter", dynamodb);
     const aG    = await createWord(aNewG.toString(), newGroupName, dynamodb);
@@ -140,14 +132,16 @@ function register({ on, use }) {
       ex,
       true,
       0,
-      0 
+      0
     );
 
     await createGroup(gNew.toString(), aG, e.toString(), [ai.toString()], dynamodb);
 
+    // Root SU for the group
     const suRoot = await getUUID(uuidv4);
     await createSubdomain(suRoot, "0", "0", gNew.toString(), true, dynamodb);
 
+    // Head entity + version
     const vHead = await addVersion(e.toString(), "a", aE.toString(), null, dynamodb);
     await createEntity(
       e.toString(),
@@ -159,10 +153,8 @@ function register({ on, use }) {
       dynamodb
     );
 
-
-    // --- NEW: tie the freshly created entity id to the user's cookie ---
+    // --- Tie the freshly created entity id to the user's cookie ---
     try {
-      // We prefer ci (PK). If not present, look it up via gi index.
       let ciKey = ensuredCookie?.ci;
       if (!ciKey && ensuredCookie?.gi) {
         const q = await dynamodb.query({
@@ -188,19 +180,18 @@ function register({ on, use }) {
     } catch (err) {
       console.warn("newGroup: failed to update cookie.e", err);
     }
-    // --- end NEW ---
 
+    // Document SU for the head
     const suDoc = await getUUID(uuidv4);
 
-    const body = ctx.req?.body || {"output":headEntityName, "body":{"output":headEntityName}};
+    const body = ctx.req?.body || { "output": headEntityName, "body": { "output": headEntityName } };
 
-    console.log("***!!!")
-    console.log("ctx", ctx)
-    console.log("ctx.req", ctx.req)
-    console.log("ctx.req.body", ctx.req.body)
+    console.log("***!!!");
+    console.log("ctx", ctx);
+    console.log("ctx.req", ctx.req);
+    console.log("ctx.req.body", ctx.req.body);
 
     const outputParam = ctx?.req?.body?.body?.output || headEntityName;
-
 
     const thought = {};
     thought[suDoc] = {
@@ -294,14 +285,14 @@ function register({ on, use }) {
     };
 
     await createSubdomain(
-  suDoc,
-  aE.toString(),
-  e.toString(),
-  "0",
-  true,
-  outputParam,
-  dynamodb
-);
+      suDoc,
+      aE.toString(),
+      e.toString(),
+      "0",
+      true,
+      outputParam,
+      dynamodb
+    );
     await createFile(suDoc, payload, deps.s3);
 
     const params = {
@@ -326,6 +317,33 @@ function register({ on, use }) {
     //Keep this comment. This was commented to pause emails in development
     //await ses.sendEmail(params).promise();
 
+    // --- NEW: seed owner grants in perm_grants for root + doc SUs ---
+    try {
+      const now = Math.floor(Date.now() / 1000);
+      // Root SU (container)
+      await dynamodb.put({
+        TableName: PERM_GRANTS_TABLE,
+        Item: {
+          entityID: String(suRoot),
+          principalID: `u:${e}`,
+          perms: "rwdop",
+          created: now
+        }
+      }).promise();
+      // Document SU (head surface)
+      await dynamodb.put({
+        TableName: PERM_GRANTS_TABLE,
+        Item: {
+          entityID: String(suDoc),
+          principalID: `u:${e}`,
+          perms: "rwdop",
+          created: now
+        }
+      }).promise();
+    } catch (err) {
+      console.warn("perm_grants owner seed failed:", err && err.message);
+    }
+    // --- end NEW ---
 
     const mainObj = await convertToJSON(
       suDoc,
@@ -343,13 +361,13 @@ function register({ on, use }) {
       body
     );
 
-    console.log("ensuredCookie", ensuredCookie)
-    // Parity: add existing + file
+    console.log("ensuredCookie", ensuredCookie);
+    // Parity: add existing + file + entity
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
     mainObj.entity = e.toString();
 
-    console.log("response:",mainObj)
+    console.log("response:", mainObj);
     return { ok: true, response: mainObj };
   });
 }

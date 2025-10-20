@@ -4,21 +4,22 @@
 function register({ on, use }) {
   const {
     getDocClient,
-    getCookie,            // <-- we'll reuse the cookie->user-id logic you already have elsewhere
+    getCookie,            // reuse cookie -> user-id logic
     deps,                 // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
-  // Reuse the same knobs as your positioner so search + position stay in lockstep
+  // Keep knobs in lockstep with the positioner
   const anchorsUtil         = require("../anchors");
   const ANCHOR_BANDS_TABLE  = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
-  const DEFAULT_SET_ID      = process.env.ANCHOR_SET_ID     || "anchors_v1";
-  const EMB_MODEL_ID        = process.env.EMB_MODEL         || "text-embedding-3-large";
-  const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE || 2000);
-  const DEFAULT_NUM_SHARDS  = Number(process.env.NUM_SHARDS || 8);
+  const DEFAULT_SET_ID      = process.env.ANCHOR_SET_ID       || "anchors_v1";
+  const EMB_MODEL_ID        = process.env.EMB_MODEL           || "text-embedding-3-large";
+  const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE   || 2000);
+  const DEFAULT_NUM_SHARDS  = Number(process.env.NUM_SHARDS   || 8);
+  const PERM_GRANTS_TABLE   = process.env.PERM_GRANTS_TABLE   || "perm_grants"; // <— new
 
-  const doc   = getDocClient();
-  const s3    = deps.s3;
-  const openai= deps.openai;
+  const doc    = getDocClient();
+  const s3     = deps.s3;
+  const openai = deps.openai;
 
   // ---------- helpers ----------
   const isNum   = (x) => typeof x === "number" && Number.isFinite(x);
@@ -62,7 +63,6 @@ function register({ on, use }) {
   }
 
   async function ensureQueryEmbedding({ embedding, text }) {
-    console.log("QQ : text",text)
     if (Array.isArray(embedding) && embedding.every(isNum)) {
       const u = asUnit(embedding);
       if (u) return u;
@@ -121,6 +121,28 @@ function register({ on, use }) {
     return out;
   }
 
+  // --------- permissions helpers ----------
+  async function getEffectivePrincipals(e) {
+    // Expand here later with team/household groups, e.g. t:<id>, h:<id>, etc.
+    const set = new Set();
+    set.add("pub");           // conceptual, for policy_id === "pub"
+    if (e && String(e) !== "0") set.add(`u:${e}`);
+    return Array.from(set);
+  }
+  function bestPermChar(perms) {
+    if (!perms || typeof perms !== "string") return null;
+    if (perms.includes("o")) return "o";
+    if (perms.includes("w")) return "w";
+    if (perms.includes("r")) return "r";
+    return null;
+  }
+  function ownershipWeight(permChar) {
+    if (permChar === "o") return 0.50;
+    if (permChar === "w") return 0.25;
+    if (permChar === "r") return 0.05;
+    return 0.0;
+  }
+
   on("search", async (ctx) => {
     const { req, res } = ctx;
 
@@ -130,48 +152,34 @@ function register({ on, use }) {
       ? rawBody.body
       : rawBody;
 
-    console.log("QQ : body", body)
-    console.log("QQ : body.text", body.text)
-    console.log("QQ : body.query", body.query)
-
-    let searchString = body.text
-    if (!searchString){
-      searchString = body.query
-    }
+    let searchString = body.text;
+    if (!searchString) searchString = body.query;
 
     try {
       // ---- inputs / defaults
       const setId          = body.setId || DEFAULT_SET_ID;
       const bandScale      = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
       const numShards      = Number.isFinite(+body.num_shards) ? +body.num_shards : DEFAULT_NUM_SHARDS;
-const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 3;
-const bandWindow     = Number.isFinite(+body.bandWindow) ? +body.bandWindow : 96; // safer default
-
+      const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 3;
+      const bandWindow     = Number.isFinite(+body.bandWindow) ? +body.bandWindow : 96; // conservative
       const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? +body.limitPerAssign : 500;
       const topK           = Number.isFinite(+body.topK) ? +body.topK : 50;
 
-      const e              = await getUserIdFromReq(req, body);
-      const eU             = await ensureQueryEmbedding({ embedding: body.embedding, text: searchString });
+      const e   = await getUserIdFromReq(req, body);
+      const eU  = await ensureQueryEmbedding({ embedding: body.embedding, text: searchString });
 
       // ---- compute query assignments (L0/L1 + band)
       const assigns = await anchorAssignments(eU, { setId, bandScale, topL0, numShards });
 
-      // ---- query: prefer tenant PK if your postings already carry U=<e>, else fallback to global PK
-      // PK forms (must match what makePosting writes):
-      //  - tenant: AB#<setId>#U=<e>#L0=<l0>#L1=<l1>
-      //  - global: AB#<setId>#L0=<l0>#L1=<l1>
-      //const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-      //const makePkGlobal = (a) => `AB#${setId}#L0=${pad2(a.l0)}#L1=${pad2(a.l1)}`;
-
-const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${a.l0}#L1=${a.l1}`;
-const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
+      // ---- query: prefer tenant PK, fallback to global
+      const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${a.l0}#L1=${a.l1}`;
+      const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
 
       let anyTenantHit = false;
       const perAssignResults = [];
 
       for (const a of assigns) {
-        console.log('Q PK tenant:', makePkTenant(a), 'band', a.band);
-        // try tenant key
+        // 1) tenant
         let rows = [];
         try {
           rows = await queryOneWindow({
@@ -181,98 +189,132 @@ const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
             numShards,
             limitPerAssign
           });
-        } catch {/* swallow */}
-
+        } catch {/* ignore */}
         if (rows && rows.length) {
           anyTenantHit = true;
           perAssignResults.push({ a, rows, pkType: "tenant" });
           continue;
         }
 
-        // fallback to global
-// fallback to global
-let rows2 = [];
-try {
-  const gpk = makePkGlobal(a);
-  const loBand = Math.max(0, a.band - bandWindow);
-  const hiBand = a.band + bandWindow;
-  console.log(
-    'Q PK global:', gpk,
-    'band', a.band, '±', bandWindow,
-    'SK range:',
-    `B=${padBand(loBand)}#S=00 → B=${padBand(hiBand)}#S=${pad2(numShards - 1)}`
-  );
-
-  rows2 = await queryOneWindow({
-    pk: gpk,
-    bandCenter: a.band,
-    delta: bandWindow,
-    numShards,
-    limitPerAssign
-  });
-
-  console.log('Q PK global rows:', rows2?.length || 0);
-} catch (err) {
-  console.log('Q PK global error:', err && err.message);
-}
-
-perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
-
+        // 2) global
+        let rows2 = [];
+        try {
+          rows2 = await queryOneWindow({
+            pk: makePkGlobal(a),
+            bandCenter: a.band,
+            delta: bandWindow,
+            numShards,
+            limitPerAssign
+          });
+        } catch {/* ignore */}
+        perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
       }
-// ---- merge, dedupe by su, keep best (min bandDelta) + stronger logging
-const bySu = new Map();
 
-for (const { a, rows, pkType } of perAssignResults) {
-  for (const r of rows) {
-    const su = r?.su || parseSuFromSk(r?.sk);
-    const itemBand = isNum(r?.band) ? r.band : parseBandFromSk(r?.sk);
-    if (!su || !isNum(itemBand)) continue;
+      // ---- merge, dedupe by su (min bandDelta), carry policy_id if present
+      const bySu = new Map();
+      for (const { a, rows, pkType } of perAssignResults) {
+        for (const r of rows) {
+          const su = r?.su || parseSuFromSk(r?.sk);
+          const itemBand = isNum(r?.band) ? r.band : parseBandFromSk(r?.sk);
+          if (!su || !isNum(itemBand)) continue;
 
-    const bandDelta = Math.abs(itemBand - a.band);
-    const prev = bySu.get(su);
+          const bandDelta = Math.abs(itemBand - a.band);
+          const prev = bySu.get(su);
+          if (!prev || bandDelta < prev.bandDelta) {
+            bySu.set(su, {
+              su,
+              l0: a.l0,
+              l1: a.l1,
+              queryBand: a.band,
+              itemBand,
+              bandDelta,
+              pkType,
+              pk: r.pk,
+              sk: r.sk,
+              policy_id: (typeof r?.policy_id === "string" && r.policy_id) ? r.policy_id : `entity:${su}`
+            });
+          }
+        }
+      }
 
-    if (!prev || bandDelta < prev.bandDelta) {
-      bySu.set(su, {
-        su,
-        l0: a.l0,
-        l1: a.l1,
-        queryBand: a.band,
-        itemBand,
-        bandDelta,
-        pkType,
-        pk: r.pk,
-        sk: r.sk
+      let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDelta);
+      if (candidates.length > topK) candidates = candidates.slice(0, topK);
+
+      // ---- join subdomains (best-effort)
+      let subMap = new Map();
+      if (candidates.length) {
+        const keys = candidates.map(c => ({ su: String(c.su) }));
+        subMap = await batchGetSubdomains(keys);
+      }
+
+      // ---- PERMISSION ENFORCEMENT
+      // Build effective principals for the caller
+      const principals = await getEffectivePrincipals(e);
+      const nowSec = Math.floor(Date.now() / 1000);
+
+      // Map entityID -> su (policy "entity:<su>" points to the su)
+      const entityToSu = {};
+      const permKeys = [];
+
+      for (const c of candidates) {
+        const pol = c.policy_id || `entity:${c.su}`;
+        if (pol === "pub") continue; // globally readable
+
+        // For now we only expect entity:<su>
+        let entityID = null;
+        if (pol.startsWith("entity:")) {
+          entityID = pol.slice("entity:".length);
+        } else if (pol.startsWith("edge:")) {
+          // If you later store edge policies, resolve to an entity id here
+          entityID = pol.slice("edge:".length);
+        } else {
+          entityID = String(c.su);
+        }
+        entityToSu[entityID] = c.su;
+
+        for (const p of principals) {
+          // perm_grants PK=(entityID), SK=(principalID)
+          permKeys.push({ entityID: String(entityID), principalID: p });
+        }
+      }
+
+      // Batch-get grants
+      const bestBySu = new Map(); // su -> 'o'|'w'|'r'|null (best seen)
+      for (let i = 0; i < permKeys.length; i += 100) {
+        const chunk = permKeys.slice(i, i + 100);
+        if (!chunk.length) break;
+        const rsp = await doc.batchGet({
+          RequestItems: { [PERM_GRANTS_TABLE]: { Keys: chunk } }
+        }).promise();
+        const rows = (rsp.Responses && rsp.Responses[PERM_GRANTS_TABLE]) || [];
+        for (const row of rows) {
+          if (!row) continue;
+          if (Number.isFinite(row.expires) && row.expires < nowSec) continue;
+          const ch = bestPermChar(row.perms);
+          if (!ch) continue;
+          const su = entityToSu[row.entityID] || row.entityID;
+          const prev = bestBySu.get(su);
+          const ord = { r: 1, w: 2, o: 3 };
+          if (!prev || ord[ch] > ord[prev]) bestBySu.set(su, ch);
+        }
+      }
+
+      // Filter: allow if policy is "pub" OR caller has at least 'r'
+      candidates = candidates.filter(c => {
+        const pol = c.policy_id || `entity:${c.su}`;
+        if (pol === "pub") return true;
+        const ch = bestBySu.get(String(c.su));
+        return ch === "r" || ch === "w" || ch === "o";
       });
-    }
-  }
-}
 
-let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDelta);
-console.log('JOIN stage: unique sus from anchor_bands =', candidates.length);
-
-if (candidates.length > topK) candidates = candidates.slice(0, topK);
-
-// ---- batch join to subdomains, but DO NOT drop rows if join misses
-const needUserFilter = !anyTenantHit;
-let subMap = new Map();
-
-if (candidates.length) {
-  const keys = candidates.map(c => ({ su: String(c.su) }));
-  subMap = await batchGetSubdomains(keys);
-
-  // optional domain/subdomain filters provided by caller
-
-}
-
-console.log('JOIN stage: candidates after optional filters =', candidates.length);
-
-
-      // shape output
+      // ---- shape output (score + ownership boost)
       const enriched = candidates.map(c => {
         const row = subMap.get(String(c.su));
+        const permChar = (c.policy_id === "pub") ? "r" : (bestBySu.get(String(c.su)) || null);
+        const oWeight  = ownershipWeight(permChar);
         return {
           su: c.su,
-          score: 1 / (1 + c.bandDelta),   // simple monotone transform for readability
+          score: (1 / (1 + c.bandDelta)) + oWeight,
           bandDelta: c.bandDelta,
           l0: c.l0,
           l1: c.l1,
@@ -283,6 +325,9 @@ console.log('JOIN stage: candidates after optional filters =', candidates.length
           output: row?.output || null,
           path: row?.path || null,
           e: row?.e ?? null,
+          policy_id: c.policy_id || null,
+          perm: permChar || null,
+          ownership_weight: oWeight
         };
       });
 
@@ -305,7 +350,7 @@ console.log('JOIN stage: candidates after optional filters =', candidates.length
       };
     } catch (err) {
       console.error("search (anchors) error:", err);
-      // keep legacy error shape
+      // legacy error shape
       if (res && res.status && res.json) {
         res.status(400).json({ error: err?.message || "bad-request" });
         return { __handled: true };
