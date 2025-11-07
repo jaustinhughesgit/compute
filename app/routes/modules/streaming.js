@@ -38,56 +38,60 @@ function register({ on, use }) {
 
   const kv = new AWS.KinesisVideo({ apiVersion: "2017-09-30", region: REGION });
 
-  // ---------- helpers ----------
-  const nowSecs = () => Math.floor(Date.now() / 1000);
-  const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
+// ---------- helpers ----------
+const nowSecs = () => Math.floor(Date.now() / 1000);
+const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
+const asID = (v) => String(v ?? "").trim();   // <—— NEW: normalize user IDs as strings
 
-  function requireUserId(ctx) {
-  const uid = Number(ctx?.req?.cookies?.e);
-  if (!Number.isFinite(uid)) {
-    return { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) };
+
+function requireUserId(ctx) {
+  const raw = ctx?.req?.cookies?.e;
+  const uid = asID(raw);                        // <—— CHANGED
+  if (!uid) {
+    return { error: { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) } };
   }
-  return { userID: uid };
+  return { userID: uid };                       // always a string
 }
 
-  async function upsertPresence({ userID, su, displayName, status, channelName = null, channelArn = null }) {
-    const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
-    const item = {
-      userID: Number(userID),
-      su: su || null,
-      displayName: (displayName || "Anonymous").toString().slice(0, 80),
-      status, // "online" | "live"
-      updatedAt: Date.now(),
-      ttl,
-      channelName,
-      channelArn,
-      region: REGION,
-    };
-    await ddb.put({ TableName: PRESENCE_TABLE, Item: item }).promise();
-    return item;
-  }
 
-  async function heartbeatPresence(userID) {
-    const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
-    await ddb.update({
-      TableName: PRESENCE_TABLE,
-      Key: { userID: Number(userID) },
-      UpdateExpression: "SET #u = :u, #ttl = :ttl",
-      ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
-      ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
-    }).promise();
-  }
+async function upsertPresence({ userID, su, displayName, status, channelName = null, channelArn = null }) {
+  const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
+  const item = {
+    userID: asID(userID),                       // <—— CHANGED
+    su: su || null,
+    displayName: (displayName || "Anonymous").toString().slice(0, 80),
+    status,                                     // "online" | "live"
+    updatedAt: Date.now(),
+    ttl,
+    channelName,
+    channelArn,
+    region: REGION,
+  };
+  await ddb.put({ TableName: PRESENCE_TABLE, Item: item }).promise();
+  return item;
+}
 
-  async function setOffline(userID) {
-    // expire quickly; status back to "online" (so future online writes are consistent)
-    await ddb.update({
-      TableName: PRESENCE_TABLE,
-      Key: { userID: Number(userID) },
-      UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
-      ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
-      ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
-    }).promise();
-  }
+async function heartbeatPresence(userID) {
+  const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
+  await ddb.update({
+    TableName: PRESENCE_TABLE,
+    Key: { userID: asID(userID) },              // <—— CHANGED
+    UpdateExpression: "SET #u = :u, #ttl = :ttl",
+    ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
+    ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
+  }).promise();
+}
+
+async function setOffline(userID) {
+  await ddb.update({
+    TableName: PRESENCE_TABLE,
+    Key: { userID: asID(userID) },              // <—— CHANGED
+    UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
+    ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
+    ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
+  }).promise();
+}
+
 
   async function queryActiveByStatus(status, limit = 50) {
     const params = {
@@ -105,6 +109,7 @@ function register({ on, use }) {
   }
 
   async function ensureSignalingChannelForUser(userID) {
+    const idStr = asID(userID);                   // <—— NEW
     const channelName = `${KVS_CHANNEL_PREFIX}${userID}`;
     let channelArn;
     try {
@@ -159,20 +164,22 @@ function register({ on, use }) {
       return { ok: true };
     }
 
-    if (sp === "active") {
-      const limit = Math.max(1, Math.min(200, Number(ctx?.req?.query?.limit || 50)));
-      const [online, live] = await Promise.all([
-        queryActiveByStatus("online", limit),
-        queryActiveByStatus("live", limit),
-      ]);
-      const filteredOnline = online.filter(u => Number(u.userID) !== Number(userID));
-      const filteredLive = live.filter(u => Number(u.userID) !== Number(userID));
-      return { ok: true, me: { userID, su }, active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length } };
-    }
+if (sp === "active") {
+  const limit = Math.max(1, Math.min(200, Number(ctx?.req?.query?.limit || 50)));
+  const [online, live] = await Promise.all([
+    queryActiveByStatus("online", limit),
+    queryActiveByStatus("live", limit),
+  ]);
+  const meStr = asID(userID);                   // <—— NEW
+  const filteredOnline = online.filter(u => asID(u.userID) !== meStr);  // <—— CHANGED
+  const filteredLive   = live.filter(u => asID(u.userID) !== meStr);    // <—— CHANGED
+  return { ok: true, me: { userID: meStr, su }, active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length } };
+}
 
-    if (sp === "me") {
-      return { ok: true, me: { userID, su } };
-    }
+if (sp === "me") {
+  const meStr = asID(userID);                   // <—— NEW
+  return { ok: true, me: { userID: meStr, su } };
+}
 
     return { statusCode: 404, body: JSON.stringify({ error: "unknown_presence_path" }) };
   });
