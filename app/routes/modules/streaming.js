@@ -43,12 +43,12 @@ function register({ on, use }) {
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
 
   function requireUserId(ctx) {
-    const uid = Number(ctx?.req?.cookies?.e);
-    if (!Number.isFinite(uid)) {
-      return { error: { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) } };
-    }
-    return { userID: uid };
+  const uid = Number(ctx?.req?.cookies?.e);
+  if (!Number.isFinite(uid)) {
+    return { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) };
   }
+  return { userID: uid };
+}
 
   async function upsertPresence({ userID, su, displayName, status, channelName = null, channelArn = null }) {
     const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
@@ -138,7 +138,8 @@ function register({ on, use }) {
     const body = unwrapBody(outer) || {};
 
     const idRes = requireUserId(ctx);
-    if (idRes.error) return idRes.error;
+
+    if (idRes.statusCode) return idRes; // early 401
     const userID = idRes.userID;
     const su = String(ctx?.req?.cookies?.su || "").trim() || null;
 
