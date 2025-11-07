@@ -40,7 +40,7 @@ function register({ on, use }) {
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
 
   // STS role that the server will assume on behalf of the browser
-  const KVS_BROWSER_ROLE_ARN = process.env.KVS_BROWSER_ROLE_ARN || "KVSBrowserSessionRole";
+  const KVS_BROWSER_ROLE_ARN = process.env.KVS_BROWSER_ROLE_ARN || "arn:aws:iam::536814921035:role/KVSBrowserSessionRole";
   const KVS_BROWSER_EXTERNAL_ID = process.env.KVS_BROWSER_EXTERNAL_ID || null; // optional, if trust requires it
   const STS_DURATION_SECS = parseInt(process.env.KVS_STS_DURATION_SECS || "900", 10);
 
