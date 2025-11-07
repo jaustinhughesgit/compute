@@ -31,7 +31,7 @@ function register({ on, use }) {
   const ddb = getDocClient();
 
   const REGION = process.env.AWS_REGION || "us-east-1";
-  const PRESENCE_TABLE = process.env.PRESENCE_TABLE || "Presence";
+  const PRESENCE_TABLE = process.env.PRESENCE_TABLE || "presence";
   const PRESENCE_TTL_SECONDS = parseInt(process.env.PRESENCE_TTL_SECONDS || "120", 10);
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
   const COGNITO_IDENTITY_POOL_ID = process.env.COGNITO_IDENTITY_POOL_ID || null;
