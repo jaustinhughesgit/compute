@@ -13,11 +13,15 @@
  *   POST  /cookies/live/start              { displayName? }
  *   POST  /cookies/live/stop               { displayName? }
  *
- *   GET   /cookies/webrtc/bootstrap        → { region, identityPoolId|null }
+ *   GET   /cookies/webrtc/bootstrap        → { region, identityPoolId: null }
+ *   GET   /cookies/webrtc/creds?channelName=<name>
+ *   POST  /cookies/webrtc/link-storage     { channelArn, streamArn }
+ *   POST  /cookies/webrtc/unlink-storage   { channelArn }
+ *   POST  /cookies/webrtc/join-storage     { channelArn }  // usually called by MASTER client
  *
  * Notes:
- * - This relies on your manageCookie() middleware already running in setupRouter()
- *   so req.cookies contains { e: <userID>, su: <subdomain> }.
+ * - Relies on manageCookie() middleware (req.cookies contains { e: <userID>, su: <subdomain> }).
+ * - No Cognito. Browsers receive short-lived STS credentials to sign KVS WebRTC requests.
  */
 
 function register({ on, use }) {
@@ -34,64 +38,67 @@ function register({ on, use }) {
   const PRESENCE_TABLE = process.env.PRESENCE_TABLE || "presence";
   const PRESENCE_TTL_SECONDS = parseInt(process.env.PRESENCE_TTL_SECONDS || "120", 10);
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
-  const COGNITO_IDENTITY_POOL_ID = process.env.COGNITO_IDENTITY_POOL_ID || null;
 
-  const kv = new AWS.KinesisVideo({ apiVersion: "2017-09-30", region: REGION });
+  // STS role that the server will assume on behalf of the browser
+  const KVS_BROWSER_ROLE_ARN = process.env.KVS_BROWSER_ROLE_ARN || null;
+  const KVS_BROWSER_EXTERNAL_ID = process.env.KVS_BROWSER_EXTERNAL_ID || null; // optional, if trust requires it
+  const STS_DURATION_SECS = parseInt(process.env.KVS_STS_DURATION_SECS || "900", 10);
 
-// ---------- helpers ----------
-const nowSecs = () => Math.floor(Date.now() / 1000);
-const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
-const asID = (v) => String(v ?? "").trim();   // <—— NEW: normalize user IDs as strings
+  const kv  = new AWS.KinesisVideo({ apiVersion: "2017-09-30", region: REGION });
+  const kvsStorage = new AWS.KinesisVideoWebRTCStorage({ apiVersion: "2019-12-31", region: REGION });
+  const STS = new AWS.STS();
 
+  // ---------- helpers ----------
+  const nowSecs = () => Math.floor(Date.now() / 1000);
+  const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
+  const asID = (v) => String(v ?? "").trim();
 
-function requireUserId(ctx) {
-  const raw = ctx?.req?.cookies?.e;
-  const uid = asID(raw);                        // <—— CHANGED
-  if (!uid) {
-    return { error: { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) } };
+  function requireUserId(ctx) {
+    const raw = ctx?.req?.cookies?.e;
+    const uid = asID(raw);
+    if (!uid) {
+      return { error: { statusCode: 401, body: JSON.stringify({ error: "no_user_cookie" }) } };
+    }
+    return { userID: uid };
   }
-  return { userID: uid };                       // always a string
-}
 
+  async function upsertPresence({ userID, su, displayName, status, channelName = null, channelArn = null }) {
+    const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
+    const item = {
+      userID: asID(userID),
+      su: su || null,
+      displayName: (displayName || "Anonymous").toString().slice(0, 80),
+      status,                                     // "online" | "live"
+      updatedAt: Date.now(),
+      ttl,
+      channelName,
+      channelArn,
+      region: REGION,
+    };
+    await ddb.put({ TableName: PRESENCE_TABLE, Item: item }).promise();
+    return item;
+  }
 
-async function upsertPresence({ userID, su, displayName, status, channelName = null, channelArn = null }) {
-  const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
-  const item = {
-    userID: asID(userID),                       // <—— CHANGED
-    su: su || null,
-    displayName: (displayName || "Anonymous").toString().slice(0, 80),
-    status,                                     // "online" | "live"
-    updatedAt: Date.now(),
-    ttl,
-    channelName,
-    channelArn,
-    region: REGION,
-  };
-  await ddb.put({ TableName: PRESENCE_TABLE, Item: item }).promise();
-  return item;
-}
+  async function heartbeatPresence(userID) {
+    const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
+    await ddb.update({
+      TableName: PRESENCE_TABLE,
+      Key: { userID: asID(userID) },
+      UpdateExpression: "SET #u = :u, #ttl = :ttl",
+      ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
+      ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
+    }).promise();
+  }
 
-async function heartbeatPresence(userID) {
-  const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
-  await ddb.update({
-    TableName: PRESENCE_TABLE,
-    Key: { userID: asID(userID) },              // <—— CHANGED
-    UpdateExpression: "SET #u = :u, #ttl = :ttl",
-    ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
-    ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
-  }).promise();
-}
-
-async function setOffline(userID) {
-  await ddb.update({
-    TableName: PRESENCE_TABLE,
-    Key: { userID: asID(userID) },              // <—— CHANGED
-    UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
-    ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
-    ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
-  }).promise();
-}
-
+  async function setOffline(userID) {
+    await ddb.update({
+      TableName: PRESENCE_TABLE,
+      Key: { userID: asID(userID) },
+      UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
+      ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
+      ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
+    }).promise();
+  }
 
   async function queryActiveByStatus(status, limit = 50) {
     const params = {
@@ -109,8 +116,8 @@ async function setOffline(userID) {
   }
 
   async function ensureSignalingChannelForUser(userID) {
-    const idStr = asID(userID);                   // <—— NEW
-    const channelName = `${KVS_CHANNEL_PREFIX}${userID}`;
+    const idStr = asID(userID);
+    const channelName = `${KVS_CHANNEL_PREFIX}${idStr}`;
     let channelArn;
     try {
       const desc = await kv.describeSignalingChannel({ ChannelName: channelName }).promise();
@@ -136,6 +143,58 @@ async function setOffline(userID) {
     return segs[0] || ""; // first tail segment after the action
   }
 
+  async function issueKvsCreds({ userID, channelArn = null }) {
+    if (!KVS_BROWSER_ROLE_ARN) {
+      return {
+        error: {
+          statusCode: 500,
+          body: JSON.stringify({ error: "server_not_configured", message: "KVS_BROWSER_ROLE_ARN not set" })
+        }
+      };
+    }
+
+    // Scope the browser session to minimal permissions. You can further restrict Resource to channelArn/*.
+    const sessionPolicy = {
+      Version: "2012-10-17",
+      Statement: [
+        {
+          Effect: "Allow",
+          Action: [
+            "kinesisvideo:DescribeSignalingChannel",
+            "kinesisvideo:GetSignalingChannelEndpoint",
+            "kinesisvideo:GetIceServerConfig",
+            "kinesisvideo:ConnectAsMaster",
+            "kinesisvideo:ConnectAsViewer",
+            "kinesisvideo:DescribeMediaStorageConfiguration",
+            "kinesisvideo:UpdateMediaStorageConfiguration"
+          ],
+          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*"
+        },
+        {
+          Effect: "Allow",
+          Action: [
+            "kinesisvideo:JoinStorageSession",
+            "kinesisvideo:JoinStorageSessionAsViewer"
+          ],
+          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*"
+        }
+      ]
+    };
+
+    const params = {
+      RoleArn: KVS_BROWSER_ROLE_ARN,
+      RoleSessionName: `kvs-${asID(userID)}`,
+      DurationSeconds: STS_DURATION_SECS,
+      Policy: JSON.stringify(sessionPolicy),
+      Tags: [{ Key: "uid", Value: asID(userID) }],
+      TransitiveTagKeys: ["uid"]
+    };
+    if (KVS_BROWSER_EXTERNAL_ID) params.ExternalId = KVS_BROWSER_EXTERNAL_ID;
+
+    const out = await STS.assumeRole(params).promise();
+    return { creds: out.Credentials };
+  }
+
   // ---------- presence ----------
   on("presence", async (ctx) => {
     const sp = subPath(ctx);
@@ -143,8 +202,7 @@ async function setOffline(userID) {
     const body = unwrapBody(outer) || {};
 
     const idRes = requireUserId(ctx);
-
-    if (idRes.statusCode) return idRes; // early 401
+    if (idRes.error) return idRes.error;
     const userID = idRes.userID;
     const su = String(ctx?.req?.cookies?.su || "").trim() || null;
 
@@ -164,22 +222,26 @@ async function setOffline(userID) {
       return { ok: true };
     }
 
-if (sp === "active") {
-  const limit = Math.max(1, Math.min(200, Number(ctx?.req?.query?.limit || 50)));
-  const [online, live] = await Promise.all([
-    queryActiveByStatus("online", limit),
-    queryActiveByStatus("live", limit),
-  ]);
-  const meStr = asID(userID);                   // <—— NEW
-  const filteredOnline = online.filter(u => asID(u.userID) !== meStr);  // <—— CHANGED
-  const filteredLive   = live.filter(u => asID(u.userID) !== meStr);    // <—— CHANGED
-  return { ok: true, me: { userID: meStr, su }, active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length } };
-}
+    if (sp === "active") {
+      const limit = Math.max(1, Math.min(200, Number(ctx?.req?.query?.limit || 50)));
+      const [online, live] = await Promise.all([
+        queryActiveByStatus("online", limit),
+        queryActiveByStatus("live", limit),
+      ]);
+      const meStr = asID(userID);
+      const filteredOnline = online.filter(u => asID(u.userID) !== meStr);
+      const filteredLive   = live.filter(u => asID(u.userID) !== meStr);
+      return {
+        ok: true,
+        me: { userID: meStr, su },
+        active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length }
+      };
+    }
 
-if (sp === "me") {
-  const meStr = asID(userID);                   // <—— NEW
-  return { ok: true, me: { userID: meStr, su } };
-}
+    if (sp === "me") {
+      const meStr = asID(userID);
+      return { ok: true, me: { userID: meStr, su } };
+    }
 
     return { statusCode: 404, body: JSON.stringify({ error: "unknown_presence_path" }) };
   });
@@ -215,12 +277,73 @@ if (sp === "me") {
     return { statusCode: 404, body: JSON.stringify({ error: "unknown_live_path" }) };
   });
 
-  // ---------- lightweight bootstrap ----------
+  // ---------- WebRTC / Storage (no Cognito) ----------
   on("webrtc", async (ctx) => {
     const sp = subPath(ctx);
+    const idRes = requireUserId(ctx);
+    if (idRes.error) return idRes.error;
+
     if (sp === "bootstrap") {
-      return { region: REGION, identityPoolId: COGNITO_IDENTITY_POOL_ID };
+      // Keep signature identical for callers; identityPoolId is intentionally null
+      return { region: REGION, identityPoolId: null };
     }
+
+    if (sp === "creds") {
+      // Issue short-lived STS creds for browser to sign KVS WebRTC calls
+      const channelName = ctx?.req?.query?.channelName || null;
+      let channelArn = null;
+      if (channelName) {
+        try {
+          const d = await kv.describeSignalingChannel({ ChannelName: channelName }).promise();
+          channelArn = d.ChannelInfo.ChannelARN;
+        } catch (e) {
+          if (!(e && e.code === "ResourceNotFoundException")) throw e;
+        }
+      }
+      const out = await issueKvsCreds({ userID: idRes.userID, channelArn });
+      if (out.error) return out.error;
+      return { region: REGION, channelArn, creds: out.creds };
+    }
+
+    if (sp === "link-storage") {
+      const outer = ctx?.req?.body || {};
+      const body = unwrapBody(outer) || {};
+      const { channelArn, streamArn } = body || {};
+      if (!channelArn || !streamArn) {
+        return { statusCode: 400, body: JSON.stringify({ error: "channelArn_and_streamArn_required" }) };
+      }
+      await kv.updateMediaStorageConfiguration({
+        ChannelARN: channelArn,
+        MediaStorageConfiguration: { Status: "ENABLED", StreamARN: streamArn }
+      }).promise();
+      return { ok: true };
+    }
+
+    if (sp === "unlink-storage") {
+      const outer = ctx?.req?.body || {};
+      const body = unwrapBody(outer) || {};
+      const { channelArn } = body || {};
+      if (!channelArn) {
+        return { statusCode: 400, body: JSON.stringify({ error: "channelArn_required" }) };
+      }
+      await kv.updateMediaStorageConfiguration({
+        ChannelARN: channelArn,
+        MediaStorageConfiguration: { Status: "DISABLED", StreamARN: "null" }
+      }).promise();
+      return { ok: true };
+    }
+
+    if (sp === "join-storage") {
+      const outer = ctx?.req?.body || {};
+      const body = unwrapBody(outer) || {};
+      const { channelArn } = body || {};
+      if (!channelArn) {
+        return { statusCode: 400, body: JSON.stringify({ error: "channelArn_required" }) };
+      }
+      await kvsStorage.joinStorageSession({ ChannelArn: channelArn }).promise();
+      return { ok: true };
+    }
+
     return { statusCode: 404, body: JSON.stringify({ error: "unknown_webrtc_path" }) };
   });
 
