@@ -10,7 +10,7 @@
  *   GET   /cookies/presence/active         (?limit=50)
  *   GET   /cookies/presence/me             → { userID, su? }
  *
- *   // Invite flow:
+ *   // NEW invite flow:
  *   POST  /cookies/presence/invite         { to, fromName?, channelName? }
  *   GET   /cookies/presence/inbox          → { invites: [...] }
  *   POST  /cookies/presence/ack?id=<inviteId>
@@ -32,29 +32,28 @@
 function register({ on, use }) {
   const {
     getDocClient,
-    deps, // { AWS, openai, Anthropic, dynamodb, ... }
-    moment, // optional
+    deps,            // { AWS, openai, Anthropic, dynamodb, ... }
+    moment,          // (from shared) optional, not required here
   } = use();
 
   const AWS = deps?.AWS || require("aws-sdk");
   const ddb = getDocClient();
-  const { randomUUID } = require("crypto");
 
   const REGION = process.env.AWS_REGION || "us-east-1";
   const PRESENCE_TABLE = process.env.PRESENCE_TABLE || "presence";
   const PRESENCE_TTL_SECONDS = parseInt(process.env.PRESENCE_TTL_SECONDS || "120", 10);
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
 
-  // Invites table (+ GSI to-createdAt-index)
+  // NEW: invites table
   const INVITES_TABLE = process.env.INVITES_TABLE || "presence_invites";
+  // GSI expected: to-createdAt-index (PK: to [S], SK: createdAt [N])
 
   // STS role that the server will assume on behalf of the browser
-  const KVS_BROWSER_ROLE_ARN =
-    process.env.KVS_BROWSER_ROLE_ARN || "arn:aws:iam::536814921035:role/KVSBrowserSessionRole";
+  const KVS_BROWSER_ROLE_ARN = process.env.KVS_BROWSER_ROLE_ARN || "arn:aws:iam::536814921035:role/KVSBrowserSessionRole";
   const KVS_BROWSER_EXTERNAL_ID = process.env.KVS_BROWSER_EXTERNAL_ID || null; // optional, if trust requires it
   const STS_DURATION_SECS = parseInt(process.env.KVS_STS_DURATION_SECS || "900", 10);
 
-  const kv = new AWS.KinesisVideo({ apiVersion: "2017-09-30", region: REGION });
+  const kv  = new AWS.KinesisVideo({ apiVersion: "2017-09-30", region: REGION });
   const kvsStorage = new AWS.KinesisVideoWebRTCStorage({ apiVersion: "2019-12-31", region: REGION });
   const STS = new AWS.STS();
 
@@ -62,15 +61,6 @@ function register({ on, use }) {
   const nowSecs = () => Math.floor(Date.now() / 1000);
   const unwrapBody = (b) => (b && typeof b === "object" && b.body && typeof b.body === "object") ? b.body : b;
   const asID = (v) => String(v ?? "").trim();
-
-  // Always make a STRING id
-  function newId() {
-    try {
-      if (typeof randomUUID === "function") return randomUUID();
-    } catch {}
-    // safe fallback: all-string, no numbers type-wise in DynamoDB
-    return `inv_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
-  }
 
   function requireUserId(ctx) {
     const raw = ctx?.req?.cookies?.e;
@@ -87,7 +77,7 @@ function register({ on, use }) {
       userID: asID(userID),
       su: su || null,
       displayName: (displayName || "Anonymous").toString().slice(0, 80),
-      status, // "online" | "live"
+      status,                                     // "online" | "live"
       updatedAt: Date.now(),
       ttl,
       channelName,
@@ -100,27 +90,23 @@ function register({ on, use }) {
 
   async function heartbeatPresence(userID) {
     const ttl = nowSecs() + PRESENCE_TTL_SECONDS;
-    await ddb
-      .update({
-        TableName: PRESENCE_TABLE,
-        Key: { userID: asID(userID) },
-        UpdateExpression: "SET #u = :u, #ttl = :ttl",
-        ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
-        ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
-      })
-      .promise();
+    await ddb.update({
+      TableName: PRESENCE_TABLE,
+      Key: { userID: asID(userID) },
+      UpdateExpression: "SET #u = :u, #ttl = :ttl",
+      ExpressionAttributeNames: { "#u": "updatedAt", "#ttl": "ttl" },
+      ExpressionAttributeValues: { ":u": Date.now(), ":ttl": ttl },
+    }).promise();
   }
 
   async function setOffline(userID) {
-    await ddb
-      .update({
-        TableName: PRESENCE_TABLE,
-        Key: { userID: asID(userID) },
-        UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
-        ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
-        ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
-      })
-      .promise();
+    await ddb.update({
+      TableName: PRESENCE_TABLE,
+      Key: { userID: asID(userID) },
+      UpdateExpression: "SET #ttl = :ttl, #u = :u, #s = :s",
+      ExpressionAttributeNames: { "#ttl": "ttl", "#u": "updatedAt", "#s": "status" },
+      ExpressionAttributeValues: { ":ttl": nowSecs() - 1, ":u": Date.now(), ":s": "online" },
+    }).promise();
   }
 
   async function queryActiveByStatus(status, limit = 50) {
@@ -147,13 +133,11 @@ function register({ on, use }) {
       channelArn = desc.ChannelInfo.ChannelARN;
     } catch (e) {
       if (e && e.code === "ResourceNotFoundException") {
-        const created = await kv
-          .createSignalingChannel({
-            ChannelName: channelName,
-            ChannelType: "SINGLE_MASTER",
-            SingleMasterConfiguration: { MessageTtlSeconds: 60 },
-          })
-          .promise();
+        const created = await kv.createSignalingChannel({
+          ChannelName: channelName,
+          ChannelType: "SINGLE_MASTER",
+          SingleMasterConfiguration: { MessageTtlSeconds: 60 },
+        }).promise();
         channelArn = created.ChannelARN;
       } else {
         throw e;
@@ -173,8 +157,8 @@ function register({ on, use }) {
       return {
         error: {
           statusCode: 500,
-          body: JSON.stringify({ error: "server_not_configured", message: "KVS_BROWSER_ROLE_ARN not set" }),
-        },
+          body: JSON.stringify({ error: "server_not_configured", message: "KVS_BROWSER_ROLE_ARN not set" })
+        }
       };
     }
 
@@ -191,16 +175,19 @@ function register({ on, use }) {
             "kinesisvideo:ConnectAsMaster",
             "kinesisvideo:ConnectAsViewer",
             "kinesisvideo:DescribeMediaStorageConfiguration",
-            "kinesisvideo:UpdateMediaStorageConfiguration",
+            "kinesisvideo:UpdateMediaStorageConfiguration"
           ],
-          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*",
+          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*"
         },
         {
           Effect: "Allow",
-          Action: ["kinesisvideo:JoinStorageSession", "kinesisvideo:JoinStorageSessionAsViewer"],
-          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*",
-        },
-      ],
+          Action: [
+            "kinesisvideo:JoinStorageSession",
+            "kinesisvideo:JoinStorageSessionAsViewer"
+          ],
+          Resource: channelArn ? [channelArn, `${channelArn}/*`] : "*"
+        }
+      ]
     };
 
     const params = {
@@ -209,7 +196,7 @@ function register({ on, use }) {
       DurationSeconds: STS_DURATION_SECS,
       Policy: JSON.stringify(sessionPolicy),
       Tags: [{ Key: "uid", Value: asID(userID) }],
-      TransitiveTagKeys: ["uid"],
+      TransitiveTagKeys: ["uid"]
     };
     if (KVS_BROWSER_EXTERNAL_ID) params.ExternalId = KVS_BROWSER_EXTERNAL_ID;
 
@@ -219,15 +206,15 @@ function register({ on, use }) {
 
   // ---------- invites helpers ----------
   async function putInvite({ to, from, fromName, channelName }) {
-    const id = newId(); // always STRING
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const item = {
       id,
       to: asID(to),
       from: asID(from),
       fromName: (fromName || "Anonymous").toString().slice(0, 80),
       channelName: channelName || null,
-      createdAt: Date.now(), // Number (ms) — used as GSI sort key
-      ttl: nowSecs() + 60,   // Number (sec) — TTL attribute
+      createdAt: Date.now(),      // ms since epoch
+      ttl: nowSecs() + 60         // auto-expire in ~60 seconds
     };
     await ddb.put({ TableName: INVITES_TABLE, Item: item }).promise();
     return item;
@@ -236,20 +223,20 @@ function register({ on, use }) {
   async function listInvitesFor(to) {
     const params = {
       TableName: INVITES_TABLE,
-      IndexName: "to-createdAt-index", // GSI: PK=to(S), SK=createdAt(N)
+      IndexName: "to-createdAt-index", // GSI: PK=to, SK=createdAt
       KeyConditionExpression: "#to = :to",
       ExpressionAttributeNames: { "#to": "to", "#ttl": "ttl" },
       ExpressionAttributeValues: { ":to": asID(to), ":now": nowSecs() },
       FilterExpression: "attribute_not_exists(#ttl) OR #ttl > :now",
       ScanIndexForward: false, // newest first
-      Limit: 20,
+      Limit: 20
     };
     const out = await ddb.query(params).promise();
     return out.Items || [];
   }
 
   async function deleteInvite(id) {
-    await ddb.delete({ TableName: INVITES_TABLE, Key: { id: asID(id) } }).promise();
+    await ddb.delete({ TableName: INVITES_TABLE, Key: { id } }).promise();
   }
 
   // ---------- presence ----------
@@ -286,12 +273,12 @@ function register({ on, use }) {
         queryActiveByStatus("live", limit),
       ]);
       const meStr = asID(userID);
-      const filteredOnline = online.filter((u) => asID(u.userID) !== meStr);
-      const filteredLive = live.filter((u) => asID(u.userID) !== meStr);
+      const filteredOnline = online.filter(u => asID(u.userID) !== meStr);
+      const filteredLive   = live.filter(u => asID(u.userID) !== meStr);
       return {
         ok: true,
         me: { userID: meStr, su },
-        active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length },
+        active: { online: filteredOnline, live: filteredLive, allCount: filteredOnline.length + filteredLive.length }
       };
     }
 
@@ -300,11 +287,11 @@ function register({ on, use }) {
       return { ok: true, me: { userID: meStr, su } };
     }
 
-    // --- invites API ---
+    // --- NEW: invites API ---
     if (sp === "invite") {
       const to = asID(body.to);
       const fromName = (body.fromName || "").toString().slice(0, 80) || "Anonymous";
-      const channelName = body.channelName || null;
+      const channelName = (body.channelName || null);
 
       if (!to) return { statusCode: 400, body: JSON.stringify({ error: "missing_to" }) };
       if (to === asID(userID)) return { statusCode: 400, body: JSON.stringify({ error: "cannot_invite_self" }) };
@@ -342,14 +329,7 @@ function register({ on, use }) {
     if (sp === "start") {
       const displayName = (body.displayName || "").toString().slice(0, 80) || "Anonymous";
       const { channelName, channelArn } = await ensureSignalingChannelForUser(userID);
-      const item = await upsertPresence({
-        userID,
-        su,
-        displayName,
-        status: "live",
-        channelName,
-        channelArn,
-      });
+      const item = await upsertPresence({ userID, su, displayName, status: "live", channelName, channelArn });
       return {
         ok: true,
         me: { userID, su, displayName: item.displayName },
@@ -359,14 +339,7 @@ function register({ on, use }) {
 
     if (sp === "stop") {
       const displayName = (body.displayName || "").toString().slice(0, 80) || "Anonymous";
-      const item = await upsertPresence({
-        userID,
-        su,
-        displayName,
-        status: "online",
-        channelName: null,
-        channelArn: null,
-      });
+      const item = await upsertPresence({ userID, su, displayName, status: "online", channelName: null, channelArn: null });
       return { ok: true, me: { userID, su, displayName: item.displayName } };
     }
 
@@ -380,6 +353,7 @@ function register({ on, use }) {
     if (idRes.error) return idRes.error;
 
     if (sp === "bootstrap") {
+      // Keep signature identical for callers; identityPoolId is intentionally null
       return { region: REGION, identityPoolId: null };
     }
 
@@ -407,12 +381,10 @@ function register({ on, use }) {
       if (!channelArn || !streamArn) {
         return { statusCode: 400, body: JSON.stringify({ error: "channelArn_and_streamArn_required" }) };
       }
-      await kv
-        .updateMediaStorageConfiguration({
-          ChannelARN: channelArn,
-          MediaStorageConfiguration: { Status: "ENABLED", StreamARN: streamArn },
-        })
-        .promise();
+      await kv.updateMediaStorageConfiguration({
+        ChannelARN: channelArn,
+        MediaStorageConfiguration: { Status: "ENABLED", StreamARN: streamArn }
+      }).promise();
       return { ok: true };
     }
 
@@ -423,12 +395,10 @@ function register({ on, use }) {
       if (!channelArn) {
         return { statusCode: 400, body: JSON.stringify({ error: "channelArn_required" }) };
       }
-      await kv
-        .updateMediaStorageConfiguration({
-          ChannelARN: channelArn,
-          MediaStorageConfiguration: { Status: "DISABLED", StreamARN: "null" },
-        })
-        .promise();
+      await kv.updateMediaStorageConfiguration({
+        ChannelARN: channelArn,
+        MediaStorageConfiguration: { Status: "DISABLED", StreamARN: "null" }
+      }).promise();
       return { ok: true };
     }
 
