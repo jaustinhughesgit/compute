@@ -10,6 +10,11 @@
  *   GET   /cookies/presence/active         (?limit=50)
  *   GET   /cookies/presence/me             → { userID, su? }
  *
+ *   // NEW invite flow:
+ *   POST  /cookies/presence/invite         { to, fromName?, channelName? }
+ *   GET   /cookies/presence/inbox          → { invites: [...] }
+ *   POST  /cookies/presence/ack?id=<inviteId>
+ *
  *   POST  /cookies/live/start              { displayName? }
  *   POST  /cookies/live/stop               { displayName? }
  *
@@ -38,6 +43,10 @@ function register({ on, use }) {
   const PRESENCE_TABLE = process.env.PRESENCE_TABLE || "presence";
   const PRESENCE_TTL_SECONDS = parseInt(process.env.PRESENCE_TTL_SECONDS || "120", 10);
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
+
+  // NEW: invites table
+  const INVITES_TABLE = process.env.INVITES_TABLE || "presence_invites";
+  // GSI expected: to-createdAt-index (PK: to [S], SK: createdAt [N])
 
   // STS role that the server will assume on behalf of the browser
   const KVS_BROWSER_ROLE_ARN = process.env.KVS_BROWSER_ROLE_ARN || "arn:aws:iam::536814921035:role/KVSBrowserSessionRole";
@@ -195,6 +204,41 @@ function register({ on, use }) {
     return { creds: out.Credentials };
   }
 
+  // ---------- invites helpers ----------
+  async function putInvite({ to, from, fromName, channelName }) {
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const item = {
+      id,
+      to: asID(to),
+      from: asID(from),
+      fromName: (fromName || "Anonymous").toString().slice(0, 80),
+      channelName: channelName || null,
+      createdAt: Date.now(),      // ms since epoch
+      ttl: nowSecs() + 60         // auto-expire in ~60 seconds
+    };
+    await ddb.put({ TableName: INVITES_TABLE, Item: item }).promise();
+    return item;
+  }
+
+  async function listInvitesFor(to) {
+    const params = {
+      TableName: INVITES_TABLE,
+      IndexName: "to-createdAt-index", // GSI: PK=to, SK=createdAt
+      KeyConditionExpression: "#to = :to",
+      ExpressionAttributeNames: { "#to": "to", "#ttl": "ttl" },
+      ExpressionAttributeValues: { ":to": asID(to), ":now": nowSecs() },
+      FilterExpression: "attribute_not_exists(#ttl) OR #ttl > :now",
+      ScanIndexForward: false, // newest first
+      Limit: 20
+    };
+    const out = await ddb.query(params).promise();
+    return out.Items || [];
+  }
+
+  async function deleteInvite(id) {
+    await ddb.delete({ TableName: INVITES_TABLE, Key: { id } }).promise();
+  }
+
   // ---------- presence ----------
   on("presence", async (ctx) => {
     const sp = subPath(ctx);
@@ -241,6 +285,31 @@ function register({ on, use }) {
     if (sp === "me") {
       const meStr = asID(userID);
       return { ok: true, me: { userID: meStr, su } };
+    }
+
+    // --- NEW: invites API ---
+    if (sp === "invite") {
+      const to = asID(body.to);
+      const fromName = (body.fromName || "").toString().slice(0, 80) || "Anonymous";
+      const channelName = (body.channelName || null);
+
+      if (!to) return { statusCode: 400, body: JSON.stringify({ error: "missing_to" }) };
+      if (to === asID(userID)) return { statusCode: 400, body: JSON.stringify({ error: "cannot_invite_self" }) };
+
+      const inv = await putInvite({ to, from: userID, fromName, channelName });
+      return { ok: true, inviteId: inv.id };
+    }
+
+    if (sp === "inbox") {
+      const items = await listInvitesFor(userID);
+      return { ok: true, invites: items };
+    }
+
+    if (sp === "ack") {
+      const id = asID(ctx?.req?.query?.id);
+      if (!id) return { statusCode: 400, body: JSON.stringify({ error: "missing_id" }) };
+      await deleteInvite(id);
+      return { ok: true };
     }
 
     return { statusCode: 404, body: JSON.stringify({ error: "unknown_presence_path" }) };
