@@ -9,10 +9,23 @@ function register({ on, use }) {
       const { req, res, path, signer } = ctx;
       const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
 
-      // Normalize headers (preserve legacy X-accessToken casing)
+      // ─────────────────────────────────────────────────────────────
+      // 1) Normalize headers AND ensure req.body is an object
+      //    (req.body may arrive as a string from some clients)
+      // ─────────────────────────────────────────────────────────────
       if (req) {
-        req.body = req.body || {};
         const rawHeaders = req.headers || {};
+
+        // Ensure req.body is an object
+        if (typeof req.body !== "object" || req.body === null) {
+          try {
+            req.body = JSON.parse(req.body ?? "{}");
+          } catch {
+            req.body = {};
+          }
+        }
+
+        // Attach headers (preserve legacy X-accessToken casing)
         req.body.headers = { ...(req.body.headers || {}), ...rawHeaders };
         if (rawHeaders["x-accesstoken"] && !req.body.headers["X-accessToken"]) {
           req.body.headers["X-accessToken"] = rawHeaders["x-accesstoken"];
@@ -21,7 +34,9 @@ function register({ on, use }) {
         }
       }
 
-      // Resolve user id from cookie (default 0 to preserve legacy flows)
+      // ─────────────────────────────────────────────────────────────
+      // 2) Resolve user id from cookie (default 0 to preserve legacy flows)
+      // ─────────────────────────────────────────────────────────────
       let e = 0;
       try {
         const xAccessToken = req?.body?.headers?.["X-accessToken"];
@@ -34,38 +49,85 @@ function register({ on, use }) {
         // ignore cookie errors
       }
 
-      // Envelope normalization
-      const rawBody = (req && req.body) || {};
-      const body =
-        rawBody && typeof rawBody === "object" && rawBody.body && typeof rawBody.body === "object"
-          ? rawBody
-          : { body: rawBody };
+      // ─────────────────────────────────────────────────────────────
+      // 3) Envelope normalization (robust to body being a string)
+      //    Final shape we want: { body: <object> }
+      // ─────────────────────────────────────────────────────────────
+      const rawBody = req ? req.body : {};
+      let body;
 
-      // Workspace id from path: /cookies/convert/<workspaceId>
+      if (typeof rawBody === "string") {
+        // If the transport left us a string, try to parse; if it's a bare
+        // sentence, treat it as `{ prompt: <string> }`.
+        try {
+          const parsed = JSON.parse(rawBody);
+          body =
+            parsed && typeof parsed === "object" && parsed.body && typeof parsed.body === "object"
+              ? parsed
+              : { body: parsed };
+        } catch {
+          body = { body: { prompt: rawBody } };
+        }
+      } else if (rawBody && typeof rawBody === "object") {
+        body =
+          rawBody.body && typeof rawBody.body === "object"
+            ? rawBody
+            : { body: rawBody };
+      } else {
+        body = { body: {} };
+      }
+
+      // ─────────────────────────────────────────────────────────────
+      // 4) Workspace id from path: /cookies/convert/<workspaceId>
+      // ─────────────────────────────────────────────────────────────
       const segs = String(path || "").split("?")[0].split("/").filter(Boolean);
       const convertIdx = segs.findIndex((s) => s === "convert");
       let actionFile = (convertIdx >= 0 ? segs[convertIdx + 1] : segs[segs.length - 1]) || "";
 
       // ─────────────────────────────────────────────────────────────
-      // Determine requestOnly FIRST (so it exists before any usage)
+      // 5) Determine requestOnly FIRST (so it exists before any usage)
       // ─────────────────────────────────────────────────────────────
       const requestOnly = !!body.body?.requestOnly;
 
-      // Safe prompt parse helper
+      // ─────────────────────────────────────────────────────────────
+      // 6) Safe prompt parser:
+      //    - Accepts object, JSON string, or plain natural-language string
+      //    - Normalizes { prompt: "..." } → { userRequest: "..." }
+      //    - Ensures relevantItems is an array
+      // ─────────────────────────────────────────────────────────────
       function parsePrompt(p) {
         if (!p) return {};
-        if (typeof p === "string") {
-          try {
-            return JSON.parse(p);
-          } catch {
-            return {};
+        if (p && typeof p === "object") {
+          let obj = { ...p };
+          if (typeof obj.userRequest !== "string" && typeof obj.prompt === "string") {
+            obj.userRequest = obj.prompt;
           }
+          if (!Array.isArray(obj.relevantItems)) obj.relevantItems = obj.relevantItems ?? [];
+          return obj;
         }
-        return p;
+        const s = String(p).trim();
+        if (!s) return {};
+        try {
+          const asObj = JSON.parse(s);
+          if (asObj && typeof asObj === "object") {
+            if (typeof asObj.userRequest !== "string" && typeof asObj.prompt === "string") {
+              asObj.userRequest = asObj.prompt;
+            }
+            if (!Array.isArray(asObj.relevantItems)) asObj.relevantItems = asObj.relevantItems ?? [];
+            return asObj;
+          }
+        } catch {
+          // Plain sentence → wrap
+          return { userRequest: s, relevantItems: [] };
+        }
+        return {};
       }
+
       const promptObjForEssence = parsePrompt(body.body?.prompt);
 
-      // Essence word extraction (when output === "$essence", or requestOnly mode)
+      // ─────────────────────────────────────────────────────────────
+      // 7) Essence word extraction (when output === "$essence", or requestOnly mode)
+      // ─────────────────────────────────────────────────────────────
       let out = "";
       if (req?.body?.output === "$essence") {
         out = String(promptObjForEssence?.userRequest || "");
@@ -74,7 +136,9 @@ function register({ on, use }) {
         out = String(promptObjForEssence?.userRequest || "");
       }
 
-      // Main flow
+      // ─────────────────────────────────────────────────────────────
+      // 8) Main flow
+      // ─────────────────────────────────────────────────────────────
       let mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
@@ -86,7 +150,7 @@ function register({ on, use }) {
       // If prompt supplied, we build arrayLogic from your fixed prompt template
       if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
-        const promptObj = typeof prompt === "string" ? JSON.parse(prompt || "{}") : prompt;
+        const promptObj = parsePrompt(prompt); // ← safe (no throws)
 
         const userPath = 1000000000000128;
 
@@ -354,7 +418,9 @@ function subdomains(domain){
         sourceType = "arrayLogic";
       }
 
-      // Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
+      // ─────────────────────────────────────────────────────────────
+      // 9) Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
+      // ─────────────────────────────────────────────────────────────
       const parseResults = await parseArrayLogic({
         arrayLogic,
         dynamodb,
@@ -474,7 +540,9 @@ function subdomains(domain){
         }
       }
 
-      // Final response envelope
+      // ─────────────────────────────────────────────────────────────
+      // 10) Final response envelope
+      // ─────────────────────────────────────────────────────────────
       mainObj = {
         parseResults,
         newShorthand,
