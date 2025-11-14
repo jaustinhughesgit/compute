@@ -136,14 +136,6 @@ function register({ on, use }) {
         out = String(promptObjForEssence?.userRequest || "");
       }
 
-
-  // If we only need the essence/requestOnly output, return early and
-  // avoid calling parseArrayLogic (which may expect arrayLogic/sourceType).
-  if ((req?.body?.output === "$essence") || requestOnly) {
-    return { ok: true, response: { conclusion: out } };
-  }
-
-
       // ─────────────────────────────────────────────────────────────
       // 8) Main flow
       // ─────────────────────────────────────────────────────────────
@@ -426,23 +418,11 @@ function subdomains(domain){
         sourceType = "arrayLogic";
       }
 
-
-      // Ensure actionFile is a safe non-empty string
-      if (!actionFile || typeof actionFile !== "string") {
-        actionFile = "default";
-      }
-
-      // 🔒 Normalize values handed to parseArrayLogic so `.includes` is safe downstream
-      const safeArrayLogic =
-        typeof arrayLogic === "string" || Array.isArray(arrayLogic) ? arrayLogic : "";
-      const safeSourceType = typeof sourceType === "string" ? sourceType : "";
-
-
       // ─────────────────────────────────────────────────────────────
       // 9) Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
       // ─────────────────────────────────────────────────────────────
       const parseResults = await parseArrayLogic({
-        arrayLogic: safeArrayLogic,
+        arrayLogic,
         dynamodb,
         uuidv4,
         s3,
@@ -450,11 +430,11 @@ function subdomains(domain){
         openai,
         Anthropic,
         dynamodbLL,
-        sourceType: safeSourceType,
+        sourceType,
         actionFile,
         out,
         e,
-        requestOnly: false, // already short-circuited above
+        requestOnly,
       });
 
       let newShorthand = null;
@@ -474,15 +454,20 @@ function subdomains(domain){
         }
 
         if (jsonpl?.published) {
-          // Run the prompt-generated shorthand as *virtual only*.
-          // Do NOT mix in the sender's published logic; we're creating a *new* entity.
-          const runEnvelope = { input: [{ virtual: virtualArray }] };
+          // Clone and prepare for runner
+          const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
+          const blocks = shorthandLogic.published?.blocks ?? [];
+          const originalPublished = shorthandLogic.published;
+
+          // Feed both "physical" and "virtual" inputs to runner
+          shorthandLogic.input = [{ virtual: virtualArray }];
+          shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
 
           const fakeReqPath = `/cookies/convert/${actionFile}`;
           const legacyReqBody = { body: body.body || {} };
 
-          const runResult = await shorthand(
-            runEnvelope,
+          newShorthand = await shorthand(
+            shorthandLogic,
             req,
             res,
             /* next */ undefined,
@@ -505,10 +490,13 @@ function subdomains(domain){
             ctx.xAccessToken
           );
 
-          // Extract conclusion payload (runner may wrap it)
-          const rawConclusion = JSON.parse(JSON.stringify(runResult?.conclusion || null));
- 
+          // Preserve original block listing
+          if (newShorthand?.published) {
+            newShorthand.published.blocks = blocks;
+          }
 
+          // Extract conclusion payload (runner may wrap it)
+          const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
           const conclusionValue =
             rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
               ? rawConclusion.value
@@ -522,12 +510,33 @@ function subdomains(domain){
             null;
           conclusion = conclusionValue;
 
-          // IMPORTANT: do **not** write back to the sender's actionFile here.
-          // The new entity was created/saved by the virtual run itself.
+          // Cleanup fields we don't want to echo
+          if (newShorthand) {
+            delete newShorthand.input;
+            delete newShorthand.conclusion;
+          }
 
-          // (optional) expose runResult if you want to inspect it client-side
-          newShorthand = undefined;
+          // Equality hint
+          if (parseResults) {
+            parseResults.isPublishedEqual =
+              JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
+          }
 
+          // Persist updated published logic when actionFile is provided
+          if (actionFile) {
+            try {
+              await s3
+                .putObject({
+                  Bucket: "public.1var.com",
+                  Key: actionFile,
+                  Body: JSON.stringify(newShorthand),
+                  ContentType: "application/json",
+                })
+                .promise();
+            } catch (err) {
+              console.error("S3 putObject failed:", err && err.message);
+            }
+          }
         }
       }
 
