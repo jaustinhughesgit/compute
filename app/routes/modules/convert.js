@@ -454,20 +454,15 @@ function subdomains(domain){
         }
 
         if (jsonpl?.published) {
-          // Clone and prepare for runner
-          const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
-          const blocks = shorthandLogic.published?.blocks ?? [];
-          const originalPublished = shorthandLogic.published;
-
-          // Feed both "physical" and "virtual" inputs to runner
-          shorthandLogic.input = [{ virtual: virtualArray }];
-          shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
+          // Run the prompt-generated shorthand as *virtual only*.
+          // Do NOT mix in the sender's published logic; we're creating a *new* entity.
+          const runEnvelope = { input: [{ virtual: virtualArray }] };
 
           const fakeReqPath = `/cookies/convert/${actionFile}`;
           const legacyReqBody = { body: body.body || {} };
 
-          newShorthand = await shorthand(
-            shorthandLogic,
+          const runResult = await shorthand(
+            runEnvelope,
             req,
             res,
             /* next */ undefined,
@@ -490,13 +485,10 @@ function subdomains(domain){
             ctx.xAccessToken
           );
 
-          // Preserve original block listing
-          if (newShorthand?.published) {
-            newShorthand.published.blocks = blocks;
-          }
-
           // Extract conclusion payload (runner may wrap it)
-          const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
+          const rawConclusion = JSON.parse(JSON.stringify(runResult?.conclusion || null));
+ 
+
           const conclusionValue =
             rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
               ? rawConclusion.value
@@ -510,33 +502,12 @@ function subdomains(domain){
             null;
           conclusion = conclusionValue;
 
-          // Cleanup fields we don't want to echo
-          if (newShorthand) {
-            delete newShorthand.input;
-            delete newShorthand.conclusion;
-          }
+          // IMPORTANT: do **not** write back to the sender's actionFile here.
+          // The new entity was created/saved by the virtual run itself.
 
-          // Equality hint
-          if (parseResults) {
-            parseResults.isPublishedEqual =
-              JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
-          }
+          // (optional) expose runResult if you want to inspect it client-side
+          newShorthand = undefined;
 
-          // Persist updated published logic when actionFile is provided
-          if (actionFile) {
-            try {
-              await s3
-                .putObject({
-                  Bucket: "public.1var.com",
-                  Key: actionFile,
-                  Body: JSON.stringify(newShorthand),
-                  ContentType: "application/json",
-                })
-                .promise();
-            } catch (err) {
-              console.error("S3 putObject failed:", err && err.message);
-            }
-          }
         }
       }
 

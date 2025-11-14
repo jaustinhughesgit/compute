@@ -1910,8 +1910,7 @@ return resp;
 } else {
   shorthandObj.conclusion = null;
 }
-    shorthandObj.published = rr0
-    shorthandObj.conclusion = "rr0"
+shorthandObj.published = rr0
 
     
   console.log("⇢ rowResult2", JSON.stringify(rowResult, null, 4));
