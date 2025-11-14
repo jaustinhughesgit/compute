@@ -136,6 +136,14 @@ function register({ on, use }) {
         out = String(promptObjForEssence?.userRequest || "");
       }
 
+
+  // If we only need the essence/requestOnly output, return early and
+  // avoid calling parseArrayLogic (which may expect arrayLogic/sourceType).
+  if ((req?.body?.output === "$essence") || requestOnly) {
+    return { ok: true, response: { conclusion: out } };
+  }
+
+
       // ─────────────────────────────────────────────────────────────
       // 8) Main flow
       // ─────────────────────────────────────────────────────────────
@@ -418,11 +426,23 @@ function subdomains(domain){
         sourceType = "arrayLogic";
       }
 
+
+      // Ensure actionFile is a safe non-empty string
+      if (!actionFile || typeof actionFile !== "string") {
+        actionFile = "default";
+      }
+
+      // 🔒 Normalize values handed to parseArrayLogic so `.includes` is safe downstream
+      const safeArrayLogic =
+        typeof arrayLogic === "string" || Array.isArray(arrayLogic) ? arrayLogic : "";
+      const safeSourceType = typeof sourceType === "string" ? sourceType : "";
+
+
       // ─────────────────────────────────────────────────────────────
       // 9) Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
       // ─────────────────────────────────────────────────────────────
       const parseResults = await parseArrayLogic({
-        arrayLogic,
+        arrayLogic: safeArrayLogic,
         dynamodb,
         uuidv4,
         s3,
@@ -430,11 +450,11 @@ function subdomains(domain){
         openai,
         Anthropic,
         dynamodbLL,
-        sourceType,
+        sourceType: safeSourceType,
         actionFile,
         out,
         e,
-        requestOnly,
+        requestOnly: false, // already short-circuited above
       });
 
       let newShorthand = null;
