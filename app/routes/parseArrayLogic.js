@@ -1715,6 +1715,16 @@ async function parseArrayLogic({
 
     const elem = resolvedLogic[i];
 
+
+
+
+
+    //systematically go throuogh and log and get the logic below here to create a new app using the curent mood and the user prompt. 
+    // Then apply add that mood to the primary entity.
+
+
+
+
     let fixedOutput;
     let fixedPossessed;
     let fixedDate;
