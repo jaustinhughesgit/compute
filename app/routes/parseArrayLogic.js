@@ -1,1117 +1,3 @@
-// parseArrayLogic.js
-/* ------------------------------------------------------------------ */
-/* Imports & constants                                                */
-/* ------------------------------------------------------------------ */
-
-const DOMAINS = [
-  "agriculture",
-  "architecture",
-  "biology",
-  "business",
-  "characteristic",
-  "chemistry",
-  "community",
-  "cosmology",
-  "economics",
-  "education",
-  "entertainment",
-  "environment",
-  "event",
-  "food",
-  "geology",
-  "geography",
-  "government",
-  "health",
-  "history",
-  "language",
-  "law",
-  "manufacturing",
-  "mathematics",
-  "people",
-  "psychology",
-  "philosophy",
-  "religion",
-  "sports",
-  "technology",
-  "transportation"
-]
-
-const DOMAIN_SUBS = {
-  "agriculture": [
-    "agroeconomics",
-    "agrochemicals",
-    "agronomy",
-    "agtech",
-    "animal-health",
-    "aquaculture",
-    "aquaponics",
-    "biodiversity",
-    "biotechnology",
-    "certification",
-    "climate",
-    "crop-production",
-    "dairy",
-    "data",
-    "education",
-    "engineering",
-    "farm-equipment",
-    "farm-management",
-    "finance",
-    "food-processing",
-    "food-safety",
-    "forestry",
-    "genetics",
-    "horticulture",
-    "hydroponics",
-    "irrigation",
-    "labor",
-    "land-use",
-    "livestock",
-    "marketing",
-    "mechanization",
-    "nutrition",
-    "organic-farming",
-    "pest-management",
-    "plant-health",
-    "policy",
-    "postharvest",
-    "precision-farming",
-    "research",
-    "robotics",
-    "rural-development",
-    "soil-science",
-    "supply-chain",
-    "sustainability",
-    "vertical-farming",
-    "waste-management",
-    "water-management",
-    "weed-management"
-  ],
-  "architecture": [
-    "styles",
-    "typologies",
-    "approaches",
-    "cultures",
-    "domains",
-    "structures",
-    "theory",
-    "history",
-    "practice",
-    "technology",
-    "construction",
-    "experience",
-    "safety",
-    "climate",
-    "materials",
-    "society",
-    "education"
-  ],
-  "biology": [
-    "anatomy",
-    "astrobiology",
-    "biochemistry",
-    "bioengineering",
-    "bioinformatics",
-    "biogeography",
-    "biomechanics",
-    "biomedical science",
-    "biophysics",
-    "biotechnology",
-    "botany",
-    "cell biology",
-    "chronobiology",
-    "conservation",
-    "cytogenetics",
-    "developmental biology",
-    "ecology",
-    "endocrinology",
-    "entomology",
-    "environmental biology",
-    "epidemiology",
-    "epigenetics",
-    "ethology",
-    "evolutionary biology",
-    "evo-devo",
-    "genetics",
-    "genomics",
-    "histology",
-    "immunology",
-    "marine biology",
-    "medical biology",
-    "microbiology",
-    "molecular biology",
-    "molecular genetics",
-    "mycology",
-    "neuroscience",
-    "nutritional biology",
-    "ornithology",
-    "paleobiology",
-    "parasitology",
-    "pathology",
-    "pharmacology",
-    "physiology",
-    "population biology",
-    "proteomics",
-    "public health",
-    "research",
-    "structural biology",
-    "systems biology",
-    "taxonomy",
-    "theoretical biology",
-    "toxicology",
-    "veterinary science",
-    "virology",
-    "wildlife biology",
-    "xenobiology"
-  ],
-  "business": [
-    "accounting",
-    "advertising",
-    "analytics",
-    "business-development",
-    "compliance",
-    "consulting",
-    "customer-service",
-    "data-science",
-    "economics",
-    "entrepreneurship",
-    "finance",
-    "human-resources",
-    "innovation",
-    "international-business",
-    "legal",
-    "logistics",
-    "management",
-    "marketing",
-    "operations",
-    "procurement",
-    "product-management",
-    "project-management",
-    "public-relations",
-    "research-and-development",
-    "sales",
-    "strategy",
-    "supply-chain",
-    "sustainability",
-    "taxation",
-    "training"
-  ],
-  "characteristic": [
-    "abstraction",
-    "aesthetics",
-    "authenticity",
-    "balance",
-    "calmness",
-    "clarity",
-    "color",
-    "complexity",
-    "consistency",
-    "contrast",
-    "convergence",
-    "density",
-    "dimension",
-    "durability",
-    "dynamism",
-    "elegance",
-    "energy",
-    "expression",
-    "fluidity",
-    "form",
-    "functionality",
-    "hardness",
-    "innovation",
-    "integration",
-    "intensity",
-    "logic",
-    "luster",
-    "movement",
-    "naturalness",
-    "novelty",
-    "nuance",
-    "passion",
-    "precision",
-    "proportion",
-    "rhythm",
-    "rigidity",
-    "scale",
-    "sensitivity",
-    "shape",
-    "sincerity",
-    "solidity",
-    "sophistication",
-    "structure",
-    "temperature",
-    "temporality",
-    "texture",
-    "timelessness",
-    "transformation",
-    "transparency",
-    "viscosity",
-    "weight"
-  ],
-  "chemistry": [
-    "agrochemical",
-    "analytical",
-    "atmospheric",
-    "biochemical",
-    "ceramic",
-    "chemical biology",
-    "chemical engineering",
-    "cheminformatics",
-    "computational",
-    "coordination",
-    "cosmetic",
-    "dye",
-    "electrochemical",
-    "energy",
-    "environmental",
-    "explosives",
-    "food",
-    "forensic",
-    "glass",
-    "green",
-    "industrial",
-    "inorganic",
-    "materials",
-    "medicinal",
-    "nanochemical",
-    "nuclear",
-    "organic",
-    "petrochemical",
-    "pharmaceutical",
-    "photochemistry",
-    "physical",
-    "polymer",
-    "pulp",
-    "quantum",
-    "radiochemistry",
-    "solid-state",
-    "stereochemistry",
-    "supramolecular",
-    "surface",
-    "textile",
-    "theoretical",
-    "water"
-  ],
-  "community": [
-    "activism",
-    "activities",
-    "athletes",
-    "classmates",
-    "colleges",
-    "commuting",
-    "countrymen",
-    "employees",
-    "events",
-    "family",
-    "friends",
-    "gaming",
-    "global",
-    "joint ventures",
-    "leaders",
-    "local",
-    "meet-ups",
-    "memberships",
-    "mentees",
-    "mentors",
-    "message boards",
-    "national",
-    "neighbors",
-    "organizations",
-    "peers",
-    "relationships",
-    "rivals",
-    "social",
-    "state",
-    "teams",
-    "volunteers"
-  ],
-  "cosmology": [
-    "alternative-gravity",
-    "astrobiology",
-    "astronomy",
-    "astrophysics",
-    "baryogenesis",
-    "baryon-acoustic-oscillations",
-    "big-bang",
-    "black-holes",
-    "celestial-mechanics",
-    "cmb-anisotropies",
-    "cosmic-microwave-background",
-    "cosmic-topology",
-    "cosmochemistry",
-    "cosmological-parameters",
-    "dark-energy",
-    "dark-matter",
-    "exoplanets",
-    "expansion",
-    "galaxies",
-    "general-relativity",
-    "gravitational-lensing",
-    "gravitational-waves",
-    "inflation",
-    "interstellar-medium",
-    "large-scale-structure",
-    "multiverse",
-    "numerical-cosmology",
-    "observational-cosmology",
-    "particle-cosmology",
-    "planetary-science",
-    "quantum-cosmology",
-    "radio-astronomy",
-    "redshift",
-    "reionization",
-    "solar-physics",
-    "space-exploration",
-    "space-telescopes",
-    "spectroscopy",
-    "star-formation",
-    "stellar-evolution",
-    "structure-formation",
-    "supernovae",
-    "time-dilation",
-    "x-ray-astronomy"
-  ],
-  "economics": [
-    "behavioral",
-    "development",
-    "financial",
-    "environmental",
-    "game-theory",
-    "macroeconomics",
-    "labor",
-    "computational",
-    "consumer",
-    "corporate",
-    "digital",
-    "econometrics",
-    "energy",
-    "fiscal policy",
-    "agricultural",
-    "austrian",
-    "business",
-    "chicago school",
-    "comparative",
-    "cultural",
-    "defense & military",
-    "education",
-    "entrepreneurial",
-    "ethics in economics",
-    "experimental",
-    "gender",
-    "global",
-    "health",
-    "history of economic thought",
-    "housing",
-    "industrial",
-    "information",
-    "innovation",
-    "innovation & network",
-    "institutional",
-    "international",
-    "keynesian",
-    "law & economics",
-    "maritime",
-    "marxian",
-    "mathematical",
-    "media",
-    "microeconomics",
-    "migration",
-    "monetary",
-    "neuro",
-    "optimization & decision theory",
-    "political economy",
-    "post-keynesian"
-  ],
-  "education": [
-    "adult",
-    "bilingual",
-    "curriculum-development",
-    "educational-technology-edtech",
-    "experiential-learning",
-    "financial-literacy",
-    "history-of-education",
-    "alternative",
-    "assessment-evaluation",
-    "career-technical-education-cte",
-    "classroom-management",
-    "coaching-mentorship",
-    "comparative",
-    "continuing",
-    "early-childhood",
-    "education-policy-administration",
-    "education-psychology",
-    "educational-equity-inclusion",
-    "educational-leadership",
-    "educational-research",
-    "environmental",
-    "gifted-talented",
-    "higher",
-    "home-schooling",
-    "informal",
-    "instructional-design",
-    "language",
-    "special-needs",
-    "lifelong-learning",
-    "mathematics",
-    "medical",
-    "military-training",
-    "montessori-waldorf",
-    "multicultural",
-    "music",
-    "online-blended-learning",
-    "open-education-resources-oer",
-    "outdoor-adventure",
-    "parental-involvement-in-education",
-    "performing-arts",
-    "philosophy-of-education",
-    "physical-education-pe",
-    "professional-development-for-educators",
-    "religious",
-    "science",
-    "sex",
-    "social-emotional-learning-sel",
-    "special",
-    "standardized-testing-and-assessment",
-    "stem-steam",
-    "teacher-training-and-professional-development",
-    "technical-and-vocational-education-tvet",
-    "workplace-and-corporate-training",
-    "writing-and-literacy-education"
-  ],
-  "entertainment": [
-    "acting",
-    "adult",
-    "animation",
-    "awards",
-    "broadcasting",
-    "casting",
-    "celebrity",
-    "concerts",
-    "comedy",
-    "cultural",
-    "dance",
-    "digital media",
-    "distribution",
-    "esports",
-    "events",
-    "fashion",
-    "fan culture",
-    "festivals",
-    "gaming",
-    "immersive",
-    "licensing",
-    "merchandising",
-    "music",
-    "performing arts",
-    "podcasting",
-    "publishing",
-    "radio",
-    "screenwriting",
-    "social media",
-    "sports",
-    "streaming",
-    "management",
-    "television",
-    "theater",
-    "theme parks",
-    "ticketing",
-    "production",
-    "visual effects (vfx)",
-    "voice",
-    "web"
-  ],
-  "environment": [
-    "activism",
-    "air-pollution",
-    "biodiversity",
-    "carbon-management",
-    "circular-economy",
-    "climate-change",
-    "coastal-conservation",
-    "deforestation",
-    "eco-tourism",
-    "education",
-    "ecosystems",
-    "ethics",
-    "forestry",
-    "freshwater",
-    "green-building",
-    "green-energy",
-    "health",
-    "industrial-ecology",
-    "invasive-species",
-    "land-degradation",
-    "land-use",
-    "law",
-    "management",
-    "noise",
-    "nuclear-safety",
-    "organic-farming",
-    "pollution-control",
-    "remote-sensing",
-    "restoration",
-    "resources",
-    "soil-conservation",
-    "sustainability",
-    "toxicology",
-    "urban-ecology",
-    "waste-management"
-  ],
-  "event": [
-    "cognitive",
-    "commercial",
-    "communication",
-    "cosmic",
-    "creative",
-    "detection",
-    "emotional",
-    "environmental",
-    "legal",
-    "lifecycle",
-    "operational",
-    "recreational",
-    "regulatory",
-    "security",
-    "social",
-    "state",
-    "system",
-    "task"
-  ],
-  "food": [
-    "agriculture",
-    "beverages",
-    "cuisines",
-    "dining",
-    "events",
-    "food-science",
-    "gastronomy",
-    "health",
-    "ingredients",
-    "food",
-    "cooking",
-    "lifestyle",
-    "meals",
-    "nutrition",
-    "organic",
-    "production",
-    "quality",
-    "restaurants",
-    "sustainability",
-    "techniques",
-    "types",
-    "urban",
-    "variety",
-    "world",
-    "x-factor",
-    "yields",
-    "zest"
-  ],
-  "geology": [
-    "cartography",
-    "climatology",
-    "crystallography",
-    "earthquake-seismology",
-    "economic",
-    "environmental",
-    "geochemistry",
-    "geochronology",
-    "geodynamics",
-    "geohazards",
-    "geomorphology",
-    "geophysics",
-    "engineering",
-    "hydrogeology",
-    "mineralogy",
-    "mining",
-    "oceanography",
-    "paleoclimatology",
-    "paleontology",
-    "petroleum",
-    "petrology",
-    "planetary",
-    "remote-sensing",
-    "research",
-    "sedimentology",
-    "soil-science",
-    "stratigraphy",
-    "structural",
-    "tectonics",
-    "volcanology",
-    "water-resources"
-  ],
-  "geography": [
-    "physical",
-    "human",
-    "urban",
-    "regional",
-    "economic",
-    "political",
-    "cultural",
-    "geospatial",
-    "environmental",
-    "historical",
-    "transportation",
-    "climatology",
-    "biogeography",
-    "hazards",
-    "location"
-  ],
-  "government": [
-    "administration",
-    "budget-and-finance",
-    "civil-service",
-    "defense",
-    "diplomacy",
-    "economic-development",
-    "education-policy",
-    "elections-and-voting",
-    "emergency-management",
-    "environmental-regulation",
-    "foreign-affairs",
-    "healthcare-policy",
-    "homeland-security",
-    "housing-and-urban-development",
-    "identity-and-records",
-    "immigration",
-    "infrastructure",
-    "intelligence-and-security",
-    "international-cooperation",
-    "judicial-affairs",
-    "law-enforcement",
-    "legislative-affairs",
-    "local-government",
-    "national-security",
-    "policy-analysis",
-    "public-administration",
-    "public-health",
-    "public-safety",
-    "public-works",
-    "regulation",
-    "research",
-    "social-services",
-    "taxation-and-revenue",
-    "transportation",
-    "urban-planning",
-    "veterans-affairs",
-    "welfare-programs"
-  ],
-  "health": [
-    "public-health",
-    "clinical",
-    "mental-health",
-    "nutrition",
-    "epidemiology",
-    "prevention",
-    "policy",
-    "global-health",
-    "environmental-health",
-    "occupational-health",
-    "dental",
-    "pharmaceutical",
-    "health-management",
-    "fitness"
-  ],
-  "history": [
-    "ancient",
-    "archaeology",
-    "archival-studies",
-    "art",
-    "biographical",
-    "colonial",
-    "cultural",
-    "diplomatic",
-    "economic",
-    "environmental",
-    "genealogy",
-    "heritage-conservation",
-    "historical-geography",
-    "historical-linguistics",
-    "historiography",
-    "history-education",
-    "industrial",
-    "intellectual",
-    "medieval",
-    "military",
-    "modern",
-    "museum-studies",
-    "oral-history",
-    "paleography",
-    "political",
-    "public",
-    "religious",
-    "renaissance-studies",
-    "research",
-    "social-history",
-    "technology",
-    "urban",
-    "world"
-  ],
-  "language": [
-    "constructed",
-    "body",
-    "braille",
-    "programming",
-    "sign",
-    "spoken",
-    "symbolic",
-    "written"
-  ],
-  "law": [
-    "administrative",
-    "constitutional",
-    "criminal",
-    "contract",
-    "corporate",
-    "environmental",
-    "family",
-    "health",
-    "human-rights",
-    "immigration",
-    "intellectual-property",
-    "international",
-    "labor-employment",
-    "real-estate"
-  ],
-  "manufacturing": [
-    "additive",
-    "casting",
-    "electronics",
-    "green",
-    "high-precision",
-    "nanomanufacturing",
-    "welding",
-    "biomanufacturing",
-    "die casting",
-    "fabrication",
-    "injection",
-    "just-in-time",
-    "kaizen",
-    "lean",
-    "mass production",
-    "on-demand",
-    "plastics",
-    "quality",
-    "robotics",
-    "smart",
-    "tooling",
-    "upcycling",
-    "vertical",
-    "xerography",
-    "yield",
-    "zero waste"
-  ],
-  "mathematics": [
-    "algebra",
-    "algorithms",
-    "applied",
-    "calculus",
-    "combinatorics",
-    "computational",
-    "cryptography",
-    "data analysis",
-    "differential equations",
-    "discrete",
-    "econometrics",
-    "financial",
-    "game theory",
-    "geometry",
-    "graph theory",
-    "logic",
-    "mathematical biology",
-    "mathematical modeling",
-    "mathematical physics",
-    "number theory",
-    "numerical analysis",
-    "operations research",
-    "optimization",
-    "probability",
-    "pure mathematics",
-    "quantitative finance",
-    "quantum computing",
-    "research",
-    "set theory",
-    "statistics",
-    "stochastics",
-    "education",
-    "theoretical",
-    "topology",
-    "trigonometry"
-  ],
-  "people": [
-    "activists",
-    "artists",
-    "athletes",
-    "authors",
-    "celebrities",
-    "children",
-    "coaches",
-    "communities",
-    "consumers",
-    "creators",
-    "educators",
-    "employees",
-    "entrepreneurs",
-    "executives",
-    "families",
-    "freelancers",
-    "government-officials",
-    "influencers",
-    "investors",
-    "leaders",
-    "managers",
-    "media-personalities",
-    "mentors",
-    "musicians",
-    "partners",
-    "patients",
-    "performers",
-    "professionals",
-    "public-figures",
-    "researchers",
-    "scientists",
-    "seniors",
-    "speakers",
-    "specialists",
-    "students",
-    "teachers",
-    "teams",
-    "volunteers",
-    "workers"
-  ],
-  "psychology": [
-    "abnormal",
-    "behavioral",
-    "clinical",
-    "cognitive",
-    "comparative",
-    "community",
-    "counseling",
-    "developmental",
-    "educational",
-    "environmental",
-    "evolutionary",
-    "experimental",
-    "forensic",
-    "health",
-    "human factors",
-    "i/o",
-    "jungian",
-    "kinesics",
-    "learning",
-    "multicultural",
-    "neuropsychology",
-    "occupational",
-    "personality",
-    "positive",
-    "psychometrics",
-    "quantitative",
-    "rehabilitation",
-    "social",
-    "sport",
-    "transpersonal",
-    "unconscious",
-    "vocational",
-    "wellness",
-    "xenopsychology",
-    "youth",
-    "zen"
-  ],
-  "philosophy": [
-    "advocacy",
-    "campaign management",
-    "civil rights",
-    "communications",
-    "community organizing",
-    "conflict resolution",
-    "diplomacy",
-    "economic policy",
-    "education policy",
-    "elections",
-    "environmental policy",
-    "foreign policy",
-    "governance",
-    "grassroots organizing",
-    "health policy",
-    "human rights",
-    "immigration policy",
-    "international relations",
-    "legislation",
-    "lobbying",
-    "media and journalism",
-    "national security",
-    "nonprofit management",
-    "political analysis",
-    "political consulting",
-    "political economy",
-    "political science",
-    "polling and surveys",
-    "public administration",
-    "public opinion",
-    "public policy",
-    "regulatory affairs",
-    "research",
-    "social justice",
-    "think tanks",
-    "urban policy",
-    "voting rights"
-  ],
-  "religion": [
-    "abrahamic",
-    "buddhism",
-    "christianity",
-    "taoism",
-    "esoteric",
-    "folk",
-    "gnosticism",
-    "hinduism",
-    "islam",
-    "judaism",
-    "kabbalah",
-    "liturgy",
-    "mysticism",
-    "new age",
-    "orthodox",
-    "pagan",
-    "quakerism",
-    "reformation",
-    "shinto",
-    "theology",
-    "universalism",
-    "vedic",
-    "wicca",
-    "xuanxue",
-    "yazidism",
-    "zen"
-  ],
-  "sports": [
-    "athletics",
-    "basketball",
-    "baseball",
-    "cricket",
-    "diving",
-    "e-sports",
-    "football",
-    "golf",
-    "hockey",
-    "ice skating",
-    "judo",
-    "karate",
-    "lacrosse",
-    "mma",
-    "netball",
-    "orienteering",
-    "polo",
-    "quidditch",
-    "rugby",
-    "skateboarding",
-    "tennis",
-    "ultimate",
-    "volleyball",
-    "wrestling",
-    "x games",
-    "yachting",
-    "zumba"
-  ],
-  "technology": [
-    "actuators",
-    "aerospace",
-    "agtech",
-    "ai",
-    "analytics",
-    "applications",
-    "ar/vr",
-    "automation",
-    "automotive",
-    "biotech",
-    "blockchain",
-    "cables",
-    "circuit boards",
-    "cloud",
-    "communication",
-    "consulting",
-    "cybersecurity",
-    "data science",
-    "e-commerce",
-    "edtech",
-    "embedded systems",
-    "energy",
-    "engineering",
-    "enterprise",
-    "entertainment",
-    "environment",
-    "fintech",
-    "forecasting",
-    "gaming",
-    "hardware",
-    "health",
-    "infrastructure",
-    "iot",
-    "logistics",
-    "manufacturing",
-    "maritime",
-    "mobile",
-    "nanotech",
-    "networking",
-    "peripherals",
-    "platforms",
-    "policy",
-    "power management",
-    "process",
-    "programming",
-    "proptech",
-    "protocols",
-    "quantum",
-    "rail",
-    "robotics",
-    "saas",
-    "semiconductors",
-    "sensors",
-    "smart home",
-    "social media",
-    "software",
-    "storage",
-    "telecom",
-    "web"
-  ],
-  "transportation": [
-    "aerospace",
-    "autonomous vehicles",
-    "aviation",
-    "cargo and freight",
-    "civil engineering",
-    "electric vehicles (ev)",
-    "fleet management",
-    "high-speed rail",
-    "infrastructure",
-    "intelligent transport systems",
-    "logistics",
-    "marine transportation",
-    "mass transit",
-    "mobility-as-a-service (maas)",
-    "passenger rail",
-    "public transportation",
-    "railroads",
-    "research",
-    "roadway safety",
-    "shipping",
-    "smart cities",
-    "supply chain",
-    "traffic engineering",
-    "transit planning",
-    "transportation economics",
-    "transportation policy",
-    "transportation safety",
-    "trucking",
-    "urban mobility",
-    "vehicle electrification",
-    "vehicle manufacturing",
-    "vehicle sharing",
-    "warehousing"
-  ]
-};
-
-
 
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
@@ -1622,7 +508,105 @@ async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
 }
 
 /* ------------------------------------------------------------------ */
-/* Main                                                              */
+/* Anchor-based candidate lookup helpers (NEW)                        */
+/* ------------------------------------------------------------------ */
+
+// Query candidates from anchor_bands for a single assignment.
+// Uses GSI "by_set_band" if available; falls back to a bounded Scan.
+async function _queryAnchorBandCandidates({ dynamodbLL, assign, setId }) {
+  const TableName = ANCHOR_BANDS_TABLE;
+  const type = 'su';
+  const { band, l0, l1 } = assign || {};
+  if (setId == null || band == null || l0 == null || l1 == null) return [];
+
+  try {
+    const params = {
+      TableName,
+      IndexName: 'by_set_band', // optional GSI (PK: set_id, SK: band)
+      KeyConditionExpression: '#sid = :sid AND #b = :b',
+      FilterExpression: '#l0 = :l0 AND #l1 = :l1 AND #t = :t',
+      ExpressionAttributeNames: {
+        '#sid': 'set_id',
+        '#b': 'band',
+        '#l0': 'l0',
+        '#l1': 'l1',
+        '#t':  'type',
+      },
+      ExpressionAttributeValues: {
+        ':sid': { S: String(setId) },
+        ':b':   { N: String(band)   },
+        ':l0':  { N: String(l0)     },
+        ':l1':  { N: String(l1)     },
+        ':t':   { S: type           },
+      },
+      ScanIndexForward: true,
+      Limit: 200
+    };
+    const out = await dynamodbLL.query(params).promise();
+    return (out.Items || []).map(Converter.unmarshall);
+  } catch {
+    // Fallback to bounded Scan
+    try {
+      const scanParams = {
+        TableName,
+        FilterExpression: '#sid = :sid AND #b = :b AND #l0 = :l0 AND #l1 = :l1 AND #t = :t',
+        ExpressionAttributeNames: {
+          '#sid': 'set_id', '#b': 'band', '#l0': 'l0', '#l1': 'l1', '#t': 'type'
+        },
+        ExpressionAttributeValues: {
+          ':sid': { S: String(setId) },
+          ':b':   { N: String(band)  },
+          ':l0':  { N: String(l0)    },
+          ':l1':  { N: String(l1)    },
+          ':t':   { S: 'su'          },
+        },
+        Limit: 500
+      };
+      const out = await dynamodbLL.scan(scanParams).promise();
+      return (out.Items || []).map(Converter.unmarshall);
+    } catch {
+      return [];
+    }
+  }
+}
+
+// Choose best SU across hits using simple voting + tie-break on avg |dist_q16 diff|.
+function _pickBestSuFromAnchorHits(assigns, hitsByAssign) {
+  const votes = new Map(); // su -> { count, diffSum }
+  assigns.forEach((a, idx) => {
+    const hits = hitsByAssign[idx] || [];
+    hits.forEach(h => {
+      const su = h.su;
+      if (!su) return;
+      const diff = Math.abs((h.dist_q16 ?? 0) - (a.dist_q16 ?? 0));
+      const cur = votes.get(su) || { count: 0, diffSum: 0 };
+      votes.set(su, { count: cur.count + 1, diffSum: cur.diffSum + diff });
+    });
+  });
+  const ranked = [...votes.entries()].sort((a, b) => {
+    if (b[1].count !== a[1].count) return b[1].count - a[1].count;
+    const aAvg = a[1].diffSum / Math.max(1, a[1].count);
+    const bAvg = b[1].diffSum / Math.max(1, b[1].count);
+    return aAvg - bAvg;
+  });
+  return ranked.length ? { su: ranked[0][0] } : null;
+}
+
+// Find best match via anchors only (primary path).
+async function _findBestMatchViaAnchors({ dynamodbLL, anchor }) {
+  if (!anchor || !Array.isArray(anchor.assigns) || !anchor.assigns.length) return null;
+  const setId = anchor.setId;
+  const top = anchor.assigns.slice(0, Number(process.env.ANCHORS_TOP_L0 || 2));
+  const allHits = [];
+  for (let i = 0; i < top.length; i++) {
+    const hits = await _queryAnchorBandCandidates({ dynamodbLL, assign: top[i], setId });
+    allHits.push(hits);
+  }
+  return _pickBestSuFromAnchorHits(top, allHits);
+}
+
+/* ------------------------------------------------------------------ */
+/* Main                                                               */
 /* ------------------------------------------------------------------ */
 async function parseArrayLogic({
   arrayLogic = [],
@@ -1657,7 +641,7 @@ async function parseArrayLogic({
   // helper to safely build the huge numeric pb as a string representation
   const buildPb = (possessedCombined, d1) =>
     (d1 != null)
-      ? `${possessedCombined.toString()}.${d1.toString().replace(/^0?\./, "")}`
+      ? `${possessedCombined.toString()}.${String(d1).replace(/^0?\./, "")}`
       : null;
 
   // presence check only (uses DocumentClient)
@@ -1715,15 +699,8 @@ async function parseArrayLogic({
 
     const elem = resolvedLogic[i];
 
-
-
-
-
     //systematically go throuogh and log and get the logic below here to create a new app using the curent mood and the user prompt. 
     // Then apply add that mood to the primary entity.
-
-
-
 
     let fixedOutput;
     let fixedPossessed;
@@ -1776,23 +753,12 @@ async function parseArrayLogic({
       ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
 
-    const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
-      s3,
-      openai,
-      key: "nestedDomainIndex.json",
-      textForEmbedding
-    });
+    // ─────────────────────────────────────────────────────────────────────────
+    // ANCHOR-ONLY MATCHING (primary)
+    // ─────────────────────────────────────────────────────────────────────────
+    const anchorForMatch = await _computeAnchorPayload({ s3, openai, text: textForEmbedding });
 
-    // possessedCombined base & indexes
-    const base = 1000000000000000.0;
-    const domainIndex = 10000000000000 * (DOMAINS.indexOf(domain) >= 0 ? DOMAINS.indexOf(domain) : 0);
-    const subdomainIndex = 100000000000 * ((DOMAIN_SUBS[domain] || []).indexOf(subdomain) >= 0
-      ? (DOMAIN_SUBS[domain] || []).indexOf(subdomain)
-      : 0);
-    const userID = e || 0;
-    const possessedCombined = base + domainIndex + subdomainIndex + userID;
-
-    // embedding
+    // We still embed (for persistence; not for matching).
     const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
     const embText = typeof embInput === 'string' ? embInput.trim() : String(embInput);
     const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
@@ -1801,106 +767,131 @@ async function parseArrayLogic({
     });
     const embedding = toVector(rawEmb);
 
-    // get subdomain vector refs
-    let dynamoRecord = null;
-    let [dist1, dist2, dist3, dist4, dist5] = Array(5).fill(null);
-    try {
-      const { Items } = await dynamodb
-        .query({
-          TableName: `i_${domain}`,
-          KeyConditionExpression: "#r = :pk",
-          ExpressionAttributeNames: { "#r": "root" },
-          ExpressionAttributeValues: { ":pk": subdomain },
-          Limit: 1
-        })
-        .promise();
-      dynamoRecord = Items?.[0] ?? null;
-    } catch (err) {
-      console.error("DynamoDB query failed:", err);
-    }
+    // Keep domain/subdomain only as metadata (no longer used to match).
+    const { domain, subdomain } = await classifyDomainsByEmbeddingFromS3({
+      s3, openai, key: "nestedDomainIndex.json", textForEmbedding
+    });
 
-    if (dynamoRecord) {
-      const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
-      [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
-        const ref = parseVector(dynamoRecord[k]);
-        return Array.isArray(ref) && ref.length === embedding.length
-          ? cosineDist(embedding, ref)
-          : null;
-      });
-    }
+    // Distances: derive from anchor assigns (normalize q16 → [0,1]) for parity.
+    const anchorDists = (anchorForMatch?.assigns || []).slice(0, 5).map(a => (a?.dist_q16 ?? 0) / 65535);
+    let [dist1, dist2, dist3, dist4, dist5] = [
+      anchorDists[0] ?? null,
+      anchorDists[1] ?? null,
+      anchorDists[2] ?? null,
+      anchorDists[3] ?? null,
+      anchorDists[4] ?? null
+    ];
 
-    // low-level pb-index query
-    let subdomainMatches = [];
-    if (dist1 != null) {
-      const pbStr = buildPb(possessedCombined, dist1);
+    // Possession base: remove domain/subdomain contribution to stop domain-binding.
+    const base = 1000000000000000.0;
+    const userID = e || 0;
+    const possessedCombined = base + userID;
 
+    // Try anchor-based entity retrieval first
+    let bestMatch = await _findBestMatchViaAnchors({ dynamodbLL, anchor: anchorForMatch });
+
+    // Fallback: legacy domain/subdomain distance + pb-index if anchors returned nothing
+    if (!bestMatch) {
       try {
-        const ExpressionAttributeNames = {
-          '#p': 'pb',
-          '#d1': 'dist1',
-          '#d2': 'dist2',
-          '#d3': 'dist3',
-          '#d4': 'dist4',
-          '#d5': 'dist5',
-        };
+        let dynamoRecord = null;
+        try {
+          const { Items } = await dynamodb
+            .query({
+              TableName: `i_${domain}`,
+              KeyConditionExpression: "#r = :pk",
+              ExpressionAttributeNames: { "#r": "root" },
+              ExpressionAttributeValues: { ":pk": subdomain },
+              Limit: 1
+            })
+            .promise();
+          dynamoRecord = Items?.[0] ?? null;
+        } catch (err) {
+          console.error("DynamoDB query failed:", err);
+        }
 
-        const ExpressionAttributeValues = {
-          ':pb': n(pbStr),
-          ':d1lo': n(dist1 - 0.01),
-          ':d1hi': n(dist1 + 0.01),
-        };
+        if (dynamoRecord) {
+          const embKeys = ["emb1", "emb2", "emb3", "emb4", "emb5"];
+          [dist1, dist2, dist3, dist4, dist5] = embKeys.map(k => {
+            const ref = parseVector(dynamoRecord[k]);
+            return Array.isArray(ref) && ref.length === embedding.length
+              ? cosineDist(embedding, ref)
+              : null;
+          });
+        }
 
-        const filterParts = [];
-        [dist2, dist3, dist4, dist5].forEach((v, idx) => {
-          const i2 = idx + 2;
-          if (Number.isFinite(v)) {
-            ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
-            ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
-            filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
+        let subdomainMatches = [];
+        if (dist1 != null) {
+          const pbStrLegacy = buildPb(possessedCombined, dist1);
+          try {
+            const ExpressionAttributeNames = {
+              '#p': 'pb',
+              '#d1': 'dist1',
+              '#d2': 'dist2',
+              '#d3': 'dist3',
+              '#d4': 'dist4',
+              '#d5': 'dist5',
+            };
+
+            const ExpressionAttributeValues = {
+              ':pb': n(pbStrLegacy),
+              ':d1lo': n(dist1 - 0.01),
+              ':d1hi': n(dist1 + 0.01),
+            };
+
+            const filterParts = [];
+            [dist2, dist3, dist4, dist5].forEach((v, idx) => {
+              const i2 = idx + 2;
+              if (Number.isFinite(v)) {
+                ExpressionAttributeValues[`:d${i2}lo`] = n(v - 0.01);
+                ExpressionAttributeValues[`:d${i2}hi`] = n(v + 0.01);
+                filterParts.push(`#d${i2} BETWEEN :d${i2}lo AND :d${i2}hi`);
+              }
+            });
+
+            const params = {
+              TableName: 'subdomains',
+              IndexName: 'pb-index',
+              KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
+              ExpressionAttributeNames,
+              ExpressionAttributeValues,
+              ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
+              ScanIndexForward: true,
+            };
+
+            const { Items } = await dynamodbLL.query(params).promise();
+            subdomainMatches = (Items || []).map(Converter.unmarshall);
+          } catch (err) {
+            console.error('subdomains GSI query failed (fallback):', err);
           }
-        });
+        }
 
-        const params = {
-          TableName: 'subdomains',
-          IndexName: 'pb-index',
-          KeyConditionExpression: '#p = :pb AND #d1 BETWEEN :d1lo AND :d1hi',
-          ExpressionAttributeNames,
-          ExpressionAttributeValues,
-          ...(filterParts.length ? { FilterExpression: filterParts.join(' AND ') } : {}),
-          ScanIndexForward: true,
-        };
-
-        const { Items } = await dynamodbLL.query(params).promise();
-        subdomainMatches = (Items || []).map(Converter.unmarshall);
+        if (subdomainMatches.length) {
+          const best = subdomainMatches.reduce(
+            (agg, item) => {
+              const score = calcMatchScore({ dist1, dist2, dist3, dist4, dist5 }, item);
+              return score < agg.score ? { item, score } : agg;
+            },
+            { item: null, score: Number.POSITIVE_INFINITY }
+          ).item;
+          if (best) bestMatch = { su: best.su };
+        }
       } catch (err) {
-        console.error('subdomains GSI query failed:', err);
+        console.warn('legacy fallback failed, continuing with create path:', err?.message);
       }
     }
 
-    // pick best match
-    let bestMatch = null;
-    if (subdomainMatches.length) {
-      bestMatch = subdomainMatches.reduce(
-        (best, item) => {
-          const score = calcMatchScore(
-            { dist1, dist2, dist3, dist4, dist5 },
-            item
-          );
-          return score < best.score ? { item, score } : best;
-        },
-        { item: null, score: Number.POSITIVE_INFINITY }
-      ).item;
-    }
-
+    // Common params for route rows
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
 
+    // pb string should reflect the (possibly updated) primary distance
+    const pbDist = dist1;
+    const pbStr = buildPb(possessedCombined, pbDist);
+
     if (!bestMatch) {
       // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
       if (actionFile) {
-        const pbStr = buildPb(possessedCombined, dist1);
-
         const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
           ? fixedOutput
           : (typeof out === "string" ? out.trim() : "");
@@ -2007,7 +998,6 @@ async function parseArrayLogic({
 
       // record positioning for the new entity
       const pathStr = breadcrumb;
-      const pbStr2 = buildPb(possessedCombined, dist1);
 
       const anchorPayloadNew = await _computeAnchorPayload({
         s3, openai, text: fixedOutput
@@ -2019,7 +1009,7 @@ async function parseArrayLogic({
         domain, subdomain,
         embedding,
         entity: newSu,
-        pb: pbStr2,
+        pb: pbStr,
         dist1, dist2, dist3, dist4, dist5,
         path: pathStr,
         output: fixedOutput
@@ -2058,8 +1048,6 @@ async function parseArrayLogic({
     } else {
       // MATCH: run and update position (+policy pointer & optional anchor)
       shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
-
-      const pbStr = buildPb(possessedCombined, dist1);
 
       const anchorWord = (fixedOutput && String(fixedOutput).trim())
         ? fixedOutput
