@@ -4,26 +4,23 @@
 /* ------------------------------------------------------------------ */
 
 const anchorsUtil = require('./anchors');
-// (DynamoDB is not used directly here, but left imported for parity with older versions)
+// kept for signature parity
 const { DynamoDB } = require('aws-sdk');
 
 const ANCHOR_BANDS_TABLE    = process.env.ANCHOR_BANDS_TABLE    || 'anchor_bands';
-const PERM_GRANTS_TABLE     = process.env.PERM_GRANTS_TABLE     || 'perm_grants';
+const PERM_GRANTS_TABLE     = process.env.PERMS_GRANTS_TABLE    || process.env.PERM_GRANTS_TABLE || 'perm_grants';
 const DEFAULT_POLICY_PREFIX = process.env.POLICY_PREFIX         || 'entity';
 
 /* ------------------------- tiny helpers --------------------------- */
 
-// JSON schema → list of root keys to help build param shape dumps
 const createArrayOfRootKeys = (schema) => {
   if (!schema || typeof schema !== "object") return [];
   const { properties } = schema;
   return properties && typeof properties === "object" ? Object.keys(properties) : [];
 };
 
-// cheap deep clone
 const safeClone = (x) => JSON.parse(JSON.stringify(x));
 
-// normalize to unit vector
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
   let s = 0;
@@ -42,7 +39,6 @@ async function _embedUnit({ openai, text }) {
   return _normalizeVec(embedding);
 }
 
-/** Build anchor payload for a text snippet */
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
     const t = String(text || '').trim();
@@ -50,7 +46,6 @@ async function _computeAnchorPayload({ s3, openai, text }) {
 
     const anchors = await anchorsUtil.loadAnchors({ s3 });
     const eU = await _embedUnit({ openai, text: t });
-
     const topL0 = Number(process.env.ANCHORS_TOP_L0 || 2);
     const assigns = anchorsUtil.assign(eU, anchors, { topL0 });
 
@@ -68,7 +63,7 @@ async function _computeAnchorPayload({ s3, openai, text }) {
   }
 }
 
-// fanout postings for an anchor payload
+// batch writer (kept for completeness; not used on new entities pre-SU)
 async function _putAllBatched(dynamodb, table, items) {
   if (!items || !items.length) return 0;
   let written = 0;
@@ -90,23 +85,17 @@ async function _putAllBatched(dynamodb, table, items) {
 }
 
 async function _fanoutAnchorBands({ dynamodb, su, setId, anchor, type = 'su', policy_id }) {
-  // Hard guard: never write postings with a ref-string SU
-  if (/^__\$ref\(/.test(String(su))) {
-    console.warn("Ref-string SU passed to _fanoutAnchorBands; ignoring:", su);
-    return 0;
-  }
+  // Only with a real SU (no ref strings, no placeholders)
+  if (!su || /^__\$ref\(/.test(String(su))) return 0;
   const assigns = anchor?.assigns || [];
-  if (!su || !setId || !assigns.length) return 0;
-  const rows = assigns.map(a =>
-    ({
-      ...anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS }),
-      ...(policy_id ? { policy_id } : {})
-    })
-  );
+  if (!setId || !assigns.length) return 0;
+  const rows = assigns.map(a => ({
+    ...anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS }),
+    ...(policy_id ? { policy_id } : {})
+  }));
   return _putAllBatched(dynamodb, ANCHOR_BANDS_TABLE, rows);
 }
 
-// ACL seed
 async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
   try {
     if (!su || !e) return;
@@ -118,6 +107,54 @@ async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
   } catch (err) {
     console.warn("perm_grants owner seed failed:", err && err.message);
   }
+}
+
+/* ----------------------- de-dupe helper ---------------------------- */
+/** Try to reuse an existing entity by (output name, creator e). */
+async function _findExistingEntityByName({ dynamodb, name, e }) {
+  if (!name) return null;
+
+  // 1) Try a likely GSI if present (best-effort)
+  const indexNames = ['output-index', 'by_output', 'outputIndex'];
+  for (const IndexName of indexNames) {
+    try {
+      const q = await dynamodb.query({
+        TableName: 'subdomains',
+        IndexName,
+        KeyConditionExpression: '#out = :name',
+        ExpressionAttributeNames: { '#out': 'output' },
+        ExpressionAttributeValues: { ':name': name }
+      }).promise();
+      const items = q.Items || [];
+      if (!items.length) continue;
+      if (e != null) {
+        const hit = items.find(it => String(it.e) === String(e));
+        if (hit?.su) return String(hit.su);
+      }
+      return String(items[0].su || '');
+    } catch (_ignore) { /* index might not exist */ }
+  }
+
+  // 2) Fallback scan (safe; not ideal for huge tables)
+  try {
+    let ExclusiveStartKey;
+    do {
+      const res = await dynamodb.scan({
+        TableName: 'subdomains',
+        ProjectionExpression: '#su, #e, #out',
+        FilterExpression: '#out = :name' + (e != null ? ' AND #e = :e' : ''),
+        ExpressionAttributeNames: { '#su': 'su', '#e': 'e', '#out': 'output' },
+        ExpressionAttributeValues: Object.assign({ ':name': name }, (e != null ? { ':e': e } : {})),
+        ExclusiveStartKey
+      }).promise();
+      const items = res.Items || [];
+      if (items.length) return String(items[0].su);
+      ExclusiveStartKey = res.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+  } catch (err) {
+    console.warn('dedupe scan failed:', err && err.message);
+  }
+  return null;
 }
 
 /* ----------------------- arrayLogic utilities ---------------------- */
@@ -159,11 +196,10 @@ function resolveArrayLogic(arrayLogic) {
   return arrayLogic.map((_, i) => resolveElement(i));
 }
 
-const OFFSET = 1;
-const padRef = (n_) => String(n_).padStart(3, "0") + "!!";
 const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
+const padRef = (n_) => String(n_).padStart(3, "0") + "!!";
+const OFFSET = 1;
 
-// Convert "__$ref(n)" into "XYZ!!" once, at the end.
 const convertShorthandRefs = (v) => {
   if (typeof v === "string") {
     const m = v.match(OP_ONLY);
@@ -289,17 +325,13 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     temperature: 0,
     top_p: 0,
     seed: 42,
-    messages: [{
-      role: "system",
-      content:
-        "You are a JSON-only assistant. Reply with ONLY a valid JSON array (arrayLogic). No prose."
-    },
-    { role: "user", content: prompt }
+    messages: [
+      { role: "system", content: "You are a JSON-only assistant. Reply with ONLY a valid JSON array (arrayLogic). No prose." },
+      { role: "user", content: prompt }
     ]
   });
   let text = rsp.choices[0].message.content.trim();
 
-  // strip JS-style comments safely
   function stripComments(jsonLike) {
     let out = '', inString = false, quote = '', escaped = false, inSL = false, inML = false;
     for (let i = 0; i < jsonLike.length; i++) {
@@ -332,7 +364,7 @@ async function parseArrayLogic({
   ses,
   openai,
   Anthropic,
-  dynamodbLL,  // kept only for signature compatibility
+  dynamodbLL,  // signature parity
   sourceType,
   actionFile,
   out,
@@ -354,21 +386,20 @@ async function parseArrayLogic({
   const createdEntities = [];
   const policyFor = su => `${DEFAULT_POLICY_PREFIX}:${String(su)}`;
 
-  // We'll record the last actionable row index to wire a clean conclusion later.
   let lastRouteIdx = -1;
-  let lastCreatedSu = null; // <- expose the final entity id back via conclusion
+  let lastCreatedSu = null;
 
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
 
-    // Skip the user's literal { conclusion: ... } row; we’ll add our own at the end.
+    // Skip user-provided conclusion; we’ll wire our own.
     if (i === arrayLogic.length - 1 && origElem && typeof origElem === 'object' && 'conclusion' in origElem) {
       continue;
     }
 
     const elem = resolvedLogic[i];
 
-    // pass through non-op rows (user/schema/etc.)
+    // passthrough non-ops
     if (!isOperationElem(origElem)) {
       if (isSchemaElem(origElem)) {
         shorthand.push(createArrayOfRootKeys(elem));
@@ -380,14 +411,13 @@ async function parseArrayLogic({
       continue;
     }
 
-    // op row
+    // op
     const breadcrumb = Object.keys(elem)[0];
     const body = elem[breadcrumb] || {};
     const inputParam = body.input;
     const expectedKeys = createArrayOfRootKeys(body.schema || {});
     const schemaParam = expectedKeys;
 
-    // Prefer user's request text for anchors when requestOnly
     const b = body || {};
     const inp = b?.input && typeof b.input === 'object' ? b.input : {};
     let userReqText = typeof out === 'string' && out.trim() ? out.trim() : null;
@@ -401,24 +431,19 @@ async function parseArrayLogic({
       ? (userReqText || b?.input?.name || b?.input?.title || JSON.stringify(elem))
       : (b?.input?.name || b?.input?.title || (typeof out === 'string' && out) || JSON.stringify(elem));
 
-    // compute an anchor payload for positioning (optional)
-    const matchAnchorPayload = await _computeAnchorPayload({ s3, openai, text: textForAnchors });
+    const anchorPayload = await _computeAnchorPayload({ s3, openai, text: textForAnchors });
 
-    // If caller provided an actionFile (workspace id), prefer it instead of creating a fresh entity.
+    // If we have a concrete workspace, reuse it (no new entity).
     if (actionFile) {
-      const anchorWordAF = (b.output && String(b.output).trim())
-        ? String(b.output).trim()
-        : (typeof out === 'string' ? out.trim() : '');
-      const anchorPayloadAF = matchAnchorPayload || await _computeAnchorPayload({ s3, openai, text: anchorWordAF });
-
       const positionBodyAF = {
         description: "provided entity (fallback)",
         entity: actionFile,
         path: breadcrumb,
-        output: b.output || out || ""
+        output: b.output || out || "",
+        ...(anchorPayload ? { anchor: anchorPayload } : {})
       };
-      if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
 
+      // safe: we have a real SU
       if (positionBodyAF.anchor) {
         await _fanoutAnchorBands({
           dynamodb,
@@ -442,17 +467,51 @@ async function parseArrayLogic({
       continue;
     }
 
-    // No provided file → create a new group/entity once, correctly wired
+    // No workspace → de-dupe by (name, e) first
     const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
     const sanitize = s => String(s || '').replace(/[\/?#]/g, ' ').trim();
     const entNameRaw = pick(body?.schema?.const, b.output, b?.input?.name, b?.input?.title, b?.input?.entity, out) || "$noName";
     const entName = sanitize(entNameRaw);
 
+    const existingSu = await _findExistingEntityByName({ dynamodb, name: entName, e });
+    if (existingSu) {
+      // Reuse existing; DO NOT create another.
+      const positionBodyExisting = {
+        description: "matched existing entity",
+        entity: existingSu,
+        path: breadcrumb,
+        output: entName,
+        ...(anchorPayload ? { anchor: anchorPayload } : {})
+      };
+
+      // idempotent: overwrites or upserts postings; keys should collide
+      if (positionBodyExisting.anchor) {
+        await _fanoutAnchorBands({
+          dynamodb,
+          su: existingSu,
+          setId: positionBodyExisting.anchor.setId,
+          anchor: positionBodyExisting.anchor,
+          type: 'su',
+          policy_id: policyFor(existingSu)
+        });
+      }
+
+      shorthand.push(["ROUTE", { body: positionBodyExisting }, {}, "position", existingSu, ""]);
+      lastRouteIdx = shorthand.length - 1;
+
+      shorthand.push(["ROUTE", inputParam, {}, "runEntity", existingSu, ""]);
+      lastRouteIdx = shorthand.length - 1;
+      lastCreatedSu = existingSu;
+      continue;
+    }
+
+    // Create a **new** entity
+
     // 1) new group
     shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", entName, entName]);
     const idxNewGroup = shorthand.length - 1;
 
-    // 2) read created file id
+    // 2) read created file id (REAL SU will be produced at runtime)
     shorthand.push(["GET", `__$ref(${idxNewGroup})`, "response", "file"]);
     const idxFileRow = shorthand.length - 1;
 
@@ -492,45 +551,33 @@ async function parseArrayLogic({
     // 7) save updated file
     shorthand.push(["ROUTE", `__$ref(${idxLoadedJSON})`, {}, "saveFile", `__$ref(${idxFileRow})`, ""]);
 
-    // 8) position + anchors for the new entity (use a CONCRETE SU)
-    const newSu = padRef(idxFileRow + 1);  // deterministic id like "003!!"
-    const anchorPayloadNew = await _computeAnchorPayload({ s3, openai, text: entName });
-
+    // 8) position (+anchor included) — use the **ref** to the real SU; DO NOT fanout yet
     const positionBodyCreated = {
       description: "auto created entity",
-      entity: newSu,
+      entity: `__$ref(${idxFileRow})`,     // resolve at runtime to the real SU
       path: breadcrumb,
       output: entName,
-      ...(anchorPayloadNew ? { anchor: anchorPayloadNew } : {})
+      ...(anchorPayload ? { anchor: anchorPayload } : {})
     };
 
-    if (anchorPayloadNew) {
-      await _fanoutAnchorBands({
-        dynamodb,
-        su: newSu,
-        setId: anchorPayloadNew.setId,
-        anchor: anchorPayloadNew,
-        type: 'su',
-        policy_id: policyFor(newSu)
-      });
-    }
+    // Seed owner grant once the SU exists (runtime will resolve __$ref)
+    // We cannot grant here because we don't have the concrete SU yet.
+    // Leave ACL seeding to the position handler (or do a post-save step in runner).
 
-    await _ensureOwnerGrant({ dynamodb, su: newSu, e });
-
-    shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", newSu, ""]);
+    shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", `__$ref(${idxFileRow})`, ""]);
     lastRouteIdx = shorthand.length - 1;
 
     // 9) run the new entity
-    shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
+    shorthand.push(["ROUTE", inputParam, {}, "runEntity", `__$ref(${idxFileRow})`, ""]);
     lastRouteIdx = shorthand.length - 1;
 
-    lastCreatedSu = newSu;
+    // Track for conclusion
+    lastCreatedSu = `__$ref(${idxFileRow})`;
   }
 
-  // If caller's array had a { conclusion: ... } row, give them one clean conclusion
+  // Wire a single clean conclusion compatible with convert.js
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig && lastRouteIdx >= 0) {
-    // Mirror the legacy shape so convert.js can read entity/createdEntities
     const addIdx = shorthand.push(
       ["ADDPROPERTY", "000!!", "conclusion", padRef(lastRouteIdx)]
     ) - 1;
