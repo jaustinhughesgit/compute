@@ -139,7 +139,7 @@ function register({ on, use }) {
       // ─────────────────────────────────────────────────────────────
       // 8) Main flow
       // ─────────────────────────────────────────────────────────────
-      mainObj = {};
+      let mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
       const { shorthand } = require("../shorthand");
@@ -147,42 +147,60 @@ function register({ on, use }) {
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
 
-      // If prompt supplied, we build arrayLogic from our fixed prompt template
+      // If prompt supplied, we build arrayLogic from your fixed prompt template
       if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
         const promptObj = parsePrompt(prompt); // ← safe (no throws)
 
         const userPath = 1000000000000128;
 
-        // ↓↓↓ UPDATED PROMPT: no domain/subdomain logic ↓↓↓
-        const fixedPrompt = (() => {
-          return String(
-`directive = [
+        // ↓↓↓ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↓↓↓
+        // It must assign the giant template literal to `fixedPrompt`.
+        // For example:
+        //
+        // const fixedPrompt = `... your very long prompt string literal ...`;
+        //
+        // (Do NOT change its contents; just paste the same string you already use.)
+
+
+
+
+
+
+
+        const fixedPrompt = /* PASTE YOUR EXISTING LONG PROMPT STRING LITERAL HERE (UNCHANGED) */ (
+          () => {
+            // This placeholder keeps the file syntactically valid until you paste the string.
+            // Replace this IIFE with your actual template literal.
+            return String(
+              // minimal, harmless fallback so local editors don't crash before you paste:
+              `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
-  \`You generate a JSON array ("arrayLogic") that is processed strictly in sequence (row 0, then 1, ...). Future rows must never be referenced by earlier rows.\`,
-  \`When the user supplies a new persistent fact/resource, create a single operation whose key ends with a method/action pair like "by/user/get" or "via/api/get".\`,
-  \`If the user also wants the value immediately, invoke the same operation in the same array and surface its output in the final conclusion row.\`,
-  \`If the user wants to recall an already-exposed value, just call the existing operation (no extra storage row).\`,
-  \`There is **no domain/subdomain classification**. The operation key is a simple, free-form, slash-separated concept path followed by method/action pairs (e.g., "profile/preferences/color/by/user/get" or "inventory/items/search/via/api/get").\`,
-  \`Do not put concrete values (names, ids, secrets, etc.) in the key. Put all concrete values in the "input" payload.\`,
-  \`Every operation row is an object with a single key (the concept path). Its value has { "input": <object>, "schema": <JSON-Schema object> }.\`,
-  \`The last row must be { "conclusion": <value or ref> } and should return the final value to the caller.\`
+  \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
+  \`When the user supplies a new persistent fact or resource, **create a single breadcrumb whose method/action pair ends in “/get”.**\`,
+  \`• That breadcrumb *simultaneously* stores the data and exposes a standard API for future recall (no separate “/set” or “/store” needed).\`,
+  \`• If the user also wants the value immediately, invoke the same “/get” crumb in the same array and return its output in the conclusion.\`,
+  \`• If the user only wants to recall something that is already exposed, skip the storage step and simply call the existing “/get”.\`,
+  \`You accept {user_requests}, leverage {persistant_knowledge, previous_response, previous_processed_conclusion, relevant_items}, mimic {examples}, follow the {rules}, and organize it into {response}. Response is an array processed in sequence, where the last item is the result conclusion.\`
 ]
 
 var response = [];
 
-// Caller-provided context
 const user_requests = ${JSON.stringify(promptObj?.userRequest ?? promptObj ?? "")};
+
 const persistent_knowledge = [{"requester":"Austin Hughes", "Austin_Hughes_id":${userPath}}];
-const relevant_items = ${JSON.stringify(promptObj?.relevantItems ?? [])};
+
+const relevant_items = ${JSON.stringify(promptObj?.relevantItems ?? [])}
 
 const previous_request = [];
+
 const previous_response = [];
+
 const previous_processed_conclusion = [];
 
-// Utilities for refs and executing remote crumbs
 const REF_RE = /^__\\$ref\\((\\d+)\\)(?:\\.(.+))?$/;
-const isOpKey = key => /^[\\w-]+\\/.+/.test(key);
+
+const isBreadcrumb = key => /^[\\w-]+\\/.+/.test(key);
 
 async function fetchCrumb(key, payload) {
   const res = await fetch(\`https://1var.com/getCrumbOuput/\${encodeURIComponent(key)}\`, {
@@ -216,21 +234,32 @@ async function processArray(source, context = [], target = []) {
   const result = [];
   for (const raw of source) {
     let item = walk(raw, [...context, ...result]);
-    if (item && typeof item === "object" && Object.keys(item).length === 1) {
+
+    if (
+      item &&
+      typeof item === "object" &&
+      Object.keys(item).length === 1
+    ) {
       const [key] = Object.keys(item);
-      if (isOpKey(key)) {
+      if (isBreadcrumb(key)) {
         const payload = item[key];
-        item = { output: await fetchCrumb(key, payload) };
+        item = {
+          output: await fetchCrumb(key, payload),
+        };
       }
     }
     result.push(item);
   }
 
   const last = walk(source.at(-1), [...context, ...result]);
+
   target.length = 0;
-  if (Array.isArray(last.conclusion)) target.push(...last.conclusion);
-  else target.push(last.conclusion);
-  return;
+  if (Array.isArray(last.conclusion)) {
+    target.push(...last.conclusion);
+  } else {
+    target.push(last.conclusion);
+  }
+  return
 }
 
 (async () => {
@@ -238,18 +267,31 @@ async function processArray(source, context = [], target = []) {
   console.log(previous_processed_conclusion)
 })();
 
-// -------------------------- rules ---------------------------------
-// (No domain/subdomain taxonomy. Keys are simple, conceptual paths.)
-operation_rules = [
-  /* 0 */ \`Format → <concept path> / (method/action pairs)+\`,
-  /* 1 */ \`Concept path → 1+ slash segments describing the feature (e.g. profile/preferences/color, inventory/availability, contacts/notes).\`,
-  /* 2 */ \`Method/action pairs → One or more pairs like by/user/get, via/api/get, by/system/check.\`,
-  /* 3 */ \`Input payload → Put all concrete values (names, ids, strings) into "input".\`,
-  /* 4 */ \`Schema → JSON-Schema describing the expected output from the operation.\`,
-  /* 5 */ \`Conclusion → The last array row must return the final value.\`
+breadcrumb_rules = [
+  /*breadcrumb app 'key': */
+  /* 0 */ \`Breadcrumb Format → root / sub-root / clarifier(s) / locale? / context? / (method/action pairs)+\`,
+
+  /* 1 */ \`No proper nouns anywhere → Never place company, product, or person names (or other unique identifiers) in any breadcrumb segment. All such specifics belong only in the request’s input payload.\`,
+
+  /* 2 */ \`root → Must select a single term from this fixed list: agriculture, architecture, biology, business, characteristic, chemistry, community, cosmology, economics, education, entertainment, environment, event, food, geology, geography, government, health, history, language, law, manufacturing, mathematics, people, psychology, philosophy, religion, sports, technology, transportation.\`,
+
+  /* 3 */ \`sub-root → A high-level sub-domain of the chosen root (e.g. health/clinical, cosmology/galaxies, architecture/structures). Still entirely conceptual—no proper nouns.\`,
+
+  /* 4 */ \`domain-specific clarifier(s) → One or more deeply nested, slash-separated conceptual layers that progressively narrow the topic with precise, fully spelled-out terms (e.g. markets/assets/equity/dividends/valuation or oncology/tumor/staging/treatment/plan). Do NOT fuse concepts into a single segment; each idea gets its own breadcrumb step. No proper nouns.\`,
+
+  /* 5 */ \`locale (optional) → Language or regional facet (e.g. english/american, multilingual/global).\`,
+
+  /* 6 */ \`context (optional) → Perspective or use-case lens (e.g. marketing, alert, payment, availability).\`,
+
+  /* 7 */ \`method/action pairs → One or more repetitions of “method-qualifier / action-verb” (e.g. by/market-open/sell, via/api/get). These describe *how* the request should execute. Do not include input values or schema fields here.\`,
+  /*breadcrumb app 'value': */
+  /* 8 */ \`input:{} → The req.body data being sent to the app. Likely sending 'relevant_items' (e.g. { "company_name": "Apple", "product_name": "iPhone 15" }).\`,
+
+  /* 9 */ \`schema:{} → Defines the shape/type of the response data being returned. \`,
+
+  /*10*/ \`Consistency → Always follow this hierarchy and naming discipline so the system can route requests deterministically across all domains and use-cases.\`
 ];
 
-// ------------------------- examples -------------------------------
 examples = [
   \`"My favorite color is red" => [
       { "user": "1000000003" },
@@ -259,7 +301,7 @@ examples = [
         "const": "red"
       },
       {
-        "profile/preferences/color/by/user/get": {
+        "characteristic/preferences/color/by/user/get": {
           "input": "__$ref(0)",
           "schema": "__$ref(1)"
         }
@@ -274,14 +316,14 @@ examples = [
         "type": "string"
       },
       {
-        "profile/preferences/color/by/user/get": {
+        "characteristic/preferences/color/by/user/get": {
           "input": "__$ref(0)",
           "schema": "__$ref(1)"
         }
       },
-      { "conclusion": "__$ref(2).output" } // ==> previously stored value
+      { "conclusion": "__$ref(2).output" } // ==> red
   ]\`,
-
+ 
   \`"When is the acoustic guitar available for an in-store demo?" =>[
       {
         "store": "Melody Music Emporium",
@@ -307,29 +349,69 @@ examples = [
         "required": ["confirm-availability"]
       },
       {
-        "inventory/stock-verification/by/system/check/availability": {
+        "business/logistics/inventory/stock-verification/by/system/check/availability": {
           "input": "__$ref(0)",
           "schema": "__$ref(1)"
         }
       },
       {
-        "appointments/demo-booking/by/employee/check/availability": {
+        "business/sales/engagements/demo-booking/by/employee/check/availability": {
           "input": "__$ref(3).output.approved-data",
           "schema": "__$ref(2)"
         }
       },
       {
-        "conclusion": { "availability": "__$ref(4).output" }
-      }
+        "conclusion": {
+          "availability": "__$ref(4).output"
+        }
+      }    
   ]\`
 ]
 
-// RESPOND LIKE THE EXAMPLES ONLY`
-          );
-        })();
-        // ↑↑↑ UPDATED PROMPT (no domain/subdomain) ↑↑↑
+root_and_sub_roots = {
+  "agriculture": subdomains("agriculture"),
+  "architecture": subdomains("architecture"),
+  "biology": subdomains("biology"),
+  "business": subdomains("business"),
+  "characteristic": subdomains("characteristic"),
+  "chemistry": subdomains("chemistry"),
+  "community": subdomains("community"),
+  "cosmology": subdomains("cosmology"),
+  "economics": subdomains("economics"),
+  "education": subdomains("education"),
+  "entertainment": subdomains("entertainment"),
+  "environment": subdomains("environment"),
+  "event": subdomains("event"),
+  "food": subdomains("food"),
+  "geology": subdomains("geology"),
+  "geography": subdomains("geography"),
+  "government": subdomains("government"),
+  "health": subdomains("health"),
+  "history": subdomains("history"),
+  "language": subdomains("language"),
+  "law": subdomains("law"),
+  "manufacturing": subdomains("manufacturing"),
+  "mathematics": subdomains("mathematics"),
+  "people": subdomains("people"),
+  "psychology": subdomains("psychology"),
+  "philosophy": subdomains("philosophy"),
+  "religion": subdomains("religion"),
+  "sports": subdomains("sports"),
+  "technology": subdomains("technology"),
+  "transportation": subdomains("transportation")
+}
 
-        // Use fixedPrompt to drive arrayLogic creation on the server
+function subdomains(domain){
+    let subsArray = require('./'+domain);
+    return subsArray
+}
+//RESPOND LIKE THE EXAMPLES ONLY`
+            );
+          }
+        )();
+        // ↑↑↑ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↑↑↑
+
+        // Use your fixedPrompt to drive arrayLogic creation on the server
         arrayLogic = fixedPrompt;
       } else if (typeof arrayLogic === "string" && arrayLogic.trim().startsWith("[")) {
         arrayLogic = JSON.parse(arrayLogic);
@@ -371,96 +453,89 @@ examples = [
           console.error("retrieveAndParseJSON failed:", err && err.message);
         }
 
-        // Always run the runner (with a stub if no published)
-        let shorthandLogic;
         if (jsonpl?.published) {
-          shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
-        } else {
-          // minimal shell so the runner can execute with virtual input
-          shorthandLogic = { published: { actions: [], modules: {} } };
-        }
+          // Clone and prepare for runner
+          const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
+          const blocks = shorthandLogic.published?.blocks ?? [];
+          const originalPublished = shorthandLogic.published;
 
-        const blocks = shorthandLogic.published?.blocks ?? [];
-        const originalPublished = shorthandLogic.published;
-
-        // Feed virtual input always. If we had published, also feed it physically.
-        shorthandLogic.input = [{ virtual: virtualArray }];
-        if (jsonpl?.published) {
+          // Feed both "physical" and "virtual" inputs to runner
+          shorthandLogic.input = [{ virtual: virtualArray }];
           shorthandLogic.input.unshift({ physical: [[shorthandLogic.published]] });
-        }
 
-        const fakeReqPath = `/cookies/convert/${actionFile}`;
-        const legacyReqBody = { body: body.body || {} };
+          const fakeReqPath = `/cookies/convert/${actionFile}`;
+          const legacyReqBody = { body: body.body || {} };
 
-        newShorthand = await shorthand(
-          shorthandLogic,
-          req,
-          res,
-          /* next */ undefined,
-          /* privateKey */ undefined,
-          dynamodb,
-          uuidv4,
-          s3,
-          ses,
-          openai,
-          Anthropic,
-          dynamodbLL,
-          /* isPublished */ true,
-          fakeReqPath,
-          legacyReqBody,
-          req?.method,
-          ctx.type || req?.type,
-          req?._headerSent,
-          signer,
-          "shorthand",
-          ctx.xAccessToken
-        );
+          newShorthand = await shorthand(
+            shorthandLogic,
+            req,
+            res,
+            /* next */ undefined,
+            /* privateKey */ undefined,
+            dynamodb,
+            uuidv4,
+            s3,
+            ses,
+            openai,
+            Anthropic,
+            dynamodbLL,
+            /* isPublished */ true,
+            fakeReqPath,
+            legacyReqBody,
+            req?.method,
+            ctx.type || req?.type,
+            req?._headerSent,
+            signer,
+            "shorthand",
+            ctx.xAccessToken
+          );
 
-        // Preserve original block listing for parity
-        if (newShorthand?.published) {
-          newShorthand.published.blocks = blocks;
-        }
+          // Preserve original block listing
+          if (newShorthand?.published) {
+            newShorthand.published.blocks = blocks;
+          }
 
-        // Extract conclusion payload (runner may wrap it)
-        const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
-        const conclusionValue =
-          rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
-            ? rawConclusion.value
-            : rawConclusion;
-        createdEntities = rawConclusion && Array.isArray(rawConclusion.createdEntities)
-          ? rawConclusion.createdEntities
-          : [];
-        entityFromConclusion =
-          (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity) ||
-          (createdEntities[0]?.entity) ||
-          null;
-        conclusion = conclusionValue;
+          // Extract conclusion payload (runner may wrap it)
+          const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
+          const conclusionValue =
+            rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
+              ? rawConclusion.value
+              : rawConclusion;
+          createdEntities = rawConclusion && Array.isArray(rawConclusion.createdEntities)
+            ? rawConclusion.createdEntities
+            : [];
+          entityFromConclusion =
+            (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity) ||
+            (createdEntities[0]?.entity) ||
+            null;
+          conclusion = conclusionValue;
 
-        // Cleanup fields we don't want to echo
-        if (newShorthand) {
-          delete newShorthand.input;
-          delete newShorthand.conclusion;
-        }
+          // Cleanup fields we don't want to echo
+          if (newShorthand) {
+            delete newShorthand.input;
+            delete newShorthand.conclusion;
+          }
 
-        // Equality hint (only meaningful if we actually had a published doc)
-        if (parseResults) {
-          parseResults.isPublishedEqual =
-            JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
-        }
+          // Equality hint
+          if (parseResults) {
+            parseResults.isPublishedEqual =
+              JSON.stringify(originalPublished) === JSON.stringify(newShorthand?.published);
+          }
 
-        // Persist updated published logic only when there was a real published doc
-        if (actionFile && jsonpl?.published) {
-          try {
-            await s3
-              .putObject({
-                Bucket: "public.1var.com",
-                Key: actionFile,
-                Body: JSON.stringify(newShorthand),
-                ContentType: "application/json",
-              })
-              .promise();
-          } catch (err) {
-            console.error("S3 putObject failed:", err && err.message);
+          // Persist updated published logic when actionFile is provided
+          if (actionFile) {
+            try {
+              await s3
+                .putObject({
+                  Bucket: "public.1var.com",
+                  Key: actionFile,
+                  Body: JSON.stringify(newShorthand),
+                  ContentType: "application/json",
+                })
+                .promise();
+            } catch (err) {
+              console.error("S3 putObject failed:", err && err.message);
+            }
           }
         }
       }
@@ -468,16 +543,17 @@ examples = [
       // ─────────────────────────────────────────────────────────────
       // 10) Final response envelope
       // ─────────────────────────────────────────────────────────────
-      const mainObj = {
+      mainObj = {
         parseResults,
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
         conclusion,
         entity: entityFromConclusion || "",
         createdEntities,
-        existing: !!(meta && meta.cookie && meta.cookie.existing),
-        file: String((entityFromConclusion || actionFile || "")),
       };
+
+      mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
+      mainObj.file = String(entityFromConclusion || actionFile || "");
 
       return { ok: true, response: mainObj };
     } catch (err) {
