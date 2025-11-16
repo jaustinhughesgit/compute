@@ -4,6 +4,7 @@
 /* ------------------------------------------------------------------ */
 
 const anchorsUtil = require('./anchors');
+// (DynamoDB is not used directly here, but left imported for parity with older versions)
 const { DynamoDB } = require('aws-sdk');
 
 const ANCHOR_BANDS_TABLE    = process.env.ANCHOR_BANDS_TABLE    || 'anchor_bands';
@@ -355,6 +356,7 @@ async function parseArrayLogic({
 
   // We'll record the last actionable row index to wire a clean conclusion later.
   let lastRouteIdx = -1;
+  let lastCreatedSu = null; // <- expose the final entity id back via conclusion
 
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
@@ -436,6 +438,7 @@ async function parseArrayLogic({
       shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""]);
       lastRouteIdx = shorthand.length - 1;
 
+      lastCreatedSu = actionFile;
       continue;
     }
 
@@ -520,12 +523,30 @@ async function parseArrayLogic({
     // 9) run the new entity
     shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
     lastRouteIdx = shorthand.length - 1;
+
+    lastCreatedSu = newSu;
   }
 
   // If caller's array had a { conclusion: ... } row, give them one clean conclusion
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig && lastRouteIdx >= 0) {
-    shorthand.push([{ conclusion: `__$ref(${lastRouteIdx})` }]);
+    // Mirror the legacy shape so convert.js can read entity/createdEntities
+    const addIdx = shorthand.push(
+      ["ADDPROPERTY", "000!!", "conclusion", padRef(lastRouteIdx)]
+    ) - 1;
+
+    shorthand.push([
+      "ADDPROPERTY",
+      padRef(addIdx + 1),
+      "createdEntities",
+      { entity: "", name: "_new", contentType: "text", id: "_new" }
+    ]);
+
+    if (lastCreatedSu) {
+      shorthand.push(["NESTED", padRef(addIdx + 2), "createdEntities", "entity", lastCreatedSu]);
+    }
+
+    shorthand.push(["ROWRESULT", "000", padRef(addIdx + 3)]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
