@@ -139,7 +139,7 @@ function register({ on, use }) {
       // ─────────────────────────────────────────────────────────────
       // 8) Main flow
       // ─────────────────────────────────────────────────────────────
-      let mainObj = {};
+      mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
       const { shorthand } = require("../shorthand");
