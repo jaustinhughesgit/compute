@@ -1,14 +1,14 @@
 // parseArrayLogic.js
 /* ------------------------------------------------------------------ */
-/* Anchor-only parseArrayLogic (drop-in)                               */
+/* Anchor-only parseArrayLogic (drop-in)                              */
 /* ------------------------------------------------------------------ */
 
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
 
-const ANCHOR_BANDS_TABLE     = process.env.ANCHOR_BANDS_TABLE     || 'anchor_bands';
-const PERM_GRANTS_TABLE      = process.env.PERM_GRANTS_TABLE      || 'perm_grants';
-const DEFAULT_POLICY_PREFIX  = process.env.POLICY_PREFIX          || 'entity';
+const ANCHOR_BANDS_TABLE    = process.env.ANCHOR_BANDS_TABLE    || 'anchor_bands';
+const PERM_GRANTS_TABLE     = process.env.PERM_GRANTS_TABLE     || 'perm_grants';
+const DEFAULT_POLICY_PREFIX = process.env.POLICY_PREFIX         || 'entity';
 
 /* ------------------------- tiny helpers --------------------------- */
 
@@ -18,6 +18,9 @@ const createArrayOfRootKeys = (schema) => {
   const { properties } = schema;
   return properties && typeof properties === "object" ? Object.keys(properties) : [];
 };
+
+// cheap deep clone
+const safeClone = (x) => JSON.parse(JSON.stringify(x));
 
 // normalize to unit vector
 const _normalizeVec = (v) => {
@@ -86,6 +89,11 @@ async function _putAllBatched(dynamodb, table, items) {
 }
 
 async function _fanoutAnchorBands({ dynamodb, su, setId, anchor, type = 'su', policy_id }) {
+  // Hard guard: never write postings with a ref-string SU
+  if (/^__\$ref\(/.test(String(su))) {
+    console.warn("Ref-string SU passed to _fanoutAnchorBands; ignoring:", su);
+    return 0;
+  }
   const assigns = anchor?.assigns || [];
   if (!su || !setId || !assigns.length) return 0;
   const rows = assigns.map(a =>
@@ -389,14 +397,10 @@ async function parseArrayLogic({
     }
     const textForAnchors = requestOnly
       ? (userReqText || b?.input?.name || b?.input?.title || JSON.stringify(elem))
-      : (b?.input?.name || b?.input?.title || typeof out === 'string' && out || JSON.stringify(elem));
+      : (b?.input?.name || b?.input?.title || (typeof out === 'string' && out) || JSON.stringify(elem));
 
-    // try to find a match purely via anchors (optional; keeps anchor-only)
+    // compute an anchor payload for positioning (optional)
     const matchAnchorPayload = await _computeAnchorPayload({ s3, openai, text: textForAnchors });
-    let bestMatchSu = null;
-
-    // NOTE: if you add a GSI for quick lookup later, plug it here.
-    // In this simplified drop-in, we skip pre-matching to avoid any accidental duplicates.
 
     // If caller provided an actionFile (workspace id), prefer it instead of creating a fresh entity.
     if (actionFile) {
@@ -458,7 +462,7 @@ async function parseArrayLogic({
     const idxLoadedJSON = shorthand.length - 1;
 
     // 5) synthesize minimal JPL (actions/modules) for the new file
-    const desiredObj = structuredClone(elem);
+    const desiredObj = safeClone(elem);
     desiredObj.response = entName;
 
     let newJPL =
@@ -485,35 +489,36 @@ async function parseArrayLogic({
     // 7) save updated file
     shorthand.push(["ROUTE", `__$ref(${idxLoadedJSON})`, {}, "saveFile", `__$ref(${idxFileRow})`, ""]);
 
-    // 8) position + anchors for the new entity (entity id is the "file" from idxFileRow)
+    // 8) position + anchors for the new entity (use a CONCRETE SU)
+    const newSu = padRef(idxFileRow + 1);  // deterministic id like "003!!"
     const anchorPayloadNew = await _computeAnchorPayload({ s3, openai, text: entName });
 
     const positionBodyCreated = {
       description: "auto created entity",
-      entity: `__$ref(${idxFileRow})`,
+      entity: newSu,
       path: breadcrumb,
-      output: entName
+      output: entName,
+      ...(anchorPayloadNew ? { anchor: anchorPayloadNew } : {})
     };
-    if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
 
-    if (positionBodyCreated.anchor) {
+    if (anchorPayloadNew) {
       await _fanoutAnchorBands({
         dynamodb,
-        su: String(positionBodyCreated.entity), // The runner will resolve __$ref; here it’s OK to pass the string
-        setId: positionBodyCreated.anchor.setId,
-        anchor: positionBodyCreated.anchor,
+        su: newSu,
+        setId: anchorPayloadNew.setId,
+        anchor: anchorPayloadNew,
         type: 'su',
-        policy_id: policyFor(`__$ref(${idxFileRow})`)
+        policy_id: policyFor(newSu)
       });
     }
 
-    await _ensureOwnerGrant({ dynamodb, su: `__$ref(${idxFileRow})`, e });
+    await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
-    shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", `__$ref(${idxFileRow})`, ""]);
+    shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", newSu, ""]);
     lastRouteIdx = shorthand.length - 1;
 
     // 9) run the new entity
-    shorthand.push(["ROUTE", inputParam, {}, "runEntity", `__$ref(${idxFileRow})`, ""]);
+    shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
     lastRouteIdx = shorthand.length - 1;
   }
 
