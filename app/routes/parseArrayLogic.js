@@ -1,6 +1,6 @@
 // parseArrayLogic.js
 /* ------------------------------------------------------------------ */
-/* Imports & constants                                                */
+/* Anchor-only parseArrayLogic (drop-in)                               */
 /* ------------------------------------------------------------------ */
 
 const anchorsUtil = require('./anchors');
@@ -8,14 +8,18 @@ const { DynamoDB } = require('aws-sdk');
 
 const ANCHOR_BANDS_TABLE     = process.env.ANCHOR_BANDS_TABLE     || 'anchor_bands';
 const PERM_GRANTS_TABLE      = process.env.PERM_GRANTS_TABLE      || 'perm_grants';
-const PERM_GSI_BY_PRINCIPAL  = process.env.PERM_GSI_BY_PRINCIPAL  || 'by_principal';
 const DEFAULT_POLICY_PREFIX  = process.env.POLICY_PREFIX          || 'entity';
 
-/* ------------------------------------------------------------------ */
-/* Anchor helpers                                                     */
-/* ------------------------------------------------------------------ */
+/* ------------------------- tiny helpers --------------------------- */
 
-// Unit vector normalize (used inside _embedUnit)
+// JSON schema → list of root keys to help build param shape dumps
+const createArrayOfRootKeys = (schema) => {
+  if (!schema || typeof schema !== "object") return [];
+  const { properties } = schema;
+  return properties && typeof properties === "object" ? Object.keys(properties) : [];
+};
+
+// normalize to unit vector
 const _normalizeVec = (v) => {
   if (!Array.isArray(v) || v.length === 0) return null;
   let s = 0;
@@ -34,14 +38,7 @@ async function _embedUnit({ openai, text }) {
   return _normalizeVec(embedding);
 }
 
-/**
- * Compute anchor payload from text using the configured anchors.
- * Returns:
- * {
- *   setId, band_scale, num_shards,
- *   assigns: [{ l0, l1, band, dist_q16 }, ...]
- * }
- */
+/** Build anchor payload for a text snippet */
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
     const t = String(text || '').trim();
@@ -67,16 +64,62 @@ async function _computeAnchorPayload({ s3, openai, text }) {
   }
 }
 
-/* ------------------------------------------------------------------ */
-/* ArrayLogic helpers                                                 */
-/* ------------------------------------------------------------------ */
+// fanout postings for an anchor payload
+async function _putAllBatched(dynamodb, table, items) {
+  if (!items || !items.length) return 0;
+  let written = 0;
+  for (let i = 0; i < items.length; i += 25) {
+    const chunk = items.slice(i, i + 25).map(Item => ({ PutRequest: { Item } }));
+    const params = { RequestItems: { [table]: chunk } };
+    let backoff = 100;
+    while (true) {
+      const rsp = await dynamodb.batchWrite(params).promise();
+      const un = rsp.UnprocessedItems?.[table] || [];
+      written += chunk.length - un.length;
+      if (!un.length) break;
+      await new Promise(r => setTimeout(r, backoff));
+      backoff = Math.min(backoff * 2, 2000);
+      params.RequestItems[table] = un;
+    }
+  }
+  return written;
+}
+
+async function _fanoutAnchorBands({ dynamodb, su, setId, anchor, type = 'su', policy_id }) {
+  const assigns = anchor?.assigns || [];
+  if (!su || !setId || !assigns.length) return 0;
+  const rows = assigns.map(a =>
+    ({
+      ...anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS }),
+      ...(policy_id ? { policy_id } : {})
+    })
+  );
+  return _putAllBatched(dynamodb, ANCHOR_BANDS_TABLE, rows);
+}
+
+// ACL seed
+async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
+  try {
+    if (!su || !e) return;
+    const now = Math.floor(Date.now() / 1000);
+    await dynamodb.put({
+      TableName: PERM_GRANTS_TABLE,
+      Item: { entityID: String(su), principalID: `u:${e}`, perms, created: now }
+    }).promise();
+  } catch (err) {
+    console.warn("perm_grants owner seed failed:", err && err.message);
+  }
+}
+
+/* ----------------------- arrayLogic utilities ---------------------- */
+
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
   const cache = new Array(arrayLogic.length);
   const resolving = new Set();
 
-  const deepResolve = val => {
+  const deepResolve = (val) => {
     if (typeof val === "string") {
       const m = val.match(REF_REGEX);
       if (m) {
@@ -91,13 +134,11 @@ function resolveArrayLogic(arrayLogic) {
     }
     if (Array.isArray(val)) return val.map(deepResolve);
     if (val && typeof val === "object")
-      return Object.fromEntries(Object.entries(val).map(
-        ([k, v]) => [k, deepResolve(v)]
-      ));
+      return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, deepResolve(v)]));
     return val;
   };
 
-  const resolveElement = i => {
+  const resolveElement = (i) => {
     if (cache[i] !== undefined) return cache[i];
     if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
     resolving.add(i);
@@ -110,10 +151,11 @@ function resolveArrayLogic(arrayLogic) {
 }
 
 const OFFSET = 1;
-const padRef = n_ => String(n_).padStart(3, "0") + "!!";
+const padRef = (n_) => String(n_).padStart(3, "0") + "!!";
 const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
 
-const convertShorthandRefs = v => {
+// Convert "__$ref(n)" into "XYZ!!" once, at the end.
+const convertShorthandRefs = (v) => {
   if (typeof v === "string") {
     const m = v.match(OP_ONLY);
     if (m) return padRef(Number(m[1]) + OFFSET);
@@ -121,23 +163,20 @@ const convertShorthandRefs = v => {
   }
   if (Array.isArray(v)) return v.map(convertShorthandRefs);
   if (v && typeof v === "object")
-    return Object.fromEntries(Object.entries(v).map(
-      ([k, val]) => [k, convertShorthandRefs(val)]
-    ));
+    return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, convertShorthandRefs(val)]));
   return v;
 };
 
-const isOperationElem = obj =>
+const isOperationElem = (obj) =>
   obj && typeof obj === "object" && !Array.isArray(obj) &&
   Object.keys(obj).length === 1 &&
   (() => { const v = obj[Object.keys(obj)[0]]; return v && v.input && v.schema; })();
 
-const isSchemaElem = obj =>
+const isSchemaElem = (obj) =>
   obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
-/* ------------------------------------------------------------------ */
-/* Strict JSON-only app gen helper (unchanged API)                    */
-/* ------------------------------------------------------------------ */
+/* ------------------------ prompt → arrayLogic ---------------------- */
+
 const buildLogicSchema = {
   name: "build_logic",
   description: "Create a structured modules/actions JSON payload for the logic runner.",
@@ -149,10 +188,7 @@ const buildLogicSchema = {
       modules: {
         type: "object",
         description: "Map from local alias → npm-package name.",
-        additionalProperties: {
-          type: "string",
-          description: "Exact name of the npm package to `require`."
-        }
+        additionalProperties: { type: "string" }
       },
       actions: { $ref: "#/$defs/actionList" }
     },
@@ -238,9 +274,6 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
   return args;
 };
 
-/* ------------------------------------------------------------------ */
-/* Prompt → arrayLogic (unchanged)                                    */
-/* ------------------------------------------------------------------ */
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
@@ -250,205 +283,38 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
     messages: [{
       role: "system",
       content:
-        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
-        "array—the arrayLogic representation of the user’s request. " +
-        "No prose. No markdown. No code fences. No comments!!"
+        "You are a JSON-only assistant. Reply with ONLY a valid JSON array (arrayLogic). No prose."
     },
     { role: "user", content: prompt }
     ]
   });
   let text = rsp.choices[0].message.content.trim();
 
+  // strip JS-style comments safely
   function stripComments(jsonLike) {
-    let out = '';
-    let inString = false, quote = '', escaped = false;
-    let inSL = false, inML = false;
-
+    let out = '', inString = false, quote = '', escaped = false, inSL = false, inML = false;
     for (let i = 0; i < jsonLike.length; i++) {
       const c = jsonLike[i], n = jsonLike[i + 1];
-
-      if (inSL) {
-        if (c === '\n' || c === '\r') { inSL = false; out += c; }
-        continue;
-      }
-      if (inML) {
-        if (c === '*' && n === '/') { inML = false; i++; }
-        continue;
-      }
-      if (inString) {
-        out += c;
-        if (!escaped && c === quote) { inString = false; quote = ''; }
-        escaped = !escaped && c === '\\';
-        continue;
-      }
-      if (c === '"' || c === "'") {
-        inString = true; quote = c; out += c; continue;
-      }
+      if (inSL) { if (c === '\n' || c === '\r') { inSL = false; out += c; } continue; }
+      if (inML) { if (c === '*' && n === '/') { inML = false; i++; } continue; }
+      if (inString) { out += c; if (!escaped && c === quote) { inString = false; quote = ''; } escaped = !escaped && c === '\\'; continue; }
+      if (c === '"' || c === "'") { inString = true; quote = c; out += c; continue; }
       if (c === '/' && n === '/') { inSL = true; i++; continue; }
       if (c === '/' && n === '*') { inML = true; i++; continue; }
-
       out += c;
     }
     return out;
   }
 
   text = stripComments(text);
-
   const start = text.indexOf("[");
   const end = text.lastIndexOf("]");
-  if (start === -1 || end === -1) {
-    throw new Error("Model response did not contain a JSON array.");
-  }
-
-  text = text.slice(start, end + 1);
-  return JSON.parse(text);
+  if (start === -1 || end === -1) throw new Error("Model response did not contain a JSON array.");
+  return JSON.parse(text.slice(start, end + 1));
 }
 
-/* ------------------------------------------------------------------ */
-/* ACL helpers                                                        */
-/* ------------------------------------------------------------------ */
-async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
-  try {
-    if (!su || !e) return;
-    const now = Math.floor(Date.now() / 1000);
-    await dynamodb.put({
-      TableName: PERM_GRANTS_TABLE,
-      Item: {
-        entityID: String(su),
-        principalID: `u:${e}`,
-        perms,
-        created: now
-      }
-    }).promise();
-  } catch (err) {
-    console.warn("perm_grants owner seed failed:", err && err.message);
-  }
-}
+/* ------------------------------- main -------------------------------- */
 
-/* ------------------------------------------------------------------ */
-/* Anchor postings fanout (unchanged)                                 */
-/* ------------------------------------------------------------------ */
-async function _putAllBatched(dynamodb, table, items) {
-  if (!items || !items.length) return 0;
-  let written = 0;
-  for (let i = 0; i < items.length; i += 25) {
-    const chunk = items.slice(i, i + 25).map(Item => ({ PutRequest: { Item } }));
-    const params = { RequestItems: { [table]: chunk } };
-    let backoff = 100;
-    while (true) {
-      const rsp = await dynamodb.batchWrite(params).promise();
-      const un = rsp.UnprocessedItems?.[table] || [];
-      written += chunk.length - un.length;
-      if (!un.length) break;
-      await new Promise(r => setTimeout(r, backoff));
-      backoff = Math.min(backoff * 2, 2000);
-      params.RequestItems[table] = un;
-    }
-  }
-  return written;
-}
-
-async function _fanoutAnchorBands({ dynamodb, su, setId, anchor, type = 'su', policy_id }) {
-  const assigns = anchor?.assigns || [];
-  if (!su || !setId || !assigns.length) return 0;
-  const rows = assigns.map(a => {
-    const base = anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS });
-    return policy_id ? { ...base, policy_id } : base;   // attach policy pointer
-  });
-  return _putAllBatched(dynamodb, ANCHOR_BANDS_TABLE, rows);
-}
-
-/* ------------------------------------------------------------------ */
-/* Anchor-only candidate search                                       */
-/* ------------------------------------------------------------------ */
-
-/**
- * Fetch up to `limit` postings that match an anchor assignment,
- * using a Scan fallback (works without any GSI).
- */
-async function _scanByAssign({ dynamodb, assign, setId, limit = 200, lastKey = null }) {
-  const params = {
-    TableName: ANCHOR_BANDS_TABLE,
-    FilterExpression: '#sid = :sid AND #band = :band AND #l0 = :l0 AND #l1 = :l1',
-    ExpressionAttributeNames: {
-      '#sid': 'setId',
-      '#band': 'band',
-      '#l0': 'l0',
-      '#l1': 'l1'
-    },
-    ExpressionAttributeValues: {
-      ':sid': setId,
-      ':band': assign.band,
-      ':l0': assign.l0,
-      ':l1': assign.l1
-    },
-    Limit: Math.max(25, Math.min(1000, limit))
-  };
-  if (lastKey) params.ExclusiveStartKey = lastKey;
-  try {
-    const { Items, LastEvaluatedKey } = await dynamodb.scan(params).promise();
-    return { Items: Items || [], LastEvaluatedKey: LastEvaluatedKey || null };
-  } catch (err) {
-    console.warn('Anchor scan failed:', err && err.message);
-    return { Items: [], LastEvaluatedKey: null };
-  }
-}
-
-/**
- * Aggregate candidates across all assignments; rank by:
- *  1) bestDist (min dist_q16 across hits) ASC
- *  2) hits (number of assignments matched) DESC
- */
-async function _searchEntitiesByAnchors({ dynamodb, anchorPayload, perAssignLimit = 200, maxTotal = 1000 }) {
-  if (!anchorPayload?.assigns?.length) return null;
-
-  const tally = new Map(); // su -> { bestDist, hits }
-  let totalSeen = 0;
-
-  for (const assign of anchorPayload.assigns) {
-    let lastKey = null;
-    do {
-      const { Items, LastEvaluatedKey } = await _scanByAssign({
-        dynamodb, assign, setId: anchorPayload.setId, limit: perAssignLimit, lastKey
-      });
-      lastKey = LastEvaluatedKey;
-
-      for (const it of Items) {
-        const su = it?.su;
-        if (!su) continue;
-        const d = typeof it?.dist_q16 === 'number'
-          ? it.dist_q16
-          : (typeof assign.dist_q16 === 'number' ? assign.dist_q16 : Number.POSITIVE_INFINITY);
-        const cur = tally.get(su) || { bestDist: d, hits: 0 };
-        cur.bestDist = Math.min(cur.bestDist, d);
-        cur.hits += 1;
-        tally.set(su, cur);
-        totalSeen++;
-        if (totalSeen >= maxTotal) break;
-      }
-      if (totalSeen >= maxTotal) break;
-      // Stop early if we collected enough per assignment
-      if ((Items || []).length >= perAssignLimit) break;
-    } while (lastKey);
-    if (totalSeen >= maxTotal) break;
-  }
-
-  if (!tally.size) return null;
-
-  const ranked = [...tally.entries()].sort((a, b) => {
-    const A = a[1], B = b[1];
-    if (A.bestDist !== B.bestDist) return A.bestDist - B.bestDist;
-    if (A.hits !== B.hits) return B.hits - A.hits;
-    return String(a[0]).localeCompare(String(b[0]));
-  });
-
-  const [bestSu] = ranked[0];
-  return bestSu || null;
-}
-
-/* ------------------------------------------------------------------ */
-/* Main                                                              */
-/* ------------------------------------------------------------------ */
 async function parseArrayLogic({
   arrayLogic = [],
   dynamodb,    // DocumentClient
@@ -457,7 +323,7 @@ async function parseArrayLogic({
   ses,
   openai,
   Anthropic,
-  dynamodbLL,  // Low-level DynamoDB (unused now, kept for signature compatibility)
+  dynamodbLL,  // kept only for signature compatibility
   sourceType,
   actionFile,
   out,
@@ -475,308 +341,191 @@ async function parseArrayLogic({
   const resolvedLogic = resolveArrayLogic(arrayLogic);
 
   const shorthand = [];
-  const createdEntities = [];
   const results = [];
-  let routeRowNewIndex = null;
+  const createdEntities = [];
+  const policyFor = su => `${DEFAULT_POLICY_PREFIX}:${String(su)}`;
+
+  // We'll record the last actionable row index to wire a clean conclusion later.
+  let lastRouteIdx = -1;
 
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
 
-    if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
+    // Skip the user's literal { conclusion: ... } row; we’ll add our own at the end.
+    if (i === arrayLogic.length - 1 && origElem && typeof origElem === 'object' && 'conclusion' in origElem) {
       continue;
     }
 
     const elem = resolvedLogic[i];
 
-    //systematically go throuogh and log and get the logic below here to create a new app using the curent mood and the user prompt. 
-    // Then apply add that mood to the primary entity.
-
-    let fixedOutput;
-    let fixedPossessed; // kept for compatibility if upstream sets it
-    let fixedDate;      // kept for compatibility if upstream sets it
-
+    // pass through non-op rows (user/schema/etc.)
     if (!isOperationElem(origElem)) {
       if (isSchemaElem(origElem)) {
         shorthand.push(createArrayOfRootKeys(elem));
-      } else if (origElem && typeof origElem === "object") {
-        shorthand.push([convertShorthandRefs(elem)]);
+      } else if (origElem && typeof origElem === 'object') {
+        shorthand.push([elem]);
       } else {
-        shorthand.push([convertShorthandRefs(elem)]);
+        shorthand.push([elem]);
       }
       continue;
     }
 
-    const bc = Object.keys(elem)[0];
+    // op row
+    const breadcrumb = Object.keys(elem)[0];
+    const body = elem[breadcrumb] || {};
+    const inputParam = body.input;
+    const expectedKeys = createArrayOfRootKeys(body.schema || {});
+    const schemaParam = expectedKeys;
 
-    if (Object.prototype.hasOwnProperty.call(elem[bc], "output")) {
-      fixedOutput = elem[bc].output;
-      delete elem[bc].output;
-    }
-    if (Object.prototype.hasOwnProperty.call(elem[bc], "possessedBy")) {
-      fixedPossessed = elem[bc].possessedBy;
-      delete elem[bc].possessedBy;
-    }
-    if (Object.prototype.hasOwnProperty.call(elem[bc], "date")) {
-      fixedDate = elem[bc].date;
-      delete elem[bc].date;
-    }
-
-    const [breadcrumb] = Object.keys(elem);
-    const body = elem[breadcrumb];
-
-    // Prefer the *user's request* when requestOnly === true
-    const b = elem[bc];
+    // Prefer user's request text for anchors when requestOnly
+    const b = body || {};
     const inp = b?.input && typeof b.input === 'object' ? b.input : {};
-    let userReqText = null;
-
-    if (typeof out === "string" && out.trim()) userReqText = out.trim();
-
+    let userReqText = typeof out === 'string' && out.trim() ? out.trim() : null;
     if (!userReqText) {
       const candidate =
         inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
       if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
       else if (typeof candidate === 'string') userReqText = candidate.trim();
     }
+    const textForAnchors = requestOnly
+      ? (userReqText || b?.input?.name || b?.input?.title || JSON.stringify(elem))
+      : (b?.input?.name || b?.input?.title || typeof out === 'string' && out || JSON.stringify(elem));
 
-    const textForEmbedding = requestOnly
-      ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
-      : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
-
-    // ------------------- Anchor-only matching -------------------
-    const anchorPayloadForMatch = await _computeAnchorPayload({
-      s3, openai, text: textForEmbedding
-    });
-
+    // try to find a match purely via anchors (optional; keeps anchor-only)
+    const matchAnchorPayload = await _computeAnchorPayload({ s3, openai, text: textForAnchors });
     let bestMatchSu = null;
-    if (anchorPayloadForMatch) {
-      bestMatchSu = await _searchEntitiesByAnchors({
+
+    // NOTE: if you add a GSI for quick lookup later, plug it here.
+    // In this simplified drop-in, we skip pre-matching to avoid any accidental duplicates.
+
+    // If caller provided an actionFile (workspace id), prefer it instead of creating a fresh entity.
+    if (actionFile) {
+      const anchorWordAF = (b.output && String(b.output).trim())
+        ? String(b.output).trim()
+        : (typeof out === 'string' ? out.trim() : '');
+      const anchorPayloadAF = matchAnchorPayload || await _computeAnchorPayload({ s3, openai, text: anchorWordAF });
+
+      const positionBodyAF = {
+        description: "provided entity (fallback)",
+        entity: actionFile,
+        path: breadcrumb,
+        output: b.output || out || ""
+      };
+      if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
+
+      if (positionBodyAF.anchor) {
+        await _fanoutAnchorBands({
+          dynamodb,
+          su: actionFile,
+          setId: positionBodyAF.anchor.setId,
+          anchor: positionBodyAF.anchor,
+          type: 'su',
+          policy_id: policyFor(actionFile)
+        });
+      }
+
+      await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
+
+      shorthand.push(["ROUTE", { body: positionBodyAF }, {}, "position", actionFile, ""]);
+      lastRouteIdx = shorthand.length - 1;
+
+      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""]);
+      lastRouteIdx = shorthand.length - 1;
+
+      continue;
+    }
+
+    // No provided file → create a new group/entity once, correctly wired
+    const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
+    const sanitize = s => String(s || '').replace(/[\/?#]/g, ' ').trim();
+    const entNameRaw = pick(body?.schema?.const, b.output, b?.input?.name, b?.input?.title, b?.input?.entity, out) || "$noName";
+    const entName = sanitize(entNameRaw);
+
+    // 1) new group
+    shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", entName, entName]);
+    const idxNewGroup = shorthand.length - 1;
+
+    // 2) read created file id
+    shorthand.push(["GET", `__$ref(${idxNewGroup})`, "response", "file"]);
+    const idxFileRow = shorthand.length - 1;
+
+    // 3) load file json
+    shorthand.push(["ROUTE", {}, {}, "getFile", `__$ref(${idxFileRow})`, ""]);
+    const idxGetFile = shorthand.length - 1;
+
+    // 4) get response json
+    shorthand.push(["GET", `__$ref(${idxGetFile})`, "response"]);
+    const idxLoadedJSON = shorthand.length - 1;
+
+    // 5) synthesize minimal JPL (actions/modules) for the new file
+    const desiredObj = structuredClone(elem);
+    desiredObj.response = entName;
+
+    let newJPL =
+      `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", ` +
+      `"Never response with axios URLs like example.com or domain.com because the app will crash.",` +
+      `"respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", ` +
+      `"you are a JSON logic app generator.", ` +
+      `"You will review the 'example' json for understanding on how to program the 'logic' json object", ` +
+      `"You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", ` +
+      `"Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", ` +
+      `"please give only the 'logic' object, meaning only respond with JSON", ` +
+      `"Don't include any of the logic.modules already created.", ` +
+      `"the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", ` +
+      `"The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
+    newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+    newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"ok":true}},{"target":"{|res|}!","chain":[{"access":"json","params":[{"ok":"{|ok|}"}]}]}]};`;
+
+    const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
+
+    // 6) write actions/modules into loaded JSON
+    shorthand.push(["NESTED", `__$ref(${idxLoadedJSON})`, "published", "actions", objectJPL.actions]);
+    shorthand.push(["NESTED", `__$ref(${idxLoadedJSON})`, "published", "modules", objectJPL.modules || {}]);
+
+    // 7) save updated file
+    shorthand.push(["ROUTE", `__$ref(${idxLoadedJSON})`, {}, "saveFile", `__$ref(${idxFileRow})`, ""]);
+
+    // 8) position + anchors for the new entity (entity id is the "file" from idxFileRow)
+    const anchorPayloadNew = await _computeAnchorPayload({ s3, openai, text: entName });
+
+    const positionBodyCreated = {
+      description: "auto created entity",
+      entity: `__$ref(${idxFileRow})`,
+      path: breadcrumb,
+      output: entName
+    };
+    if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
+
+    if (positionBodyCreated.anchor) {
+      await _fanoutAnchorBands({
         dynamodb,
-        anchorPayload: anchorPayloadForMatch,
-        perAssignLimit: Number(process.env.ANCHOR_SEARCH_PER_ASSIGN_LIMIT || 200),
-        maxTotal: Number(process.env.ANCHOR_SEARCH_MAX_TOTAL || 1000)
+        su: String(positionBodyCreated.entity), // The runner will resolve __$ref; here it’s OK to pass the string
+        setId: positionBodyCreated.anchor.setId,
+        anchor: positionBodyCreated.anchor,
+        type: 'su',
+        policy_id: policyFor(`__$ref(${idxFileRow})`)
       });
     }
 
-    const inputParam = convertShorthandRefs(body.input);
-    const expectedKeys = createArrayOfRootKeys(body.schema);
-    const schemaParam = convertShorthandRefs(expectedKeys);
+    await _ensureOwnerGrant({ dynamodb, su: `__$ref(${idxFileRow})`, e });
 
-    const policyFor = su => `${DEFAULT_POLICY_PREFIX}:${String(su)}`;
+    shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", `__$ref(${idxFileRow})`, ""]);
+    lastRouteIdx = shorthand.length - 1;
 
-    // helper to compute anchor for label/output words; fallback to match payload
-    async function _computeAnchorForOutputWord(word) {
-      const w = (word && String(word).trim()) ? String(word).trim() : null;
-      if (!w) return anchorPayloadForMatch;
-      const p = await _computeAnchorPayload({ s3, openai, text: w });
-      return p || anchorPayloadForMatch;
-    }
-
-    if (!bestMatchSu) {
-      // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
-      if (actionFile) {
-        const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
-          ? fixedOutput
-          : (typeof out === "string" ? out.trim() : "");
-        const anchorPayloadAF = await _computeAnchorForOutputWord(anchorWordAF);
-
-        const positionBodyAF = {
-          description: "provided entity (fallback)",
-          entity: actionFile,
-          path: breadcrumb,
-          output: fixedOutput || out || ""
-        };
-        if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
-
-        if (positionBodyAF.anchor) {
-          await _fanoutAnchorBands({
-            dynamodb,
-            su: actionFile,
-            setId: positionBodyAF.anchor.setId,
-            anchor: positionBodyAF.anchor,
-            type: 'su',
-            policy_id: policyFor(actionFile)
-          });
-        }
-
-        await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
-
-        shorthand.push([
-          "ROUTE",
-          { "body": positionBodyAF },
-          {},
-          "position",
-          actionFile,
-          ""
-        ]);
-
-        shorthand.push([
-          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-        ]);
-
-        routeRowNewIndex = shorthand.length;
-        continue;
-      }
-
-      // create a new entity/group
-      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-      const sanitize = s => String(s || '').replace(/[\/?#]/g, ' ').trim();
-
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
-      const entName = sanitize(entNameRaw);
-      fixedOutput = entName;
-      const groupName = entName;
-
-      shorthand.push([
-        "ROUTE",
-        { output: entName },
-        {},
-        "newGroup",
-        groupName,
-        entName
-      ]);
-
-      routeRowNewIndex = shorthand.length;
-
-      shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
-
-      if (fixedOutput) {
-        // generate JPL to wire initial actions
-        shorthand.push(["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]);
-        shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
-
-        const desiredObj = structuredClone(elem);
-        if (fixedOutput) desiredObj.response = fixedOutput;
-
-        let newJPL =
-          `directive = [ "**this is not a simulation**: do not make up or falsify any data, and do not use example URLs! This is real data!", ` +
-          `"Never response with axios URLs like example.com or domain.com because the app will crash.",` +
-          `"respond with {\\"reason\\":\\"...text\\"} if it is impossible to build the app per the users request and rules", ` +
-          `"you are a JSON logic app generator.", ` +
-          `"You will review the 'example' json for understanding on how to program the 'logic' json object", ` +
-          `"You will create a new JSON object based on the details in the desiredApp object like the breadcrumbs path, input json, and output schema.", ` +
-          `"Then you build a new JSON logic that best represents (accepts the inputs as body, and products the outputs as a response.", ` +
-          `"please give only the 'logic' object, meaning only respond with JSON", ` +
-          `"Don't include any of the logic.modules already created.", ` +
-          `"the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", ` +
-          `"The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-        newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
-        newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
-
-        const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-
-        shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]);
-        shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
-
-        shorthand.push(["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
-      }
-
-      // record positioning for the new entity
-      const anchorPayloadNew = await _computeAnchorForOutputWord(fixedOutput);
-      const newSu = padRef(routeRowNewIndex + 1);
-
-      const positionBodyCreated = {
-        description: "auto created entity",
-        entity: newSu,
-        path: breadcrumb,
-        output: fixedOutput
-      };
-      if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
-
-      if (positionBodyCreated.anchor) {
-        await _fanoutAnchorBands({
-          dynamodb,
-          su: newSu,
-          setId: positionBodyCreated.anchor.setId,
-          anchor: positionBodyCreated.anchor,
-          type: 'su',
-          policy_id: policyFor(newSu)
-        });
-      }
-
-      await _ensureOwnerGrant({ dynamodb, su: newSu, e });
-
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyCreated },
-        {},
-        "position",
-        newSu,
-        ""
-      ]);
-
-      if (fixedOutput) {
-        shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
-      } else {
-        shorthand.push([fixedOutput]);
-      }
-
-    } else {
-      // MATCH: run and update position (anchor only)
-      shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatchSu, ""]);
-
-      const anchorWord = (fixedOutput && String(fixedOutput).trim())
-        ? fixedOutput
-        : (typeof out === "string" ? out.trim() : "");
-      const anchorPayloadMatch = await _computeAnchorForOutputWord(anchorWord);
-
-      const positionBodyMatched = {
-        description: "auto matched entity",
-        entity: bestMatchSu,
-        path: breadcrumb,
-        output: fixedOutput
-      };
-
-      if (anchorPayloadMatch) positionBodyMatched.anchor = anchorPayloadMatch;
-
-      if (positionBodyMatched.anchor) {
-        await _fanoutAnchorBands({
-          dynamodb,
-          su: bestMatchSu,
-          setId: positionBodyMatched.anchor.setId,
-          anchor: positionBodyMatched.anchor,
-          type: 'su',
-          policy_id: policyFor(bestMatchSu)
-        });
-      }
-
-      // Optional: ensure owner grant backfill (usually not needed if seeded at creation)
-      // await _ensureOwnerGrant({ dynamodb, su: bestMatchSu, e });
-
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyMatched },
-        {},
-        "position",
-        bestMatchSu,
-        ""
-      ]);
-    }
-
-    routeRowNewIndex = shorthand.length;
+    // 9) run the new entity
+    shorthand.push(["ROUTE", inputParam, {}, "runEntity", `__$ref(${idxFileRow})`, ""]);
+    lastRouteIdx = shorthand.length - 1;
   }
 
+  // If caller's array had a { conclusion: ... } row, give them one clean conclusion
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
-  if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-    const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
-    ) - 1;
-
-    shorthand.push([
-      "ADDPROPERTY",
-      padRef(getRowIndex + 1),
-      "createdEntities",
-      { entity: "", name: "_new", contentType: "text", id: "_new" }
-    ]);
-
-    shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
-
-    shorthand.push(["ROWRESULT", "000", padRef(getRowIndex + 3)]);
+  if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig && lastRouteIdx >= 0) {
+    shorthand.push([{ conclusion: `__$ref(${lastRouteIdx})` }]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
-  console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
 }
 
