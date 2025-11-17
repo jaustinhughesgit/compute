@@ -466,8 +466,6 @@ async function parseArrayLogic({
 
       const positionBodyAF = {
         description: "provided entity (fallback)",
-        domain,
-        subdomain,
         embedding,
         entity: actionFile,
         output: fixedOutput || out || ""
@@ -567,7 +565,6 @@ async function parseArrayLogic({
     const newSu = padRef(routeRowNewIndex + 1);
     const positionBodyCreated = {
       description: "auto created entity",
-      domain, subdomain,
       embedding,
       entity: newSu,
       output: fixedOutput
