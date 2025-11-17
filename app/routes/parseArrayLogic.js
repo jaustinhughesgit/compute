@@ -23,13 +23,6 @@ const _normalizeVec = (v) => {
 };
 
 
-async function _embedUnit({ openai, text }) {
-  const { data: [{ embedding }] } = await openai.embeddings.create({
-    model: "text-embedding-3-large",
-    input: text
-  });
-  return _normalizeVec(embedding);
-}
 
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
@@ -466,7 +459,6 @@ async function parseArrayLogic({
 
       const positionBodyAF = {
         description: "provided entity (fallback)",
-        embedding,
         entity: actionFile,
         output: fixedOutput || out || ""
       };
@@ -565,7 +557,6 @@ async function parseArrayLogic({
     const newSu = padRef(routeRowNewIndex + 1);
     const positionBodyCreated = {
       description: "auto created entity",
-      embedding,
       entity: newSu,
       output: fixedOutput
     };
