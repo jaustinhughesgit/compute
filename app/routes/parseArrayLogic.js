@@ -251,6 +251,72 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
 };
 
 /* ------------------------------------------------------------------ */
+/* Prompt → arrayLogic (restored)                                     */
+/* ------------------------------------------------------------------ */
+async function buildArrayLogicFromPrompt({ openai, prompt }) {
+  const rsp = await openai.chat.completions.create({
+    model: "gpt-4o-mini",
+    temperature: 0,
+    top_p: 0,
+    seed: 42,
+    messages: [{
+      role: "system",
+      content:
+        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
+        "array—the arrayLogic representation of the user’s request. " +
+        "No prose. No markdown. No code fences. No comments!!"
+    },
+    { role: "user", content: prompt }
+    ]
+  });
+  let text = rsp.choices[0].message.content.trim();
+
+  function stripComments(jsonLike) {
+    let out = '';
+    let inString = false, quote = '', escaped = false;
+    let inSL = false, inML = false;
+
+    for (let i = 0; i < jsonLike.length; i++) {
+      const c = jsonLike[i], n = jsonLike[i + 1];
+
+      if (inSL) {
+        if (c === '\n' || c === '\r') { inSL = false; out += c; }
+        continue;
+      }
+      if (inML) {
+        if (c === '*' && n === '/') { inML = false; i++; }
+        continue;
+      }
+      if (inString) {
+        out += c;
+        if (!escaped && c === quote) { inString = false; quote = ''; }
+        escaped = !escaped && c === '\\';
+        continue;
+      }
+      if (c === '"' || c === "'") {
+        inString = true; quote = c; out += c; continue;
+      }
+      if (c === '/' && n === '/') { inSL = true; i++; continue; }
+      if (c === '/' && n === '*') { inML = true; i++; continue; }
+
+      out += c;
+    }
+    return out;
+  }
+
+  text = stripComments(text);
+
+  const start = text.indexOf("[");
+  const end = text.lastIndexOf("]");
+  if (start === -1 || end === -1) {
+    throw new Error("Model response did not contain a JSON array.");
+  }
+
+  text = text.slice(start, end + 1);
+  return JSON.parse(text);
+}
+
+/* ------------------------------------------------------------------ */
 /* ACL helpers                                                        */
 /* ------------------------------------------------------------------ */
 async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
