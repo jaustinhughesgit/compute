@@ -3,17 +3,16 @@
 /* Imports & constants                                                */
 /* ------------------------------------------------------------------ */
 
-const anchorsUtil = require('./anchors');
-const { DynamoDB } = require('aws-sdk');
-const { Converter } = DynamoDB;
+const anchorsUtil = require("./anchors");
+const { DynamoDB } = require("aws-sdk");
 
-const ANCHOR_BANDS_TABLE     = process.env.ANCHOR_BANDS_TABLE     || 'anchor_bands';
-const PERM_GRANTS_TABLE      = process.env.PERM_GRANTS_TABLE      || 'perm_grants';
-const PERM_GSI_BY_PRINCIPAL  = process.env.PERM_GSI_BY_PRINCIPAL  || 'by_principal';
-const DEFAULT_POLICY_PREFIX  = process.env.POLICY_PREFIX          || 'entity';
+const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
+const PERM_GRANTS_TABLE = process.env.PERM_GRANTS_TABLE || "perm_grants";
+const PERM_GSI_BY_PRINCIPAL = process.env.PERM_GSI_BY_PRINCIPAL || "by_principal";
+const DEFAULT_POLICY_PREFIX = process.env.POLICY_PREFIX || "entity";
 
 /* ------------------------------------------------------------------ */
-/* Embeddings & anchors                                               */
+/* Anchor helpers                                                     */
 /* ------------------------------------------------------------------ */
 
 const _normalizeVec = (v) => {
@@ -29,14 +28,14 @@ const _normalizeVec = (v) => {
 async function _embedUnit({ openai, text }) {
   const { data: [{ embedding }] } = await openai.embeddings.create({
     model: "text-embedding-3-large",
-    input: text
+    input: text,
   });
   return _normalizeVec(embedding);
 }
 
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
-    const t = String(text || '').trim();
+    const t = String(text || "").trim();
     if (!t) return null;
 
     const anchors = await anchorsUtil.loadAnchors({ s3 });
@@ -49,46 +48,36 @@ async function _computeAnchorPayload({ s3, openai, text }) {
       setId: anchors.setId,
       band_scale: anchors.band_scale,
       num_shards: anchors.num_shards,
-      assigns: assigns.map(a => ({
-        l0: a.l0, l1: a.l1, band: a.band, dist_q16: a.dist_q16
-      }))
+      assigns: assigns.map((a) => ({
+        l0: a.l0,
+        l1: a.l1,
+        band: a.band,
+        dist_q16: a.dist_q16,
+      })),
     };
   } catch (err) {
-    console.error('anchor assign failed:', err && err.message);
+    console.error("anchor assign failed:", err && err.message);
     return null;
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Small helpers                                                      */
+/* Array schema + shorthand helpers                                   */
 /* ------------------------------------------------------------------ */
 
-const toVector = v => {
-  if (!v) return null;
-  const arr = Array.isArray(v) ? v : JSON.parse(v);
-  if (!Array.isArray(arr)) return null;
-  const len = Math.hypot(...arr);
-  return len ? arr.map(x => x / len) : null;
-};
-
-const createArrayOfRootKeys = schema => {
+const createArrayOfRootKeys = (schema) => {
   if (!schema || typeof schema !== "object") return [];
   const { properties } = schema;
-  return properties && typeof properties === "object"
-    ? Object.keys(properties)
-    : [];
+  return properties && typeof properties === "object" ? Object.keys(properties) : [];
 };
 
-/* ------------------------------------------------------------------ */
-/* ArrayLogic ref resolver & helpers                                  */
-/* ------------------------------------------------------------------ */
 const REF_REGEX = /^__\$ref\((\d+)\)(.*)$/;
 
 function resolveArrayLogic(arrayLogic) {
   const cache = new Array(arrayLogic.length);
   const resolving = new Set();
 
-  const deepResolve = val => {
+  const deepResolve = (val) => {
     if (typeof val === "string") {
       const m = val.match(REF_REGEX);
       if (m) {
@@ -97,19 +86,20 @@ function resolveArrayLogic(arrayLogic) {
         if (!restPath) return target;
         const segs = restPath.replace(/^\./, "").split(".");
         let out = target;
-        for (const s of segs) { if (out == null) break; out = out[s]; }
+        for (const s of segs) {
+          if (out == null) break;
+          out = out[s];
+        }
         return deepResolve(out);
       }
     }
     if (Array.isArray(val)) return val.map(deepResolve);
     if (val && typeof val === "object")
-      return Object.fromEntries(Object.entries(val).map(
-        ([k, v]) => [k, deepResolve(v)]
-      ));
+      return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, deepResolve(v)]));
     return val;
   };
 
-  const resolveElement = i => {
+  const resolveElement = (i) => {
     if (cache[i] !== undefined) return cache[i];
     if (resolving.has(i)) throw new Error(`Circular __$ref at index ${i}`);
     resolving.add(i);
@@ -122,10 +112,10 @@ function resolveArrayLogic(arrayLogic) {
 }
 
 const OFFSET = 1;
-const padRef = n_ => String(n_).padStart(3, "0") + "!!";
+const padRef = (n_) => String(n_).padStart(3, "0") + "!!";
 const OP_ONLY = /^__\$(?:ref)?\((\d+)\)$/;
 
-const convertShorthandRefs = v => {
+const convertShorthandRefs = (v) => {
   if (typeof v === "string") {
     const m = v.match(OP_ONLY);
     if (m) return padRef(Number(m[1]) + OFFSET);
@@ -133,23 +123,26 @@ const convertShorthandRefs = v => {
   }
   if (Array.isArray(v)) return v.map(convertShorthandRefs);
   if (v && typeof v === "object")
-    return Object.fromEntries(Object.entries(v).map(
-      ([k, val]) => [k, convertShorthandRefs(val)]
-    ));
+    return Object.fromEntries(Object.entries(v).map(([k, val]) => [k, convertShorthandRefs(val)]));
   return v;
 };
 
-const isOperationElem = obj =>
-  obj && typeof obj === "object" && !Array.isArray(obj) &&
+const isOperationElem = (obj) =>
+  obj &&
+  typeof obj === "object" &&
+  !Array.isArray(obj) &&
   Object.keys(obj).length === 1 &&
-  (() => { const v = obj[Object.keys(obj)[0]]; return v && v.input && v.schema; })();
+  (() => {
+    const v = obj[Object.keys(obj)[0]];
+    return v && v.input && v.schema;
+  })();
 
-const isSchemaElem = obj =>
-  obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
+const isSchemaElem = (obj) => obj && typeof obj === "object" && !Array.isArray(obj) && "properties" in obj;
 
 /* ------------------------------------------------------------------ */
-/* Strict JSON-only app gen helper                                    */
+/* Strict JSON-only app gen helper (unchanged API)                    */
 /* ------------------------------------------------------------------ */
+
 const buildLogicSchema = {
   name: "build_logic",
   description: "Create a structured modules/actions JSON payload for the logic runner.",
@@ -163,17 +156,14 @@ const buildLogicSchema = {
         description: "Map from local alias → npm-package name.",
         additionalProperties: {
           type: "string",
-          description: "Exact name of the npm package to `require`."
-        }
+          description: "Exact name of the npm package to `require`.",
+        },
       },
-      actions: { $ref: "#/$defs/actionList" }
+      actions: { $ref: "#/$defs/actionList" },
     },
     $defs: {
       jsonVal: {
-        oneOf: [
-          { type: "string" }, { type: "number" }, { type: "boolean" },
-          { type: "object" }, { type: "array", items: {} }
-        ]
+        oneOf: [{ type: "string" }, { type: "number" }, { type: "boolean" }, { type: "object" }, { type: "array", items: {} }],
       },
       decorators: {
         type: "object",
@@ -182,9 +172,9 @@ const buildLogicSchema = {
           while: { $ref: "#/$defs/conditionArray" },
           timeout: { type: "integer", minimum: 0 },
           next: { type: "boolean" },
-          promise: { enum: ["raw", "await"] }
+          promise: { enum: ["raw", "await"] },
         },
-        additionalProperties: false
+        additionalProperties: false,
       },
       chainItem: {
         type: "object",
@@ -196,17 +186,19 @@ const buildLogicSchema = {
           new: { type: "boolean" },
           express: { type: "boolean" },
           next: { type: "boolean" },
-          return: { $ref: "#/$defs/jsonVal" }
-        }
+          return: { $ref: "#/$defs/jsonVal" },
+        },
       },
       chainArray: { type: "array", items: { $ref: "#/$defs/chainItem" } },
       conditionTuple: {
-        type: "array", minItems: 3, maxItems: 3,
+        type: "array",
+        minItems: 3,
+        maxItems: 3,
         prefixItems: [
           { type: "string" },
-          { enum: ["==","!=", "<",">","<=",">=","===","!==","in","includes"] },
-          { $ref: "#/$defs/jsonVal" }
-        ]
+          { enum: ["==", "!=", "<", ">", "<=", ">=", "===", "!==", "in", "includes"] },
+          { $ref: "#/$defs/jsonVal" },
+        ],
       },
       conditionArray: { type: "array", items: { $ref: "#/$defs/conditionTuple" } },
       actionList: { type: "array", items: { $ref: "#/$defs/actionObject" } },
@@ -218,18 +210,21 @@ const buildLogicSchema = {
             additionalProperties: false,
             oneOf: [
               { required: ["set"], properties: { set: { type: "object" }, nestedActions: { $ref: "#/$defs/actionList" } } },
-              { required: ["target","chain"], properties: { target: { type: "string" }, chain: { $ref: "#/$defs/chainArray" }, assign: { type: "string" }, nestedActions: { $ref: "#/$defs/actionList" } } },
-              { required: ["if","set"], properties: { if: { $ref: "#/$defs/conditionArray" }, set: { type: "object" }, nestedActions: { $ref: "#/$defs/actionList" } } },
-              { required: ["while","nestedActions"], properties: { while: { $ref: "#/$defs/conditionArray" }, nestedActions: { $ref: "#/$defs/actionList" } } },
-              { required: ["assign","params","nestedActions"], properties: { assign: { type: "string" }, params: { type: "array", items: { type: "string" } }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              {
+                required: ["target", "chain"],
+                properties: { target: { type: "string" }, chain: { $ref: "#/$defs/chainArray" }, assign: { type: "string" }, nestedActions: { $ref: "#/$defs/actionList" } },
+              },
+              { required: ["if", "set"], properties: { if: { $ref: "#/$defs/conditionArray" }, set: { type: "object" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["while", "nestedActions"], properties: { while: { $ref: "#/$defs/conditionArray" }, nestedActions: { $ref: "#/$defs/actionList" } } },
+              { required: ["assign", "params", "nestedActions"], properties: { assign: { type: "string" }, params: { type: "array", items: { type: "string" } }, nestedActions: { $ref: "#/$defs/actionList" } } },
               { required: ["return"], properties: { return: { $ref: "#/$defs/jsonVal" }, nestedActions: { $ref: "#/$defs/actionList" } } },
-              { title: "else", required: ["else"], properties: { else: { $ref: "#/$defs/actionObject" } } }
-            ]
-          }
-        ]
-      }
-    }
-  }
+              { title: "else", required: ["else"], properties: { else: { $ref: "#/$defs/actionObject" } } },
+            ],
+          },
+        ],
+      },
+    },
+  },
 };
 
 const buildBreadcrumbApp = async ({ openai, str }) => {
@@ -238,66 +233,92 @@ const buildBreadcrumbApp = async ({ openai, str }) => {
     response_format: { type: "json_object" },
     messages: [
       { role: "system", content: "You are a JSON-only assistant. Reply with a single valid JSON object and nothing else." },
-      { role: "user", content: str }
+      { role: "user", content: str },
     ],
     functions: [buildLogicSchema],
-    function_call: { name: "build_logic" }
+    function_call: { name: "build_logic" },
   });
 
   const fc = rsp.choices[0].message.function_call;
-  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, '{|req=>body.body');
+  fc.arguments = fc.arguments.replaceAll(/\{\|req=>body(?!\.body)/g, "{|req=>body.body");
   const args = JSON.parse(fc.arguments);
   return args;
 };
 
 /* ------------------------------------------------------------------ */
-/* Prompt → arrayLogic (restored)                                     */
+/* Prompt → arrayLogic (unchanged)                                    */
 /* ------------------------------------------------------------------ */
+
 async function buildArrayLogicFromPrompt({ openai, prompt }) {
   const rsp = await openai.chat.completions.create({
     model: "gpt-4o-mini",
     temperature: 0,
     top_p: 0,
     seed: 42,
-    messages: [{
-      role: "system",
-      content:
-        "You are a JSON-only assistant. Reply with **only** a valid JSON " +
-        "array—the arrayLogic representation of the user’s request. " +
-        "No prose. No markdown. No code fences. No comments!!"
-    },
-    { role: "user", content: prompt }
-    ]
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are a JSON-only assistant. Reply with **only** a valid JSON " +
+          "array—the arrayLogic representation of the user’s request. " +
+          "No prose. No markdown. No code fences. No comments!!",
+      },
+      { role: "user", content: prompt },
+    ],
   });
   let text = rsp.choices[0].message.content.trim();
 
   function stripComments(jsonLike) {
-    let out = '';
-    let inString = false, quote = '', escaped = false;
-    let inSL = false, inML = false;
+    let out = "";
+    let inString = false,
+      quote = "",
+      escaped = false;
+    let inSL = false,
+      inML = false;
 
     for (let i = 0; i < jsonLike.length; i++) {
-      const c = jsonLike[i], n = jsonLike[i + 1];
+      const c = jsonLike[i],
+        n = jsonLike[i + 1];
 
       if (inSL) {
-        if (c === '\n' || c === '\r') { inSL = false; out += c; }
+        if (c === "\n" || c === "\r") {
+          inSL = false;
+          out += c;
+        }
         continue;
       }
       if (inML) {
-        if (c === '*' && n === '/') { inML = false; i++; }
+        if (c === "*" && n === "/") {
+          inML = false;
+          i++;
+        }
         continue;
       }
       if (inString) {
         out += c;
-        if (!escaped && c === quote) { inString = false; quote = ''; }
-        escaped = !escaped && c === '\\';
+        if (!escaped && c === quote) {
+          inString = false;
+          quote = "";
+        }
+        escaped = !escaped && c === "\\";
         continue;
       }
       if (c === '"' || c === "'") {
-        inString = true; quote = c; out += c; continue;
+        inString = true;
+        quote = c;
+        out += c;
+        continue;
       }
-      if (c === '/' && n === '/') { inSL = true; i++; continue; }
-      if (c === '/' && n === '*') { inML = true; i++; continue; }
+      if (c === "/" && n === "/") {
+        inSL = true;
+        i++;
+        continue;
+      }
+      if (c === "/" && n === "*") {
+        inML = true;
+        i++;
+        continue;
+      }
 
       out += c;
     }
@@ -319,141 +340,150 @@ async function buildArrayLogicFromPrompt({ openai, prompt }) {
 /* ------------------------------------------------------------------ */
 /* ACL helpers                                                        */
 /* ------------------------------------------------------------------ */
+
 async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
   try {
     if (!su || !e) return;
     const now = Math.floor(Date.now() / 1000);
-    await dynamodb.put({
-      TableName: PERM_GRANTS_TABLE,
-      Item: {
-        entityID: String(su),
-        principalID: `u:${e}`,
-        perms,
-        created: now
-      }
-    }).promise();
+    await dynamodb
+      .put({
+        TableName: PERM_GRANTS_TABLE,
+        Item: {
+          entityID: String(su),
+          principalID: `u:${e}`,
+          perms,
+          created: now,
+        },
+      })
+      .promise();
   } catch (err) {
     console.warn("perm_grants owner seed failed:", err && err.message);
   }
 }
 
 /* ------------------------------------------------------------------ */
-/* Anchor-based candidate lookup helpers                              */
+/* anchor_bands fanout + best-match                                   */
 /* ------------------------------------------------------------------ */
 
-// Query candidates from anchor_bands for a single assignment.
-// Uses GSI "by_set_band" if available; falls back to a bounded Scan.
-async function _queryAnchorBandCandidates({ dynamodbLL, assign, setId }) {
-  const TableName = ANCHOR_BANDS_TABLE;
-  const type = 'su';
-  const { band, l0, l1 } = assign || {};
-  if (setId == null || band == null || l0 == null || l1 == null) return [];
-
-  try {
-    const params = {
-      TableName,
-      IndexName: 'by_set_band', // optional GSI (PK: set_id, SK: band)
-      KeyConditionExpression: '#sid = :sid AND #b = :b',
-      FilterExpression: '#l0 = :l0 AND #l1 = :l1 AND #t = :t',
-      ExpressionAttributeNames: {
-        '#sid': 'set_id',
-        '#b': 'band',
-        '#l0': 'l0',
-        '#l1': 'l1',
-        '#t':  'type',
-      },
-      ExpressionAttributeValues: {
-        ':sid': { S: String(setId) },
-        ':b':   { N: String(band)   },
-        ':l0':  { N: String(l0)     },
-        ':l1':  { N: String(l1)     },
-        ':t':   { S: type           },
-      },
-      ScanIndexForward: true,
-      Limit: 200
-    };
-    const out = await dynamodbLL.query(params).promise();
-    return (out.Items || []).map(Converter.unmarshall);
-  } catch {
-    // Fallback to bounded Scan
-    try {
-      const scanParams = {
-        TableName,
-        FilterExpression: '#sid = :sid AND #b = :b AND #l0 = :l0 AND #l1 = :l1 AND #t = :t',
-        ExpressionAttributeNames: {
-          '#sid': 'set_id', '#b': 'band', '#l0': 'l0', '#l1': 'l1', '#t': 'type'
-        },
-        ExpressionAttributeValues: {
-          ':sid': { S: String(setId) },
-          ':b':   { N: String(band)  },
-          ':l0':  { N: String(l0)    },
-          ':l1':  { N: String(l1)    },
-          ':t':   { S: 'su'          },
-        },
-        Limit: 500
-      };
-      const out = await dynamodbLL.scan(scanParams).promise();
-      return (out.Items || []).map(Converter.unmarshall);
-    } catch {
-      return [];
+// Writes postings (unchanged) with optional policy_id stamped
+async function _putAllBatched(dynamodb, table, items) {
+  if (!items || !items.length) return 0;
+  let written = 0;
+  for (let i = 0; i < items.length; i += 25) {
+    const chunk = items.slice(i, i + 25).map((Item) => ({ PutRequest: { Item } }));
+    const params = { RequestItems: { [table]: chunk } };
+    let backoff = 100;
+    while (true) {
+      const rsp = await dynamodb.batchWrite(params).promise();
+      const un = rsp.UnprocessedItems?.[table] || [];
+      written += chunk.length - un.length;
+      if (!un.length) break;
+      await new Promise((r) => setTimeout(r, backoff));
+      backoff = Math.min(backoff * 2, 2000);
+      params.RequestItems[table] = un;
     }
   }
+  return written;
 }
 
-// Choose best SU across hits using simple voting + tie-break on avg |dist_q16 diff|.
-function _pickBestSuFromAnchorHits(assigns, hitsByAssign) {
-  const votes = new Map(); // su -> { count, diffSum }
-  assigns.forEach((a, idx) => {
-    const hits = hitsByAssign[idx] || [];
-    hits.forEach(h => {
-      const su = h.su;
-      if (!su) return;
-      const diff = Math.abs((h.dist_q16 ?? 0) - (a.dist_q16 ?? 0));
-      const cur = votes.get(su) || { count: 0, diffSum: 0 };
-      votes.set(su, { count: cur.count + 1, diffSum: cur.diffSum + diff });
+async function _fanoutAnchorBands({ dynamodb, su, setId, anchor, type = "su", policy_id }) {
+  const assigns = anchor?.assigns || [];
+  if (!su || !setId || !assigns.length) return 0;
+  const rows = assigns.map((a) => {
+    const base = anchorsUtil.makePosting({
+      setId,
+      su,
+      assign: a,
+      type,
+      shards: anchorsUtil.DEFAULT_NUM_SHARDS,
     });
+    return policy_id ? { ...base, policy_id } : base;
   });
-  const ranked = [...votes.entries()].sort((a, b) => {
-    if (b[1].count !== a[1].count) return b[1].count - a[1].count;
-    const aAvg = a[1].diffSum / Math.max(1, a[1].count);
-    const bAvg = b[1].diffSum / Math.max(1, b[1].count);
-    return aAvg - bAvg;
-  });
-  return ranked.length ? { su: ranked[0][0] } : null;
+  return _putAllBatched(dynamodb, ANCHOR_BANDS_TABLE, rows);
 }
 
-// Find best match via anchors only (primary path).
-async function _findBestMatchViaAnchors({ dynamodbLL, anchor }) {
-  if (!anchor || !Array.isArray(anchor.assigns) || !anchor.assigns.length) return null;
-  const setId = anchor.setId;
-  const top = anchor.assigns.slice(0, Number(process.env.ANCHORS_TOP_L0 || 2));
-  const allHits = [];
-  for (let i = 0; i < top.length; i++) {
-    const hits = await _queryAnchorBandCandidates({ dynamodbLL, assign: top[i], setId });
-    allHits.push(hits);
+/**
+ * Anchor-only candidate search.
+ * Adjust PK/SK names + pkFor() if your anchor_bands schema differs.
+ */
+const PK_ATTR = "pk"; // ← change if your table uses a different PK attribute
+const pkFor = (setId, band, shard) => `set:${setId}#b:${band}#sh:${shard}`;
+
+async function _findBestByAnchors({ dynamodb, anchor, maxShards }) {
+  if (!anchor?.assigns?.length) return null;
+
+  const shards = Number.isFinite(anchor.num_shards) ? anchor.num_shards : anchorsUtil.DEFAULT_NUM_SHARDS || 64;
+  const shardCap = Math.min(shards, maxShards ?? shards);
+
+  // su → rows
+  const rowsBySu = new Map();
+
+  for (const a of anchor.assigns) {
+    for (let shard = 0; shard < shardCap; shard++) {
+      const pk = pkFor(anchor.setId, a.band, shard);
+      try {
+        const { Items } = await dynamodb
+          .query({
+            TableName: ANCHOR_BANDS_TABLE,
+            KeyConditionExpression: "#pk = :pk",
+            ExpressionAttributeNames: { "#pk": PK_ATTR },
+            ExpressionAttributeValues: { ":pk": pk },
+          })
+          .promise();
+
+        for (const it of Items || []) {
+          if (!it) continue;
+          // We prefer exact (l0, l1, band) alignment when available
+          if (it.su && it.l0 === a.l0 && it.l1 === a.l1 && it.band === a.band) {
+            const arr = rowsBySu.get(it.su) || [];
+            arr.push(it);
+            rowsBySu.set(it.su, arr);
+          }
+        }
+      } catch (err) {
+        console.error("anchor_bands query failed:", err && err.message);
+      }
+    }
   }
-  return _pickBestSuFromAnchorHits(top, allHits);
+
+  // Score by average |dist_q16 delta| across matched assigns
+  const scored = [];
+  for (const [su, arr] of rowsBySu.entries()) {
+    let sum = 0,
+      cnt = 0;
+    for (const a of anchor.assigns) {
+      const r = arr.find((x) => x.l0 === a.l0 && x.l1 === a.l1 && x.band === a.band);
+      if (r && Number.isFinite(r.dist_q16)) {
+        sum += Math.abs((a.dist_q16 ?? 0) - r.dist_q16);
+        cnt++;
+      }
+    }
+    if (cnt) scored.push({ su, score: sum / cnt });
+  }
+
+  scored.sort((x, y) => x.score - y.score);
+  return scored[0] || null; // { su, score } or null
 }
 
 /* ------------------------------------------------------------------ */
 /* Main                                                               */
 /* ------------------------------------------------------------------ */
+
 async function parseArrayLogic({
   arrayLogic = [],
-  dynamodb,    // DocumentClient (safe for non-pb ops)
+  dynamodb, // DocumentClient
   uuidv4,
   s3,
   ses,
   openai,
   Anthropic,
-  dynamodbLL,  // Low-level DynamoDB for pb ops
+  dynamodbLL, // kept for signature compatibility; not used here
   sourceType,
   actionFile,
   out,
   e,
-  requestOnly = false
+  requestOnly = false,
 } = {}) {
-
   if (sourceType === "prompt") {
     if (typeof arrayLogic !== "string") {
       throw new TypeError("When sourceType === 'prompt', arrayLogic must be a string.");
@@ -468,42 +498,6 @@ async function parseArrayLogic({
   const results = [];
   let routeRowNewIndex = null;
 
-  // pb: stable string from possession only (no domains/subdomains/dist).
-  const buildPb = (possessedCombined) =>
-    (possessedCombined != null ? `${possessedCombined.toString()}` : null);
-
-  /* ---- anchor_bands helpers (writes postings) ----
-     UPDATED: allow optional policy_id to be stamped on postings */
-  async function _putAllBatched(table, items) {
-    if (!items || !items.length) return 0;
-    let written = 0;
-    for (let i = 0; i < items.length; i += 25) {
-      const chunk = items.slice(i, i + 25).map(Item => ({ PutRequest: { Item } }));
-      const params = { RequestItems: { [table]: chunk } };
-      let backoff = 100;
-      while (true) {
-        const rsp = await dynamodb.batchWrite(params).promise();
-        const un = rsp.UnprocessedItems?.[table] || [];
-        written += chunk.length - un.length;
-        if (!un.length) break;
-        await new Promise(r => setTimeout(r, backoff));
-        backoff = Math.min(backoff * 2, 2000);
-        params.RequestItems[table] = un;
-      }
-    }
-    return written;
-  }
-
-  async function _fanoutAnchorBands({ su, setId, anchor, type = 'su', policy_id }) {
-    const assigns = anchor?.assigns || [];
-    if (!su || !setId || !assigns.length) return 0;
-    const rows = assigns.map(a => {
-      const base = anchorsUtil.makePosting({ setId, su, assign: a, type, shards: anchorsUtil.DEFAULT_NUM_SHARDS });
-      return policy_id ? { ...base, policy_id } : base;   // ★ attach policy pointer
-    });
-    return _putAllBatched(ANCHOR_BANDS_TABLE, rows);
-  }
-
   for (let i = 0; i < arrayLogic.length; i++) {
     const origElem = arrayLogic[i];
 
@@ -513,7 +507,7 @@ async function parseArrayLogic({
 
     const elem = resolvedLogic[i];
 
-    //systematically go throuogh and log and get the logic below here to create a new app using the curent mood and the user prompt. 
+    //systematically go throuogh and log and get the logic below here to create a new app using the curent mood and the user prompt.
     // Then apply add that mood to the primary entity.
 
     let fixedOutput;
@@ -551,44 +545,47 @@ async function parseArrayLogic({
 
     // Prefer the *user's request* when requestOnly === true
     const b = elem[bc];
-    const inp = b?.input && typeof b.input === 'object' ? b.input : {};
+    const inp = b?.input && typeof b.input === "object" ? b.input : {};
     let userReqText = null;
 
     if (typeof out === "string" && out.trim()) userReqText = out.trim();
 
     if (!userReqText) {
       const candidate =
-        inp.user_requests ?? inp.user_request ?? inp.request ?? inp.query ?? inp.q ?? inp.word ?? inp.words ?? null;
-      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(' ').trim();
-      else if (typeof candidate === 'string') userReqText = candidate.trim();
+        inp.user_requests ??
+        inp.user_request ??
+        inp.request ??
+        inp.query ??
+        inp.q ??
+        inp.word ??
+        inp.words ??
+        null;
+      if (Array.isArray(candidate)) userReqText = candidate.map(String).join(" ").trim();
+      else if (typeof candidate === "string") userReqText = candidate.trim();
     }
 
     const textForEmbedding = requestOnly
-      ? (userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem))
-      : (b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem));
+      ? userReqText || b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem)
+      : b?.input?.name || b?.input?.title || (typeof out === "string" && out) || JSON.stringify(elem);
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ANCHOR-ONLY MATCHING (primary)
-    // ─────────────────────────────────────────────────────────────────────────
-    const anchorForMatch = await _computeAnchorPayload({ s3, openai, text: textForEmbedding });
-
-    // We still embed (for persistence/metadata; not for matching).
-    const embInput = (requestOnly ? textForEmbedding : JSON.stringify(elem));
-    const embText = typeof embInput === 'string' ? embInput.trim() : String(embInput);
-    const { data: [{ embedding: rawEmb }] } = await openai.embeddings.create({
-      model: "text-embedding-3-large",
-      input: embText
+    // Compute anchors for this request / element (used for both match + position)
+    const anchorForMatch = await _computeAnchorPayload({
+      s3,
+      openai,
+      text:
+        (fixedOutput && String(fixedOutput).trim())
+          ? fixedOutput
+          : (typeof out === "string" && out.trim())
+          ? out.trim()
+          : textForEmbedding,
     });
-    const embedding = toVector(rawEmb);
 
-    // Possession base: no domain/sub contributions.
-    const base = 1000000000000000.0;
-    const userID = e || 0;
-    const possessedCombined = base + userID;
-    const pbStr = buildPb(possessedCombined);
-
-    // Try anchor-based entity retrieval only
-    let bestMatch = await _findBestMatchViaAnchors({ dynamodbLL, anchor: anchorForMatch });
+    // Anchor-only best match
+    let bestMatch = null;
+    if (anchorForMatch?.assigns?.length) {
+      const top = await _findBestByAnchors({ dynamodb, anchor: anchorForMatch });
+      if (top && top.su) bestMatch = { su: top.su, _score: top.score };
+    }
 
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
@@ -597,78 +594,55 @@ async function parseArrayLogic({
     if (!bestMatch) {
       // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
       if (actionFile) {
-        const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
-          ? fixedOutput
-          : (typeof out === "string" ? out.trim() : "");
-        const anchorPayloadAF = anchorWordAF
-          ? await _computeAnchorPayload({ s3, openai, text: anchorWordAF })
-          : null;
-
         const positionBodyAF = {
           description: "provided entity (fallback)",
-          embedding,
           entity: actionFile,
-          pb: pbStr,
           path: breadcrumb,
-          output: fixedOutput || out || ""
+          output: fixedOutput || out || "",
         };
-        if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
+        if (anchorForMatch) positionBodyAF.anchor = anchorForMatch;
 
-        // ★ policy pointer on postings
+        // fanout anchor postings (+policy pointer)
         if (positionBodyAF.anchor) {
           await _fanoutAnchorBands({
+            dynamodb,
             su: actionFile,
             setId: positionBodyAF.anchor.setId,
             anchor: positionBodyAF.anchor,
-            type: 'su',
-            policy_id: `${DEFAULT_POLICY_PREFIX}:${String(actionFile)}`
+            type: "su",
+            policy_id: `${DEFAULT_POLICY_PREFIX}:${String(actionFile)}`,
           });
         }
 
-        // ★ ensure owner grant (optional; actionFile is typically caller-owned)
+        // ensure owner grant
         await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
-        shorthand.push([
-          "ROUTE",
-          { "body": positionBodyAF },
-          {},
-          "position",
-          actionFile,
-          ""
-        ]);
-
-        shorthand.push([
-          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
-        ]);
+        shorthand.push(["ROUTE", { body: positionBodyAF }, {}, "position", actionFile, ""]);
+        shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""]);
 
         routeRowNewIndex = shorthand.length;
         continue;
       }
 
       // create a new entity/group
-      const pick = (...xs) => xs.find(s => typeof s === "string" && s.trim());
-      const sanitize = s => String(s || '').replace(/[\/?#]/g, ' ').trim();
+      const pick = (...xs) => xs.find((s) => typeof s === "string" && s.trim());
+      const sanitize = (s) => String(s || "").replace(/[\/?#]/g, " ").trim();
 
-      const entNameRaw = pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) || "$noName";
+      const entNameRaw =
+        pick(body?.schema?.const, fixedOutput, body?.input?.name, body?.input?.title, body?.input?.entity, out) ||
+        "$noName";
       const entName = sanitize(entNameRaw);
       fixedOutput = entName;
       const groupName = entName;
 
-      shorthand.push([
-        "ROUTE",
-        { output: entName },
-        {},
-        "newGroup",
-        groupName,
-        entName
-      ]);
+      shorthand.push(["ROUTE", { output: entName }, {}, "newGroup", groupName, entName]);
 
       routeRowNewIndex = shorthand.length;
 
       shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
       if (fixedOutput) {
-        // generate JPL to wire initial actions
+        // generate JPL to wire initial actions (unchanged)
         shorthand.push(["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]);
         shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
@@ -687,7 +661,9 @@ async function parseArrayLogic({
           `"Don't include any of the logic.modules already created.", ` +
           `"the last action item always targets '{|res|}!' to give your response back in the last item in the actions array!", ` +
           `"The user should provide an api key to anything, else attempt to build apps that don't require api key, else instead build an app to tell the user to you can't do it." ];`;
-        newJPL += ` let desiredApp = ${JSON.stringify(desiredObj)}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
+        newJPL += ` let desiredApp = ${JSON.stringify(
+          desiredObj
+        )}; var express = require('express'); const serverless = require('serverless-http'); const app = express(); let { requireModule, runAction } = require('./processLogic'); logic = {}; logic.modules = {"axios": "axios","math": "mathjs","path": "path"}; for (module in logic.modules) {requireModule(module);}; app.all('*', async (req, res, next) => {logic.actions.set = {"URL":URL,"req":req,"res":res,"JSON":JSON,"Buffer":Buffer,"email":{}};for (action in logic.actions) {await runAction(action, req, res, next);};});`;
         newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
@@ -698,93 +674,72 @@ async function parseArrayLogic({
         shorthand.push(["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
       }
 
-      // record positioning for the new entity
-      const pathStr = breadcrumb;
-
-      const anchorPayloadNew = await _computeAnchorPayload({
-        s3, openai, text: fixedOutput
-      });
-
+      // record positioning for the new entity (anchors only)
       const newSu = padRef(routeRowNewIndex + 1);
       const positionBodyCreated = {
         description: "auto created entity",
-        embedding,
         entity: newSu,
-        pb: pbStr,
-        path: pathStr,
-        output: fixedOutput
+        path: breadcrumb,
+        output: fixedOutput,
       };
-      if (anchorPayloadNew) positionBodyCreated.anchor = anchorPayloadNew;
+      if (anchorForMatch) positionBodyCreated.anchor = anchorForMatch;
 
-      // ★ fanout with policy pointer
+      // fanout with policy pointer
       if (positionBodyCreated.anchor) {
         await _fanoutAnchorBands({
+          dynamodb,
           su: newSu,
           setId: positionBodyCreated.anchor.setId,
           anchor: positionBodyCreated.anchor,
-          type: 'su',
-          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(newSu)}`
+          type: "su",
+          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(newSu)}`,
         });
       }
 
-      // ★ seed owner grant for creator
+      // seed owner grant for creator
       await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyCreated },
-        {},
-        "position",
-        newSu,
-        ""
-      ]);
+      shorthand.push(["ROUTE", { body: positionBodyCreated }, {}, "position", newSu, ""]);
 
       if (fixedOutput) {
         shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
       } else {
         shorthand.push([fixedOutput]);
       }
-
     } else {
-      // MATCH: run and update position (+policy pointer & optional anchor)
+      // MATCH via anchors
       shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
 
-      const anchorWord = (fixedOutput && String(fixedOutput).trim())
-        ? fixedOutput
-        : (typeof out === "string" ? out.trim() : "");
+      const anchorWord =
+        fixedOutput && String(fixedOutput).trim()
+          ? fixedOutput
+          : typeof out === "string"
+          ? out.trim()
+          : "";
       const anchorPayloadMatch = anchorWord
         ? await _computeAnchorPayload({ s3, openai, text: anchorWord })
-        : null;
+        : anchorForMatch;
 
       const positionBodyMatched = {
         description: "auto matched entity",
-        embedding,
         entity: bestMatch.su,
-        pb: pbStr,
         path: breadcrumb,
-        output: fixedOutput
+        output: fixedOutput,
       };
-
       if (anchorPayloadMatch) positionBodyMatched.anchor = anchorPayloadMatch;
 
       if (positionBodyMatched.anchor) {
         await _fanoutAnchorBands({
+          dynamodb,
           su: bestMatch.su,
           setId: positionBodyMatched.anchor.setId,
           anchor: positionBodyMatched.anchor,
-          type: 'su',
-          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(bestMatch.su)}`
+          type: "su",
+          policy_id: `${DEFAULT_POLICY_PREFIX}:${String(bestMatch.su)}`,
         });
       }
 
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyMatched },
-        {},
-        "position",
-        bestMatch.su,
-        ""
-      ]);
+      shorthand.push(["ROUTE", { body: positionBodyMatched }, {}, "position", bestMatch.su, ""]);
     }
 
     routeRowNewIndex = shorthand.length;
@@ -792,15 +747,14 @@ async function parseArrayLogic({
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
-    const getRowIndex = shorthand.push(
-      ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
-    ) - 1;
+    const getRowIndex =
+      shorthand.push(["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]) - 1;
 
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
       "createdEntities",
-      { entity: "", name: "_new", contentType: "text", id: "_new" }
+      { entity: "", name: "_new", contentType: "text", id: "_new" },
     ]);
 
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
