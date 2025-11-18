@@ -23,6 +23,13 @@ const _normalizeVec = (v) => {
 };
 
 
+async function _embedUnit({ openai, text }) {
+  const { data: [{ embedding }] } = await openai.embeddings.create({
+    model: "text-embedding-3-large",
+    input: text
+  });
+  return _normalizeVec(embedding);
+}
 
 async function _computeAnchorPayload({ s3, openai, text }) {
   try {
@@ -659,7 +666,7 @@ async function parseArrayLogic({
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-  
+
   
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
   console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
