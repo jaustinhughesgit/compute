@@ -585,6 +585,13 @@ async function parseArrayLogic({
       ""
     ]);
 
+    createdEntities.push({
+  entity: newSu,
+  name: entName,
+  contentType: "text",
+  id: newSu,
+});
+
     if (fixedOutput) {
       shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
     } else {
@@ -616,6 +623,8 @@ async function parseArrayLogic({
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
+
+  
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
   console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
   return { shorthand: finalShorthand, details: results, arrayLogic, createdEntities };
