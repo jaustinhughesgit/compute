@@ -485,8 +485,15 @@ async function parseArrayLogic({
       // ★ ensure owner grant (optional; actionFile is typically caller-owned)
       await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
-      console.log("1-shorthand", [{}])
-      shorthand.push([{}]);
+      console.log("1-shorthand", ["ROUTE",{ "body": positionBodyAF },{},"position",actionFile,""])
+      shorthand.push([
+        "ROUTE",
+        { "body": positionBodyAF },
+        {},
+        "position",
+        actionFile,
+        ""
+      ]);
 
       console.log("2-shorthand",[ "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""])
       shorthand.push([
@@ -592,8 +599,22 @@ async function parseArrayLogic({
     // ★ seed owner grant for creator
     await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
-    console.log("10-shorthand",[{} ])
-    shorthand.push([{}]);
+    console.log("10-shorthand",[
+      "ROUTE",
+      { "body": positionBodyCreated },
+      {},
+      "position",
+      newSu,
+      ""
+    ])
+    shorthand.push([
+      "ROUTE",
+      { "body": positionBodyCreated },
+      {},
+      "position",
+      newSu,
+      ""
+    ]);
 
     
 

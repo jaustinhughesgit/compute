@@ -1,218 +1,60 @@
 // modules/position.js
 "use strict";
 
-const AWS = require("aws-sdk"); // only for types/utilities if needed (low-level is already provided via deps)
-
 function register({ on, use }) {
-  const { getDocClient, deps } = use();
-  const doc = getDocClient();          // DocumentClient (JSON in/out)
-  const ddb = deps.dynamodbLL;         // low-level AWS.DynamoDB (AttributeValue API)
+  const { getDocClient } = use();
+  const doc = getDocClient(); // DocumentClient (JSON in/out)
 
   // Keep legacy body handling parity: support both flattened req.body and legacy req.body.body
   const getLegacyBody = (req) => {
     const b = req?.body;
-    if (!b || typeof b !== "object") return b;
+    if (!b || typeof b !== "object") return {};
     if (b.body && typeof b.body === "object") return b.body;
     return b;
   };
 
-  // Cosine distance (unchanged)
-  const cosineDist = (a, b) => {
-    let dot = 0, na = 0, nb = 0;
-    for (let i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      na += a[i] * a[i];
-      nb += b[i] * b[i];
-    }
-    return 1 - dot / (Math.sqrt(na) * Math.sqrt(nb) + 1e-10);
-  };
-
   on("position", async (ctx, meta) => {
-    console.log("Position 1", ctx);
-    const { req, res /*, path, type, signer */ } = ctx;
+    const { req, res } = ctx;
 
-    console.log("Position 2");
-    // Legacy: read from reqBody.body; keep identical behavior (but also works if already flattened)
-    const b = getLegacyBody(req);
-    console.log("b", b);
-    // NOTE: keep legacy shape (b.body || {}) to preserve behavior
-    const {
-  description, domain, subdomain, embedding, entity, pb, output, path, anchor
-} = b?.body || {};
+    const body = getLegacyBody(req);
+    const { entity, anchor } = body || {};
 
-    console.log("Position 3");
-    // Legacy error shapes and codes:
-    if (!embedding || !domain || !subdomain || !entity) {
-      res.status(400).json({ error: "embedding, domain & subdomain required" });
+    // Basic validation: we need an entity (key) and an anchor payload to store
+    if (!entity || !anchor) {
+      res.status(400).json({ error: "entity and anchor are required" });
       return { __handled: true };
     }
 
-    console.log("Position 4");
-    // 1️⃣ pull the record for that sub-domain from DynamoDB (unchanged)
-    const tableName = `i_${domain}`;
-    let item;
     try {
-      const params = {
-        TableName: tableName,
-        KeyConditionExpression: "#r = :sub",
-        ExpressionAttributeNames: { "#r": "root" },
-        ExpressionAttributeValues: { ":sub": subdomain },
-        Limit: 1,
-      };
-      const data = await doc.query(params).promise();
-      if (!data.Items.length) {
-        res.status(404).json({ error: "no record for that sub-domain" });
-        return { __handled: true };
-      }
-      item = data.Items[0];
+      // Just set the anchor attribute on the subdomains row keyed by su = entity
+      await doc.update({
+        TableName: "subdomains",
+        Key: { su: String(entity) },
+        UpdateExpression: "SET #anchor = :anchor",
+        ExpressionAttributeNames: {
+          "#anchor": "anchor",
+        },
+        ExpressionAttributeValues: {
+          ":anchor": anchor, // e.g. { setId, band_scale, num_shards, assigns:[{l0,l1,band,dist_q16}] }
+        },
+        ReturnValues: "NONE",
+      }).promise();
     } catch (err) {
-      console.error("DynamoDB query failed:", err);
-      res.status(502).json({ error: "db-unavailable" });
+      console.error("Failed to update subdomains table (anchor):", err);
+      res.status(502).json({ error: "failed to save anchor" });
       return { __handled: true };
     }
 
-    console.log("Position 5");
-    // 2️⃣ compare incoming embedding with emb1…emb5 (unchanged)
-    const distances = {};
-    for (let i = 1; i <= 5; i++) {
-      const attr = `emb${i}`;
-      const raw = item[attr];
-      let refArr = null;
-
-      if (typeof raw === "string") {
-        try {
-          refArr = JSON.parse(raw);
-        } catch (_e) {
-          // keep legacy permissive behavior: skip malformed
-          continue;
-        }
-      } else if (Array.isArray(raw)) {
-        refArr = raw;
-      }
-
-      if (!Array.isArray(refArr) || refArr.length !== embedding.length) continue;
-      distances[attr] = cosineDist(embedding, refArr);
-    }
-
-    console.log("Position 6");
-    // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
-    // 3️⃣ Update using DocumentClient for normal attributes (NO pb here)
-try {
-  // Prefer provided path; otherwise fallback to canonical domain/subdomain path
-  const resolvedPath = (typeof path === "string" && path.trim().length)
-    ? path
-    : `/${domain}/${subdomain}`;
-
-  // Build a SET list dynamically so we only include #anchor if present
-  const setParts = [
-    "#d1 = :d1",
-    "#d2 = :d2",
-    "#d3 = :d3",
-    "#d4 = :d4",
-    "#d5 = :d5",
-    "#path = :path",
-    "#output = :output",
-    "#domain = :domain",
-    "#subdomain = :subdomain"
-  ];
-
-  const names = {
-    "#d1": "dist1",
-    "#d2": "dist2",
-    "#d3": "dist3",
-    "#d4": "dist4",
-    "#d5": "dist5",
-    "#path": "path",
-    "#output": "output",
-    "#domain": "domain",
-    "#subdomain": "subdomain"
-  };
-
-  const values = {
-    ":d1": distances.emb1 ?? null,
-    ":d2": distances.emb2 ?? null,
-    ":d3": distances.emb3 ?? null,
-    ":d4": distances.emb4 ?? null,
-    ":d5": distances.emb5 ?? null,
-    ":path": resolvedPath,
-    ":output": output ?? null,
-    ":domain": domain,
-    ":subdomain": subdomain
-  };
-
-  // ★ Only set anchor if the payload was provided by parseArrayLogic
-  if (anchor && typeof anchor === "object") {
-    setParts.push("#anchor = :anchor");
-    names["#anchor"] = "anchor";
-    values[":anchor"] = anchor; // shape: { setId, band_scale, num_shards, assigns:[{l0,l1,band,dist_q16}] }
-  }
-
-  const updateParams = {
-    TableName: "subdomains",
-    Key: { su: entity },
-    UpdateExpression: "SET " + setParts.join(",\n              "),
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
-    ReturnValues: "UPDATED_NEW",
-  };
-
-  await doc.update(updateParams).promise();
-} catch (err) {
-  console.error("Failed to update subdomains table (DocClient):", err);
-  res.status(502).json({ error: "failed to save distances/anchor" });
-  return { __handled: true };
-}
-
-
-    console.log("Position 7");
-    // 4️⃣ Low-level update for pb as a DynamoDB Number (N) using AttributeValue API
-    try {
-      if (pb == null) {
-        // Keep behavior predictable: if pb is missing, skip this step silently.
-        // If you want strict legacy erroring on missing pb, replace this branch with:
-        // throw new Error("pb is required");
-      } else {
-        const pbStr = String(pb);
-        // Optional minimal guard: ensure it looks like a decimal/number string
-        // (DynamoDB will still validate; this just avoids obvious mistakes)
-        if (!/^-?\d+(\.\d+)?$/.test(pbStr)) {
-          throw new Error(`Invalid pb format: ${pbStr}`);
-        }
-
-        await ddb.updateItem({
-          TableName: "subdomains",
-          Key: { su: { S: String(entity) } },
-          UpdateExpression: "SET #pb = :pb",
-          ExpressionAttributeNames: { "#pb": "pb" },
-          ExpressionAttributeValues: { ":pb": { N: pbStr } }
-        }).promise();
-      }
-    } catch (err) {
-      console.error("Failed to set pb (low-level):", err);
-      res.status(502).json({ error: "failed to save pb" });
-      return { __handled: true };
-    }
-
-    console.log("Position 8");
-    // Legacy response shape: wrapped in { ok: true, response }
+    // Keep a simple, legacy-style ok/response wrapper
     const existing = meta?.cookie?.existing;
     const response = {
       action: "position",
-      position: {
-        dist1: distances.emb1 ?? null,
-        dist2: distances.emb2 ?? null,
-        dist3: distances.emb3 ?? null,
-        dist4: distances.emb4 ?? null,
-        dist5: distances.emb5 ?? null,
-      },
-      domain,
-      subdomain,
       entity,
-      id: item.id ?? null,
+      anchor,
       existing,
-      file: "", // unchanged: convert appends file later when relevant
+      file: "", // unchanged placeholder if something else appends later
     };
-    console.log("response", response);
+
     return { ok: true, response };
   });
 
