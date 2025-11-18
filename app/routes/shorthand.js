@@ -1241,10 +1241,12 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 (req.body?.headers && req.body.headers["X-accessToken"]) ||
                 (req.headers && req.headers["x-accesstoken"]) ||
                 undefined;
+                console.log("xAccessToken",xAccessToken)
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
+            console.log("reqPath",reqPath)
             const action = reqPath.split("/")[2];
             let newReq = {};
             newReq.body = {
