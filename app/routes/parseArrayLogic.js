@@ -1729,12 +1729,25 @@ async function parseArrayLogic({
     let fixedPossessed;
     let fixedDate;
 
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+    console.log("---------------------")
+
     if (!isOperationElem(origElem)) {
       if (isSchemaElem(origElem)) {
-        shorthand.push(createArrayOfRootKeys(elem));
+        let arr = createArrayOfRootKeys(elem)
+        console.log("1-shorthand",arr)
+        shorthand.push(arr);
       } else if (origElem && typeof origElem === "object") {
-        shorthand.push([convertShorthandRefs(elem)]);
+        let arr = [convertShorthandRefs(elem)]
+        console.log("2-shorthand",arr)
+        shorthand.push(arr);
       } else {
+        let arr = [convertShorthandRefs(elem)]
+        console.log("3-shorthand",arr)
         shorthand.push([convertShorthandRefs(elem)]);
       }
       continue;
@@ -1935,6 +1948,14 @@ async function parseArrayLogic({
         // ★ ensure owner grant (optional; actionFile is typically caller-owned)
         await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
+        console.log("4-shorthand",[
+          "ROUTE",
+          { "body": positionBodyAF },
+          {},
+          "position",
+          actionFile,
+          ""
+        ])
         shorthand.push([
           "ROUTE",
           { "body": positionBodyAF },
@@ -1944,6 +1965,9 @@ async function parseArrayLogic({
           ""
         ]);
 
+        console.log("5-shorthand",[
+          "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
+        ])
         shorthand.push([
           "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
         ]);
@@ -1961,6 +1985,14 @@ async function parseArrayLogic({
       fixedOutput = entName;
       const groupName = entName;
 
+        console.log("6-shorthand",[
+        "ROUTE",
+        { output: entName },
+        {},
+        "newGroup",
+        groupName,
+        entName
+      ])
       shorthand.push([
         "ROUTE",
         { output: entName },
@@ -1972,11 +2004,14 @@ async function parseArrayLogic({
 
       routeRowNewIndex = shorthand.length;
 
+        console.log("7-shorthand",["GET", padRef(routeRowNewIndex), "response", "file"])
       shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
       if (fixedOutput) {
         // generate JPL to wire initial actions
+        console.log("8-shorthand",["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""])
         shorthand.push(["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]);
+        console.log("9-shorthand",["GET", padRef(routeRowNewIndex + 2), "response"])
         shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
         const desiredObj = structuredClone(elem);
@@ -1999,9 +2034,12 @@ async function parseArrayLogic({
 
         const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
 
+        console.log("10-shorthand",["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions])
         shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]);
+        console.log("11-shorthand",["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}])
         shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
 
+        console.log("12-shorthand",["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""])
         shorthand.push(["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
       }
 
@@ -2040,6 +2078,14 @@ async function parseArrayLogic({
       // ★ seed owner grant for creator
       await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
+        console.log("13-shorthand",[
+        "ROUTE",
+        { "body": positionBodyCreated },
+        {},
+        "position",
+        newSu,
+        ""
+      ])
       shorthand.push([
         "ROUTE",
         { "body": positionBodyCreated },
@@ -2050,13 +2096,16 @@ async function parseArrayLogic({
       ]);
 
       if (fixedOutput) {
+        console.log("14-shorthand",["ROUTE", inputParam, {}, "runEntity", newSu, ""])
         shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
       } else {
+        console.log("15-shorthand",[fixedOutput])
         shorthand.push([fixedOutput]);
       }
 
     } else {
       // MATCH: run and update position (+policy pointer & optional anchor)
+        console.log("16-shorthand",["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""])
       shorthand.push(["ROUTE", inputParam, schemaParam, "runEntity", bestMatch.su, ""]);
 
       const pbStr = buildPb(possessedCombined, dist1);
@@ -2096,6 +2145,14 @@ async function parseArrayLogic({
       // typically ownership is seeded at creation time, so you can omit this:
       // await _ensureOwnerGrant({ dynamodb, su: bestMatch.su, e });
 
+        console.log("17-shorthand",[
+        "ROUTE",
+        { "body": positionBodyMatched },
+        {},
+        "position",
+        bestMatch.su,
+        ""
+      ])
       shorthand.push([
         "ROUTE",
         { "body": positionBodyMatched },
@@ -2111,10 +2168,17 @@ async function parseArrayLogic({
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+        console.log("18-shorthand",["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)])
     const getRowIndex = shorthand.push(
       ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
 
+        console.log("19-shorthand",[
+      "ADDPROPERTY",
+      padRef(getRowIndex + 1),
+      "createdEntities",
+      { entity: "", name: "_new", contentType: "text", id: "_new" }
+    ])
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
@@ -2122,8 +2186,10 @@ async function parseArrayLogic({
       { entity: "", name: "_new", contentType: "text", id: "_new" }
     ]);
 
+        console.log("20-shorthand",["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"])
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
+        console.log("21-shorthand",["ROWRESULT", "000", padRef(getRowIndex + 3)])
     shorthand.push(["ROWRESULT", "000", padRef(getRowIndex + 3)]);
   }
 
