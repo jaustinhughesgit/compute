@@ -446,7 +446,12 @@ async function parseArrayLogic({
     const inputParam = convertShorthandRefs(body.input);
     const expectedKeys = createArrayOfRootKeys(body.schema);
     const schemaParam = convertShorthandRefs(expectedKeys);
-
+    console.log("----------------------")
+    console.log("----------------------")
+    console.log("----------------------")
+    console.log("----------------------")
+    console.log("----------------------")
+    console.log("actionFile", actionFile)
     // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
     if (actionFile) {
 
@@ -478,6 +483,7 @@ async function parseArrayLogic({
       // ★ ensure owner grant (optional; actionFile is typically caller-owned)
       await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
+      console.log("1-shorthand", ["ROUTE",{ "body": positionBodyAF },{},"position",actionFile,""])
       shorthand.push([
         "ROUTE",
         { "body": positionBodyAF },
@@ -487,6 +493,7 @@ async function parseArrayLogic({
         ""
       ]);
 
+      console.log("2-shorthand",[ "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""])
       shorthand.push([
         "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""
       ]);
@@ -504,6 +511,15 @@ async function parseArrayLogic({
     fixedOutput = entName;
     const groupName = entName;
 
+    console.log("3-shorthand", [
+      "ROUTE",
+      { output: entName },
+      {},
+      "newGroup",
+      groupName,
+      entName
+    ]);
+
     shorthand.push([
       "ROUTE",
       { output: entName },
@@ -514,12 +530,14 @@ async function parseArrayLogic({
     ]);
 
     routeRowNewIndex = shorthand.length;
-
+    console.log("4-shorthand", ["GET", padRef(routeRowNewIndex), "response", "file"])
     shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
 
     if (fixedOutput) {
       // generate JPL to wire initial actions
+      console.log("5-shorthand",["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""])
       shorthand.push(["ROUTE", {}, {}, "getFile", padRef(routeRowNewIndex + 1), ""]);
+      console.log("6-shorthand", ["GET", padRef(routeRowNewIndex + 2), "response"])
       shorthand.push(["GET", padRef(routeRowNewIndex + 2), "response"]);
 
       const desiredObj = structuredClone(elem);
@@ -541,10 +559,13 @@ async function parseArrayLogic({
       newJPL += ` var example = {"modules":{"{shuffle}":"lodash","moment-timezone":"moment-timezone"}, "actions":[{"set":{"latestEmail":"{|email=>[0]|}"}},{"set":{"latestSubject":"{|latestEmail=>subject|}"}},{"set":{"userIP":"{|req=>ip|}"}},{"set":{"userAgent":"{|req=>headers.user-agent|}"}},{"set":{"userMessage":"{|req=>body.message|}"}},{"set":{"pending":[]}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/ip"]}],"promise":"raw","assign":"{|pending=>[0]|}!"},{"target":"{|axios|}","chain":[{"access":"get","params":["https://httpbin.org/user-agent"]}],"promise":"raw","assign":"{|pending=>[1]|}!"},{"target":"{|Promise|}","chain":[{"access":"all","params":["{|pending|}"]}],"assign":"{|results|}"},{"set":{"httpBinIP":"{|results=>[0].data.origin|}"}},{"set":{"httpBinUA":"{|results=>[1].data['user-agent']|}"}},{"target":"{|axios|}","chain":[{"access":"get","params":["https://ipapi.co/{|userIP|}/json/"]}],"assign":"{|geoData|}"},{"set":{"city":"{|geoData=>data.city|}"}},{"set":{"timezone":"{|geoData=>data.timezone|}"}},{"target":"{|moment-timezone|}","chain":[{"access":"tz","params":["{|timezone|}"]}],"assign":"{|now|}"},{"target":"{|now|}!","chain":[{"access":"format","params":["YYYY-MM-DD"]}],"assign":"{|today|}"},{"target":"{|now|}!","chain":[{"access":"hour"}],"assign":"{|hour|}"},{"set":{"timeOfDay":"night"}},{"if":[["{|hour|}",">=","{|=3+3|}"],["{|hour|}","<",12]],"set":{"timeOfDay":"morning"}},{"if":[["{|hour|}",">=",12],["{|hour|}","<",18]],"set":{"timeOfDay":"afternoon"}},{"if":[["{|hour|}",">=","{|=36/2|}"],["{|hour|}","<",22]],"set":{"timeOfDay":"evening"}},{"set":{"extra":3}},{"set":{"maxIterations":"{|=5+{|extra|}|}"}},{"set":{"counter":0}},{"set":{"greetings":[]}},{"while":[["{|counter|}","<","{|maxIterations|}"]],"nestedActions":[{"set":{"greetings=>[{|counter|}]":"Hello number {|counter|}"}},{"set":{"counter":"{|={|counter|}+1|}"}}]},{"assign":"{|generateSummary|}","params":["prefix","remark"],"nestedActions":[{"set":{"localZone":"{|~/timezone|}"}},{"return":"{|prefix|} {|remark|} {|~/greetings=>[0]|} Visitor from {|~/city|} (IP {|~/userIP|}) said '{|~/userMessage|}'. Local timezone:{|localZone|} · Time-of-day:{|~/timeOfDay|} · Date:{|~/today|}."}]},{"target":"{|generateSummary|}!","chain":[{"assign":"","params":["Hi.","Here are the details."]}],"assign":"{|message|}"},{"target":"{|res|}!","chain":[{"access":"send","params":["{|message|}"]}]}]};`;
 
       const objectJPL = await buildBreadcrumbApp({ openai, str: newJPL });
-
+      console.log("7-shorthand", ["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions])
       shorthand.push(["NESTED", padRef(routeRowNewIndex + 3), "published", "actions", objectJPL.actions]);
+
+      console.log("8-shorthand", ["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}])
       shorthand.push(["NESTED", padRef(routeRowNewIndex + 4), "published", "modules", objectJPL.modules || {}]);
 
+      console.log("9-shorthand",["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""])
       shorthand.push(["ROUTE", padRef(routeRowNewIndex + 5), {}, "saveFile", padRef(routeRowNewIndex + 1), ""]);
     }
 
@@ -576,6 +597,14 @@ async function parseArrayLogic({
     // ★ seed owner grant for creator
     await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
+    console.log("10-shorthand",[
+      "ROUTE",
+      { "body": positionBodyCreated },
+      {},
+      "position",
+      newSu,
+      ""
+    ])
     shorthand.push([
       "ROUTE",
       { "body": positionBodyCreated },
@@ -585,16 +614,13 @@ async function parseArrayLogic({
       ""
     ]);
 
-    createdEntities.push({
-  entity: newSu,
-  name: entName,
-  contentType: "text",
-  id: newSu,
-});
+    
 
     if (fixedOutput) {
+      console.log("11-shorthand", ["ROUTE", inputParam, {}, "runEntity", newSu, ""])
       shorthand.push(["ROUTE", inputParam, {}, "runEntity", newSu, ""]);
     } else {
+      console.log("12-shorthand", [fixedOutput])
       shorthand.push([fixedOutput]);
     }
 
@@ -605,10 +631,18 @@ async function parseArrayLogic({
 
   const lastOrig = arrayLogic[arrayLogic.length - 1] || {};
   if (lastOrig && typeof lastOrig === "object" && "conclusion" in lastOrig) {
+    console.log("13-shorthand",["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)])
     const getRowIndex = shorthand.push(
       ["ADDPROPERTY", "000!!", "conclusion", padRef(routeRowNewIndex)]
     ) - 1;
+    console.log("getRowIndex", getRowIndex)
 
+    console.log("14-shorthand",[
+      "ADDPROPERTY",
+      padRef(getRowIndex + 1),
+      "createdEntities",
+      { entity: "", name: "_new", contentType: "text", id: "_new" }
+    ])
     shorthand.push([
       "ADDPROPERTY",
       padRef(getRowIndex + 1),
@@ -616,14 +650,16 @@ async function parseArrayLogic({
       { entity: "", name: "_new", contentType: "text", id: "_new" }
     ]);
 
+    console.log("15-shorthand",["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"])
     shorthand.push(["NESTED", padRef(getRowIndex + 2), "createdEntities", "entity", "004!!"]);
 
+    console.log("16-shorthand",["ROWRESULT", "000", padRef(getRowIndex + 3)])
     shorthand.push(["ROWRESULT", "000", padRef(getRowIndex + 3)]);
   }
 
   const finalShorthand = shorthand.map(convertShorthandRefs);
 
-
+  
   
   console.log("⇢ shorthand", JSON.stringify(finalShorthand, null, 4));
   console.log("createdEntities", JSON.stringify(createdEntities, null, 4));
