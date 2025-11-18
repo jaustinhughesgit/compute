@@ -401,24 +401,12 @@ async function parseArrayLogic({
     let fixedOutput;
     let fixedDate;
 
-    console.log("----------------------")
-    console.log("----------------------")
-    console.log("----------------------")
-    console.log("----------------------")
-    console.log("----------------------")
-    
     if (!isOperationElem(origElem)) {
       if (isSchemaElem(origElem)) {
-        let arr = createArrayOfRootKeys(elem)
-        console.log("1-shorthand",arr)
-        shorthand.push(arr);
+        shorthand.push(createArrayOfRootKeys(elem));
       } else if (origElem && typeof origElem === "object") {
-        let arr = [convertShorthandRefs(elem)]
-        console.log("2-shorthand",arr)
-        shorthand.push(arr);
+        shorthand.push([convertShorthandRefs(elem)]);
       } else {
-        let arr = [convertShorthandRefs(elem)]
-        console.log("3-shorthand",arr)
         shorthand.push([convertShorthandRefs(elem)]);
       }
       continue;
@@ -497,15 +485,8 @@ async function parseArrayLogic({
       // ★ ensure owner grant (optional; actionFile is typically caller-owned)
       await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
 
-      console.log("1-shorthand", ["ROUTE",{ "body": positionBodyAF },{},"position",actionFile,""])
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyAF },
-        {},
-        "position",
-        actionFile,
-        ""
-      ]);
+      console.log("1-shorthand", [{}])
+      shorthand.push([{}]);
 
       console.log("2-shorthand",[ "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""])
       shorthand.push([
@@ -611,22 +592,8 @@ async function parseArrayLogic({
     // ★ seed owner grant for creator
     await _ensureOwnerGrant({ dynamodb, su: newSu, e });
 
-    console.log("10-shorthand",[
-      "ROUTE",
-      { "body": positionBodyCreated },
-      {},
-      "position",
-      newSu,
-      ""
-    ])
-    shorthand.push([
-      "ROUTE",
-      { "body": positionBodyCreated },
-      {},
-      "position",
-      newSu,
-      ""
-    ]);
+    console.log("10-shorthand",[{} ])
+    shorthand.push([{}]);
 
     
 
