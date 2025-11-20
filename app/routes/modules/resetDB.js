@@ -137,6 +137,10 @@ function register({ on, use }) {
       for (const counter of countersToReset) {
         await resetCounter(counter, dynamodb);
       }
+
+       ctx.res.setHeader("Set-Cookie",
+      "accessToken=; Max-Age=0; Path=/; Domain=.1var.com; HttpOnly; Secure; SameSite=None"
+    );
       // Preserve legacy response shape: { ok: true, response: { alert: "success" } }
       return { ok: true, response: { alert: "success" } };
     } catch (error) {
