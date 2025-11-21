@@ -68,7 +68,7 @@ function register({ on, use }) {
       if (u) return u;
     }
     if (typeof text === "string" && text.trim()) {
-      const q = text.trim();
+      const q = text.toLowerCase().trim();
       const { data: [{ embedding: e }] } = await openai.embeddings.create({
         model: EMB_MODEL_ID,
         input: q
@@ -154,6 +154,10 @@ function register({ on, use }) {
 
     let searchString = body.text;
     if (!searchString) searchString = body.query;
+
+    if (typeof searchString === "string") {
+      searchString = searchString.toLowerCase();
+    }
 
     try {
       // ---- inputs / defaults
