@@ -598,7 +598,7 @@ function subdomains(domain){
           }
 
           // Persist updated published logic when actionFile is provided
-          if (actionFile) {
+          if (actionFile && !buildAppMode) {
             try {
               await s3
                 .putObject({
