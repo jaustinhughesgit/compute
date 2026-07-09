@@ -123,6 +123,45 @@ function register({ on, use }) {
         return {};
       }
 
+      function getPromptText(p) {
+        const obj = parsePrompt(p);
+        if (typeof obj.userRequest === "string" && obj.userRequest.trim()) return obj.userRequest.trim();
+        if (typeof p === "string" && p.trim()) return p.trim();
+        return "";
+      }
+
+      function shouldCreateAppEntity({ promptText, requestBody }) {
+        if (requestBody?.buildApp === true || requestBody?.createApp === true || requestBody?.appEntity === true) return true;
+        const t = String(promptText || "").toLowerCase();
+        if (!t) return false;
+        const createVerb = /\b(create|build|make|generate|add)\b/.test(t);
+        const appNoun = /\b(app|application|feature|tool|widget|calculator|game|form|dashboard|page|ui|interface)\b/.test(t);
+        return createVerb && appNoun;
+      }
+
+      function appNameFromPrompt(promptText) {
+        const t = String(promptText || "");
+        if (/calculator/i.test(t)) return "Simple Calculator";
+        const m = t.match(/(?:called|named|titled)\s+[“\"']?([^”\"'.]+)[”\"']?/i);
+        if (m && m[1]) return m[1].trim().slice(0, 80);
+        const m2 = t.match(/(?:create|build|make|generate|add)\s+(?:me\s+)?(?:a|an)?\s*([^.!?]{3,60})/i);
+        if (m2 && m2[1]) {
+          return m2[1]
+            .replace(/\b(feature|app|application|tool|widget|page|ui|interface)\b/ig, "")
+            .replace(/\bin this workspace\b/ig, "")
+            .replace(/\s+/g, " ")
+            .trim()
+            .replace(/^./, c => c.toUpperCase()) || "Generated App";
+        }
+        return "Generated App";
+      }
+
+      function appKindFromPrompt(promptText) {
+        const t = String(promptText || "").toLowerCase();
+        if (t.includes("calculator")) return "calculator";
+        return "generic";
+      }
+
       const promptObjForEssence = parsePrompt(body.body?.prompt);
 
       // ─────────────────────────────────────────────────────────────
@@ -146,9 +185,28 @@ function register({ on, use }) {
 
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
+      const promptText = getPromptText(prompt);
+      const buildAppMode = shouldCreateAppEntity({ promptText, requestBody: body.body || {} });
+
+      // App/entity creation mode: bypass the breadcrumb prompt and send a direct
+      // appEntity instruction into parseArrayLogic. The shorthand runner will create
+      // a new loadable entity, write its published.templates/assignments, save it,
+      // and return createdEntities for the parent workspace.
+      if (buildAppMode) {
+        sourceType = "arrayLogic";
+        arrayLogic = [{
+          appEntity: {
+            name: body.body?.appName || appNameFromPrompt(promptText),
+            title: body.body?.appTitle || appNameFromPrompt(promptText),
+            kind: body.body?.appKind || appKindFromPrompt(promptText),
+            userRequest: promptText,
+            parentWorkspace: actionFile
+          }
+        }];
+      }
 
       // If prompt supplied, we build arrayLogic from your fixed prompt template
-      if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
+      if (!buildAppMode && prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
         const promptObj = parsePrompt(prompt); // ← safe (no throws)
 
@@ -447,6 +505,8 @@ function subdomains(domain){
         dynamodbLL,
         sourceType,
         actionFile,
+        parentWorkspace: actionFile,
+        buildAppMode,
         out,
         e,
         requestOnly,
@@ -562,6 +622,7 @@ function subdomains(domain){
         parseResults,
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
+        buildAppMode,
         conclusion,
         entity: entityFromConclusion || "",
         createdEntities,
