@@ -457,9 +457,13 @@ async function parseArrayLogic({
     // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
     if (actionFile) {
 
-      const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
-        ? fixedOutput
-        : (typeof out === "string" ? out.trim() : "");
+      const anchorWordAF = [
+        fixedOutput,
+        (typeof out === "string" ? out.trim() : ""),
+        userReqText,
+        textForEmbedding
+      ].find(v => typeof v === "string" && v.trim());
+
       const anchorPayloadAF = anchorWordAF
         ? await _computeAnchorPayload({ s3, openai, text: anchorWordAF })
         : null;
@@ -467,11 +471,16 @@ async function parseArrayLogic({
       const positionBodyAF = {
         description: "provided entity (fallback)",
         entity: actionFile,
-        output: fixedOutput || out || ""
+        output: fixedOutput || out || userReqText || textForEmbedding || ""
       };
       if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
 
-      // ★ policy pointer on postings
+      // ★ ensure owner grant (optional; actionFile is typically caller-owned)
+      await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
+
+      // Only call the position route when an anchor exists. The position route
+      // requires both entity and anchor; calling it without anchor stops Convert.
+      // Also send the body at the top level, matching the other ROUTE rows.
       if (positionBodyAF.anchor) {
         await _fanoutAnchorBands({
           su: actionFile,
@@ -480,20 +489,26 @@ async function parseArrayLogic({
           type: 'su',
           policy_id: `${DEFAULT_POLICY_PREFIX}:${String(actionFile)}`
         });
+
+        console.log("1-shorthand", ["ROUTE", positionBodyAF, {}, "position", actionFile, ""])
+        shorthand.push([
+          "ROUTE",
+          positionBodyAF,
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
+      } else {
+        const warning = {
+          type: "positionSkipped",
+          reason: "No anchor was generated, so the position route was skipped.",
+          entity: actionFile,
+          text: anchorWordAF || null
+        };
+        console.warn("parseArrayLogic position skipped", warning);
+        results.push(warning);
       }
-
-      // ★ ensure owner grant (optional; actionFile is typically caller-owned)
-      await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
-
-      console.log("1-shorthand", ["ROUTE",{ "body": positionBodyAF },{},"position",actionFile,""])
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyAF },
-        {},
-        "position",
-        actionFile,
-        ""
-      ]);
 
       console.log("2-shorthand",[ "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""])
       shorthand.push([

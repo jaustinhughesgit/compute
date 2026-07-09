@@ -413,8 +413,23 @@ function subdomains(domain){
 
         // Use your fixedPrompt to drive arrayLogic creation on the server
         arrayLogic = fixedPrompt;
-      } else if (typeof arrayLogic === "string" && arrayLogic.trim().startsWith("[")) {
-        arrayLogic = JSON.parse(arrayLogic);
+      } else if (arrayLogic !== undefined && arrayLogic !== null) {
+        // Accept ArrayLogic from the frontend as an actual array/object or as a JSON string.
+        // The Convert UI's "Send as ArrayLogic" path can deliver either shape depending on
+        // whether the text box value was parsed before submission.
+        if (typeof arrayLogic === "string") {
+          const trimmed = arrayLogic.trim();
+          if (trimmed.startsWith("[") || trimmed.startsWith("{")) {
+            arrayLogic = JSON.parse(trimmed);
+          } else {
+            throw new Error("arrayLogic must be a JSON array or object string.");
+          }
+        }
+
+        if (!Array.isArray(arrayLogic)) {
+          arrayLogic = [arrayLogic];
+        }
+
         sourceType = "arrayLogic";
       }
 
