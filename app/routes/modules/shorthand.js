@@ -13,9 +13,19 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     let highestCol = 0;
     let resRow = 0;
     let sweep = 0;
-    let shorthandArray = shorthandObj.input;
-    let skip = shorthandObj.skip;
-    let maxSweeps = shorthandObj.sweeps;
+    let shorthandArray = Array.isArray(shorthandObj?.input)
+        ? shorthandObj.input
+        : [];
+
+    let skip = Array.isArray(shorthandObj?.skip)
+        ? shorthandObj.skip
+        : [];
+
+    let maxSweeps =
+        Number.isFinite(Number(shorthandObj?.sweeps)) &&
+        Number(shorthandObj.sweeps) > 0
+            ? Number(shorthandObj.sweeps)
+            : 1;
     let processing = 0;
 
     const comparisonOperators = {
@@ -1173,7 +1183,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     async function getVAR(data) {
         console.log("getVAR matrix", matrix);
 
-        let { route } = require('./cookies')
+        let { route } = require('../cookies')
         let entity = Object.keys(data).find(k => k !== "add");
         const xAccessToken =
             (req.body?.headers && req.body.headers["X-accessToken"]) ||
@@ -1224,7 +1234,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         ROUTE: async (rowArray) => {
             console.log("keywords ROUTE matrix", matrix);
 
-            let { route } = require('./cookies')
+            let { route } = require('../cookies')
             console.log("ROUTE rowArray", rowArray)
             console.log("ROUTE")
             let rA = await rowArray
@@ -1922,6 +1932,74 @@ return resp;
 }
 
 
+/**
+ * Registry adapter used by routes/cookies.js.
+ *
+ * The shorthand implementation remains exported for legacy direct imports,
+ * while register() lets the module load through the shared action registry.
+ */
+function register({ on, use }) {
+    const shared = typeof use === "function" ? use() : null;
+
+    on("shorthand", async (ctx) => {
+        const req = ctx?.req || {};
+        const res = ctx?.res || {};
+        const deps = ctx?.deps || shared?.deps || {};
+
+        const rawBody =
+            req.body && typeof req.body === "object"
+                ? req.body
+                : {};
+
+        // Accept either the legacy { body: {...} } wrapper or a flat payload.
+        const body =
+            rawBody.body && typeof rawBody.body === "object"
+                ? rawBody.body
+                : rawBody;
+
+        const shorthandObj = body.shorthandObj || body;
+
+        if (!shorthandObj || !Array.isArray(shorthandObj.input)) {
+            return {
+                statusCode: 400,
+                body: JSON.stringify({
+                    error: "shorthand input must be an array"
+                })
+            };
+        }
+
+        return shorthand(
+            shorthandObj,
+            req,
+            res,
+            () => {},
+            undefined,
+            deps.dynamodb,
+            deps.uuidv4,
+            deps.s3,
+            deps.ses,
+            deps.openai,
+            deps.Anthropic,
+            deps.dynamodbLL,
+            true,
+            req.apiGateway?.event?.path ||
+                req.originalUrl ||
+                req.path ||
+                "/cookies/shorthand",
+            rawBody,
+            req.method || "POST",
+            ctx?.type,
+            res.headersSent,
+            ctx?.signer,
+            "shorthand",
+            ctx?.xAccessToken
+        );
+    });
+
+    return { name: "shorthand" };
+}
+
 module.exports = {
+    register,
     shorthand
 };
