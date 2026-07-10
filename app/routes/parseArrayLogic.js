@@ -313,6 +313,91 @@ async function _ensureOwnerGrant({ dynamodb, su, e, perms = "rwdop" }) {
   }
 }
 
+
+function _safeAppName(input, fallback = "Generated App") {
+  const raw = String(input || fallback).trim() || fallback;
+  return raw
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/[\/#?]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 80) || fallback;
+}
+
+function _calculatorHtml(title = "Simple Calculator") {
+  const press = "(function(b){var r=b.closest('.onevar-calc');var d=r.querySelector('[data-calc-display]');var v=b.getAttribute('data-val');if(v==='C'){d.textContent='0';return;}if(v==='='){try{var expr=d.textContent.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');d.textContent=String(Function('return '+expr)());}catch(e){d.textContent='Error';}return;}if(d.textContent==='0'||d.textContent==='Error'){d.textContent=v;}else{d.textContent+=v;}})(this)";
+  const btn = (label, val = label) => `<button type="button" data-val="${val}" onclick="${press}" style="border:0;border-radius:10px;padding:14px;font-size:18px;background:#2b2b2b;color:#fff;cursor:pointer">${label}</button>`;
+  return `
+<div class="onevar-calc" style="max-width:340px;background:#111;color:#fff;border:1px solid #333;border-radius:16px;padding:18px;font-family:Arial,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.28)">
+  <h2 style="margin:0 0 14px;font-size:21px;line-height:1.2">${title}</h2>
+  <div data-calc-display style="background:#000;border:1px solid #444;border-radius:10px;padding:14px;margin-bottom:12px;text-align:right;font-size:30px;min-height:38px;overflow:hidden">0</div>
+  <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px">
+    ${btn('C')}${btn('÷')}${btn('×')}${btn('−')}
+    ${btn('7')}${btn('8')}${btn('9')}${btn('+')}
+    ${btn('4')}${btn('5')}${btn('6')}${btn('=')}
+    ${btn('1')}${btn('2')}${btn('3')}${btn('0')}
+  </div>
+</div>`.trim();
+}
+
+function _genericAppHtml(title, userRequest) {
+  const safeTitle = _safeAppName(title, "Generated App");
+  const safeRequest = String(userRequest || "").replace(/[&<>]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[ch]));
+  return `
+<div style="max-width:520px;background:#111;color:#fff;border:1px solid #333;border-radius:16px;padding:18px;font-family:Arial,sans-serif;box-shadow:0 10px 28px rgba(0,0,0,.28)">
+  <h2 style="margin:0 0 12px;font-size:22px">${safeTitle}</h2>
+  <p style="margin:0 0 12px;color:#ddd">This app entity was created from your request.</p>
+  <pre style="white-space:pre-wrap;background:#000;border:1px solid #444;border-radius:10px;padding:12px;color:#eee">${safeRequest}</pre>
+</div>`.trim();
+}
+
+function _buildAppPublishedFromSpec(spec = {}) {
+  const title = _safeAppName(spec.title || spec.name || spec.appName || "Generated App");
+  const userRequest = String(spec.userRequest || spec.request || "");
+  const kind = String(spec.kind || spec.appType || "").toLowerCase();
+  const slot = String(spec.slot || "appCard").replace(/[^a-zA-Z0-9_-]/g, "") || "appCard";
+  const html = spec.html || (kind.includes("calculator") || /calculator/i.test(title + " " + userRequest)
+    ? _calculatorHtml(title)
+    : _genericAppHtml(title, userRequest));
+
+  return {
+    blocks: [],
+    moods: [],
+    modules: {},
+    actions: [],
+    function: {},
+    functions: {},
+    data: {},
+    automation: [],
+    menu: { ready: {} },
+    commands: {
+      ready: { call: "ready", ready: true, updateSpeechAt: true, timeOut: 0 }
+    },
+    calls: {
+      ready: []
+    },
+    templates: {
+      init: {
+        "1": {
+          rows: {
+            "1": { cols: [slot] }
+          }
+        }
+      }
+    },
+    assignments: {
+      [slot]: {
+        _editable: false,
+        _movement: "move",
+        _owners: [],
+        _mode: "_html",
+        _modes: { _html: html }
+      }
+    },
+    content: title
+  };
+}
+
 async function parseArrayLogic({
   arrayLogic = [],
   dynamodb, 
@@ -324,6 +409,8 @@ async function parseArrayLogic({
   dynamodbLL,  
   sourceType,
   actionFile,
+  parentWorkspace,
+  buildAppMode = false,
   out,
   e,
   requestOnly = false
@@ -396,6 +483,62 @@ async function parseArrayLogic({
       continue;
     }
 
+    // Direct app/entity creation path.
+    // Used by Convert when the user asks for a visible app-like feature such as a calculator.
+    // This creates a new loadable entity, writes published.templates/assignments into it,
+    // saves it, and returns createdEntities so the parent workspace can add it to blocks/moods.
+    if (origElem && typeof origElem === "object" && origElem.appEntity) {
+      const spec = origElem.appEntity || {};
+      const appName = _safeAppName(spec.name || spec.title || spec.appName || "Generated App");
+      const groupName = _safeAppName(spec.groupName || appName);
+      const publishedPatch = _buildAppPublishedFromSpec({ ...spec, title: appName });
+
+      const pushRow = (row) => {
+        shorthand.push(row);
+        return padRef(shorthand.length);
+      };
+
+      console.log("appEntity:newGroup", { groupName, appName, parentWorkspace, buildAppMode });
+      const refNewGroup = pushRow(["ROUTE", { output: appName }, {}, "newGroup", groupName, appName]);
+      const refNewEntity = pushRow(["GET", refNewGroup, "response", "file"]);
+      const refGetFile = pushRow(["ROUTE", {}, {}, "getFile", refNewEntity, ""]);
+      let refWorkingFile = pushRow(["GET", refGetFile, "response"]);
+
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "blocks", publishedPatch.blocks]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "moods", publishedPatch.moods]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "modules", publishedPatch.modules]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "actions", publishedPatch.actions]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "function", publishedPatch.function]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "functions", publishedPatch.functions]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "data", publishedPatch.data]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "automation", publishedPatch.automation]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "menu", publishedPatch.menu]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "commands", publishedPatch.commands]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "calls", publishedPatch.calls]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "templates", publishedPatch.templates]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "assignments", publishedPatch.assignments]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "content", publishedPatch.content]);
+
+      const refSave = pushRow(["ROUTE", refWorkingFile, {}, "saveFile", refNewEntity, ""]);
+
+      let refCreated = pushRow([{ entity: "", name: appName, contentType: "text", id: "", _mode: "_html" }]);
+      refCreated = pushRow(["ADDPROPERTY", refCreated, "entity", refNewEntity]);
+      refCreated = pushRow(["ADDPROPERTY", refCreated, "id", refNewEntity]);
+      const refCreatedArray = pushRow(["ARRAY", refCreated]);
+
+      let refConclusion = pushRow([{ ok: true, appCreated: true, name: appName, contentType: "text" }]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "entity", refNewEntity]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "createdEntities", refCreatedArray]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "saveResult", refSave]);
+
+      const refPublishedWithConclusion = pushRow(["ADDPROPERTY", "000!!", "conclusion", refConclusion]);
+      pushRow(["ROWRESULT", "000", refPublishedWithConclusion]);
+
+      routeRowNewIndex = shorthand.length;
+      results.push({ type: "appEntity", name: appName, parentWorkspace: parentWorkspace || actionFile || null });
+      continue;
+    }
+
     const elem = resolvedLogic[i];
 
     let fixedOutput;
@@ -457,9 +600,13 @@ async function parseArrayLogic({
     // NO MATCH: either run provided actionFile, or create new entity + seed ACL + anchor
     if (actionFile) {
 
-      const anchorWordAF = (fixedOutput && String(fixedOutput).trim())
-        ? fixedOutput
-        : (typeof out === "string" ? out.trim() : "");
+      const anchorWordAF = [
+        fixedOutput,
+        (typeof out === "string" ? out.trim() : ""),
+        userReqText,
+        textForEmbedding
+      ].find(v => typeof v === "string" && v.trim());
+
       const anchorPayloadAF = anchorWordAF
         ? await _computeAnchorPayload({ s3, openai, text: anchorWordAF })
         : null;
@@ -467,11 +614,16 @@ async function parseArrayLogic({
       const positionBodyAF = {
         description: "provided entity (fallback)",
         entity: actionFile,
-        output: fixedOutput || out || ""
+        output: fixedOutput || out || userReqText || textForEmbedding || ""
       };
       if (anchorPayloadAF) positionBodyAF.anchor = anchorPayloadAF;
 
-      // ★ policy pointer on postings
+      // ★ ensure owner grant (optional; actionFile is typically caller-owned)
+      await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
+
+      // Only call the position route when an anchor exists. The position route
+      // requires both entity and anchor; calling it without anchor stops Convert.
+      // Also send the body at the top level, matching the other ROUTE rows.
       if (positionBodyAF.anchor) {
         await _fanoutAnchorBands({
           su: actionFile,
@@ -480,20 +632,26 @@ async function parseArrayLogic({
           type: 'su',
           policy_id: `${DEFAULT_POLICY_PREFIX}:${String(actionFile)}`
         });
+
+        console.log("1-shorthand", ["ROUTE", positionBodyAF, {}, "position", actionFile, ""])
+        shorthand.push([
+          "ROUTE",
+          positionBodyAF,
+          {},
+          "position",
+          actionFile,
+          ""
+        ]);
+      } else {
+        const warning = {
+          type: "positionSkipped",
+          reason: "No anchor was generated, so the position route was skipped.",
+          entity: actionFile,
+          text: anchorWordAF || null
+        };
+        console.warn("parseArrayLogic position skipped", warning);
+        results.push(warning);
       }
-
-      // ★ ensure owner grant (optional; actionFile is typically caller-owned)
-      await _ensureOwnerGrant({ dynamodb, su: actionFile, e });
-
-      console.log("1-shorthand", ["ROUTE",{ "body": positionBodyAF },{},"position",actionFile,""])
-      shorthand.push([
-        "ROUTE",
-        { "body": positionBodyAF },
-        {},
-        "position",
-        actionFile,
-        ""
-      ]);
 
       console.log("2-shorthand",[ "ROUTE", inputParam, schemaParam, "runEntity", actionFile, ""])
       shorthand.push([
