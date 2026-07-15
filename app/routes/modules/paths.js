@@ -22,6 +22,360 @@
  *      ATTR: x (N)     monotonically increasing counter
  */
 
+
+
+// ---------------------------------------------------------------------------
+// Semantic-family safety and migration helpers
+// ---------------------------------------------------------------------------
+
+function cloneJson(value) {
+  if (value == null) return value;
+  return JSON.parse(JSON.stringify(value));
+}
+
+function normalizePredicateName(value) {
+  let text = String(value == null ? "" : value).trim().toLowerCase();
+  if (/^\{[^{}]+\}$/.test(text)) text = text.slice(1, -1).trim();
+  text = text.replace(/^action:/, "").trim();
+  text = text.replace(/^(?:prop|property):/, "").trim();
+  return text;
+}
+
+function rightMode(path) {
+  return String(path?.right?.state?.mode || "statement").trim().toLowerCase();
+}
+
+function pathFamilyId(path) {
+  return String(path?.right?.state?.familyId || path?.family?.id || "").trim();
+}
+
+function walkRows(right) {
+  const state = right?.state || {};
+  const rows = [];
+  for (const row of Array.isArray(state.rows) ? state.rows : []) {
+    if (Array.isArray(row)) rows.push(row);
+  }
+  for (const loop of Array.isArray(state.forEach) ? state.forEach : []) {
+    for (const row of Array.isArray(loop?.rows) ? loop.rows : []) {
+      if (Array.isArray(row)) rows.push(row);
+    }
+  }
+  return rows;
+}
+
+function rowContainsAsk(row) {
+  return (Array.isArray(row) ? row : []).some((cell) => {
+    if (typeof cell === "string") return cell.trim().toLowerCase() === "{ask}";
+    return !!cell && typeof cell === "object" && String(cell.ref || "").toLowerCase() === "ask";
+  });
+}
+
+function pathAnswerTargets(path) {
+  if (rightMode(path) !== "question") return [];
+  const targets = [];
+  for (const row of walkRows(path?.right)) {
+    if (!rowContainsAsk(row)) continue;
+    const predicate = normalizePredicateName(row[2]);
+    if (predicate && !targets.includes(predicate)) targets.push(predicate);
+  }
+  return targets;
+}
+
+function answerCategory(target) {
+  const value = normalizePredicateName(target);
+  if (["with", "person", "people", "participant", "participants", "attendee", "attendees"].includes(value)) {
+    return "person";
+  }
+  if ([
+    "time", "time_reference", "time_start_iso", "time_end_iso", "time_tz",
+    "time_granularity", "date", "date_iso", "by_day", "weekday"
+  ].includes(value)) {
+    return "time";
+  }
+  if (["location", "address", "live_at", "where"].includes(value)) return "location";
+  if (["age", "age_value", "age_at_event"].includes(value)) return "age";
+  if (["quantity", "count", "number", "total"].includes(value)) return "quantity";
+  return value || "unknown";
+}
+
+function pathAnswerCategory(path) {
+  const familyId = pathFamilyId(path).toLowerCase();
+  if (/meeting.*person.*time|meeting.*time/.test(familyId)) return "time";
+  if (/meeting.*person.*query|meeting.*with.*query/.test(familyId)) return "person";
+  const categories = pathAnswerTargets(path).map(answerCategory).filter(Boolean);
+  return categories[0] || "unknown";
+}
+
+function aliasExamples(alias) {
+  return [
+    alias?.example,
+    ...(Array.isArray(alias?.examples) ? alias.examples : []),
+  ].map((value) => String(value || "").trim()).filter(Boolean);
+}
+
+function aliasIntentCategory(alias) {
+  const text = aliasExamples(alias).join(" ").toLowerCase();
+  const sig = String(alias?.sig || "").toLowerCase();
+  const source = `${text} ${sig}`;
+
+  if (/^(?:who|whom)\b/.test(text) || /(?:^|\|)lemma:(?:who|whom)(?:\||$)/.test(sig)) {
+    return "person";
+  }
+  if (/^(?:when|what time)\b/.test(text) || /(?:^|\|)lemma:when(?:\||$)/.test(sig)) {
+    return "time";
+  }
+  if (/^(?:where)\b/.test(text) || /(?:^|\|)lemma:where(?:\||$)/.test(sig)) {
+    return "location";
+  }
+  if (/^(?:how old|what age|at what age)\b/.test(text) || /lemma:how\|lemma:old/.test(sig)) {
+    return "age";
+  }
+  if (/^(?:how many|what number|total number)\b/.test(text) || /lemma:how\|lemma:many/.test(sig)) {
+    return "quantity";
+  }
+
+  // If a generated alias includes a meeting and a date but starts with WHO,
+  // the answer target is still the person, not the date constraint.
+  if (/\bmeeting\b/.test(source) && /\bwho\b|lemma:who/.test(source)) return "person";
+  return "unknown";
+}
+
+function collectBindingReferences(value, out = new Set()) {
+  if (Array.isArray(value)) {
+    value.forEach((entry) => collectBindingReferences(entry, out));
+    return out;
+  }
+  if (!value || typeof value !== "object") return out;
+  const ref = String(value.ref || "");
+  if (ref === "binding" || ref === "instanceBinding") {
+    const name = String(value.name || "").trim();
+    if (name) out.add(name);
+  }
+  if (ref === "boundVar") {
+    const base = String(value.base || "").trim();
+    if (base) out.add(base);
+  }
+  Object.values(value).forEach((entry) => {
+    if (entry && typeof entry === "object") collectBindingReferences(entry, out);
+  });
+  return out;
+}
+
+function requiredBindingNames(path) {
+  const out = new Set();
+  collectBindingReferences(path?.right?.state?.rows || [], out);
+  collectBindingReferences(path?.right?.state?.forEach || [], out);
+  return out;
+}
+
+function ensureAliasBindingsForTarget(alias, targetPath) {
+  const next = cloneJson(alias);
+  const bindings = Array.isArray(next.bindings) ? next.bindings : [];
+  const byName = new Map(bindings.map((binding) => [String(binding?.name || "").trim(), binding]));
+  const canonicalBindings = new Map(
+    (Array.isArray(targetPath?.right?.state?.bindings) ? targetPath.right.state.bindings : [])
+      .map((binding) => [String(binding?.name || "").trim(), binding])
+  );
+
+  for (const name of requiredBindingNames(targetPath)) {
+    if (byName.has(name)) continue;
+    const canonical = canonicalBindings.get(name);
+    // Current-speaker and literal bindings are syntax independent and can be
+    // copied safely. Token bindings must be supplied by the alias itself.
+    if (canonical && ["currentSpeaker", "literal"].includes(String(canonical.source || ""))) {
+      const copy = cloneJson(canonical);
+      bindings.push(copy);
+      byName.set(name, copy);
+      continue;
+    }
+    return null;
+  }
+
+  next.bindings = bindings;
+  return next;
+}
+
+function bindingRef(name) {
+  return {
+    ref: "binding",
+    token: null,
+    name,
+    base: null,
+    index: null,
+  };
+}
+
+function ensureCurrentSpeakerBinding(bindings, name) {
+  const list = Array.isArray(bindings) ? bindings : [];
+  if (!list.some((binding) => String(binding?.name || "") === name)) {
+    list.push({
+      name,
+      source: "currentSpeaker",
+      token: null,
+      tokenEnd: null,
+      value: "resolvedEntity",
+      literal: null,
+    });
+  }
+  return list;
+}
+
+function normalizeMeetingQuestionPath(path) {
+  const next = cloneJson(path);
+  if (next?.right?.lib !== "essenceTransform" || rightMode(next) !== "question") return next;
+
+  const familyId = pathFamilyId(next).toLowerCase();
+  const category = pathAnswerCategory(next);
+  const isMeeting = familyId.includes("meeting")
+    || JSON.stringify(next?.right?.state?.rows || []).toLowerCase().includes("meeting_record");
+  if (!isMeeting || !["person", "time"].includes(category)) return next;
+
+  const state = next.right.state || (next.right.state = {});
+  let bindings = Array.isArray(state.bindings) ? state.bindings : [];
+  bindings = ensureCurrentSpeakerBinding(bindings, "owner");
+
+  if (category === "person") {
+    state.familyId = "personal_meeting_person_query";
+    state.rows = [
+      ["*", bindingRef("owner"), "have", "{meeting_record}"],
+      ["present", "{meeting_record}", "{prop:with}", "{ask}"],
+    ];
+  } else {
+    state.familyId = "personal_meeting_person_time_query";
+    state.rows = [
+      ["*", bindingRef("owner"), "have", "{meeting_record}"],
+      ["present", "{meeting_record}", "{prop:with}", bindingRef("person")],
+      ["present", "{meeting_record}", "{prop:time_reference}", "{ask}"],
+    ];
+  }
+
+  state.bindings = bindings;
+  state.answerTemplate = "{{ask|join:, }}";
+  state.metadata = {
+    ...(state.metadata || {}),
+    pathsSemanticRepair: "meeting-question-answer-target-v1",
+  };
+  next.family = {
+    ...(next.family || {}),
+    id: state.familyId,
+  };
+  return next;
+}
+
+function pathLooksLikeMeeting(path) {
+  return pathFamilyId(path).toLowerCase().includes("meeting")
+    || JSON.stringify(path?.right?.state?.rows || []).toLowerCase().includes("meeting_record");
+}
+
+function chooseAliasDestination(paths, alias, sourcePath) {
+  const intent = aliasIntentCategory(alias);
+  if (intent === "unknown") return null;
+  const sourceMeeting = pathLooksLikeMeeting(sourcePath)
+    || aliasExamples(alias).some((example) => /\bmeeting\b/i.test(example));
+
+  const candidates = paths.filter((path) => {
+    if (rightMode(path) !== "question") return false;
+    if (pathAnswerCategory(path) !== intent) return false;
+    if (sourceMeeting && !pathLooksLikeMeeting(path)) return false;
+    return true;
+  });
+
+  candidates.sort((a, b) => {
+    const aFamily = pathFamilyId(a).toLowerCase();
+    const bFamily = pathFamilyId(b).toLowerCase();
+    const exact = intent === "person" ? "personal_meeting_person_query" : "personal_meeting_person_time_query";
+    return Number(bFamily === exact) - Number(aFamily === exact);
+  });
+  return candidates[0] || null;
+}
+
+function migrateAliasesAcrossPaths(inputPaths) {
+  const paths = (Array.isArray(inputPaths) ? inputPaths : []).map(normalizeMeetingQuestionPath);
+  const migrations = [];
+
+  for (const source of paths) {
+    const family = source.family || (source.family = {});
+    const aliases = Array.isArray(family.aliases) ? family.aliases : [];
+    const canonicalCategory = pathAnswerCategory(source);
+    const kept = [];
+
+    for (const originalAlias of aliases) {
+      const alias = cloneJson(originalAlias);
+      const intent = aliasIntentCategory(alias);
+      const compatible = rightMode(source) !== "question"
+        || intent === "unknown"
+        || canonicalCategory === "unknown"
+        || intent === canonicalCategory;
+
+      if (compatible) {
+        kept.push(alias);
+        continue;
+      }
+
+      const destination = chooseAliasDestination(paths, alias, source);
+      const prepared = destination ? ensureAliasBindingsForTarget(alias, destination) : null;
+      if (!destination || !prepared) {
+        migrations.push({
+          sig: alias.sig || null,
+          fromFamilyId: pathFamilyId(source),
+          toFamilyId: null,
+          action: "deactivated-incompatible-alias",
+          intent,
+          canonicalCategory,
+        });
+        continue;
+      }
+
+      const destinationFamily = destination.family || (destination.family = {});
+      const destinationAliases = Array.isArray(destinationFamily.aliases)
+        ? destinationFamily.aliases
+        : [];
+      const canonicalSig = String(destination.sig || destination.signature || "");
+      if (
+        String(prepared.sig || "") !== canonicalSig
+        && !destinationAliases.some((entry) => String(entry?.sig || "") === String(prepared.sig || ""))
+      ) {
+        destinationAliases.push({
+          ...prepared,
+          active: prepared.active !== false,
+          source: "semantic-intent-migration-v1",
+          migratedFromFamilyId: pathFamilyId(source),
+          migratedAt: new Date().toISOString(),
+        });
+        destinationFamily.aliases = destinationAliases.slice(-250);
+      }
+
+      migrations.push({
+        sig: prepared.sig || null,
+        fromFamilyId: pathFamilyId(source),
+        toFamilyId: pathFamilyId(destination),
+        action: "moved-incompatible-alias",
+        intent,
+        canonicalCategory,
+      });
+    }
+
+    family.aliases = kept;
+  }
+
+  // Final dedupe: one active signature may belong to only one semantic family.
+  const canonicalSignatures = new Set(paths.map((path) => String(path.sig || path.signature || "")).filter(Boolean));
+  const aliasOwner = new Map();
+  for (const path of paths) {
+    const family = path.family || (path.family = {});
+    const aliases = Array.isArray(family.aliases) ? family.aliases : [];
+    family.aliases = aliases.filter((alias) => {
+      const sig = String(alias?.sig || "").trim();
+      if (!sig || canonicalSignatures.has(sig)) return false;
+      if (aliasOwner.has(sig) && aliasOwner.get(sig) !== pathFamilyId(path)) return false;
+      aliasOwner.set(sig, pathFamilyId(path));
+      return true;
+    });
+  }
+
+  return { paths, migrations };
+}
+
 function register({ on, use }) {
   const {
     getDocClient,
@@ -73,6 +427,70 @@ function register({ on, use }) {
     // 3) fallback to cookie.e
     e = String(meta?.cookie?.e || "");
     return e;
+  }
+
+  async function loadPathsForEntity(doc, e) {
+    const out = [];
+    let ExclusiveStartKey;
+    do {
+      const res = await doc.query({
+        TableName,
+        IndexName: "eIndex",
+        KeyConditionExpression: "#e = :e",
+        ExpressionAttributeNames: { "#e": "e" },
+        ExpressionAttributeValues: { ":e": e },
+        ExclusiveStartKey,
+        ScanIndexForward: false,
+      }).promise();
+      out.push(...(res.Items || []).map((it) => ({
+        id: it.id,
+        e: it.e,
+        by: it.by,
+        sig: it.sig,
+        left: it.left ? JSON.parse(it.left) : null,
+        right: it.right ? JSON.parse(it.right) : null,
+        family: it.family ? JSON.parse(it.family) : null,
+        repair: it.repair ? JSON.parse(it.repair) : null,
+        createdAt: it.createdAt,
+        updatedAt: it.updatedAt,
+      })));
+      ExclusiveStartKey = res.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return out;
+  }
+
+  async function repairAndPersistPathsForEntity(doc, e) {
+    const rawPaths = await loadPathsForEntity(doc, e);
+    const originalById = new Map(rawPaths.map((path) => [String(path.id), cloneJson(path)]));
+    const repaired = migrateAliasesAcrossPaths(rawPaths);
+    const now = new Date().toISOString();
+
+    for (const path of repaired.paths) {
+      const original = originalById.get(String(path.id));
+      if (!original) continue;
+      const rightChanged = JSON.stringify(original.right ?? null) !== JSON.stringify(path.right ?? null);
+      const familyChanged = JSON.stringify(original.family ?? null) !== JSON.stringify(path.family ?? null);
+      if (!rightChanged && !familyChanged) continue;
+
+      await doc.update({
+        TableName,
+        Key: { id: path.id },
+        UpdateExpression: "SET #right = :right, #family = :family, #updatedAt = :now",
+        ExpressionAttributeNames: {
+          "#right": "right",
+          "#family": "family",
+          "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":right": JSON.stringify(path.right ?? null),
+          ":family": JSON.stringify(path.family ?? null),
+          ":now": now,
+        },
+      }).promise();
+      path.updatedAt = now;
+    }
+
+    return repaired;
   }
 
   // ---------- bootstrap ----------
@@ -176,36 +594,11 @@ function register({ on, use }) {
     const e = await resolveE({ body, segs, meta });
     if (!e) return wrap({ paths: [], note: "no-e" }, meta, "");
 
-    const out = [];
-    let ExclusiveStartKey;
-    do {
-      const res = await doc
-        .query({
-          TableName,
-          IndexName: "eIndex",
-          KeyConditionExpression: "#e = :e",
-          ExpressionAttributeNames: { "#e": "e" },
-          ExpressionAttributeValues: { ":e": e },
-          ExclusiveStartKey,
-          ScanIndexForward: false, // newest first
-        })
-        .promise();
-      out.push(
-        ...(res.Items || []).map((it) => ({
-          id: it.id,
-          e: it.e,
-          by: it.by,
-          sig: it.sig,
-          left: it.left ? JSON.parse(it.left) : null,
-          right: it.right ? JSON.parse(it.right) : null,
-          createdAt: it.createdAt,
-          updatedAt: it.updatedAt,
-        }))
-      );
-      ExclusiveStartKey = res.LastEvaluatedKey;
-    } while (ExclusiveStartKey);
-
-    return wrap({ paths: out }, meta, "");
+    const repaired = await repairAndPersistPathsForEntity(doc, e);
+    return wrap({
+      paths: repaired.paths,
+      semanticMigrations: repaired.migrations,
+    }, meta, "");
   });
 
   // ---------- save (create or update by (e,sig)) ----------
@@ -234,6 +627,8 @@ function register({ on, use }) {
     const by = String(meta?.cookie?.e || "");
     const leftStr = JSON.stringify(rb.left ?? null);
     const rightStr = JSON.stringify(rb.right ?? null);
+    const familyStr = JSON.stringify(rb.family ?? null);
+    const repairStr = JSON.stringify(rb.repair ?? null);
 
     if (found?.Items?.length) {
       const it = found.Items[0];
@@ -242,16 +637,20 @@ function register({ on, use }) {
           TableName,
           Key: { id: it.id },
           UpdateExpression:
-            "SET #left = :left, #right = :right, #updatedAt = :now, #by = if_not_exists(#by, :by)",
+            "SET #left = :left, #right = :right, #family = :family, #repair = :repair, #updatedAt = :now, #by = if_not_exists(#by, :by)",
           ExpressionAttributeNames: {
             "#left": "left",
             "#right": "right",
+            "#family": "family",
+            "#repair": "repair",
             "#updatedAt": "updatedAt",
             "#by": "by",
           },
           ExpressionAttributeValues: {
             ":left": leftStr,
             ":right": rightStr,
+            ":family": familyStr,
+            ":repair": repairStr,
             ":now": now,
             ":by": by,
           },
@@ -259,19 +658,21 @@ function register({ on, use }) {
         })
         .promise();
 
+      const repaired = await repairAndPersistPathsForEntity(doc, e);
+      const finalPath = repaired.paths.find((path) => String(path.id) === String(upd.Attributes.id)) || {
+        id: upd.Attributes.id,
+        e: upd.Attributes.e,
+        by: upd.Attributes.by,
+        sig: upd.Attributes.sig,
+        left: JSON.parse(upd.Attributes.left || "null"),
+        right: JSON.parse(upd.Attributes.right || "null"),
+        family: JSON.parse(upd.Attributes.family || "null"),
+        repair: JSON.parse(upd.Attributes.repair || "null"),
+        createdAt: upd.Attributes.createdAt,
+        updatedAt: upd.Attributes.updatedAt,
+      };
       return wrap(
-        {
-          path: {
-            id: upd.Attributes.id,
-            e: upd.Attributes.e,
-            by: upd.Attributes.by,
-            sig: upd.Attributes.sig,
-            left: JSON.parse(upd.Attributes.left || "null"),
-            right: JSON.parse(upd.Attributes.right || "null"),
-            createdAt: upd.Attributes.createdAt,
-            updatedAt: upd.Attributes.updatedAt,
-          },
-        },
+        { path: finalPath, semanticMigrations: repaired.migrations },
         meta,
         upd.Attributes.id
       );
@@ -288,6 +689,8 @@ function register({ on, use }) {
           sig,
           left: leftStr,
           right: rightStr,
+          family: familyStr,
+          repair: repairStr,
           createdAt: now,
           updatedAt: now,
         },
@@ -296,22 +699,148 @@ function register({ on, use }) {
       })
       .promise();
 
+    const repaired = await repairAndPersistPathsForEntity(doc, e);
+    const finalPath = repaired.paths.find((path) => String(path.id) === String(id)) || {
+      id,
+      e,
+      by,
+      sig,
+      left: JSON.parse(leftStr),
+      right: JSON.parse(rightStr),
+      family: JSON.parse(familyStr),
+      repair: JSON.parse(repairStr),
+      createdAt: now,
+      updatedAt: now,
+    };
     return wrap(
-      {
-        path: {
-          id,
-          e,
-          by,
-          sig,
-          left: JSON.parse(leftStr),
-          right: JSON.parse(rightStr),
-          createdAt: now,
-          updatedAt: now,
-        },
-      },
+      { path: finalPath, semanticMigrations: repaired.migrations },
       meta,
       id
     );
+  });
+
+  // ---------- bulk save classifier/Path datasets ----------
+  // Path: /bulkSavePaths/:primarySu? Body: { e?:string, paths:[{sig,left,right,family,repair}] }
+  on("bulkSavePaths", async (ctx, meta) => {
+    const { doc } = withEnv();
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const rb = (ctx?.req?.body && ctx.req.body.body) || ctx?.req?.body || {};
+    const e = await resolveE({ body: rb, segs, meta });
+    if (!e) return wrap({ ok: false, error: "missing e" }, meta, "");
+
+    const incoming = Array.isArray(rb.paths) ? rb.paths : [];
+    if (!incoming.length) return wrap({ ok: false, error: "paths are required" }, meta, "");
+    if (incoming.length > 500) return wrap({ ok: false, error: "bulk upload limit is 500 paths" }, meta, "");
+
+    const unique = new Map();
+    for (const path of incoming) {
+      const sig = String(path?.sig || path?.signature || "").trim();
+      if (!sig) continue;
+      unique.set(sig, { ...path, sig });
+    }
+
+    const by = String(meta?.cookie?.e || "");
+    const saved = [];
+    const rejected = [];
+    const queue = [...unique.values()];
+    const concurrency = Math.min(8, queue.length);
+
+    async function saveOne(path) {
+      const now = new Date().toISOString();
+      const sig = String(path.sig || "").trim();
+      try {
+        const found = await doc.query({
+          TableName,
+          IndexName: "eSigIndex",
+          KeyConditionExpression: "#e = :e AND #sig = :sig",
+          ExpressionAttributeNames: { "#e": "e", "#sig": "sig" },
+          ExpressionAttributeValues: { ":e": e, ":sig": sig },
+          Limit: 1,
+        }).promise();
+
+        const values = {
+          left: JSON.stringify(path.left ?? null),
+          right: JSON.stringify(path.right ?? null),
+          family: JSON.stringify(path.family ?? null),
+          repair: JSON.stringify(path.repair ?? null),
+        };
+
+        if (found?.Items?.length) {
+          const existing = found.Items[0];
+          await doc.update({
+            TableName,
+            Key: { id: existing.id },
+            UpdateExpression:
+              "SET #left = :left, #right = :right, #family = :family, #repair = :repair, #updatedAt = :now, #by = if_not_exists(#by, :by)",
+            ExpressionAttributeNames: {
+              "#left": "left",
+              "#right": "right",
+              "#family": "family",
+              "#repair": "repair",
+              "#updatedAt": "updatedAt",
+              "#by": "by",
+            },
+            ExpressionAttributeValues: {
+              ":left": values.left,
+              ":right": values.right,
+              ":family": values.family,
+              ":repair": values.repair,
+              ":now": now,
+              ":by": by,
+            },
+          }).promise();
+          saved.push({ id: existing.id, sig, updated: true });
+          return;
+        }
+
+        const id = await nextPathId();
+        await doc.put({
+          TableName,
+          Item: {
+            id,
+            e,
+            by,
+            sig,
+            left: values.left,
+            right: values.right,
+            family: values.family,
+            repair: values.repair,
+            createdAt: now,
+            updatedAt: now,
+          },
+          ConditionExpression: "attribute_not_exists(#id)",
+          ExpressionAttributeNames: { "#id": "id" },
+        }).promise();
+        saved.push({ id, sig, updated: false });
+      } catch (error) {
+        rejected.push({ sig, error: String(error?.message || error) });
+      }
+    }
+
+    let cursor = 0;
+    async function worker() {
+      while (cursor < queue.length) {
+        const index = cursor++;
+        await saveOne(queue[index]);
+      }
+    }
+    await Promise.all(Array.from({ length: concurrency }, worker));
+
+    const repaired = await repairAndPersistPathsForEntity(doc, e);
+    return wrap({
+      ok: true,
+      complete: rejected.length === 0,
+      paths: repaired.paths,
+      saved,
+      rejected,
+      counts: {
+        requested: incoming.length,
+        unique: queue.length,
+        saved: saved.length,
+        rejected: rejected.length,
+      },
+      semanticMigrations: repaired.migrations,
+    }, meta, "");
   });
 
   // ---------- delete by id ----------
@@ -328,4 +857,12 @@ function register({ on, use }) {
   return { name: "paths" };
 }
 
-module.exports = { register };
+module.exports = {
+  register,
+  __test: {
+    migrateAliasesAcrossPaths,
+    normalizeMeetingQuestionPath,
+    aliasIntentCategory,
+    pathAnswerCategory,
+  },
+};
