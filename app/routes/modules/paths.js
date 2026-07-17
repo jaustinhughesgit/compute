@@ -41,6 +41,8 @@ const V3_SLOT_TYPES = new Set([
   "record_reference", "property_value", "frequency", "deadline", "reason",
   "entity_lemma", "entity_reference", "registered_target", "query", "string",
 ]);
+const SAFE_COMMAND_ACTIONS = new Set(["open", "close", "show", "hide", "go_to", "select"]);
+const EXECUTABLE_COMMAND_FIELDS = new Set(["function", "fn", "custom", "code", "script", "handler", "eval", "worker"]);
 
 function patternId(value) {
   return String(value || "")
@@ -162,6 +164,20 @@ function collectTransformBindingReferences(value, out = new Set()) {
   return out;
 }
 
+function rejectExecutableCommandFields(value, location = "right.state") {
+  if (Array.isArray(value)) {
+    value.forEach((entry, index) => rejectExecutableCommandFields(entry, `${location}[${index}]`));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+  for (const [key, entry] of Object.entries(value)) {
+    if (EXECUTABLE_COMMAND_FIELDS.has(String(key).toLowerCase())) {
+      throw new Error(`${location}.${key} is not allowed in a declarative command Path`);
+    }
+    if (entry && typeof entry === "object") rejectExecutableCommandFields(entry, `${location}.${key}`);
+  }
+}
+
 function validateQualityContract(path) {
   const tests = path?.tests;
   const quality = path?.quality;
@@ -263,6 +279,32 @@ function validatePathForPersistence(path) {
     || (patternKind === "command" && !["command", "question"].includes(mode))
   ) {
     throw new Error(`pattern kind ${patternKind} is incompatible with transform mode ${mode || "(blank)"}`);
+  }
+
+  if (String(right.lib || "").toLowerCase() === "menu" && patternKind === "command") {
+    const command = state.command && typeof state.command === "object" && !Array.isArray(state.command)
+      ? state.command
+      : null;
+    if (!command || Number(command.schemaVersion || 0) !== 1) {
+      throw new Error("structural menu Paths require right.state.command schemaVersion 1");
+    }
+    const action = String(command.action || "").trim().toLowerCase();
+    if (!SAFE_COMMAND_ACTIONS.has(action)) {
+      throw new Error(`unsupported declarative command action ${action || "(blank)"}`);
+    }
+    const targetType = String(command.targetType || "registered").trim().toLowerCase();
+    if (!["registered", "any", "menu", "application"].includes(targetType)) {
+      throw new Error("declarative command targetType must be registered, menu, or application");
+    }
+    const targetSlot = String(command.targetSlot || "").trim();
+    if (!targetSlot || String(definitions.get(targetSlot)?.type || "") !== "registered_target") {
+      throw new Error("declarative command targetSlot must reference a registered_target slot");
+    }
+    if (Array.isArray(state.levels) && state.levels.length) {
+      throw new Error("structural menu Paths must use a command object instead of executable menu levels");
+    }
+    rejectExecutableCommandFields(state, "right.state");
+    return true;
   }
 
   const bindings = Array.isArray(state.bindings) ? state.bindings : [];
