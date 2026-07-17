@@ -142,7 +142,7 @@ function register({ on, use }) {
       let mainObj = {};
       let sourceType;
       const { parseArrayLogic } = require("../parseArrayLogic");
-      const { shorthand } = require("../shorthand");
+      const { shorthand } = require("./shorthand");
 
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
