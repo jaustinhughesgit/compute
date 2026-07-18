@@ -3,6 +3,8 @@
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
 const { Converter } = DynamoDB;
+const { validateCapabilityBuildRequest } = require('./capabilityManifest');
+const { validateTrustedImplementation } = require('./capabilityBlueprints');
 
 const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || 'anchor_bands';
 const PERM_GRANTS_TABLE = process.env.PERM_GRANTS_TABLE || 'perm_grants';
@@ -480,6 +482,91 @@ async function parseArrayLogic({
     const origElem = arrayLogic[i];
 
     if (i === arrayLogic.length - 1 && origElem?.conclusion !== undefined) {
+      continue;
+    }
+
+    // Approved compute-capability creation path. The discovery model is only
+    // allowed to request a capability. Executable actions and provider hosts
+    // come from a server-owned blueprint and are re-validated here before the
+    // entity is written.
+    if (origElem && typeof origElem === "object" && origElem.computeEntity) {
+      const spec = origElem.computeEntity || {};
+      if (spec.approved !== true) {
+        throw new Error("compute entity creation requires an approved blueprint");
+      }
+      const buildRequest = validateCapabilityBuildRequest(spec.buildRequest);
+      validateTrustedImplementation({ published: spec.published || {} });
+
+      const capabilityId = String(buildRequest.capabilityIdHint || spec.capabilityId || "").trim().toLowerCase();
+      if (!capabilityId || capabilityId !== String(spec.capabilityId || "").trim().toLowerCase()) {
+        throw new Error("compute blueprint capability does not match its build request");
+      }
+      const appName = _safeAppName(spec.name || capabilityId || "Compute Capability");
+      const groupName = _safeAppName(spec.groupName || appName);
+      const published = spec.published || {};
+      const manifestTemplate = {
+        ...(spec.manifest || {}),
+        entityId: "",
+      };
+
+      const pushRow = (row) => {
+        shorthand.push(row);
+        return padRef(shorthand.length);
+      };
+
+      const refNewGroup = pushRow(["ROUTE", { output: appName }, {}, "newGroup", groupName, appName]);
+      const refNewEntity = pushRow(["GET", refNewGroup, "response", "file"]);
+      const refGetFile = pushRow(["ROUTE", {}, {}, "getFile", refNewEntity, ""]);
+      let refWorkingFile = pushRow(["GET", refGetFile, "response"]);
+
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "modules", published.modules || {}]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "actions", published.actions || []]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "data", published.data || {}]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "content", appName]);
+
+      let refManifest = pushRow([manifestTemplate]);
+      refManifest = pushRow(["ADDPROPERTY", refManifest, "entityId", refNewEntity]);
+      refWorkingFile = pushRow(["NESTED", refWorkingFile, "published", "computeCapability", refManifest]);
+      const refSave = pushRow(["ROUTE", refWorkingFile, {}, "saveFile", refNewEntity, ""]);
+
+      let refCreated = pushRow([{
+        entity: "",
+        id: "",
+        name: appName,
+        title: appName,
+        contentType: "compute",
+        type: "compute",
+        capabilityId,
+        capabilityVersion: Number(manifestTemplate.version || 1),
+      }]);
+      refCreated = pushRow(["ADDPROPERTY", refCreated, "entity", refNewEntity]);
+      refCreated = pushRow(["ADDPROPERTY", refCreated, "id", refNewEntity]);
+      const refCreatedArray = pushRow(["ARRAY", refCreated]);
+
+      let refConclusion = pushRow([{
+        ok: true,
+        value: null,
+        computeCapabilityCreated: true,
+        capabilityId,
+        blueprintId: String(spec.blueprintId || ""),
+      }]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "entity", refNewEntity]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "createdEntities", refCreatedArray]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "capabilityManifest", refManifest]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "capabilityRequest", buildRequest]);
+      refConclusion = pushRow(["ADDPROPERTY", refConclusion, "saveResult", refSave]);
+
+      const refPublishedWithConclusion = pushRow(["ADDPROPERTY", "000!!", "conclusion", refConclusion]);
+      pushRow(["ROWRESULT", "000", refPublishedWithConclusion]);
+
+      routeRowNewIndex = shorthand.length;
+      results.push({
+        type: "computeEntity",
+        capabilityId,
+        blueprintId: String(spec.blueprintId || ""),
+        name: appName,
+        parentWorkspace: parentWorkspace || actionFile || null,
+      });
       continue;
     }
 

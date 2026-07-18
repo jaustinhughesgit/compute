@@ -99,9 +99,10 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
     return register(manifest, { ownerId: callerOwner, allowOwnerOverride });
   }
 
-  async function findByCapability(capabilityId, { activeOnly = true, limit = 25 } = {}) {
+  async function findByCapability(capabilityId, { activeOnly = true, limit = 25, ownerId = null, includeSystem = true } = {}) {
     const id = String(capabilityId || "").trim().toLowerCase();
     if (!id) return [];
+    const requestedOwner = ownerId == null ? null : String(ownerId);
     const matches = [];
     let ExclusiveStartKey;
     do {
@@ -116,6 +117,11 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
         if (!item?.computeCapability) continue;
         try {
           const manifest = validateCapabilityManifest(item.computeCapability, { entityId: item.su });
+          if (
+            requestedOwner &&
+            manifest.ownerId !== requestedOwner &&
+            !(includeSystem && manifest.ownerId === "system")
+          ) continue;
           if (!activeOnly || manifest.status === "active") matches.push(manifest);
         } catch (_) {
           // Ignore invalid legacy rows; registration is the repair path.

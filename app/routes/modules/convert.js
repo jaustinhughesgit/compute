@@ -5,6 +5,13 @@ const {
   validateCapabilityBuildRequest,
   validateCapabilityManifest,
 } = require("../capabilityManifest");
+const { createCapabilityRegistry } = require("../capabilityRegistry");
+const { discoverComputeCapability } = require("../capabilityDiscovery");
+const { buildComputeEntitySpec } = require("../capabilityBlueprints");
+const {
+  stableHash,
+  createCapabilityBuildCoordinator,
+} = require("../capabilityBuildCoordinator");
 
 function register({ on, use }) {
   const { getCookie, retrieveAndParseJSON, deps } = use();
@@ -129,9 +136,11 @@ function register({ on, use }) {
       }
 
       const promptObjForEssence = parsePrompt(body.body?.prompt);
-      const capabilityBuildRequest = body.body?.capabilityRequest
+      let capabilityBuildRequest = body.body?.capabilityRequest
         ? validateCapabilityBuildRequest(body.body.capabilityRequest)
         : null;
+      let computeDiscovery = null;
+      let preparedCapabilityBuild = null;
 
       // ─────────────────────────────────────────────────────────────
       // 7) Essence word extraction (when output === "$essence", or requestOnly mode)
@@ -155,8 +164,167 @@ function register({ on, use }) {
       let arrayLogic = body.body?.arrayLogic;
       let prompt = body.body?.prompt;
 
+      const ownerId = e ? `u:${String(e)}` : "system";
+      const capabilityRegistry = createCapabilityRegistry({ dynamodb });
+      const buildCoordinator = createCapabilityBuildCoordinator({ dynamodb });
+
+      const capabilityStateResponse = ({ status, manifest = null, buildId = null, reason = null, record = null }) => {
+        const created = manifest ? [{
+          entity: manifest.entityId,
+          id: manifest.entityId,
+          name: manifest.description || manifest.capabilityId,
+          title: manifest.description || manifest.capabilityId,
+          contentType: "compute",
+          type: "compute",
+          capabilityId: manifest.capabilityId,
+          capabilityVersion: manifest.version,
+        }] : [];
+        const response = {
+          parseResults: null,
+          newShorthand: null,
+          arrayLogic: null,
+          conclusion: null,
+          entity: manifest?.entityId || record?.capabilityEntityId || "",
+          createdEntities: created,
+          capabilityManifest: manifest,
+          computeDiscovery,
+          replay: computeDiscovery ? {
+            required: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
+            originalUtterance: computeDiscovery.originalUtterance,
+          } : null,
+          build: {
+            kind: "computeCapabilityBuildResult",
+            status,
+            buildId,
+            capabilityRequest: capabilityBuildRequest,
+            manifestValidation: manifest ? { ok: true } : null,
+            registrationRequired: false,
+            registered: !!manifest,
+            replayRequired: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
+            reason,
+          },
+          existing: !!(meta && meta.cookie && meta.cookie.existing),
+          file: manifest?.entityId || record?.capabilityEntityId || "",
+        };
+        return { ok: true, response };
+      };
+
+      const shouldDiscoverCompute =
+        !arrayLogic &&
+        !capabilityBuildRequest &&
+        prompt &&
+        body.body?.computeDiscovery !== false &&
+        body.body?.disableComputeDiscovery !== true;
+
+      if (shouldDiscoverCompute) {
+        const promptObj = parsePrompt(prompt);
+        const originalUtterance = String(promptObj?.userRequest || "").trim();
+        computeDiscovery = await discoverComputeCapability({
+          openai,
+          utterance: originalUtterance,
+          requestedBy: ownerId,
+          useModel: body.body?.deterministicComputeDiscovery !== true,
+        });
+
+        if (computeDiscovery.decision === "unsupported") {
+          return capabilityStateResponse({
+            status: "BLUEPRINT_UNAVAILABLE",
+            reason: computeDiscovery.reason,
+          });
+        }
+        if (computeDiscovery.decision === "clarify") {
+          return capabilityStateResponse({
+            status: "CLARIFICATION_REQUIRED",
+            reason: computeDiscovery.reason,
+          });
+        }
+
+        if (computeDiscovery.decision === "build") {
+          capabilityBuildRequest = validateCapabilityBuildRequest(
+            computeDiscovery.buildCommand?.capabilityRequest
+          );
+          const capabilityId = capabilityBuildRequest.capabilityIdHint;
+          const existing = await capabilityRegistry.findByCapability(capabilityId, {
+            activeOnly: false,
+            limit: 10,
+            ownerId,
+          });
+          const active = existing.find((item) => item.status === "active");
+          if (active) {
+            return capabilityStateResponse({
+              status: "CAPABILITY_REUSED",
+              manifest: active,
+              reason: "An active capability already satisfies this request.",
+            });
+          }
+          const testing = existing.find((item) => item.status === "testing");
+          if (testing) {
+            return capabilityStateResponse({
+              status: "CAPABILITY_PENDING",
+              manifest: testing,
+              reason: "A matching capability exists but has not been activated.",
+            });
+          }
+          const disabled = existing.find((item) => item.status === "disabled");
+          if (disabled) {
+            return capabilityStateResponse({
+              status: "CAPABILITY_DISABLED",
+              manifest: disabled,
+              reason: "A matching capability was deliberately disabled and will not be rebuilt automatically.",
+            });
+          }
+
+          const claim = await buildCoordinator.claim({
+            ownerId,
+            capabilityId,
+            requestHash: stableHash(JSON.stringify(capabilityBuildRequest)),
+          });
+          if (!claim.acquired) {
+            let completedManifest = null;
+            if (claim.record?.capabilityBuildStatus === "completed" && claim.record?.capabilityEntityId) {
+              completedManifest = await capabilityRegistry.getByEntity(
+                claim.record.capabilityEntityId,
+                { includeInactive: true }
+              );
+            }
+            return capabilityStateResponse({
+              status: completedManifest ? "CAPABILITY_REUSED" : "BUILD_IN_PROGRESS",
+              manifest: completedManifest,
+              buildId: claim.buildId,
+              record: claim.record,
+              reason: completedManifest
+                ? "A previous build completed and was reused."
+                : "Another request is already building this capability.",
+            });
+          }
+
+          const computeSpec = buildComputeEntitySpec({
+            capabilityId,
+            requestedBy: ownerId,
+            originalUtterance,
+          });
+          if (!computeSpec) {
+            await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE");
+            return capabilityStateResponse({
+              status: "BLUEPRINT_UNAVAILABLE",
+              buildId: claim.buildId,
+              reason: "No approved implementation blueprint is available.",
+            });
+          }
+
+          preparedCapabilityBuild = {
+            claim,
+            registry: capabilityRegistry,
+            coordinator: buildCoordinator,
+            blueprintId: computeDiscovery.buildCommand?.blueprintId || null,
+          };
+          arrayLogic = [computeSpec];
+          sourceType = "arrayLogic";
+        }
+      }
+
       // If prompt supplied, we build arrayLogic from your fixed prompt template
-      if (prompt && (typeof prompt === "string" || typeof prompt === "object")) {
+      if (!arrayLogic && prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
         const promptObj = parsePrompt(prompt); // ← safe (no throws)
 
@@ -440,6 +608,7 @@ function subdomains(domain){
         dynamodbLL,
         sourceType,
         actionFile,
+        parentWorkspace: actionFile,
         out,
         e,
         requestOnly,
@@ -558,11 +727,12 @@ function subdomains(domain){
       // ─────────────────────────────────────────────────────────────
       let capabilityManifest = null;
       let manifestValidation = null;
+      let capabilityRegistration = null;
       if (capabilityManifestCandidate) {
         try {
           capabilityManifest = validateCapabilityManifest(capabilityManifestCandidate, {
             entityId: entityFromConclusion || capabilityManifestCandidate.entityId,
-            ownerId: e ? `u:${String(e)}` : "system",
+            ownerId,
           });
           manifestValidation = { ok: true };
         } catch (error) {
@@ -574,24 +744,96 @@ function subdomains(domain){
         }
       }
 
+      if (preparedCapabilityBuild) {
+        if (capabilityManifest && manifestValidation?.ok) {
+          try {
+            capabilityManifest = await preparedCapabilityBuild.registry.register(
+              capabilityManifest,
+              { ownerId }
+            );
+            capabilityRegistration = { ok: true, registered: true };
+            try {
+              await preparedCapabilityBuild.coordinator.complete(
+                preparedCapabilityBuild.claim,
+                capabilityManifest
+              );
+            } catch (coordinationError) {
+              console.warn("compute build completion marker failed", {
+                buildId: preparedCapabilityBuild.claim.buildId,
+                code: coordinationError?.code || "BUILD_MARKER_FAILED",
+              });
+            }
+          } catch (error) {
+            capabilityRegistration = {
+              ok: false,
+              registered: false,
+              code: error?.code || "REGISTRATION_FAILED",
+              message: error?.message || "Capability registration failed.",
+            };
+            capabilityManifest = null;
+            try {
+              await preparedCapabilityBuild.coordinator.fail(
+                preparedCapabilityBuild.claim,
+                capabilityRegistration.code
+              );
+            } catch (_) {}
+          }
+        } else {
+          capabilityRegistration = {
+            ok: false,
+            registered: false,
+            code: manifestValidation?.code || "MANIFEST_MISSING",
+            message: manifestValidation?.message || "The generated entity did not return a valid capability manifest.",
+          };
+          try {
+            await preparedCapabilityBuild.coordinator.fail(
+              preparedCapabilityBuild.claim,
+              capabilityRegistration.code
+            );
+          } catch (_) {}
+        }
+      }
+
+      const automatedBuildSucceeded = !!(
+        preparedCapabilityBuild &&
+        capabilityManifest &&
+        capabilityRegistration?.registered
+      );
+      const responseCreatedEntities = preparedCapabilityBuild && !automatedBuildSucceeded
+        ? []
+        : createdEntities;
+      const buildStatus = preparedCapabilityBuild
+        ? (automatedBuildSucceeded ? "BUILT_AND_REGISTERED" : "BUILD_FAILED")
+        : capabilityManifest
+        ? "MANIFEST_READY"
+        : entityFromConclusion
+        ? (capabilityManifestCandidate ? "MANIFEST_INVALID" : "ENTITY_CREATED")
+        : "NO_ENTITY_CREATED";
+
       mainObj = {
         parseResults,
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
         conclusion,
         entity: entityFromConclusion || "",
-        createdEntities,
+        createdEntities: responseCreatedEntities,
         capabilityManifest,
+        computeDiscovery,
+        replay: computeDiscovery ? {
+          required: automatedBuildSucceeded,
+          originalUtterance: computeDiscovery.originalUtterance,
+        } : null,
         build: {
           kind: "computeCapabilityBuildResult",
-          status: capabilityManifest
-            ? "MANIFEST_READY"
-            : entityFromConclusion
-            ? (capabilityManifestCandidate ? "MANIFEST_INVALID" : "ENTITY_CREATED")
-            : "NO_ENTITY_CREATED",
+          status: buildStatus,
+          buildId: preparedCapabilityBuild?.claim?.buildId || null,
+          blueprintId: preparedCapabilityBuild?.blueprintId || null,
           capabilityRequest: capabilityBuildRequest,
           manifestValidation,
-          registrationRequired: !!capabilityManifest,
+          registration: capabilityRegistration,
+          registrationRequired: !!capabilityManifest && !capabilityRegistration?.registered,
+          registered: !!capabilityRegistration?.registered,
+          replayRequired: automatedBuildSucceeded,
         },
       };
 
