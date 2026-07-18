@@ -119,6 +119,22 @@ test("strict numeric transport strings are normalized before output validation",
   );
 });
 
+test("runEntity normalizes Shorthand numeric transport values before manifest validation", () => {
+  const operation = activeWeather().operations[0];
+  const result = runEntityModule.normalizeEntityTransportResult(operation, {
+    temperature: "78.4",
+    temperature_unit: "°F",
+    conditions: "clear",
+    precipitation_probability: "10",
+  });
+  assert.equal(result.temperature, 78.4);
+  assert.equal(result.precipitation_probability, 10);
+  assert.equal(
+    runEntityModule.normalizeEntityTransportResult(operation, { temperature: "warm" }).temperature,
+    "warm"
+  );
+});
+
 test("registry persists capability metadata on the existing entity record", async () => {
   const dynamodb = new FakeDynamo([{ su: "weather-su", output: "Weather" }]);
   const registry = createCapabilityRegistry({ dynamodb });

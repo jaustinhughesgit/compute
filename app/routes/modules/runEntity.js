@@ -15,6 +15,34 @@ function requestObject(req) {
   return body.body && typeof body.body === "object" && body.body ? body.body : body;
 }
 
+// Generated Shorthand entities substitute provider values into response
+// templates. Scalar numbers therefore cross this boundary as strings even
+// when the provider returned JSON numbers. Normalize only strict numeric
+// scalars declared as numeric outputs; all other values remain untouched and
+// are rejected by the manifest validator below.
+function normalizeEntityTransportResult(operation, rawResult) {
+  let result = rawResult;
+  if (typeof result === "string") {
+    try { result = JSON.parse(result); } catch (_) {}
+  }
+  if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+
+  const normalized = { ...result };
+  for (const field of operation?.outputs || []) {
+    const value = normalized[field.name];
+    if (typeof value !== "string") continue;
+    const text = value.trim();
+    if (field.type === "number" && /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(text)) {
+      const number = Number(text);
+      if (Number.isFinite(number)) normalized[field.name] = number;
+    } else if (field.type === "integer" && /^[-+]?\d+$/.test(text)) {
+      const integer = Number(text);
+      if (Number.isSafeInteger(integer)) normalized[field.name] = integer;
+    }
+  }
+  return normalized;
+}
+
 function withTimeout(promise, timeoutMs) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -119,7 +147,8 @@ function register({ on, use }) {
         executionPromise,
         manifest.execution.timeoutMs
       );
-      const result = validateOperationResult(operation, rawResult);
+      const transportResult = normalizeEntityTransportResult(operation, rawResult);
+      const result = validateOperationResult(operation, transportResult);
       return buildExecutionSuccess({
         manifest,
         operation,
@@ -216,4 +245,4 @@ async function runLegacyEntity({ getSub, actionFile, req, res, next, capabilityI
   return execution?.chainParams;
 }
 
-module.exports = { register };
+module.exports = { register, normalizeEntityTransportResult };
