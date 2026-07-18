@@ -12,6 +12,23 @@ function promiseOf(request) {
   return request && typeof request.promise === "function" ? request.promise() : request;
 }
 
+function migrateStoredManifest(raw) {
+  const manifest = JSON.parse(JSON.stringify(raw || {}));
+  manifest.operations = (Array.isArray(manifest.operations) ? manifest.operations : []).map((operation) => {
+    const next = { ...operation };
+    const legacyContracts = Array.isArray(next.pathContracts) ? next.pathContracts : [];
+    if (!next.answerTemplate) {
+      next.answerTemplate = String(legacyContracts.find((item) => item?.answerTemplate)?.answerTemplate || '').trim() || undefined;
+    }
+    delete next.pathContracts;
+    delete next.pattern;
+    delete next.signatureSlots;
+    delete next.expectedLocalSignature;
+    return next;
+  });
+  return manifest;
+}
+
 function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) {
   if (!dynamodb) throw new Error("capability registry requires a DynamoDB DocumentClient");
 
@@ -25,7 +42,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
   async function getByEntity(entityId, { includeInactive = true } = {}) {
     const item = await getEntityRecord(entityId);
     if (!item?.computeCapability) return null;
-    const manifest = validateCapabilityManifest(item.computeCapability, { entityId: item.su });
+    const manifest = validateCapabilityManifest(migrateStoredManifest(item.computeCapability), { entityId: item.su });
     if (!includeInactive && manifest.status !== "active") return null;
     return manifest;
   }
@@ -95,7 +112,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
     if (existingOwner !== callerOwner && !allowOwnerOverride) {
       throw new CapabilityError("PERMISSION_DENIED", "Only the capability owner may change its status");
     }
-    const manifest = validateCapabilityManifest({ ...item.computeCapability, status }, { entityId: item.su, ownerId: existingOwner });
+    const manifest = validateCapabilityManifest({ ...migrateStoredManifest(item.computeCapability), status }, { entityId: item.su, ownerId: existingOwner });
     return register(manifest, { ownerId: callerOwner, allowOwnerOverride });
   }
 
@@ -116,7 +133,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
       for (const item of data?.Items || []) {
         if (!item?.computeCapability) continue;
         try {
-          const manifest = validateCapabilityManifest(item.computeCapability, { entityId: item.su });
+          const manifest = validateCapabilityManifest(migrateStoredManifest(item.computeCapability), { entityId: item.su });
           if (
             requestedOwner &&
             manifest.ownerId !== requestedOwner &&

@@ -9,8 +9,6 @@ const VALUE_TYPES = new Set([
   "object", "array", "file", "any",
 ]);
 const BINDING_SOURCES = new Set(["utterance", "contextdb", "environment", "default"]);
-const PATH_SEGMENT_KINDS = new Set(["literal", "lemma", "normal", "tag", "slot"]);
-const EXECUTABLE_FIELDS = new Set(["function", "fn", "custom", "code", "script", "handler", "eval", "worker"]);
 
 class CapabilityError extends Error {
   constructor(code, message, details = null) {
@@ -97,106 +95,6 @@ function normalizeValueField(raw, kind) {
   return normalized;
 }
 
-function rejectExecutableFields(value, location = "pathContract") {
-  if (Array.isArray(value)) {
-    value.forEach((entry, index) => rejectExecutableFields(entry, `${location}[${index}]`));
-    return;
-  }
-  if (!isObject(value)) return;
-  for (const [key, entry] of Object.entries(value)) {
-    if (EXECUTABLE_FIELDS.has(String(key).toLowerCase())) {
-      throw new CapabilityError("INVALID_MANIFEST", `${location}.${key} is not allowed in a declarative Path contract`);
-    }
-    rejectExecutableFields(entry, `${location}.${key}`);
-  }
-}
-
-function normalizePathTests(raw, patternIdValue) {
-  const tests = requireObject(raw, `path contract ${patternIdValue} tests`);
-  const normalizeList = (value, kind) => {
-    if (!Array.isArray(value) || value.length < 2) {
-      throw new CapabilityError("INVALID_MANIFEST", `path contract ${patternIdValue} requires at least two ${kind} tests`);
-    }
-    return value.slice(0, 20).map((entry, index) => {
-      const source = typeof entry === "string" ? { input: entry } : requireObject(entry, `${kind} test ${index + 1}`);
-      const input = String(source.input || source.text || "").trim();
-      if (!input || input.length > 500) {
-        throw new CapabilityError("INVALID_MANIFEST", `${kind} test ${index + 1} requires input of at most 500 characters`);
-      }
-      return {
-        id: String(source.id || `${kind}_${index + 1}`).trim().slice(0, 100),
-        input,
-        ...(source.expectedMode ? { expectedMode: String(source.expectedMode).trim().toLowerCase() } : {}),
-      };
-    });
-  };
-  return {
-    schemaVersion: 1,
-    positive: normalizeList(tests.positive, "positive"),
-    negative: normalizeList(tests.negative, "negative"),
-    expectedBehavior: isObject(tests.expectedBehavior) ? clone(tests.expectedBehavior) : {},
-  };
-}
-
-function normalizePathContract(raw) {
-  const contract = requireObject(raw, "operation pathContract");
-  if (Number(contract.schemaVersion || 1) !== 1) {
-    throw new CapabilityError("INVALID_MANIFEST", "pathContract.schemaVersion must be 1");
-  }
-  rejectExecutableFields(contract);
-  const pattern = requireObject(contract.pattern, "pathContract.pattern");
-  const patternIdValue = normalizeId(pattern.patternId, "pathContract patternId").replace(/[.-]/g, "_");
-  if (Number(pattern.schemaVersion || 0) !== 3) {
-    throw new CapabilityError("INVALID_MANIFEST", `path contract ${patternIdValue} pattern schemaVersion must be 3`);
-  }
-  if (String(pattern.kind || "").toLowerCase() !== "question") {
-    throw new CapabilityError("INVALID_MANIFEST", `path contract ${patternIdValue} must identify a question`);
-  }
-  if (String(pattern.operation || "") !== "invoke_compute_capability") {
-    throw new CapabilityError("INVALID_MANIFEST", `path contract ${patternIdValue} must use invoke_compute_capability`);
-  }
-  const validateSyntax = (syntax, label) => {
-    if (!Array.isArray(syntax) || !syntax.length) {
-      throw new CapabilityError("INVALID_MANIFEST", `${label} must contain syntax segments`);
-    }
-    for (const [index, segment] of syntax.entries()) {
-      const kind = String(segment?.kind || "");
-      if (!PATH_SEGMENT_KINDS.has(kind)) {
-        throw new CapabilityError("INVALID_MANIFEST", `${label}[${index}] has an unsupported kind`);
-      }
-      if (kind === "slot") {
-        if (!String(segment?.slot || "").trim()) throw new CapabilityError("INVALID_MANIFEST", `${label}[${index}] requires slot`);
-      } else if (!String(segment?.value || "").trim()) {
-        throw new CapabilityError("INVALID_MANIFEST", `${label}[${index}] requires value`);
-      }
-    }
-  };
-  validateSyntax(pattern.core, `path contract ${patternIdValue} core`);
-  for (const [index, modifier] of (Array.isArray(pattern.modifiers) ? pattern.modifiers : []).entries()) {
-    validateSyntax(modifier?.syntax, `path contract ${patternIdValue} modifier ${index + 1}`);
-  }
-  const answerTemplate = String(contract.answerTemplate || "").trim();
-  if (!answerTemplate || answerTemplate.length > 1500) {
-    throw new CapabilityError("INVALID_MANIFEST", `path contract ${patternIdValue} requires an answerTemplate of at most 1500 characters`);
-  }
-  return {
-    schemaVersion: 1,
-    familyId: normalizeId(contract.familyId || patternIdValue, "pathContract familyId").replace(/[.-]/g, "_"),
-    pattern: clone({
-      ...pattern,
-      patternId: patternIdValue,
-      kind: "question",
-      operation: "invoke_compute_capability",
-      modifiers: Array.isArray(pattern.modifiers) ? pattern.modifiers : [],
-      projection: pattern.projection || null,
-      slotDefinitions: Array.isArray(pattern.slotDefinitions) ? pattern.slotDefinitions : [],
-      tokenizerAliases: Array.isArray(pattern.tokenizerAliases) ? pattern.tokenizerAliases : [],
-    }),
-    tests: normalizePathTests(contract.tests, patternIdValue),
-    answerTemplate,
-  };
-}
-
 function normalizeOperation(raw) {
   const operation = requireObject(raw, "operation");
   const operationId = normalizeId(operation.operationId, "operationId");
@@ -237,8 +135,20 @@ function normalizeOperation(raw) {
       .filter(Boolean)
       .slice(0, 40);
   }
-  if (Array.isArray(operation.pathContracts)) {
-    normalized.pathContracts = operation.pathContracts.map(normalizePathContract);
+  // Compute describes meaning and invocation. It must never prescribe the
+  // browser's token grammar, signatures, slots, or structural Path pattern.
+  if (operation.pathContracts != null || operation.pattern != null || operation.signatureSlots != null) {
+    throw new CapabilityError(
+      "INVALID_MANIFEST",
+      `operation ${operationId} contains browser-owned Path fields`
+    );
+  }
+  if (operation.answerTemplate != null) {
+    const answerTemplate = String(operation.answerTemplate || "").trim();
+    if (!answerTemplate || answerTemplate.length > 1500) {
+      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an invalid answerTemplate`);
+    }
+    normalized.answerTemplate = answerTemplate;
   }
   return normalized;
 }
@@ -553,98 +463,8 @@ function createWeatherCapabilityManifest({ entityId, ownerId = "system", status 
       utteranceExamples: [
         "What is the weather today?",
         "How warm is it outside today?",
-        "What are the current weather conditions?",
       ],
-      pathContracts: [
-        {
-          schemaVersion: 1,
-          familyId: "weather_current_query",
-          pattern: {
-            schemaVersion: 3,
-            patternId: "weather_current_query",
-            kind: "question",
-            operation: "invoke_compute_capability",
-            core: [
-              { kind: "lemma", value: "what", slot: null, aliases: [] },
-              { kind: "lemma", value: "be", slot: null, aliases: [] },
-              { kind: "lemma", value: "weather", slot: null, aliases: [] }
-            ],
-            modifiers: [{
-              modifierId: "today",
-              position: "after",
-              optional: true,
-              repeatable: false,
-              syntax: [{ kind: "lemma", value: "today", slot: null, aliases: ["now"] }]
-            }],
-            projection: null,
-            slotDefinitions: [],
-            tokenizerAliases: []
-          },
-          tests: {
-            positive: [
-              { id: "weather_today", input: "What is the weather today?", expectedMode: "question" },
-              { id: "weather_now", input: "What is the weather now?", expectedMode: "question" },
-              { id: "weather_current", input: "What is the weather?", expectedMode: "question" }
-            ],
-            negative: [
-              { id: "weather_tomorrow", input: "What is the weather tomorrow?" },
-              { id: "weather_yesterday", input: "What was the weather yesterday?" },
-              { id: "stored_weather", input: "I recorded the weather today" }
-            ],
-            expectedBehavior: { operation: "invoke_compute_capability", offline: false, graphMutation: false }
-          },
-          answerTemplate: "{{conditions}}. It is {{temperature}} {{temperature_unit}}, with a {{precipitation_probability}}% chance of precipitation."
-        },
-        {
-          schemaVersion: 1,
-          familyId: "weather_temperature_query",
-          pattern: {
-            schemaVersion: 3,
-            patternId: "weather_temperature_query",
-            kind: "question",
-            operation: "invoke_compute_capability",
-            core: [
-              { kind: "lemma", value: "how", slot: null, aliases: [] },
-              { kind: "lemma", value: "warm", slot: null, aliases: ["hot", "cold"] },
-              { kind: "lemma", value: "be", slot: null, aliases: [] },
-              { kind: "lemma", value: "it", slot: null, aliases: [] }
-            ],
-            modifiers: [
-              {
-                modifierId: "outside",
-                position: "after",
-                optional: true,
-                repeatable: false,
-                syntax: [{ kind: "lemma", value: "outside", slot: null, aliases: [] }]
-              },
-              {
-                modifierId: "today",
-                position: "after",
-                optional: true,
-                repeatable: false,
-                syntax: [{ kind: "lemma", value: "today", slot: null, aliases: ["now"] }]
-              }
-            ],
-            projection: null,
-            slotDefinitions: [],
-            tokenizerAliases: []
-          },
-          tests: {
-            positive: [
-              { id: "warm_outside", input: "How warm is it outside today?", expectedMode: "question" },
-              { id: "hot_now", input: "How hot is it now?", expectedMode: "question" },
-              { id: "cold_outside", input: "How cold is it outside?", expectedMode: "question" }
-            ],
-            negative: [
-              { id: "warm_tomorrow", input: "How warm will it be tomorrow?" },
-              { id: "indoor_temperature", input: "How warm is the oven?" },
-              { id: "temperature_statement", input: "It is warm outside today" }
-            ],
-            expectedBehavior: { operation: "invoke_compute_capability", offline: false, graphMutation: false }
-          },
-          answerTemplate: "It is {{temperature}} {{temperature_unit}} with {{conditions}}."
-        }
-      ],
+      answerTemplate: "{{conditions}}. It is {{temperature}} {{temperature_unit}}, with a {{precipitation_probability}}% chance of precipitation.",
     }],
   });
 }

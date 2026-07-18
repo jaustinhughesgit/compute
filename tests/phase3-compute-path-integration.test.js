@@ -2,90 +2,67 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 
 const {
   createWeatherCapabilityManifest,
   validateCapabilityManifest,
 } = require("../app/routes/capabilityManifest");
-const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
-const { __test: pathsTest } = require("../app/routes/modules/paths");
+const { createCapabilityRegistry } = require("../app/routes/capabilityRegistry");
 
-function approvedQuality() {
-  return {
-    schemaVersion: 1,
-    score: 96,
-    threshold: 75,
-    approved: true,
-    status: "approved",
-    dimensions: {
-      structuralNovelty: 100,
-      semanticNovelty: 70,
-      coverage: 75,
-      composability: 70,
-      collisionRisk: 100,
-      slotReuse: 50,
-      duplicateRisk: 100,
-      offlineDeterminism: 100,
-      testQuality: 100,
-    },
-    tests: {
-      positive: { requested: 3, passed: 3 },
-      negative: { requested: 3, passed: 3 },
-    },
-    collisions: { duplicates: [], conflicts: [] },
-    blockers: [],
-  };
+function containsBrowserPathFields(value) {
+  if (Array.isArray(value)) return value.some(containsBrowserPathFields);
+  if (!value || typeof value !== "object") return false;
+  return Object.entries(value).some(([key, child]) => (
+    ["pathcontracts", "signatureslots", "expectedlocalsignature"]
+      .includes(String(key).toLowerCase()) || containsBrowserPathFields(child)
+  ));
 }
 
-test("weather manifest tells the front end how to bind inputs and build signatures", () => {
+test("weather manifest describes meaning, bindings, and examples without browser Path grammar", () => {
   const manifest = createWeatherCapabilityManifest({ entityId: "weather-entity", ownerId: "u:7", status: "active" });
   const operation = manifest.operations[0];
   assert.equal(operation.inputs.find((item) => item.name === "postal_code").bindingHint.property, "postal_code");
   assert.equal(operation.inputs.find((item) => item.name === "date").bindingHint.resolver, "relative_date");
-  assert.equal(operation.pathContracts.length, 2);
-  assert.equal(operation.pathContracts[0].pattern.operation, "invoke_compute_capability");
-  assert.equal(operation.pathContracts[0].tests.positive.length, 3);
-  assert.equal(operation.pathContracts[0].tests.negative.length, 3);
+  assert.deepEqual(operation.utteranceExamples, [
+    "What is the weather today?",
+    "How warm is it outside today?",
+  ]);
+  assert.equal(typeof operation.answerTemplate, "string");
+  assert.equal(containsBrowserPathFields(manifest), false);
 });
 
-test("capability manifests reject executable Path fields", () => {
+test("Compute rejects browser-owned Path fields in a capability manifest", () => {
   const manifest = createWeatherCapabilityManifest({ entityId: "weather-entity", ownerId: "u:7", status: "active" });
-  const unsafe = JSON.parse(JSON.stringify(manifest));
-  unsafe.operations[0].pathContracts[0].handler = "window.open";
+  manifest.operations[0].pathContracts = [{ pattern: { core: [{ kind: "lemma", value: "weather" }] } }];
   assert.throws(
-    () => validateCapabilityManifest(unsafe),
-    /not allowed in a declarative Path contract/
+    () => validateCapabilityManifest(manifest),
+    /browser-owned Path fields/
   );
 });
 
-test("a registered manifest becomes deterministic post-classifier compute Paths", () => {
-  const manifest = createWeatherCapabilityManifest({ entityId: "weather-entity", ownerId: "u:7", status: "active" });
-  const dataset = buildCapabilityPathDataset(manifest);
-  assert.equal(dataset.kind, "post-classifier-path-dataset");
-  assert.equal(dataset.equations.length, 2);
-  for (const path of dataset.equations) {
-    assert.match(path.sig, /^pattern:v3:weather_/);
-    assert.equal(path.right.lib, "computeCapability");
-    assert.equal(path.right.state.compute.entityId, "weather-entity");
-    assert.equal(path.right.state.compute.inputs[0].name, "postal_code");
-    assert.deepEqual(path.right.state.rows, []);
-    assert.deepEqual(path.right.state.levels, []);
-  }
-  assert.equal(/"(?:code|script|handler|eval|worker)"\s*:/.test(JSON.stringify(dataset)), false);
+test("Convert returns the manifest and does not construct a capability Path dataset", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  assert.doesNotMatch(source, /buildCapabilityPathDataset/);
+  assert.doesNotMatch(source, /capabilityPathDataset\s*:/);
+  assert.match(source, /capabilityManifest/);
 });
 
-test("Compute Paths pass persistence validation only with an approved quality contract", () => {
-  const manifest = createWeatherCapabilityManifest({ entityId: "weather-entity", ownerId: "u:7", status: "active" });
-  const path = buildCapabilityPathDataset(manifest).equations[0];
-  assert.throws(() => pathsTest.validatePathForPersistence(path), /require quality results/);
-  path.quality = approvedQuality();
-  assert.equal(pathsTest.validatePathForPersistence(path), true);
-});
-
-test("Compute Path persistence rejects identity changes and executable content", () => {
-  const manifest = createWeatherCapabilityManifest({ entityId: "weather-entity", ownerId: "u:7", status: "active" });
-  const path = buildCapabilityPathDataset(manifest).equations[0];
-  path.quality = approvedQuality();
-  path.right.state.compute.script = "fetch('https://evil.example')";
-  assert.throws(() => pathsTest.validatePathForPersistence(path), /not allowed in a declarative command Path/);
+test("registry reuse migrates an already-stored Phase 3 Path contract without rebuilding the entity", async () => {
+  const stored = createWeatherCapabilityManifest({ entityId: "existing-weather", ownerId: "u:7", status: "active" });
+  delete stored.operations[0].answerTemplate;
+  stored.operations[0].pathContracts = [{
+    pattern: { core: [{ kind: "lemma", value: "be" }] },
+    answerTemplate: "It is {{temperature}} {{temperature_unit}}.",
+  }];
+  const registry = createCapabilityRegistry({
+    dynamodb: {
+      scan: () => ({ promise: async () => ({ Items: [{ su: "existing-weather", computeCapability: stored }] }) }),
+    },
+  });
+  const [manifest] = await registry.findByCapability("weather.current_conditions", { ownerId: "u:7" });
+  assert.equal(manifest.entityId, "existing-weather");
+  assert.equal(manifest.operations[0].pathContracts, undefined);
+  assert.equal(manifest.operations[0].answerTemplate, "It is {{temperature}} {{temperature_unit}}.");
 });
