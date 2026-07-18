@@ -340,6 +340,21 @@ function validateInvocationInputs(manifest, operationId, rawInputs) {
   return { operation, inputs: resolved };
 }
 
+function normalizeOutputTransportValue(field, value) {
+  const type = String(field?.type || "").toLowerCase();
+  if (typeof value !== "string") return value;
+  const text = value.trim();
+  if (type === "number" && /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(text)) {
+    const number = Number(text);
+    if (Number.isFinite(number)) return number;
+  }
+  if (type === "integer" && /^[-+]?\d+$/.test(text)) {
+    const integer = Number(text);
+    if (Number.isSafeInteger(integer)) return integer;
+  }
+  return value;
+}
+
 function validateOperationResult(operation, rawResult) {
   let result = rawResult;
   if (typeof result === "string") {
@@ -349,8 +364,10 @@ function validateOperationResult(operation, rawResult) {
     if (operation.outputs.length === 1) result = { [operation.outputs[0].name]: result };
     else throw new CapabilityError("INVALID_RESULT", `operation ${operation.operationId} must return an object`);
   }
+  result = clone(result);
   for (const field of operation.outputs) {
-    const value = result[field.name];
+    const value = normalizeOutputTransportValue(field, result[field.name]);
+    result[field.name] = value;
     if (value == null) {
       if (field.required) {
         throw new CapabilityError("INVALID_RESULT", `required output ${field.name} is missing`, { field: field.name });
@@ -366,7 +383,7 @@ function validateOperationResult(operation, rawResult) {
       throw error;
     }
   }
-  return clone(result);
+  return result;
 }
 
 function buildExecutionSuccess({ manifest, operation, result, source = "compute-entity", observedAt = null, cached = false }) {
