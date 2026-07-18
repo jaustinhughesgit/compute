@@ -8,6 +8,7 @@ const {
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
 const { buildComputeEntitySpec } = require("../capabilityBlueprints");
+const { buildCapabilityPathDataset } = require("../capabilityPaths");
 const {
   stableHash,
   createCapabilityBuildCoordinator,
@@ -169,6 +170,7 @@ function register({ on, use }) {
       const buildCoordinator = createCapabilityBuildCoordinator({ dynamodb });
 
       const capabilityStateResponse = ({ status, manifest = null, buildId = null, reason = null, record = null }) => {
+        const pathDataset = manifest ? buildCapabilityPathDataset(manifest) : null;
         const created = manifest ? [{
           entity: manifest.entityId,
           id: manifest.entityId,
@@ -187,6 +189,7 @@ function register({ on, use }) {
           entity: manifest?.entityId || record?.capabilityEntityId || "",
           createdEntities: created,
           capabilityManifest: manifest,
+          capabilityPathDataset: pathDataset,
           computeDiscovery,
           replay: computeDiscovery ? {
             required: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
@@ -809,6 +812,9 @@ function subdomains(domain){
         : entityFromConclusion
         ? (capabilityManifestCandidate ? "MANIFEST_INVALID" : "ENTITY_CREATED")
         : "NO_ENTITY_CREATED";
+      const capabilityPathDataset = capabilityManifest
+        ? buildCapabilityPathDataset(capabilityManifest)
+        : null;
 
       mainObj = {
         parseResults,
@@ -818,6 +824,7 @@ function subdomains(domain){
         entity: entityFromConclusion || "",
         createdEntities: responseCreatedEntities,
         capabilityManifest,
+        capabilityPathDataset,
         computeDiscovery,
         replay: computeDiscovery ? {
           required: automatedBuildSucceeded,

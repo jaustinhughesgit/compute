@@ -43,6 +43,7 @@ const V3_SLOT_TYPES = new Set([
 ]);
 const SAFE_COMMAND_ACTIONS = new Set(["open", "close", "show", "hide", "go_to", "select"]);
 const EXECUTABLE_COMMAND_FIELDS = new Set(["function", "fn", "custom", "code", "script", "handler", "eval", "worker"]);
+const COMPUTE_BINDING_SOURCES = new Set(["utterance", "contextdb", "environment", "default"]);
 
 function patternId(value) {
   return String(value || "")
@@ -178,6 +179,74 @@ function rejectExecutableCommandFields(value, location = "right.state") {
   }
 }
 
+function validateComputeCapabilityState(state, pattern) {
+  const compute = state?.compute;
+  if (!compute || typeof compute !== "object" || Array.isArray(compute)) {
+    throw new Error("computeCapability Paths require right.state.compute");
+  }
+  if (Number(compute.schemaVersion || 0) !== 1) {
+    throw new Error("right.state.compute.schemaVersion must be 1");
+  }
+  for (const [label, value] of [
+    ["capabilityId", compute.capabilityId],
+    ["entityId", compute.entityId],
+    ["operationId", compute.operationId],
+  ]) {
+    const text = String(value || "").trim();
+    if (!text || text.length > 160) throw new Error(`right.state.compute.${label} is required`);
+  }
+  if (!Number.isInteger(Number(compute.version)) || Number(compute.version) < 1) {
+    throw new Error("right.state.compute.version must be a positive integer");
+  }
+  if (String(pattern?.kind || "") !== "question" || String(state?.mode || "") !== "question") {
+    throw new Error("computeCapability Paths must be question Paths");
+  }
+  if (String(pattern?.operation || "") !== "invoke_compute_capability" || String(state?.operation || "") !== "invoke_compute_capability") {
+    throw new Error("computeCapability Paths must use invoke_compute_capability");
+  }
+  if (!String(compute.answerTemplate || "").trim() || String(compute.answerTemplate).length > 1500) {
+    throw new Error("computeCapability Paths require a bounded answerTemplate");
+  }
+
+  const inputNames = new Set();
+  for (const [index, input] of (Array.isArray(compute.inputs) ? compute.inputs : []).entries()) {
+    const name = String(input?.name || "").trim();
+    if (!name || inputNames.has(name)) throw new Error(`compute input ${index + 1} needs a unique name`);
+    inputNames.add(name);
+    const hint = input?.bindingHint;
+    if (hint != null) {
+      if (!hint || typeof hint !== "object" || Array.isArray(hint)) throw new Error(`compute input ${name} bindingHint must be an object`);
+      const source = String(hint.source || "").trim().toLowerCase();
+      if (!COMPUTE_BINDING_SOURCES.has(source)) throw new Error(`compute input ${name} has unsupported binding source`);
+      if (source === "contextdb" && (!String(hint.subject || "").trim() || !String(hint.property || "").trim())) {
+        throw new Error(`compute input ${name} contextdb binding requires subject and property`);
+      }
+      if (source === "environment" && !String(hint.resolver || "").trim()) {
+        throw new Error(`compute input ${name} environment binding requires resolver`);
+      }
+    }
+  }
+  if (!Array.isArray(compute.outputs) || !compute.outputs.length) {
+    throw new Error("computeCapability Paths require declared outputs");
+  }
+  const outputNames = new Set();
+  for (const [index, output] of compute.outputs.entries()) {
+    const name = String(output?.name || "").trim();
+    if (!name || outputNames.has(name)) throw new Error(`compute output ${index + 1} needs a unique name`);
+    outputNames.add(name);
+  }
+  const placeholders = [...String(compute.answerTemplate).matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)]
+    .map((match) => match[1]);
+  if (placeholders.some((name) => !outputNames.has(name))) {
+    throw new Error("compute answerTemplate references an undeclared output");
+  }
+  if ((Array.isArray(state.rows) && state.rows.length) || (Array.isArray(state.levels) && state.levels.length)) {
+    throw new Error("computeCapability Paths may not contain essence rows or executable menu levels");
+  }
+  rejectExecutableCommandFields(state, "right.state");
+  return true;
+}
+
 function validateQualityContract(path) {
   const tests = path?.tests;
   const quality = path?.quality;
@@ -305,6 +374,10 @@ function validatePathForPersistence(path) {
     }
     rejectExecutableCommandFields(state, "right.state");
     return true;
+  }
+
+  if (String(right.lib || "").toLowerCase() === "computecapability") {
+    return validateComputeCapabilityState(state, pattern);
   }
 
   const bindings = Array.isArray(state.bindings) ? state.bindings : [];
