@@ -1,6 +1,11 @@
 // modules/convert.js
 "use strict";
 
+const {
+  validateCapabilityBuildRequest,
+  validateCapabilityManifest,
+} = require("../capabilityManifest");
+
 function register({ on, use }) {
   const { getCookie, retrieveAndParseJSON, deps } = use();
 
@@ -124,6 +129,9 @@ function register({ on, use }) {
       }
 
       const promptObjForEssence = parsePrompt(body.body?.prompt);
+      const capabilityBuildRequest = body.body?.capabilityRequest
+        ? validateCapabilityBuildRequest(body.body.capabilityRequest)
+        : null;
 
       // ─────────────────────────────────────────────────────────────
       // 7) Essence word extraction (when output === "$essence", or requestOnly mode)
@@ -441,6 +449,7 @@ function subdomains(domain){
       let conclusion = null;
       let createdEntities = [];
       let entityFromConclusion = null;
+      let capabilityManifestCandidate = body.body?.capabilityManifest || null;
 
       if (parseResults?.shorthand) {
         const virtualArray = JSON.parse(JSON.stringify(parseResults.shorthand));
@@ -497,6 +506,10 @@ function subdomains(domain){
 
           // Extract conclusion payload (runner may wrap it)
           const rawConclusion = JSON.parse(JSON.stringify(newShorthand?.conclusion || null));
+          capabilityManifestCandidate =
+            rawConclusion?.capabilityManifest ||
+            parseResults?.capabilityManifest ||
+            capabilityManifestCandidate;
           const conclusionValue =
             rawConclusion && typeof rawConclusion === "object" && "value" in rawConclusion
               ? rawConclusion.value
@@ -543,6 +556,24 @@ function subdomains(domain){
       // ─────────────────────────────────────────────────────────────
       // 10) Final response envelope
       // ─────────────────────────────────────────────────────────────
+      let capabilityManifest = null;
+      let manifestValidation = null;
+      if (capabilityManifestCandidate) {
+        try {
+          capabilityManifest = validateCapabilityManifest(capabilityManifestCandidate, {
+            entityId: entityFromConclusion || capabilityManifestCandidate.entityId,
+            ownerId: e ? `u:${String(e)}` : "system",
+          });
+          manifestValidation = { ok: true };
+        } catch (error) {
+          manifestValidation = {
+            ok: false,
+            code: error?.code || "INVALID_MANIFEST",
+            message: error?.message || String(error),
+          };
+        }
+      }
+
       mainObj = {
         parseResults,
         newShorthand,
@@ -550,6 +581,18 @@ function subdomains(domain){
         conclusion,
         entity: entityFromConclusion || "",
         createdEntities,
+        capabilityManifest,
+        build: {
+          kind: "computeCapabilityBuildResult",
+          status: capabilityManifest
+            ? "MANIFEST_READY"
+            : entityFromConclusion
+            ? (capabilityManifestCandidate ? "MANIFEST_INVALID" : "ENTITY_CREATED")
+            : "NO_ENTITY_CREATED",
+          capabilityRequest: capabilityBuildRequest,
+          manifestValidation,
+          registrationRequired: !!capabilityManifest,
+        },
       };
 
       mainObj.existing = !!(meta && meta.cookie && meta.cookie.existing);
