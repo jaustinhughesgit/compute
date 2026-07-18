@@ -156,11 +156,14 @@ test("runEntity returns a standardized, schema-valid compute result", async () =
       return {
         deps: { dynamodb },
         getSub: async (value) => ({ Items: [structuredClone(dynamodb.items.get(String(value)) || {})] }),
+        // Shorthand placeholder substitution transports provider numbers as
+        // strings. Exercise the production runEntity boundary, not only the
+        // manifest helper, so this behavior cannot regress unnoticed.
         runComputeEntity: async ({ inputs }) => ({
-          temperature: 82,
+          temperature: "82",
           temperature_unit: inputs.unit_system === "metric" ? "C" : "F",
           conditions: "partly cloudy",
-          precipitation_probability: 10,
+          precipitation_probability: "10",
         }),
       };
     },
@@ -182,6 +185,7 @@ test("runEntity returns a standardized, schema-valid compute result", async () =
   assert.equal(response.ok, true);
   assert.equal(response.kind, "computeResult");
   assert.equal(response.result.temperature, 82);
+  assert.equal(response.result.precipitation_probability, 10);
   assert.equal(response.source, "compute-entity");
   assert.ok(Date.parse(response.observedAt));
   assert.ok(Date.parse(response.expiresAt) > Date.parse(response.observedAt));
