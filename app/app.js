@@ -20,6 +20,7 @@ const exec = util.promisify(child_process.exec);
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
 const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
+const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
 
 
 const boundAxios = {
@@ -2953,6 +2954,13 @@ function isNestedArrayPlaceholder(str) {
 async function replacePlaceholders2(str, libs, nestedPath = "") {
     let json = libs.root.context
 function getValueFromJson2(path, json, nestedPath, forceRoot) {
+    const computeInput = resolveComputeInputPlaceholder({
+        path,
+        rootContext: json,
+        nestedPath: forceRoot ? "" : nestedPath,
+    });
+    if (computeInput.matched) return computeInput.value;
+
     let current = json;
 
     /* ────────────────────── 1. optional “nestedPath” walk ─────────────────── */

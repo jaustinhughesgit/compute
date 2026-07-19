@@ -37,9 +37,9 @@ function weatherActions() {
   return [
     {
       set: {
-        postalCode: "{|req=>body.postal_code|}",
-        countryCode: "{|req=>body.country_code|}",
-        unitSystem: "{|req=>body.unit_system|}",
+        postalCode: "{|body=>postal_code|}",
+        countryCode: "{|body=>country_code|}",
+        unitSystem: "{|body=>unit_system|}",
         temperatureUnit: "fahrenheit",
         precipitationUnit: "inch",
       },
