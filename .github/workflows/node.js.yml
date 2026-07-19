@@ -1,7 +1,7 @@
 # This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
 
-name: Node.js CI
+name: Compute CI and deploy
 
 on:
   push:
@@ -9,7 +9,6 @@ on:
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     strategy:
@@ -18,9 +17,9 @@ jobs:
         # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
     - name: Use Node.js ${{ matrix.node-version }}
-      uses: actions/setup-node@v3
+      uses: actions/setup-node@v4
       with:
         node-version: ${{ matrix.node-version }}
     - name: Configure AWS Credentials
@@ -29,7 +28,41 @@ jobs:
         aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
         aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         aws-region: us-east-1
-    - run: cd app && npm ci
-    - run: zip -r publish.zip ./app/*
-    - run: aws lambda update-function-code --function-name=compute-ComputeFunction-o6ASOYachTSp --zip-file=fileb://publish.zip
+    - name: Install Compute dependencies
+      working-directory: app
+      run: npm ci
 
+    # SAM declares CodeUri: app/ and Handler: app.lambdaHandler. Package the
+    # contents of app/, not the app directory itself, so app.js is at the
+    # Lambda ZIP root.
+    - name: Package Compute Lambda
+      working-directory: app
+      run: zip -r ../publish.zip .
+
+    - name: Verify deployment artifact
+      run: |
+        unzip -Z1 publish.zip | grep -qx 'app.js'
+        unzip -Z1 publish.zip | grep -qx 'routes/placeholderTransport.js'
+        unzip -Z1 publish.zip | grep -qx 'routes/modules/runEntity.js'
+        unzip -p publish.zip app.js | grep -q 'preserveExactPlaceholderValue'
+        unzip -p publish.zip routes/modules/runEntity.js | grep -q 'normalizeEntityTransportResult'
+
+    - name: Resolve current Compute Lambda
+      id: compute-function
+      run: |
+        FUNCTION_NAME="$(aws cloudformation describe-stack-resource \
+          --stack-name compute \
+          --logical-resource-id ComputeFunction \
+          --query 'StackResourceDetail.PhysicalResourceId' \
+          --output text)"
+        test -n "$FUNCTION_NAME"
+        test "$FUNCTION_NAME" != "None"
+        echo "function_name=$FUNCTION_NAME" >> "$GITHUB_OUTPUT"
+
+    - name: Deploy Compute Lambda
+      run: |
+        aws lambda update-function-code \
+          --function-name '${{ steps.compute-function.outputs.function_name }}' \
+          --zip-file fileb://publish.zip
+        aws lambda wait function-updated \
+          --function-name '${{ steps.compute-function.outputs.function_name }}'
