@@ -19,6 +19,7 @@ const child_process = require('child_process');
 const exec = util.promisify(child_process.exec);
 const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = require("@aws-sdk/client-scheduler");
 const anchorsUtil = require('./routes/anchors');
+const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 
 
 const boundAxios = {
@@ -3046,6 +3047,20 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
             } else {
                 value = await getValueFromJson2(innerStr, json || {}, nestedPath, forceRoot);
             }
+
+            // An exact placeholder is a typed value expression, not string
+            // interpolation. Preserve the provider's original scalar/object
+            // type for values such as:
+            //   {|weatherResponse=>data.current.temperature_2m|}
+            // Mixed templates (for example "weather code {|...|}") continue
+            // through the existing string interpolation behavior below.
+            const exactValue = preserveExactPlaceholderValue({
+                template: str,
+                matchedPlaceholder: match[0],
+                expression: innerStr,
+                value,
+            });
+            if (exactValue.preserved) return exactValue.value;
 
             const arrayIndexRegex = /{\|\[(.*?)\]=>\[(\d+)\]\|}/g;
             const jsonPathRegex = /{\|((?:[^=>]+))=>((?:(?!\[\d+\]).)+)\|}/;
