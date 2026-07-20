@@ -26,3 +26,13 @@ test("Convert uses generic discovery, reuse, extension, and model-built entity p
   assert.match(source, /capabilityRequest:\s*capabilityBuildRequest/);
   assert.doesNotMatch(source, /weather/i);
 });
+
+test("Compute request middleware does not log credentials or the dependency container", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/cookies.js"), "utf8");
+  assert.doesNotMatch(source, /console\.log\(["']ctx["']/);
+  assert.doesNotMatch(source, /console\.log\(["']ctx\.req\.headers["']/);
+  assert.doesNotMatch(source, /console\.log\(["']xA["']/);
+  const appSource = fs.readFileSync(path.join(__dirname, "../app/app.js"), "utf8");
+  assert.doesNotMatch(appSource, /lambdaHandler event/);
+  assert.doesNotMatch(appSource, /JSON\.stringify\(event/);
+});

@@ -1639,10 +1639,11 @@ async function handleSoftBounce(recipientHash, senderUserID, incrementBy) {
 const serverlessHandler = serverless(app);
 
 const lambdaHandler = async (event, context) => {
- console.log("lambdaHandler event", event)
-  console.log("lambdaHandler event", JSON.stringify(event, null, 2))
-  console.log("event?.source", event?.source)
-  console.log("event?.['detail-type']", event?.["detail-type"])
+  console.log("lambdaHandler invocation", {
+    source: event?.source || "api-gateway",
+    detailType: event?.["detail-type"] || null,
+    requestId: event?.requestContext?.requestId || context?.awsRequestId || null,
+  });
 
   if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     console.log("INSIDE EVENT")

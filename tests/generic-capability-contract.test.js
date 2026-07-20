@@ -184,6 +184,49 @@ test("model-generated human labels are canonicalized across the semantic contrac
   assert.equal(request.operations[0].answerTemplate, "{{condition_summary}}");
 });
 
+test("generated generic type and binding aliases normalize without domain rules", () => {
+  const request = validateCapabilityBuildRequest({
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "terrain elevation lookup",
+    description: "Return elevation for a remembered location.",
+    operations: [{
+      operationId: "lookup elevation",
+      inputs: [{ name: "Home Area", type: "text", required: true, bindingHint: { source: "context" } }],
+      outputs: [{ name: "Elevation", type: "float", required: true }],
+      utteranceExamples: ["What is my elevation?"],
+      answerTemplate: "{{Elevation}}",
+    }],
+  });
+  const input = request.operations[0].inputs[0];
+  assert.equal(input.type, "string");
+  assert.deepEqual(input.bindingHint, {
+    source: "contextdb",
+    subject: "speaker",
+    property: "home_area",
+  });
+  assert.equal(request.operations[0].outputs[0].type, "number");
+});
+
+test("missing generated operation fields use stable generic aliases and fallbacks", () => {
+  const request = validateCapabilityBuildRequest({
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    name: "External data lookup",
+    description: "Return external data.",
+    operations: [{
+      id: "Fetch Data",
+      inputs: [{ key: "Search Term", type: "text", bindingHint: { source: "utterance" } }],
+      outputs: [{ label: "Result Value", type: "text" }],
+      utteranceExamples: [{ text: "Find purple", inputs: { "Search Term": "purple" } }],
+    }],
+  });
+  assert.equal(request.capabilityIdHint, "external_data_lookup");
+  assert.equal(request.operations[0].operationId, "fetch_data");
+  assert.equal(request.operations[0].inputs[0].name, "search_term");
+  assert.equal(request.operations[0].outputs[0].name, "result_value");
+});
+
 test("generic network validation rejects private, credentialed, and dynamic provider targets", () => {
   assert.equal(isBlockedHostname("127.0.0.1"), true);
   assert.equal(isBlockedHostname("169.254.169.254"), true);
@@ -258,6 +301,26 @@ test("discovery repairs one invalid model contract before failing closed", async
   assert.equal(discovery.decision, "build");
 });
 
+test("discovery carries top-level semantic IDs into an incomplete generated build request", async () => {
+  const incomplete = JSON.parse(JSON.stringify(genericRequest));
+  delete incomplete.capabilityIdHint;
+  delete incomplete.operations[0].operationId;
+  const discovery = await discoverComputeCapability({
+    openai: modelReturning({
+      decision: "build_compute",
+      confidence: 0.9,
+      capabilityId: "environment conditions lookup",
+      operationId: "Current Conditions",
+      capabilityRequest: incomplete,
+    }),
+    utterance: "Look up conditions.",
+    requestedBy: "u:7",
+  });
+  assert.equal(discovery.decision, "build");
+  assert.equal(discovery.buildCommand.capabilityRequest.capabilityIdHint, "environment_conditions_lookup");
+  assert.equal(discovery.buildCommand.capabilityRequest.operations[0].operationId, "current_conditions");
+});
+
 test("discovery identifies an existing entity that should be extended", async () => {
   const manifest = validateCapabilityManifest({
     schemaVersion: 1,
@@ -324,6 +387,9 @@ test("discovery fails closed when a model attempts to reuse an inactive entity",
   }
   assert.equal(discovery.decision, "not_compute");
   assert.equal(discovery.source, "model-error");
+  assert.equal(discovery.diagnostics.code, "INACTIVE_CAPABILITY_REUSE");
+  assert.match(discovery.diagnostics.message, /inactive entity capability/);
+  assert.match(discovery.reason, /inactive entity capability/);
 });
 
 test("Compute no longer creates browser Path datasets or contains domain fixtures", () => {

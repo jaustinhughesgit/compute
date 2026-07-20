@@ -55,21 +55,54 @@ function canonicalizeGeneratedIdentifier(value) {
 }
 
 function canonicalizeGeneratedOperations(rawOperations) {
-  return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation) => {
+  const typeAliases = new Map([
+    ["text", "string"], ["enum", "string"], ["location", "string"],
+    ["float", "number"], ["double", "number"], ["decimal", "number"],
+    ["percentage", "number"], ["percent", "number"],
+    ["int", "integer"], ["bool", "boolean"],
+    ["json", "object"], ["map", "object"], ["dictionary", "object"],
+    ["list", "array"], ["timestamp", "datetime"],
+  ]);
+  const sourceAliases = new Map([
+    ["context", "contextdb"], ["context_db", "contextdb"],
+    ["memory", "contextdb"], ["profile", "contextdb"],
+    ["speech", "utterance"], ["query", "utterance"],
+    ["user_input", "utterance"], ["input", "utterance"],
+    ["env", "environment"], ["system", "environment"],
+    ["constant", "default"], ["literal", "default"],
+  ]);
+  return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation, operationIndex) => {
     const operation = clone(rawOperation || {});
-    operation.operationId = canonicalizeGeneratedIdentifier(operation.operationId);
+    operation.operationId = canonicalizeGeneratedIdentifier(
+      operation.operationId || operation.id || operation.name || operation.title
+    );
+    if (operation.operationId.length < 2) operation.operationId = `operation_${operationIndex + 1}`;
     const nameMap = new Map();
     for (const collectionName of ["inputs", "outputs"]) {
       operation[collectionName] = (Array.isArray(operation[collectionName]) ? operation[collectionName] : [])
-        .map((rawField) => {
+        .map((rawField, fieldIndex) => {
           const field = clone(rawField || {});
-          const original = String(field.name || "").trim();
-          const canonical = canonicalizeGeneratedIdentifier(original);
+          const original = String(field.name || field.id || field.key || field.label || "").trim();
+          const fallbackPrefix = collectionName === "inputs" ? "input" : "output";
+          const canonical = canonicalizeGeneratedIdentifier(original) || `${fallbackPrefix}_${fieldIndex + 1}`;
           if (original) {
             nameMap.set(original, canonical);
             nameMap.set(original.toLowerCase(), canonical);
           }
           field.name = canonical;
+          const rawType = String(field.type || "").trim().toLowerCase();
+          field.type = typeAliases.get(rawType) || rawType;
+          if (isObject(field.bindingHint)) {
+            const rawSource = String(field.bindingHint.source || "").trim().toLowerCase();
+            field.bindingHint.source = sourceAliases.get(rawSource) || rawSource;
+            if (field.bindingHint.source === "contextdb") {
+              field.bindingHint.subject = String(field.bindingHint.subject || "speaker").trim();
+              field.bindingHint.property = String(field.bindingHint.property || canonical).trim();
+            }
+            if (field.bindingHint.source === "environment" && !field.bindingHint.resolver) {
+              field.bindingHint.resolver = field.type === "date" ? "relative_date" : canonical;
+            }
+          }
           return field;
         });
     }
@@ -336,9 +369,10 @@ function validateCapabilityBuildRequest(raw) {
     operations,
   };
   if (request.name != null) normalized.name = String(request.name).trim().slice(0, 160);
-  if (request.capabilityIdHint) {
+  const generatedCapabilityId = request.capabilityIdHint || request.capabilityId || request.name;
+  if (generatedCapabilityId) {
     normalized.capabilityIdHint = normalizeId(
-      canonicalizeGeneratedIdentifier(request.capabilityIdHint),
+      canonicalizeGeneratedIdentifier(generatedCapabilityId),
       "capabilityIdHint"
     );
   }

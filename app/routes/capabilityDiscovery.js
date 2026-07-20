@@ -175,8 +175,16 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
     });
   }
   if (rawDecision === "build_compute") {
+    const rawBuildRequest = { ...(parsed.capabilityRequest || {}) };
+    rawBuildRequest.capabilityIdHint ||= parsed.capabilityId || rawBuildRequest.capabilityId || rawBuildRequest.name;
+    if (Array.isArray(rawBuildRequest.operations) && rawBuildRequest.operations.length === 1) {
+      rawBuildRequest.operations = rawBuildRequest.operations.map((operation) => ({
+        ...operation,
+        operationId: operation?.operationId || operation?.id || parsed.operationId || null,
+      }));
+    }
     const buildRequest = validateCapabilityBuildRequest({
-      ...(parsed.capabilityRequest || {}),
+      ...rawBuildRequest,
       requestedBy,
     });
     return discoveryEnvelope({
@@ -209,19 +217,20 @@ async function discoverComputeCapability({ openai, utterance, requestedBy = "sys
   } catch (error) {
     const code = String(error?.code || (error instanceof SyntaxError ? "INVALID_MODEL_JSON" : "DISCOVERY_FAILED"));
     const stage = error instanceof SyntaxError || error?.code ? "contract-validation" : "model-request";
+    const safeMessage = String(error?.message || "Discovery failed").replace(/[\r\n\t]+/g, " ").slice(0, 500);
     console.error("compute capability discovery failed", {
       code,
       stage,
-      message: String(error?.message || error).slice(0, 1000),
+      message: safeMessage,
       details: error?.details || null,
     });
     return discoveryEnvelope({
       decision: "not_compute",
       source: "model-error",
       confidence: 0,
-      reason: `Compute discovery could not produce a valid entity contract (${code}).`,
+      reason: `Compute discovery could not produce a valid entity contract (${code}): ${safeMessage}`,
       utterance: clean,
-      diagnostics: { code, stage },
+      diagnostics: { code, stage, message: safeMessage },
     });
   }
 }
