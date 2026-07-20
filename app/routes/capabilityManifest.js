@@ -2,7 +2,7 @@
 "use strict";
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 2;
+const IMPLEMENTATION_POLICY_VERSION = 4;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -164,6 +164,45 @@ function normalizeBindingHint(raw, inputName) {
   return normalized;
 }
 
+function normalizeCredentialInputMetadata(raw, inputName) {
+  if (raw == null) return null;
+  const credential = requireObject(raw, `input ${inputName} credential`);
+  const requirementId = normalizeId(credential.requirementId, `input ${inputName} credential requirementId`);
+  const providerId = normalizeId(credential.providerId, `input ${inputName} credential providerId`);
+  const providerHost = String(credential.providerHost || "").trim().toLowerCase();
+  if (!providerHost || !/^[a-z0-9.-]+$/.test(providerHost)) {
+    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential providerHost is invalid`);
+  }
+  const injection = requireObject(credential.injection, `input ${inputName} credential injection`);
+  const location = String(injection.location || "").trim().toLowerCase();
+  if (!["query", "header"].includes(location)) {
+    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential injection location must be query or header`);
+  }
+  const parameter = String(injection.parameter || "").trim();
+  if (!parameter || parameter.length > 128 || /[\r\n]/.test(parameter)) {
+    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential injection parameter is invalid`);
+  }
+  const normalized = {
+    schemaVersion: 1,
+    managerCapabilityId: "credential_manager",
+    requirementId,
+    providerId,
+    providerName: String(credential.providerName || providerId).trim().slice(0, 160),
+    providerHost,
+    authScheme: String(credential.authScheme || "custom").trim().toLowerCase().slice(0, 64),
+    consentRequired: credential.consentRequired === true,
+    consentPrompt: String(credential.consentPrompt || "").trim().slice(0, 500),
+    collectionPrompt: String(credential.collectionPrompt || "").trim().slice(0, 500),
+    acquisition: isObject(credential.acquisition) ? clone(credential.acquisition) : null,
+    injection: {
+      location,
+      parameter,
+      prefix: String(injection.prefix || "").slice(0, 80),
+    },
+  };
+  return normalized;
+}
+
 function normalizeValueField(raw, kind) {
   const field = requireObject(raw, `${kind} field`);
   const name = normalizeId(field.name, `${kind} name`);
@@ -188,6 +227,15 @@ function normalizeValueField(raw, kind) {
   if (kind === "input") {
     normalized.bindingHint = normalizeBindingHint(field.bindingHint, name);
     if (field.clarification != null) normalized.clarification = String(field.clarification).trim();
+    if (field.credential != null) {
+      if (field.sensitive !== true || normalized.bindingHint?.source !== "contextdb") {
+        throw new CapabilityError(
+          "INVALID_MANIFEST",
+          `credential input ${name} must be sensitive and ContextDB-bound`
+        );
+      }
+      normalized.credential = normalizeCredentialInputMetadata(field.credential, name);
+    }
   }
   return normalized;
 }
@@ -285,6 +333,14 @@ function normalizeOperation(raw) {
       throw new CapabilityError(
         "INVALID_MANIFEST",
         `operation ${operationId} answerTemplate references undeclared value ${unknownPlaceholder}`
+      );
+    }
+    const sensitiveNames = new Set(inputs.filter((input) => input.sensitive).map((input) => input.name));
+    const sensitivePlaceholder = placeholders.find((name) => sensitiveNames.has(name));
+    if (sensitivePlaceholder) {
+      throw new CapabilityError(
+        "INVALID_MANIFEST",
+        `operation ${operationId} answerTemplate may not expose sensitive input ${sensitivePlaceholder}`
       );
     }
     normalized.answerTemplate = answerTemplate;
