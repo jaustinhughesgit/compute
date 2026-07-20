@@ -11,7 +11,7 @@ const {
   validateTrustedImplementation,
   isBlockedHostname,
 } = require("../app/routes/capabilityBlueprints");
-const { discoverComputeCapability } = require("../app/routes/capabilityDiscovery");
+const { discoverComputeCapability, summarizeCapabilities } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
 
@@ -86,6 +86,37 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.deepEqual(spec.computeEntity.manifest.operations[0].inputs[0].bindingHint.aliases, ["home location"]);
   assert.deepEqual(spec.computeEntity.published.data.allowedHosts, ["api.example.com"]);
   assert.equal(JSON.stringify(spec).includes("function"), false);
+});
+
+test("generic entity builder repairs one invalid declarative implementation", async () => {
+  let calls = 0;
+  const openai = {
+    chat: { completions: { create: async () => {
+      calls += 1;
+      const value = calls === 1
+        ? {
+            name: "Conditions lookup",
+            provider: "invalid",
+            published: {
+              modules: { axios: "axios" },
+              actions: [
+                { target: "{|axios|}", chain: [{ access: "get", params: ["https://127.0.0.1/data", {}] }], assign: "{|x|}" },
+                { target: "{|res|}!", chain: [{ access: "send", params: [{ summary: "{|x|}" }] }] },
+              ],
+            },
+          }
+        : generatedImplementation;
+      return { choices: [{ message: { content: JSON.stringify(value) } }] };
+    } } },
+  };
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: genericRequest,
+    requestedBy: "u:7",
+    originalUtterance: "Look up conditions.",
+    openai,
+  });
+  assert.equal(calls, 2);
+  assert.equal(spec.computeEntity.capabilityId, genericRequest.capabilityIdHint);
 });
 
 test("semantic utterance examples annotate values without prescribing browser tokens", () => {
@@ -169,6 +200,42 @@ test("discovery can propose any validated entity contract without a catalog", as
   assert.equal(JSON.stringify(discovery).includes("https://"), false);
 });
 
+test("discovery compacts duplicate entity records before calling the model", () => {
+  const manifests = Array.from({ length: 60 }, (_, index) => ({
+    capabilityId: index < 50 ? "duplicate.lookup" : `unique.${index}`,
+    entityId: `entity-${index}`,
+    version: index + 1,
+    status: index === 49 ? "active" : "testing",
+    description: "x".repeat(1000),
+    operations: [],
+  }));
+  const summarized = summarizeCapabilities(manifests);
+  assert.equal(summarized.filter((item) => item.capabilityId === "duplicate.lookup").length, 1);
+  assert.equal(summarized.find((item) => item.capabilityId === "duplicate.lookup").entityId, "entity-49");
+  assert.ok(summarized.length <= 30);
+  assert.equal(summarized[0].description.length <= 600, true);
+});
+
+test("discovery repairs one invalid model contract before failing closed", async () => {
+  let calls = 0;
+  const openai = {
+    chat: { completions: { create: async () => {
+      calls += 1;
+      const value = calls === 1
+        ? { decision: "make_something" }
+        : { decision: "build_compute", confidence: 0.9, reason: "Lookup required.", capabilityRequest: genericRequest };
+      return { choices: [{ message: { content: JSON.stringify(value) } }] };
+    } } },
+  };
+  const discovery = await discoverComputeCapability({
+    openai,
+    utterance: "Look up conditions.",
+    requestedBy: "u:7",
+  });
+  assert.equal(calls, 2);
+  assert.equal(discovery.decision, "build");
+});
+
 test("discovery identifies an existing entity that should be extended", async () => {
   const manifest = validateCapabilityManifest({
     schemaVersion: 1,
@@ -212,7 +279,9 @@ test("discovery fails closed when a model attempts to reuse an inactive entity",
     operations: genericRequest.operations,
   });
   const originalWarn = console.warn;
+  const originalError = console.error;
   console.warn = () => {};
+  console.error = () => {};
   let discovery;
   try {
     discovery = await discoverComputeCapability({
@@ -229,6 +298,7 @@ test("discovery fails closed when a model attempts to reuse an inactive entity",
     });
   } finally {
     console.warn = originalWarn;
+    console.error = originalError;
   }
   assert.equal(discovery.decision, "not_compute");
   assert.equal(discovery.source, "model-error");

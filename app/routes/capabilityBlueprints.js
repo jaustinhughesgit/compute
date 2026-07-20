@@ -153,11 +153,7 @@ function listCapabilityBlueprints() {
 
 async function generateImplementation({ openai, buildRequest, originalUtterance }) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
-  const response = await openai.chat.completions.create({
-    model: process.env.COMPUTE_BUILDER_MODEL || "gpt-4o-2024-08-06",
-    temperature: 0,
-    response_format: { type: "json_object" },
-    messages: [
+  const messages = [
       {
         role: "system",
         content: [
@@ -175,9 +171,31 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
         ].join(" "),
       },
       { role: "user", content: JSON.stringify({ originalUtterance, capabilityContract: buildRequest }) },
-    ],
-  });
-  return parseJsonObject(response?.choices?.[0]?.message?.content, "capability implementation response");
+    ];
+  let lastError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await openai.chat.completions.create({
+      model: process.env.COMPUTE_BUILDER_MODEL || "gpt-4o-2024-08-06",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages,
+    });
+    const raw = String(response?.choices?.[0]?.message?.content || "{}");
+    try {
+      const generated = parseJsonObject(raw, "capability implementation response");
+      validateTrustedImplementation({ published: generated.published });
+      return generated;
+    } catch (error) {
+      lastError = error;
+      if (attempt > 0) break;
+      messages.push({ role: "assistant", content: raw.slice(0, 20_000) });
+      messages.push({
+        role: "system",
+        content: `The proposed declarative entity failed validation: ${String(error?.message || error).slice(0, 800)}. Correct the JSON using only the originally allowed action shapes; do not explain.`,
+      });
+    }
+  }
+  throw lastError || new Error("The builder model did not return a valid declarative entity");
 }
 
 async function buildComputeEntitySpec({ capabilityRequest, requestedBy = "system", originalUtterance = "", openai, generatedImplementation = null } = {}) {

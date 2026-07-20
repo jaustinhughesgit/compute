@@ -11,24 +11,42 @@ function cleanUtterance(value) {
 }
 
 function summarizeCapabilities(manifests) {
-  return (Array.isArray(manifests) ? manifests : []).slice(0, 100).map((manifest) => ({
+  const ranked = (Array.isArray(manifests) ? manifests : [])
+    .filter((manifest) => manifest?.capabilityId && manifest?.entityId)
+    .sort((a, b) => {
+      const activeRank = Number(b.status === "active") - Number(a.status === "active");
+      if (activeRank) return activeRank;
+      return Number(b.version || 0) - Number(a.version || 0) ||
+        String(b.updatedAt || "").localeCompare(String(a.updatedAt || ""));
+    });
+  const unique = [];
+  const seenCapabilityIds = new Set();
+  for (const manifest of ranked) {
+    const capabilityId = String(manifest.capabilityId || "").trim().toLowerCase();
+    if (!capabilityId || seenCapabilityIds.has(capabilityId)) continue;
+    seenCapabilityIds.add(capabilityId);
+    unique.push(manifest);
+    if (unique.length >= 30) break;
+  }
+  const text = (value, limit) => String(value || "").trim().slice(0, limit);
+  return unique.map((manifest) => ({
     capabilityId: manifest.capabilityId,
     entityId: manifest.entityId,
     version: manifest.version,
     status: manifest.status,
-    name: manifest.name || null,
-    description: manifest.description || "",
-    operations: (manifest.operations || []).map((operation) => ({
+    name: text(manifest.name, 160) || null,
+    description: text(manifest.description, 600),
+    operations: (manifest.operations || []).slice(0, 12).map((operation) => ({
       operationId: operation.operationId,
-      description: operation.description || "",
-      inputs: operation.inputs || [],
-      outputs: operation.outputs || [],
-      utteranceExamples: operation.utteranceExamples || [],
+      description: text(operation.description, 400),
+      inputs: (operation.inputs || []).slice(0, 30),
+      outputs: (operation.outputs || []).slice(0, 30),
+      utteranceExamples: (operation.utteranceExamples || []).slice(0, 12),
     })),
   }));
 }
 
-function discoveryEnvelope({ decision, source, confidence, reason, utterance, capabilityId = null, operationId = null, manifest = null, buildRequest = null }) {
+function discoveryEnvelope({ decision, source, confidence, reason, utterance, capabilityId = null, operationId = null, manifest = null, buildRequest = null, diagnostics = null }) {
   const build = decision === "build" && buildRequest;
   return {
     kind: "computeCapabilityDiscovery",
@@ -50,6 +68,7 @@ function discoveryEnvelope({ decision, source, confidence, reason, utterance, ca
       blueprintId: GENERIC_BLUEPRINT_ID,
       capabilityRequest: buildRequest,
     } : null,
+    diagnostics: diagnostics || null,
   };
 }
 
@@ -62,11 +81,7 @@ function deterministicDiscovery() {
 async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [] }) {
   if (!openai?.chat?.completions?.create) return null;
   const existing = summarizeCapabilities(availableCapabilities);
-  const response = await openai.chat.completions.create({
-    model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
-    temperature: 0,
-    response_format: { type: "json_object" },
-    messages: [
+  const messages = [
       {
         role: "system",
         content: [
@@ -79,6 +94,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
           "Each operation declares typed inputs, typed outputs, freshness, answerTemplate, and diverse utteranceExamples.",
           "An utteranceExample may be a string or {text,inputs}. Use {text,inputs} for values captured from speech, for example {text:'What is the code for purple?',inputs:{color:'purple'}}.",
+          "Every required input whose bindingHint source is utterance must appear by name in the inputs object of at least one utteranceExample.",
           "Enumerate closed language sets such as weekdays in utteranceExamples instead of assuming the browser has a server-authored wildcard.",
           "Use bindingHint source contextdb for remembered user facts, utterance for values supplied in the question, environment for date/time resolvers, and default for constants.",
           "Every required missing input needs a plain-language clarification question.",
@@ -90,10 +106,43 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         role: "user",
         content: JSON.stringify({ utterance, requestedBy, availableEntityCapabilities: existing }),
       },
-    ],
-  });
-  const parsed = JSON.parse(String(response?.choices?.[0]?.message?.content || "{}"));
+    ];
+
+  let parsed = null;
+  let lastValidationError = null;
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const response = await openai.chat.completions.create({
+      model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+      temperature: 0,
+      response_format: { type: "json_object" },
+      messages,
+    });
+    const raw = String(response?.choices?.[0]?.message?.content || "{}");
+    try {
+      parsed = JSON.parse(raw);
+      return parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapabilities });
+    } catch (error) {
+      lastValidationError = error;
+      if (attempt > 0) break;
+      const validationCode = String(error?.code || "INVALID_DISCOVERY_CONTRACT");
+      const validationMessage = String(error?.message || "The discovery contract was invalid.").slice(0, 600);
+      messages.push({ role: "assistant", content: raw.slice(0, 12_000) });
+      messages.push({
+        role: "system",
+        content: `The previous JSON failed server validation (${validationCode}): ${validationMessage}. Return a corrected JSON object that follows the original schema; do not explain.`,
+      });
+    }
+  }
+  throw lastValidationError || new Error("The discovery model did not return a valid contract");
+}
+
+function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapabilities }) {
   const rawDecision = String(parsed.decision || "").toLowerCase();
+  if (!["reuse_existing", "extend_existing", "build_compute", "not_compute", "clarify"].includes(rawDecision)) {
+    const error = new Error(`discovery decision ${rawDecision || "(blank)"} is unsupported`);
+    error.code = "INVALID_DISCOVERY_DECISION";
+    throw error;
+  }
   const confidence = Number(parsed.confidence || 0);
   const reason = String(parsed.reason || "");
   const capabilityId = String(parsed.capabilityId || parsed.capabilityRequest?.capabilityIdHint || "").trim().toLowerCase() || null;
@@ -104,9 +153,15 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
     : availableCapabilities.find((item) => capabilityId && item.capabilityId === capabilityId);
 
   if (rawDecision === "reuse_existing" || rawDecision === "extend_existing") {
-    if (!matched) throw new Error("discovery selected an entity that is not available to this user");
+    if (!matched) {
+      const error = new Error("discovery selected an entity that is not available to this user");
+      error.code = "ENTITY_NOT_AVAILABLE";
+      throw error;
+    }
     if (rawDecision === "reuse_existing" && matched.status !== "active") {
-      throw new Error("discovery cannot reuse an inactive entity capability");
+      const error = new Error("discovery cannot reuse an inactive entity capability");
+      error.code = "INACTIVE_CAPABILITY_REUSE";
+      throw error;
     }
     return discoveryEnvelope({
       decision: rawDecision === "reuse_existing" ? "reuse" : "extend",
@@ -152,8 +207,22 @@ async function discoverComputeCapability({ openai, utterance, requestedBy = "sys
     return (await modelDiscovery({ openai, utterance: clean, requestedBy, availableCapabilities })) ||
       discoveryEnvelope({ decision: "not_compute", source: "model-unavailable", confidence: 0, reason: "Compute discovery was unavailable.", utterance: clean });
   } catch (error) {
-    console.warn("compute capability discovery failed", { code: error?.code || "DISCOVERY_FAILED" });
-    return discoveryEnvelope({ decision: "not_compute", source: "model-error", confidence: 0, reason: "Compute discovery failed safely.", utterance: clean });
+    const code = String(error?.code || (error instanceof SyntaxError ? "INVALID_MODEL_JSON" : "DISCOVERY_FAILED"));
+    const stage = error instanceof SyntaxError || error?.code ? "contract-validation" : "model-request";
+    console.error("compute capability discovery failed", {
+      code,
+      stage,
+      message: String(error?.message || error).slice(0, 1000),
+      details: error?.details || null,
+    });
+    return discoveryEnvelope({
+      decision: "not_compute",
+      source: "model-error",
+      confidence: 0,
+      reason: `Compute discovery could not produce a valid entity contract (${code}).`,
+      utterance: clean,
+      diagnostics: { code, stage },
+    });
   }
 }
 
