@@ -262,6 +262,35 @@ test("single-brace templates and omitted clarifications are repaired generically
   assert.equal(request.operations[0].answerTemplate, "The conditions in {{place_name}} are {{conditions}}.");
 });
 
+test("answer templates may use declared inputs and outputs but reject unknown values", () => {
+  const valid = validateCapabilityBuildRequest({
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "place.conditions",
+    description: "Return conditions for a place.",
+    operations: [{
+      operationId: "lookup",
+      inputs: [{
+        name: "place",
+        type: "string",
+        required: true,
+        bindingHint: { source: "utterance" },
+      }],
+      outputs: [{ name: "conditions", type: "string", required: true }],
+      utteranceExamples: [{ text: "Conditions in Raleigh?", inputs: { place: "Raleigh" } }],
+      answerTemplate: "The conditions in {{place}} are {{conditions}}.",
+    }],
+  });
+  assert.equal(valid.operations[0].answerTemplate, "The conditions in {{place}} are {{conditions}}.");
+
+  const invalid = structuredClone(valid);
+  invalid.operations[0].answerTemplate = "{{place}}: {{forecast}}";
+  assert.throws(
+    () => validateCapabilityBuildRequest(invalid),
+    /answerTemplate references undeclared value forecast/
+  );
+});
+
 test("generated generic type and binding aliases normalize without domain rules", () => {
   const request = validateCapabilityBuildRequest({
     schemaVersion: 1,

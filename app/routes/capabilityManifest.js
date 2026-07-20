@@ -274,6 +274,19 @@ function normalizeOperation(raw) {
     if (!answerTemplate || answerTemplate.length > 1500) {
       throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an invalid answerTemplate`);
     }
+    const declaredTemplateValues = new Set([
+      ...inputs.map((input) => input.name),
+      ...outputs.map((output) => output.name),
+    ]);
+    const placeholders = [...answerTemplate.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)]
+      .map((match) => match[1]);
+    const unknownPlaceholder = placeholders.find((name) => !declaredTemplateValues.has(name));
+    if (unknownPlaceholder) {
+      throw new CapabilityError(
+        "INVALID_MANIFEST",
+        `operation ${operationId} answerTemplate references undeclared value ${unknownPlaceholder}`
+      );
+    }
     normalized.answerTemplate = answerTemplate;
   }
   return normalized;

@@ -237,8 +237,8 @@ function validateComputeCapabilityState(state, pattern) {
   }
   const placeholders = [...String(compute.answerTemplate).matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)]
     .map((match) => match[1]);
-  if (placeholders.some((name) => !outputNames.has(name))) {
-    throw new Error("compute answerTemplate references an undeclared output");
+  if (placeholders.some((name) => !outputNames.has(name) && !inputNames.has(name))) {
+    throw new Error("compute answerTemplate references an undeclared input or output");
   }
   if ((Array.isArray(state.rows) && state.rows.length) || (Array.isArray(state.levels) && state.levels.length)) {
     throw new Error("computeCapability Paths may not contain essence rows or executable menu levels");
