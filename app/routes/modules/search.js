@@ -1,6 +1,23 @@
 // modules/search.js
 "use strict";
 
+function canEditPermission(permission) {
+  const value = String(permission || "").toLowerCase();
+  return value === "o" || value === "w";
+}
+
+function entityRevisionFromRow(row) {
+  if (!row || typeof row !== "object") return { entityVersion: null, entityUpdatedAt: null };
+  // Edit revisions are independent from capability-manifest versions and the
+  // entity graph's internal version fields. Existing entities begin at edit v0.
+  const rawVersion = row.editVersion ?? 0;
+  const numberVersion = Number(rawVersion);
+  return {
+    entityVersion: Number.isFinite(numberVersion) ? numberVersion : null,
+    entityUpdatedAt: row.editUpdatedAt || null,
+  };
+}
+
 function register({ on, use }) {
   const {
     getDocClient,
@@ -316,6 +333,7 @@ function register({ on, use }) {
         const row = subMap.get(String(c.su));
         const permChar = (c.policy_id === "pub") ? "r" : (bestBySu.get(String(c.su)) || null);
         const oWeight  = ownershipWeight(permChar);
+        const revision = entityRevisionFromRow(row);
         return {
           su: c.su,
           score: (1 / (1 + c.bandDelta)) + oWeight,
@@ -331,6 +349,12 @@ function register({ on, use }) {
           e: row?.e ?? null,
           policy_id: c.policy_id || null,
           perm: permChar || null,
+          // Advisory UI metadata only. Every eventual write must independently
+          // re-authorize the caller and re-check the current entity version.
+          canUse: permChar === "r" || canEditPermission(permChar),
+          canEdit: canEditPermission(permChar),
+          entityVersion: revision.entityVersion,
+          entityUpdatedAt: revision.entityUpdatedAt,
           ownership_weight: oWeight
         };
       });
@@ -366,4 +390,4 @@ function register({ on, use }) {
   return { name: "search" };
 }
 
-module.exports = { register };
+module.exports = { register, canEditPermission, entityRevisionFromRow };
