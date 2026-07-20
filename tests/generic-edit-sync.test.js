@@ -9,6 +9,7 @@ test("Edit revises and registers an entity-owned capability contract atomically"
   const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/editEntity.js"), "utf8");
   assert.match(source, /currentCapabilityManifest/);
   assert.match(source, /updatedCapabilityManifest/);
+  assert.match(source, /canonicalizeGeneratedOperations/);
   assert.match(source, /published\.computeCapability\s*=\s*revisedManifest/);
   assert.match(source, /capabilityRegistry\.register\(revisedManifest/);
   assert.match(source, /capabilityManifest:\s*revisedManifest/);

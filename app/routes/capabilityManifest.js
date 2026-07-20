@@ -44,6 +44,61 @@ function normalizeId(value, name) {
   return id;
 }
 
+function canonicalizeGeneratedIdentifier(value) {
+  return String(value || "")
+    .trim()
+    .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^[_ .-]+|[_ .-]+$/g, "");
+}
+
+function canonicalizeGeneratedOperations(rawOperations) {
+  return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation) => {
+    const operation = clone(rawOperation || {});
+    operation.operationId = canonicalizeGeneratedIdentifier(operation.operationId);
+    const nameMap = new Map();
+    for (const collectionName of ["inputs", "outputs"]) {
+      operation[collectionName] = (Array.isArray(operation[collectionName]) ? operation[collectionName] : [])
+        .map((rawField) => {
+          const field = clone(rawField || {});
+          const original = String(field.name || "").trim();
+          const canonical = canonicalizeGeneratedIdentifier(original);
+          if (original) {
+            nameMap.set(original, canonical);
+            nameMap.set(original.toLowerCase(), canonical);
+          }
+          field.name = canonical;
+          return field;
+        });
+    }
+    operation.utteranceExamples = (Array.isArray(operation.utteranceExamples) ? operation.utteranceExamples : [])
+      .map((rawExample) => {
+        if (!isObject(rawExample)) return rawExample;
+        const example = clone(rawExample);
+        if (isObject(example.inputs)) {
+          example.inputs = Object.fromEntries(Object.entries(example.inputs).map(([name, value]) => {
+            const canonical = nameMap.get(name) || nameMap.get(String(name).toLowerCase()) || canonicalizeGeneratedIdentifier(name);
+            return [canonical, value];
+          }));
+        }
+        return example;
+      });
+    if (operation.answerTemplate != null) {
+      operation.answerTemplate = String(operation.answerTemplate).replace(
+        /{{\s*([^}|]+)([^}]*)}}/g,
+        (whole, rawName, suffix) => {
+          const name = String(rawName || "").trim();
+          const canonical = nameMap.get(name) || nameMap.get(name.toLowerCase());
+          return canonical ? `{{${canonical}${suffix}}}` : whole;
+        }
+      );
+    }
+    return operation;
+  });
+}
+
 function normalizeBindingHint(raw, inputName) {
   if (raw == null) return null;
   const hint = requireObject(raw, `input ${inputName} bindingHint`);
@@ -269,7 +324,7 @@ function validateCapabilityBuildRequest(raw) {
     throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
   }
   const operations = Array.isArray(request.operations)
-    ? request.operations.map(normalizeOperation)
+    ? canonicalizeGeneratedOperations(request.operations).map(normalizeOperation)
     : [];
   if (!operations.length) {
     throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
@@ -282,7 +337,10 @@ function validateCapabilityBuildRequest(raw) {
   };
   if (request.name != null) normalized.name = String(request.name).trim().slice(0, 160);
   if (request.capabilityIdHint) {
-    normalized.capabilityIdHint = normalizeId(request.capabilityIdHint, "capabilityIdHint");
+    normalized.capabilityIdHint = normalizeId(
+      canonicalizeGeneratedIdentifier(request.capabilityIdHint),
+      "capabilityIdHint"
+    );
   }
   if (request.requestedBy != null) normalized.requestedBy = String(request.requestedBy);
   return normalized;
@@ -463,6 +521,8 @@ module.exports = {
   CAPABILITY_SCHEMA_VERSION,
   CapabilityError,
   validateCapabilityBuildRequest,
+  canonicalizeGeneratedIdentifier,
+  canonicalizeGeneratedOperations,
   validateCapabilityManifest,
   getCapabilityOperation,
   validateInvocationInputs,

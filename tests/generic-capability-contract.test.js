@@ -13,6 +13,7 @@ const {
 } = require("../app/routes/capabilityBlueprints");
 const { discoverComputeCapability, summarizeCapabilities } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
+const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
 
 const genericRequest = {
@@ -160,6 +161,27 @@ test("required spoken inputs cannot be published without a learnable semantic ex
       utteranceExamples: ["What is the code for a color?"],
     }],
   }), /annotated utterance example for input color/);
+});
+
+test("model-generated human labels are canonicalized across the semantic contract", () => {
+  const request = validateCapabilityBuildRequest({
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "Environment Conditions Lookup",
+    description: "Look up conditions.",
+    operations: [{
+      operationId: "Current Conditions",
+      inputs: [{ name: "Location Code", type: "string", required: true, bindingHint: { source: "utterance" } }],
+      outputs: [{ name: "Condition Summary", type: "string", required: true }],
+      utteranceExamples: [{ text: "Conditions for ABC?", inputs: { "Location Code": "ABC" } }],
+      answerTemplate: "{{Condition Summary}}",
+    }],
+  });
+  assert.equal(request.capabilityIdHint, "environment_conditions_lookup");
+  assert.equal(request.operations[0].operationId, "current_conditions");
+  assert.equal(request.operations[0].inputs[0].name, "location_code");
+  assert.deepEqual(request.operations[0].utteranceExamples[0].inputs, { location_code: "ABC" });
+  assert.equal(request.operations[0].answerTemplate, "{{condition_summary}}");
 });
 
 test("generic network validation rejects private, credentialed, and dynamic provider targets", () => {

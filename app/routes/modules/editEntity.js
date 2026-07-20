@@ -2,7 +2,10 @@
 "use strict";
 
 const crypto = require("crypto");
-const { validateCapabilityManifest } = require("../capabilityManifest");
+const {
+  validateCapabilityManifest,
+  canonicalizeGeneratedOperations,
+} = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { validateTrustedImplementation } = require("../capabilityBlueprints");
 
@@ -349,6 +352,7 @@ function register({ on, use }) {
         if (!rawManifest) throw new Error("capability entity revision did not return its updated capability manifest");
         revisedManifest = validateCapabilityManifest({
           ...rawManifest,
+          operations: canonicalizeGeneratedOperations(rawManifest.operations),
           schemaVersion: 1,
           capabilityId: originalManifest.capabilityId,
           entityId: request.entityId,
