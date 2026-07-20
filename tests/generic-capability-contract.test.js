@@ -12,7 +12,7 @@ const {
   validateTrustedImplementation,
   isBlockedHostname,
 } = require("../app/routes/capabilityBlueprints");
-const { discoverComputeCapability, summarizeCapabilities, normalizeGeneratedBuildRequest } = require("../app/routes/capabilityDiscovery");
+const { discoverComputeCapability, summarizeCapabilities, normalizeGeneratedBuildRequest, DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
@@ -348,6 +348,38 @@ test("discovery can propose any validated entity contract without a catalog", as
   assert.equal(discovery.buildCommand.blueprintId, GENERIC_BLUEPRINT_ID);
   assert.equal(discovery.buildCommand.capabilityRequest.capabilityIdHint, genericRequest.capabilityIdHint);
   assert.equal(JSON.stringify(discovery).includes("https://"), false);
+});
+
+test("discovery uses strict Structured Outputs with nonempty operations and outputs", async () => {
+  let request = null;
+  const openai = {
+    chat: { completions: { create: async (value) => {
+      request = value;
+      return { choices: [{ message: { content: JSON.stringify({
+        decision: "build_compute",
+        confidence: 0.95,
+        reason: "Fresh data is required.",
+        capabilityId: genericRequest.capabilityIdHint,
+        entityId: null,
+        operationId: "lookup",
+        capabilityRequest: genericRequest,
+      }) } }] };
+    } } },
+  };
+  const result = await discoverComputeCapability({
+    openai,
+    utterance: "Look up conditions.",
+    requestedBy: "u:7",
+  });
+  assert.equal(result.decision, "build");
+  assert.equal(request.response_format.type, "json_schema");
+  assert.equal(request.response_format.json_schema.strict, true);
+  assert.equal(request.response_format.json_schema.schema, DISCOVERY_RESPONSE_SCHEMA);
+  assert.equal(DISCOVERY_RESPONSE_SCHEMA.type, "object");
+  assert.equal(DISCOVERY_RESPONSE_SCHEMA.anyOf, undefined);
+  const buildContract = DISCOVERY_RESPONSE_SCHEMA.properties.capabilityRequest.anyOf.find((schema) => schema.type === "object");
+  assert.equal(buildContract.properties.operations.minItems, 1);
+  assert.equal(buildContract.properties.operations.items.properties.outputs.minItems, 1);
 });
 
 test("discovery compacts duplicate entity records before calling the model", () => {
