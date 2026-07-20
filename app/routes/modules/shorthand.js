@@ -199,7 +199,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     function isCellRefString(txt) {
-        console.log("shorthand txt", txt)
         return /^\d{3}[a-z]{2}$/.test(txt.toString());
     }
 
@@ -493,9 +492,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
         }
         let cell = getCellID(cellTxt);
         if (cell && typeof cellTxt === "string") {
-            console.log("matrix", matrix);
-            console.log("cell.row", cell.row);
-            console.log("matrix[cell.row]", matrix[cell.row]);
             let ref = matrix[cell.row][cell.col];
             if (isCellRef(ref) || isRowResultRef(ref) || isFullRowRef(ref)) {
                 return resolveCell(ref);
@@ -687,9 +683,7 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 if (keywords[functionName]) {
                     //console.log("true")
                     const resolvedArgs = await awaitAll(functionArray);
-                    console.log("resolvedArgs44", resolvedArgs)
                     result = await keywords[functionName](resolvedArgs);
-                    console.log("result44", result)
                 } else {
                     console.warn("No keyword function found for:", functionName);
                     result = "";
@@ -712,7 +706,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseNestedKeywords(rowArray) {
-        console.log("parseNestedKeywords", rowArray)
         let i = 0;
         let topLevelFunctions = [];
         while (i < rowArray.length) {
@@ -778,8 +771,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
     }
 
     async function parseRow(rowIndex) {
-        console.log("matrix", matrix);
-        console.log("matrix[rowIndex]", rowIndex, matrix[rowIndex])
         const rowArray = matrix[rowIndex] || [];
 
         if (!isCellRef(rowArray[0]) && !(rowArray[0] in keywords)) {
@@ -1176,12 +1167,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             }
             await run(skip);
         }
-        console.log("rowResult", rowResult)
         return rowResult[0];
     }
 
     async function getVAR(data) {
-        console.log("getVAR matrix", matrix);
 
         let { route } = require('../cookies')
         let entity = Object.keys(data).find(k => k !== "add");
@@ -1232,16 +1221,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
 
     var keywords = {
         ROUTE: async (rowArray) => {
-            console.log("keywords ROUTE matrix", matrix);
 
             let { route } = require('../cookies')
-            console.log("ROUTE rowArray", rowArray)
-            console.log("ROUTE")
             let rA = await rowArray
             let bod = rA[1];
-            console.log("bod rA[1]", bod);
-            console.log("req", req)
-            console.log("req.body", req.body)
 
             let expt = rA[2]
             let act = rA[3];
@@ -1251,12 +1234,10 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
                 (req.body?.headers && req.body.headers["X-accessToken"]) ||
                 (req.headers && req.headers["x-accesstoken"]) ||
                 undefined;
-                console.log("xAccessToken",xAccessToken)
             let originalHost = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             let splitOriginalHost = originalHost.split("1var.com")[1];
             let reqPath = splitOriginalHost.split("?")[0];
             let reqBody2 = req.body;
-            console.log("reqPath",reqPath)
             const action = reqPath.split("/")[2];
             let newReq = {};
             newReq.body = {
@@ -1265,8 +1246,6 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             };
             newReq.body.headers["X-Original-Host"] = "https://abc.api.1var.com/cookies/" + act + "/" + param1 + "/" + param2;
             newReq.body["_isFunction"] = true;
-            console.log("deepMerge newReq.body", newReq.body)
-            console.log("deepMerge bod", bod)
             const payload = await deepMerge({}, bod);                     // resolve refs then mirror
             newReq.body.body = await deepMerge(newReq.body.body || {}, payload);
             newReq.body = await deepMerge(newReq.body || {}, payload);
@@ -1274,11 +1253,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             newReq.type = req.type
             newReq._headerSent = req._headerSent
             newReq.path = req.path
-            console.log("newReq.body", newReq.body)
-            console.log("STARTING route(...)")
-            console.log("act", act)
+            console.log("entity route", { action: act || null, path: reqPath || null })
             let resp = await route(newReq, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, true, reqPath, newReq.body, reqMethod, reqType, reqHeaderSent, signer, act, xAccessToken);
-            console.log("ROUTE resp=>", resp);
             // After: let resp = await route(newReq, ...);
 try {
   // Figure out if the "result" is a plain string in common response shapes
@@ -1340,7 +1316,6 @@ return resp;
             return "";
         },
         SLEEP: async (rowArray) => {
-            console.log("SLEEP rowArray", rowArray)
             await sleep(rowArray[1]);
             return "";
         },
@@ -1571,7 +1546,6 @@ return resp;
             console.log("ADDPROPERTY")
             if (isRowResultRef(baseRef) || isJSON(baseRef)) {
                 let baseObj;
-                console.log("1", baseObj)
                 if (isRowResultRef(baseRef)) {
                     console.log("2")
                     let baseIndex = parseInt(baseRef.slice(0, 3), 10);
@@ -1597,7 +1571,6 @@ return resp;
                     finalVal = await resolveCell(valueRef);
                 }
                 baseObj[key] = finalVal;
-                console.log("baseObj", baseObj)
                 return baseObj;
             } else {
                 console.error("ADDPROPERTY: The base reference is not a rowResult reference:", baseRef);
@@ -1638,7 +1611,6 @@ return resp;
             }
         },
         NESTED: async (rowArray) => {
-            console.log("NESTED rowArray", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 console.error("NESTED: The base reference is not a rowResult reference:", baseRef);
@@ -1667,18 +1639,15 @@ return resp;
                 finalVal = await resolveCell(valueRef);
             }
             const updatedObj = setNestedValue(newObj, pathTokens, finalVal);
-            console.log("return updatedObj", JSON.stringify(updatedObj))
             return updatedObj;
         },
         GET: (rowArray) => {
-            console.log("GET rowArray", rowArray)
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
                 return {};
             }
             const pathTokens = rowArray.slice(2);
             let nested = getNested(baseRef, pathTokens);
-            console.log("return nested", nested)
             return nested;
         },
         DELETEPROPERTY: (rowArray) => {
@@ -1913,9 +1882,7 @@ return resp;
         },
     };
 
-    console.log("shorthandArray << ^^ >>", shorthandArray)
     let rr0 = await processArray(shorthandArray)
-    console.log("rr0", rr0)
     let extractedConclusion = null;
     if (rr0 && typeof rr0 === "object" && rr0.conclusion !== undefined) {
         extractedConclusion = rr0.conclusion;   // keep the object with createdEntities
@@ -1926,8 +1893,6 @@ return resp;
     shorthandObj.conclusion = extractedConclusion;
 
     
-  console.log("⇢ rowResult2", JSON.stringify(rowResult, null, 4));
-  console.log("⇢ shorthand2", JSON.stringify(shorthandObj, null, 4));
     return shorthandObj
 }
 

@@ -116,7 +116,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
     return register(manifest, { ownerId: callerOwner, allowOwnerOverride });
   }
 
-  async function findByCapability(capabilityId, { activeOnly = true, limit = 25, ownerId = null, includeSystem = true } = {}) {
+  async function findByCapability(capabilityId, { activeOnly = true, limit = 25, ownerId = null, includeSystem = true, minimumImplementationPolicyVersion = 1 } = {}) {
     const id = String(capabilityId || "").trim().toLowerCase();
     if (!id) return [];
     const requestedOwner = ownerId == null ? null : String(ownerId);
@@ -139,6 +139,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
             manifest.ownerId !== requestedOwner &&
             !(includeSystem && manifest.ownerId === "system")
           ) continue;
+          if (Number(manifest.implementationPolicyVersion || 1) < Number(minimumImplementationPolicyVersion || 1)) continue;
           if (!activeOnly || manifest.status === "active") matches.push(manifest);
         } catch (_) {
           // Ignore invalid legacy rows; registration is the repair path.
@@ -153,7 +154,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
       .slice(0, limit);
   }
 
-  async function listAvailable({ activeOnly = true, limit = 100, ownerId = null, includeSystem = true } = {}) {
+  async function listAvailable({ activeOnly = true, limit = 100, ownerId = null, includeSystem = true, minimumImplementationPolicyVersion = 1 } = {}) {
     const requestedOwner = ownerId == null ? null : String(ownerId);
     const matches = [];
     let ExclusiveStartKey;
@@ -173,6 +174,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
             manifest.ownerId !== requestedOwner &&
             !(includeSystem && manifest.ownerId === "system")
           ) continue;
+          if (Number(manifest.implementationPolicyVersion || 1) < Number(minimumImplementationPolicyVersion || 1)) continue;
           if (!activeOnly || manifest.status === "active") matches.push(manifest);
         } catch (_) {}
         if (matches.length >= limit) break;

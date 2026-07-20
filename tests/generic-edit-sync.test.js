@@ -37,7 +37,15 @@ test("Compute request middleware does not log credentials or the dependency cont
   assert.doesNotMatch(appSource, /JSON\.stringify\(event/);
   assert.doesNotMatch(appSource, /console\.log\(["'](?:req|req\.body|isValid req|runApp req|getCookiesRouter)["']/);
   assert.doesNotMatch(appSource, /console\.log\(["'](?:embedding|dynamoRecord|chainParams55\.|libs\.root\.cntext)/);
-  const shorthandSource = fs.readFileSync(path.join(__dirname, "../app/routes/shorthand.js"), "utf8");
+  const shorthandSource = fs.readFileSync(path.join(__dirname, "../app/routes/modules/shorthand.js"), "utf8");
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:req|req\.body|xAccessToken|newReq\.body|deepMerge newReq\.body)["']/);
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:matrix|keywords ROUTE matrix|shorthand txt|resolvedArgs44)["']/);
+});
+
+test("Convert retires legacy generated implementations before generic reuse", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  assert.match(source, /IMPLEMENTATION_POLICY_VERSION/);
+  assert.match(source, /minimumImplementationPolicyVersion/);
+  assert.match(source, /IMPLEMENTATION_POLICY_UPGRADE/);
+  assert.match(source, /setStatus\(legacy\.entityId, "failed"/);
 });

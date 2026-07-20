@@ -2,6 +2,7 @@
 "use strict";
 
 const CAPABILITY_SCHEMA_VERSION = 1;
+const IMPLEMENTATION_POLICY_VERSION = 2;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -103,6 +104,9 @@ function canonicalizeGeneratedOperations(rawOperations) {
               field.bindingHint.resolver = field.type === "date" ? "relative_date" : canonical;
             }
           }
+          if (collectionName === "inputs" && field.required !== false && !String(field.clarification || "").trim()) {
+            field.clarification = `What value should I use for ${canonical.replace(/[_.-]+/g, " ")}?`;
+          }
           return field;
         });
     }
@@ -119,7 +123,9 @@ function canonicalizeGeneratedOperations(rawOperations) {
         return example;
       });
     if (operation.answerTemplate != null) {
-      operation.answerTemplate = String(operation.answerTemplate).replace(
+      operation.answerTemplate = String(operation.answerTemplate)
+        .replace(/(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g, (_whole, prefix, name) => `${prefix}{{${String(name).trim()}}}`)
+        .replace(
         /{{\s*([^}|]+)([^}]*)}}/g,
         (whole, rawName, suffix) => {
           const name = String(rawName || "").trim();
@@ -332,6 +338,9 @@ function validateCapabilityManifest(raw, options = {}) {
       timeoutMs: Math.floor(timeoutMs),
     },
     operations,
+    implementationPolicyVersion: Number.isInteger(Number(manifest.implementationPolicyVersion))
+      ? Math.max(1, Number(manifest.implementationPolicyVersion))
+      : 1,
   };
   if (manifest.name != null) normalized.name = String(manifest.name).trim().slice(0, 160);
   if (manifest.createdAt) normalized.createdAt = String(manifest.createdAt);
@@ -555,6 +564,7 @@ function buildExecutionError(error, context = {}) {
 
 module.exports = {
   CAPABILITY_SCHEMA_VERSION,
+  IMPLEMENTATION_POLICY_VERSION,
   CapabilityError,
   validateCapabilityBuildRequest,
   canonicalizeGeneratedIdentifier,

@@ -12,7 +12,7 @@ const {
   isBlockedHostname,
 } = require("../app/routes/capabilityBlueprints");
 const { discoverComputeCapability, summarizeCapabilities } = require("../app/routes/capabilityDiscovery");
-const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
+const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
 
@@ -86,6 +86,7 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.equal(spec.computeEntity.manifest.operations[0].inputs[0].bindingHint.property, "location_code");
   assert.deepEqual(spec.computeEntity.manifest.operations[0].inputs[0].bindingHint.aliases, ["home location"]);
   assert.deepEqual(spec.computeEntity.published.data.allowedHosts, ["api.example.com"]);
+  assert.equal(spec.computeEntity.manifest.implementationPolicyVersion, IMPLEMENTATION_POLICY_VERSION);
   assert.equal(JSON.stringify(spec).includes("function"), false);
 });
 
@@ -184,6 +185,24 @@ test("model-generated human labels are canonicalized across the semantic contrac
   assert.equal(request.operations[0].answerTemplate, "{{condition_summary}}");
 });
 
+test("single-brace templates and omitted clarifications are repaired generically", () => {
+  const request = validateCapabilityBuildRequest({
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "Place Conditions",
+    description: "Return conditions for a place.",
+    operations: [{
+      operationId: "Lookup",
+      inputs: [{ name: "Place Name", type: "string", required: true, bindingHint: { source: "utterance" } }],
+      outputs: [{ name: "Conditions", type: "string", required: true }],
+      utteranceExamples: [{ text: "Conditions in Raleigh?", inputs: { "Place Name": "Raleigh" } }],
+      answerTemplate: "The conditions in {Place Name} are {Conditions}.",
+    }],
+  });
+  assert.equal(request.operations[0].inputs[0].clarification, "What value should I use for place name?");
+  assert.equal(request.operations[0].answerTemplate, "The conditions in {{place_name}} are {{conditions}}.");
+});
+
 test("generated generic type and binding aliases normalize without domain rules", () => {
   const request = validateCapabilityBuildRequest({
     schemaVersion: 1,
@@ -244,6 +263,13 @@ test("generic network validation rejects private, credentialed, and dynamic prov
       { target: "{|res|}!", chain: [{ access: "send", params: [{}] }] },
     ],
   } }), /literal public HTTPS/);
+  assert.throws(() => validateTrustedImplementation({ published: {
+    modules: { axios: "axios" },
+    actions: [
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/data", { params: { key: "YOUR_API_KEY", q: "{|req=>body.location|}" } }] }], assign: "{|x|}" },
+      { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
+    ],
+  } }), /credential placeholders/);
 });
 
 test("discovery can propose any validated entity contract without a catalog", async () => {

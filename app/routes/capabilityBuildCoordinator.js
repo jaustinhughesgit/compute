@@ -93,16 +93,18 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     await promiseOf(dynamodb.update({
       TableName: tableName,
       Key: { su: claimResult.key },
-      UpdateExpression: "SET #status = :status, #code = :code, #completed = :completed",
+      UpdateExpression: "SET #status = :status, #code = :code, #completed = :completed, #lease = :lease",
       ExpressionAttributeNames: {
         "#status": "capabilityBuildStatus",
         "#code": "capabilityBuildErrorCode",
         "#completed": "capabilityBuildCompletedAt",
+        "#lease": "capabilityBuildLeaseExpiresAt",
       },
       ExpressionAttributeValues: {
         ":status": "failed",
         ":code": String(code || "BUILD_FAILED"),
         ":completed": now,
+        ":lease": 0,
       },
     }));
   }

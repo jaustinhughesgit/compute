@@ -2,6 +2,7 @@
 "use strict";
 
 const {
+  IMPLEMENTATION_POLICY_VERSION,
   validateCapabilityBuildRequest,
   validateCapabilityManifest,
 } = require("../capabilityManifest");
@@ -223,6 +224,7 @@ function register({ on, use }) {
           activeOnly: false,
           limit: 100,
           ownerId,
+          minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
         });
         computeDiscovery = await discoverComputeCapability({
           openai,
@@ -271,7 +273,23 @@ function register({ on, use }) {
             limit: 10,
             ownerId,
           });
-          const active = existing.find((item) => item.status === "active");
+          const legacyActive = existing.filter((item) =>
+            item.status === "active"
+            && Number(item.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION
+          );
+          for (const legacy of legacyActive) {
+            await capabilityRegistry.setStatus(legacy.entityId, "failed", { ownerId });
+          }
+          if (legacyActive.length) {
+            await buildCoordinator.fail(
+              buildCoordinator.identity({ ownerId, capabilityId }),
+              "IMPLEMENTATION_POLICY_UPGRADE"
+            );
+          }
+          const active = existing.find((item) =>
+            item.status === "active"
+            && Number(item.implementationPolicyVersion || 1) >= IMPLEMENTATION_POLICY_VERSION
+          );
           if (active) {
             return capabilityStateResponse({
               status: "CAPABILITY_EXTENSION_REQUIRED",
