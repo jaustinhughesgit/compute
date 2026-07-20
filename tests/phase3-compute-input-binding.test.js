@@ -1,68 +1,38 @@
 "use strict";
 
-const assert = require("node:assert/strict");
 const test = require("node:test");
+const assert = require("node:assert/strict");
+const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
 
-const {
-  resolveComputeInputPlaceholder,
-} = require("../app/routes/inputPlaceholderTransport");
-const {
-  getCapabilityBlueprint,
-} = require("../app/routes/capabilityBlueprints");
-
-const rootContext = {
-  body: {
-    value: {
-      postal_code: "27560",
-      country_code: "US",
-      unit_system: "imperial",
-    },
-    context: {},
-  },
-  req: {
-    value: { body: {} },
-    context: {},
-  },
-};
-
-test("legacy req=>body compute selectors resolve from the canonical body slot", () => {
-  assert.deepEqual(
-    resolveComputeInputPlaceholder({
-      path: "req=>body.postal_code",
-      rootContext,
-    }),
-    { matched: true, value: "27560" }
-  );
-  assert.equal(
-    resolveComputeInputPlaceholder({
-      path: "req=>body.country_code",
-      rootContext,
-    }).value,
-    "US"
-  );
-});
-
-test("new weather entities use canonical body selectors", () => {
-  const blueprint = getCapabilityBlueprint("weather.current_conditions", {
-    requestedBy: "test-owner",
+test("input bindings are declared by each entity rather than a server domain table", () => {
+  const value = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "terrain.elevation.lookup",
+    entityId: "elevation-entity",
+    version: 1,
+    status: "active",
+    ownerId: "u:7",
+    execution: { type: "remote", readOnly: true, timeoutMs: 10000 },
+    operations: [{
+      operationId: "lookup",
+      inputs: [{
+        name: "location_code",
+        type: "string",
+        required: true,
+        bindingHint: {
+          source: "contextdb",
+          subject: "speaker",
+          property: "location_code",
+          aliases: ["home location", "mailing area"],
+        },
+        clarification: "What location code should I use?",
+      }],
+      outputs: [{ name: "elevation", type: "number", required: true }],
+      utteranceExamples: ["What is my elevation?"],
+      answerTemplate: "{{elevation}} feet",
+    }],
   });
-  const initialSet = blueprint.published.actions[0].set;
-
-  assert.equal(initialSet.postalCode, "{|body=>postal_code|}");
-  assert.equal(initialSet.countryCode, "{|body=>country_code|}");
-  assert.equal(initialSet.unitSystem, "{|body=>unit_system|}");
-
-  const geocodingParams = blueprint.published.actions[2].chain[0].params[1].params;
-  assert.equal(geocodingParams.name, "{|postalCode|}");
-  assert.equal(geocodingParams.countryCode, "{|countryCode|}");
-});
-
-test("unrelated placeholders retain the existing resolver path", () => {
-  assert.deepEqual(
-    resolveComputeInputPlaceholder({
-      path: "weatherResponse=>data.current.temperature_2m",
-      rootContext,
-    }),
-    { matched: false, value: undefined }
-  );
+  const hint = value.operations[0].inputs[0].bindingHint;
+  assert.equal(hint.source, "contextdb");
+  assert.deepEqual(hint.aliases, ["home location", "mailing area"]);
 });

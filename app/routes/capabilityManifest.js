@@ -57,6 +57,9 @@ function normalizeBindingHint(raw, inputName) {
   if (hint.property != null) normalized.property = String(hint.property).trim();
   if (hint.resolver != null) normalized.resolver = String(hint.resolver).trim();
   if (hint.value != null) normalized.value = clone(hint.value);
+  if (Array.isArray(hint.aliases)) {
+    normalized.aliases = hint.aliases.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 25);
+  }
 
   if (source === "contextdb" && (!normalized.subject || !normalized.property)) {
     throw new CapabilityError(
@@ -131,9 +134,38 @@ function normalizeOperation(raw) {
   }
   if (Array.isArray(operation.utteranceExamples)) {
     normalized.utteranceExamples = operation.utteranceExamples
-      .map((value) => String(value || "").trim())
+      .map((value) => {
+        if (typeof value === "string") return value.trim();
+        if (!isObject(value)) return null;
+        const text = String(value.text || value.utterance || "").trim();
+        const sampleInputs = isObject(value.inputs) ? value.inputs : {};
+        const inputsByName = new Map(inputs.map((input) => [input.name, input]));
+        const normalizedInputs = {};
+        for (const [name, sample] of Object.entries(sampleInputs)) {
+          const input = inputsByName.get(String(name).trim().toLowerCase());
+          if (!input) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} example references unknown input ${name}`);
+          validateFieldValue(input, sample, "example input");
+          normalizedInputs[input.name] = clone(sample);
+        }
+        return text ? { text, inputs: normalizedInputs } : null;
+      })
       .filter(Boolean)
       .slice(0, 40);
+  }
+  const requiredUtteranceInputs = inputs.filter((input) =>
+    input.required && input.bindingHint?.source === "utterance"
+  );
+  for (const input of requiredUtteranceInputs) {
+    const hasAnnotatedExample = (normalized.utteranceExamples || []).some((example) =>
+      isObject(example)
+      && Object.prototype.hasOwnProperty.call(example.inputs || {}, input.name)
+    );
+    if (!hasAnnotatedExample) {
+      throw new CapabilityError(
+        "INVALID_MANIFEST",
+        `operation ${operationId} requires an annotated utterance example for input ${input.name}`
+      );
+    }
   }
   // Compute describes meaning and invocation. It must never prescribe the
   // browser's token grammar, signatures, slots, or structural Path pattern.
@@ -213,6 +245,7 @@ function validateCapabilityManifest(raw, options = {}) {
     },
     operations,
   };
+  if (manifest.name != null) normalized.name = String(manifest.name).trim().slice(0, 160);
   if (manifest.createdAt) normalized.createdAt = String(manifest.createdAt);
   if (manifest.updatedAt) normalized.updatedAt = String(manifest.updatedAt);
   return normalized;
@@ -247,6 +280,7 @@ function validateCapabilityBuildRequest(raw) {
     description,
     operations,
   };
+  if (request.name != null) normalized.name = String(request.name).trim().slice(0, 160);
   if (request.capabilityIdHint) {
     normalized.capabilityIdHint = normalizeId(request.capabilityIdHint, "capabilityIdHint");
   }
@@ -425,67 +459,6 @@ function buildExecutionError(error, context = {}) {
   };
 }
 
-function createWeatherCapabilityManifest({ entityId, ownerId = "system", status = "testing" } = {}) {
-  return validateCapabilityManifest({
-    schemaVersion: CAPABILITY_SCHEMA_VERSION,
-    capabilityId: "weather.current_conditions",
-    entityId,
-    version: 1,
-    status,
-    ownerId,
-    description: "Returns current weather conditions for a postal code and date.",
-    execution: { type: "remote", readOnly: true, timeoutMs: 10000 },
-    operations: [{
-      operationId: "current_conditions",
-      description: "Get current weather conditions.",
-      inputs: [
-        {
-          name: "postal_code",
-          type: "string",
-          required: true,
-          sensitive: true,
-          bindingHint: { source: "contextdb", subject: "speaker", property: "postal_code" },
-          clarification: "What ZIP or postal code should I use?",
-          validation: { minLength: 3, maxLength: 12, pattern: "^[A-Za-z0-9 -]+$" },
-        },
-        {
-          name: "date",
-          type: "date",
-          required: true,
-          bindingHint: { source: "environment", resolver: "relative_date" },
-        },
-        {
-          name: "country_code",
-          type: "string",
-          required: false,
-          defaultValue: "US",
-          bindingHint: { source: "contextdb", subject: "speaker", property: "country_code" },
-          validation: { minLength: 2, maxLength: 2, pattern: "^[A-Za-z]{2}$" },
-        },
-        {
-          name: "unit_system",
-          type: "string",
-          required: false,
-          defaultValue: "imperial",
-          bindingHint: { source: "contextdb", subject: "speaker", property: "unit_preference" },
-        },
-      ],
-      outputs: [
-        { name: "temperature", type: "number", required: true },
-        { name: "temperature_unit", type: "string", required: true },
-        { name: "conditions", type: "string", required: true },
-        { name: "precipitation_probability", type: "number", required: false, validation: { minimum: 0, maximum: 100 } },
-      ],
-      freshness: { mode: "cache", ttlSeconds: 900 },
-      utteranceExamples: [
-        "What is the weather today?",
-        "How warm is it outside today?",
-      ],
-      answerTemplate: "{{conditions}}. It is {{temperature}} {{temperature_unit}}, with a {{precipitation_probability}}% chance of precipitation.",
-    }],
-  });
-}
-
 module.exports = {
   CAPABILITY_SCHEMA_VERSION,
   CapabilityError,
@@ -496,5 +469,4 @@ module.exports = {
   validateOperationResult,
   buildExecutionSuccess,
   buildExecutionError,
-  createWeatherCapabilityManifest,
 };

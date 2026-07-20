@@ -3,7 +3,6 @@
 
 const {
   CapabilityError,
-  createWeatherCapabilityManifest,
   validateCapabilityManifest,
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
@@ -61,28 +60,23 @@ function register({ on, use }) {
       }
 
       if (action === "discover") {
+        const availableCapabilities = await registry.listAvailable({
+          activeOnly: false,
+          limit: 100,
+          ownerId,
+        });
         const discovery = await discoverComputeCapability({
           openai: shared?.deps?.openai,
           utterance: body.utterance || body.userRequest || "",
           requestedBy: ownerId,
           useModel: body.deterministicOnly !== true,
+          availableCapabilities,
         });
         return { ok: true, kind: "capabilityDiscovery", discovery };
       }
 
       if (action === "register") {
         const manifest = validateCapabilityManifest(body.manifest || body, { ownerId });
-        const saved = await registry.register(manifest, { ownerId });
-        return { ok: true, kind: "capabilityRegistered", manifest: saved };
-      }
-
-      if (action === "register-weather") {
-        const entityId = String(segments[0] || body.entityId || "").trim();
-        const manifest = createWeatherCapabilityManifest({
-          entityId,
-          ownerId,
-          status: body.status || "testing",
-        });
         const saved = await registry.register(manifest, { ownerId });
         return { ok: true, kind: "capabilityRegistered", manifest: saved };
       }
@@ -122,7 +116,6 @@ function register({ on, use }) {
         kind: "capabilityRegistryHelp",
         actions: [
           "register",
-          "register-weather/:entityId",
           "blueprints",
           "discover",
           "get/:entityId",

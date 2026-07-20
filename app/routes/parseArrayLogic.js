@@ -485,21 +485,21 @@ async function parseArrayLogic({
       continue;
     }
 
-    // Approved compute-capability creation path. The discovery model is only
-    // allowed to request a capability. Executable actions and provider hosts
-    // come from a server-owned blueprint and are re-validated here before the
-    // entity is written.
+    // Approved generic capability creation path. Discovery supplies only the
+    // semantic contract. A separate model may propose declarative entity data,
+    // but this boundary accepts no JavaScript, private provider target, secret,
+    // or unapproved action shape and re-validates the result before writing it.
     if (origElem && typeof origElem === "object" && origElem.computeEntity) {
       const spec = origElem.computeEntity || {};
       if (spec.approved !== true) {
-        throw new Error("compute entity creation requires an approved blueprint");
+        throw new Error("compute entity creation requires a validated entity specification");
       }
       const buildRequest = validateCapabilityBuildRequest(spec.buildRequest);
       validateTrustedImplementation({ published: spec.published || {} });
 
       const capabilityId = String(buildRequest.capabilityIdHint || spec.capabilityId || "").trim().toLowerCase();
       if (!capabilityId || capabilityId !== String(spec.capabilityId || "").trim().toLowerCase()) {
-        throw new Error("compute blueprint capability does not match its build request");
+        throw new Error("compute entity capability does not match its build request");
       }
       const appName = _safeAppName(spec.name || capabilityId || "Compute Capability");
       const groupName = _safeAppName(spec.groupName || appName);

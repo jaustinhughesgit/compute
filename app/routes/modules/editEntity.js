@@ -2,6 +2,9 @@
 "use strict";
 
 const crypto = require("crypto");
+const { validateCapabilityManifest } = require("../capabilityManifest");
+const { createCapabilityRegistry } = require("../capabilityRegistry");
+const { validateTrustedImplementation } = require("../capabilityBlueprints");
 
 // Fits the complete current entity and complete revised entity comfortably
 // inside the selected model's context window after prompts and response.
@@ -139,7 +142,7 @@ function normalizeRevisionRequest(body, pathEntityId) {
   };
 }
 
-async function generateRevision({ openai, model, currentEntity, request, entityId }) {
+async function generateRevision({ openai, model, currentEntity, currentManifest, request, entityId }) {
   const response = await openai.chat.completions.create({
     model,
     temperature: 0,
@@ -154,9 +157,17 @@ async function generateRevision({ openai, model, currentEntity, request, entityI
           "Do not change the primary block entity identifier.",
           "Do not rename the entity; preserve published.name when present.",
           "Do not remove top-level fields.",
-          "Return one JSON object with exactly two fields: summary and updatedEntity.",
+          "If currentCapabilityManifest is present, revise the entity implementation and its semantic capability contract together.",
+          "The contract owns typed inputs, ContextDB/environment/utterance bindings, clarifications, outputs, answer templates, and utterance examples.",
+          "When a user expands supported language or behavior, update both published.computeCapability and the declarative actions that implement it.",
+          "For a closed language set such as days of the week, enumerate representative utteranceExamples for every member plus relative forms the user requested; the browser will compile those examples locally.",
+          "For utterance-bound variables, use semantic examples shaped as {text,inputs}; the browser—not Compute—will locate and tokenize those sample values into local slots.",
+          "Compute supplies semantic examples only; never add token patterns, signatures, pathContracts, code, functions, imports, or secrets.",
+          "Keep capabilityId, entityId, ownerId, and status unchanged. The server assigns the next manifest version.",
+          "Return one JSON object with exactly three fields: summary, updatedEntity, and updatedCapabilityManifest.",
           "summary must be a short plain-language description.",
           "updatedEntity must be the complete revised entity JSON, not a patch.",
+          "updatedCapabilityManifest must be the complete revised manifest when one exists, otherwise null.",
           "Return no markdown or commentary outside the JSON object.",
         ].join(" "),
       },
@@ -169,6 +180,7 @@ async function generateRevision({ openai, model, currentEntity, request, entityI
           explanation: request.explanation,
           convertEssence: request.convertEssence,
           currentEntity,
+          currentCapabilityManifest: currentManifest || null,
         }),
       },
     ],
@@ -179,6 +191,9 @@ async function generateRevision({ openai, model, currentEntity, request, entityI
   return {
     summary: plainText(envelope.summary, 2_000) || "Entity revised.",
     updatedEntity: parseJsonObject(envelope.updatedEntity, "updatedEntity"),
+    updatedCapabilityManifest: envelope.updatedCapabilityManifest == null
+      ? null
+      : parseJsonObject(envelope.updatedCapabilityManifest, "updatedCapabilityManifest"),
   };
 }
 
@@ -196,6 +211,7 @@ function register({ on, use }) {
     const { req, res, path } = ctx;
     const runtime = ctx.deps || deps || {};
     const { dynamodb, uuidv4, s3, openai } = runtime;
+    const capabilityRegistry = createCapabilityRegistry({ dynamodb });
     const entityIdFromPath = String(path || "").split("/").filter(Boolean)[0] || "";
 
     let request;
@@ -265,6 +281,9 @@ function register({ on, use }) {
     }
 
     let originalObject = null;
+    let originalManifest = null;
+    let revisedManifest = null;
+    let registeredNewManifest = false;
     let originalContentType = "application/json";
     let originalBucket = null;
     let wroteRevision = false;
@@ -310,17 +329,58 @@ function register({ on, use }) {
         throw new Error("Entity JSON is too large for conversational editing.");
       }
       originalObject = parseJsonObject(file.Body, "stored entity");
+      try {
+        originalManifest = await capabilityRegistry.getByEntity(request.entityId, { includeInactive: true });
+      } catch (_) {
+        originalManifest = null;
+      }
 
       const generated = await generateRevision({
         openai,
         model: process.env.ENTITY_EDIT_MODEL || "gpt-4o-2024-08-06",
         currentEntity: originalObject,
+        currentManifest: originalManifest,
         request,
         entityId: request.entityId,
       });
+      const revisedCandidate = clone(generated.updatedEntity);
+      if (originalManifest) {
+        const rawManifest = generated.updatedCapabilityManifest || revisedCandidate?.published?.computeCapability;
+        if (!rawManifest) throw new Error("capability entity revision did not return its updated capability manifest");
+        revisedManifest = validateCapabilityManifest({
+          ...rawManifest,
+          schemaVersion: 1,
+          capabilityId: originalManifest.capabilityId,
+          entityId: request.entityId,
+          version: Number(originalManifest.version) + 1,
+          status: originalManifest.status,
+          ownerId: originalManifest.ownerId,
+          createdAt: originalManifest.createdAt,
+        }, {
+          entityId: request.entityId,
+          ownerId: originalManifest.ownerId,
+        });
+        revisedCandidate.published ||= {};
+        revisedCandidate.published.computeCapability = revisedManifest;
+        for (const executableField of ["function", "functions", "code", "script"]) {
+          if (JSON.stringify(revisedCandidate.published[executableField] ?? null) !==
+              JSON.stringify(originalObject?.published?.[executableField] ?? null)) {
+            throw new Error(`capability revision cannot add or modify executable field ${executableField}`);
+          }
+        }
+        validateTrustedImplementation({
+          published: {
+            modules: revisedCandidate.published.modules || {},
+            actions: revisedCandidate.published.actions || [],
+            data: revisedCandidate.published.data || {},
+          },
+        });
+      } else if (generated.updatedCapabilityManifest) {
+        throw new Error("a non-capability entity cannot acquire a capability contract through the revision response");
+      }
       const revised = validateRevisedEntity(
         originalObject,
-        generated.updatedEntity,
+        revisedCandidate,
         request.entityId
       );
 
@@ -333,6 +393,15 @@ function register({ on, use }) {
         Body: JSON.stringify(originalObject),
         ContentType: "application/json",
       }).promise();
+
+      if (revisedManifest) {
+        revisedManifest = await capabilityRegistry.register(revisedManifest, {
+          ownerId: originalManifest.ownerId,
+          allowOwnerOverride: true,
+        });
+        registeredNewManifest = true;
+        revised.published.computeCapability = revisedManifest;
+      }
 
       await s3.putObject({
         Bucket: originalBucket,
@@ -380,6 +449,7 @@ function register({ on, use }) {
           version: nextVersion,
           updatedAt,
           summary: generated.summary,
+          capabilityManifest: revisedManifest,
         },
       };
     } catch (error) {
@@ -391,6 +461,15 @@ function register({ on, use }) {
             Body: JSON.stringify(originalObject),
             ContentType: originalContentType,
           }).promise();
+        } catch {}
+      }
+      if (registeredNewManifest && originalManifest) {
+        try {
+          await capabilityRegistry.register(originalManifest, {
+            ownerId: originalManifest.ownerId,
+            allowOwnerOverride: true,
+          });
+          registeredNewManifest = false;
         } catch {}
       }
       await releaseLock();

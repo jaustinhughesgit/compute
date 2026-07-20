@@ -153,13 +153,45 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
       .slice(0, limit);
   }
 
+  async function listAvailable({ activeOnly = true, limit = 100, ownerId = null, includeSystem = true } = {}) {
+    const requestedOwner = ownerId == null ? null : String(ownerId);
+    const matches = [];
+    let ExclusiveStartKey;
+    do {
+      const data = await promiseOf(dynamodb.scan({
+        TableName: tableName,
+        FilterExpression: "attribute_exists(#capabilityId)",
+        ExpressionAttributeNames: { "#capabilityId": "capabilityId" },
+        ExclusiveStartKey,
+      }));
+      for (const item of data?.Items || []) {
+        if (!item?.computeCapability) continue;
+        try {
+          const manifest = validateCapabilityManifest(migrateStoredManifest(item.computeCapability), { entityId: item.su });
+          if (
+            requestedOwner &&
+            manifest.ownerId !== requestedOwner &&
+            !(includeSystem && manifest.ownerId === "system")
+          ) continue;
+          if (!activeOnly || manifest.status === "active") matches.push(manifest);
+        } catch (_) {}
+        if (matches.length >= limit) break;
+      }
+      ExclusiveStartKey = matches.length >= limit ? null : data?.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return matches
+      .sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")) || b.version - a.version)
+      .slice(0, limit);
+  }
+
   return {
     getEntityRecord,
     getByEntity,
     register,
     setStatus,
     findByCapability,
+    listAvailable,
   };
 }
 
-module.exports = { createCapabilityRegistry };
+module.exports = { createCapabilityRegistry, migrateStoredManifest };

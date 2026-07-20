@@ -219,11 +219,17 @@ function register({ on, use }) {
       if (shouldDiscoverCompute) {
         const promptObj = parsePrompt(prompt);
         const originalUtterance = String(promptObj?.userRequest || "").trim();
+        const availableCapabilities = await capabilityRegistry.listAvailable({
+          activeOnly: false,
+          limit: 100,
+          ownerId,
+        });
         computeDiscovery = await discoverComputeCapability({
           openai,
           utterance: originalUtterance,
           requestedBy: ownerId,
           useModel: body.body?.deterministicComputeDiscovery !== true,
+          availableCapabilities,
         });
 
         if (computeDiscovery.decision === "unsupported") {
@@ -236,6 +242,22 @@ function register({ on, use }) {
           return capabilityStateResponse({
             status: "CLARIFICATION_REQUIRED",
             reason: computeDiscovery.reason,
+          });
+        }
+
+        if (computeDiscovery.decision === "reuse" && computeDiscovery.existingManifest) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_REUSED",
+            manifest: computeDiscovery.existingManifest,
+            reason: computeDiscovery.reason || "An existing entity capability satisfies this request.",
+          });
+        }
+
+        if (computeDiscovery.decision === "extend" && computeDiscovery.existingManifest) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_EXTENSION_REQUIRED",
+            manifest: computeDiscovery.existingManifest,
+            reason: computeDiscovery.reason || "A related entity owns this behavior but must be edited before it can answer.",
           });
         }
 
@@ -252,9 +274,9 @@ function register({ on, use }) {
           const active = existing.find((item) => item.status === "active");
           if (active) {
             return capabilityStateResponse({
-              status: "CAPABILITY_REUSED",
+              status: "CAPABILITY_EXTENSION_REQUIRED",
               manifest: active,
-              reason: "An active capability already satisfies this request.",
+              reason: "An entity already owns this capability identifier, but discovery did not confirm that its current contract satisfies the request. Edit that entity instead of creating a competing copy.",
             });
           }
           const testing = existing.find((item) => item.status === "testing");
@@ -298,17 +320,28 @@ function register({ on, use }) {
             });
           }
 
-          const computeSpec = buildComputeEntitySpec({
-            capabilityId,
-            requestedBy: ownerId,
-            originalUtterance,
-          });
+          let computeSpec = null;
+          try {
+            computeSpec = await buildComputeEntitySpec({
+              capabilityRequest: capabilityBuildRequest,
+              requestedBy: ownerId,
+              originalUtterance,
+              openai,
+            });
+          } catch (error) {
+            await buildCoordinator.fail(claim, error?.code || "GENERATION_FAILED");
+            return capabilityStateResponse({
+              status: "BUILD_FAILED",
+              buildId: claim.buildId,
+              reason: error?.message || "The generic entity implementation did not pass validation.",
+            });
+          }
           if (!computeSpec) {
             await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE");
             return capabilityStateResponse({
               status: "BLUEPRINT_UNAVAILABLE",
               buildId: claim.buildId,
-              reason: "No approved implementation blueprint is available.",
+              reason: "No validated entity implementation is available.",
             });
           }
 
