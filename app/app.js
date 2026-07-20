@@ -1261,7 +1261,7 @@ app.use('/:type(cookies|url)', async (req, res, next) => {
   try {
     req.type = req.params.type;        // keep your "type" flag
     const router = await getCookiesRouter();
-    console.log("getCookiesRouter", req)
+    console.log("cookies router request", { method: req.method || null, path: req.path || null })
     return router(req, res, next);     // hand this SAME request to the router
   } catch (err) {
     next(err);
@@ -1275,7 +1275,6 @@ const entities = {
     }
 
     let obj = JSON.stringify(singleObject);
-    console.log("obj", obj)
     /* ── 1. create embedding exactly once ─────────────────── */
     const { data } = await openai.embeddings.create({
       model: 'text-embedding-3-large',
@@ -1283,7 +1282,6 @@ const entities = {
     });
     const embedding = data[0].embedding;   // ← keep raw array (no toVector)
 
-    console.log("embedding", embedding)
     /* ── 2. pull “/domain/root” record ────────────────────── */
     const [breadcrumb] = Object.keys(singleObject);
     const [domain, root] = breadcrumb.replace(/^\/+/, '').split('/');
@@ -1299,7 +1297,6 @@ const entities = {
         Limit: 1
       }).promise();
       dynamoRecord = Items?.[0] ?? null;
-      console.log("dynamoRecord",dynamoRecord)
     } catch (err) {
       console.error('DynamoDB query failed:', err);
     }
@@ -1460,7 +1457,6 @@ function isSubset(jsonA, jsonB) {
 }
 
 async function isValid(req, res, data) {
-  console.log("isValid req", req)
     let originalHost = req.body.headers["X-Original-Host"];
     let splitOriginalHost = originalHost.split("1var.com")[1]
     let reqPath = splitOriginalHost.split("?")[0]
@@ -1476,7 +1472,6 @@ async function isValid(req, res, data) {
         isDataPresent = isSubset(accessItem.Items[0].va, data)
     }
     if (isDataPresent) {
-      console.log("req",req)
         let xAccessToken = req.body.headers["X-accessToken"]
         let cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
         const vi = await incrementCounterAndGetNewValue('viCounter', dynamodb);
@@ -2146,8 +2141,7 @@ app.all('/auth/*',
 async function runApp(oldReq, res, next) {
     let req = JSON.parse(JSON.stringify(oldReq));
     req.body = await deepMerge(oldReq.body.body, oldReq.body);
-    console.log("runApp req", req)
-    console.log("runApp req.path;", req.path)
+    console.log("runApp", { method: req.method || null, path: req.path || null })
     return new Promise(async (resolve, reject) => {
 
             console.log("1")
@@ -2189,7 +2183,7 @@ async function runApp(oldReq, res, next) {
                     res,
                     async () => runMiddleware(index + 1)
                 );
-            console.log("6", maybe)
+            console.log("6", { returned: maybe != null, functionResult: maybe?._isFunction === true })
 
                 if (
                     maybe &&
@@ -2198,7 +2192,7 @@ async function runApp(oldReq, res, next) {
                     maybe.chainParams !== undefined
                 ) {
             console.log("7")
-                    console.log("maybe && isFunction && chainParams", maybe)
+                    console.log("middleware returned function parameters")
                     return maybe;
                 }
             console.log("8")
@@ -2504,14 +2498,12 @@ async function initializeMiddleware(req, res, next) {
             let subBySU = await getSub(reqPath.split("/")[1], "su", dynamodb)
             const entity = await getEntity(subBySU.Items[0].e, dynamodb);
             if (typeof entity.Items[0].z == "string" ){
-                console.log("parent", parent)
                 console.log("reqPath",reqPath)
                 const subByE = await getSub(entity.Items[0].z, "e", dynamodb);
                 head = await getHead("su", subByE.Items[0].su, dynamodb)
                 cookie = await manageCookie({}, xAccessToken, res, dynamodb, uuidv4)
                 parent = await convertToJSON(head.Items[0].su, [], null, null, cookie, dynamodb, uuidv4, null, null, null, null, dynamodbLL, req.body)
                 
-                console.log("subByE ==>",subByE)
                 fileArray = parent.paths[subByE.Items[0].su];
                 reqPath = "/" + subByE.Items[0].su
                 req.dynPath = reqPath
@@ -2567,14 +2559,12 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.Promise = { "value": Promise, "context": {} }
                         req.lib.root.context.entities = { "value": entities, "context": {} }
                         req.body.params = await initializeModules(req.lib, userJSON, req, res, next);
-                        console.log("3.1",req.body)
-                        console.log("3.2",req.body.params)
                         if (
                             req.body.params &&
                             typeof req.body.params === "object" &&
                             req.body.params._isFunction !== undefined
                         ) {
-                            console.log("return req.body.params", req.body.params)
+                            console.log("returning entity parameters")
                             return req.body.params;
                         }
 
@@ -3515,10 +3505,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
 }
 
 async function applyMethodChain(target, action, libs, nestedPath, assignExecuted, res, req, next) {
-    console.log("libs.root.cntext 1 =",libs.root.context)
-    console.log("target36",target)
-    console.log("action36",action)
-    console.log("assignExecuted36",assignExecuted)
+    console.log("entity action", {
+        target: String(target || "").replace(/\{\|.*?\|\}/g, "{binding}"),
+        assignExecuted: !!assignExecuted,
+    })
     let result = target
 
     if (nestedPath.endsWith(".")) {
@@ -3538,9 +3528,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
             }
 
             if (chainAction.params) {
-                console.log("req.body", req.body)
                 chainParams = await replacePlaceholders(chainAction.params, libs, nestedPath)
-                console.log("chainParams",chainParams)
+                console.log("entity action prepared", { parameterCount: chainParams.length })
             }
             let accessClean = chainAction.access
             if (accessClean) {
@@ -3582,8 +3571,7 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
 
                         /* ───────────── Non-Express branch (patched) ────────── */
                         else {
-                            console.log(target, req.lib.root.context);
-                            console.log("chainParams",chainParams)
+                            console.log("entity action resolved", { parameterCount: chainParams.length })
                             try {
                                 /* tidy numeric arg → string */
                                 if (chainParams && chainParams.length > 0 &&
@@ -3599,13 +3587,9 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                             console.log("accessClean", accessClean)
                                         chainParams[0] = JSON.stringify(chainParams[0]);
 
-                                            console.log("req.body", req.body)
-                                        console.log("req.body._isFunction",req.body._isFunction)
-
-    console.log("libs.root.cntext 2 =",libs.root.context)
                                         if (req.body && req.body._isFunction) {
 
-                                            console.log("chainParams55.0",chainParams)
+                                            console.log("returning entity response parameters")
                                             return chainParams.length === 1
                                                 ? { chainParams: chainParams[0], _isFunction: req.body._isFunction }
                                                 : { chainParams, _isFunction: req.body._isFunction };
@@ -3621,19 +3605,14 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         /* ↓↓↓ PATCH ↓↓↓ */
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
-                                            console.log("result",result)
                                         } else {
-                                            console.log("chainParams55.1",chainParams)
                                             result = await result[accessClean](...chainParams);
-                                            console.log("result",result)
                                         }
                                     }
 
                                     /* all other calls inside assignExecuted === true */
                                     else {
                                             console.log("accessClean", accessClean)
-                                            console.log("req.body", req.body)
-                                        console.log("req.body._isFunction",req.body._isFunction)
                                         if (accessClean === 'send' &&
                                             req.body && req.body._isFunction) {
 
@@ -3646,7 +3625,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                         if (action.promise === 'raw') {
                                             result = result[accessClean](...chainParams);
                                         } else {
-                                            console.log("chainParams55.2",chainParams)
                                             result = await result[accessClean](...chainParams);
                                         }
 

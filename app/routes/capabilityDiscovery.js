@@ -177,11 +177,28 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
   if (rawDecision === "build_compute") {
     const rawBuildRequest = { ...(parsed.capabilityRequest || {}) };
     rawBuildRequest.capabilityIdHint ||= parsed.capabilityId || rawBuildRequest.capabilityId || rawBuildRequest.name;
-    if (Array.isArray(rawBuildRequest.operations) && rawBuildRequest.operations.length === 1) {
-      rawBuildRequest.operations = rawBuildRequest.operations.map((operation) => ({
-        ...operation,
-        operationId: operation?.operationId || operation?.id || parsed.operationId || null,
-      }));
+    rawBuildRequest.name ||= parsed.name || rawBuildRequest.title || rawBuildRequest.capabilityIdHint || "Generated capability";
+    rawBuildRequest.description ||=
+      parsed.reason ||
+      rawBuildRequest.summary ||
+      rawBuildRequest.purpose ||
+      rawBuildRequest.name ||
+      `Capability requested for: ${utterance}`;
+    if (Array.isArray(rawBuildRequest.operations)) {
+      rawBuildRequest.operations = rawBuildRequest.operations.map((operation, index) => {
+        const normalized = { ...(operation || {}) };
+        if (rawBuildRequest.operations.length === 1) {
+          normalized.operationId ||= normalized.id || parsed.operationId || null;
+        }
+        normalized.description ||=
+          normalized.summary ||
+          normalized.purpose ||
+          `Handle ${normalized.operationId || normalized.id || `operation ${index + 1}`}.`;
+        if (!Array.isArray(normalized.utteranceExamples) || !normalized.utteranceExamples.length) {
+          normalized.utteranceExamples = [utterance];
+        }
+        return normalized;
+      });
     }
     const buildRequest = validateCapabilityBuildRequest({
       ...rawBuildRequest,

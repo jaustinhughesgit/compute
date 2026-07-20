@@ -352,7 +352,9 @@ function validateCapabilityBuildRequest(raw) {
   if (kind !== "computeCapabilityBuild") {
     throw new CapabilityError("INVALID_BUILD_REQUEST", "kind must be computeCapabilityBuild");
   }
-  const description = String(request.description || "").trim();
+  const description = String(
+    request.description || request.summary || request.purpose || request.name || ""
+  ).trim();
   if (!description) {
     throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
   }

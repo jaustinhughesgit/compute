@@ -35,4 +35,9 @@ test("Compute request middleware does not log credentials or the dependency cont
   const appSource = fs.readFileSync(path.join(__dirname, "../app/app.js"), "utf8");
   assert.doesNotMatch(appSource, /lambdaHandler event/);
   assert.doesNotMatch(appSource, /JSON\.stringify\(event/);
+  assert.doesNotMatch(appSource, /console\.log\(["'](?:req|req\.body|isValid req|runApp req|getCookiesRouter)["']/);
+  assert.doesNotMatch(appSource, /console\.log\(["'](?:embedding|dynamoRecord|chainParams55\.|libs\.root\.cntext)/);
+  const shorthandSource = fs.readFileSync(path.join(__dirname, "../app/routes/shorthand.js"), "utf8");
+  assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:req|req\.body|xAccessToken|newReq\.body|deepMerge newReq\.body)["']/);
+  assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:matrix|keywords ROUTE matrix|shorthand txt|resolvedArgs44)["']/);
 });

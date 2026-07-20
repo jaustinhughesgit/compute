@@ -321,6 +321,41 @@ test("discovery carries top-level semantic IDs into an incomplete generated buil
   assert.equal(discovery.buildCommand.capabilityRequest.operations[0].operationId, "current_conditions");
 });
 
+test("discovery recovers descriptive metadata and examples without inventing behavior", async () => {
+  const incomplete = JSON.parse(JSON.stringify(genericRequest));
+  delete incomplete.name;
+  delete incomplete.description;
+  delete incomplete.operations[0].description;
+  delete incomplete.operations[0].utteranceExamples;
+  const discovery = await discoverComputeCapability({
+    openai: modelReturning({
+      decision: "build_compute",
+      confidence: 0.9,
+      reason: "Fresh conditions data is required for the question.",
+      capabilityId: "environment.conditions.lookup",
+      operationId: "lookup",
+      capabilityRequest: incomplete,
+    }),
+    utterance: "What are the conditions today?",
+    requestedBy: "u:7",
+  });
+  const request = discovery.buildCommand.capabilityRequest;
+  assert.equal(discovery.decision, "build");
+  assert.equal(request.description, "Fresh conditions data is required for the question.");
+  assert.equal(request.operations[0].description, "Handle lookup.");
+  assert.deepEqual(request.operations[0].utteranceExamples, ["What are the conditions today?"]);
+});
+
+test("build validation accepts generic descriptive aliases", () => {
+  const request = JSON.parse(JSON.stringify(genericRequest));
+  delete request.description;
+  request.summary = "A concise semantic capability summary.";
+  assert.equal(
+    validateCapabilityBuildRequest(request).description,
+    "A concise semantic capability summary."
+  );
+});
+
 test("discovery identifies an existing entity that should be extended", async () => {
   const manifest = validateCapabilityManifest({
     schemaVersion: 1,
