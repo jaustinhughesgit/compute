@@ -490,6 +490,26 @@ function validateInvocationInputs(manifest, operationId, rawInputs) {
   return { operation, inputs: resolved };
 }
 
+function validateCapabilityInputResponse(rawField, rawValue) {
+  const field = normalizeValueField(rawField, "input");
+  let value = clone(rawValue);
+  if (typeof value === "string") value = value.trim();
+  if (field.type === "number" && typeof value === "string" && value !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) value = parsed;
+  }
+  if (field.type === "integer" && typeof value === "string" && /^[-+]?\d+$/.test(value)) {
+    const parsed = Number(value);
+    if (Number.isSafeInteger(parsed)) value = parsed;
+  }
+  if (field.type === "boolean" && typeof value === "string") {
+    if (/^(?:true|yes|1)$/i.test(value)) value = true;
+    else if (/^(?:false|no|0)$/i.test(value)) value = false;
+  }
+  validateFieldValue(field, value, "input");
+  return { field, value: clone(value) };
+}
+
 function normalizeOutputTransportValue(field, value) {
   const type = String(field?.type || "").toLowerCase();
   if (typeof value !== "string") return value;
@@ -584,6 +604,7 @@ module.exports = {
   canonicalizeGeneratedOperations,
   validateCapabilityManifest,
   getCapabilityOperation,
+  validateCapabilityInputResponse,
   validateInvocationInputs,
   validateOperationResult,
   buildExecutionSuccess,

@@ -8,6 +8,7 @@ const {
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { listCapabilityBlueprints } = require("../capabilityBlueprints");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
+const { interpretCapabilityInput } = require("../capabilityInputInterpretation");
 
 function bodyObject(req) {
   const body = req?.body;
@@ -75,6 +76,18 @@ function register({ on, use }) {
         return { ok: true, kind: "capabilityDiscovery", discovery };
       }
 
+      if (action === "interpret-input") {
+        const interpretation = await interpretCapabilityInput({
+          openai: shared?.deps?.openai,
+          field: body.field,
+          originalQuestion: body.originalQuestion,
+          previousQuestion: body.previousQuestion,
+          userResponse: body.userResponse,
+          attempt: body.attempt,
+        });
+        return { ok: true, kind: "capabilityInputInterpretationResult", interpretation };
+      }
+
       if (action === "register") {
         const manifest = validateCapabilityManifest(body.manifest || body, { ownerId });
         const saved = await registry.register(manifest, { ownerId });
@@ -118,6 +131,7 @@ function register({ on, use }) {
           "register",
           "blueprints",
           "discover",
+          "interpret-input",
           "get/:entityId",
           "find/:capabilityId",
           "activate/:entityId",
