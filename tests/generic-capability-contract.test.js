@@ -8,6 +8,7 @@ const path = require("node:path");
 const {
   GENERIC_BLUEPRINT_ID,
   buildComputeEntitySpec,
+  canonicalizeProviderUrls,
   validateTrustedImplementation,
   isBlockedHostname,
 } = require("../app/routes/capabilityBlueprints");
@@ -119,6 +120,64 @@ test("generic entity builder repairs one invalid declarative implementation", as
   });
   assert.equal(calls, 2);
   assert.equal(spec.computeEntity.capabilityId, genericRequest.capabilityIdHint);
+});
+
+test("generic compiler moves dynamic URL query values into declarative axios params", () => {
+  const compiled = canonicalizeProviderUrls({
+    published: {
+      modules: { axios: "axios" },
+      actions: [{
+        target: "{|axios|}",
+        chain: [{
+          access: "get",
+          params: [
+            "https://api.example.com/conditions?place={|req=>body.location_code|}&date={|req=>body.date|}",
+            {},
+          ],
+        }],
+        assign: "{|providerResponse|}",
+      }, {
+        target: "{|res|}!",
+        chain: [{ access: "send", params: [{ summary: "{|providerResponse=>data.summary|}" }] }],
+      }],
+    },
+  });
+  const request = compiled.published.actions[0].chain[0].params;
+  assert.equal(request[0], "https://api.example.com/conditions");
+  assert.deepEqual(request[1], { params: {
+    place: "{|req=>body.location_code|}",
+    date: "{|req=>body.date|}",
+  } });
+  assert.doesNotThrow(() => validateTrustedImplementation(compiled));
+});
+
+test("generic compiler may inline a declared literal URL but never a dynamic destination", () => {
+  const compiled = canonicalizeProviderUrls({
+    published: {
+      modules: { axios: "axios" },
+      data: { providerUrl: "https://api.example.com/data" },
+      actions: [
+        { target: "{|axios|}", chain: [{ access: "get", params: ["{|providerUrl|}", {}] }], assign: "{|x|}" },
+        { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
+      ],
+    },
+  });
+  assert.equal(compiled.published.actions[0].chain[0].params[0], "https://api.example.com/data");
+  assert.doesNotThrow(() => validateTrustedImplementation(compiled));
+  assert.throws(() => validateTrustedImplementation(canonicalizeProviderUrls({ published: {
+    modules: { axios: "axios" },
+    actions: [
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/{|req=>body.path|}", {}] }], assign: "{|x|}" },
+      { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
+    ],
+  } })), /literal public HTTPS provider URL/);
+  assert.throws(() => validateTrustedImplementation({ published: {
+    modules: { axios: "axios" },
+    actions: [
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/data", { params: { q: "${location}" } }] }], assign: "{|x|}" },
+      { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
+    ],
+  } }), /only declarative/);
 });
 
 test("semantic utterance examples annotate values without prescribing browser tokens", () => {

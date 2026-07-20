@@ -80,6 +80,95 @@ function configuredHostAllowlist() {
     .split(",").map((item) => item.trim().toLowerCase()).filter(Boolean));
 }
 
+function decodeQueryPart(value) {
+  try {
+    return decodeURIComponent(String(value || "").replace(/\+/g, " "));
+  } catch {
+    return String(value || "");
+  }
+}
+
+// The provider destination must remain static, but generated models commonly
+// put request placeholders in a URL's query string. Axios already has a safe
+// declarative params channel, so compile those query values into it before
+// validation. Dynamic hosts and paths are deliberately left untouched and
+// will fail the strict literal-URL gate below.
+function canonicalizeProviderUrls(implementation) {
+  const generated = clone(implementation || {});
+  const published = isObject(generated.published) ? generated.published : generated;
+  if (!isObject(published)) return generated;
+
+  const literalUrls = new Map();
+  for (const [name, value] of Object.entries(isObject(published.data) ? published.data : {})) {
+    if (typeof value === "string" && value.startsWith("https://") && !value.includes("{|")) {
+      literalUrls.set(name, value);
+    }
+  }
+  for (const action of Array.isArray(published.actions) ? published.actions : []) {
+    if (!isObject(action?.set)) continue;
+    for (const [name, value] of Object.entries(action.set)) {
+      if (typeof value === "string" && value.startsWith("https://") && !value.includes("{|")) {
+        literalUrls.set(name, value);
+      }
+    }
+  }
+
+  for (const action of Array.isArray(published.actions) ? published.actions : []) {
+    if (String(action?.target || "") !== "{|axios|}" || !Array.isArray(action.chain)) continue;
+    for (const step of action.chain) {
+      if (!Array.isArray(step?.params) || typeof step.params[0] !== "string") continue;
+      let rawUrl = step.params[0].trim();
+      const constantReference = /^\{\|([a-zA-Z0-9_.-]+)\|\}$/.exec(rawUrl);
+      if (constantReference && literalUrls.has(constantReference[1])) {
+        rawUrl = literalUrls.get(constantReference[1]);
+      }
+      if (!rawUrl.startsWith("https://")) {
+        step.params[0] = rawUrl;
+        continue;
+      }
+
+      const queryAt = rawUrl.indexOf("?");
+      if (queryAt < 0) {
+        step.params[0] = rawUrl;
+        continue;
+      }
+      const literalDestination = rawUrl.slice(0, queryAt);
+      const rawQueryAndFragment = rawUrl.slice(queryAt + 1);
+      const fragmentAt = rawQueryAndFragment.indexOf("#");
+      const rawQuery = fragmentAt < 0 ? rawQueryAndFragment : rawQueryAndFragment.slice(0, fragmentAt);
+      const fragment = fragmentAt < 0 ? "" : rawQueryAndFragment.slice(fragmentAt + 1);
+      if (literalDestination.includes("{|") || fragment.includes("{|")) {
+        step.params[0] = rawUrl;
+        continue;
+      }
+
+      const config = isObject(step.params[1]) ? clone(step.params[1]) : {};
+      const params = isObject(config.params) ? clone(config.params) : {};
+      let queryIsStatic = true;
+      for (const pair of rawQuery.split("&").filter(Boolean)) {
+        const equalsAt = pair.indexOf("=");
+        const name = decodeQueryPart(equalsAt < 0 ? pair : pair.slice(0, equalsAt)).trim();
+        const value = decodeQueryPart(equalsAt < 0 ? "" : pair.slice(equalsAt + 1));
+        if (!name || name.includes("{|")) {
+          queryIsStatic = false;
+          break;
+        }
+        if (Object.prototype.hasOwnProperty.call(params, name) && JSON.stringify(params[name]) !== JSON.stringify(value)) {
+          throw new Error(`generated provider URL has conflicting query parameter ${name}`);
+        }
+        params[name] = value;
+      }
+      if (!queryIsStatic) {
+        step.params[0] = rawUrl;
+        continue;
+      }
+      config.params = params;
+      step.params = [literalDestination, config, ...step.params.slice(2)];
+    }
+  }
+  return generated;
+}
+
 function validateAction(action, index) {
   if (!isObject(action)) throw new Error(`declarative action ${index} must be an object`);
   const keys = Object.keys(action);
@@ -137,6 +226,9 @@ function validateTrustedImplementation(implementation) {
     hosts.add(host);
   }
   const actionText = JSON.stringify(actions);
+  if (actionText.match(/\$\{|{{/)) {
+    throw new Error("generated compute entities must use only declarative {|name|} placeholders");
+  }
   if (actionText.match(/authorization|x-api-key|x-access-token|cookie/i)) {
     throw new Error("generated compute entities may not embed credentials or authorization headers");
   }
@@ -170,6 +262,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
           "{target:'{|axios|}',chain:[{access:'get',params:[url,{params:{...}}]}],assign:'{|response|}'},",
           "and {target:'{|res|}!',chain:[{access:'send',params:[resultObject]}]}.",
           "Read capability inputs with {|req=>body.input_name|}. Read prior values or API data with {|name|} and {|name=>nested.path|}.",
+          "The first axios get parameter must be a literal public HTTPS URL containing only scheme, host, and path. Put every dynamic or static query value in the second parameter's params object; never interpolate a placeholder into the URL string.",
           "Return exactly the output fields declared by the operation. Preserve numeric outputs as API numeric values.",
           "Use no JavaScript, code strings, functions, imports, secrets, authentication headers, credential placeholders, or private-network URLs.",
           "Choose public APIs that require no API key, token, account, or secret.",
@@ -188,7 +281,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     });
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
-      const generated = parseJsonObject(raw, "capability implementation response");
+      const generated = canonicalizeProviderUrls(parseJsonObject(raw, "capability implementation response"));
       validateTrustedImplementation({ published: generated.published });
       return generated;
     } catch (error) {
@@ -206,7 +299,9 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
 
 async function buildComputeEntitySpec({ capabilityRequest, requestedBy = "system", originalUtterance = "", openai, generatedImplementation = null } = {}) {
   const buildRequest = validateCapabilityBuildRequest(capabilityRequest);
-  const generated = generatedImplementation || await generateImplementation({ openai, buildRequest, originalUtterance });
+  const generated = canonicalizeProviderUrls(
+    generatedImplementation || await generateImplementation({ openai, buildRequest, originalUtterance })
+  );
   const checked = validateTrustedImplementation({ published: generated.published });
   const capabilityId = buildRequest.capabilityIdHint;
   if (!capabilityId) throw new Error("generic capability build requires capabilityIdHint");
@@ -253,5 +348,6 @@ module.exports = {
   listCapabilityBlueprints,
   buildComputeEntitySpec,
   validateTrustedImplementation,
+  canonicalizeProviderUrls,
   isBlockedHostname,
 };
