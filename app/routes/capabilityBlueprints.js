@@ -364,6 +364,35 @@ function ownEntryCaseInsensitive(object, wanted) {
   return key == null ? null : { key, value: object[key] };
 }
 
+function canonicalizeAxiosResponsePaths(actions) {
+  const canonical = clone(actions);
+  const axiosAssignments = new Set();
+  for (const action of canonical) {
+    if (String(action?.target || "") !== "{|axios|}") continue;
+    const match = /^\{\|([a-zA-Z][a-zA-Z0-9_.-]*)\|\}!?$/.exec(String(action?.assign || "").trim());
+    if (match) axiosAssignments.add(match[1]);
+  }
+  if (!axiosAssignments.size) return canonical;
+
+  const wrapperRoots = new Set(["data", "status", "statustext", "headers", "config", "request"]);
+  const rewrite = (value) => {
+    if (Array.isArray(value)) return value.map(rewrite);
+    if (isObject(value)) return Object.fromEntries(Object.entries(value).map(([key, child]) => [key, rewrite(child)]));
+    if (typeof value !== "string") return value;
+    return value.replace(
+      /\{\|([a-zA-Z][a-zA-Z0-9_.-]*)=>([^|{}]+)\|\}/g,
+      (whole, assignment, rawPath) => {
+        if (!axiosAssignments.has(assignment)) return whole;
+        const responsePath = String(rawPath || "").trim();
+        const root = responsePath.split(/[.[]/, 1)[0].toLowerCase();
+        if (!responsePath || wrapperRoots.has(root)) return whole;
+        return `{|${assignment}=>data.${responsePath}|}`;
+      }
+    );
+  };
+  return rewrite(canonical);
+}
+
 function canonicalizeCredentialInjections(actions, requirements) {
   const canonical = clone(actions);
   const dynamicInputReference = /^.{0,80}\{\|req=>body\.[a-zA-Z0-9_.-]+\|\}$/;
@@ -463,9 +492,12 @@ function validateTrustedImplementation(implementation) {
     }
   }
   const credentialRequirements = normalizedCredentialRequirements(normalizedPublished?.data?.credentialRequirements || []);
-  const actions = credentialRequirements.length
-    ? canonicalizeCredentialInjections(Array.isArray(normalizedPublished.actions) ? normalizedPublished.actions : [], credentialRequirements)
-    : (Array.isArray(normalizedPublished.actions) ? normalizedPublished.actions : []);
+  let actions = canonicalizeAxiosResponsePaths(
+    Array.isArray(normalizedPublished.actions) ? normalizedPublished.actions : []
+  );
+  if (credentialRequirements.length) {
+    actions = canonicalizeCredentialInjections(actions, credentialRequirements);
+  }
   normalizedPublished.actions = actions;
   if (!actions.length || actions.length > 100) throw new Error("compute entity must contain 1 to 100 declarative actions");
   actions.forEach(validateAction);
@@ -534,6 +566,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
           "{target:'{|axios|}',chain:[{access:'get',params:[url,{params:{...}}]}],assign:'{|response|}'},",
           "and {target:'{|res|}!',chain:[{access:'send',params:[resultObject]}]}.",
           "Read capability inputs with {|req=>body.input_name|}. Read prior values or API data with {|name|} and {|name=>nested.path|}.",
+          "An axios assignment is the full Axios response. Read provider JSON only through its data field, for example {|response=>data.main.temp|} and {|response=>data.weather.0.description|}.",
           "The first axios get parameter must be a literal public HTTPS URL containing only scheme, host, and path. Put every dynamic or static query value in the second parameter's params object; never interpolate a placeholder into the URL string.",
           "Return exactly the output fields declared by the operation. Preserve numeric outputs as API numeric values.",
           "Use no JavaScript, code strings, functions, imports, literal secrets, credential values, or private-network URLs.",
@@ -647,6 +680,7 @@ module.exports = {
   validateTrustedImplementation,
   attachCredentialInputs,
   normalizedCredentialRequirements,
+  canonicalizeAxiosResponsePaths,
   canonicalizeCredentialInjections,
   canonicalizeProviderUrls,
   isBlockedHostname,

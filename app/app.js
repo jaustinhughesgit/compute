@@ -3149,8 +3149,6 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
             while (regex.test(modifiedStr)) {
                 modifiedStr = await replace2(modifiedStr, nestedPath);
             }
-            console.log("modifiedStr", modifiedStr);
-
             return modifiedStr;
         }
         return modifiedStr;
@@ -3160,9 +3158,6 @@ function getValueFromJson2(path, json, nestedPath, forceRoot) {
 }
 
 async function processString(str, libs, nestedPath, isExecuted, returnEx) {
-    console.log("processString",processString)
-    console.log("str",str)
-    console.log("nestedPath",nestedPath)
     let newNestedPath = nestedPath
     if (nestedPath.startsWith("root.")) {
         newNestedPath = newNestedPath.replace("root.", "")
@@ -3378,7 +3373,10 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             const nestedContext = await getNestedContext(libs, nestedPath, setKey);
             const isEx = typeof action.set[key] === 'string' && action.set[key].endsWith('|}!');
             const value = await replacePlaceholders(action.set[key], libs, nestedPath, isEx);
-            console.log("value", value)
+            console.log("entity value assigned", {
+                key: setKey,
+                valueType: Array.isArray(value) ? "array" : typeof value,
+            })
 
             await addValueToNestedKey(setKey, nestedContext, value);
         }
@@ -3415,13 +3413,15 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             /* caller wants the *raw* promise (do NOT await here) */
             const tmp = applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
-            console.log("tmp",tmp)
             chainResult = execKey ? await tmp : tmp;   // ← extra await only if “! ”
         } else {
             /* normal mode – already awaited */
             chainResult = await applyMethodChain(fn, action, libs, nestedPath,
                 execKey, res, req, next);
-                console.log("chainResult",chainResult)
+                console.log("entity action completed", {
+                    status: Number(chainResult?.status || 0) || null,
+                    hasData: chainResult?.data != null,
+                })
         }
 
         /* assign-to-context part is unchanged … */
@@ -3444,7 +3444,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
             }
         }
 
-        console.log("chainResult99",chainResult)
         /* ----------------------------------------------------------------------- */
         if (chainResult && chainResult._isFunction) return chainResult;
         if (action.promise === 'raw') return chainResult;
