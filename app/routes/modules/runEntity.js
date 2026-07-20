@@ -43,6 +43,80 @@ function normalizeEntityTransportResult(operation, rawResult) {
   return normalized;
 }
 
+function credentialProvider(operation) {
+  const input = (operation?.inputs || []).find((field) => field?.credential);
+  if (!input) return null;
+  const credential = input.credential || {};
+  return {
+    name: String(credential.providerName || credential.providerId || "The provider").trim().slice(0, 160),
+    host: String(credential.providerHost || "").trim().toLowerCase().slice(0, 255),
+  };
+}
+
+function normalizeProviderExecutionError(error, operation) {
+  if (error instanceof CapabilityError) return error;
+  const provider = credentialProvider(operation);
+  const status = Number(error?.response?.status || error?.status || 0);
+  const providerFailure = !!provider && (
+    error?.isAxiosError === true
+    || Number.isFinite(status) && status > 0
+    || ["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "ETIMEDOUT"].includes(String(error?.code || "").toUpperCase())
+  );
+  if (!providerFailure) return error;
+
+  const details = { provider: provider.name, providerHost: provider.host || null, status: status || null };
+  if (status === 401 || status === 403) {
+    return new CapabilityError(
+      "PROVIDER_CREDENTIAL_REJECTED",
+      `${provider.name} rejected the credential. If it was just created, it may still be activating; wait and try again. Otherwise update the stored credential.`,
+      details
+    );
+  }
+  if (status === 404) {
+    return new CapabilityError(
+      "PROVIDER_REQUEST_REJECTED",
+      `${provider.name} could not find data for that request. Check the requested value and try again.`,
+      details
+    );
+  }
+  if (status === 429) {
+    return new CapabilityError(
+      "RATE_LIMITED",
+      `${provider.name} is temporarily rate limiting requests. Try again later.`,
+      details
+    );
+  }
+  if (status >= 500 || !status) {
+    return new CapabilityError(
+      "PROVIDER_UNAVAILABLE",
+      `${provider.name} could not complete the request. Try again later.`,
+      details
+    );
+  }
+  return new CapabilityError(
+    "PROVIDER_REQUEST_REJECTED",
+    `${provider.name} rejected the request with HTTP ${status}.`,
+    details
+  );
+}
+
+function validateEntityResult(operation, rawResult) {
+  const transportResult = normalizeEntityTransportResult(operation, rawResult);
+  try {
+    return validateOperationResult(operation, transportResult);
+  } catch (error) {
+    const provider = credentialProvider(operation);
+    if (provider && error instanceof CapabilityError && error.code === "INVALID_RESULT") {
+      throw new CapabilityError(
+        "PROVIDER_RESPONSE_INVALID",
+        `${provider.name} did not return usable data. Its credential may still be activating, the request may have been rejected, or the entity response mapping may need repair.`,
+        { provider: provider.name, providerHost: provider.host || null }
+      );
+    }
+    throw error;
+  }
+}
+
 function withTimeout(promise, timeoutMs) {
   let timer;
   const timeout = new Promise((_, reject) => {
@@ -147,8 +221,7 @@ function register({ on, use }) {
         executionPromise,
         manifest.execution.timeoutMs
       );
-      const transportResult = normalizeEntityTransportResult(operation, rawResult);
-      const result = validateOperationResult(operation, transportResult);
+      const result = validateEntityResult(operation, rawResult);
       return buildExecutionSuccess({
         manifest,
         operation,
@@ -156,13 +229,14 @@ function register({ on, use }) {
         source: "compute-entity",
       });
     } catch (error) {
+      const normalizedError = normalizeProviderExecutionError(error, manifest?.operations?.find((item) => item.operationId === context.operationId));
       console.error("compute capability execution failed", {
         entityId: actionFile,
         capabilityId: manifest.capabilityId,
         operationId: context.operationId,
-        code: error?.code || "EXECUTION_FAILED",
+        code: normalizedError?.code || "EXECUTION_FAILED",
       });
-      return buildExecutionError(error, context);
+      return buildExecutionError(normalizedError, context);
     }
   });
 
@@ -245,4 +319,9 @@ async function runLegacyEntity({ getSub, actionFile, req, res, next, capabilityI
   return execution?.chainParams;
 }
 
-module.exports = { register, normalizeEntityTransportResult };
+module.exports = {
+  register,
+  normalizeEntityTransportResult,
+  normalizeProviderExecutionError,
+  validateEntityResult,
+};

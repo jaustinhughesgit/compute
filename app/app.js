@@ -3645,7 +3645,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                                     }
                                 }
                             } catch (err) {
-                                console.log('err', err);
+                                if (axios.isAxiosError(err)) throw err;
+                                console.log('entity action failed', { code: err?.code || 'ACTION_FAILED' });
                             }
                         }
                     }
@@ -3669,7 +3670,8 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                             }
                             result = await result(...chainParams);
                         } catch (err) {
-                            console.log("err", err)
+                            if (axios.isAxiosError(err)) throw err;
+                            console.log("entity function failed", { code: err?.code || "ACTION_FAILED" })
                         }
                     }
                 }
