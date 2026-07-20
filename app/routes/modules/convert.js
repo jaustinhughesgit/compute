@@ -246,6 +246,12 @@ function register({ on, use }) {
             reason: computeDiscovery.reason,
           });
         }
+        if (computeDiscovery.source === "model-error") {
+          return capabilityStateResponse({
+            status: "DISCOVERY_FAILED",
+            reason: computeDiscovery.reason || "Compute discovery could not produce a valid entity contract.",
+          });
+        }
 
         if (computeDiscovery.decision === "reuse" && computeDiscovery.existingManifest) {
           return capabilityStateResponse({

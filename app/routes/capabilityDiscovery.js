@@ -10,6 +10,70 @@ function cleanUtterance(value) {
   return String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, MAX_UTTERANCE_LENGTH);
 }
 
+function isObject(value) {
+  return !!value && typeof value === "object" && !Array.isArray(value);
+}
+
+// Discovery models sometimes place an otherwise complete operation beside
+// capabilityRequest, or flatten its fields onto capabilityRequest. Recover
+// those declared semantics without inferring any missing inputs or outputs.
+function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy) {
+  const request = isObject(parsed?.capabilityRequest)
+    ? { ...parsed.capabilityRequest }
+    : {};
+  request.capabilityIdHint ||= parsed?.capabilityId || request.capabilityId || request.name;
+  request.name ||= parsed?.name || request.title || request.capabilityIdHint || "Generated capability";
+  request.description ||=
+    parsed?.reason ||
+    request.summary ||
+    request.purpose ||
+    request.name ||
+    `Capability requested for: ${utterance}`;
+
+  if (!Array.isArray(request.operations) || !request.operations.length) {
+    if (Array.isArray(parsed?.operations) && parsed.operations.length) {
+      request.operations = parsed.operations;
+    } else if (isObject(request.operation)) {
+      request.operations = [request.operation];
+    } else if (isObject(parsed?.operation)) {
+      request.operations = [parsed.operation];
+    } else {
+      const semanticSource = [request, parsed].find((candidate) =>
+        isObject(candidate) && Array.isArray(candidate.outputs) && candidate.outputs.length
+      );
+      if (semanticSource) {
+        request.operations = [{
+          operationId: semanticSource.operationId || parsed?.operationId || null,
+          description: semanticSource.operationDescription || semanticSource.description || parsed?.reason || "Handle the requested capability.",
+          inputs: Array.isArray(semanticSource.inputs) ? semanticSource.inputs : [],
+          outputs: semanticSource.outputs,
+          freshness: semanticSource.freshness,
+          answerTemplate: semanticSource.answerTemplate,
+          utteranceExamples: semanticSource.utteranceExamples,
+        }];
+      }
+    }
+  }
+
+  if (Array.isArray(request.operations)) {
+    request.operations = request.operations.map((operation, index) => {
+      const normalized = { ...(isObject(operation) ? operation : {}) };
+      if (request.operations.length === 1) {
+        normalized.operationId ||= normalized.id || parsed?.operationId || null;
+      }
+      normalized.description ||=
+        normalized.summary ||
+        normalized.purpose ||
+        `Handle ${normalized.operationId || normalized.id || `operation ${index + 1}`}.`;
+      if (!Array.isArray(normalized.utteranceExamples) || !normalized.utteranceExamples.length) {
+        normalized.utteranceExamples = [utterance];
+      }
+      return normalized;
+    });
+  }
+  return { ...request, requestedBy };
+}
+
 function summarizeCapabilities(manifests) {
   const ranked = (Array.isArray(manifests) ? manifests : [])
     .filter((manifest) => manifest?.capabilityId && manifest?.entityId)
@@ -92,6 +156,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
           "decision is build_compute when fresh external data or deterministic calculation is required and no entity owns it.",
           "decision is not_compute for storage, recall, conversation, or interface commands, and clarify for genuine ambiguity.",
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
+          "Place every operation inside capabilityRequest.operations. capabilityRequest.operations must be a nonempty JSON array.",
           "Each operation declares typed inputs, typed outputs, freshness, answerTemplate, and diverse utteranceExamples.",
           "An utteranceExample may be a string or {text,inputs}. Use {text,inputs} for values captured from speech, for example {text:'What is the code for purple?',inputs:{color:'purple'}}.",
           "Every required input whose bindingHint source is utterance must appear by name in the inputs object of at least one utteranceExample.",
@@ -175,35 +240,9 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
     });
   }
   if (rawDecision === "build_compute") {
-    const rawBuildRequest = { ...(parsed.capabilityRequest || {}) };
-    rawBuildRequest.capabilityIdHint ||= parsed.capabilityId || rawBuildRequest.capabilityId || rawBuildRequest.name;
-    rawBuildRequest.name ||= parsed.name || rawBuildRequest.title || rawBuildRequest.capabilityIdHint || "Generated capability";
-    rawBuildRequest.description ||=
-      parsed.reason ||
-      rawBuildRequest.summary ||
-      rawBuildRequest.purpose ||
-      rawBuildRequest.name ||
-      `Capability requested for: ${utterance}`;
-    if (Array.isArray(rawBuildRequest.operations)) {
-      rawBuildRequest.operations = rawBuildRequest.operations.map((operation, index) => {
-        const normalized = { ...(operation || {}) };
-        if (rawBuildRequest.operations.length === 1) {
-          normalized.operationId ||= normalized.id || parsed.operationId || null;
-        }
-        normalized.description ||=
-          normalized.summary ||
-          normalized.purpose ||
-          `Handle ${normalized.operationId || normalized.id || `operation ${index + 1}`}.`;
-        if (!Array.isArray(normalized.utteranceExamples) || !normalized.utteranceExamples.length) {
-          normalized.utteranceExamples = [utterance];
-        }
-        return normalized;
-      });
-    }
-    const buildRequest = validateCapabilityBuildRequest({
-      ...rawBuildRequest,
-      requestedBy,
-    });
+    const buildRequest = validateCapabilityBuildRequest(
+      normalizeGeneratedBuildRequest(parsed, utterance, requestedBy)
+    );
     return discoveryEnvelope({
       decision: "build",
       source: "model",
@@ -256,5 +295,6 @@ module.exports = {
   cleanUtterance,
   deterministicDiscovery,
   summarizeCapabilities,
+  normalizeGeneratedBuildRequest,
   discoverComputeCapability,
 };

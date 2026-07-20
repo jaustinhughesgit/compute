@@ -12,7 +12,7 @@ const {
   validateTrustedImplementation,
   isBlockedHostname,
 } = require("../app/routes/capabilityBlueprints");
-const { discoverComputeCapability, summarizeCapabilities } = require("../app/routes/capabilityDiscovery");
+const { discoverComputeCapability, summarizeCapabilities, normalizeGeneratedBuildRequest } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
@@ -404,6 +404,52 @@ test("discovery carries top-level semantic IDs into an incomplete generated buil
   assert.equal(discovery.decision, "build");
   assert.equal(discovery.buildCommand.capabilityRequest.capabilityIdHint, "environment_conditions_lookup");
   assert.equal(discovery.buildCommand.capabilityRequest.operations[0].operationId, "current_conditions");
+});
+
+test("discovery recovers model-declared operations placed beside capabilityRequest", async () => {
+  const discovery = await discoverComputeCapability({
+    openai: modelReturning({
+      decision: "build_compute",
+      confidence: 0.9,
+      reason: "Fresh data is required.",
+      capabilityId: genericRequest.capabilityIdHint,
+      operationId: "lookup",
+      capabilityRequest: {
+        schemaVersion: 1,
+        kind: "computeCapabilityBuild",
+        name: genericRequest.name,
+        description: genericRequest.description,
+      },
+      operations: genericRequest.operations,
+    }),
+    utterance: "Look up conditions.",
+    requestedBy: "u:7",
+  });
+  assert.equal(discovery.decision, "build");
+  assert.equal(discovery.buildCommand.capabilityRequest.operations[0].operationId, "lookup");
+});
+
+test("flat operation fields are wrapped only when declared outputs exist", () => {
+  const recovered = normalizeGeneratedBuildRequest({
+    decision: "build_compute",
+    capabilityId: "color.lookup",
+    operationId: "lookup",
+    capabilityRequest: {
+      description: "Look up a color value.",
+      inputs: [{ name: "color", type: "string", required: true, bindingHint: { source: "utterance" } }],
+      outputs: [{ name: "code", type: "string", required: true }],
+      utteranceExamples: [{ text: "Code for purple?", inputs: { color: "purple" } }],
+      answerTemplate: "{{code}}",
+    },
+  }, "Code for purple?", "u:7");
+  assert.equal(recovered.operations.length, 1);
+  assert.equal(recovered.operations[0].operationId, "lookup");
+  const incomplete = normalizeGeneratedBuildRequest({
+    decision: "build_compute",
+    capabilityId: "incomplete.lookup",
+    capabilityRequest: { description: "Incomplete contract." },
+  }, "Use it.", "u:7");
+  assert.equal(Array.isArray(incomplete.operations), false);
 });
 
 test("discovery recovers descriptive metadata and examples without inventing behavior", async () => {

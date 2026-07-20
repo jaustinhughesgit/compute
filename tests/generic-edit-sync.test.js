@@ -49,3 +49,9 @@ test("Convert retires legacy generated implementations before generic reuse", ()
   assert.match(source, /IMPLEMENTATION_POLICY_UPGRADE/);
   assert.match(source, /setStatus\(legacy\.entityId, "failed"/);
 });
+
+test("Convert stops after discovery contract failure instead of creating a fallback entity", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  assert.match(source, /computeDiscovery\.source === "model-error"/);
+  assert.match(source, /status:\s*"DISCOVERY_FAILED"/);
+});
