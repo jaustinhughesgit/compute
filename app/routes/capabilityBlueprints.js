@@ -364,6 +364,33 @@ function ownEntryCaseInsensitive(object, wanted) {
   return key == null ? null : { key, value: object[key] };
 }
 
+function canonicalizeCredentialInjections(actions, requirements) {
+  const canonical = clone(actions);
+  const dynamicInputReference = /^.{0,80}\{\|req=>body\.[a-zA-Z0-9_.-]+\|\}$/;
+  for (const action of canonical) {
+    if (String(action?.target || "") !== "{|axios|}" || !Array.isArray(action.chain)) continue;
+    for (const step of action.chain) {
+      const rawUrl = String(step?.params?.[0] || "");
+      if (!rawUrl.startsWith("https://")) continue;
+      const host = new URL(rawUrl).hostname.toLowerCase();
+      const config = isObject(step.params?.[1]) ? step.params[1] : {};
+      for (const requirement of requirements.filter((candidate) => candidate.providerHost === host)) {
+        for (const field of requirement.fields) {
+          const container = field.injection.location === "header" ? config.headers : config.params;
+          const entry = ownEntryCaseInsensitive(container, field.injection.parameter);
+          if (!entry) continue;
+          const expected = `${field.injection.prefix || ""}{|req=>body.${field.name}|}`;
+          if (entry.value === expected) continue;
+          if (typeof entry.value === "string" && dynamicInputReference.test(entry.value)) {
+            container[entry.key] = expected;
+          }
+        }
+      }
+    }
+  }
+  return canonical;
+}
+
 function validateCredentialInjections(actions, requirements) {
   const scrubbed = clone(actions);
   const matches = new Map();
@@ -428,13 +455,18 @@ function validateTrustedImplementation(implementation) {
     throw new Error("compute entity implementation is too large");
   }
 
-  const modules = isObject(published.modules) ? published.modules : {};
+  const normalizedPublished = clone(published);
+  const modules = isObject(normalizedPublished.modules) ? normalizedPublished.modules : {};
   for (const [alias, packageName] of Object.entries(modules)) {
     if (!TRUSTED_MODULES.has(alias) || packageName !== alias) {
       throw new Error(`compute entity uses unapproved module ${alias}:${packageName}`);
     }
   }
-  const actions = Array.isArray(published.actions) ? published.actions : [];
+  const credentialRequirements = normalizedCredentialRequirements(normalizedPublished?.data?.credentialRequirements || []);
+  const actions = credentialRequirements.length
+    ? canonicalizeCredentialInjections(Array.isArray(normalizedPublished.actions) ? normalizedPublished.actions : [], credentialRequirements)
+    : (Array.isArray(normalizedPublished.actions) ? normalizedPublished.actions : []);
+  normalizedPublished.actions = actions;
   if (!actions.length || actions.length > 100) throw new Error("compute entity must contain 1 to 100 declarative actions");
   actions.forEach(validateAction);
 
@@ -449,7 +481,6 @@ function validateTrustedImplementation(implementation) {
     if (allowed.size && !allowed.has(host)) throw new Error(`compute entity provider host ${host} is not approved`);
     hosts.add(host);
   }
-  const credentialRequirements = normalizedCredentialRequirements(published?.data?.credentialRequirements || []);
   const actionText = JSON.stringify(actions);
   if (actionText.match(/\$\{|{{/)) {
     throw new Error("generated compute entities must use only declarative {|name|} placeholders");
@@ -468,7 +499,7 @@ function validateTrustedImplementation(implementation) {
   const hasResponse = actions.some((action) => String(action?.target || "").startsWith("{|res|}"));
   if (!hasResponse) throw new Error("compute entity must finish with a declarative response action");
   return {
-    published: clone(published),
+    published: normalizedPublished,
     allowedHosts: Array.from(hosts).sort(),
     credentialRequirements,
   };
@@ -616,6 +647,7 @@ module.exports = {
   validateTrustedImplementation,
   attachCredentialInputs,
   normalizedCredentialRequirements,
+  canonicalizeCredentialInjections,
   canonicalizeProviderUrls,
   isBlockedHostname,
 };
