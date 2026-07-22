@@ -198,8 +198,17 @@ function validateComputeCapabilityState(state, pattern) {
   if (!Number.isInteger(Number(compute.version)) || Number(compute.version) < 1) {
     throw new Error("right.state.compute.version must be a positive integer");
   }
-  if (String(pattern?.kind || "") !== "question" || String(state?.mode || "") !== "question") {
-    throw new Error("computeCapability Paths must be question Paths");
+  const inputKind = String(pattern?.kind || "").trim().toLowerCase();
+  const operationMode = String(state?.mode || "").trim().toLowerCase();
+  const declaredInputKind = String(state?.metadata?.inputKind || "").trim().toLowerCase();
+  if (!["question", "command"].includes(inputKind)) {
+    throw new Error("computeCapability Paths require question or command request syntax");
+  }
+  if (operationMode !== "question") {
+    throw new Error("computeCapability Paths must use read-only question operation mode");
+  }
+  if (declaredInputKind && declaredInputKind !== inputKind) {
+    throw new Error("computeCapability metadata.inputKind must equal the structural pattern kind");
   }
   if (String(pattern?.operation || "") !== "invoke_compute_capability" || String(state?.operation || "") !== "invoke_compute_capability") {
     throw new Error("computeCapability Paths must use invoke_compute_capability");
