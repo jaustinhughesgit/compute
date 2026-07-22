@@ -11,6 +11,12 @@ function register({ on, use }) {
   // Legacy constants (verbatim)
   // ────────────────────────────────────────────────────────────────────────────
   const tablesToClear = [
+    // Keep the core account/runtime tables first so a later optional-table
+    // failure cannot leave these behind after a reset.
+    'users',
+    'versions',
+    'paths',
+    'presence',
     'access',
     'cookies',
     'entities',
@@ -21,10 +27,7 @@ function register({ on, use }) {
     'tasks',
     'words',
     'verified',
-    'paths',
-    'users',
     'passphrases',
-    'versions',
     'email_bounce_events',
     'email_sends',
     'deliverability_blocks',
@@ -49,68 +52,88 @@ function register({ on, use }) {
     { tableName: 'ppCounter', primaryKey: 'ppCounter' }
   ];
 
-  const keySchemaMap = {
-    'access':   { partitionKey: 'ai' },
-    'cookies':  { partitionKey: 'ci' },
-    'entities': { partitionKey: 'e' },
-    'groups':   { partitionKey: 'g' },
-    'links':   { partitionKey: 'id' },
-    'schedules':{ partitionKey: 'si' },
-    'subdomains': { partitionKey: 'su' },
-    'tasks':    { partitionKey: 'ti' },
-    'words':    { partitionKey: 'a' },
-    'verified': { partitionKey: 'vi' },
-    'paths': { partitionKey: 'pi' },
-    'users': { partitionKey: 'userID' },
-    'passphrases': { partitionKey: 'passphraseID' },
-    'versions': { partitionKey: 'v', sortKey: 'd' },
-    'email_bounce_events': { partitionKey: 'id' },
-    'email_sends': { partitionKey: 'senderHash', sortKey: 'ts' },
-    'deliverability_blocks': { partitionKey: 'recipientHash', sortKey: 'scope' },
-    'email_metrics_daily': { partitionKey: 'senderUserID', sortKey: 'day'  },
-    'anchor_bands': { partitionKey: 'pk', sortKey: 'sk'  },
-  };
-
   // ────────────────────────────────────────────────────────────────────────────
-  // Legacy helpers (verbatim logic)
+  // Reset helpers
   // ────────────────────────────────────────────────────────────────────────────
-  async function clearTable(tableName, dynamodb) {
-    const params = { TableName: tableName };
-    let items;
-    do {
-      items = await dynamodb.scan(params).promise();
-      if (!items.Items || items.Items.length === 0) break;
+  const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-      const keySchema = keySchemaMap[tableName];
-      if (!keySchema || !keySchema.partitionKey) {
-        throw new Error(`Primary key attribute not defined for table ${tableName}`);
-      }
+  function isMissingTable(error) {
+    return error && error.code === 'ResourceNotFoundException';
+  }
 
-      const deleteRequests = items.Items.map((item) => {
-        if (item[keySchema.partitionKey] === undefined) {
-          throw new Error(`Partition key '${keySchema.partitionKey}' not found in item`);
-        }
-        const key = { [keySchema.partitionKey]: item[keySchema.partitionKey] };
-        if (keySchema.sortKey) {
-          if (item[keySchema.sortKey] === undefined) {
-            throw new Error(`Sort key '${keySchema.sortKey}' not found in item`);
+  async function writeDeleteBatch(tableName, batch, dynamodb) {
+    let pending = batch;
+
+    for (let attempt = 0; pending.length && attempt < 8; attempt += 1) {
+      const result = await dynamodb.batchWrite({
+        RequestItems: { [tableName]: pending },
+      }).promise();
+
+      pending = (result.UnprocessedItems && result.UnprocessedItems[tableName]) || [];
+      if (pending.length) await sleep(Math.min(50 * (2 ** attempt), 1000));
+    }
+
+    if (pending.length) {
+      throw new Error(`Unable to delete ${pending.length} item(s) from ${tableName}`);
+    }
+  }
+
+  async function clearTable(tableName, dynamodb, dynamodbLL) {
+    let description;
+    try {
+      description = await dynamodbLL.describeTable({ TableName: tableName }).promise();
+    } catch (error) {
+      if (isMissingTable(error)) return { tableName, deleted: 0, skipped: true };
+      throw error;
+    }
+
+    const keyNames = (description.Table && description.Table.KeySchema || [])
+      .sort((a, b) => (a.KeyType === 'HASH' ? -1 : 1) - (b.KeyType === 'HASH' ? -1 : 1))
+      .map((key) => key.AttributeName);
+
+    if (!keyNames.length) {
+      throw new Error(`No key schema found for table ${tableName}`);
+    }
+
+    const expressionNames = {};
+    const projection = keyNames.map((keyName, index) => {
+      const placeholder = `#k${index}`;
+      expressionNames[placeholder] = keyName;
+      return placeholder;
+    }).join(', ');
+
+    let deleted = 0;
+    while (true) {
+      // Always scan from the beginning after deleting a page. This avoids
+      // using a deleted LastEvaluatedKey and continues until the table is empty.
+      const page = await dynamodb.scan({
+        TableName: tableName,
+        ConsistentRead: true,
+        ProjectionExpression: projection,
+        ExpressionAttributeNames: expressionNames,
+      }).promise();
+
+      if (!page.Items || page.Items.length === 0) break;
+
+      const requests = page.Items.map((item) => {
+        const key = {};
+        for (const keyName of keyNames) {
+          if (item[keyName] === undefined) {
+            throw new Error(`Key '${keyName}' not found in an item from ${tableName}`);
           }
-          key[keySchema.sortKey] = item[keySchema.sortKey];
+          key[keyName] = item[keyName];
         }
         return { DeleteRequest: { Key: key } };
       });
 
-      const batches = [];
-      while (deleteRequests.length) {
-        batches.push(deleteRequests.splice(0, 25));
+      for (let index = 0; index < requests.length; index += 25) {
+        const batch = requests.slice(index, index + 25);
+        await writeDeleteBatch(tableName, batch, dynamodb);
+        deleted += batch.length;
       }
-      for (const batch of batches) {
-        const batchParams = { RequestItems: { [tableName]: batch } };
-        await dynamodb.batchWrite(batchParams).promise();
-      }
+    }
 
-      params.ExclusiveStartKey = items.LastEvaluatedKey;
-    } while (typeof items.LastEvaluatedKey !== 'undefined');
+    return { tableName, deleted, skipped: false };
   }
 
   async function resetCounter(counter, dynamodb) {
@@ -129,25 +152,50 @@ function register({ on, use }) {
   // ────────────────────────────────────────────────────────────────────────────
   on("resetDB", async (ctx /*, meta */) => {
     const dynamodb = getDocClient();
+    const dynamodbLL = deps.dynamodbLL;
+    const clearedTables = [];
+    const skippedTables = [];
+    const failures = [];
 
-    try {
-      for (const tableName of tablesToClear) {
-        await clearTable(tableName, dynamodb);
+    for (const tableName of tablesToClear) {
+      try {
+        const result = await clearTable(tableName, dynamodb, dynamodbLL);
+        if (result.skipped) skippedTables.push(tableName);
+        else clearedTables.push({ tableName, deleted: result.deleted });
+      } catch (error) {
+        console.error(`Error clearing table ${tableName}:`, error);
+        failures.push({ tableName, error: error.message });
       }
-      for (const counter of countersToReset) {
-        await resetCounter(counter, dynamodb);
-      }
-
-       ctx.res.setHeader("Set-Cookie",
-      "accessToken=; Max-Age=0; Path=/; Domain=.1var.com; HttpOnly; Secure; SameSite=None"
-    );
-      // Preserve legacy response shape: { ok: true, response: { alert: "success" } }
-      return { ok: true, response: { alert: "success" } };
-    } catch (error) {
-      console.error('Error resetting database:', error);
-      // Preserve legacy "failed" branch
-      return { ok: true, response: { alert: "failed" } };
     }
+
+    for (const counter of countersToReset) {
+      try {
+        await resetCounter(counter, dynamodb);
+      } catch (error) {
+        if (isMissingTable(error)) {
+          skippedTables.push(counter.tableName);
+        } else {
+          console.error(`Error resetting counter ${counter.tableName}:`, error);
+          failures.push({ tableName: counter.tableName, error: error.message });
+        }
+      }
+    }
+
+    if (failures.length === 0) {
+      ctx.res.setHeader("Set-Cookie",
+      "accessToken=; Max-Age=0; Path=/; Domain=.1var.com; HttpOnly; Secure; SameSite=None"
+      );
+      // Preserve legacy response shape: { ok: true, response: { alert: "success" } }
+      return {
+        ok: true,
+        response: { alert: "success", clearedTables, skippedTables },
+      };
+    }
+
+    return {
+      ok: true,
+      response: { alert: "failed", clearedTables, skippedTables, failures },
+    };
   });
 
   return { name: "resetDB" };
