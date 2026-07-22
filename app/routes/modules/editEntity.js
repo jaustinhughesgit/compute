@@ -207,6 +207,7 @@ function revisionInput({
           "Credential values must remain declared request-input references at their existing provider-specific injection points. Never add, reveal, replace, or relocate a credential.",
           "For a closed language set such as days of the week, enumerate representative utteranceExamples for every member plus relative forms the user requested; the browser will compile those examples locally.",
           "For utterance-bound variables, use semantic examples shaped as {text,inputs}; the browser—not Compute—will locate and tokenize those sample values into local slots.",
+          "Every value in a semantic example's inputs object must occur in that example's text as the same case-insensitive word sequence; omit annotations for values that are not literally present in the text.",
           "Compute supplies semantic examples only; never add token patterns, signatures, pathContracts, code, functions, imports, or secrets.",
           "Keep capabilityId, entityId, ownerId, and status unchanged. The server assigns the next manifest version.",
           "Before returning, review the complete revision against the user's request and correct any inconsistency between implementation, provider request, mappings, outputs, templates, and examples.",
@@ -276,6 +277,48 @@ async function retrieveRevision(jobId) {
     throw new Error("invalid revision job id");
   }
   return openAiResponsesRequest(`/${encodeURIComponent(jobId)}`);
+}
+
+function semanticExampleTokens(value) {
+  return String(value ?? "").toLowerCase().match(/[\p{L}\p{N}]+/gu) || [];
+}
+
+function containsTokenSequence(haystack, needle) {
+  if (!needle.length || needle.length > haystack.length) return false;
+  for (let start = 0; start <= haystack.length - needle.length; start += 1) {
+    if (needle.every((token, offset) => haystack[start + offset] === token)) return true;
+  }
+  return false;
+}
+
+function validateSemanticExampleInputs(manifest) {
+  for (const operation of Array.isArray(manifest?.operations) ? manifest.operations : []) {
+    const operationId = plainText(operation?.operationId, 200) || "(unknown operation)";
+    const declaredInputs = new Set((Array.isArray(operation?.inputs) ? operation.inputs : [])
+      .map((input) => plainText(input?.name, 200))
+      .filter(Boolean));
+    const examples = Array.isArray(operation?.utteranceExamples) ? operation.utteranceExamples : [];
+    examples.forEach((example, index) => {
+      if (!example || typeof example !== "object" || Array.isArray(example)) return;
+      const text = plainText(example.text || example.utterance, 10_000);
+      const textTokens = semanticExampleTokens(text);
+      const inputs = example.inputs && typeof example.inputs === "object" && !Array.isArray(example.inputs)
+        ? example.inputs
+        : {};
+      for (const [name, sampleValue] of Object.entries(inputs)) {
+        if (!declaredInputs.has(name)) {
+          throw new Error(`operation ${operationId} utterance example ${index + 1} references undeclared input ${name}`);
+        }
+        const sampleTokens = semanticExampleTokens(sampleValue);
+        if (!sampleTokens.length || !containsTokenSequence(textTokens, sampleTokens)) {
+          throw new Error(
+            `operation ${operationId} utterance example ${index + 1} input ${name} must use a sample value that appears in the example text`
+          );
+        }
+      }
+    });
+  }
+  return manifest;
 }
 
 function responseOutputText(response) {
@@ -624,6 +667,7 @@ function register({ on, use }) {
           entityId: request.entityId,
           ownerId: originalManifest.ownerId,
         });
+        validateSemanticExampleInputs(revisedManifest);
         revisedCandidate.published ||= {};
         revisedCandidate.published.computeCapability = revisedManifest;
         for (const executableField of ["function", "functions", "code", "script"]) {
@@ -827,5 +871,6 @@ module.exports = {
   responseOutputText,
   revisionInput,
   revisionRequestHash,
+  validateSemanticExampleInputs,
   validateRevisedEntity,
 };
