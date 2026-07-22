@@ -181,6 +181,7 @@ function revisionInput({
   currentManifest,
   request,
   entityId,
+  repairFeedback = [],
 }) {
   return {
     model,
@@ -226,6 +227,7 @@ function revisionInput({
           convertEssence: request.convertEssence,
           currentEntity,
           currentCapabilityManifest: currentManifest || null,
+          repairFeedback: repairFeedback.map((item) => plainText(item, 1_500)).filter(Boolean).slice(0, 8),
         }),
       },
     ],
@@ -260,10 +262,10 @@ async function openAiResponsesRequest(path, { method = "GET", body = null } = {}
   return payload;
 }
 
-async function startRevision({ model, currentEntity, currentManifest, request, entityId }) {
+async function startRevision({ model, currentEntity, currentManifest, request, entityId, repairFeedback = [] }) {
   const response = await openAiResponsesRequest("", {
     method: "POST",
-    body: revisionInput({ model, currentEntity, currentManifest, request, entityId }),
+    body: revisionInput({ model, currentEntity, currentManifest, request, entityId, repairFeedback }),
   });
   if (!response?.id) throw new Error("OpenAI did not return a background revision id");
   return response;
@@ -405,7 +407,7 @@ function register({ on, use }) {
         await dynamodb.update({
           TableName: "subdomains",
           Key: { su: request.entityId },
-          UpdateExpression: "REMOVE #editLock, #editLockExpires, #editJobId, #editJobHash, #editJobStartedAt",
+          UpdateExpression: "REMOVE #editLock, #editLockExpires, #editJobId, #editJobHash, #editJobStartedAt, #editJobAttempt",
           ConditionExpression: "#editLock = :lock",
           ExpressionAttributeNames: {
             "#editLock": "editLock",
@@ -413,6 +415,7 @@ function register({ on, use }) {
             "#editJobId": "editJobId",
             "#editJobHash": "editJobHash",
             "#editJobStartedAt": "editJobStartedAt",
+            "#editJobAttempt": "editJobAttempt",
           },
           ExpressionAttributeValues: { ":lock": expectedLock },
         }).promise();
@@ -487,7 +490,7 @@ function register({ on, use }) {
         await dynamodb.update({
           TableName: "subdomains",
           Key: { su: request.entityId },
-          UpdateExpression: "SET #editLock = :jobId, #editLockExpires = :expires, #editJobId = :jobId, #editJobHash = :hash, #editJobStartedAt = :startedAt",
+          UpdateExpression: "SET #editLock = :jobId, #editLockExpires = :expires, #editJobId = :jobId, #editJobHash = :hash, #editJobStartedAt = :startedAt, #editJobAttempt = :attempt",
           ConditionExpression: "#editLock = :startupLock",
           ExpressionAttributeNames: {
             "#editLock": "editLock",
@@ -495,6 +498,7 @@ function register({ on, use }) {
             "#editJobId": "editJobId",
             "#editJobHash": "editJobHash",
             "#editJobStartedAt": "editJobStartedAt",
+            "#editJobAttempt": "editJobAttempt",
           },
           ExpressionAttributeValues: {
             ":jobId": jobId,
@@ -502,6 +506,7 @@ function register({ on, use }) {
             ":hash": requestHash,
             ":startedAt": new Date().toISOString(),
             ":startupLock": startupLock,
+            ":attempt": 0,
           },
         }).promise();
         return {
@@ -574,6 +579,7 @@ function register({ on, use }) {
     let originalContentType = "application/json";
     let originalBucket = null;
     let wroteRevision = false;
+    let commitStarted = false;
     const releaseLock = () => releaseEditState(lockId);
 
     try {
@@ -635,6 +641,7 @@ function register({ on, use }) {
         throw new Error("the proposed revision did not materially apply the requested change");
       }
 
+      commitStarted = true;
       const nextVersion = currentVersion + 1;
       const updatedAt = new Date().toISOString();
       const backupKey = `entity-revisions/${request.entityId}/v${nextVersion}-previous-${Date.now()}.json`;
@@ -666,7 +673,7 @@ function register({ on, use }) {
         await dynamodb.update({
           TableName: "subdomains",
           Key: { su: request.entityId },
-          UpdateExpression: "SET #editVersion = :version, #editUpdatedAt = :updatedAt REMOVE #editLock, #editLockExpires, #editJobId, #editJobHash, #editJobStartedAt",
+          UpdateExpression: "SET #editVersion = :version, #editUpdatedAt = :updatedAt REMOVE #editLock, #editLockExpires, #editJobId, #editJobHash, #editJobStartedAt, #editJobAttempt",
           ConditionExpression: "#editLock = :lock AND #editJobId = :jobId",
           ExpressionAttributeNames: {
             "#editVersion": "editVersion",
@@ -676,6 +683,7 @@ function register({ on, use }) {
             "#editJobId": "editJobId",
             "#editJobHash": "editJobHash",
             "#editJobStartedAt": "editJobStartedAt",
+            "#editJobAttempt": "editJobAttempt",
           },
           ExpressionAttributeValues: {
             ":version": nextVersion,
@@ -708,6 +716,67 @@ function register({ on, use }) {
         },
       };
     } catch (error) {
+      const repairAttempt = Math.max(0, Number(activeJobRow.editJobAttempt || 0));
+      if (!commitStarted && originalObject && repairAttempt < 1) {
+        try {
+          const repairFeedback = [String(error?.message || error).slice(0, 1_500)];
+          const editModel = process.env.ENTITY_EDIT_MODEL || "gpt-5.6-terra";
+          const repair = await startRevision({
+            model: editModel,
+            currentEntity: originalObject,
+            currentManifest: originalManifest,
+            request,
+            entityId: request.entityId,
+            repairFeedback,
+          });
+          const repairJobId = plainText(repair.id, 200);
+          const nowSeconds = Math.floor(Date.now() / 1000);
+          await dynamodb.update({
+            TableName: "subdomains",
+            Key: { su: request.entityId },
+            UpdateExpression: "SET #editLock = :repairJobId, #editLockExpires = :expires, #editJobId = :repairJobId, #editJobStartedAt = :startedAt, #editJobAttempt = :attempt",
+            ConditionExpression: "#editLock = :previousJobId AND #editJobId = :previousJobId AND #editJobHash = :hash",
+            ExpressionAttributeNames: {
+              "#editLock": "editLock",
+              "#editLockExpires": "editLockExpires",
+              "#editJobId": "editJobId",
+              "#editJobHash": "editJobHash",
+              "#editJobStartedAt": "editJobStartedAt",
+              "#editJobAttempt": "editJobAttempt",
+            },
+            ExpressionAttributeValues: {
+              ":repairJobId": repairJobId,
+              ":previousJobId": request.jobId,
+              ":expires": nowSeconds + LOCK_SECONDS,
+              ":startedAt": new Date().toISOString(),
+              ":attempt": repairAttempt + 1,
+              ":hash": requestHash,
+            },
+          }).promise();
+          console.warn("editEntity validation requested background repair", {
+            entityId: request.entityId,
+            attempt: repairAttempt + 1,
+            feedback: repairFeedback[0],
+          });
+          return {
+            ok: true,
+            response: {
+              action: "editEntityQueued",
+              entityId: request.entityId,
+              jobId: repairJobId,
+              status: repair.status || "queued",
+              retryAfterMs: 2_000,
+              repairing: true,
+            },
+          };
+        } catch (repairError) {
+          console.error("editEntity repair start failed", {
+            entityId: request.entityId,
+            originalError: error?.message || String(error),
+            repairError: repairError?.message || String(repairError),
+          });
+        }
+      }
       if (wroteRevision && originalObject && originalBucket) {
         try {
           await s3.putObject({
@@ -733,8 +802,16 @@ function register({ on, use }) {
         code: error?.code || null,
         message: error?.message || String(error),
       });
-      res.status(400).json({ ok: false, error: error?.message || "Entity revision failed." });
-      return { __handled: true };
+      const failureMessage = error?.message || "Entity revision failed.";
+      return {
+        ok: false,
+        error: failureMessage,
+        response: {
+          action: "editEntityFailed",
+          entityId: request.entityId,
+          error: failureMessage,
+        },
+      };
     }
   });
 
