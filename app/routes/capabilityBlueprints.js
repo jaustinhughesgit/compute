@@ -20,40 +20,6 @@ const CREDENTIAL_FIELD = /(?:secret|password|token|credential|api[_-]?key|privat
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const isObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
-const PROVIDER_PROFILES = [{
-  profileId: "openweathermap.current_weather.v1",
-  match: /\b(?:weather|temperature|conditions?)\b/i,
-  providerId: "openweathermap",
-  providerName: "OpenWeatherMap",
-  providerHost: "api.openweathermap.org",
-  endpointUrl: "https://api.openweathermap.org/data/2.5/weather",
-  pathPrefix: "/data/2.5/weather",
-  locationParameter: "q",
-  locationInput: {
-    name: "location",
-    type: "string",
-    required: true,
-    description: "City, place, or other provider-compatible weather location.",
-    bindingHint: {
-      source: "contextdb",
-      subject: "speaker",
-      property: "location",
-      aliases: ["city", "place", "zipcode", "zip code", "postal code", "address"],
-    },
-    clarification: "What city or location should I use for the weather?",
-  },
-  units: "metric",
-  credential: {
-    requirementId: "openweathermap_credentials",
-    fieldName: "api_key",
-    location: "query",
-    parameter: "appid",
-    acquisition: {
-      url: "https://home.openweathermap.org/users/sign_up",
-      instructions: "Create or open an OpenWeatherMap account and copy an active API key.",
-    },
-  },
-}];
 
 function parseJsonObject(value, label = "JSON") {
   let parsed = value;
@@ -124,90 +90,39 @@ function configuredHostAllowlist() {
     .split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
 }
 
-function selectProviderProfile(buildRequest, originalUtterance = "") {
-  const searchable = [
-    originalUtterance,
-    buildRequest?.capabilityIdHint,
-    buildRequest?.name,
-    buildRequest?.description,
-    ...(buildRequest?.operations || []).flatMap((operation) => [
-      operation.operationId,
-      operation.description,
-      ...(operation.utteranceExamples || []).map((example) => example?.text || example),
-    ]),
-  ].filter(Boolean).join(" ");
-  return PROVIDER_PROFILES.find((profile) => profile.match.test(searchable)) || null;
-}
-
-function publicProviderProfile(profile) {
-  if (!profile) return null;
-  return {
-    profileId: profile.profileId,
-    providerId: profile.providerId,
-    providerName: profile.providerName,
-    providerHost: profile.providerHost,
-    endpointUrl: profile.endpointUrl,
-    pathPrefix: profile.pathPrefix,
-    locationParameter: profile.locationParameter,
-    locationInput: clone(profile.locationInput),
-    units: profile.units,
-    credential: clone(profile.credential),
-  };
-}
-
-function applyProviderProfile(generated, buildRequest, profile) {
-  if (!profile) return generated;
-  if (!isObject(generated?.published) || !Array.isArray(generated.published.actions)) return generated;
-  const providerActions = generated.published.actions.filter((action) => action?.target === "{|axios|}");
-  if (providerActions.length !== 1) {
-    throw new Error(`provider profile ${profile.profileId} requires exactly one axios action`);
+function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
+  const initial = validateCapabilityBuildRequest(rawBuildRequest);
+  if (rawInputRequirements != null && !Array.isArray(rawInputRequirements)) {
+    throw new Error("compute entity inputRequirements must be an array");
   }
-  const step = providerActions[0].chain?.find((candidate) => String(candidate?.access || "").toLowerCase() === "get");
-  if (!isObject(step) || !Array.isArray(step.params)) {
-    throw new Error(`provider profile ${profile.profileId} requires one declarative axios GET step`);
+  const augmented = clone(initial);
+  const operations = new Map(augmented.operations.map((operation) => [operation.operationId, operation]));
+  for (const [index, rawGroup] of (rawInputRequirements || []).entries()) {
+    if (!isObject(rawGroup)) throw new Error(`input requirement group ${index} must be an object`);
+    const operationId = canonicalizeGeneratedIdentifier(rawGroup.operationId);
+    const operation = operations.get(operationId);
+    if (!operation) {
+      throw new Error(`input requirement group ${index} references unknown operation ${operationId || "(blank)"}`);
+    }
+    if (!Array.isArray(rawGroup.inputs)) {
+      throw new Error(`input requirement group ${index} inputs must be an array`);
+    }
+    const existing = new Set(operation.inputs.map((input) => input.name));
+    for (const rawInput of rawGroup.inputs) {
+      if (!isObject(rawInput)) throw new Error(`input requirement for ${operationId} must be an object`);
+      const name = canonicalizeGeneratedIdentifier(rawInput.name || rawInput.id || rawInput.key);
+      if (!name) throw new Error(`input requirement for ${operationId} has an invalid name`);
+      if (CREDENTIAL_FIELD.test(name) || rawInput.sensitive === true || rawInput.credential != null) {
+        throw new Error(`protected value ${name} must be declared in protectedAssetRequirements`);
+      }
+      // The original capability contract wins on conflicts. Generated
+      // requirements may only add missing ordinary inputs.
+      if (existing.has(name)) continue;
+      operation.inputs.push({ ...clone(rawInput), name });
+      existing.add(name);
+    }
   }
-  const operation = buildRequest.operations[0];
-  operation.inputs ||= [];
-  let locationInput = operation.inputs.find((input) =>
-    /^(?:location|city|place|zipcode|zip_code|postal_code)$/.test(input.name)
-  );
-  if (!locationInput) {
-    locationInput = clone(profile.locationInput);
-    operation.inputs.push(locationInput);
-  }
-
-  const config = isObject(step.params[1]) ? clone(step.params[1]) : {};
-  const params = isObject(config.params) ? clone(config.params) : {};
-  const requirementId = profile.credential.requirementId;
-  const fieldName = profile.credential.fieldName;
-  params[profile.locationParameter] = `{|req=>body.${locationInput.name}|}`;
-  params.units = profile.units;
-  params[profile.credential.parameter] = `{|protected=>${requirementId}.${fieldName}|}`;
-  config.params = params;
-  step.params = [profile.endpointUrl, config];
-  generated.provider = profile.providerName;
-  generated.protectedAssetRequirements = [{
-    requirementId,
-    operationId: operation.operationId,
-    assetType: "credential",
-    providerId: profile.providerId,
-    providerName: profile.providerName,
-    providerHost: profile.providerHost,
-    purpose: `${buildRequest.capabilityIdHint}.${operation.operationId}`,
-    use: "inject",
-    approvalMode: "every_use",
-    acquisition: clone(profile.credential.acquisition),
-    fields: [{
-      name: fieldName,
-      required: true,
-      injection: {
-        location: profile.credential.location,
-        parameter: profile.credential.parameter,
-        prefix: "",
-      },
-    }],
-  }];
-  return generated;
+  return validateCapabilityBuildRequest(augmented);
 }
 
 function normalizeProtectedRequirements(rawRequirements, buildRequest = null) {
@@ -450,6 +365,14 @@ function validateTrustedImplementation(implementation) {
       || normalized?.data?.credentialRequirements
       || []
   );
+  for (const requirement of requirements) {
+    if (requirement.acquisition?.url) {
+      publicHttpsUrl(
+        requirement.acquisition.url,
+        `protected asset acquisition URL for ${requirement.requirementId}`
+      );
+    }
+  }
   let actions = canonicalizeAxiosResponsePaths(normalized.actions || []);
   actions = canonicalizeCredentialInjections(actions, requirements);
   normalized.actions = actions;
@@ -484,6 +407,23 @@ function validateTrustedImplementation(implementation) {
   return { published: normalized, allowedHosts: [...hosts].sort(), protectedAssetRequirements: requirements, credentialRequirements: requirements };
 }
 
+function validateImplementationBindings(implementation, buildRequest) {
+  const actions = implementation?.published?.actions || [];
+  const declared = new Set(
+    (buildRequest?.operations || []).flatMap((operation) =>
+      (operation.inputs || []).map((input) => input.name)
+    )
+  );
+  const text = JSON.stringify(actions);
+  const referenced = [...text.matchAll(/\{\|req=>body\.([^|{}]+)\|\}/g)]
+    .map((match) => String(match[1] || "").split(/[.[\]]/, 1)[0]);
+  const unknown = referenced.find((name) => !declared.has(name));
+  if (unknown) {
+    throw new Error(`compute entity implementation references undeclared ordinary input ${unknown}`);
+  }
+  return implementation;
+}
+
 function listCapabilityBlueprints() {
   return [
     {
@@ -501,17 +441,17 @@ function listCapabilityBlueprints() {
 
 async function generateImplementation({ openai, buildRequest, originalUtterance }) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
-  const providerProfile = selectProviderProfile(buildRequest, originalUtterance);
   const messages = [{
     role: "system",
     content: [
       "Create a declarative 1var entity implementation for the supplied capability contract.",
-      "Return JSON with name, provider, protectedAssetRequirements, and published only.",
+      "Return JSON with name, provider, inputRequirements, protectedAssetRequirements, and published only.",
       "published must be an object containing modules as an object, actions as an array of action objects, and data as an object; none of these container fields may be booleans or strings.",
+      "inputRequirements must be an array, including when empty. It may add missing ordinary inputs to an operation using {operationId,inputs:[{name,type,required,description,bindingHint,clarification}]}. Never put credentials or protected values there.",
       "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
-      "Required container shape: {\"name\":\"...\",\"provider\":\"...\",\"protectedAssetRequirements\":[],\"published\":{\"modules\":{\"axios\":\"axios\"},\"actions\":[],\"data\":{}}}. Populate the actions array with the required provider and response actions.",
-      "If approvedProviderProfile is supplied, use its exact endpointUrl and authentication contract. Do not substitute another host or omit its protected credential.",
-      "If no approvedProviderProfile is supplied, choose a real documented provider endpoint. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, or invented hostnames.",
+      "Required container shape: {\"name\":\"...\",\"provider\":\"...\",\"inputRequirements\":[],\"protectedAssetRequirements\":[],\"published\":{\"modules\":{\"axios\":\"axios\"},\"actions\":[],\"data\":{}}}. Populate the actions array with the required provider and response actions.",
+      "Choose a real documented provider endpoint appropriate to the requested capability. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, or invented hostnames.",
+      "Provider selection is data-driven. Include the chosen endpoint, required ordinary inputs, protected fields, and credential acquisition URL/instructions in this entity response; do not assume the shared runtime knows any provider.",
       "Use only declarative set, axios GET, and response send actions.",
       "An axios action must have exactly this shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{\"q\":\"{|req=>body.query|}\"}}]}],\"assign\":\"{|response|}\"}. The provider.invalid URL only illustrates JSON shape and must be replaced by a real approved endpoint.",
       "The final response action must have exactly this shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
@@ -530,7 +470,6 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     content: JSON.stringify({
       originalUtterance,
       capabilityContract: buildRequest,
-      approvedProviderProfile: publicProviderProfile(providerProfile),
     }),
   }];
   let lastError;
@@ -544,11 +483,12 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       const generated = canonicalizeProviderUrls(parseJsonObject(raw, "capability implementation response"));
-      applyProviderProfile(generated, buildRequest, providerProfile);
-      const requirements = normalizeProtectedRequirements(generated.protectedAssetRequirements || [], buildRequest);
+      const generatedBuildRequest = attachGeneratedInputs(buildRequest, generated.inputRequirements || []);
+      const requirements = normalizeProtectedRequirements(generated.protectedAssetRequirements || [], generatedBuildRequest);
       attachProtectedRequirementsToPublished(generated, requirements);
-      validateTrustedImplementation(generated);
-      generated.capabilityBuildRequest = attachCredentialInputs(buildRequest, requirements).buildRequest;
+      const checked = validateTrustedImplementation(generated);
+      generated.capabilityBuildRequest = attachCredentialInputs(generatedBuildRequest, requirements).buildRequest;
+      validateImplementationBindings(checked, generated.capabilityBuildRequest);
       return generated;
     } catch (error) {
       lastError = error;
@@ -576,22 +516,22 @@ async function buildComputeEntitySpec({
   generatedImplementation = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
-  const providerProfile = selectProviderProfile(initial, originalUtterance);
   const generated = canonicalizeProviderUrls(
     generatedImplementation || await generateImplementation({ openai, buildRequest: initial, originalUtterance })
   );
-  applyProviderProfile(generated, initial, providerProfile);
+  const generatedBuildRequest = attachGeneratedInputs(initial, generated.inputRequirements || []);
   const requirements = normalizeProtectedRequirements(
     generated.protectedAssetRequirements
       || generated.published?.data?.protectedAssetRequirements
       || generated.credentialRequirements
       || [],
-    initial
+    generatedBuildRequest
   );
-  const attached = attachCredentialInputs(initial, requirements);
+  const attached = attachCredentialInputs(generatedBuildRequest, requirements);
   attachProtectedRequirementsToPublished(generated, requirements);
   const checked = validateTrustedImplementation(generated);
   const buildRequest = attached.buildRequest;
+  validateImplementationBindings(checked, buildRequest);
   const capabilityId = buildRequest.capabilityIdHint;
   if (!capabilityId) throw new Error("generic capability build requires capabilityIdHint");
   const manifest = validateCapabilityManifest({
@@ -638,10 +578,12 @@ module.exports = {
   buildComputeEntitySpec,
   validateTrustedImplementation,
   attachCredentialInputs,
+  attachGeneratedInputs,
   normalizedCredentialRequirements,
   normalizeProtectedRequirements,
   canonicalizeAxiosResponsePaths,
   canonicalizeCredentialInjections,
   canonicalizeProviderUrls,
   isBlockedHostname,
+  validateImplementationBindings,
 };
