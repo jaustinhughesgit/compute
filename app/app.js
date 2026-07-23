@@ -2153,6 +2153,20 @@ async function runApp(oldReq, res, next) {
                 whileLimit: 100,
                 root: { context: { session } }
             };
+            // Protected Asset plaintext lives only in this in-memory execution
+            // context. It is deliberately not copied into req.body, serialized,
+            // persisted, or exposed to ordinary entity inputs.
+            if (oldReq && oldReq.protectedAssetBindings) {
+                Object.defineProperty(req.lib.root.context, "protected", {
+                    configurable: true,
+                    enumerable: false,
+                    writable: false,
+                    value: {
+                        value: oldReq.protectedAssetBindings,
+                        context: Object.create(null),
+                    },
+                });
+            }
             req.dynPath = req.path === "/" ? "/cookies/runEntity" : req.path;
             if (
                 !req.lib.isMiddlewareInitialized &&

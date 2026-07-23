@@ -106,6 +106,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/embed");
   reg("./modules/users");
   reg("./modules/passphrases");
+  reg("./modules/protectedAssets");
   reg("./modules/map");
   reg("./modules/extend");
   reg("./modules/saveFile");

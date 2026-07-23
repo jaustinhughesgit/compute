@@ -1,33 +1,136 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
 Description: >
-  compute
+  Compute API with universal Protected Asset storage and an authorized
+  execution-boundary KMS key.
 
-  Sample SAM Template for compute
-
-# ##More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
 Globals:
   Function:
-    Timeout: 10
-
+    # Capability manifests allow provider calls up to 15 seconds. Leave enough
+    # Lambda time for policy checks, execution, audit writes, and cleanup.
+    Timeout: 30
     Tracing: Active
   Api:
     TracingEnabled: true
+
 Resources:
   ComputeFunction:
-    Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+    Type: AWS::Serverless::Function
     Properties:
       CodeUri: app/
       Handler: app.lambdaHandler
       Runtime: nodejs18.x
       Architectures:
-      - x86_64
+        - x86_64
+      Environment:
+        Variables:
+          PROTECTED_ASSETS_TABLE: !Ref ProtectedAssetsTable
+          PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
+          PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
+      Policies:
+        - Version: '2012-10-17'
+          Statement:
+            - Sid: UseProtectedAssetsTable
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+              Resource:
+                - !GetAtt ProtectedAssetsTable.Arn
+                - !Sub ${ProtectedAssetsTable.Arn}/index/*
+            - Sid: UseProtectedAssetAuditTable
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Query
+              Resource: !GetAtt ProtectedAssetAuditTable.Arn
+            - Sid: UseProtectedAssetExecutorKey
+              Effect: Allow
+              Action:
+                - kms:GetPublicKey
+                - kms:Decrypt
+              Resource: !GetAtt ProtectedAssetExecutorKey.Arn
       Events:
         Compute:
-          Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
+          Type: Api
           Properties:
             Path: /{proxy}
             Method: any
+
+  ProtectedAssetsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: assetId
+          AttributeType: S
+        - AttributeName: ownerId
+          AttributeType: S
+        - AttributeName: updatedAt
+          AttributeType: S
+      KeySchema:
+        - AttributeName: assetId
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: ownerId-updatedAt-index
+          KeySchema:
+            - AttributeName: ownerId
+              KeyType: HASH
+            - AttributeName: updatedAt
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  ProtectedAssetAuditTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: assetId
+          AttributeType: S
+        - AttributeName: eventKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: assetId
+          KeyType: HASH
+        - AttributeName: eventKey
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  ProtectedAssetExecutorKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: >
+        Asymmetric execution-boundary key for wrapping Protected Asset content
+        keys. Its private key remains inside AWS KMS.
+      Enabled: true
+      KeySpec: RSA_3072
+      KeyUsage: ENCRYPT_DECRYPT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountIAMPolicies
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
 
   ApplicationResourceGroup:
     Type: AWS::ResourceGroups::Group
@@ -36,16 +139,15 @@ Resources:
         Fn::Sub: ApplicationInsights-SAM-${AWS::StackName}
       ResourceQuery:
         Type: CLOUDFORMATION_STACK_1_0
+
   ApplicationInsightsMonitoring:
     Type: AWS::ApplicationInsights::Application
     Properties:
       ResourceGroupName:
         Ref: ApplicationResourceGroup
       AutoConfigurationEnabled: 'true'
+
 Outputs:
-  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
-  # Find out more about other implicit resources you can reference within SAM
-  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   ComputeApi:
     Description: API Gateway endpoint URL for Prod stage for Compute function
     Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/"
@@ -55,3 +157,12 @@ Outputs:
   ComputeFunctionIamRole:
     Description: Implicit IAM Role created for Compute function
     Value: !GetAtt ComputeFunctionRole.Arn
+  ProtectedAssetsTableName:
+    Description: Protected Asset encrypted-envelope table
+    Value: !Ref ProtectedAssetsTable
+  ProtectedAssetAuditTableName:
+    Description: Protected Asset append-only audit table
+    Value: !Ref ProtectedAssetAuditTable
+  ProtectedAssetExecutorKeyArn:
+    Description: KMS key ARN used only at the authorized execution boundary
+    Value: !GetAtt ProtectedAssetExecutorKey.Arn

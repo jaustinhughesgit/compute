@@ -1,8 +1,12 @@
-// routes/capabilityManifest.js
 "use strict";
 
+const {
+  ProtectedAssetError,
+  normalizeProtectedAssetRequirement,
+} = require("./protectedAssetContract");
+
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 5;
+const IMPLEMENTATION_POLICY_VERSION = 6;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -20,27 +24,18 @@ class CapabilityError extends Error {
   }
 }
 
-const clone = (value) => {
-  if (value == null) return value;
-  return JSON.parse(JSON.stringify(value));
-};
-
+const clone = (value) => value == null ? value : JSON.parse(JSON.stringify(value));
 const isObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
 
 function requireObject(value, name) {
-  if (!isObject(value)) {
-    throw new CapabilityError("INVALID_MANIFEST", `${name} must be an object`);
-  }
+  if (!isObject(value)) throw new CapabilityError("INVALID_MANIFEST", `${name} must be an object`);
   return value;
 }
 
 function normalizeId(value, name) {
   const id = String(value || "").trim().toLowerCase();
   if (!/^[a-z][a-z0-9_.-]{1,127}$/.test(id)) {
-    throw new CapabilityError(
-      "INVALID_MANIFEST",
-      `${name} must start with a letter and contain only lowercase letters, numbers, dots, underscores, or hyphens`
-    );
+    throw new CapabilityError("INVALID_MANIFEST", `${name} is invalid`);
   }
   return id;
 }
@@ -55,89 +50,6 @@ function canonicalizeGeneratedIdentifier(value) {
     .replace(/^[_ .-]+|[_ .-]+$/g, "");
 }
 
-function canonicalizeGeneratedOperations(rawOperations) {
-  const typeAliases = new Map([
-    ["text", "string"], ["enum", "string"], ["location", "string"],
-    ["float", "number"], ["double", "number"], ["decimal", "number"],
-    ["percentage", "number"], ["percent", "number"],
-    ["int", "integer"], ["bool", "boolean"],
-    ["json", "object"], ["map", "object"], ["dictionary", "object"],
-    ["list", "array"], ["timestamp", "datetime"],
-  ]);
-  const sourceAliases = new Map([
-    ["context", "contextdb"], ["context_db", "contextdb"],
-    ["memory", "contextdb"], ["profile", "contextdb"],
-    ["speech", "utterance"], ["query", "utterance"],
-    ["user_input", "utterance"], ["input", "utterance"],
-    ["env", "environment"], ["system", "environment"],
-    ["constant", "default"], ["literal", "default"],
-  ]);
-  return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation, operationIndex) => {
-    const operation = clone(rawOperation || {});
-    operation.operationId = canonicalizeGeneratedIdentifier(
-      operation.operationId || operation.id || operation.name || operation.title
-    );
-    if (operation.operationId.length < 2) operation.operationId = `operation_${operationIndex + 1}`;
-    const nameMap = new Map();
-    for (const collectionName of ["inputs", "outputs"]) {
-      operation[collectionName] = (Array.isArray(operation[collectionName]) ? operation[collectionName] : [])
-        .map((rawField, fieldIndex) => {
-          const field = clone(rawField || {});
-          const original = String(field.name || field.id || field.key || field.label || "").trim();
-          const fallbackPrefix = collectionName === "inputs" ? "input" : "output";
-          const canonical = canonicalizeGeneratedIdentifier(original) || `${fallbackPrefix}_${fieldIndex + 1}`;
-          if (original) {
-            nameMap.set(original, canonical);
-            nameMap.set(original.toLowerCase(), canonical);
-          }
-          field.name = canonical;
-          const rawType = String(field.type || "").trim().toLowerCase();
-          field.type = typeAliases.get(rawType) || rawType;
-          if (isObject(field.bindingHint)) {
-            const rawSource = String(field.bindingHint.source || "").trim().toLowerCase();
-            field.bindingHint.source = sourceAliases.get(rawSource) || rawSource;
-            if (field.bindingHint.source === "contextdb") {
-              field.bindingHint.subject = String(field.bindingHint.subject || "speaker").trim();
-              field.bindingHint.property = String(field.bindingHint.property || canonical).trim();
-            }
-            if (field.bindingHint.source === "environment" && !field.bindingHint.resolver) {
-              field.bindingHint.resolver = field.type === "date" ? "relative_date" : canonical;
-            }
-          }
-          if (collectionName === "inputs" && field.required !== false && !String(field.clarification || "").trim()) {
-            field.clarification = `What value should I use for ${canonical.replace(/[_.-]+/g, " ")}?`;
-          }
-          return field;
-        });
-    }
-    operation.utteranceExamples = (Array.isArray(operation.utteranceExamples) ? operation.utteranceExamples : [])
-      .map((rawExample) => {
-        if (!isObject(rawExample)) return rawExample;
-        const example = clone(rawExample);
-        if (isObject(example.inputs)) {
-          example.inputs = Object.fromEntries(Object.entries(example.inputs).map(([name, value]) => {
-            const canonical = nameMap.get(name) || nameMap.get(String(name).toLowerCase()) || canonicalizeGeneratedIdentifier(name);
-            return [canonical, value];
-          }));
-        }
-        return example;
-      });
-    if (operation.answerTemplate != null) {
-      operation.answerTemplate = String(operation.answerTemplate)
-        .replace(/(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g, (_whole, prefix, name) => `${prefix}{{${String(name).trim()}}}`)
-        .replace(
-        /{{\s*([^}|]+)([^}]*)}}/g,
-        (whole, rawName, suffix) => {
-          const name = String(rawName || "").trim();
-          const canonical = nameMap.get(name) || nameMap.get(name.toLowerCase());
-          return canonical ? `{{${canonical}${suffix}}}` : whole;
-        }
-      );
-    }
-    return operation;
-  });
-}
-
 function normalizeBindingHint(raw, inputName) {
   if (raw == null) return null;
   const hint = requireObject(raw, `input ${inputName} bindingHint`);
@@ -145,61 +57,15 @@ function normalizeBindingHint(raw, inputName) {
   if (!BINDING_SOURCES.has(source)) {
     throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} has unsupported binding source ${source || "(blank)"}`);
   }
-
   const normalized = { source };
   if (hint.subject != null) normalized.subject = String(hint.subject).trim();
   if (hint.property != null) normalized.property = String(hint.property).trim();
   if (hint.resolver != null) normalized.resolver = String(hint.resolver).trim();
   if (hint.value != null) normalized.value = clone(hint.value);
-  if (Array.isArray(hint.aliases)) {
-    normalized.aliases = hint.aliases.map((value) => String(value || "").trim()).filter(Boolean).slice(0, 25);
-  }
-
+  if (Array.isArray(hint.aliases)) normalized.aliases = hint.aliases.map(String).filter(Boolean).slice(0, 25);
   if (source === "contextdb" && (!normalized.subject || !normalized.property)) {
-    throw new CapabilityError(
-      "INVALID_MANIFEST",
-      `input ${inputName} contextdb binding requires subject and property`
-    );
+    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} contextdb binding requires subject and property`);
   }
-  return normalized;
-}
-
-function normalizeCredentialInputMetadata(raw, inputName) {
-  if (raw == null) return null;
-  const credential = requireObject(raw, `input ${inputName} credential`);
-  const requirementId = normalizeId(credential.requirementId, `input ${inputName} credential requirementId`);
-  const providerId = normalizeId(credential.providerId, `input ${inputName} credential providerId`);
-  const providerHost = String(credential.providerHost || "").trim().toLowerCase();
-  if (!providerHost || !/^[a-z0-9.-]+$/.test(providerHost)) {
-    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential providerHost is invalid`);
-  }
-  const injection = requireObject(credential.injection, `input ${inputName} credential injection`);
-  const location = String(injection.location || "").trim().toLowerCase();
-  if (!["query", "header"].includes(location)) {
-    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential injection location must be query or header`);
-  }
-  const parameter = String(injection.parameter || "").trim();
-  if (!parameter || parameter.length > 128 || /[\r\n]/.test(parameter)) {
-    throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} credential injection parameter is invalid`);
-  }
-  const normalized = {
-    schemaVersion: 1,
-    managerCapabilityId: "credential_manager",
-    requirementId,
-    providerId,
-    providerName: String(credential.providerName || providerId).trim().slice(0, 160),
-    providerHost,
-    authScheme: String(credential.authScheme || "custom").trim().toLowerCase().slice(0, 64),
-    consentRequired: credential.consentRequired === true,
-    consentPrompt: String(credential.consentPrompt || "").trim().slice(0, 500),
-    collectionPrompt: String(credential.collectionPrompt || "").trim().slice(0, 500),
-    acquisition: isObject(credential.acquisition) ? clone(credential.acquisition) : null,
-    injection: {
-      location,
-      parameter,
-      prefix: String(injection.prefix || "").slice(0, 80),
-    },
-  };
   return normalized;
 }
 
@@ -210,281 +76,36 @@ function normalizeValueField(raw, kind) {
   if (!VALUE_TYPES.has(type)) {
     throw new CapabilityError("INVALID_MANIFEST", `${kind} ${name} has unsupported type ${type || "(blank)"}`);
   }
-
-  const normalized = {
-    name,
-    type,
-    required: field.required !== false,
-  };
-  if (field.description != null) normalized.description = String(field.description).trim();
-  if (field.sensitive === true) normalized.sensitive = true;
-  if (Object.prototype.hasOwnProperty.call(field, "defaultValue")) {
-    normalized.defaultValue = clone(field.defaultValue);
-  }
-  if (field.validation != null) {
-    normalized.validation = clone(requireObject(field.validation, `${kind} ${name} validation`));
-  }
+  const normalized = { name, type, required: field.required !== false };
+  if (field.description != null) normalized.description = String(field.description).trim().slice(0, 1000);
+  if (Object.prototype.hasOwnProperty.call(field, "defaultValue")) normalized.defaultValue = clone(field.defaultValue);
+  if (field.validation != null) normalized.validation = clone(requireObject(field.validation, `${kind} ${name} validation`));
   if (kind === "input") {
+    if (field.sensitive === true || field.credential != null) {
+      throw new CapabilityError(
+        "PLAINTEXT_ASSET_INPUT_FORBIDDEN",
+        `input ${name} may not carry a credential or protected value; declare protectedAssetRequirements instead`
+      );
+    }
     normalized.bindingHint = normalizeBindingHint(field.bindingHint, name);
-    if (field.clarification != null) normalized.clarification = String(field.clarification).trim();
-    if (field.credential != null) {
-      if (field.sensitive !== true || normalized.bindingHint?.source !== "contextdb") {
-        throw new CapabilityError(
-          "INVALID_MANIFEST",
-          `credential input ${name} must be sensitive and ContextDB-bound`
-        );
-      }
-      normalized.credential = normalizeCredentialInputMetadata(field.credential, name);
-    }
+    if (field.clarification != null) normalized.clarification = String(field.clarification).trim().slice(0, 500);
   }
   return normalized;
-}
-
-function normalizeOperation(raw) {
-  const operation = requireObject(raw, "operation");
-  const operationId = normalizeId(operation.operationId, "operationId");
-  const inputs = Array.isArray(operation.inputs) ? operation.inputs.map((item) => normalizeValueField(item, "input")) : [];
-  const outputs = Array.isArray(operation.outputs) ? operation.outputs.map((item) => normalizeValueField(item, "output")) : [];
-
-  const unique = (items, label) => {
-    const names = new Set();
-    for (const item of items) {
-      if (names.has(item.name)) {
-        throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} contains duplicate ${label} ${item.name}`);
-      }
-      names.add(item.name);
-    }
-  };
-  unique(inputs, "input");
-  unique(outputs, "output");
-  if (!outputs.length) {
-    throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} must declare at least one output`);
-  }
-
-  const normalized = {
-    operationId,
-    description: String(operation.description || "").trim(),
-    inputs,
-    outputs,
-  };
-  if (isObject(operation.freshness)) {
-    const ttlSeconds = Number(operation.freshness.ttlSeconds || 0);
-    normalized.freshness = {
-      mode: String(operation.freshness.mode || (ttlSeconds > 0 ? "cache" : "none")),
-      ttlSeconds: Number.isFinite(ttlSeconds) && ttlSeconds >= 0 ? Math.floor(ttlSeconds) : 0,
-    };
-  }
-  if (Array.isArray(operation.utteranceExamples)) {
-    normalized.utteranceExamples = operation.utteranceExamples
-      .map((value) => {
-        if (typeof value === "string") return value.trim();
-        if (!isObject(value)) return null;
-        const text = String(value.text || value.utterance || "").trim();
-        const sampleInputs = isObject(value.inputs) ? value.inputs : {};
-        const inputsByName = new Map(inputs.map((input) => [input.name, input]));
-        const normalizedInputs = {};
-        for (const [name, sample] of Object.entries(sampleInputs)) {
-          const input = inputsByName.get(String(name).trim().toLowerCase());
-          if (!input) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} example references unknown input ${name}`);
-          validateFieldValue(input, sample, "example input");
-          normalizedInputs[input.name] = clone(sample);
-        }
-        return text ? { text, inputs: normalizedInputs } : null;
-      })
-      .filter(Boolean)
-      .slice(0, 40);
-  }
-  const requiredUtteranceInputs = inputs.filter((input) =>
-    input.required && input.bindingHint?.source === "utterance"
-  );
-  for (const input of requiredUtteranceInputs) {
-    const hasAnnotatedExample = (normalized.utteranceExamples || []).some((example) =>
-      isObject(example)
-      && Object.prototype.hasOwnProperty.call(example.inputs || {}, input.name)
-    );
-    if (!hasAnnotatedExample) {
-      throw new CapabilityError(
-        "INVALID_MANIFEST",
-        `operation ${operationId} requires an annotated utterance example for input ${input.name}`
-      );
-    }
-  }
-  // Compute describes meaning and invocation. It must never prescribe the
-  // browser's token grammar, signatures, slots, or structural Path pattern.
-  if (operation.pathContracts != null || operation.pattern != null || operation.signatureSlots != null) {
-    throw new CapabilityError(
-      "INVALID_MANIFEST",
-      `operation ${operationId} contains browser-owned Path fields`
-    );
-  }
-  if (operation.answerTemplate != null) {
-    const answerTemplate = String(operation.answerTemplate || "").trim();
-    if (!answerTemplate || answerTemplate.length > 1500) {
-      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an invalid answerTemplate`);
-    }
-    const declaredTemplateValues = new Set([
-      ...inputs.map((input) => input.name),
-      ...outputs.map((output) => output.name),
-    ]);
-    const placeholders = [...answerTemplate.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)]
-      .map((match) => match[1]);
-    const unknownPlaceholder = placeholders.find((name) => !declaredTemplateValues.has(name));
-    if (unknownPlaceholder) {
-      throw new CapabilityError(
-        "INVALID_MANIFEST",
-        `operation ${operationId} answerTemplate references undeclared value ${unknownPlaceholder}`
-      );
-    }
-    const sensitiveNames = new Set(inputs.filter((input) => input.sensitive).map((input) => input.name));
-    const sensitivePlaceholder = placeholders.find((name) => sensitiveNames.has(name));
-    if (sensitivePlaceholder) {
-      throw new CapabilityError(
-        "INVALID_MANIFEST",
-        `operation ${operationId} answerTemplate may not expose sensitive input ${sensitivePlaceholder}`
-      );
-    }
-    normalized.answerTemplate = answerTemplate;
-  }
-  return normalized;
-}
-
-function validateCapabilityManifest(raw, options = {}) {
-  const manifest = requireObject(raw, "capability manifest");
-  const schemaVersion = Number(manifest.schemaVersion);
-  if (schemaVersion !== CAPABILITY_SCHEMA_VERSION) {
-    throw new CapabilityError(
-      "UNSUPPORTED_MANIFEST_VERSION",
-      `capability manifest schemaVersion must be ${CAPABILITY_SCHEMA_VERSION}`
-    );
-  }
-
-  const entityId = String(options.entityId || manifest.entityId || "").trim();
-  if (!entityId) throw new CapabilityError("INVALID_MANIFEST", "entityId is required");
-  const version = Number(manifest.version);
-  if (!Number.isInteger(version) || version < 1) {
-    throw new CapabilityError("INVALID_MANIFEST", "version must be a positive integer");
-  }
-  const status = String(manifest.status || "testing").trim().toLowerCase();
-  if (!CAPABILITY_STATUSES.has(status)) {
-    throw new CapabilityError("INVALID_MANIFEST", `unsupported capability status ${status}`);
-  }
-
-  const executionRaw = isObject(manifest.execution) ? manifest.execution : {};
-  const executionType = String(executionRaw.type || "remote").trim().toLowerCase();
-  if (!EXECUTION_TYPES.has(executionType)) {
-    throw new CapabilityError("INVALID_MANIFEST", `unsupported execution type ${executionType}`);
-  }
-  const timeoutMs = Number(executionRaw.timeoutMs || 10000);
-  if (!Number.isFinite(timeoutMs) || timeoutMs < 250 || timeoutMs > 120000) {
-    throw new CapabilityError("INVALID_MANIFEST", "execution.timeoutMs must be between 250 and 120000");
-  }
-
-  const operations = Array.isArray(manifest.operations)
-    ? manifest.operations.map(normalizeOperation)
-    : [];
-  if (!operations.length) {
-    throw new CapabilityError("INVALID_MANIFEST", "capability must declare at least one operation");
-  }
-  const operationIds = new Set();
-  for (const operation of operations) {
-    if (operationIds.has(operation.operationId)) {
-      throw new CapabilityError("INVALID_MANIFEST", `duplicate operation ${operation.operationId}`);
-    }
-    operationIds.add(operation.operationId);
-  }
-
-  const normalized = {
-    schemaVersion: CAPABILITY_SCHEMA_VERSION,
-    capabilityId: normalizeId(manifest.capabilityId, "capabilityId"),
-    entityId,
-    version,
-    status,
-    description: String(manifest.description || "").trim(),
-    ownerId: String(options.ownerId || manifest.ownerId || "system"),
-    execution: {
-      type: executionType,
-      readOnly: executionRaw.readOnly !== false,
-      timeoutMs: Math.floor(timeoutMs),
-    },
-    operations,
-    implementationPolicyVersion: Number.isInteger(Number(manifest.implementationPolicyVersion))
-      ? Math.max(1, Number(manifest.implementationPolicyVersion))
-      : 1,
-  };
-  if (manifest.name != null) normalized.name = String(manifest.name).trim().slice(0, 160);
-  if (manifest.createdAt) normalized.createdAt = String(manifest.createdAt);
-  if (manifest.updatedAt) normalized.updatedAt = String(manifest.updatedAt);
-  return normalized;
-}
-
-function validateCapabilityBuildRequest(raw) {
-  const request = requireObject(raw, "capability build request");
-  const schemaVersion = Number(request.schemaVersion || CAPABILITY_SCHEMA_VERSION);
-  if (schemaVersion !== CAPABILITY_SCHEMA_VERSION) {
-    throw new CapabilityError(
-      "UNSUPPORTED_MANIFEST_VERSION",
-      `capability build request schemaVersion must be ${CAPABILITY_SCHEMA_VERSION}`
-    );
-  }
-  const kind = String(request.kind || "computeCapabilityBuild").trim();
-  if (kind !== "computeCapabilityBuild") {
-    throw new CapabilityError("INVALID_BUILD_REQUEST", "kind must be computeCapabilityBuild");
-  }
-  const description = String(
-    request.description || request.summary || request.purpose || request.name || ""
-  ).trim();
-  if (!description) {
-    throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
-  }
-  const operations = Array.isArray(request.operations)
-    ? canonicalizeGeneratedOperations(request.operations).map(normalizeOperation)
-    : [];
-  if (!operations.length) {
-    throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
-  }
-  const normalized = {
-    schemaVersion: CAPABILITY_SCHEMA_VERSION,
-    kind,
-    description,
-    operations,
-  };
-  if (request.name != null) normalized.name = String(request.name).trim().slice(0, 160);
-  const generatedCapabilityId = request.capabilityIdHint || request.capabilityId || request.name;
-  if (generatedCapabilityId) {
-    normalized.capabilityIdHint = normalizeId(
-      canonicalizeGeneratedIdentifier(generatedCapabilityId),
-      "capabilityIdHint"
-    );
-  }
-  if (request.requestedBy != null) normalized.requestedBy = String(request.requestedBy);
-  return normalized;
-}
-
-function getCapabilityOperation(manifest, operationId) {
-  const id = String(operationId || "").trim().toLowerCase();
-  const operation = manifest.operations.find((item) => item.operationId === id);
-  if (!operation) {
-    throw new CapabilityError("UNKNOWN_OPERATION", `capability ${manifest.capabilityId} has no operation ${id || "(blank)"}`);
-  }
-  return operation;
-}
-
-function valueMatchesType(value, type) {
-  if (type === "any") return true;
-  if (type === "string" || type === "date" || type === "datetime" || type === "file") return typeof value === "string";
-  if (type === "number") return typeof value === "number" && Number.isFinite(value);
-  if (type === "integer") return Number.isInteger(value);
-  if (type === "boolean") return typeof value === "boolean";
-  if (type === "array") return Array.isArray(value);
-  if (type === "object") return isObject(value);
-  return false;
 }
 
 function validateFieldValue(field, value, label) {
-  if (!valueMatchesType(value, field.type)) {
-    throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} must be ${field.type}`, {
+  const type = field.type;
+  const matches = type === "any"
+    || (["string", "date", "datetime", "file"].includes(type) && typeof value === "string")
+    || (type === "number" && typeof value === "number" && Number.isFinite(value))
+    || (type === "integer" && Number.isInteger(value))
+    || (type === "boolean" && typeof value === "boolean")
+    || (type === "array" && Array.isArray(value))
+    || (type === "object" && isObject(value));
+  if (!matches) {
+    throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} must be ${type}`, {
       field: field.name,
-      expectedType: field.type,
+      expectedType: type,
     });
   }
   const rules = field.validation || {};
@@ -496,40 +117,239 @@ function validateFieldValue(field, value, label) {
       throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} is too long`, { field: field.name });
     }
     if (rules.pattern) {
-      let re;
-      try { re = new RegExp(String(rules.pattern)); } catch (_) {
+      let pattern;
+      try { pattern = new RegExp(String(rules.pattern)); } catch (_) {
         throw new CapabilityError("INVALID_MANIFEST", `${label} ${field.name} has an invalid validation pattern`);
       }
-      if (!re.test(value)) {
-        throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} has an invalid format`, { field: field.name });
+      if (!pattern.test(value)) throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} has an invalid format`);
+    }
+  }
+}
+
+function canonicalizeGeneratedOperations(rawOperations) {
+  const typeAliases = new Map([
+    ["text", "string"], ["enum", "string"], ["location", "string"],
+    ["float", "number"], ["double", "number"], ["decimal", "number"],
+    ["int", "integer"], ["bool", "boolean"], ["json", "object"],
+    ["map", "object"], ["list", "array"], ["timestamp", "datetime"],
+  ]);
+  const sourceAliases = new Map([
+    ["context", "contextdb"], ["context_db", "contextdb"], ["memory", "contextdb"],
+    ["speech", "utterance"], ["query", "utterance"], ["user_input", "utterance"],
+    ["env", "environment"], ["constant", "default"], ["literal", "default"],
+  ]);
+  return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation, operationIndex) => {
+    const operation = clone(rawOperation || {});
+    operation.operationId = canonicalizeGeneratedIdentifier(operation.operationId || operation.id || operation.name);
+    if (operation.operationId.length < 2) operation.operationId = `operation_${operationIndex + 1}`;
+    const names = new Map();
+    for (const collection of ["inputs", "outputs"]) {
+      operation[collection] = (Array.isArray(operation[collection]) ? operation[collection] : []).map((raw, index) => {
+        const field = clone(raw || {});
+        const original = String(field.name || field.id || field.key || field.label || "").trim();
+        field.name = canonicalizeGeneratedIdentifier(original) || `${collection === "inputs" ? "input" : "output"}_${index + 1}`;
+        if (original) {
+          names.set(original, field.name);
+          names.set(original.toLowerCase(), field.name);
+        }
+        const type = String(field.type || "").toLowerCase();
+        field.type = typeAliases.get(type) || type;
+        if (isObject(field.bindingHint)) {
+          const source = String(field.bindingHint.source || "").toLowerCase();
+          field.bindingHint.source = sourceAliases.get(source) || source;
+        }
+        return field;
+      });
+    }
+    operation.utteranceExamples = (operation.utteranceExamples || []).map((example) => {
+      if (!isObject(example) || !isObject(example.inputs)) return example;
+      return {
+        ...example,
+        inputs: Object.fromEntries(Object.entries(example.inputs).map(([name, value]) => [
+          names.get(name) || names.get(name.toLowerCase()) || canonicalizeGeneratedIdentifier(name),
+          value,
+        ])),
+      };
+    });
+    if (operation.answerTemplate != null) {
+      operation.answerTemplate = String(operation.answerTemplate).replace(
+        /{{\s*([^}|]+)([^}]*)}}/g,
+        (whole, rawName, suffix) => {
+          const name = String(rawName).trim();
+          const canonical = names.get(name) || names.get(name.toLowerCase());
+          return canonical ? `{{${canonical}${suffix}}}` : whole;
+        }
+      );
+    }
+    return operation;
+  });
+}
+
+function normalizeOperation(raw, capabilityId = null) {
+  const operation = requireObject(raw, "operation");
+  const operationId = normalizeId(operation.operationId, "operationId");
+  const inputs = Array.isArray(operation.inputs) ? operation.inputs.map((field) => normalizeValueField(field, "input")) : [];
+  const outputs = Array.isArray(operation.outputs) ? operation.outputs.map((field) => normalizeValueField(field, "output")) : [];
+  const protectedAssetRequirements = (Array.isArray(operation.protectedAssetRequirements)
+    ? operation.protectedAssetRequirements
+    : []).map((requirement) => {
+      try {
+        return {
+          ...normalizeProtectedAssetRequirement(requirement, { capabilityId, operationId }),
+          required: requirement.required !== false,
+        };
+      } catch (error) {
+        if (error instanceof ProtectedAssetError) {
+          throw new CapabilityError("INVALID_MANIFEST", error.message, error.details);
+        }
+        throw error;
       }
+    });
+  const ensureUnique = (items, label, key = "name") => {
+    const seen = new Set();
+    for (const item of items) {
+      if (seen.has(item[key])) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} contains duplicate ${label} ${item[key]}`);
+      seen.add(item[key]);
     }
-    if (field.type === "date" && !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-      throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} must use YYYY-MM-DD`, { field: field.name });
-    }
-    if (field.type === "datetime" && !Number.isFinite(Date.parse(value))) {
-      throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} must be an ISO datetime`, { field: field.name });
-    }
+  };
+  ensureUnique(inputs, "input");
+  ensureUnique(outputs, "output");
+  ensureUnique(protectedAssetRequirements, "protected asset requirement", "requirementId");
+  if (!outputs.length) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} must declare at least one output`);
+
+  const normalized = {
+    operationId,
+    description: String(operation.description || "").trim(),
+    inputs,
+    outputs,
+    protectedAssetRequirements,
+  };
+  if (isObject(operation.freshness)) {
+    const ttlSeconds = Number(operation.freshness.ttlSeconds || 0);
+    normalized.freshness = {
+      mode: String(operation.freshness.mode || (ttlSeconds > 0 ? "cache" : "none")),
+      ttlSeconds: Number.isFinite(ttlSeconds) && ttlSeconds >= 0 ? Math.floor(ttlSeconds) : 0,
+    };
   }
-  if (typeof value === "number") {
-    if (rules.minimum != null && value < Number(rules.minimum)) {
-      throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} is below its minimum`, { field: field.name });
-    }
-    if (rules.maximum != null && value > Number(rules.maximum)) {
-      throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} exceeds its maximum`, { field: field.name });
-    }
+  if (Array.isArray(operation.utteranceExamples)) {
+    normalized.utteranceExamples = operation.utteranceExamples.map((example) => {
+      if (typeof example === "string") return example.trim();
+      if (!isObject(example)) return null;
+      const text = String(example.text || example.utterance || "").trim();
+      const sampleInputs = isObject(example.inputs) ? example.inputs : {};
+      const inputMap = new Map(inputs.map((input) => [input.name, input]));
+      const values = {};
+      for (const [name, value] of Object.entries(sampleInputs)) {
+        const input = inputMap.get(String(name).toLowerCase());
+        if (!input) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} example references unknown input ${name}`);
+        validateFieldValue(input, value, "example input");
+        values[input.name] = clone(value);
+      }
+      return text ? { text, inputs: values } : null;
+    }).filter(Boolean).slice(0, 40);
   }
+  if (operation.pathContracts != null || operation.pattern != null || operation.signatureSlots != null) {
+    throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} contains browser-owned Path fields`);
+  }
+  if (operation.answerTemplate != null) {
+    const template = String(operation.answerTemplate).trim();
+    if (!template || template.length > 1500) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an invalid answerTemplate`);
+    const declared = new Set([...inputs, ...outputs].map((field) => field.name));
+    for (const match of template.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)) {
+      if (!declared.has(match[1])) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} answerTemplate references undeclared value ${match[1]}`);
+    }
+    normalized.answerTemplate = template;
+  }
+  return normalized;
+}
+
+function validateCapabilityManifest(raw, options = {}) {
+  const manifest = requireObject(raw, "capability manifest");
+  if (Number(manifest.schemaVersion) !== CAPABILITY_SCHEMA_VERSION) {
+    throw new CapabilityError("UNSUPPORTED_MANIFEST_VERSION", `capability manifest schemaVersion must be ${CAPABILITY_SCHEMA_VERSION}`);
+  }
+  const capabilityId = normalizeId(manifest.capabilityId, "capabilityId");
+  const entityId = String(options.entityId || manifest.entityId || "").trim();
+  if (!entityId) throw new CapabilityError("INVALID_MANIFEST", "entityId is required");
+  const version = Number(manifest.version);
+  if (!Number.isInteger(version) || version < 1) throw new CapabilityError("INVALID_MANIFEST", "version must be a positive integer");
+  const status = String(manifest.status || "testing").toLowerCase();
+  if (!CAPABILITY_STATUSES.has(status)) throw new CapabilityError("INVALID_MANIFEST", `unsupported capability status ${status}`);
+  const execution = isObject(manifest.execution) ? manifest.execution : {};
+  const type = String(execution.type || "remote").toLowerCase();
+  const timeoutMs = Number(execution.timeoutMs || 10000);
+  if (!EXECUTION_TYPES.has(type) || !Number.isFinite(timeoutMs) || timeoutMs < 250 || timeoutMs > 120000) {
+    throw new CapabilityError("INVALID_MANIFEST", "execution contract is invalid");
+  }
+  const operations = (Array.isArray(manifest.operations) ? manifest.operations : [])
+    .map((operation) => normalizeOperation(operation, capabilityId));
+  if (!operations.length) throw new CapabilityError("INVALID_MANIFEST", "capability must declare at least one operation");
+  const ids = new Set();
+  operations.forEach((operation) => {
+    if (ids.has(operation.operationId)) throw new CapabilityError("INVALID_MANIFEST", `duplicate operation ${operation.operationId}`);
+    ids.add(operation.operationId);
+  });
+  const normalized = {
+    schemaVersion: CAPABILITY_SCHEMA_VERSION,
+    capabilityId,
+    entityId,
+    version,
+    status,
+    description: String(manifest.description || "").trim(),
+    ownerId: String(options.ownerId || manifest.ownerId || "system"),
+    execution: { type, readOnly: execution.readOnly !== false, timeoutMs: Math.floor(timeoutMs) },
+    operations,
+    implementationPolicyVersion: Math.max(1, Number(manifest.implementationPolicyVersion || 1)),
+  };
+  if (manifest.name != null) normalized.name = String(manifest.name).trim().slice(0, 160);
+  if (manifest.createdAt) normalized.createdAt = String(manifest.createdAt);
+  if (manifest.updatedAt) normalized.updatedAt = String(manifest.updatedAt);
+  return normalized;
+}
+
+function validateCapabilityBuildRequest(raw) {
+  const request = requireObject(raw, "capability build request");
+  const kind = String(request.kind || "computeCapabilityBuild");
+  if (kind !== "computeCapabilityBuild") throw new CapabilityError("INVALID_BUILD_REQUEST", "kind must be computeCapabilityBuild");
+  const description = String(request.description || request.summary || request.purpose || request.name || "").trim();
+  if (!description) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
+  const capabilityIdHint = request.capabilityIdHint || request.capabilityId || request.name;
+  const canonicalId = capabilityIdHint ? normalizeId(canonicalizeGeneratedIdentifier(capabilityIdHint), "capabilityIdHint") : null;
+  const operations = canonicalizeGeneratedOperations(request.operations)
+    .map((operation) => normalizeOperation(operation, canonicalId));
+  if (!operations.length) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
+  return {
+    schemaVersion: CAPABILITY_SCHEMA_VERSION,
+    kind,
+    description,
+    operations,
+    ...(request.name != null ? { name: String(request.name).trim().slice(0, 160) } : {}),
+    ...(canonicalId ? { capabilityIdHint: canonicalId } : {}),
+    ...(request.requestedBy != null ? { requestedBy: String(request.requestedBy) } : {}),
+  };
+}
+
+function getCapabilityOperation(manifest, operationId) {
+  const id = String(operationId || "").trim().toLowerCase();
+  const operation = manifest.operations.find((item) => item.operationId === id);
+  if (!operation) throw new CapabilityError("UNKNOWN_OPERATION", `capability ${manifest.capabilityId} has no operation ${id || "(blank)"}`);
+  return operation;
 }
 
 function validateInvocationInputs(manifest, operationId, rawInputs) {
   const operation = getCapabilityOperation(manifest, operationId);
   const supplied = isObject(rawInputs) ? rawInputs : {};
+  const declared = new Set(operation.inputs.map((field) => field.name));
+  const suspicious = Object.keys(supplied).find((name) =>
+    !declared.has(name) && /(?:secret|password|token|credential|api[_-]?key|private[_-]?key)/i.test(name)
+  );
+  if (suspicious) {
+    throw new CapabilityError("PLAINTEXT_ASSET_INPUT_FORBIDDEN", `protected value ${suspicious} may not be supplied as an ordinary input`);
+  }
   const resolved = {};
   for (const field of operation.inputs) {
     let value = supplied[field.name];
-    if (value == null && Object.prototype.hasOwnProperty.call(field, "defaultValue")) {
-      value = clone(field.defaultValue);
-    }
+    if (value == null && Object.prototype.hasOwnProperty.call(field, "defaultValue")) value = clone(field.defaultValue);
     if (value == null) {
       if (field.required) {
         throw new CapabilityError("MISSING_INPUT", `required input ${field.name} is missing`, {
@@ -550,35 +370,14 @@ function validateCapabilityInputResponse(rawField, rawValue) {
   const field = normalizeValueField(rawField, "input");
   let value = clone(rawValue);
   if (typeof value === "string") value = value.trim();
-  if (field.type === "number" && typeof value === "string" && value !== "") {
-    const parsed = Number(value);
-    if (Number.isFinite(parsed)) value = parsed;
-  }
-  if (field.type === "integer" && typeof value === "string" && /^[-+]?\d+$/.test(value)) {
-    const parsed = Number(value);
-    if (Number.isSafeInteger(parsed)) value = parsed;
-  }
+  if (field.type === "number" && typeof value === "string" && value !== "" && Number.isFinite(Number(value))) value = Number(value);
+  if (field.type === "integer" && typeof value === "string" && /^[-+]?\d+$/.test(value)) value = Number(value);
   if (field.type === "boolean" && typeof value === "string") {
     if (/^(?:true|yes|1)$/i.test(value)) value = true;
     else if (/^(?:false|no|0)$/i.test(value)) value = false;
   }
   validateFieldValue(field, value, "input");
   return { field, value: clone(value) };
-}
-
-function normalizeOutputTransportValue(field, value) {
-  const type = String(field?.type || "").toLowerCase();
-  if (typeof value !== "string") return value;
-  const text = value.trim();
-  if (type === "number" && /^[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?$/.test(text)) {
-    const number = Number(text);
-    if (Number.isFinite(number)) return number;
-  }
-  if (type === "integer" && /^[-+]?\d+$/.test(text)) {
-    const integer = Number(text);
-    if (Number.isSafeInteger(integer)) return integer;
-  }
-  return value;
 }
 
 function validateOperationResult(operation, rawResult) {
@@ -592,19 +391,17 @@ function validateOperationResult(operation, rawResult) {
   }
   result = clone(result);
   for (const field of operation.outputs) {
-    const value = normalizeOutputTransportValue(field, result[field.name]);
+    let value = result[field.name];
+    if (field.type === "number" && typeof value === "string" && Number.isFinite(Number(value))) value = Number(value);
+    if (field.type === "integer" && typeof value === "string" && /^[-+]?\d+$/.test(value)) value = Number(value);
     result[field.name] = value;
     if (value == null) {
-      if (field.required) {
-        throw new CapabilityError("INVALID_RESULT", `required output ${field.name} is missing`, { field: field.name });
-      }
+      if (field.required) throw new CapabilityError("INVALID_RESULT", `required output ${field.name} is missing`);
       continue;
     }
-    try {
-      validateFieldValue(field, value, "output");
-    } catch (error) {
+    try { validateFieldValue(field, value, "output"); } catch (error) {
       if (error instanceof CapabilityError && error.code === "INVALID_INPUT") {
-        throw new CapabilityError("INVALID_RESULT", error.message.replace(/^input /, "output "), error.details);
+        throw new CapabilityError("INVALID_RESULT", error.message, error.details);
       }
       throw error;
     }
@@ -614,8 +411,7 @@ function validateOperationResult(operation, rawResult) {
 
 function buildExecutionSuccess({ manifest, operation, result, source = "compute-entity", observedAt = null, cached = false }) {
   const observed = observedAt ? new Date(observedAt) : new Date();
-  const ttlSeconds = Number(operation?.freshness?.ttlSeconds || 0);
-  const expires = ttlSeconds > 0 ? new Date(observed.getTime() + ttlSeconds * 1000).toISOString() : null;
+  const ttl = Number(operation?.freshness?.ttlSeconds || 0);
   return {
     ok: true,
     kind: "computeResult",
@@ -626,14 +422,14 @@ function buildExecutionSuccess({ manifest, operation, result, source = "compute-
     version: manifest.version,
     result,
     observedAt: observed.toISOString(),
-    expiresAt: expires,
+    expiresAt: ttl > 0 ? new Date(observed.getTime() + ttl * 1000).toISOString() : null,
     source,
     cached: !!cached,
   };
 }
 
 function buildExecutionError(error, context = {}) {
-  const known = error instanceof CapabilityError;
+  const known = error instanceof CapabilityError || error instanceof ProtectedAssetError;
   return {
     ok: false,
     kind: "computeError",

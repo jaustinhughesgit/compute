@@ -1,380 +1,133 @@
-// modules/passphrases.js
 "use strict";
 
-/** ───────────────────────────── Logger helpers ───────────────────────────── **/
-const PFX = "[passphrases]";
-const nowIso = () => new Date().toISOString();
-const short = (s) => (typeof s === "string" && s.length > 32 ? s.slice(0, 8) + "…" : s);
-const redactToken = (t) => (t ? `${String(t).slice(0, 4)}…${String(t).slice(-4)}` : "(null)");
+// Compatibility adapter for legacy {!passphrase!} tokens. New protected data
+// should use Protected Assets. This route accepts ciphertext only, binds each
+// record to its authenticated owner, and never decrypts server-side.
 
-function log(...args) {
-  // one-line logs with consistent prefix & timestamp
-  console.log(PFX, nowIso(), ...args);
-}
-function logStart(label, meta = {}) {
-  const id = `${label}#${Math.random().toString(36).slice(2, 8)}`;
-  const t0 = Date.now();
-  log(`▶︎ ${label} start`, meta);
-  return {
-    id,
-    endOk(extra = {}) {
-      log(`✔ ${label} ok (${Date.now() - t0}ms)`, { ...meta, ...extra });
-    },
-    endErr(err) {
-      log(`✖ ${label} error (${Date.now() - t0}ms)`, {
-        ...meta,
-        code: err?.code,
-        name: err?.name,
-        message: err?.message,
-      });
-    },
-  };
-}
-
-/** ───────────────────── nextPpId (outside register) ─────────────────────── **/
 async function nextPpId(dynamodb) {
-  const op = logStart("nextPpId");
-  try {
-    const table = "ppCounter";
-    const key = { pk: "ppCounter" };
-    log("DDB update BEFORE", { table, key, update: "ADD #x :inc SET #u = :now" });
-
-    const res = await dynamodb
-      .update({
-        TableName: table,
-        Key: key,
-        // ADD is atomic; creates "x" if missing and increments it
-        UpdateExpression: "ADD #x :inc SET #u = :now",
-        ExpressionAttributeNames: { "#x": "x", "#u": "updatedAt" },
-        ExpressionAttributeValues: { ":inc": 1, ":now": new Date().toISOString() },
-        ReturnValues: "UPDATED_NEW",
-      })
-      .promise();
-
-    log("DDB update AFTER", {
-      table,
-      attributes: res?.Attributes ? Object.keys(res.Attributes) : "(none)",
-    });
-
-    const pp = Number(res?.Attributes?.x);
-    if (!Number.isFinite(pp)) throw new Error("ppCounter.x is not a number");
-    const id = `pp-${pp}`;
-    op.endOk({ generatedId: id });
-    return id;
-  } catch (err) {
-    op.endErr(err);
-    throw err;
-  }
+  const result = await dynamodb.update({
+    TableName: "ppCounter",
+    Key: { pk: "ppCounter" },
+    UpdateExpression: "ADD #x :one SET #updated = :now",
+    ExpressionAttributeNames: { "#x": "x", "#updated": "updatedAt" },
+    ExpressionAttributeValues: { ":one": 1, ":now": new Date().toISOString() },
+    ReturnValues: "UPDATED_NEW",
+  }).promise();
+  const value = Number(result?.Attributes?.x);
+  if (!Number.isFinite(value)) throw new Error("ppCounter.x is invalid");
+  return `pp-${value}`;
 }
 
-/** ───────────────────────────── register() ──────────────────────────────── **/
+function bodyObject(req) {
+  const body = req?.body;
+  if (!body || typeof body !== "object") return {};
+  return body.body && typeof body.body === "object" ? body.body : body;
+}
+
+function userFor(ctx) {
+  const value = ctx?.cookie?.e ?? ctx?.req?.cookies?.e;
+  return value != null && String(value) !== "0" ? String(value) : null;
+}
+
+function validateWrapped(raw) {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("wrapped map is required");
+  const entries = Object.entries(raw);
+  if (!entries.length || entries.length > 100) throw new Error("wrapped map size is invalid");
+  return Object.fromEntries(entries.map(([userID, cipher]) => {
+    const text = String(cipher || "");
+    if (!/^[A-Za-z0-9+/=_-]{32,100000}$/.test(text)) throw new Error(`wrapped cipher for ${userID} is invalid`);
+    return [String(userID), text];
+  }));
+}
+
 function register({ on, use }) {
-  const { getDocClient } = use();
-  const dynamodb = getDocClient();
-  log("register() init");
+  const shared = use();
+  const dynamodb = shared?.getDocClient?.() || shared?.deps?.dynamodb;
 
-  // Support both flattened req.body and legacy body.body
-  const pickBody = (req) => {
-    const b = req?.body;
-    if (!b || typeof b !== "object") return b || {};
-    if (b.body && typeof b.body === "object") return b.body; // legacy
-    return b; // flattened
-  };
+  const upsert = async (ctx) => {
+    const ownerId = userFor(ctx);
+    if (!ownerId) return { statusCode: 401, body: JSON.stringify({ error: "authentication required" }) };
+    const body = bodyObject(ctx.req);
+    const wrapped = validateWrapped(body.wrapped);
+    const suppliedId = String(body.passphraseID || "").trim();
+    const passphraseID = suppliedId || await nextPpId(dynamodb);
+    const now = new Date().toISOString();
 
-  /** ─────────────── addPassphrase / wrapPassphrase ─────────────── **/
-  const upsertWrappedPassphrase = async (ctx) => {
-    const fx = logStart("upsertWrappedPassphrase", { path: ctx?.req?.path });
-    try {
-      const { req } = ctx;
-      const body = pickBody(req);
-      let { passphraseID, keyVersion, wrapped } = body || {};
-
-      // normalize and allow blank (server will mint)
-      if (typeof passphraseID === "string") passphraseID = passphraseID.trim();
-      if (!passphraseID) passphraseID = null;
-
-      log("payload received", {
-        passphraseID,
-        keyVersion,
-        wrappedType: typeof wrapped,
-        wrappedUserCount: wrapped && typeof wrapped === "object" ? Object.keys(wrapped).length : 0,
-      });
-
-      // Validation (keyVersion optional; wrapped required)
-      if (!wrapped || typeof wrapped !== "object") {
-        fx.endOk({ result: "reject invalid payload (wrapped missing)" });
-        return { error: "Invalid payload" };
-      }
-      if (Object.keys(wrapped).length === 0) {
-        fx.endOk({ result: "reject invalid payload (wrapped empty)" });
-        return { error: "Invalid payload: wrapped map is empty" };
-      }
-
-      // Mint a new ID iff missing
-      if (!passphraseID) {
-        log("no passphraseID provided → minting new");
-        passphraseID = await nextPpId(dynamodb);
-      }
-
-      const now = new Date().toISOString();
-
-      // Branch 1: auto-minted ID → version is always 1 (create only)
-      if (body.keyVersion == null || body.keyVersion === "") {
-        if (!body.passphraseID) {
-          const table = "passphrases";
-          const item = {
-            passphraseID,
-            keyVersion: 1,
-            wrapped,
-            created: now,
-            updated: now,
-          };
-          log("DDB put BEFORE", { table, key: { passphraseID } });
-          try {
-            await dynamodb
-              .put({
-                TableName: table,
-                Item: item,
-                ConditionExpression: "attribute_not_exists(passphraseID)",
-              })
-              .promise();
-            log("DDB put AFTER", { table, key: { passphraseID } });
-            fx.endOk({ result: "created v1 (auto-minted id)", passphraseID, keyVersion: 1 });
-            return { success: true, passphraseID, keyVersion: 1 };
-          } catch (err) {
-            log("DDB put ERROR", { table, key: { passphraseID }, code: err?.code, msg: err?.message });
-            throw err;
-          }
-        }
-      }
-
-      // Branch 2: user supplied existing passphraseID and left keyVersion blank → increment atomically
-      if (body.keyVersion == null || body.keyVersion === "") {
-        const table = "passphrases";
-        log("DDB update (increment kv) BEFORE", { table, key: { passphraseID } });
-        try {
-          const { Attributes } = await dynamodb
-            .update({
-              TableName: table,
-              Key: { passphraseID },
-              UpdateExpression: "ADD #kv :one SET #wr = :wrapped, #upd = :now",
-              ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped", "#upd": "updated" },
-              ExpressionAttributeValues: { ":one": 1, ":wrapped": wrapped, ":now": now },
-              ConditionExpression: "attribute_exists(passphraseID)",
-              ReturnValues: "UPDATED_NEW",
-            })
-            .promise();
-          log("DDB update (increment kv) AFTER", {
-            table,
-            key: { passphraseID },
-            newVersion: Attributes?.keyVersion,
-          });
-          const newVersion = Number(Attributes?.keyVersion);
-          fx.endOk({ result: "updated increment", passphraseID, keyVersion: newVersion });
-          return { success: true, passphraseID, keyVersion: newVersion };
-        } catch (err) {
-          log("DDB update (increment kv) ERROR", {
-            table,
-            key: { passphraseID },
-            code: err?.code,
-            msg: err?.message,
-          });
-          if (err && err.code === "ConditionalCheckFailedException") {
-            // Passphrase doesn't exist yet → create as v1
-            const item = {
-              passphraseID,
-              keyVersion: 1,
-              wrapped,
-              created: now,
-              updated: now,
-            };
-            log("DDB put (fallback create v1) BEFORE", { table, key: { passphraseID } });
-            await dynamodb
-              .put({
-                TableName: table,
-                Item: item,
-                ConditionExpression: "attribute_not_exists(passphraseID)",
-              })
-              .promise();
-            log("DDB put (fallback create v1) AFTER", { table, key: { passphraseID } });
-            fx.endOk({ result: "created v1 (fallback)", passphraseID, keyVersion: 1 });
-            return { success: true, passphraseID, keyVersion: 1 };
-          }
-          fx.endErr(err);
-          throw err;
-        }
-      }
-
-      // Branch 3: explicit keyVersion provided → set to that value
-      const kv = Number(keyVersion);
-      if (!Number.isFinite(kv) || kv < 1) {
-        fx.endOk({ result: "reject invalid keyVersion", keyVersion });
-        return { error: "Invalid keyVersion" };
-      }
-
-      // Try update-if-exists; otherwise create
-      {
-        const table = "passphrases";
-        log("DDB update (set explicit kv) BEFORE", { table, key: { passphraseID }, kv });
-        try {
-          await dynamodb
-            .update({
-              TableName: table,
-              Key: { passphraseID },
-              UpdateExpression: "SET #kv = :kv, #wr = :wrapped, #upd = :now",
-              ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped", "#upd": "updated" },
-              ExpressionAttributeValues: { ":kv": kv, ":wrapped": wrapped, ":now": now },
-              ConditionExpression: "attribute_exists(passphraseID)",
-            })
-            .promise();
-          log("DDB update (set explicit kv) AFTER", { table, key: { passphraseID } });
-        } catch (err) {
-          log("DDB update (set explicit kv) ERROR", {
-            table,
-            key: { passphraseID },
-            code: err?.code,
-            msg: err?.message,
-          });
-          if (err && err.code === "ConditionalCheckFailedException") {
-            log("DDB put (create with explicit kv) BEFORE", { table, key: { passphraseID }, kv });
-            await dynamodb
-              .put({
-                TableName: table,
-                Item: {
-                  passphraseID,
-                  keyVersion: kv,
-                  wrapped,
-                  created: now,
-                  updated: now,
-                },
-                ConditionExpression: "attribute_not_exists(passphraseID)",
-              })
-              .promise();
-            log("DDB put (create with explicit kv) AFTER", { table, key: { passphraseID } });
-          } else {
-            fx.endErr(err);
-            throw err;
-          }
-        }
-      }
-
-      fx.endOk({ result: "set explicit", passphraseID, keyVersion: kv });
-      return { success: true, passphraseID, keyVersion: kv };
-    } catch (err) {
-      fx.endErr(err);
-      throw err;
+    if (!suppliedId) {
+      await dynamodb.put({
+        TableName: "passphrases",
+        Item: { passphraseID, ownerId, keyVersion: 1, wrapped, created: now, updated: now },
+        ConditionExpression: "attribute_not_exists(passphraseID)",
+      }).promise();
+      return { success: true, passphraseID, keyVersion: 1 };
     }
-  };
 
-  on("addPassphrase", upsertWrappedPassphrase);
-  on("wrapPassphrase", upsertWrappedPassphrase);
-
-  /** ─────────────────────────── decryptPassphrase ─────────────────────────── **/
-  on("decryptPassphrase", async (ctx) => {
-    const fx = logStart("decryptPassphrase", { path: ctx?.req?.path });
+    const explicit = body.keyVersion == null || body.keyVersion === "" ? null : Number(body.keyVersion);
+    if (explicit != null && (!Number.isInteger(explicit) || explicit < 1)) return { error: "Invalid keyVersion" };
     try {
-      const { req } = ctx;
-      const body = pickBody(req);
-      const { passphraseID, userID, requestId } = body || {};
-      log("payload received", { passphraseID, userID, requestId: short(requestId) });
-
-      if (!passphraseID || !userID) {
-        fx.endOk({ result: "reject bad request" });
-        return { statusCode: 400, body: JSON.stringify({ error: "passphraseID and userID required" }) };
-      }
-
-      // --- enforce cookie.e === userID before proceeding ---
-      let cookieE = ctx?.cookie?.e;
-      const getAccessToken = () =>
-        ctx?.xAccessToken ||
-        req?.get?.("X-accessToken") ||
-        req?.headers?.["x-accesstoken"] ||
-        req?.headers?.["x-accessToken"] ||
-        req?.cookies?.accessToken ||
-        req?.cookies?.ak ||
-        null;
-
-      if (!cookieE) {
-        const ak = getAccessToken();
-        log("cookie missing; try lookup via ak", { ak: redactToken(ak) });
-        if (ak) {
-          const table = "cookies";
-          const indexName = "akIndex";
-          log("DDB query BEFORE", { table, indexName, keyExpr: "ak = :ak" });
-          try {
-            const q = await dynamodb
-              .query({
-                TableName: table,
-                IndexName: indexName,
-                KeyConditionExpression: "ak = :ak",
-                ExpressionAttributeValues: { ":ak": ak },
-                ProjectionExpression: "e",
-              })
-              .promise();
-            log("DDB query AFTER", { table, count: q?.Count, items: q?.Items?.length });
-            cookieE = q.Items?.[0]?.e;
-          } catch (err) {
-            log("DDB query ERROR", { table, indexName, code: err?.code, msg: err?.message });
-            throw err;
-          }
-        }
-      }
-
-      if (!cookieE) {
-        fx.endOk({ result: "unauthorized (no cookieE)" });
-        return { statusCode: 401, body: JSON.stringify({ error: "missing or invalid session" }) };
-      }
-      if (String(cookieE) !== String(userID)) {
-        fx.endOk({ result: "forbidden (cookieE mismatch)" });
-        return { statusCode: 403, requestId, body: JSON.stringify({ error: "passphrase access denied" }) };
-      }
-      // --- END CHECK ---
-
-      const table = "passphrases";
-      const key = { passphraseID };
-      log("DDB get BEFORE", { table, key, proj: ["keyVersion", "wrapped"] });
-      let Item;
-      try {
-        const res = await dynamodb
-          .get({
-            TableName: table,
-            Key: key,
-            ProjectionExpression: "#kv, #wr",
-            ExpressionAttributeNames: { "#kv": "keyVersion", "#wr": "wrapped" },
-          })
-          .promise();
-        Item = res?.Item;
-        log("DDB get AFTER", { table, found: !!Item });
-      } catch (err) {
-        log("DDB get ERROR", { table, key, code: err?.code, msg: err?.message });
-        throw err;
-      }
-
-      if (!Item) {
-        fx.endOk({ result: "not found" });
-        return { statusCode: 404, body: JSON.stringify({ error: "passphrase not found" }) };
-      }
-
-      const cipherB64 = Item.wrapped?.[userID];
-      if (!cipherB64) {
-        fx.endOk({ result: "forbidden (no wrapped for user)" });
-        return { statusCode: 403, body: JSON.stringify({ error: "no wrapped data for this user" }) };
-      }
-
-      fx.endOk({ result: "ok", passphraseID, keyVersion: Item.keyVersion });
+      const result = await dynamodb.update({
+        TableName: "passphrases",
+        Key: { passphraseID },
+        UpdateExpression: explicit == null
+          ? "ADD #version :one SET #wrapped = :wrapped, #updated = :now"
+          : "SET #version = :version, #wrapped = :wrapped, #updated = :now",
+        ConditionExpression: "#owner = :owner",
+        ExpressionAttributeNames: {
+          "#version": "keyVersion", "#wrapped": "wrapped",
+          "#updated": "updated", "#owner": "ownerId",
+        },
+        ExpressionAttributeValues: {
+          ...(explicit == null ? { ":one": 1 } : { ":version": explicit }),
+          ":wrapped": wrapped, ":now": now, ":owner": ownerId,
+        },
+        ReturnValues: "ALL_NEW",
+      }).promise();
       return {
+        success: true,
         passphraseID,
-        userID,
-        cipherB64, // BASE64 string: [ephemeralPub||IV||ciphertext]
-        keyVersion: Item.keyVersion,
-        requestId, // echo for caller correlation
+        keyVersion: Number(result.Attributes?.keyVersion || explicit || 1),
       };
-    } catch (err) {
-      fx.endErr(err);
-      throw err;
+    } catch (error) {
+      if (error?.code !== "ConditionalCheckFailedException") throw error;
+      await dynamodb.put({
+        TableName: "passphrases",
+        Item: { passphraseID, ownerId, keyVersion: explicit || 1, wrapped, created: now, updated: now },
+        ConditionExpression: "attribute_not_exists(passphraseID)",
+      }).promise();
+      return { success: true, passphraseID, keyVersion: explicit || 1 };
     }
-  });
+  };
+  on("addPassphrase", upsert);
+  on("wrapPassphrase", upsert);
 
+  on("decryptPassphrase", async (ctx) => {
+    const ownerId = userFor(ctx);
+    if (!ownerId) return { statusCode: 401, body: JSON.stringify({ error: "authentication required" }) };
+    const { passphraseID, userID, requestId } = bodyObject(ctx.req);
+    if (!passphraseID || !userID || String(userID) !== ownerId) {
+      return { statusCode: 403, body: JSON.stringify({ error: "passphrase access denied" }) };
+    }
+    const result = await dynamodb.get({
+      TableName: "passphrases",
+      Key: { passphraseID: String(passphraseID) },
+      ProjectionExpression: "#owner, #version, #wrapped",
+      ExpressionAttributeNames: {
+        "#owner": "ownerId", "#version": "keyVersion", "#wrapped": "wrapped",
+      },
+    }).promise();
+    const item = result?.Item;
+    if (!item) return { statusCode: 404, body: JSON.stringify({ error: "passphrase not found" }) };
+    if (String(item.ownerId) !== ownerId || !item.wrapped?.[ownerId]) {
+      return { statusCode: 403, body: JSON.stringify({ error: "passphrase access denied" }) };
+    }
+    return {
+      passphraseID: String(passphraseID),
+      userID: ownerId,
+      cipherB64: item.wrapped[ownerId],
+      keyVersion: item.keyVersion,
+      requestId,
+    };
+  });
   return { name: "passphrases" };
 }
 
