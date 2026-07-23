@@ -1,6 +1,10 @@
 "use strict";
 
-const { CapabilityError, validateCapabilityManifest } = require("../capabilityManifest");
+const {
+  CapabilityError,
+  IMPLEMENTATION_POLICY_VERSION,
+  validateCapabilityManifest,
+} = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { listCapabilityBlueprints } = require("../capabilityBlueprints");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
@@ -40,7 +44,12 @@ function register({ on, use }) {
       const ownerId = principalFor(ctx);
       if (action === "blueprints") return { ok: true, kind: "capabilityBlueprints", blueprints: listCapabilityBlueprints() };
       if (action === "discover") {
-        const availableCapabilities = await registry.listAvailable({ activeOnly: false, limit: 100, ownerId });
+        const availableCapabilities = await registry.listAvailable({
+          activeOnly: false,
+          limit: 100,
+          ownerId,
+          minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+        });
         const discovery = await discoverComputeCapability({
           openai: shared?.deps?.openai,
           utterance: body.utterance || body.userRequest || "",

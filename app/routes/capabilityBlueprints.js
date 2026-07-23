@@ -20,6 +20,27 @@ const CREDENTIAL_FIELD = /(?:secret|password|token|credential|api[_-]?key|privat
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const isObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+const PROVIDER_PROFILES = [{
+  profileId: "openweathermap.current_weather.v1",
+  match: /\b(?:weather|temperature|conditions?)\b/i,
+  providerId: "openweathermap",
+  providerName: "OpenWeatherMap",
+  providerHost: "api.openweathermap.org",
+  endpointUrl: "https://api.openweathermap.org/data/2.5/weather",
+  pathPrefix: "/data/2.5/weather",
+  locationParameter: "q",
+  units: "metric",
+  credential: {
+    requirementId: "openweathermap_credentials",
+    fieldName: "api_key",
+    location: "query",
+    parameter: "appid",
+    acquisition: {
+      url: "https://home.openweathermap.org/users/sign_up",
+      instructions: "Create or open an OpenWeatherMap account and copy an active API key.",
+    },
+  },
+}];
 
 function parseJsonObject(value, label = "JSON") {
   let parsed = value;
@@ -57,6 +78,10 @@ function assertDeclarativeJson(value, path = "$") {
 function isBlockedHostname(hostname) {
   const host = String(hostname || "").toLowerCase().replace(/\.$/, "");
   if (!host || host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
+  if (
+    ["example.com", "example.net", "example.org"].some((reserved) => host === reserved || host.endsWith(`.${reserved}`))
+    || [".example", ".invalid", ".test"].some((suffix) => host.endsWith(suffix))
+  ) return true;
   if (host === "169.254.169.254" || host === "metadata.google.internal") return true;
   const family = net.isIP(host);
   if (!family) return false;
@@ -84,6 +109,87 @@ function publicHttpsUrl(value, label) {
 function configuredHostAllowlist() {
   return new Set(String(process.env.COMPUTE_ALLOWED_API_HOSTS || "")
     .split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
+}
+
+function selectProviderProfile(buildRequest, originalUtterance = "") {
+  const searchable = [
+    originalUtterance,
+    buildRequest?.capabilityIdHint,
+    buildRequest?.name,
+    buildRequest?.description,
+    ...(buildRequest?.operations || []).flatMap((operation) => [
+      operation.operationId,
+      operation.description,
+      ...(operation.utteranceExamples || []).map((example) => example?.text || example),
+    ]),
+  ].filter(Boolean).join(" ");
+  return PROVIDER_PROFILES.find((profile) => profile.match.test(searchable)) || null;
+}
+
+function publicProviderProfile(profile) {
+  if (!profile) return null;
+  return {
+    profileId: profile.profileId,
+    providerId: profile.providerId,
+    providerName: profile.providerName,
+    providerHost: profile.providerHost,
+    endpointUrl: profile.endpointUrl,
+    pathPrefix: profile.pathPrefix,
+    locationParameter: profile.locationParameter,
+    units: profile.units,
+    credential: clone(profile.credential),
+  };
+}
+
+function applyProviderProfile(generated, buildRequest, profile) {
+  if (!profile) return generated;
+  if (!isObject(generated?.published) || !Array.isArray(generated.published.actions)) return generated;
+  const providerActions = generated.published.actions.filter((action) => action?.target === "{|axios|}");
+  if (providerActions.length !== 1) {
+    throw new Error(`provider profile ${profile.profileId} requires exactly one axios action`);
+  }
+  const step = providerActions[0].chain?.find((candidate) => String(candidate?.access || "").toLowerCase() === "get");
+  if (!isObject(step) || !Array.isArray(step.params)) {
+    throw new Error(`provider profile ${profile.profileId} requires one declarative axios GET step`);
+  }
+  const operation = buildRequest.operations[0];
+  const locationInput = operation.inputs.find((input) =>
+    /^(?:location|city|place|zipcode|zip_code|postal_code)$/.test(input.name)
+  ) || operation.inputs.find((input) => input.type === "string");
+  if (!locationInput) throw new Error(`provider profile ${profile.profileId} requires a location input`);
+
+  const config = isObject(step.params[1]) ? clone(step.params[1]) : {};
+  const params = isObject(config.params) ? clone(config.params) : {};
+  const requirementId = profile.credential.requirementId;
+  const fieldName = profile.credential.fieldName;
+  params[profile.locationParameter] = `{|req=>body.${locationInput.name}|}`;
+  params.units = profile.units;
+  params[profile.credential.parameter] = `{|protected=>${requirementId}.${fieldName}|}`;
+  config.params = params;
+  step.params = [profile.endpointUrl, config];
+  generated.provider = profile.providerName;
+  generated.protectedAssetRequirements = [{
+    requirementId,
+    operationId: operation.operationId,
+    assetType: "credential",
+    providerId: profile.providerId,
+    providerName: profile.providerName,
+    providerHost: profile.providerHost,
+    purpose: `${buildRequest.capabilityIdHint}.${operation.operationId}`,
+    use: "inject",
+    approvalMode: "every_use",
+    acquisition: clone(profile.credential.acquisition),
+    fields: [{
+      name: fieldName,
+      required: true,
+      injection: {
+        location: profile.credential.location,
+        parameter: profile.credential.parameter,
+        prefix: "",
+      },
+    }],
+  }];
+  return generated;
 }
 
 function normalizeProtectedRequirements(rawRequirements, buildRequest = null) {
@@ -343,7 +449,9 @@ function validateTrustedImplementation(implementation) {
     }
   }
   const text = JSON.stringify(actions);
-  if (text.includes("{|req=>body.") && CREDENTIAL_FIELD.test(text)) {
+  const requestInputNames = [...text.matchAll(/\{\|req=>body\.([^|{}]+)\|\}/g)]
+    .map((match) => String(match[1] || "").split(/[.[\]]/, 1)[0]);
+  if (requestInputNames.some((name) => CREDENTIAL_FIELD.test(name))) {
     throw new Error("protected values may not be read from request inputs");
   }
   if (requirements.length) validateCredentialInjections(actions, requirements);
@@ -375,6 +483,7 @@ function listCapabilityBlueprints() {
 
 async function generateImplementation({ openai, buildRequest, originalUtterance }) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
+  const providerProfile = selectProviderProfile(buildRequest, originalUtterance);
   const messages = [{
     role: "system",
     content: [
@@ -383,8 +492,10 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       "published must be an object containing modules as an object, actions as an array of action objects, and data as an object; none of these container fields may be booleans or strings.",
       "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
       "Required container shape: {\"name\":\"...\",\"provider\":\"...\",\"protectedAssetRequirements\":[],\"published\":{\"modules\":{\"axios\":\"axios\"},\"actions\":[],\"data\":{}}}. Populate the actions array with the required provider and response actions.",
+      "If approvedProviderProfile is supplied, use its exact endpointUrl and authentication contract. Do not substitute another host or omit its protected credential.",
+      "If no approvedProviderProfile is supplied, choose a real documented provider endpoint. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, or invented hostnames.",
       "Use only declarative set, axios GET, and response send actions.",
-      "An axios action must have exactly this shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://api.example.com/path\",{\"params\":{\"q\":\"{|req=>body.query|}\"}}]}],\"assign\":\"{|response|}\"}.",
+      "An axios action must have exactly this shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{\"q\":\"{|req=>body.query|}\"}}]}],\"assign\":\"{|response|}\"}. The provider.invalid URL only illustrates JSON shape and must be replaced by a real approved endpoint.",
       "The final response action must have exactly this shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
       "Chain action keys may only be target, chain, assign, and if. Chain step keys may only be access and params. Do not use type, id, name, method, url, request, response, body, or output as action-level keys, and do not flatten a chain step into its action.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
@@ -398,7 +509,11 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     ].join(" "),
   }, {
     role: "user",
-    content: JSON.stringify({ originalUtterance, capabilityContract: buildRequest }),
+    content: JSON.stringify({
+      originalUtterance,
+      capabilityContract: buildRequest,
+      approvedProviderProfile: publicProviderProfile(providerProfile),
+    }),
   }];
   let lastError;
   for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -411,6 +526,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       const generated = canonicalizeProviderUrls(parseJsonObject(raw, "capability implementation response"));
+      applyProviderProfile(generated, buildRequest, providerProfile);
       const requirements = normalizeProtectedRequirements(generated.protectedAssetRequirements || [], buildRequest);
       attachProtectedRequirementsToPublished(generated, requirements);
       validateTrustedImplementation(generated);
@@ -425,7 +541,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
         content: [
           `Validation failed: ${String(error.message).slice(0, 800)}.`,
           "Correct the JSON without explanation.",
-          "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.example/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}.",
+          "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}; replace provider.invalid with the approved real endpoint.",
           "Final response action shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
         ].join(" "),
       });
@@ -442,9 +558,11 @@ async function buildComputeEntitySpec({
   generatedImplementation = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
+  const providerProfile = selectProviderProfile(initial, originalUtterance);
   const generated = canonicalizeProviderUrls(
     generatedImplementation || await generateImplementation({ openai, buildRequest: initial, originalUtterance })
   );
+  applyProviderProfile(generated, initial, providerProfile);
   const requirements = normalizeProtectedRequirements(
     generated.protectedAssetRequirements
       || generated.published?.data?.protectedAssetRequirements

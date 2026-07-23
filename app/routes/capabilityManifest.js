@@ -6,7 +6,7 @@ const {
 } = require("./protectedAssetContract");
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 6;
+const IMPLEMENTATION_POLICY_VERSION = 7;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -178,6 +178,13 @@ function canonicalizeGeneratedOperations(rawOperations) {
           const name = String(rawName).trim();
           const canonical = names.get(name) || names.get(name.toLowerCase());
           return canonical ? `{{${canonical}${suffix}}}` : whole;
+        }
+      ).replace(
+        /\{(?!\{)\s*([a-zA-Z0-9_.-]+)\s*\}(?!\})/g,
+        (whole, rawName) => {
+          const name = String(rawName).trim();
+          const canonical = names.get(name) || names.get(name.toLowerCase());
+          return canonical ? `{{${canonical}}}` : whole;
         }
       );
     }

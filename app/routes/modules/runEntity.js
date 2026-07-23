@@ -2,6 +2,7 @@
 
 const {
   CapabilityError,
+  IMPLEMENTATION_POLICY_VERSION,
   buildExecutionError,
   buildExecutionSuccess,
   validateInvocationInputs,
@@ -154,6 +155,12 @@ function register({ on, use }) {
     try {
       if (requestedCapabilityId && requestedCapabilityId !== manifest.capabilityId) {
         throw new CapabilityError("CAPABILITY_MISMATCH", `Entity ${actionFile} is registered as ${manifest.capabilityId}`);
+      }
+      if (Number(manifest.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION) {
+        throw new CapabilityError(
+          "ENTITY_POLICY_STALE",
+          `Capability ${manifest.capabilityId} must be rebuilt under implementation policy ${IMPLEMENTATION_POLICY_VERSION}.`
+        );
       }
       if (manifest.status !== "active") throw new CapabilityError("ENTITY_DISABLED", `Capability ${manifest.capabilityId} is ${manifest.status}`);
       const operationId = requestedOperationId || manifest.operations[0]?.operationId;
