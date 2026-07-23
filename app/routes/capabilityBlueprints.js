@@ -87,6 +87,9 @@ function configuredHostAllowlist() {
 }
 
 function normalizeProtectedRequirements(rawRequirements, buildRequest = null) {
+  if (rawRequirements != null && !Array.isArray(rawRequirements)) {
+    throw new Error("compute entity protectedAssetRequirements must be an array");
+  }
   const operations = new Map((buildRequest?.operations || []).map((operation) => [operation.operationId, operation]));
   const singleOperation = operations.size === 1 ? [...operations.keys()][0] : "";
   const seen = new Set();
@@ -169,6 +172,9 @@ function canonicalizeProviderUrls(implementation) {
 }
 
 function canonicalizeAxiosResponsePaths(actions) {
+  if (!Array.isArray(actions)) {
+    throw new Error("compute entity implementation published.actions must be an array");
+  }
   const canonical = clone(actions || []);
   const assignments = new Set();
   for (const action of canonical) {
@@ -201,6 +207,9 @@ function ownEntryCaseInsensitive(object, wanted) {
 }
 
 function canonicalizeCredentialInjections(actions, requirements) {
+  if (!Array.isArray(actions)) {
+    throw new Error("compute entity implementation published.actions must be an array");
+  }
   const canonical = clone(actions || []);
   for (const action of canonical) {
     if (String(action?.target || "") !== "{|axios|}" || !Array.isArray(action.chain)) continue;
@@ -295,6 +304,15 @@ function validateTrustedImplementation(implementation) {
     throw new Error("compute entity implementation is too large");
   }
   const normalized = clone(published);
+  if (normalized.modules != null && !isObject(normalized.modules)) {
+    throw new Error("compute entity implementation published.modules must be an object");
+  }
+  if (!Array.isArray(normalized.actions)) {
+    throw new Error("compute entity implementation published.actions must be an array");
+  }
+  if (normalized.data != null && !isObject(normalized.data)) {
+    throw new Error("compute entity implementation published.data must be an object");
+  }
   for (const [alias, packageName] of Object.entries(normalized.modules || {})) {
     if (!TRUSTED_MODULES.has(alias) || packageName !== alias) throw new Error(`compute entity uses unapproved module ${alias}:${packageName}`);
   }
@@ -357,7 +375,9 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     content: [
       "Create a declarative 1var entity implementation for the supplied capability contract.",
       "Return JSON with name, provider, protectedAssetRequirements, and published only.",
-      "published must be an object containing modules, actions, and data; published and published.data must never be booleans, strings, or arrays.",
+      "published must be an object containing modules as an object, actions as an array of action objects, and data as an object; none of these container fields may be booleans or strings.",
+      "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
+      "Required container shape: {\"name\":\"...\",\"provider\":\"...\",\"protectedAssetRequirements\":[],\"published\":{\"modules\":{\"axios\":\"axios\"},\"actions\":[],\"data\":{}}}. Populate the actions array with the required provider and response actions.",
       "Use only declarative set, axios GET, and response send actions.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",
