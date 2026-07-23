@@ -281,7 +281,12 @@ function validateAction(action, index) {
   const set = keys.every((key) => ["set", "if"].includes(key)) && isObject(action.set);
   const chain = keys.every((key) => ["target", "chain", "assign", "if"].includes(key))
     && typeof action.target === "string" && Array.isArray(action.chain) && action.chain.length;
-  if (!set && !chain) throw new Error(`declarative action ${index} uses an unsupported shape`);
+  if (!set && !chain) {
+    throw new Error(
+      `declarative action ${index} uses an unsupported shape (received keys: ${keys.join(",") || "none"}); `
+      + "use {target,chain,assign?} for provider/response actions or {set,if?} for set actions"
+    );
+  }
   if (!chain) return;
   if (!["{|axios|}", "{|res|}!"].includes(action.target)) throw new Error(`declarative action ${index} has an unsupported target`);
   for (const step of action.chain) {
@@ -379,6 +384,9 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
       "Required container shape: {\"name\":\"...\",\"provider\":\"...\",\"protectedAssetRequirements\":[],\"published\":{\"modules\":{\"axios\":\"axios\"},\"actions\":[],\"data\":{}}}. Populate the actions array with the required provider and response actions.",
       "Use only declarative set, axios GET, and response send actions.",
+      "An axios action must have exactly this shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://api.example.com/path\",{\"params\":{\"q\":\"{|req=>body.query|}\"}}]}],\"assign\":\"{|response|}\"}.",
+      "The final response action must have exactly this shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
+      "Chain action keys may only be target, chain, assign, and if. Chain step keys may only be access and params. Do not use type, id, name, method, url, request, response, body, or output as action-level keys, and do not flatten a chain step into its action.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",
       "Protected values are never ordinary inputs. Declare each in protectedAssetRequirements and reference it only at its injection point as {|protected=>requirement_id.field_name|}.",
@@ -393,7 +401,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     content: JSON.stringify({ originalUtterance, capabilityContract: buildRequest }),
   }];
   let lastError;
-  for (let attempt = 0; attempt < 2; attempt += 1) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
     const response = await openai.chat.completions.create({
       model: process.env.COMPUTE_BUILDER_MODEL || "gpt-4o-2024-08-06",
       temperature: 0,
@@ -412,7 +420,15 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       lastError = error;
       if (attempt) break;
       messages.push({ role: "assistant", content: raw.slice(0, 20000) });
-      messages.push({ role: "system", content: `Validation failed: ${String(error.message).slice(0, 800)}. Correct the JSON without explanation.` });
+      messages.push({
+        role: "system",
+        content: [
+          `Validation failed: ${String(error.message).slice(0, 800)}.`,
+          "Correct the JSON without explanation.",
+          "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.example/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}.",
+          "Final response action shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
+        ].join(" "),
+      });
     }
   }
   throw lastError || new Error("builder did not return a valid entity");
