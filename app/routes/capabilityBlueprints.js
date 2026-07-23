@@ -239,6 +239,16 @@ function expectedProtectedReference(requirement, field) {
   return `{|protected=>${requirement.requirementId}.${field.name}|}`;
 }
 
+function canonicalProtectedInjectionValue(value, requirement, field) {
+  if (typeof value !== "string") return null;
+  const prefix = String(field.injection.prefix || "");
+  const candidates = [value];
+  if (prefix && value.startsWith(prefix)) candidates.push(value.slice(prefix.length));
+  const singlePlaceholder = /^\{\|(?:req=>body\.[^|{}]+|protected=>[a-zA-Z][a-zA-Z0-9_.-]*\.[a-zA-Z][a-zA-Z0-9_.-]*)\|\}$/;
+  if (!candidates.some((candidate) => singlePlaceholder.test(candidate))) return null;
+  return `${prefix}${expectedProtectedReference(requirement, field)}`;
+}
+
 function ownEntryCaseInsensitive(object, wanted) {
   if (!isObject(object)) return null;
   const key = Object.keys(object).find((candidate) => candidate.toLowerCase() === String(wanted).toLowerCase());
@@ -266,9 +276,8 @@ function canonicalizeCredentialInjections(actions, requirements) {
             : (config.params ||= {});
           const entry = ownEntryCaseInsensitive(container, field.injection.parameter);
           if (!entry) continue;
-          if (typeof entry.value === "string" && /\{\|req=>body\.[^|]+\|\}/.test(entry.value)) {
-            container[entry.key] = `${field.injection.prefix || ""}${expectedProtectedReference(requirement, field)}`;
-          }
+          const canonicalValue = canonicalProtectedInjectionValue(entry.value, requirement, field);
+          if (canonicalValue != null) container[entry.key] = canonicalValue;
         }
       }
     }
@@ -459,6 +468,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",
       "Protected values are never ordinary inputs. Declare each in protectedAssetRequirements and reference it only at its injection point as {|protected=>requirement_id.field_name|}.",
+      "At each declared injection point, the protected placeholder requirementId and field name must exactly match the corresponding protectedAssetRequirements declaration.",
       "A requirement declares requirementId, operationId, assetType, providerId, providerName, providerHost, purpose, use, approvalMode, acquisition, and fields.",
       "Requirement use must be authenticate, inject, reveal, compare, send, share, or derive. Use inject for an API key, token, password, or credential inserted into a provider request; never call that use access.",
       "Each field declares name, required, and injection {location,parameter,prefix}.",
@@ -492,7 +502,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       return generated;
     } catch (error) {
       lastError = error;
-      if (attempt) break;
+      if (attempt >= 2) break;
       messages.push({ role: "assistant", content: raw.slice(0, 20000) });
       messages.push({
         role: "system",
