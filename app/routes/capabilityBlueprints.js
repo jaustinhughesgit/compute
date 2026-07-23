@@ -30,6 +30,20 @@ function parseJsonObject(value, label = "JSON") {
   return parsed;
 }
 
+function attachProtectedRequirementsToPublished(generated, requirements) {
+  if (!isObject(generated?.published)) {
+    throw new Error("compute entity implementation published must be an object");
+  }
+  if (generated.published.data != null && !isObject(generated.published.data)) {
+    throw new Error("compute entity implementation published.data must be an object");
+  }
+  generated.published.data = {
+    ...(generated.published.data || {}),
+    protectedAssetRequirements: requirements,
+  };
+  return generated;
+}
+
 function assertDeclarativeJson(value, path = "$") {
   if (value == null || ["string", "number", "boolean"].includes(typeof value)) return;
   if (Array.isArray(value)) return value.forEach((item, index) => assertDeclarativeJson(item, `${path}[${index}]`));
@@ -343,6 +357,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     content: [
       "Create a declarative 1var entity implementation for the supplied capability contract.",
       "Return JSON with name, provider, protectedAssetRequirements, and published only.",
+      "published must be an object containing modules, actions, and data; published and published.data must never be booleans, strings, or arrays.",
       "Use only declarative set, axios GET, and response send actions.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",
@@ -369,8 +384,7 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
     try {
       const generated = canonicalizeProviderUrls(parseJsonObject(raw, "capability implementation response"));
       const requirements = normalizeProtectedRequirements(generated.protectedAssetRequirements || [], buildRequest);
-      generated.published ||= {};
-      generated.published.data = { ...(generated.published.data || {}), protectedAssetRequirements: requirements };
+      attachProtectedRequirementsToPublished(generated, requirements);
       validateTrustedImplementation(generated);
       generated.capabilityBuildRequest = attachCredentialInputs(buildRequest, requirements).buildRequest;
       return generated;
@@ -403,8 +417,7 @@ async function buildComputeEntitySpec({
     initial
   );
   const attached = attachCredentialInputs(initial, requirements);
-  generated.published ||= {};
-  generated.published.data = { ...(generated.published.data || {}), protectedAssetRequirements: requirements };
+  attachProtectedRequirementsToPublished(generated, requirements);
   const checked = validateTrustedImplementation(generated);
   const buildRequest = attached.buildRequest;
   const capabilityId = buildRequest.capabilityIdHint;
