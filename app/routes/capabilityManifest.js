@@ -6,7 +6,7 @@ const {
 } = require("./protectedAssetContract");
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 7;
+const IMPLEMENTATION_POLICY_VERSION = 8;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -50,7 +50,7 @@ function canonicalizeGeneratedIdentifier(value) {
     .replace(/^[_ .-]+|[_ .-]+$/g, "");
 }
 
-function normalizeBindingHint(raw, inputName) {
+function normalizeBindingHint(raw, inputName, inputType) {
   if (raw == null) return null;
   const hint = requireObject(raw, `input ${inputName} bindingHint`);
   const source = String(hint.source || "").trim().toLowerCase();
@@ -65,6 +65,13 @@ function normalizeBindingHint(raw, inputName) {
   if (Array.isArray(hint.aliases)) normalized.aliases = hint.aliases.map(String).filter(Boolean).slice(0, 25);
   if (source === "contextdb" && (!normalized.subject || !normalized.property)) {
     throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} contextdb binding requires subject and property`);
+  }
+  if (source === "environment" && !normalized.resolver) {
+    if (inputType === "date" || inputType === "datetime") {
+      normalized.resolver = "relative_date";
+    } else {
+      throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} environment binding requires resolver`);
+    }
   }
   return normalized;
 }
@@ -87,7 +94,7 @@ function normalizeValueField(raw, kind) {
         `input ${name} may not carry a credential or protected value; declare protectedAssetRequirements instead`
       );
     }
-    normalized.bindingHint = normalizeBindingHint(field.bindingHint, name);
+    normalized.bindingHint = normalizeBindingHint(field.bindingHint, name, type);
     if (field.clarification != null) normalized.clarification = String(field.clarification).trim().slice(0, 500);
   }
   return normalized;
