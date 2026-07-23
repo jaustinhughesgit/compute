@@ -23,6 +23,14 @@ const ALLOWED_USES = new Set([
   "share",
   "derive",
 ]);
+// Builder models occasionally describe provider-request injection as
+// "access". That is natural language, not a distinct permission. Normalize
+// this narrow alias at the contract boundary so generated capabilities remain
+// deterministic while the stored policy continues to use the canonical,
+// auditable "inject" action.
+const REQUIREMENT_USE_ALIASES = new Map([
+  ["access", "inject"],
+]);
 const APPROVAL_MODES = new Set(["every_use", "session", "preapproved"]);
 const ENVELOPE_ALGORITHMS = new Set(["A256GCM"]);
 const WRAP_ALGORITHMS = new Set(["ECDH-ES+A256KW", "RSA-OAEP-256"]);
@@ -234,7 +242,8 @@ function normalizeProtectedAssetEnvelope(raw) {
 
 function normalizeProtectedAssetRequirement(raw, { capabilityId = null, operationId = null } = {}) {
   if (!isObject(raw)) throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", "protected asset requirement must be an object");
-  const use = String(raw.use || "inject").trim().toLowerCase();
+  const requestedUse = String(raw.use || "inject").trim().toLowerCase();
+  const use = REQUIREMENT_USE_ALIASES.get(requestedUse) || requestedUse;
   if (!ALLOWED_USES.has(use)) throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", `unsupported asset use ${use}`);
   const fields = (Array.isArray(raw.fields) ? raw.fields : []).map((field, index) => {
     if (!isObject(field)) throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", `requirement field ${index} must be an object`);
