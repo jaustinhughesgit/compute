@@ -29,6 +29,19 @@ const PROVIDER_PROFILES = [{
   endpointUrl: "https://api.openweathermap.org/data/2.5/weather",
   pathPrefix: "/data/2.5/weather",
   locationParameter: "q",
+  locationInput: {
+    name: "location",
+    type: "string",
+    required: true,
+    description: "City, place, or other provider-compatible weather location.",
+    bindingHint: {
+      source: "contextdb",
+      subject: "speaker",
+      property: "location",
+      aliases: ["city", "place", "zipcode", "zip code", "postal code", "address"],
+    },
+    clarification: "What city or location should I use for the weather?",
+  },
   units: "metric",
   credential: {
     requirementId: "openweathermap_credentials",
@@ -136,6 +149,7 @@ function publicProviderProfile(profile) {
     endpointUrl: profile.endpointUrl,
     pathPrefix: profile.pathPrefix,
     locationParameter: profile.locationParameter,
+    locationInput: clone(profile.locationInput),
     units: profile.units,
     credential: clone(profile.credential),
   };
@@ -153,10 +167,14 @@ function applyProviderProfile(generated, buildRequest, profile) {
     throw new Error(`provider profile ${profile.profileId} requires one declarative axios GET step`);
   }
   const operation = buildRequest.operations[0];
-  const locationInput = operation.inputs.find((input) =>
+  operation.inputs ||= [];
+  let locationInput = operation.inputs.find((input) =>
     /^(?:location|city|place|zipcode|zip_code|postal_code)$/.test(input.name)
-  ) || operation.inputs.find((input) => input.type === "string");
-  if (!locationInput) throw new Error(`provider profile ${profile.profileId} requires a location input`);
+  );
+  if (!locationInput) {
+    locationInput = clone(profile.locationInput);
+    operation.inputs.push(locationInput);
+  }
 
   const config = isObject(step.params[1]) ? clone(step.params[1]) : {};
   const params = isObject(config.params) ? clone(config.params) : {};
