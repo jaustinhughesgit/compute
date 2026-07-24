@@ -4,6 +4,18 @@ Description: >
   Compute API with universal Protected Asset storage and an authorized
   execution-boundary KMS key.
 
+Parameters:
+  OpenAIApiKey:
+    Type: String
+    NoEcho: true
+    MinLength: 1
+    Description: Server-side OpenAI API key used by the Compute application.
+  SessionSecret:
+    Type: String
+    NoEcho: true
+    MinLength: 1
+    Description: Secret used to sign Compute application sessions.
+
 Globals:
   Function:
     # Capability manifests allow provider calls up to 15 seconds. Leave enough
@@ -24,6 +36,8 @@ Resources:
         - x86_64
       Environment:
         Variables:
+          OPENAI_API_KEY: !Ref OpenAIApiKey
+          SESSION_SECRET: !Ref SessionSecret
           PROTECTED_ASSETS_TABLE: !Ref ProtectedAssetsTable
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn

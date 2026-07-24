@@ -53,7 +53,19 @@ jobs:
           grep -q 'protectedAssetExecutorKey' .aws-sam/build/ComputeFunction/routes/modules/protectedAssets.js
 
       - name: Deploy Compute stack
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
         run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::GitHub Actions secret OPENAI_API_KEY is not configured"
+            exit 1
+          fi
+          if [ -z "$SESSION_SECRET" ]; then
+            echo "::error::GitHub Actions secret SESSION_SECRET is not configured"
+            exit 1
+          fi
+
           sam deploy \
             --config-file samconfig.toml \
             --config-env default \
@@ -61,6 +73,9 @@ jobs:
             --region us-east-1 \
             --capabilities CAPABILITY_IAM \
             --resolve-s3 \
+            --parameter-overrides \
+              "OpenAIApiKey=$OPENAI_API_KEY" \
+              "SessionSecret=$SESSION_SECRET" \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
 
@@ -73,6 +88,22 @@ jobs:
             --output text)"
           test -n "$FUNCTION_NAME"
           test "$FUNCTION_NAME" != "None"
+
+          OPENAI_API_KEY="$(aws lambda get-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --query 'Environment.Variables.OPENAI_API_KEY' \
+            --output text)"
+          test -n "$OPENAI_API_KEY"
+          test "$OPENAI_API_KEY" != "None"
+          unset OPENAI_API_KEY
+
+          SESSION_SECRET="$(aws lambda get-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --query 'Environment.Variables.SESSION_SECRET' \
+            --output text)"
+          test -n "$SESSION_SECRET"
+          test "$SESSION_SECRET" != "None"
+          unset SESSION_SECRET
 
           KMS_KEY_ID="$(aws lambda get-function-configuration \
             --function-name "$FUNCTION_NAME" \

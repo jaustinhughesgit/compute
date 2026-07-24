@@ -4,55 +4,86 @@ on:
   repository_dispatch:
     types: [install-npm-package]
 
+permissions:
+  contents: write
+
 jobs:
   install:
     runs-on: ubuntu-latest
+
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
-      with:
-        token: ${{ secrets.MY_GITHUB_PAT }}
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.MY_GITHUB_PAT }}
 
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24.x
+          cache: npm
+          cache-dependency-path: app/package-lock.json
 
-    - name: Install npm package
-      run: |
-        cd app
-        npm install --save ${{ github.event.client_payload.packageName }}
-
-    - name: Zip node_modules
-      run: |
-        cd app/node_modules
-        for dir in */; do
-          zip -r "${dir%/}.zip" "$dir"
-        done
-
-    - name: Upload Zipped Modules to S3 if Size Differs
-      run: |
-        cd app/node_modules
-        for zipFile in *.zip; do
-          echo "Checking if $zipFile needs to be uploaded..."
-          localSize=$(stat -c%s "$zipFile")
-          remoteSize=$(aws s3 ls "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile" | awk '{print $3}')
-          if [ "$localSize" != "$remoteSize" ]; then
-            echo "Size differs or file does not exist. Uploading $zipFile..."
-            aws s3 cp "$zipFile" "s3://${{ secrets.AWS_S3_BUCKET }}/node_modules/$zipFile"
-          else
-            echo "$zipFile is up to date. No upload needed."
+      - name: Validate requested package
+        env:
+          PACKAGE_NAME: ${{ github.event.client_payload.packageName }}
+        run: |
+          if [ -z "$PACKAGE_NAME" ]; then
+            echo "::error::The repository dispatch payload did not include packageName"
+            exit 1
           fi
-        done
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_DEFAULT_REGION: 'us-east-1'
+          if [[ ! "$PACKAGE_NAME" =~ ^(@[a-z0-9._-]+/)?[a-z0-9._-]+(@[^[:space:]]+)?$ ]]; then
+            echo "::error::packageName must be an npm registry package with an optional version or tag"
+            exit 1
+          fi
 
-    - name: Commit and Push Changes
-      run: |
-        git config --global user.name 'Lambda_Github'
-        git config --global user.email 'jaustinhughes@outlook.com'
-        git add app/package.json app/package-lock.json
-        git commit -m "Install ${{ github.event.client_payload.packageName }} npm package" || echo "No changes to commit"
-        git push
+      - name: Install npm package
+        working-directory: app
+        env:
+          PACKAGE_NAME: ${{ github.event.client_payload.packageName }}
+        run: npm install --save -- "$PACKAGE_NAME"
+
+      - name: Zip node_modules
+        working-directory: app/node_modules
+        run: |
+          for dir in */; do
+            zip -r "${dir%/}.zip" "$dir"
+          done
+
+      - name: Upload changed module archives to S3
+        working-directory: app/node_modules
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: us-east-1
+          AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+        run: |
+          if [ -z "$AWS_S3_BUCKET" ]; then
+            echo "::error::GitHub Actions secret AWS_S3_BUCKET is not configured"
+            exit 1
+          fi
+
+          for zipFile in *.zip; do
+            echo "Checking whether $zipFile needs to be uploaded..."
+            localSize="$(stat -c%s "$zipFile")"
+            remoteSize="$(aws s3 ls "s3://$AWS_S3_BUCKET/node_modules/$zipFile" | awk '{print $3}')"
+            if [ "$localSize" != "$remoteSize" ]; then
+              aws s3 cp "$zipFile" "s3://$AWS_S3_BUCKET/node_modules/$zipFile"
+            else
+              echo "$zipFile is already current."
+            fi
+          done
+
+      - name: Commit and push dependency changes
+        env:
+          PACKAGE_NAME: ${{ github.event.client_payload.packageName }}
+        run: |
+          git config user.name "Lambda_Github"
+          git config user.email "jaustinhughes@outlook.com"
+          git add app/package.json app/package-lock.json
+          if git diff --cached --quiet; then
+            echo "No dependency changes to commit."
+            exit 0
+          fi
+          git commit -m "Install $PACKAGE_NAME npm package"
+          git push
