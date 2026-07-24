@@ -32,6 +32,14 @@ const REQUIREMENT_USE_ALIASES = new Map([
   ["access", "inject"],
 ]);
 const APPROVAL_MODES = new Set(["every_use", "session", "preapproved"]);
+// Generated capability requirements historically used "auto" to mean that
+// the protected answer may be used immediately after the user explicitly
+// encrypts and submits it. Stored asset policies call that state
+// "preapproved". Keep one canonical value in metadata and AAD while accepting
+// already-installed capability Paths that still contain the legacy alias.
+const APPROVAL_MODE_ALIASES = new Map([
+  ["auto", "preapproved"],
+]);
 const ENVELOPE_ALGORITHMS = new Set(["A256GCM"]);
 const WRAP_ALGORITHMS = new Set(["ECDH-ES+A256KW", "RSA-OAEP-256"]);
 const SAFE_ID = /^[a-z][a-z0-9_.-]{1,127}$/;
@@ -65,6 +73,15 @@ function stringList(value, { max = 100, lower = false } = {}) {
     .filter(Boolean)
     .map((item) => lower ? item.toLowerCase() : item)))
     .slice(0, max);
+}
+
+function normalizeProtectedAssetApprovalMode(value, fallback = "every_use") {
+  const requested = String(value || fallback).trim().toLowerCase();
+  const approvalMode = APPROVAL_MODE_ALIASES.get(requested) || requested;
+  if (!APPROVAL_MODES.has(approvalMode)) {
+    throw new ProtectedAssetError("INVALID_ASSET_POLICY", "policy.approvalMode is invalid");
+  }
+  return approvalMode;
 }
 
 function assertSafeMetadata(value, path = "metadata", depth = 0) {
@@ -116,10 +133,7 @@ function normalizePolicy(raw = {}) {
   if (!allowedUses.length || allowedUses.some((use) => !ALLOWED_USES.has(use))) {
     throw new ProtectedAssetError("INVALID_ASSET_POLICY", "policy.allowedUses is invalid");
   }
-  const approvalMode = String(policy.approvalMode || "every_use").trim().toLowerCase();
-  if (!APPROVAL_MODES.has(approvalMode)) {
-    throw new ProtectedAssetError("INVALID_ASSET_POLICY", "policy.approvalMode is invalid");
-  }
+  const approvalMode = normalizeProtectedAssetApprovalMode(policy.approvalMode);
   return {
     allowedUses,
     destinations: (Array.isArray(policy.destinations) ? policy.destinations : [])
@@ -275,7 +289,7 @@ function normalizeProtectedAssetRequirement(raw, { capabilityId = null, operatio
     providerHost: String(raw.providerHost || "").trim().toLowerCase().slice(0, 255),
     purpose: String(raw.purpose || `${capabilityId || "capability"}.${operationId || "operation"}`).trim().slice(0, 300),
     use,
-    approvalMode: String(raw.approvalMode || "every_use").trim().toLowerCase(),
+    approvalMode: normalizeProtectedAssetApprovalMode(raw.approvalMode),
     acquisition: isObject(raw.acquisition) ? clone(raw.acquisition) : null,
     fields,
   };
@@ -331,6 +345,7 @@ module.exports = {
   ProtectedAssetError,
   normalizeProtectedAssetMetadata,
   normalizeProtectedAssetEnvelope,
+  normalizeProtectedAssetApprovalMode,
   normalizeProtectedAssetRequirement,
   normalizeProtectedAssetReference,
   newProtectedAssetId,
