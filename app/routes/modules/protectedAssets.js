@@ -110,6 +110,36 @@ function kmsClient(shared) {
   return AWS?.KMS ? new AWS.KMS({ region: process.env.AWS_REGION || "us-east-1" }) : null;
 }
 
+function requestedAction(ctx, forcedAction = "") {
+  const forced = String(forcedAction || "").trim();
+  if (forced) return forced.toLowerCase();
+
+  const pathAction = String(ctx?.path || "")
+    .split("?")[0]
+    .split("/")
+    .filter(Boolean)[0];
+  if (pathAction) return decodeURIComponent(pathAction).toLowerCase();
+
+  const originalHost = (
+    ctx?.req?.get?.("X-Original-Host")
+    || ctx?.req?.headers?.["x-original-host"]
+    || ctx?.req?.headers?.["X-Original-Host"]
+    || ""
+  );
+  const segments = String(originalHost)
+    .replace(/^https?:\/\/[^/]+/i, "")
+    .split("?")[0]
+    .split("/")
+    .filter(Boolean)
+    .map(decodeURIComponent);
+  const moduleIndex = segments.findIndex((segment) => segment.toLowerCase() === "protectedassets");
+  if (moduleIndex >= 0 && segments[moduleIndex + 1]) {
+    return String(segments[moduleIndex + 1]).toLowerCase();
+  }
+  const direct = segments.find((segment) => /^protectedasset:/i.test(segment));
+  return direct ? direct.slice(direct.indexOf(":") + 1).toLowerCase() : "help";
+}
+
 function register({ on, use }) {
   const shared = use();
   const dynamodb = shared?.deps?.dynamodb || shared?.getDocClient?.();
@@ -125,7 +155,7 @@ function register({ on, use }) {
         .split("/")
         .filter(Boolean)
         .map(decodeURIComponent);
-      const action = String(forcedAction || segments.shift() || "help").toLowerCase();
+      const action = requestedAction(ctx, forcedAction || segments.shift() || "");
       const body = bodyObject(ctx?.req);
       const ownerId = principalFor(ctx);
 
