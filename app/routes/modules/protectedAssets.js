@@ -134,12 +134,19 @@ function register({ on, use }) {
           throw new ProtectedAssetError("SECURE_EXECUTOR_UNAVAILABLE", "Protected execution key is not configured");
         }
         const result = await kms.getPublicKey({ KeyId: kmsKeyId }).promise();
+        const publicKey = Buffer.from(result.PublicKey || []);
+        if (publicKey.byteLength < 64) {
+          throw new ProtectedAssetError(
+            "SECURE_EXECUTOR_INVALID_KEY",
+            "Protected execution key did not return a valid public key"
+          );
+        }
         return {
           ok: true,
           kind: "protectedAssetExecutorKey",
           keyId: result.KeyId || kmsKeyId,
           algorithm: "RSA-OAEP-256",
-          publicKeySpki: Buffer.from(result.PublicKey || []).toString("base64url"),
+          publicKeySpki: publicKey.toString("base64url"),
         };
       }
 
