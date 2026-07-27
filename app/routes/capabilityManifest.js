@@ -63,6 +63,12 @@ function normalizeBindingHint(raw, inputName, inputType) {
   if (hint.resolver != null) normalized.resolver = String(hint.resolver).trim();
   if (hint.value != null) normalized.value = clone(hint.value);
   if (Array.isArray(hint.aliases)) normalized.aliases = hint.aliases.map(String).filter(Boolean).slice(0, 25);
+  if (source !== "default" && Object.prototype.hasOwnProperty.call(normalized, "value")) {
+    throw new CapabilityError(
+      "INVALID_MANIFEST",
+      `input ${inputName} binding value is allowed only when source is default`
+    );
+  }
   if (source === "contextdb" && (!normalized.subject || !normalized.property)) {
     throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} contextdb binding requires subject and property`);
   }

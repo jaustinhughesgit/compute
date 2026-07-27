@@ -26,6 +26,35 @@ function migrateStoredManifest(raw) {
       : [];
     for (const input of Array.isArray(next.inputs) ? next.inputs : []) {
       if (!input?.credential) {
+        const hint = input?.bindingHint && typeof input.bindingHint === "object"
+          ? input.bindingHint
+          : null;
+        if (
+          hint
+          && String(hint.source || "").toLowerCase() !== "default"
+          && Object.prototype.hasOwnProperty.call(hint, "value")
+          && hint.value != null
+        ) {
+          const values = [
+            hint.value,
+            ...(Array.isArray(next.utteranceExamples) ? next.utteranceExamples : [])
+              .map((example) => example && typeof example === "object" && !Array.isArray(example)
+                ? example?.inputs?.[input.name]
+                : null),
+          ]
+            .filter((value) => ["string", "number", "boolean"].includes(typeof value))
+            .map((value) => String(value).trim())
+            .filter(Boolean);
+          if (values.length && !input?.validation?.pattern) {
+            const alternatives = [...new Set(values)]
+              .map((value) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+            input.validation = {
+              ...(input.validation && typeof input.validation === "object" ? input.validation : {}),
+              pattern: `^(?:${alternatives.join("|")})$`,
+            };
+          }
+          delete hint.value;
+        }
         ordinaryInputs.push(input);
         continue;
       }

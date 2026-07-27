@@ -23,6 +23,7 @@ const {
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
+const { migrateStoredManifest } = require("../app/routes/capabilityRegistry");
 
 const genericRequest = {
   schemaVersion: 1,
@@ -368,6 +369,50 @@ test("semantic utterance examples annotate values without prescribing browser to
   assert.equal(JSON.stringify(manifest).includes("pattern"), false);
 });
 
+test("utterance bindings cannot smuggle a constant into a reusable semantic slot", () => {
+  const request = JSON.parse(JSON.stringify(genericRequest));
+  request.operations[0].inputs[0].bindingHint = {
+    source: "utterance",
+    value: "fixed",
+  };
+  assert.throws(
+    () => validateCapabilityBuildRequest(request),
+    /binding value is allowed only when source is default/
+  );
+});
+
+test("legacy utterance constants migrate into closed validation constraints", () => {
+  const stored = JSON.parse(JSON.stringify(genericRequest));
+  stored.capabilityId = stored.capabilityIdHint;
+  delete stored.capabilityIdHint;
+  stored.entityId = "entity-legacy";
+  stored.version = 1;
+  stored.status = "active";
+  stored.execution = { type: "remote" };
+  stored.operations[0].inputs[0].bindingHint = {
+    source: "utterance",
+    value: "today",
+  };
+  stored.operations[0].utteranceExamples = [{
+    text: "Use current conditions.",
+    inputs: { location_code: "current" },
+  }];
+  const migrated = migrateStoredManifest(stored);
+  const input = migrated.operations[0].inputs[0];
+  assert.equal(Object.prototype.hasOwnProperty.call(input.bindingHint, "value"), false);
+  assert.equal(input.validation.pattern, "^(?:today|current)$");
+});
+
+test("entity revisions preserve semantic resolvers and closed operation boundaries", () => {
+  const source = fs.readFileSync(
+    path.join(__dirname, "../app/routes/modules/editEntity.js"),
+    "utf8"
+  );
+  assert.match(source, /bindingHint\.resolver/);
+  assert.match(source, /bindingHint\.value only when bindingHint\.source is default/);
+  assert.match(source, /anchored validation\.pattern/);
+});
+
 test("required spoken inputs cannot be published without a learnable semantic example", () => {
   assert.throws(() => validateCapabilityManifest({
     schemaVersion: 1,
@@ -572,6 +617,9 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
   assert.equal(options.timeout >= 17_900, true);
   assert.equal(options.maxRetries, 0);
   assert.equal(request.response_format.json_schema.schema, DISCOVERY_RESPONSE_SCHEMA);
+  assert.match(request.messages[0].content, /semantic domain/);
+  assert.match(request.messages[0].content, /bindingHint\.value to null/);
+  assert.match(request.messages[0].content, /anchored validation\.pattern/);
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.type, "object");
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.anyOf, undefined);
   assert.ok(DISCOVERY_RESPONSE_SCHEMA.required.includes("inputValues"));
