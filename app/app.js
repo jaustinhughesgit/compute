@@ -12,6 +12,7 @@ const path = require('path');
 const moment = require('moment-timezone')
 const math = require('mathjs');
 const axios = require('axios');
+const { createBoundedAxios } = require('./routes/boundedAxios');
 const fs = require('fs');
 const { v4: uuidv4 } = require('uuid');
 const util = require('util');
@@ -22,43 +23,6 @@ const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
 
-
-const boundAxios = {
-    constructor: axios.constructor.bind(axios),
-    request: axios.request.bind(axios),
-    _request: axios._request.bind(axios),
-    getUri: axios.getUri.bind(axios),
-    delete: axios.delete.bind(axios),
-    get: axios.get.bind(axios),
-    head: axios.head.bind(axios),
-    options: axios.options.bind(axios),
-    post: axios.post.bind(axios),
-    postForm: axios.postForm.bind(axios),
-    put: axios.put.bind(axios),
-    putForm: axios.putForm.bind(axios),
-    patch: axios.patch.bind(axios),
-    patchForm: axios.patchForm.bind(axios),
-    create: axios.create.bind(axios),
-    isCancel: axios.isCancel.bind(axios),
-    toFormData: axios.toFormData.bind(axios),
-    all: axios.all.bind(axios),
-    spread: axios.spread.bind(axios),
-    isAxiosError: axios.isAxiosError.bind(axios),
-    mergeConfig: axios.mergeConfig.bind(axios),
-
-    defaults: axios.defaults,
-    interceptors: axios.interceptors,
-    Axios: axios.Axios,
-    CanceledError: axios.CanceledError,
-    CancelToken: axios.CancelToken,
-    VERSION: axios.VERSION,
-    AxiosError: axios.AxiosError,
-    Cancel: axios.Cancel,
-    AxiosHeaders: axios.AxiosHeaders,
-    formToJSON: axios.formToJSON,
-    getAdapter: axios.getAdapter,
-    HttpStatusCode: axios.HttpStatusCode
-}
 
 const OpenAI = require("openai");
 const openai = new OpenAI();
@@ -2140,6 +2104,13 @@ app.all('/auth/*',
 
 async function runApp(oldReq, res, next) {
     let req = JSON.parse(JSON.stringify(oldReq));
+    const executionAxios = createBoundedAxios(axios, oldReq?.providerRequestTimeoutMs);
+    Object.defineProperty(req, "executionAxios", {
+        configurable: true,
+        enumerable: false,
+        writable: false,
+        value: executionAxios,
+    });
     req.body = await deepMerge(oldReq.body.body, oldReq.body);
     console.log("runApp", { method: req.method || null, path: req.path || null })
     return new Promise(async (resolve, reject) => {
@@ -2559,7 +2530,7 @@ async function initializeMiddleware(req, res, next) {
                         req.lib.root.context.URL = { "value": URL, "context": {} }
                         req.lib.root.context.res = { "value": resit, "context": {} }
                         req.lib.root.context.math = { "value": math, "context": {} }
-                        req.lib.root.context.axios = { "value": boundAxios, "context": {} }
+                        req.lib.root.context.axios = { "value": req.executionAxios, "context": {} }
                         req.lib.root.context.fs = { "value": fs, "context": {} }
                         req.lib.root.context.JSON = { "value": JSON, "context": {} }
                         req.lib.root.context.Buffer = { "value": Buffer, "context": {} }

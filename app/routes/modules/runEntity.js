@@ -97,6 +97,12 @@ function withTimeout(promise, timeoutMs) {
   return Promise.race([promise, timeout]).finally(() => clearTimeout(timer));
 }
 
+function providerRequestTimeoutMs(executionTimeoutMs) {
+  const timeout = Number(executionTimeoutMs);
+  if (!Number.isFinite(timeout) || timeout <= 0) return 10000;
+  return Math.max(250, Math.min(10000, Math.floor(timeout) - 2500));
+}
+
 function kmsClient(shared) {
   if (shared?.deps?.kms) return shared.deps.kms;
   return shared?.deps?.AWS?.KMS
@@ -183,6 +189,7 @@ function register({ on, use }) {
         version: manifest.version,
         inputs,
       };
+      const providerTimeoutMs = providerRequestTimeoutMs(manifest.execution.timeoutMs);
       const executionPromise = typeof shared.runComputeEntity === "function"
         ? shared.runComputeEntity({
             entityId: actionFile,
@@ -190,6 +197,7 @@ function register({ on, use }) {
             operation,
             inputs,
             protectedAssetBindings: protectedUse?.bindings || null,
+            providerRequestTimeoutMs: providerTimeoutMs,
             req,
             res,
             next,
@@ -202,6 +210,7 @@ function register({ on, use }) {
             next,
             capabilityInvocation,
             protectedAssetBindings: protectedUse?.bindings || null,
+            providerRequestTimeoutMs: providerTimeoutMs,
           });
       const rawResult = await withTimeout(executionPromise, manifest.execution.timeoutMs);
       return buildExecutionSuccess({
@@ -237,6 +246,7 @@ async function runLegacyEntity({
   next,
   capabilityInvocation,
   protectedAssetBindings = null,
+  providerRequestTimeoutMs = null,
 }) {
   const subBySU = await getSub(actionFile, "su");
   const out = subBySU.Items?.[0]?.output;
@@ -273,6 +283,7 @@ async function runLegacyEntity({
     // This non-transport slot is installed into the entity root context by
     // app.js. It is never merged into body or serialized.
     protectedAssetBindings,
+    providerRequestTimeoutMs,
     headers: mergedHeaders,
     get: getHeader,
     cookies: req?.cookies || {},
@@ -286,6 +297,7 @@ async function runLegacyEntity({
 }
 
 module.exports = {
+  providerRequestTimeoutMs,
   register,
   normalizeEntityTransportResult,
   normalizeProviderExecutionError,
