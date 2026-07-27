@@ -5,8 +5,10 @@ const assert = require("node:assert/strict");
 const { createBoundedAxios } = require("../app/routes/boundedAxios");
 const {
   normalizeEntityTransportResult,
+  normalizeProviderExecutionError,
   providerRequestTimeoutMs,
   register,
+  validateEntityResult,
 } = require("../app/routes/modules/runEntity");
 const { resolveComputeInputPlaceholder } = require("../app/routes/inputPlaceholderTransport");
 const { copyRuntimeContext, useBundledRuntimeModule } = require("../app/routes/runtimeModules");
@@ -123,6 +125,76 @@ test("entity transport preserves result when it is a declared output", () => {
   };
   const response = { result: { temperature: 28.98, condition: "scattered clouds" } };
   assert.deepEqual(normalizeEntityTransportResult(operation, response), response);
+});
+
+test("entity output mismatch preserves a sanitized actionable diagnostic", () => {
+  const operation = {
+    operationId: "lookup",
+    outputs: [
+      { name: "measurement", type: "string", required: true },
+      { name: "summary", type: "string", required: true },
+    ],
+    protectedAssetRequirements: [{
+      providerName: "Example Provider",
+      providerHost: "api.provider.example",
+    }],
+  };
+  assert.throws(
+    () => validateEntityResult(operation, {
+      measurement: 300.59,
+      summary: "available",
+      apiKey: "must-not-escape",
+    }),
+    (error) => {
+      assert.equal(error.code, "PROVIDER_RESPONSE_INVALID");
+      assert.match(error.message, /declared output contract/);
+      assert.equal(error.details.stage, "output-contract-validation");
+      assert.deepEqual(error.details.validation, {
+        code: "INVALID_RESULT",
+        message: "output measurement must be string",
+        field: "measurement",
+        expectedType: "string",
+        actualType: "number",
+      });
+      assert.deepEqual(error.details.observedShape, {
+        measurement: "number",
+        summary: "string",
+        apiKey: "string",
+      });
+      assert.equal(error.details.observedResult.measurement, 300.59);
+      assert.equal(error.details.observedResult.apiKey, "[redacted]");
+      assert.doesNotMatch(JSON.stringify(error.details), /must-not-escape/);
+      return true;
+    }
+  );
+});
+
+test("provider request errors preserve sanitized response evidence", () => {
+  const operation = {
+    protectedAssetRequirements: [{
+      providerName: "Example Provider",
+      providerHost: "api.provider.example",
+    }],
+  };
+  const error = normalizeProviderExecutionError({
+    isAxiosError: true,
+    response: {
+      status: 422,
+      statusText: "Unprocessable Entity",
+      data: {
+        message: "invalid location",
+        api_key: "must-not-escape",
+        help: "https://provider.example/help?appid=must-not-escape",
+      },
+    },
+  }, operation);
+  assert.equal(error.code, "PROVIDER_REQUEST_REJECTED");
+  assert.equal(error.details.stage, "provider-request");
+  assert.equal(error.details.status, 422);
+  assert.equal(error.details.providerResponse.message, "invalid location");
+  assert.equal(error.details.providerResponse.api_key, "[redacted]");
+  assert.match(error.details.providerResponse.help, /appid=\[redacted\]/);
+  assert.doesNotMatch(JSON.stringify(error.details), /must-not-escape/);
 });
 
 test("the entity boundary passes its provider deadline into existing entity execution", async () => {

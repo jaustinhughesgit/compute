@@ -44,6 +44,25 @@ test("failure diagnosis redacts protected bindings before model use", () => {
   assert.doesNotMatch(JSON.stringify(cleaned), /pa_secret/);
 });
 
+test("failure diagnosis preserves contract evidence while redacting secrets", () => {
+  const cleaned = cleanFailureContext({
+    failure: {
+      code: "PROVIDER_RESPONSE_INVALID",
+      message: "The observed result did not match the entity contract.",
+      details: {
+        stage: "output-contract-validation",
+        validation: { field: "measurement", expectedType: "string", actualType: "number" },
+        observedResult: { measurement: 300.59, apiKey: "must-not-escape" },
+      },
+    },
+  });
+  assert.equal(cleaned.failure.details.stage, "output-contract-validation");
+  assert.equal(cleaned.failure.details.validation.actualType, "number");
+  assert.equal(cleaned.failure.details.observedResult.measurement, 300.59);
+  assert.equal(cleaned.failure.details.observedResult.apiKey, "[redacted]");
+  assert.doesNotMatch(JSON.stringify(cleaned), /must-not-escape/);
+});
+
 test("failure diagnosis uses a strict read-only model contract", async () => {
   let request = null;
   const openai = {

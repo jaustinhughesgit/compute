@@ -683,8 +683,6 @@ function createShared(deps = {}) {
   }
 
 async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = uuidv4) {
-  console.log("mainObj", mainObj);
-
   // ---------- helpers ----------
   const COOKIE_DOMAIN = ".1var.com";
   const req = res && res.req ? res.req : null;

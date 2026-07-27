@@ -10,6 +10,11 @@ const {
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { createProtectedAssetBroker } = require("../protectedAssetBroker");
+const {
+  observedShape,
+  sanitizeDiagnosticValue,
+  valueType,
+} = require("../diagnosticSanitizer");
 
 function requestObject(req) {
   const body = req && typeof req.body === "object" && req.body ? req.body : {};
@@ -81,7 +86,14 @@ function normalizeProviderExecutionError(error, operation) {
     || ["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "ETIMEDOUT"].includes(String(error?.code || "").toUpperCase())
   );
   if (!providerFailure) return error;
-  const details = { provider: provider.name, providerHost: provider.host || null, status: status || null };
+  const details = {
+    stage: "provider-request",
+    provider: provider.name,
+    providerHost: provider.host || null,
+    status: status || null,
+    statusText: String(error?.response?.statusText || "").slice(0, 200) || null,
+    providerResponse: sanitizeDiagnosticValue(error?.response?.data ?? error?.body ?? null),
+  };
   if ([401, 403].includes(status)) {
     return new CapabilityError("PROVIDER_CREDENTIAL_REJECTED", `${provider.name} rejected the protected credential.`, details);
   }
@@ -98,10 +110,34 @@ function validateEntityResult(operation, rawResult) {
   } catch (error) {
     const provider = protectedProvider(operation);
     if (provider && error instanceof CapabilityError && error.code === "INVALID_RESULT") {
-      throw new CapabilityError("PROVIDER_RESPONSE_INVALID", `${provider.name} did not return usable data.`, {
-        provider: provider.name,
-        providerHost: provider.host || null,
-      });
+      const field = String(error?.details?.field || "");
+      const observedValue = field && transport && typeof transport === "object"
+        ? transport[field]
+        : transport;
+      throw new CapabilityError(
+        "PROVIDER_RESPONSE_INVALID",
+        `${provider.name} returned data that did not match the entity's declared output contract.`,
+        {
+          stage: "output-contract-validation",
+          provider: provider.name,
+          providerHost: provider.host || null,
+          operationId: String(operation?.operationId || ""),
+          validation: {
+            code: error.code,
+            message: String(error.message || "").slice(0, 1000),
+            field: field || null,
+            expectedType: error?.details?.expectedType || null,
+            actualType: error?.details?.actualType || valueType(observedValue),
+          },
+          expectedOutputs: (operation?.outputs || []).slice(0, 40).map((output) => ({
+            name: String(output?.name || ""),
+            type: String(output?.type || ""),
+            required: output?.required !== false,
+          })),
+          observedShape: observedShape(transport),
+          observedResult: sanitizeDiagnosticValue(transport),
+        }
+      );
     }
     throw error;
   }

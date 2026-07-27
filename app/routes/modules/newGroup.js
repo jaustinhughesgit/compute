@@ -28,12 +28,6 @@ function register({ on, use }) {
     const PERM_GRANTS_TABLE = process.env.PERM_GRANTS_TABLE || "perm_grants";
 
     const segs = String(ctx.path || "").split("/").filter(Boolean);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
-    console.log("ctx.path~~~~~~~~", ctx.path);
-    console.log("ctx.req.path~~~~~~~~~~", ctx.req.path);
     const [newGroupName, headEntityName, headUUIDToShow] = segs;
     if (!newGroupName || !headEntityName) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
@@ -41,7 +35,6 @@ function register({ on, use }) {
 
     const ensuredCookie =
       cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
-    console.log("ensuredCookie", ensuredCookie);
 
     setIsPublic(true);
 
@@ -89,7 +82,6 @@ function register({ on, use }) {
         mainObj.existing = true;
         mainObj.file = suDoc + "";
         mainObj.entity = ensuredCookie.e.toString();
-        console.log("response (reused):", mainObj);
         return { ok: true, response: mainObj };
       } catch (reuseErr) {
         console.warn("newGroup: reuse-path failed, falling back to create", reuseErr);
@@ -185,11 +177,6 @@ function register({ on, use }) {
     const suDoc = await getUUID(uuidv4);
 
     const body = ctx.req?.body || { "output": headEntityName, "body": { "output": headEntityName } };
-
-    console.log("***!!!");
-    console.log("ctx", ctx);
-    console.log("ctx.req", ctx.req);
-    console.log("ctx.req.body", ctx.req.body);
 
     const outputParam = ctx?.req?.body?.body?.output || headEntityName;
 
@@ -361,13 +348,11 @@ function register({ on, use }) {
       body
     );
 
-    console.log("ensuredCookie", ensuredCookie);
     // Parity: add existing + file + entity
     mainObj.existing = ensuredCookie.existing;
     mainObj.file = suDoc + "";
     mainObj.entity = e.toString();
 
-    console.log("response:", mainObj);
     return { ok: true, response: mainObj };
   });
 }

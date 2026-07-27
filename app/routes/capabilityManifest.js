@@ -119,6 +119,7 @@ function validateFieldValue(field, value, label) {
     throw new CapabilityError("INVALID_INPUT", `${label} ${field.name} must be ${type}`, {
       field: field.name,
       expectedType: type,
+      actualType: value === null ? "null" : Array.isArray(value) ? "array" : typeof value,
     });
   }
   const rules = field.validation || {};
@@ -441,7 +442,10 @@ function validateOperationResult(operation, rawResult) {
   }
   if (!isObject(result)) {
     if (operation.outputs.length === 1) result = { [operation.outputs[0].name]: result };
-    else throw new CapabilityError("INVALID_RESULT", `operation ${operation.operationId} must return an object`);
+    else throw new CapabilityError("INVALID_RESULT", `operation ${operation.operationId} must return an object`, {
+      expectedType: "object",
+      actualType: result === null ? "null" : Array.isArray(result) ? "array" : typeof result,
+    });
   }
   result = clone(result);
   for (const field of operation.outputs) {
@@ -450,7 +454,11 @@ function validateOperationResult(operation, rawResult) {
     if (field.type === "integer" && typeof value === "string" && /^[-+]?\d+$/.test(value)) value = Number(value);
     result[field.name] = value;
     if (value == null) {
-      if (field.required) throw new CapabilityError("INVALID_RESULT", `required output ${field.name} is missing`);
+      if (field.required) throw new CapabilityError("INVALID_RESULT", `required output ${field.name} is missing`, {
+        field: field.name,
+        expectedType: field.type,
+        actualType: value === null ? "null" : "missing",
+      });
       continue;
     }
     try { validateFieldValue(field, value, "output"); } catch (error) {

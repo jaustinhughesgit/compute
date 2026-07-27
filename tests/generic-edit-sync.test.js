@@ -46,7 +46,11 @@ test("Compute request middleware does not log credentials or the dependency cont
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:req|req\.body|xAccessToken|newReq\.body|deepMerge newReq\.body)["']/);
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:matrix|keywords ROUTE matrix|shorthand txt|resolvedArgs44)["']/);
   const sharedSource = fs.readFileSync(path.join(__dirname, "../app/routes/shared.js"), "utf8");
-  assert.doesNotMatch(sharedSource, /console\.log\(["'](?:xAccessToken|ddb|uuid)["']/);
+  assert.doesNotMatch(sharedSource, /console\.log\(["'](?:xAccessToken|ddb|uuid|mainObj)["']/);
+  for (const moduleName of ["groups.js", "newGroup.js", "links.js"]) {
+    const moduleSource = fs.readFileSync(path.join(__dirname, `../app/routes/modules/${moduleName}`), "utf8");
+    assert.doesNotMatch(moduleSource, /console\.log\(["'](?:ctx|ctx\.req|req|ensuredCookie|response:)["']/);
+  }
 });
 
 test("Convert retires legacy generated implementations before generic reuse", () => {

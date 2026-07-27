@@ -41,8 +41,7 @@ function register({ on, use }) {
     // Legacy: ensure cookie exists (route used manageCookie up-front)
     const ensuredCookie =
       cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
-    console.log("ensuredCookie",ensuredCookie);
-    
+
     // Legacy: set public toggle before creating resources
     setIsPublic(true);
 

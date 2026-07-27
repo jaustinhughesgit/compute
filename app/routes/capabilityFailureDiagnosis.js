@@ -1,5 +1,7 @@
 "use strict";
 
+const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");
+
 const MAX_TEXT_LENGTH = 2000;
 const FAILURE_DIAGNOSIS_SCHEMA = {
   type: "object",
@@ -64,6 +66,7 @@ function cleanFailureContext(value = {}) {
     failure: {
       code: cleanText(value?.failure?.code, 120),
       message: cleanText(value?.failure?.message, 1000),
+      details: sanitizeDiagnosticValue(value?.failure?.details || null),
     },
     path: {
       signature: cleanText(value?.path?.signature, 300),
