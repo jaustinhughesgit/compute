@@ -33,12 +33,16 @@ test('revision requests require an explicit matching target and user changes', (
     {
       schemaVersion: 1,
       requestId: 'request-1',
+      intent: 'revise-entity',
       checkOnly: false,
+      pollOnly: false,
+      jobId: null,
       entityId: 'entity-1',
       explanation: 'Apply the requested feature.',
       requestedChanges: ['Add battery monitoring.'],
       baseVersion: 0,
       convertEssence: [],
+      repairContext: null,
     }
   );
   assert.throws(() => normalizeRevisionRequest({
@@ -50,6 +54,30 @@ test('revision requests require an explicit matching target and user changes', (
     intent: 'check-edit-access',
     target: { entityId: 'entity-1' },
   }, 'entity-1').checkOnly, true);
+});
+
+test('revision requests preserve sanitized Entity and Path repair evidence', () => {
+  const request = normalizeRevisionRequest({
+    target: { entityId: 'entity-1', baseVersion: 0 },
+    explanation: 'Correct the behavior that contradicted the captured date.',
+    repairContext: {
+      target: 'both',
+      pathSignature: 'pattern:v3:generic_lookup',
+      originalUtterance: 'look up tomorrow',
+      pathMatch: {
+        structuralMatch: {
+          captures: { date: { text: 'tomorrow', type: 'date' } },
+        },
+        apiKey: 'must-not-escape',
+      },
+      diagnosis: { target: 'both', reason: 'The capture and implementation need revision.' },
+    },
+  }, 'entity-1');
+  assert.equal(request.repairContext.target, 'both');
+  assert.equal(request.repairContext.pathSignature, 'pattern:v3:generic_lookup');
+  assert.equal(request.repairContext.pathMatch.structuralMatch.captures.date.text, 'tomorrow');
+  assert.equal(request.repairContext.pathMatch.apiKey, '[redacted]');
+  assert.doesNotMatch(JSON.stringify(request), /must-not-escape/);
 });
 
 test('LLM JSON parsing accepts JSON fences but rejects non-object output', () => {

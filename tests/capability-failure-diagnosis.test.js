@@ -104,6 +104,8 @@ test("failure diagnosis uses a strict read-only model contract", async () => {
   assert.equal(request.response_format.json_schema.strict, true);
   assert.equal(request.response_format.json_schema.schema, FAILURE_DIAGNOSIS_SCHEMA);
   assert.match(request.messages[0].content, /read-only/i);
+  assert.match(request.messages[0].content, /ANSWER_INPUT_CONTRADICTION/);
+  assert.match(request.messages[0].content, /target path only when recognition captured/);
   assert.match(diagnosis.userQuestion, /Edit/);
 });
 

@@ -499,6 +499,39 @@ test("answer templates may use declared inputs and outputs but reject unknown va
   );
 });
 
+test("answer templates cannot hard-code one relative day when a temporal input supports another", () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "generic.forecast",
+    description: "Return a value for a requested date.",
+    operations: [{
+      operationId: "lookup",
+      inputs: [{
+        name: "time_reference",
+        type: "date",
+        required: true,
+        bindingHint: { source: "utterance", resolver: "date" },
+      }],
+      outputs: [{ name: "summary", type: "string", required: true }],
+      utteranceExamples: [
+        { text: "Result today?", inputs: { time_reference: "today" } },
+        { text: "Result tomorrow?", inputs: { time_reference: "tomorrow" } },
+      ],
+      answerTemplate: "The result today is {{summary}}.",
+    }],
+  };
+  assert.throws(
+    () => validateCapabilityBuildRequest(request),
+    /answerTemplate hard-codes today/
+  );
+  request.operations[0].answerTemplate = "The result for {{time_reference}} is {{summary}}.";
+  assert.equal(
+    validateCapabilityBuildRequest(request).operations[0].answerTemplate,
+    "The result for {{time_reference}} is {{summary}}."
+  );
+});
+
 test("generated generic type and binding aliases normalize without domain rules", () => {
   const request = validateCapabilityBuildRequest({
     schemaVersion: 1,

@@ -313,6 +313,30 @@ function normalizeOperation(raw, capabilityId = null) {
     for (const match of template.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)) {
       if (!declared.has(match[1])) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} answerTemplate references undeclared value ${match[1]}`);
     }
+    const staticTemplate = template.replace(/\{\{[^}]+\}\}/g, " ").toLowerCase();
+    const staticRelativeDays = ["today", "tomorrow", "yesterday"]
+      .filter((word) => new RegExp(`\\b${word}\\b`).test(staticTemplate));
+    for (const input of inputs) {
+      const resolver = String(input?.bindingHint?.resolver || "").toLowerCase().replace(/[_-]+/g, " ");
+      const temporal = ["date", "datetime"].includes(input.type)
+        || /(?:^|_)(?:date|day|time_reference)(?:_|$)/i.test(input.name)
+        || /\b(?:relative date|calendar date|date reference)\b/.test(resolver);
+      if (!temporal || !staticRelativeDays.length) continue;
+      const supportedRelativeDays = new Set(
+        (normalized.utteranceExamples || [])
+          .filter(isObject)
+          .map((example) => String(example?.inputs?.[input.name] || "").toLowerCase())
+          .map((value) => ["today", "tomorrow", "yesterday"].find((word) => new RegExp(`\\b${word}\\b`).test(value)))
+          .filter(Boolean)
+      );
+      if ([...supportedRelativeDays].some((word) => !staticRelativeDays.includes(word))) {
+        throw new CapabilityError(
+          "INVALID_MANIFEST",
+          `operation ${operationId} answerTemplate hard-codes ${staticRelativeDays.join("/")} but input ${input.name} supports other relative dates`,
+          { field: input.name, stage: "answer-input-consistency" }
+        );
+      }
+    }
     normalized.answerTemplate = template;
   }
   return normalized;

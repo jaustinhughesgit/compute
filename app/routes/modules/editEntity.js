@@ -11,6 +11,7 @@ const {
   canonicalizeProviderUrls,
   validateTrustedImplementation,
 } = require("../capabilityBlueprints");
+const { sanitizeDiagnosticValue } = require("../diagnosticSanitizer");
 
 // Fits the complete current entity and complete revised entity comfortably
 // inside the selected model's context window after prompts and response.
@@ -148,6 +149,18 @@ function normalizeRevisionRequest(body, pathEntityId) {
   if (requestChars > MAX_REQUEST_CHARS) throw new Error("revision request is too large");
 
   const baseVersion = Number(target.baseVersion);
+  const rawRepairContext = input.repairContext && typeof input.repairContext === "object"
+    ? input.repairContext
+    : null;
+  const requestedRepairTarget = plainText(rawRepairContext?.target, 20).toLowerCase();
+  const repairContext = rawRepairContext ? {
+    target: ["entity", "path", "both"].includes(requestedRepairTarget) ? requestedRepairTarget : "entity",
+    pathSignature: plainText(rawRepairContext.pathSignature, 500) || null,
+    originalUtterance: plainText(rawRepairContext.originalUtterance, 2_000) || null,
+    pathMatch: sanitizeDiagnosticValue(rawRepairContext.pathMatch || null),
+    diagnosis: sanitizeDiagnosticValue(rawRepairContext.diagnosis || null),
+    recommendedChange: plainText(rawRepairContext.recommendedChange, 4_000) || null,
+  } : null;
   return {
     schemaVersion: 1,
     requestId: plainText(input.requestId, 200) || null,
@@ -162,6 +175,7 @@ function normalizeRevisionRequest(body, pathEntityId) {
     convertEssence: Array.isArray(input?.convertResult?.essence)
       ? clone(input.convertResult.essence).slice(0, 100)
       : [],
+    repairContext,
   };
 }
 
@@ -172,6 +186,7 @@ function revisionRequestHash(request) {
     requestedChanges: request.requestedChanges,
     baseVersion: request.baseVersion,
     convertEssence: request.convertEssence,
+    repairContext: request.repairContext,
   })).digest("hex");
 }
 
@@ -199,6 +214,10 @@ function revisionInput({
           "Do not remove top-level fields.",
           "If currentCapabilityManifest is present, revise the entity implementation and its semantic capability contract together.",
           "The contract owns typed inputs, ContextDB/environment/utterance bindings, clarifications, outputs, answer templates, and utterance examples.",
+          "The browser owns executable Path signatures. Use repairContext only as evidence about whether the selected Path captured and bound the intended values.",
+          "When repairContext.target is entity or both, correct the entity implementation and semantic manifest; the browser will regenerate Path signatures from the revised manifest.",
+          "If a Path captured a value correctly but the provider request, output, or answer contradicts it, repair the entity and manifest rather than pretending the Path ignored the value.",
+          "A temporal input must influence the provider request or deterministic transformation. Do not fix a today/tomorrow contradiction by changing answer wording alone.",
           "When a user expands supported language or behavior, update both published.computeCapability and the declarative actions that implement it.",
           "For every behavior change, keep the provider request, response mapping, typed output meaning, answerTemplate wording or unit labels, and examples semantically consistent.",
           "A request to change a returned unit or format is not cosmetic: update the declarative provider request or transformation that produces the value and update every contract or answer label that describes it.",
@@ -231,6 +250,7 @@ function revisionInput({
           convertEssence: request.convertEssence,
           currentEntity,
           currentCapabilityManifest: currentManifest || null,
+          repairContext: request.repairContext || null,
           repairFeedback: repairFeedback.map((item) => plainText(item, 1_500)).filter(Boolean).slice(0, 8),
         }),
       },
