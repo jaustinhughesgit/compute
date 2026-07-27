@@ -7,8 +7,12 @@ const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
 const MAX_UTTERANCE_LENGTH = 2000;
 const configuredDiscoveryTimeout = Number(process.env.COMPUTE_DISCOVERY_REQUEST_TIMEOUT_MS);
 const DISCOVERY_REQUEST_TIMEOUT_MS = Number.isFinite(configuredDiscoveryTimeout)
-  ? Math.max(1_000, Math.min(10_000, Math.trunc(configuredDiscoveryTimeout)))
-  : 8_000;
+  ? Math.max(1_000, Math.min(20_000, Math.trunc(configuredDiscoveryTimeout)))
+  : 18_000;
+const configuredDiscoveryBudget = Number(process.env.COMPUTE_DISCOVERY_BUDGET_MS);
+const DISCOVERY_BUDGET_MS = Number.isFinite(configuredDiscoveryBudget)
+  ? Math.max(2_000, Math.min(22_000, Math.trunc(configuredDiscoveryBudget)))
+  : 21_000;
 
 const NULLABLE_STRING_SCHEMA = { anyOf: [{ type: "string" }, { type: "null" }] };
 const NULLABLE_SCALAR_SCHEMA = {
@@ -327,7 +331,10 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
 
   let parsed = null;
   let lastValidationError = null;
+  const discoveryDeadline = Date.now() + DISCOVERY_BUDGET_MS;
   for (let attempt = 0; attempt < 2; attempt += 1) {
+    const remainingMs = discoveryDeadline - Date.now();
+    if (remainingMs < 1_000) break;
     const response = await openai.chat.completions.create({
       model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
       temperature: 0,
@@ -341,7 +348,10 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         },
       },
       messages,
-    }, { timeout: DISCOVERY_REQUEST_TIMEOUT_MS, maxRetries: 0 });
+    }, {
+      timeout: Math.min(DISCOVERY_REQUEST_TIMEOUT_MS, remainingMs),
+      maxRetries: 0,
+    });
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       parsed = JSON.parse(raw);
