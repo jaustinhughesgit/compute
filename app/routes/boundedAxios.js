@@ -12,6 +12,13 @@ function boundedTimeout(config, maximumTimeoutMs) {
   next.timeout = Number.isFinite(requested) && requested > 0
     ? Math.min(Math.floor(requested), maximumTimeoutMs)
     : maximumTimeoutMs;
+  if (
+    !next.signal
+    && typeof AbortSignal !== "undefined"
+    && typeof AbortSignal.timeout === "function"
+  ) {
+    next.signal = AbortSignal.timeout(maximumTimeoutMs);
+  }
   return next;
 }
 

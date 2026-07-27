@@ -22,6 +22,7 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = requir
 const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
+const { useBundledRuntimeModule } = require('./routes/runtimeModules');
 
 
 const OpenAI = require("openai");
@@ -2122,7 +2123,12 @@ async function runApp(oldReq, res, next) {
                 middlewareCache: [],
                 isMiddlewareInitialized: false,
                 whileLimit: 100,
-                root: { context: { session } }
+                root: {
+                    context: {
+                        session,
+                        axios: { value: req.executionAxios, context: {} },
+                    },
+                }
             };
             // Protected Asset plaintext lives only in this in-memory execution
             // context. It is deliberately not copied into req.body, serialized,
@@ -2374,6 +2380,12 @@ async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
     if (config.modules) {
         for (const [key, value] of Object.entries(config.modules)) {
+            if (useBundledRuntimeModule({
+                moduleName: value,
+                contextKey: key,
+                context,
+                lib,
+            })) continue;
             const installedAt = await installModule(value, key, context, lib);
         }
     }

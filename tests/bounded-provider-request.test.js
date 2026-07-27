@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createBoundedAxios } = require("../app/routes/boundedAxios");
 const { providerRequestTimeoutMs, register } = require("../app/routes/modules/runEntity");
+const { useBundledRuntimeModule } = require("../app/routes/runtimeModules");
 
 function fakeAxios(calls) {
   const client = {
@@ -38,9 +39,31 @@ test("generated provider requests receive a bounded Axios timeout", async () => 
   await client.post("https://provider.example/data", { q: "Raleigh" }, { timeout: 5000 });
 
   assert.equal(calls[0][2].timeout, 10000);
+  assert.equal(calls[0][2].signal instanceof AbortSignal, true);
   assert.equal(calls[1][2].timeout, 10000);
   assert.deepEqual(calls[1][2].params, { q: "Raleigh" });
   assert.equal(calls[2][3].timeout, 5000);
+});
+
+test("generated Axios declarations reuse the bundled execution client", () => {
+  const executionAxios = { get: async () => ({ data: {} }) };
+  const context = { axios: { value: executionAxios, context: {} } };
+  const lib = { modules: {} };
+
+  assert.equal(useBundledRuntimeModule({
+    moduleName: "axios",
+    contextKey: "axios",
+    context,
+    lib,
+  }), true);
+  assert.equal(context.axios.value, executionAxios);
+  assert.deepEqual(lib.modules.axios, { value: "axios", context: {} });
+  assert.equal(useBundledRuntimeModule({
+    moduleName: "other-package",
+    contextKey: "other",
+    context,
+    lib,
+  }), false);
 });
 
 test("provider timeout leaves cleanup and response headroom inside the entity deadline", () => {

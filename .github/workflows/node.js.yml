@@ -46,6 +46,7 @@ jobs:
         run: |
           test -f .aws-sam/build/ComputeFunction/app.js
           test -f .aws-sam/build/ComputeFunction/routes/boundedAxios.js
+          test -f .aws-sam/build/ComputeFunction/routes/runtimeModules.js
           test -f .aws-sam/build/ComputeFunction/routes/placeholderTransport.js
           test -f .aws-sam/build/ComputeFunction/routes/modules/runEntity.js
           test -f .aws-sam/build/ComputeFunction/routes/modules/protectedAssets.js
