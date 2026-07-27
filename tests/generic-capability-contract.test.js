@@ -11,6 +11,7 @@ const {
   canonicalizeProviderUrls,
   validateTrustedImplementation,
   isBlockedHostname,
+  CapabilityBuildRetryError,
 } = require("../app/routes/capabilityBlueprints");
 const { discoverComputeCapability, summarizeCapabilities, normalizeGeneratedBuildRequest, DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
@@ -57,7 +58,7 @@ const generatedImplementation = {
     actions: [
       {
         target: "{|axios|}",
-        chain: [{ access: "get", params: ["https://api.example.com/conditions", { params: { place: "{|req=>body.location_code|}", date: "{|req=>body.date|}" } }] }],
+        chain: [{ access: "get", params: ["https://httpbin.org/anything", { params: { place: "{|req=>body.location_code|}", date: "{|req=>body.date|}" } }] }],
         assign: "{|providerResponse|}",
       },
       {
@@ -86,7 +87,7 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.equal(spec.computeEntity.capabilityId, genericRequest.capabilityIdHint);
   assert.equal(spec.computeEntity.manifest.operations[0].inputs[0].bindingHint.property, "location_code");
   assert.deepEqual(spec.computeEntity.manifest.operations[0].inputs[0].bindingHint.aliases, ["home location"]);
-  assert.deepEqual(spec.computeEntity.published.data.allowedHosts, ["api.example.com"]);
+  assert.deepEqual(spec.computeEntity.published.data.allowedHosts, ["httpbin.org"]);
   assert.equal(spec.computeEntity.manifest.implementationPolicyVersion, IMPLEMENTATION_POLICY_VERSION);
   assert.equal(JSON.stringify(spec).includes("function"), false);
 });
@@ -122,6 +123,65 @@ test("generic entity builder repairs one invalid declarative implementation", as
   assert.equal(spec.computeEntity.capabilityId, genericRequest.capabilityIdHint);
 });
 
+test("generic builder carries validation repair across bounded HTTP phases", async () => {
+  let calls = 0;
+  const requests = [];
+  const openai = {
+    chat: { completions: { create: async (request, options) => {
+      calls += 1;
+      requests.push({ request, options });
+      const value = calls === 1
+        ? {
+            name: "Conditions lookup",
+            provider: "invalid",
+            published: {
+              modules: { axios: "axios" },
+              actions: [
+                { target: "{|axios|}", chain: [{ access: "get", params: ["https://127.0.0.1/data", {}] }], assign: "{|x|}" },
+                { target: "{|res|}!", chain: [{ access: "send", params: [{ summary: "{|x|}" }] }] },
+              ],
+            },
+          }
+        : generatedImplementation;
+      return { choices: [{ message: { content: JSON.stringify(value) } }] };
+    } } },
+  };
+
+  let continuation;
+  await assert.rejects(
+    buildComputeEntitySpec({
+      capabilityRequest: genericRequest,
+      requestedBy: "u:7",
+      originalUtterance: "Look up conditions.",
+      openai,
+      generationAttemptLimit: 1,
+    }),
+    (error) => {
+      assert.equal(error instanceof CapabilityBuildRetryError, true);
+      continuation = error.continuation;
+      assert.equal(continuation.attempt, 1);
+      return true;
+    }
+  );
+
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: genericRequest,
+    requestedBy: "u:7",
+    originalUtterance: "Look up conditions.",
+    openai,
+    generationAttemptLimit: 1,
+    buildContinuation: continuation,
+  });
+  assert.equal(calls, 2);
+  assert.equal(spec.computeEntity.capabilityId, genericRequest.capabilityIdHint);
+  assert.equal(requests[0].options.maxRetries, 0);
+  assert.equal(requests[0].options.timeout, 18_000);
+  assert.equal(requests[1].request.messages.some((message) => message.role === "assistant"), true);
+  assert.equal(requests[1].request.messages.some((message) =>
+    message.role === "system" && /Validation failed/.test(message.content)
+  ), true);
+});
+
 test("generic compiler moves dynamic URL query values into declarative axios params", () => {
   const compiled = canonicalizeProviderUrls({
     published: {
@@ -131,7 +191,7 @@ test("generic compiler moves dynamic URL query values into declarative axios par
         chain: [{
           access: "get",
           params: [
-            "https://api.example.com/conditions?place={|req=>body.location_code|}&date={|req=>body.date|}",
+            "https://httpbin.org/anything?place={|req=>body.location_code|}&date={|req=>body.date|}",
             {},
           ],
         }],
@@ -143,7 +203,7 @@ test("generic compiler moves dynamic URL query values into declarative axios par
     },
   });
   const request = compiled.published.actions[0].chain[0].params;
-  assert.equal(request[0], "https://api.example.com/conditions");
+  assert.equal(request[0], "https://httpbin.org/anything");
   assert.deepEqual(request[1], { params: {
     place: "{|req=>body.location_code|}",
     date: "{|req=>body.date|}",
@@ -155,29 +215,93 @@ test("generic compiler may inline a declared literal URL but never a dynamic des
   const compiled = canonicalizeProviderUrls({
     published: {
       modules: { axios: "axios" },
-      data: { providerUrl: "https://api.example.com/data" },
+      data: { providerUrl: "https://httpbin.org/anything" },
       actions: [
         { target: "{|axios|}", chain: [{ access: "get", params: ["{|providerUrl|}", {}] }], assign: "{|x|}" },
         { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
       ],
     },
   });
-  assert.equal(compiled.published.actions[0].chain[0].params[0], "https://api.example.com/data");
+  assert.equal(compiled.published.actions[0].chain[0].params[0], "https://httpbin.org/anything");
   assert.doesNotThrow(() => validateTrustedImplementation(compiled));
   assert.throws(() => validateTrustedImplementation(canonicalizeProviderUrls({ published: {
     modules: { axios: "axios" },
     actions: [
-      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/{|req=>body.path|}", {}] }], assign: "{|x|}" },
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://httpbin.org/{|req=>body.path|}", {}] }], assign: "{|x|}" },
       { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
     ],
   } })), /literal public HTTPS provider URL/);
   assert.throws(() => validateTrustedImplementation({ published: {
     modules: { axios: "axios" },
     actions: [
-      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/data", { params: { q: "${location}" } }] }], assign: "{|x|}" },
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://httpbin.org/anything", { params: { q: "${location}" } }] }], assign: "{|x|}" },
       { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
     ],
   } }), /only declarative/);
+});
+
+test("data-driven provider credentials remain protected and are never ordinary inputs", async () => {
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: genericRequest,
+    requestedBy: "u:7",
+    originalUtterance: "What are the conditions today?",
+    generatedImplementation: {
+      name: "Conditions lookup",
+      provider: "Public conditions provider",
+      inputRequirements: [],
+      protectedAssetRequirements: [{
+        requirementId: "conditions_provider_credentials",
+        operationId: "lookup",
+        assetType: "credential",
+        providerId: "conditions_provider",
+        providerName: "Public conditions provider",
+        providerHost: "httpbin.org",
+        purpose: "environment.conditions.lookup",
+        use: "inject",
+        approvalMode: "every_use",
+        acquisition: {
+          url: "https://httpbin.org/forms/post",
+          instructions: "Create a provider account and copy its API key.",
+        },
+        fields: [{
+          name: "api_key",
+          required: true,
+          injection: { location: "query", parameter: "appid", prefix: "" },
+        }],
+      }],
+      published: {
+        modules: { axios: "axios" },
+        actions: [
+          {
+            target: "{|axios|}",
+            chain: [{
+              access: "get",
+              params: ["https://httpbin.org/anything", {
+                params: {
+                  place: "{|req=>body.location_code|}",
+                  date: "{|req=>body.date|}",
+                  appid: "{|req=>body.api_key|}",
+                },
+              }],
+            }],
+            assign: "{|providerResponse|}",
+          },
+          {
+            target: "{|res|}!",
+            chain: [{ access: "send", params: [{ summary: "{|providerResponse=>data.summary|}" }] }],
+          },
+        ],
+        data: {},
+      },
+    },
+  });
+  const operation = spec.computeEntity.manifest.operations[0];
+  assert.equal(operation.inputs.some((input) => input.name === "api_key"), false);
+  assert.equal(operation.protectedAssetRequirements[0].requirementId, "conditions_provider_credentials");
+  assert.equal(
+    spec.computeEntity.published.actions[0].chain[0].params[1].params.appid,
+    "{|protected=>conditions_provider_credentials.api_key|}"
+  );
 });
 
 test("semantic utterance examples annotate values without prescribing browser tokens", () => {
@@ -354,7 +478,7 @@ test("generic network validation rejects private, credentialed, and dynamic prov
   assert.throws(() => validateTrustedImplementation({ published: {
     modules: { axios: "axios" },
     actions: [
-      { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/data", { params: { key: "YOUR_API_KEY", q: "{|req=>body.location|}" } }] }], assign: "{|x|}" },
+      { target: "{|axios|}", chain: [{ access: "get", params: ["https://httpbin.org/anything", { params: { key: "YOUR_API_KEY", q: "{|req=>body.location|}" } }] }], assign: "{|x|}" },
       { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|x=>data|}" }] }] },
     ],
   } }), /credential placeholders/);
@@ -381,9 +505,11 @@ test("discovery can propose any validated entity contract without a catalog", as
 
 test("discovery uses strict Structured Outputs with nonempty operations and outputs", async () => {
   let request = null;
+  let options = null;
   const openai = {
-    chat: { completions: { create: async (value) => {
+    chat: { completions: { create: async (value, requestOptions) => {
       request = value;
+      options = requestOptions;
       return { choices: [{ message: { content: JSON.stringify({
         decision: "build_compute",
         confidence: 0.95,
@@ -403,6 +529,8 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
   assert.equal(result.decision, "build");
   assert.equal(request.response_format.type, "json_schema");
   assert.equal(request.response_format.json_schema.strict, true);
+  assert.equal(options.timeout, 8_000);
+  assert.equal(options.maxRetries, 0);
   assert.equal(request.response_format.json_schema.schema, DISCOVERY_RESPONSE_SCHEMA);
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.type, "object");
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.anyOf, undefined);

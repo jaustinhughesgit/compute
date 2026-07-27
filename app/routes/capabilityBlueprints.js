@@ -12,14 +12,72 @@ const { normalizeProtectedAssetRequirement } = require("./protectedAssetContract
 const GENERIC_BLUEPRINT_ID = "entity.declarative.remote.v1";
 const TRUSTED_MODULES = new Set(["axios"]);
 const MAX_IMPLEMENTATION_BYTES = 384 * 1024;
+const MAX_GENERATION_ATTEMPTS = 3;
+const MAX_BUILD_CONTINUATION_BYTES = 20 * 1024;
 const FORBIDDEN_KEYS = new Set([
   "__proto__", "prototype", "constructor", "function", "functions",
   "code", "script", "eval", "require", "import",
 ]);
 const CREDENTIAL_FIELD = /(?:secret|password|token|credential|api[_-]?key|private[_-]?key)/i;
+const CREDENTIAL_PLACEHOLDER = new RegExp([
+  String.raw`\b(?:YOUR|INSERT|REPLACE|ENTER|ADD|PUT|PASTE|SET|PROVIDE)(?:[_\s-]+[A-Z0-9]+){0,8}[_\s-]+(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)\b`,
+  String.raw`\b(?:(?:API|ACCESS|AUTH|PRIVATE|PUBLIC|CLIENT)[_\s-]+)?(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIALS?)(?:[_\s-]+(?:HERE|PLACEHOLDER|VALUE))\b`,
+  String.raw`<[^>]*(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)[^>]*>`,
+  String.raw`\bBearer\s+[A-Za-z0-9._-]+\b`,
+].join("|"), "i");
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const isObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+
+class CapabilityBuildRetryError extends Error {
+  constructor(continuation) {
+    super("Capability implementation needs another bounded validation pass");
+    this.name = "CapabilityBuildRetryError";
+    this.code = "CAPABILITY_BUILD_RETRY_REQUIRED";
+    this.continuation = continuation;
+  }
+}
+
+function boundedInteger(value, fallback, minimum, maximum) {
+  const number = Number(value);
+  return Number.isInteger(number)
+    ? Math.max(minimum, Math.min(maximum, number))
+    : fallback;
+}
+
+function normalizeBuildContinuation(raw) {
+  if (!isObject(raw)) return null;
+  const attempt = Number(raw.attempt);
+  if (!Number.isInteger(attempt) || attempt < 1 || attempt >= MAX_GENERATION_ATTEMPTS) {
+    throw new Error("capability build continuation attempt is invalid");
+  }
+  const previousOutput = String(raw.previousOutput || "").slice(0, MAX_BUILD_CONTINUATION_BYTES);
+  const validationCode = String(raw.validationCode || "INVALID_IMPLEMENTATION").slice(0, 120);
+  const validationMessage = String(raw.validationMessage || "The implementation failed validation.")
+    .replace(/[\r\n\t]+/g, " ")
+    .slice(0, 800);
+  if (!previousOutput) throw new Error("capability build continuation output is missing");
+  return {
+    schemaVersion: 1,
+    attempt,
+    previousOutput,
+    validationCode,
+    validationMessage,
+  };
+}
+
+function appendBuildCorrection(messages, continuation) {
+  messages.push({ role: "assistant", content: continuation.previousOutput });
+  messages.push({
+    role: "system",
+    content: [
+      `Validation failed (${continuation.validationCode}): ${continuation.validationMessage}.`,
+      "Correct the JSON without explanation.",
+      "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}; replace provider.invalid with a real public endpoint.",
+      "Final response action shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
+    ].join(" "),
+  });
+}
 
 function parseJsonObject(value, label = "JSON") {
   let parsed = value;
@@ -79,9 +137,10 @@ function publicHttpsUrl(value, label) {
   try { url = new URL(String(value || "").trim()); } catch (_) {
     throw new Error(`${label} must be a literal public HTTPS URL`);
   }
-  if (url.protocol !== "https:" || url.username || url.password || isBlockedHostname(url.hostname)) {
+  if (url.protocol !== "https:" || url.username || url.password) {
     throw new Error(`${label} must be a literal public HTTPS URL`);
   }
+  if (isBlockedHostname(url.hostname)) throw new Error(`${label} uses an unsafe provider URL`);
   return url;
 }
 
@@ -183,11 +242,30 @@ function canonicalizeProviderUrls(implementation) {
   const generated = clone(implementation || {});
   const published = isObject(generated.published) ? generated.published : generated;
   if (!isObject(published)) return generated;
+  const literalUrls = new Map();
+  for (const [name, value] of Object.entries(isObject(published.data) ? published.data : {})) {
+    if (typeof value === "string" && value.startsWith("https://") && !value.includes("{|")) {
+      literalUrls.set(name, value);
+    }
+  }
+  for (const action of Array.isArray(published.actions) ? published.actions : []) {
+    if (!isObject(action?.set)) continue;
+    for (const [name, value] of Object.entries(action.set)) {
+      if (typeof value === "string" && value.startsWith("https://") && !value.includes("{|")) {
+        literalUrls.set(name, value);
+      }
+    }
+  }
   for (const action of Array.isArray(published.actions) ? published.actions : []) {
     if (String(action?.target || "") !== "{|axios|}" || !Array.isArray(action.chain)) continue;
     for (const step of action.chain) {
       if (!Array.isArray(step?.params) || typeof step.params[0] !== "string") continue;
-      const rawUrl = step.params[0].trim();
+      let rawUrl = step.params[0].trim();
+      const constantReference = /^\{\|([a-zA-Z0-9_.-]+)\|\}$/.exec(rawUrl);
+      if (constantReference && literalUrls.has(constantReference[1])) {
+        rawUrl = literalUrls.get(constantReference[1]);
+      }
+      step.params[0] = rawUrl;
       if (!rawUrl.startsWith("https://") || !rawUrl.includes("?")) continue;
       const queryAt = rawUrl.indexOf("?");
       const destination = rawUrl.slice(0, queryAt);
@@ -342,7 +420,9 @@ function validateAction(action, index) {
     if (action.target === "{|axios|}") {
       if (String(step.access).toLowerCase() !== "get") throw new Error(`declarative action ${index} provider access must be get`);
       publicHttpsUrl(step.params[0], `declarative action ${index} URL`);
-      if (String(step.params[0]).includes("{|")) throw new Error(`declarative action ${index} URL must be literal`);
+      if (String(step.params[0]).includes("{|")) {
+        throw new Error(`declarative action ${index} must use a literal public HTTPS provider URL`);
+      }
     } else if (String(step.access).toLowerCase() !== "send") {
       throw new Error(`declarative action ${index} response access must be send`);
     }
@@ -399,6 +479,12 @@ function validateTrustedImplementation(implementation) {
     }
   }
   const text = JSON.stringify(actions);
+  if (/\$\{|{{/.test(text)) {
+    throw new Error("generated compute entities must use only declarative {|name|} placeholders");
+  }
+  if (CREDENTIAL_PLACEHOLDER.test(text)) {
+    throw new Error("generated compute entity contains credential placeholders");
+  }
   const requestInputNames = [...text.matchAll(/\{\|req=>body\.([^|{}]+)\|\}/g)]
     .map((match) => String(match[1] || "").split(/[.[\]]/, 1)[0]);
   if (requestInputNames.some((name) => CREDENTIAL_FIELD.test(name))) {
@@ -448,7 +534,14 @@ function listCapabilityBlueprints() {
   ];
 }
 
-async function generateImplementation({ openai, buildRequest, originalUtterance }) {
+async function generateImplementation({
+  openai,
+  buildRequest,
+  originalUtterance,
+  attemptLimit = MAX_GENERATION_ATTEMPTS,
+  continuation = null,
+  requestTimeoutMs = Number(process.env.COMPUTE_BUILDER_REQUEST_TIMEOUT_MS || 18_000),
+}) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
   const messages = [{
     role: "system",
@@ -483,14 +576,22 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       capabilityContract: buildRequest,
     }),
   }];
+  const resumed = normalizeBuildContinuation(continuation);
+  if (resumed) appendBuildCorrection(messages, resumed);
+  let completedAttempts = resumed?.attempt || 0;
+  const localAttemptLimit = Math.min(
+    boundedInteger(attemptLimit, MAX_GENERATION_ATTEMPTS, 1, MAX_GENERATION_ATTEMPTS),
+    MAX_GENERATION_ATTEMPTS - completedAttempts
+  );
+  const timeoutMs = boundedInteger(requestTimeoutMs, 18_000, 1_000, 24_000);
   let lastError;
-  for (let attempt = 0; attempt < 3; attempt += 1) {
+  for (let attempt = 0; attempt < localAttemptLimit; attempt += 1) {
     const response = await openai.chat.completions.create({
       model: process.env.COMPUTE_BUILDER_MODEL || "gpt-4o-2024-08-06",
       temperature: 0,
       response_format: { type: "json_object" },
       messages,
-    });
+    }, { timeout: timeoutMs, maxRetries: 0 });
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       const generated = canonicalizeProviderUrls(parseJsonObject(raw, "capability implementation response"));
@@ -503,17 +604,19 @@ async function generateImplementation({ openai, buildRequest, originalUtterance 
       return generated;
     } catch (error) {
       lastError = error;
-      if (attempt >= 2) break;
-      messages.push({ role: "assistant", content: raw.slice(0, 20000) });
-      messages.push({
-        role: "system",
-        content: [
-          `Validation failed: ${String(error.message).slice(0, 800)}.`,
-          "Correct the JSON without explanation.",
-          "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}; replace provider.invalid with the approved real endpoint.",
-          "Final response action shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
-        ].join(" "),
-      });
+      completedAttempts += 1;
+      const nextContinuation = {
+        schemaVersion: 1,
+        attempt: completedAttempts,
+        previousOutput: raw.slice(0, MAX_BUILD_CONTINUATION_BYTES),
+        validationCode: String(error?.code || "INVALID_IMPLEMENTATION").slice(0, 120),
+        validationMessage: String(error?.message || error).replace(/[\r\n\t]+/g, " ").slice(0, 800),
+      };
+      if (completedAttempts >= MAX_GENERATION_ATTEMPTS) break;
+      if (attempt + 1 >= localAttemptLimit) {
+        throw new CapabilityBuildRetryError(nextContinuation);
+      }
+      appendBuildCorrection(messages, nextContinuation);
     }
   }
   throw lastError || new Error("builder did not return a valid entity");
@@ -525,10 +628,20 @@ async function buildComputeEntitySpec({
   originalUtterance = "",
   openai,
   generatedImplementation = null,
+  generationAttemptLimit = MAX_GENERATION_ATTEMPTS,
+  buildContinuation = null,
+  requestTimeoutMs,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
   const generated = canonicalizeProviderUrls(
-    generatedImplementation || await generateImplementation({ openai, buildRequest: initial, originalUtterance })
+    generatedImplementation || await generateImplementation({
+      openai,
+      buildRequest: initial,
+      originalUtterance,
+      attemptLimit: generationAttemptLimit,
+      continuation: buildContinuation,
+      requestTimeoutMs,
+    })
   );
   const generatedBuildRequest = attachGeneratedInputs(initial, generated.inputRequirements || []);
   const requirements = normalizeProtectedRequirements(
@@ -597,4 +710,6 @@ module.exports = {
   canonicalizeProviderUrls,
   isBlockedHostname,
   validateImplementationBindings,
+  CapabilityBuildRetryError,
+  normalizeBuildContinuation,
 };

@@ -24,6 +24,11 @@ test("Convert uses generic discovery, reuse, extension, and model-built entity p
   assert.match(source, /CAPABILITY_EXTENSION_REQUIRED/);
   assert.match(source, /await buildComputeEntitySpec/);
   assert.match(source, /capabilityRequest:\s*capabilityBuildRequest/);
+  assert.match(source, /status:\s*"CAPABILITY_BUILD_REQUIRED"/);
+  assert.match(source, /status:\s*"BUILD_RETRY_REQUIRED"/);
+  assert.match(source, /generationAttemptLimit/);
+  assert.match(source, /buildComputeCapability === true/);
+  assert.match(source, /capabilityBuildId === buildId/);
   assert.doesNotMatch(source, /weather/i);
 });
 

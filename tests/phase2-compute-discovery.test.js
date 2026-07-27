@@ -43,7 +43,7 @@ test("the generic builder validates entity-owned declarative implementation data
       published: {
         modules: { axios: "axios" },
         actions: [
-          { target: "{|axios|}", chain: [{ access: "get", params: ["https://api.example.com/colors", { params: { name: "{|req=>body.color|}" } }] }], assign: "{|response|}" },
+          { target: "{|axios|}", chain: [{ access: "get", params: ["https://httpbin.org/anything", { params: { name: "{|req=>body.color|}" } }] }], assign: "{|response|}" },
           { target: "{|res|}!", chain: [{ access: "send", params: [{ rgb: "{|response=>data.rgb|}" }] }] },
         ],
         data: {},
@@ -51,5 +51,5 @@ test("the generic builder validates entity-owned declarative implementation data
     },
   });
   assert.equal(result.computeEntity.capabilityId, "color.rgb.lookup");
-  assert.deepEqual(result.computeEntity.published.data.allowedHosts, ["api.example.com"]);
+  assert.deepEqual(result.computeEntity.published.data.allowedHosts, ["httpbin.org"]);
 });

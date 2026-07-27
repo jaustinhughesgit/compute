@@ -5,6 +5,10 @@ const { validateCapabilityBuildRequest } = require("./capabilityManifest");
 const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
 
 const MAX_UTTERANCE_LENGTH = 2000;
+const configuredDiscoveryTimeout = Number(process.env.COMPUTE_DISCOVERY_REQUEST_TIMEOUT_MS);
+const DISCOVERY_REQUEST_TIMEOUT_MS = Number.isFinite(configuredDiscoveryTimeout)
+  ? Math.max(1_000, Math.min(10_000, Math.trunc(configuredDiscoveryTimeout)))
+  : 8_000;
 
 const NULLABLE_STRING_SCHEMA = { anyOf: [{ type: "string" }, { type: "null" }] };
 const NULLABLE_SCALAR_SCHEMA = {
@@ -337,7 +341,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         },
       },
       messages,
-    });
+    }, { timeout: DISCOVERY_REQUEST_TIMEOUT_MS, maxRetries: 0 });
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       parsed = JSON.parse(raw);

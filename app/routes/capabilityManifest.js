@@ -6,7 +6,7 @@ const {
 } = require("./protectedAssetContract");
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 9;
+const IMPLEMENTATION_POLICY_VERSION = 10;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -142,8 +142,11 @@ function canonicalizeGeneratedOperations(rawOperations) {
   ]);
   const sourceAliases = new Map([
     ["context", "contextdb"], ["context_db", "contextdb"], ["memory", "contextdb"],
+    ["profile", "contextdb"],
     ["speech", "utterance"], ["query", "utterance"], ["user_input", "utterance"],
-    ["env", "environment"], ["constant", "default"], ["literal", "default"],
+    ["input", "utterance"],
+    ["env", "environment"], ["system", "environment"],
+    ["constant", "default"], ["literal", "default"],
   ]);
   return (Array.isArray(rawOperations) ? rawOperations : []).map((rawOperation, operationIndex) => {
     const operation = clone(rawOperation || {});
@@ -164,6 +167,22 @@ function canonicalizeGeneratedOperations(rawOperations) {
         if (isObject(field.bindingHint)) {
           const source = String(field.bindingHint.source || "").toLowerCase();
           field.bindingHint.source = sourceAliases.get(source) || source;
+          if (field.bindingHint.source === "contextdb") {
+            field.bindingHint.subject = String(field.bindingHint.subject || "speaker").trim();
+            field.bindingHint.property = String(field.bindingHint.property || field.name).trim();
+          }
+          if (field.bindingHint.source === "environment" && !field.bindingHint.resolver) {
+            field.bindingHint.resolver = field.type === "date" || field.type === "datetime"
+              ? "relative_date"
+              : field.name;
+          }
+        }
+        if (
+          collection === "inputs"
+          && field.required !== false
+          && !String(field.clarification || "").trim()
+        ) {
+          field.clarification = `What value should I use for ${field.name.replace(/[_.-]+/g, " ")}?`;
         }
         return field;
       });
@@ -180,18 +199,18 @@ function canonicalizeGeneratedOperations(rawOperations) {
     });
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
+        /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,
+        (_whole, prefix, rawName) => {
+          const name = String(rawName).trim();
+          const canonical = names.get(name) || names.get(name.toLowerCase());
+          return canonical ? `${prefix}{{${canonical}}}` : `${prefix}{${rawName}}`;
+        }
+      ).replace(
         /{{\s*([^}|]+)([^}]*)}}/g,
         (whole, rawName, suffix) => {
           const name = String(rawName).trim();
           const canonical = names.get(name) || names.get(name.toLowerCase());
           return canonical ? `{{${canonical}${suffix}}}` : whole;
-        }
-      ).replace(
-        /\{(?!\{)\s*([a-zA-Z0-9_.-]+)\s*\}(?!\})/g,
-        (whole, rawName) => {
-          const name = String(rawName).trim();
-          const canonical = names.get(name) || names.get(name.toLowerCase());
-          return canonical ? `{{${canonical}}}` : whole;
         }
       );
     }
@@ -261,6 +280,21 @@ function normalizeOperation(raw, capabilityId = null) {
       }
       return text ? { text, inputs: values } : null;
     }).filter(Boolean).slice(0, 40);
+  }
+  const requiredUtteranceInputs = inputs.filter((input) =>
+    input.required && input.bindingHint?.source === "utterance"
+  );
+  for (const input of requiredUtteranceInputs) {
+    const hasAnnotatedExample = (normalized.utteranceExamples || []).some((example) =>
+      isObject(example)
+      && Object.prototype.hasOwnProperty.call(example.inputs || {}, input.name)
+    );
+    if (!hasAnnotatedExample) {
+      throw new CapabilityError(
+        "INVALID_MANIFEST",
+        `operation ${operationId} requires an annotated utterance example for input ${input.name}`
+      );
+    }
   }
   if (operation.pathContracts != null || operation.pattern != null || operation.signatureSlots != null) {
     throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} contains browser-owned Path fields`);

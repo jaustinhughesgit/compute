@@ -8,7 +8,10 @@ const {
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
-const { buildComputeEntitySpec } = require("../capabilityBlueprints");
+const {
+  buildComputeEntitySpec,
+  CapabilityBuildRetryError,
+} = require("../capabilityBlueprints");
 const {
   stableHash,
   createCapabilityBuildCoordinator,
@@ -169,7 +172,14 @@ function register({ on, use }) {
       const capabilityRegistry = createCapabilityRegistry({ dynamodb });
       const buildCoordinator = createCapabilityBuildCoordinator({ dynamodb });
 
-      const capabilityStateResponse = ({ status, manifest = null, buildId = null, reason = null, record = null }) => {
+      const capabilityStateResponse = ({
+        status,
+        manifest = null,
+        buildId = null,
+        reason = null,
+        record = null,
+        continuation = null,
+      }) => {
         const created = manifest ? [{
           entity: manifest.entityId,
           id: manifest.entityId,
@@ -203,11 +213,180 @@ function register({ on, use }) {
             registered: !!manifest,
             replayRequired: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
             reason,
+            continuation,
           },
           existing: !!(meta && meta.cookie && meta.cookie.existing),
           file: manifest?.entityId || record?.capabilityEntityId || "",
         };
         return { ok: true, response };
+      };
+
+      const prepareCapabilityBuild = async ({
+        originalUtterance,
+        blueprintId = null,
+        buildId = null,
+        continuation = null,
+        generationAttemptLimit = 3,
+      }) => {
+        const capabilityId = capabilityBuildRequest.capabilityIdHint;
+        const existing = await capabilityRegistry.findByCapability(capabilityId, {
+          activeOnly: false,
+          limit: 10,
+          ownerId,
+        });
+        const legacyActive = existing.filter((item) =>
+          item.status === "active"
+          && Number(item.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION
+        );
+        for (const legacy of legacyActive) {
+          await capabilityRegistry.setStatus(legacy.entityId, "failed", { ownerId });
+        }
+        if (legacyActive.length) {
+          await buildCoordinator.fail(
+            buildCoordinator.identity({ ownerId, capabilityId }),
+            "IMPLEMENTATION_POLICY_UPGRADE"
+          );
+        }
+        const active = existing.find((item) =>
+          item.status === "active"
+          && Number(item.implementationPolicyVersion || 1) >= IMPLEMENTATION_POLICY_VERSION
+        );
+        if (active) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_EXTENSION_REQUIRED",
+            manifest: active,
+            reason: "An entity already owns this capability identifier, but discovery did not confirm that its current contract satisfies the request. Edit that entity instead of creating a competing copy.",
+          });
+        }
+        const testing = existing.find((item) => item.status === "testing");
+        if (testing) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_PENDING",
+            manifest: testing,
+            reason: "A matching capability exists but has not been activated.",
+          });
+        }
+        const disabled = existing.find((item) => item.status === "disabled");
+        if (disabled) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_DISABLED",
+            manifest: disabled,
+            reason: "A matching capability was deliberately disabled and will not be rebuilt automatically.",
+          });
+        }
+
+        const requestHash = stableHash(JSON.stringify(capabilityBuildRequest));
+        let claim;
+        if (buildId) {
+          const identity = buildCoordinator.identity({ ownerId, capabilityId });
+          const record = await buildCoordinator.get(identity);
+          const validResume = record
+            && record.capabilityBuildId === buildId
+            && record.capabilityOwnerId === ownerId
+            && record.capabilityId === capabilityId
+            && record.capabilityRequestHash === requestHash;
+          if (!validResume) {
+            return capabilityStateResponse({
+              status: "BUILD_RESUME_REJECTED",
+              buildId,
+              reason: "The capability build continuation did not match the active owner, contract, or build.",
+            });
+          }
+          if (record.capabilityBuildStatus === "completed" && record.capabilityEntityId) {
+            const completedManifest = await capabilityRegistry.getByEntity(
+              record.capabilityEntityId,
+              { includeInactive: true }
+            );
+            return capabilityStateResponse({
+              status: completedManifest ? "CAPABILITY_REUSED" : "BUILD_FAILED",
+              manifest: completedManifest,
+              buildId,
+              record,
+              reason: completedManifest
+                ? "The capability build completed and was reused."
+                : "The completed build no longer has a readable capability manifest.",
+            });
+          }
+          if (record.capabilityBuildStatus !== "building") {
+            return capabilityStateResponse({
+              status: "BUILD_FAILED",
+              buildId,
+              record,
+              reason: `The capability build cannot resume from ${record.capabilityBuildStatus || "unknown"} state.`,
+            });
+          }
+          claim = { acquired: true, ...identity, record };
+        } else {
+          claim = await buildCoordinator.claim({
+            ownerId,
+            capabilityId,
+            requestHash,
+          });
+          if (!claim.acquired) {
+            let completedManifest = null;
+            if (claim.record?.capabilityBuildStatus === "completed" && claim.record?.capabilityEntityId) {
+              completedManifest = await capabilityRegistry.getByEntity(
+                claim.record.capabilityEntityId,
+                { includeInactive: true }
+              );
+            }
+            return capabilityStateResponse({
+              status: completedManifest ? "CAPABILITY_REUSED" : "BUILD_IN_PROGRESS",
+              manifest: completedManifest,
+              buildId: claim.buildId,
+              record: claim.record,
+              reason: completedManifest
+                ? "A previous build completed and was reused."
+                : "Another request is already building this capability.",
+            });
+          }
+        }
+
+        let computeSpec = null;
+        try {
+          computeSpec = await buildComputeEntitySpec({
+            capabilityRequest: capabilityBuildRequest,
+            requestedBy: ownerId,
+            originalUtterance,
+            openai,
+            generationAttemptLimit,
+            buildContinuation: continuation,
+          });
+        } catch (error) {
+          if (error instanceof CapabilityBuildRetryError) {
+            return capabilityStateResponse({
+              status: "BUILD_RETRY_REQUIRED",
+              buildId: claim.buildId,
+              record: claim.record,
+              continuation: error.continuation,
+              reason: "The provider implementation needs another bounded validation pass.",
+            });
+          }
+          await buildCoordinator.fail(claim, error?.code || "GENERATION_FAILED");
+          return capabilityStateResponse({
+            status: "BUILD_FAILED",
+            buildId: claim.buildId,
+            reason: error?.message || "The generic entity implementation did not pass validation.",
+          });
+        }
+        if (!computeSpec) {
+          await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE");
+          return capabilityStateResponse({
+            status: "BLUEPRINT_UNAVAILABLE",
+            buildId: claim.buildId,
+            reason: "No validated entity implementation is available.",
+          });
+        }
+
+        preparedCapabilityBuild = {
+          claim,
+          registry: capabilityRegistry,
+          coordinator: buildCoordinator,
+          blueprintId,
+        };
+        arrayLogic = [computeSpec];
+        sourceType = "arrayLogic";
+        return null;
       };
 
       const shouldDiscoverCompute =
@@ -273,111 +452,60 @@ function register({ on, use }) {
           capabilityBuildRequest = validateCapabilityBuildRequest(
             computeDiscovery.buildCommand?.capabilityRequest
           );
-          const capabilityId = capabilityBuildRequest.capabilityIdHint;
-          const existing = await capabilityRegistry.findByCapability(capabilityId, {
-            activeOnly: false,
-            limit: 10,
-            ownerId,
-          });
-          const legacyActive = existing.filter((item) =>
-            item.status === "active"
-            && Number(item.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION
-          );
-          for (const legacy of legacyActive) {
-            await capabilityRegistry.setStatus(legacy.entityId, "failed", { ownerId });
-          }
-          if (legacyActive.length) {
-            await buildCoordinator.fail(
-              buildCoordinator.identity({ ownerId, capabilityId }),
-              "IMPLEMENTATION_POLICY_UPGRADE"
-            );
-          }
-          const active = existing.find((item) =>
-            item.status === "active"
-            && Number(item.implementationPolicyVersion || 1) >= IMPLEMENTATION_POLICY_VERSION
-          );
-          if (active) {
+          if (body.body?.discoveryOnly === true) {
             return capabilityStateResponse({
-              status: "CAPABILITY_EXTENSION_REQUIRED",
-              manifest: active,
-              reason: "An entity already owns this capability identifier, but discovery did not confirm that its current contract satisfies the request. Edit that entity instead of creating a competing copy.",
+              status: "CAPABILITY_BUILD_REQUIRED",
+              reason: computeDiscovery.reason || "A new generic compute capability must be built.",
             });
           }
-          const testing = existing.find((item) => item.status === "testing");
-          if (testing) {
-            return capabilityStateResponse({
-              status: "CAPABILITY_PENDING",
-              manifest: testing,
-              reason: "A matching capability exists but has not been activated.",
-            });
-          }
-          const disabled = existing.find((item) => item.status === "disabled");
-          if (disabled) {
-            return capabilityStateResponse({
-              status: "CAPABILITY_DISABLED",
-              manifest: disabled,
-              reason: "A matching capability was deliberately disabled and will not be rebuilt automatically.",
-            });
-          }
-
-          const claim = await buildCoordinator.claim({
-            ownerId,
-            capabilityId,
-            requestHash: stableHash(JSON.stringify(capabilityBuildRequest)),
-          });
-          if (!claim.acquired) {
-            let completedManifest = null;
-            if (claim.record?.capabilityBuildStatus === "completed" && claim.record?.capabilityEntityId) {
-              completedManifest = await capabilityRegistry.getByEntity(
-                claim.record.capabilityEntityId,
-                { includeInactive: true }
-              );
-            }
-            return capabilityStateResponse({
-              status: completedManifest ? "CAPABILITY_REUSED" : "BUILD_IN_PROGRESS",
-              manifest: completedManifest,
-              buildId: claim.buildId,
-              record: claim.record,
-              reason: completedManifest
-                ? "A previous build completed and was reused."
-                : "Another request is already building this capability.",
-            });
-          }
-
-          let computeSpec = null;
-          try {
-            computeSpec = await buildComputeEntitySpec({
-              capabilityRequest: capabilityBuildRequest,
-              requestedBy: ownerId,
-              originalUtterance,
-              openai,
-            });
-          } catch (error) {
-            await buildCoordinator.fail(claim, error?.code || "GENERATION_FAILED");
-            return capabilityStateResponse({
-              status: "BUILD_FAILED",
-              buildId: claim.buildId,
-              reason: error?.message || "The generic entity implementation did not pass validation.",
-            });
-          }
-          if (!computeSpec) {
-            await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE");
-            return capabilityStateResponse({
-              status: "BLUEPRINT_UNAVAILABLE",
-              buildId: claim.buildId,
-              reason: "No validated entity implementation is available.",
-            });
-          }
-
-          preparedCapabilityBuild = {
-            claim,
-            registry: capabilityRegistry,
-            coordinator: buildCoordinator,
+          const immediateResponse = await prepareCapabilityBuild({
+            originalUtterance,
             blueprintId: computeDiscovery.buildCommand?.blueprintId || null,
-          };
-          arrayLogic = [computeSpec];
-          sourceType = "arrayLogic";
+          });
+          if (immediateResponse) return immediateResponse;
         }
+      }
+
+      if (
+        !shouldDiscoverCompute
+        && capabilityBuildRequest
+        && body.body?.buildComputeCapability === true
+      ) {
+        const originalUtterance = String(
+          parsePrompt(body.body?.prompt)?.userRequest
+          || body.body?.originalUtterance
+          || ""
+        ).trim();
+        computeDiscovery = {
+          kind: "computeCapabilityDiscovery",
+          schemaVersion: 1,
+          decision: "build",
+          source: "continued-build",
+          confidence: 1,
+          reason: "Continuing a previously validated capability build contract.",
+          originalUtterance,
+          essence: {
+            type: "compute",
+            capabilityId: capabilityBuildRequest.capabilityIdHint,
+            operationId: capabilityBuildRequest.operations[0]?.operationId || null,
+            entityId: null,
+          },
+          existingManifest: null,
+          buildCommand: {
+            kind: "createComputeCapability",
+            blueprintId: String(body.body?.blueprintId || "entity.declarative.remote.v1"),
+            capabilityRequest: capabilityBuildRequest,
+          },
+          diagnostics: null,
+        };
+        const continuedResponse = await prepareCapabilityBuild({
+          originalUtterance,
+          blueprintId: computeDiscovery.buildCommand.blueprintId,
+          buildId: String(body.body?.buildId || "").trim() || null,
+          continuation: body.body?.buildContinuation || null,
+          generationAttemptLimit: 1,
+        });
+        if (continuedResponse) return continuedResponse;
       }
 
       // If prompt supplied, we build arrayLogic from your fixed prompt template
