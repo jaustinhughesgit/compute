@@ -411,6 +411,7 @@ function register({ on, use }) {
           requestedBy: ownerId,
           useModel: body.body?.deterministicComputeDiscovery !== true,
           availableCapabilities,
+          semanticEvidence: promptObj?.relevantItems,
         });
 
         if (computeDiscovery.decision === "unsupported") {

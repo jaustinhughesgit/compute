@@ -76,6 +76,7 @@ function register({ on, use }) {
           previousQuestion: body.previousQuestion,
           userResponse: body.userResponse,
           attempt: body.attempt,
+          mode: body.mode,
         });
         return { ok: true, kind: "capabilityInputInterpretationResult", interpretation };
       }

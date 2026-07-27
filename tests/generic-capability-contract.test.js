@@ -13,7 +13,13 @@ const {
   isBlockedHostname,
   CapabilityBuildRetryError,
 } = require("../app/routes/capabilityBlueprints");
-const { discoverComputeCapability, summarizeCapabilities, normalizeGeneratedBuildRequest, DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
+const {
+  discoverComputeCapability,
+  summarizeCapabilities,
+  normalizeGeneratedBuildRequest,
+  normalizeDiscoveryInputValues,
+  DISCOVERY_RESPONSE_SCHEMA,
+} = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
@@ -568,9 +574,38 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
   assert.equal(request.response_format.json_schema.schema, DISCOVERY_RESPONSE_SCHEMA);
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.type, "object");
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.anyOf, undefined);
+  assert.ok(DISCOVERY_RESPONSE_SCHEMA.required.includes("inputValues"));
   const buildContract = DISCOVERY_RESPONSE_SCHEMA.properties.capabilityRequest.anyOf.find((schema) => schema.type === "object");
   assert.equal(buildContract.properties.operations.minItems, 1);
   assert.equal(buildContract.properties.operations.items.properties.outputs.minItems, 1);
+});
+
+test("discovery turns LLM semantic evidence into validated literal utterance bindings", () => {
+  const operation = {
+    operationId: "fetch_weather",
+    inputs: [{
+      name: "location",
+      type: "string",
+      required: true,
+      description: "Requested location.",
+      bindingHint: { source: "utterance" },
+    }],
+  };
+  assert.deepEqual(normalizeDiscoveryInputValues({
+    parsedValues: [],
+    utterance: "what is the weather in Raleigh North Carolina?",
+    operation,
+    semanticEvidence: [{
+      essence: [["present", "{ask}", "{prop:location}", "raleigh north carolina"]],
+    }],
+  }), {
+    location: "raleigh north carolina",
+  });
+  assert.throws(() => normalizeDiscoveryInputValues({
+    parsedValues: [{ name: "location", value: "New York" }],
+    utterance: "what is the weather in Raleigh North Carolina?",
+    operation,
+  }), /must occur literally/);
 });
 
 test("discovery compacts duplicate entity records before calling the model", () => {

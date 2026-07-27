@@ -101,10 +101,14 @@ async function interpretCapabilityInput({
   previousQuestion,
   userResponse,
   attempt = 1,
+  mode = "clarification_response",
 } = {}) {
   const field = cleanField(rawField);
   const responseText = cleanText(userResponse);
   const round = Math.max(1, Math.min(MAX_ATTEMPTS, Number(attempt) || 1));
+  const interpretationMode = mode === "original_utterance_extraction"
+    ? "original_utterance_extraction"
+    : "clarification_response";
   if (!responseText) return retryResult({ field, reason: "The response was empty.", attempt: round });
   if (/^(?:cancel|never mind|nevermind|stop)$/i.test(responseText)) {
     return {
@@ -139,6 +143,9 @@ async function interpretCapabilityInput({
       role: "system",
       content: [
         "Interpret one response to a pending capability-input question.",
+        interpretationMode === "original_utterance_extraction"
+          ? "The response is the user's original complete utterance. Extract the declared field only when it is explicitly present; for strings, return the exact spoken span without translating, canonicalizing, or abbreviating it."
+          : "The response is a follow-up answer to the pending question.",
         "Return accept only when the response unambiguously supplies the declared field.",
         "For accept, normalizedValueJson must be a valid JSON encoding of the normalized value and question must be null.",
         "Return retry when the response is ambiguous, irrelevant, or invalid. Ask one concise, more specific question that states an acceptable form and at most one example.",
@@ -154,6 +161,7 @@ async function interpretCapabilityInput({
         userResponse: responseText,
         attempt: round,
         maxAttempts: MAX_ATTEMPTS,
+        mode: interpretationMode,
       }),
     }],
   });
@@ -196,6 +204,23 @@ async function interpretCapabilityInput({
   }
   try {
     const validated = validateCapabilityInputResponse(field, normalizedValue);
+    if (interpretationMode === "original_utterance_extraction" && typeof validated.value === "string") {
+      const normalizeWords = (value) => String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+      const haystack = normalizeWords(responseText);
+      const needle = normalizeWords(validated.value);
+      if (!needle || !` ${haystack} `.includes(` ${needle} `)) {
+        return retryResult({
+          field,
+          reason: "The extracted value was not a literal span of the original utterance.",
+          question: field.clarification,
+          attempt: round,
+        });
+      }
+    }
     return {
       schemaVersion: 1,
       kind: "capabilityInputInterpretation",

@@ -73,6 +73,40 @@ test("ambiguous responses receive one more specific model-authored question", as
   assert.equal(result.maxAttempts, MAX_ATTEMPTS);
 });
 
+test("original-utterance extraction accepts only a literal spoken span", async () => {
+  const accepted = await interpretCapabilityInput({
+    openai: modelReturning({
+      decision: "accept",
+      normalizedValueJson: JSON.stringify("Raleigh North Carolina"),
+      question: null,
+      reason: "The original utterance explicitly supplied the location.",
+      confidence: 0.99,
+    }),
+    field: locationField,
+    originalQuestion: "What is the weather in Raleigh North Carolina?",
+    userResponse: "What is the weather in Raleigh North Carolina?",
+    mode: "original_utterance_extraction",
+  });
+  assert.equal(accepted.decision, "accept");
+  assert.equal(accepted.normalizedValue, "Raleigh North Carolina");
+
+  const translated = await interpretCapabilityInput({
+    openai: modelReturning({
+      decision: "accept",
+      normalizedValueJson: JSON.stringify("Raleigh, NC"),
+      question: null,
+      reason: "Normalized the state name.",
+      confidence: 0.99,
+    }),
+    field: locationField,
+    originalQuestion: "What is the weather in Raleigh North Carolina?",
+    userResponse: "What is the weather in Raleigh North Carolina?",
+    mode: "original_utterance_extraction",
+  });
+  assert.equal(translated.decision, "retry");
+  assert.match(translated.reason, /literal span/);
+});
+
 test("model acceptance cannot bypass deterministic type validation", async () => {
   const result = await interpretCapabilityInput({
     openai: modelReturning({
