@@ -45,6 +45,8 @@ test("Compute request middleware does not log credentials or the dependency cont
   const shorthandSource = fs.readFileSync(path.join(__dirname, "../app/routes/modules/shorthand.js"), "utf8");
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:req|req\.body|xAccessToken|newReq\.body|deepMerge newReq\.body)["']/);
   assert.doesNotMatch(shorthandSource, /console\.log\(["'](?:matrix|keywords ROUTE matrix|shorthand txt|resolvedArgs44)["']/);
+  const sharedSource = fs.readFileSync(path.join(__dirname, "../app/routes/shared.js"), "utf8");
+  assert.doesNotMatch(sharedSource, /console\.log\(["'](?:xAccessToken|ddb|uuid)["']/);
 });
 
 test("Convert retires legacy generated implementations before generic reuse", () => {
