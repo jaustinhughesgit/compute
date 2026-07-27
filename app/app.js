@@ -22,7 +22,7 @@ const { SchedulerClient, CreateScheduleCommand, UpdateScheduleCommand } = requir
 const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
-const { useBundledRuntimeModule } = require('./routes/runtimeModules');
+const { copyRuntimeContext, useBundledRuntimeModule } = require('./routes/runtimeModules');
 
 
 const OpenAI = require("openai");
@@ -2377,7 +2377,9 @@ function _parseArrowKey(rawKey, libs) {
 }
 
 async function processConfig(config, initialContext, lib) {
-    const context = { ...initialContext };
+    // Preserve the non-enumerable Protected Asset execution slot. Object
+    // spread would silently discard it and inject an empty provider value.
+    const context = copyRuntimeContext(initialContext);
     if (config.modules) {
         for (const [key, value] of Object.entries(config.modules)) {
             if (useBundledRuntimeModule({

@@ -4,7 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createBoundedAxios } = require("../app/routes/boundedAxios");
 const { providerRequestTimeoutMs, register } = require("../app/routes/modules/runEntity");
-const { useBundledRuntimeModule } = require("../app/routes/runtimeModules");
+const { resolveComputeInputPlaceholder } = require("../app/routes/inputPlaceholderTransport");
+const { copyRuntimeContext, useBundledRuntimeModule } = require("../app/routes/runtimeModules");
 
 function fakeAxios(calls) {
   const client = {
@@ -64,6 +65,31 @@ test("generated Axios declarations reuse the bundled execution client", () => {
     context,
     lib,
   }), false);
+});
+
+test("runtime context cloning preserves protected bindings without serializing them", () => {
+  const initial = { body: { value: { location: "New York" }, context: {} } };
+  const bindings = Object.create(null);
+  bindings.openweather_api_key = Object.assign(Object.create(null), {
+    apikey: "test-only-openweather-key",
+  });
+  Object.defineProperty(initial, "protected", {
+    configurable: true,
+    enumerable: false,
+    writable: false,
+    value: { value: bindings, context: Object.create(null) },
+  });
+
+  const copied = copyRuntimeContext(initial);
+  const resolved = resolveComputeInputPlaceholder({
+    path: "protected=>openweather_api_key.apikey",
+    rootContext: copied,
+  });
+
+  assert.equal(resolved.matched, true);
+  assert.equal(resolved.value, "test-only-openweather-key");
+  assert.equal(Object.getOwnPropertyDescriptor(copied, "protected").enumerable, false);
+  assert.equal(JSON.stringify(copied).includes("test-only-openweather-key"), false);
 });
 
 test("provider timeout leaves cleanup and response headroom inside the entity deadline", () => {

@@ -280,9 +280,6 @@ async function runLegacyEntity({
         "x-accesstoken": getHeader("X-accessToken") || "",
       },
     },
-    // This non-transport slot is installed into the entity root context by
-    // app.js. It is never merged into body or serialized.
-    protectedAssetBindings,
     providerRequestTimeoutMs,
     headers: mergedHeaders,
     get: getHeader,
@@ -290,6 +287,14 @@ async function runLegacyEntity({
     query: req?.query || {},
     params: req?.params || {},
   };
+  // Keep plaintext bindings out of JSON cloning, transport, and logs while
+  // making them available to the in-memory entity execution boundary.
+  Object.defineProperty(reqLite, "protectedAssetBindings", {
+    configurable: true,
+    enumerable: false,
+    writable: false,
+    value: protectedAssetBindings,
+  });
   const { runApp } = require("../../app");
   const execution = await runApp(reqLite, res, next);
   if (execution) execution.existing = true;
