@@ -74,7 +74,8 @@ function appendBuildCorrection(messages, continuation) {
       `Validation failed (${continuation.validationCode}): ${continuation.validationMessage}.`,
       "Correct the JSON without explanation.",
       "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}; replace provider.invalid with a real public endpoint.",
-      "Final response action shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
+      "The final response send parameter must be one object whose top-level keys are the declared operation output names.",
+      "For an output named summary, use {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"summary\":\"{|response=>data.summary|}\"}]}]}. Never add a result wrapper unless result is itself a declared output name.",
     ].join(" "),
   });
 }
@@ -504,8 +505,36 @@ function validateTrustedImplementation(implementation) {
 
 function validateImplementationBindings(implementation, buildRequest) {
   const actions = implementation?.published?.actions || [];
+  const operations = buildRequest?.operations || [];
+  const responsePayloadMatches = (payload, operation) => {
+    if (!isObject(payload)) return false;
+    const outputs = operation?.outputs || [];
+    const required = outputs.filter((output) => output.required);
+    const expected = required.length ? required : outputs;
+    return expected.length > 0 && expected.every((output) => Object.hasOwn(payload, output.name));
+  };
+  for (const action of actions) {
+    if (action?.target !== "{|res|}!") continue;
+    for (const step of action.chain || []) {
+      if (String(step?.access || "").toLowerCase() !== "send") continue;
+      let payload = step.params?.[0];
+      if (!operations.some((operation) => responsePayloadMatches(payload, operation))) {
+        const keys = isObject(payload) ? Object.keys(payload) : [];
+        const nested = keys.length === 1 && keys[0] === "result" && isObject(payload.result)
+          ? payload.result
+          : null;
+        if (nested && operations.some((operation) => responsePayloadMatches(nested, operation))) {
+          step.params[0] = nested;
+          payload = nested;
+        }
+      }
+      if (!operations.some((operation) => responsePayloadMatches(payload, operation))) {
+        throw new Error("compute entity response must expose the declared operation outputs at the top level");
+      }
+    }
+  }
   const declared = new Set(
-    (buildRequest?.operations || []).flatMap((operation) =>
+    operations.flatMap((operation) =>
       (operation.inputs || []).map((input) => input.name)
     )
   );
@@ -556,7 +585,8 @@ async function generateImplementation({
       "Provider selection is data-driven. Include the chosen endpoint, required ordinary inputs, protected fields, and credential acquisition URL/instructions in this entity response; do not assume the shared runtime knows any provider.",
       "Use only declarative set, axios GET, and response send actions.",
       "An axios action must have exactly this shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{\"q\":\"{|req=>body.query|}\"}}]}],\"assign\":\"{|response|}\"}. The provider.invalid URL only illustrates JSON shape and must be replaced by a real approved endpoint.",
-      "The final response action must have exactly this shape: {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"result\":\"{|response=>data.result|}\"}]}]}.",
+      "The final response action must send one object whose top-level keys exactly match the declared operation output names.",
+      "For outputs named value and label, use {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"value\":\"{|response=>data.value|}\",\"label\":\"{|response=>data.label|}\"}]}]}. Never wrap declared outputs in a result object unless result is itself a declared output name.",
       "Chain action keys may only be target, chain, assign, and if. Chain step keys may only be access and params. Do not use type, id, name, method, url, request, response, body, or output as action-level keys, and do not flatten a chain step into its action.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",

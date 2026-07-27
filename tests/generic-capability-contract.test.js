@@ -92,6 +92,39 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.equal(JSON.stringify(spec).includes("function"), false);
 });
 
+test("generic entity builder removes a generated result envelope around declared outputs", async () => {
+  const wrapped = structuredClone(generatedImplementation);
+  wrapped.published.actions[1].chain[0].params[0] = {
+    result: { summary: "{|providerResponse=>data.summary|}" },
+  };
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: genericRequest,
+    requestedBy: "u:7",
+    originalUtterance: "Look up conditions.",
+    generatedImplementation: wrapped,
+  });
+  assert.deepEqual(
+    spec.computeEntity.published.actions[1].chain[0].params[0],
+    { summary: "{|providerResponse=>data.summary|}" }
+  );
+});
+
+test("generic entity builder rejects response payloads without declared outputs", async () => {
+  const invalid = structuredClone(generatedImplementation);
+  invalid.published.actions[1].chain[0].params[0] = {
+    result: "{|providerResponse=>data.summary|}",
+  };
+  await assert.rejects(
+    buildComputeEntitySpec({
+      capabilityRequest: genericRequest,
+      requestedBy: "u:7",
+      originalUtterance: "Look up conditions.",
+      generatedImplementation: invalid,
+    }),
+    /declared operation outputs at the top level/
+  );
+});
+
 test("generic entity builder repairs one invalid declarative implementation", async () => {
   let calls = 0;
   const openai = {

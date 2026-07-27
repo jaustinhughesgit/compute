@@ -28,6 +28,25 @@ function normalizeEntityTransportResult(operation, rawResult) {
     try { result = JSON.parse(result); } catch (_) {}
   }
   if (!result || typeof result !== "object" || Array.isArray(result)) return result;
+  const outputNames = (operation?.outputs || []).map((field) => field.name);
+  const requiredOutputNames = (operation?.outputs || [])
+    .filter((field) => field.required)
+    .map((field) => field.name);
+  const envelopeKeys = Object.keys(result);
+  const nestedResult = result.result;
+  const expectedNestedNames = requiredOutputNames.length ? requiredOutputNames : outputNames;
+  if (
+    envelopeKeys.length === 1
+    && envelopeKeys[0] === "result"
+    && !outputNames.includes("result")
+    && nestedResult
+    && typeof nestedResult === "object"
+    && !Array.isArray(nestedResult)
+    && expectedNestedNames.length
+    && expectedNestedNames.every((name) => Object.hasOwn(nestedResult, name))
+  ) {
+    result = nestedResult;
+  }
   const normalized = { ...result };
   for (const field of operation?.outputs || []) {
     const value = normalized[field.name];

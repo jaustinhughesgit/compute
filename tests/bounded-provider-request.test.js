@@ -3,7 +3,11 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createBoundedAxios } = require("../app/routes/boundedAxios");
-const { providerRequestTimeoutMs, register } = require("../app/routes/modules/runEntity");
+const {
+  normalizeEntityTransportResult,
+  providerRequestTimeoutMs,
+  register,
+} = require("../app/routes/modules/runEntity");
 const { resolveComputeInputPlaceholder } = require("../app/routes/inputPlaceholderTransport");
 const { copyRuntimeContext, useBundledRuntimeModule } = require("../app/routes/runtimeModules");
 
@@ -96,6 +100,29 @@ test("provider timeout leaves cleanup and response headroom inside the entity de
   assert.equal(providerRequestTimeoutMs(15000), 10000);
   assert.equal(providerRequestTimeoutMs(10000), 7500);
   assert.equal(providerRequestTimeoutMs(2000), 250);
+});
+
+test("entity transport unwraps a legacy result envelope that contains declared outputs", () => {
+  const operation = {
+    outputs: [
+      { name: "temperature", type: "number", required: true },
+      { name: "condition", type: "string", required: true },
+    ],
+  };
+  assert.deepEqual(
+    normalizeEntityTransportResult(operation, {
+      result: { temperature: "28.98", condition: "scattered clouds" },
+    }),
+    { temperature: 28.98, condition: "scattered clouds" }
+  );
+});
+
+test("entity transport preserves result when it is a declared output", () => {
+  const operation = {
+    outputs: [{ name: "result", type: "object", required: true }],
+  };
+  const response = { result: { temperature: 28.98, condition: "scattered clouds" } };
+  assert.deepEqual(normalizeEntityTransportResult(operation, response), response);
 });
 
 test("the entity boundary passes its provider deadline into existing entity execution", async () => {
