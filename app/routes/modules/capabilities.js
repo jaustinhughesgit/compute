@@ -9,6 +9,7 @@ const { createCapabilityRegistry } = require("../capabilityRegistry");
 const { listCapabilityBlueprints } = require("../capabilityBlueprints");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
 const { interpretCapabilityInput } = require("../capabilityInputInterpretation");
+const { diagnoseCapabilityFailure } = require("../capabilityFailureDiagnosis");
 
 function bodyObject(req) {
   const body = req?.body;
@@ -78,6 +79,28 @@ function register({ on, use }) {
         });
         return { ok: true, kind: "capabilityInputInterpretationResult", interpretation };
       }
+      if (action === "diagnose-failure") {
+        const entityId = String(body.entityId || body?.failureContext?.entityId || "").trim();
+        if (!entityId) {
+          throw new CapabilityError("ENTITY_ID_REQUIRED", "Failure diagnosis requires the selected entity id");
+        }
+        const availableCapabilities = await registry.listAvailable({
+          activeOnly: false,
+          limit: 100,
+          ownerId,
+          minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+        });
+        const manifest = availableCapabilities.find((item) => String(item?.entityId || "") === entityId);
+        if (!manifest) {
+          throw new CapabilityError("CAPABILITY_NOT_FOUND", "The selected compute entity is not available to this user");
+        }
+        const diagnosis = await diagnoseCapabilityFailure({
+          openai: shared?.deps?.openai,
+          manifest,
+          failureContext: body.failureContext,
+        });
+        return { ok: true, kind: "capabilityFailureDiagnosisResult", diagnosis };
+      }
       if (action === "register") {
         const manifest = validateCapabilityManifest(body.manifest || body, { ownerId });
         return { ok: true, kind: "capabilityRegistered", manifest: await registry.register(manifest, { ownerId }) };
@@ -109,7 +132,7 @@ function register({ on, use }) {
       return {
         ok: true,
         kind: "capabilityRegistryHelp",
-        actions: ["register", "blueprints", "discover", "interpret-input", "get/:entityId", "find/:capabilityId", "activate/:entityId", "disable/:entityId", "testing/:entityId", "fail/:entityId"],
+        actions: ["register", "blueprints", "discover", "diagnose-failure", "interpret-input", "get/:entityId", "find/:capabilityId", "activate/:entityId", "disable/:entityId", "testing/:entityId", "fail/:entityId"],
       };
     } catch (error) {
       console.error("capability registry error", { code: error?.code || "REGISTRY_FAILED" });
