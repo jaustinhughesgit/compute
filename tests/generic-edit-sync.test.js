@@ -20,6 +20,11 @@ test("Edit revises and registers an entity-owned capability contract atomically"
   assert.match(source, /revision-finalize/);
   assert.match(source, /semanticBundle/);
   assert.match(source, /pathSemanticContractChanged/);
+  assert.match(source, /PROVIDER_REPAIR_MODEL/);
+  assert.match(source, /type:\s*"web_search"/);
+  assert.match(source, /web_search_call\.action\.sources/);
+  assert.match(source, /providerResearchSources/);
+  assert.match(source, /mayRetryRevisionValidation/);
 });
 
 test("Convert uses generic discovery, reuse, extension, and model-built entity paths", () => {

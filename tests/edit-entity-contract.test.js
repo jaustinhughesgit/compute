@@ -5,11 +5,17 @@ const path = require('node:path');
 
 const {
   declarativeActionsChanged,
+  extractProviderResearchSources,
   register,
   normalizeRevisionRequest,
+  mayRetryRevisionValidation,
   parseJsonObject,
   parseRevisionResponse,
+  providerDocumentationDomains,
+  providerRepairResearchContext,
   repairRequiresImplementationChange,
+  requestDescribesImplementationChange,
+  revisionInput,
   pathSemanticContractChanged,
   validateRevisionSynchronization,
   validateRevisedEntity,
@@ -180,6 +186,124 @@ test('provider-request repairs cannot publish a manifest-only Entity revision', 
   revised.published.actions[0].chain[0].params[1].params.q = '{|location|},US';
   assert.doesNotThrow(
     () => validateRevisionSynchronization(current, revised, manifest, request)
+  );
+});
+
+test('provider contract failures receive one constrained official-doc research attempt', () => {
+  const request = {
+    explanation: 'Fix the provider request for the captured location.',
+    requestedChanges: [],
+    repairContext: {
+      target: 'entity',
+      diagnosis: {
+        classification: 'entity_or_path',
+        target: 'entity',
+        requiresImplementationChange: true,
+      },
+      semanticBundle: {
+        observedExecution: {
+          stage: 'provider-request',
+          provider: 'OpenWeather',
+          providerHost: 'api.openweathermap.org',
+          status: 404,
+        },
+      },
+    },
+  };
+  assert.deepEqual(providerDocumentationDomains('api.openweathermap.org'), [
+    'api.openweathermap.org',
+    'openweathermap.org',
+  ]);
+  const research = providerRepairResearchContext(request);
+  assert.equal(research.providerHost, 'api.openweathermap.org');
+  assert.deepEqual(research.allowedDomains, ['api.openweathermap.org', 'openweathermap.org']);
+
+  const input = revisionInput({
+    model: 'gpt-5.6-sol',
+    currentEntity: entity,
+    currentManifest: null,
+    request,
+    entityId: 'entity-1',
+    providerResearch: research,
+  });
+  assert.deepEqual(input.reasoning, { effort: 'high' });
+  assert.deepEqual(input.tools, [{
+    type: 'web_search',
+    search_context_size: 'high',
+    filters: { allowed_domains: ['api.openweathermap.org', 'openweathermap.org'] },
+  }]);
+  assert.equal(input.tool_choice, 'required');
+  assert.equal(input.max_tool_calls, 4);
+  assert.deepEqual(input.include, ['web_search_call.action.sources']);
+  assert.match(input.input[0].content, /one authorized provider-contract repair attempt/);
+
+  assert.deepEqual(extractProviderResearchSources({
+    output: [{
+      type: 'web_search_call',
+      action: {
+        sources: [
+          { type: 'url', url: 'https://openweathermap.org/api/current' },
+          { type: 'url', url: 'https://attacker.example/provider-advice' },
+        ],
+      },
+    }],
+  }, research.allowedDomains), ['https://openweathermap.org/api/current']);
+});
+
+test('provider research excludes credentials, transient failures, and Path-only defects', () => {
+  const base = {
+    repairContext: {
+      target: 'entity',
+      diagnosis: {
+        classification: 'entity_or_path',
+        target: 'entity',
+        requiresImplementationChange: true,
+      },
+      semanticBundle: {
+        observedExecution: {
+          stage: 'provider-request',
+          providerHost: 'api.example.com',
+          status: 404,
+        },
+      },
+    },
+  };
+  for (const status of [401, 403, 408, 429, 500, 503]) {
+    const request = structuredClone(base);
+    request.repairContext.semanticBundle.observedExecution.status = status;
+    assert.equal(providerRepairResearchContext(request), null);
+  }
+  const pathRequest = structuredClone(base);
+  pathRequest.repairContext.target = 'path';
+  pathRequest.repairContext.diagnosis.target = 'path';
+  assert.equal(providerRepairResearchContext(pathRequest), null);
+  assert.equal(mayRetryRevisionValidation({
+    providerResearch: { attempted: true },
+    originalObject: entity,
+    repairAttempt: 1,
+  }), false);
+  assert.equal(mayRetryRevisionValidation({
+    providerResearch: null,
+    originalObject: entity,
+    repairAttempt: 0,
+  }), true);
+});
+
+test('natural-language provider format requests cannot pass as Path-only changes', () => {
+  const request = {
+    explanation: 'Support a combined city state with no comma.',
+    requestedChanges: [],
+    repairContext: { target: 'path', diagnosis: {} },
+  };
+  assert.equal(requestDescribesImplementationChange(request), true);
+  assert.throws(
+    () => validateRevisionSynchronization(
+      { published: { actions: [] } },
+      { published: { actions: [] } },
+      { operations: [] },
+      { ...request, currentManifest: { operations: [] } }
+    ),
+    /cannot be repaired as a Path-only revision/
   );
 });
 
