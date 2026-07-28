@@ -756,6 +756,45 @@ test("discovery preserves ContextDB bindings separately from utterance input val
   });
 });
 
+test("discovery discards a ContextDB value copied into utterance inputValues", () => {
+  const operation = {
+    operationId: "fetch_weather",
+    inputs: [{
+      name: "location",
+      type: "string",
+      required: true,
+      description: "Requested location.",
+      bindingHint: {
+        source: "utterance",
+        subject: "speaker",
+        property: "live",
+        resolver: "location",
+      },
+    }],
+  };
+  assert.deepEqual(normalizeDiscoveryInputValues({
+    parsedValues: [{ name: "location", value: "new york" }],
+    utterance: "what is the weather where my mom lives today?",
+    operation,
+    semanticEvidence: [{
+      essence: [
+        ["*", "mom", "live", "{location}"],
+        ["present", "{location}", "{prop:weather}", "{ask}"],
+      ],
+      resolvedContextBindings: { location: ["new york"] },
+      matchedEssenceRows: [0],
+    }],
+  }), {});
+  assert.throws(() => normalizeDiscoveryInputValues({
+    parsedValues: [{ name: "location", value: "boston" }],
+    utterance: "what is the weather where my mom lives today?",
+    operation,
+    semanticEvidence: [{
+      resolvedContextBindings: { location: ["new york"] },
+    }],
+  }), /must occur literally/);
+});
+
 test("discovery compacts duplicate entity records before calling the model", () => {
   const manifests = Array.from({ length: 60 }, (_, index) => ({
     capabilityId: index < 50 ? "duplicate.lookup" : `unique.${index}`,

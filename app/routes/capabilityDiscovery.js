@@ -257,6 +257,7 @@ function normalizeDiscoveryInputValues({
   }
 
   const utteranceWords = normalizedWords(utterance);
+  const contextualValues = semanticEvidenceContext(semanticEvidence).resolvedContextBindings;
   const normalized = {};
   for (const [name, rawValue] of supplied) {
     const field = utteranceInputs.get(name);
@@ -266,6 +267,13 @@ function normalizeDiscoveryInputValues({
       && ((value === true && /\b(?:true|yes|on|enabled?)\b/i.test(utterance))
         || (value === false && /\b(?:false|no|off|disabled?)\b/i.test(utterance)));
     const literalWasSpoken = ` ${utteranceWords} `.includes(` ${literal} `);
+    const valueWasResolvedFromContext = (contextualValues[name] || [])
+      .some((entry) => normalizedWords(entry) === literal);
+    if (!literalWasSpoken && !booleanWasSpoken && valueWasResolvedFromContext) {
+      // ContextDB evidence satisfies the semantic request but must never be
+      // compiled as though the remembered value appeared in the utterance.
+      continue;
+    }
     if (!literal || (!literalWasSpoken && !booleanWasSpoken)) {
       const error = new Error(`discovery input ${name} must occur literally in the utterance`);
       error.code = "INVALID_DISCOVERY_INPUT_VALUE";
