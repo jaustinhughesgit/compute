@@ -27,26 +27,35 @@ function sanitizeString(value) {
   return text.length > MAX_STRING ? `${text.slice(0, MAX_STRING)}…[truncated]` : text;
 }
 
-function sanitizeDiagnosticValue(value, depth = 0, seen = new WeakSet()) {
+function sanitizeDiagnosticValue(
+  value,
+  depth = 0,
+  seen = new WeakSet(),
+  maxDepth = MAX_DEPTH,
+  limits = {}
+) {
   if (value == null || typeof value === "number" || typeof value === "boolean") return value;
   if (typeof value === "string") return sanitizeString(value);
   if (typeof value !== "object") return sanitizeString(value);
-  if (depth >= MAX_DEPTH) return "[depth limit]";
+  if (depth >= maxDepth) return "[depth limit]";
   if (seen.has(value)) return "[circular]";
   seen.add(value);
   if (Array.isArray(value)) {
-    const items = value.slice(0, MAX_ARRAY).map((item) => sanitizeDiagnosticValue(item, depth + 1, seen));
-    if (value.length > MAX_ARRAY) items.push(`[${value.length - MAX_ARRAY} more items]`);
+    const maxArray = Math.max(1, Number(limits.maxArray || MAX_ARRAY));
+    const items = value.slice(0, maxArray)
+      .map((item) => sanitizeDiagnosticValue(item, depth + 1, seen, maxDepth, limits));
+    if (value.length > maxArray) items.push(`[${value.length - maxArray} more items]`);
     return items;
   }
-  const entries = Object.entries(value).slice(0, MAX_ENTRIES);
+  const maxEntries = Math.max(1, Number(limits.maxEntries || MAX_ENTRIES));
+  const entries = Object.entries(value).slice(0, maxEntries);
   const result = {};
   for (const [key, item] of entries) {
     result[String(key).slice(0, 120)] = SENSITIVE_KEY.test(key)
       ? "[redacted]"
-      : sanitizeDiagnosticValue(item, depth + 1, seen);
+      : sanitizeDiagnosticValue(item, depth + 1, seen, maxDepth, limits);
   }
-  if (Object.keys(value).length > MAX_ENTRIES) result.__truncated = true;
+  if (Object.keys(value).length > maxEntries) result.__truncated = true;
   return result;
 }
 

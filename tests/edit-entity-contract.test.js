@@ -8,7 +8,9 @@ const {
   register,
   normalizeRevisionRequest,
   parseJsonObject,
+  parseRevisionResponse,
   repairRequiresImplementationChange,
+  pathSemanticContractChanged,
   validateRevisionSynchronization,
   validateRevisedEntity,
 } = require('../app/routes/modules/editEntity');
@@ -39,6 +41,9 @@ test('revision requests require an explicit matching target and user changes', (
       intent: 'revise-entity',
       checkOnly: false,
       pollOnly: false,
+      statusOnly: false,
+      finalizeOnly: false,
+      cancelOnly: false,
       jobId: null,
       entityId: 'entity-1',
       explanation: 'Apply the requested feature.',
@@ -74,13 +79,67 @@ test('revision requests preserve sanitized Entity and Path repair evidence', () 
         apiKey: 'must-not-escape',
       },
       diagnosis: { target: 'both', reason: 'The capture and implementation need revision.' },
+      semanticBundle: {
+        linkedPaths: [{ signature: 'pattern:v3:generic_lookup', apiKey: 'must-not-escape' }],
+        currentEssence: [['present', 'it', 'lookup', 'tomorrow']],
+        contextDbEvidence: { graph: { entities: { ent_1: { lemmas: ['speaker'] } } } },
+      },
     },
   }, 'entity-1');
   assert.equal(request.repairContext.target, 'both');
   assert.equal(request.repairContext.pathSignature, 'pattern:v3:generic_lookup');
   assert.equal(request.repairContext.pathMatch.structuralMatch.captures.date.text, 'tomorrow');
   assert.equal(request.repairContext.pathMatch.apiKey, '[redacted]');
+  assert.equal(request.repairContext.semanticBundle.linkedPaths[0].apiKey, '[redacted]');
+  assert.equal(request.repairContext.semanticBundle.currentEssence[0][3], 'tomorrow');
   assert.doesNotMatch(JSON.stringify(request), /must-not-escape/);
+});
+
+test('Path repairs must revise semantic source fields without changing JPL', () => {
+  const currentManifest = {
+    operations: [{
+      operationId: 'lookup',
+      inputs: [{ name: 'location', type: 'string', required: true, bindingHint: { source: 'utterance', resolver: 'location' } }],
+      outputs: [{ name: 'result', required: true }],
+      utteranceExamples: [{ text: 'Lookup Raleigh', inputs: { location: 'Raleigh' } }],
+    }],
+  };
+  const revisedManifest = structuredClone(currentManifest);
+  revisedManifest.operations[0].utteranceExamples.push({
+    text: 'Lookup New York City',
+    inputs: { location: 'New York City' },
+  });
+  assert.equal(pathSemanticContractChanged(currentManifest, revisedManifest), true);
+
+  const current = {
+    published: {
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.dev/current', { params: { q: '{|location|}' } }] }],
+        assign: '{|response|}',
+      }, {
+        target: '{|res|}!',
+        chain: [{ access: 'send', params: [{ result: '{|response=>data.result|}' }] }],
+      }],
+    },
+  };
+  const request = {
+    repairContext: { target: 'path' },
+    currentManifest,
+  };
+  assert.doesNotThrow(() =>
+    validateRevisionSynchronization(current, structuredClone(current), revisedManifest, request)
+  );
+  assert.throws(() =>
+    validateRevisionSynchronization(current, structuredClone(current), currentManifest, request),
+    /diagnosed Path repair did not revise/
+  );
+  const changedEntity = structuredClone(current);
+  changedEntity.published.actions[0].chain[0].params[1].params.q = '{|location|},US';
+  assert.throws(() =>
+    validateRevisionSynchronization(current, changedEntity, revisedManifest, request),
+    /Path-only repair cannot modify/
+  );
 });
 
 test('provider-request repairs cannot publish a manifest-only Entity revision', () => {
@@ -127,6 +186,27 @@ test('provider-request repairs cannot publish a manifest-only Entity revision', 
 test('LLM JSON parsing accepts JSON fences but rejects non-object output', () => {
   assert.deepEqual(parseJsonObject('```json\n{"summary":"ok"}\n```'), { summary: 'ok' });
   assert.throws(() => parseJsonObject('[]'), /must be an object/);
+});
+
+test('semantic repair plans cannot authorize ContextDB fact mutation', () => {
+  const response = {
+    status: 'completed',
+    output_text: JSON.stringify({
+      summary: 'Unsafe plan.',
+      updatedEntityJson: JSON.stringify(entity),
+      updatedCapabilityManifestJson: null,
+      semanticRepairPlanJson: JSON.stringify({
+        schemaVersion: 1,
+        target: 'entity',
+        summary: 'Rewrite a fact.',
+        entityChanges: [],
+        pathChanges: [],
+        contextBindingChanges: [],
+        contextDbFactsChanged: true,
+      }),
+    }),
+  };
+  assert.throws(() => parseRevisionResponse(response), /cannot mutate ContextDB facts/);
 });
 
 test('revisions preserve top-level structure and primary entity identity', () => {
@@ -213,15 +293,23 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
     update(params) {
       return {
         promise: async () => {
-          if (params.UpdateExpression.includes('SET #editLock =')) {
+          if (params.UpdateExpression.includes('SET #editLock =') && !params.UpdateExpression.includes('#editJobId')) {
             row.editLock = params.ExpressionAttributeValues[':lock'];
             row.editLockExpires = params.ExpressionAttributeValues[':expires'];
+          } else if (params.UpdateExpression.includes('SET #editLock =') && params.UpdateExpression.includes('#editJobId')) {
+            row.editLock = params.ExpressionAttributeValues[':jobId'];
+            row.editLockExpires = params.ExpressionAttributeValues[':expires'];
+            row.editJobId = params.ExpressionAttributeValues[':jobId'];
+            row.editJobHash = params.ExpressionAttributeValues[':hash'];
+            row.editJobAttempt = params.ExpressionAttributeValues[':attempt'];
           } else if (params.UpdateExpression.includes('SET #editVersion =')) {
             assert.equal(row.editLock, params.ExpressionAttributeValues[':lock']);
             row.editVersion = params.ExpressionAttributeValues[':version'];
             row.editUpdatedAt = params.ExpressionAttributeValues[':updatedAt'];
             delete row.editLock;
             delete row.editLockExpires;
+            delete row.editJobId;
+            delete row.editJobHash;
           } else {
             delete row.editLock;
             delete row.editLockExpires;
@@ -240,18 +328,37 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
       return { promise: async () => ({}) };
     },
   };
-  const openai = {
-    chat: {
-      completions: {
-        create: async () => {
-          const updated = JSON.parse(JSON.stringify(entity));
-          updated.published.menu.battery = { _name: 'Battery' };
-          return {
-            choices: [{ message: { content: JSON.stringify({ summary: 'Added battery status.', updatedEntity: updated }) } }],
-          };
-        },
-      },
-    },
+  const updated = JSON.parse(JSON.stringify(entity));
+  updated.published.menu.battery = { _name: 'Battery' };
+  const originalFetch = global.fetch;
+  const originalApiKey = process.env.OPENAI_API_KEY;
+  process.env.OPENAI_API_KEY = 'test-only-key';
+  global.fetch = async (_url, options = {}) => {
+    if (options.method === 'POST') return {
+      ok: true,
+      json: async () => ({ id: 'resp_revision_job', status: 'queued' }),
+    };
+    return {
+      ok: true,
+      json: async () => ({
+        id: 'resp_revision_job',
+        status: 'completed',
+        output_text: JSON.stringify({
+          summary: 'Added battery status.',
+          updatedEntityJson: JSON.stringify(updated),
+          updatedCapabilityManifestJson: null,
+          semanticRepairPlanJson: JSON.stringify({
+            schemaVersion: 1,
+            target: 'entity',
+            summary: 'Update the Entity menu.',
+            entityChanges: ['Add battery status.'],
+            pathChanges: [],
+            contextBindingChanges: [],
+            contextDbFactsChanged: false,
+          }),
+        }),
+      }),
+    };
   };
   register({
     on(name, fn) { if (name === 'editEntity') handler = fn; },
@@ -262,7 +369,7 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
         verifyPath: async () => [true],
         allVerified: () => true,
         getSub: async () => ({ Items: [{ ...row }] }),
-        deps: { dynamodb, uuidv4: () => 'uuid', s3, openai },
+        deps: { dynamodb, uuidv4: () => 'uuid', s3 },
       };
     },
   });
@@ -277,7 +384,7 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
   const result = await handler({
     path: '/entity-1',
     xAccessToken: 'token',
-    deps: { dynamodb, uuidv4: () => 'uuid', s3, openai },
+    deps: { dynamodb, uuidv4: () => 'uuid', s3 },
     req: {
       body: {
         requestId: 'request-2',
@@ -290,8 +397,49 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
   });
 
   assert.equal(result.ok, true);
-  assert.equal(result.response.action, 'editEntity');
-  assert.equal(result.response.version, 1);
+  assert.equal(result.response.action, 'editEntityQueued');
+  const prepared = await handler({
+    path: '/entity-1',
+    xAccessToken: 'token',
+    deps: { dynamodb, uuidv4: () => 'uuid', s3 },
+    req: {
+      body: {
+        requestId: 'request-2',
+        intent: 'revision-status',
+        jobId: result.response.jobId,
+        target: { entityId: 'entity-1', baseVersion: 0 },
+        requestedChanges: ['Add battery status.'],
+        explanation: 'Apply this revision.',
+      },
+    },
+    res,
+  });
+  assert.equal(prepared.response.action, 'editEntityPrepared');
+  assert.equal(writes.length, 0);
+
+  const finalized = await handler({
+    path: '/entity-1',
+    xAccessToken: 'token',
+    deps: { dynamodb, uuidv4: () => 'uuid', s3 },
+    req: {
+      body: {
+        requestId: 'request-2',
+        intent: 'revision-finalize',
+        jobId: result.response.jobId,
+        target: { entityId: 'entity-1', baseVersion: 0 },
+        requestedChanges: ['Add battery status.'],
+        explanation: 'Apply this revision.',
+      },
+    },
+    res,
+  });
+  global.fetch = originalFetch;
+  if (originalApiKey == null) delete process.env.OPENAI_API_KEY;
+  else process.env.OPENAI_API_KEY = originalApiKey;
+
+  assert.equal(finalized.ok, true);
+  assert.equal(finalized.response.action, 'editEntity');
+  assert.equal(finalized.response.version, 1);
   assert.equal(row.editVersion, 1);
   assert.equal(writes.length, 2);
   assert.equal(writes[0].Bucket, 'private.1var.com');
@@ -306,6 +454,9 @@ test('server contract retains authorization, lock, private backup, model validat
   assert.match(source, /\/cookies\/saveFile\/\$\{request\.entityId\}/);
   assert.match(source, /ConditionExpression:\s*"attribute_not_exists\(#editLock\)/);
   assert.match(source, /Bucket:\s*"private\.1var\.com"/);
-  assert.match(source, /response_format:\s*\{\s*type:\s*"json_object"\s*\}/);
+  assert.match(source, /type:\s*"json_schema"/);
+  assert.match(source, /REVISION_RESPONSE_SCHEMA/);
+  assert.match(source, /editEntityPrepared/);
+  assert.match(source, /revision-finalize/);
   assert.match(source, /Avoid publishing a file whose revision metadata was not committed/);
 });

@@ -30,8 +30,14 @@ const REVISION_RESPONSE_SCHEMA = {
     updatedCapabilityManifestJson: {
       anyOf: [{ type: "string", minLength: 2 }, { type: "null" }],
     },
+    semanticRepairPlanJson: { type: "string", minLength: 2 },
   },
-  required: ["summary", "updatedEntityJson", "updatedCapabilityManifestJson"],
+  required: [
+    "summary",
+    "updatedEntityJson",
+    "updatedCapabilityManifestJson",
+    "semanticRepairPlanJson",
+  ],
 };
 
 function clone(value) {
@@ -143,7 +149,10 @@ function normalizeRevisionRequest(body, pathEntityId) {
   const explanation = plainText(input.explanation, 8_000);
   const intent = plainText(input.intent, 100) || "revise-entity";
   const checkOnly = intent === "check-edit-access";
-  const pollOnly = intent === "revision-status";
+  const statusOnly = intent === "revision-status";
+  const finalizeOnly = intent === "revision-finalize";
+  const cancelOnly = intent === "revision-cancel";
+  const pollOnly = statusOnly || finalizeOnly || cancelOnly;
   if (!checkOnly && !explanation && !requestedChanges.length) {
     throw new Error("a revision explanation or requested change is required");
   }
@@ -155,13 +164,26 @@ function normalizeRevisionRequest(body, pathEntityId) {
     ? input.repairContext
     : null;
   const requestedRepairTarget = plainText(rawRepairContext?.target, 20).toLowerCase();
+  const semanticBundle = rawRepairContext?.semanticBundle
+    ? sanitizeDiagnosticValue(
+        rawRepairContext.semanticBundle,
+        0,
+        new WeakSet(),
+        8,
+        { maxArray: 60, maxEntries: 100 }
+      )
+    : null;
+  if (semanticBundle && Buffer.byteLength(JSON.stringify(semanticBundle), "utf8") > 256 * 1024) {
+    throw new Error("semantic repair context is too large");
+  }
   const repairContext = rawRepairContext ? {
-    target: ["entity", "path", "both"].includes(requestedRepairTarget) ? requestedRepairTarget : "entity",
+    target: ["entity", "path", "both", "auto"].includes(requestedRepairTarget) ? requestedRepairTarget : "entity",
     pathSignature: plainText(rawRepairContext.pathSignature, 500) || null,
     originalUtterance: plainText(rawRepairContext.originalUtterance, 2_000) || null,
     pathMatch: sanitizeDiagnosticValue(rawRepairContext.pathMatch || null),
     diagnosis: sanitizeDiagnosticValue(rawRepairContext.diagnosis || null),
     recommendedChange: plainText(rawRepairContext.recommendedChange, 4_000) || null,
+    semanticBundle,
   } : null;
   return {
     schemaVersion: 1,
@@ -169,6 +191,9 @@ function normalizeRevisionRequest(body, pathEntityId) {
     intent,
     checkOnly,
     pollOnly,
+    statusOnly,
+    finalizeOnly,
+    cancelOnly,
     jobId: plainText(input.jobId, 200) || null,
     entityId,
     explanation,
@@ -217,7 +242,13 @@ function revisionInput({
           "If currentCapabilityManifest is present, revise the entity implementation and its semantic capability contract together.",
           "The contract owns typed inputs, ContextDB/environment/utterance bindings, clarifications, outputs, answer templates, and utterance examples.",
           "The browser owns executable Path signatures. Use repairContext only as evidence about whether the selected Path captured and bound the intended values.",
-          "When repairContext.target is entity or both, correct the entity implementation and semantic manifest; the browser will regenerate Path signatures from the revised manifest.",
+          "repairContext.semanticBundle contains the redacted linked Paths, their patterns, slots, tests, observed match, current essence, and scoped ContextDB binding evidence.",
+          "Use every relevant linked Path in that bundle when deciding whether examples, input validation, binding hints, clarifications, or Entity behavior must change.",
+          "ContextDB facts are read-only evidence. Never rewrite user facts or protected values. You may revise only the manifest's ContextDB binding contract, aliases, subject, or property when the evidence shows that mapping is wrong.",
+          "When repairContext.target is path, keep declarative JPL actions unchanged and revise the semantic manifest fields that cause the browser to compile the correct reusable Paths.",
+          "When repairContext.target is entity or both, correct the entity implementation and semantic manifest; the browser will regenerate all linked Path signatures from the revised manifest.",
+          "When repairContext.target is auto, inspect the linked Paths, essence, ContextDB evidence, manifest, and JPL together and revise every semantic layer required by the user's requested change.",
+          "Never add raw token patterns, signatures, or executable Path JSON to the entity. Express Path changes through typed inputs, binding hints, validation, and annotated utteranceExamples.",
           "If a Path captured a value correctly but the provider request, output, or answer contradicts it, repair the entity and manifest rather than pretending the Path ignored the value.",
           "A temporal input must influence the provider request or deterministic transformation. Do not fix a today/tomorrow contradiction by changing answer wording alone.",
           "When a user expands supported language or behavior, update both published.computeCapability and the declarative actions that implement it.",
@@ -235,10 +266,13 @@ function revisionInput({
           "Compute supplies semantic examples only; never add token patterns, signatures, pathContracts, code, functions, imports, or secrets.",
           "Keep capabilityId, entityId, ownerId, and status unchanged. The server assigns the next manifest version.",
           "Before returning, review the complete revision against the user's request and correct any inconsistency between implementation, provider request, mappings, outputs, templates, and examples.",
-          "Return one JSON object with exactly three fields: summary, updatedEntityJson, and updatedCapabilityManifestJson.",
+          "Return one JSON object with exactly four fields: summary, updatedEntityJson, updatedCapabilityManifestJson, and semanticRepairPlanJson.",
           "summary must be a short plain-language description.",
           "updatedEntityJson must be a JSON string containing the complete revised entity, not a patch.",
           "updatedCapabilityManifestJson must be a JSON string containing the complete revised manifest when one exists, otherwise null.",
+          "semanticRepairPlanJson must be a JSON string containing {schemaVersion:1,target:\"entity\"|\"path\"|\"both\",summary:string,entityChanges:string[],pathChanges:string[],contextBindingChanges:string[],contextDbFactsChanged:false}.",
+          "When repairContext.target is entity, path, or both, semanticRepairPlanJson.target must equal it. When repairContext.target is auto, choose the smallest target that fully repairs the diagnosed behavior.",
+          "contextDbFactsChanged must always be false; this workflow may revise binding contracts but never user facts.",
           "Return no markdown or commentary outside the JSON object.",
         ].join(" "),
       },
@@ -368,12 +402,32 @@ function parseRevisionResponse(response) {
   const envelope = parseJsonObject(content, "LLM revision response");
   const entityValue = envelope.updatedEntityJson ?? envelope.updatedEntity;
   const manifestValue = envelope.updatedCapabilityManifestJson ?? envelope.updatedCapabilityManifest;
+  const plan = parseJsonObject(envelope.semanticRepairPlanJson, "semanticRepairPlan");
+  const planTarget = plainText(plan.target, 20).toLowerCase();
+  if (!["entity", "path", "both"].includes(planTarget)) {
+    throw new Error("semantic repair plan target must be entity, path, or both");
+  }
+  if (plan.contextDbFactsChanged !== false) {
+    throw new Error("semantic repair plans cannot mutate ContextDB facts");
+  }
   return {
     summary: plainText(envelope.summary, 2_000) || "Entity revised.",
     updatedEntity: parseJsonObject(entityValue, "updatedEntity"),
     updatedCapabilityManifest: manifestValue == null
       ? null
       : parseJsonObject(manifestValue, "updatedCapabilityManifest"),
+    semanticRepairPlan: {
+      schemaVersion: 1,
+      target: planTarget,
+      summary: plainText(plan.summary, 2_000),
+      entityChanges: (Array.isArray(plan.entityChanges) ? plan.entityChanges : [])
+        .map((value) => plainText(value, 1_000)).filter(Boolean).slice(0, 30),
+      pathChanges: (Array.isArray(plan.pathChanges) ? plan.pathChanges : [])
+        .map((value) => plainText(value, 1_000)).filter(Boolean).slice(0, 30),
+      contextBindingChanges: (Array.isArray(plan.contextBindingChanges) ? plan.contextBindingChanges : [])
+        .map((value) => plainText(value, 1_000)).filter(Boolean).slice(0, 30),
+      contextDbFactsChanged: false,
+    },
   };
 }
 
@@ -397,6 +451,26 @@ function hasMaterialRevision(currentEntity, revisedEntity, currentManifest, revi
     || JSON.stringify(withoutCapabilityMetadata(currentManifest)) !== JSON.stringify(withoutCapabilityMetadata(revisedManifest));
 }
 
+function pathSemanticContract(manifest) {
+  return (Array.isArray(manifest?.operations) ? manifest.operations : []).map((operation) => ({
+    operationId: operation?.operationId || null,
+    inputs: (Array.isArray(operation?.inputs) ? operation.inputs : []).map((input) => ({
+      name: input?.name || null,
+      type: input?.type || null,
+      required: input?.required !== false,
+      validation: input?.validation || null,
+      bindingHint: input?.bindingHint || null,
+      clarification: input?.clarification || null,
+    })),
+    utteranceExamples: operation?.utteranceExamples || [],
+  }));
+}
+
+function pathSemanticContractChanged(currentManifest, revisedManifest) {
+  return JSON.stringify(pathSemanticContract(currentManifest))
+    !== JSON.stringify(pathSemanticContract(revisedManifest));
+}
+
 function declarativeActionsChanged(currentEntity, revisedEntity) {
   return JSON.stringify(currentEntity?.published?.actions || [])
     !== JSON.stringify(revisedEntity?.published?.actions || []);
@@ -417,6 +491,18 @@ function repairRequiresImplementationChange(request = {}) {
 
 function validateRevisionSynchronization(currentEntity, revisedEntity, revisedManifest, request) {
   validateImplementationBindings({ published: revisedEntity?.published || {} }, revisedManifest);
+  const target = request?.repairContext?.target;
+  if (["path", "both"].includes(target) && !pathSemanticContractChanged(
+    request?.currentManifest || null,
+    revisedManifest
+  )) {
+    throw new Error(
+      "the diagnosed Path repair did not revise its semantic inputs, bindings, validation, or utterance examples"
+    );
+  }
+  if (target === "path" && declarativeActionsChanged(currentEntity, revisedEntity)) {
+    throw new Error("a Path-only repair cannot modify declarative JPL actions");
+  }
   if (
     repairRequiresImplementationChange(request)
     && !declarativeActionsChanged(currentEntity, revisedEntity)
@@ -641,6 +727,17 @@ function register({ on, use }) {
       res.status(409).json({ ok: false, error: "This revision job no longer matches the selected entity and request." });
       return { __handled: true };
     }
+    if (request.cancelOnly) {
+      await releaseEditState(request.jobId);
+      return {
+        ok: true,
+        response: {
+          action: "editEntityCancelled",
+          entityId: request.entityId,
+          jobId: request.jobId,
+        },
+      };
+    }
     const currentVersion = Number(activeJobRow.editVersion ?? 0);
     if (request.baseVersion != null && request.baseVersion !== currentVersion) {
       await releaseEditState(request.jobId);
@@ -707,6 +804,20 @@ function register({ on, use }) {
       }
 
       const generated = parseRevisionResponse(background);
+      const requestedTarget = request?.repairContext?.target || "entity";
+      const plannedTarget = generated.semanticRepairPlan.target;
+      if (requestedTarget !== "auto" && requestedTarget !== plannedTarget) {
+        throw new Error(
+          `semantic repair plan target ${plannedTarget} does not match the authorized ${requestedTarget} repair`
+        );
+      }
+      const effectiveRequest = {
+        ...request,
+        repairContext: {
+          ...(request.repairContext || {}),
+          target: requestedTarget === "auto" ? plannedTarget : requestedTarget,
+        },
+      };
       const revisedCandidate = clone(generated.updatedEntity);
       revisedManifest = null;
       if (originalManifest) {
@@ -741,7 +852,7 @@ function register({ on, use }) {
           originalObject,
           revisedCandidate,
           revisedManifest,
-          request
+          { ...effectiveRequest, currentManifest: originalManifest }
         );
       } else if (generated.updatedCapabilityManifest) {
         throw new Error("a non-capability entity cannot acquire a capability contract through the revision response");
@@ -749,6 +860,32 @@ function register({ on, use }) {
       const revised = validateRevisedEntity(originalObject, revisedCandidate, request.entityId);
       if (!hasMaterialRevision(originalObject, revised, originalManifest, revisedManifest)) {
         throw new Error("the proposed revision did not materially apply the requested change");
+      }
+
+      const implementationRevision = {
+        changed: declarativeActionsChanged(originalObject, revised),
+        actionCountBefore: Array.isArray(originalObject?.published?.actions)
+          ? originalObject.published.actions.length
+          : 0,
+        actionCountAfter: Array.isArray(revised?.published?.actions)
+          ? revised.published.actions.length
+          : 0,
+      };
+      if (request.statusOnly) {
+        return {
+          ok: true,
+          response: {
+            action: "editEntityPrepared",
+            entityId: request.entityId,
+            jobId: request.jobId,
+            version: currentVersion + 1,
+            summary: generated.summary,
+            capabilityManifest: revisedManifest,
+            implementationRevision,
+            pathSemanticRevision: pathSemanticContractChanged(originalManifest, revisedManifest),
+            semanticRepairPlan: generated.semanticRepairPlan,
+          },
+        };
       }
 
       commitStarted = true;
@@ -823,15 +960,9 @@ function register({ on, use }) {
           updatedAt,
           summary: generated.summary,
           capabilityManifest: revisedManifest,
-          implementationRevision: {
-            changed: declarativeActionsChanged(originalObject, revised),
-            actionCountBefore: Array.isArray(originalObject?.published?.actions)
-              ? originalObject.published.actions.length
-              : 0,
-            actionCountAfter: Array.isArray(revised?.published?.actions)
-              ? revised.published.actions.length
-              : 0,
-          },
+          implementationRevision,
+          pathSemanticRevision: pathSemanticContractChanged(originalManifest, revisedManifest),
+          semanticRepairPlan: generated.semanticRepairPlan,
         },
       };
     } catch (error) {
@@ -944,10 +1075,13 @@ module.exports = {
   normalizeRevisedImplementation,
   normalizeRevisionRequest,
   parseJsonObject,
+  parseRevisionResponse,
   responseOutputText,
   revisionInput,
   revisionRequestHash,
   repairRequiresImplementationChange,
+  pathSemanticContract,
+  pathSemanticContractChanged,
   validateSemanticExampleInputs,
   validateRevisionSynchronization,
   validateRevisedEntity,

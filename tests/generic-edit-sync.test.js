@@ -16,6 +16,10 @@ test("Edit revises and registers an entity-owned capability contract atomically"
   assert.match(source, /validateTrustedImplementation/);
   assert.match(source, /capability revision cannot add or modify executable field/);
   assert.match(source, /capabilityRegistry\.register\(originalManifest/);
+  assert.match(source, /editEntityPrepared/);
+  assert.match(source, /revision-finalize/);
+  assert.match(source, /semanticBundle/);
+  assert.match(source, /pathSemanticContractChanged/);
 });
 
 test("Convert uses generic discovery, reuse, extension, and model-built entity paths", () => {
