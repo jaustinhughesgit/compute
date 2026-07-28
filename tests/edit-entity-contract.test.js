@@ -236,6 +236,8 @@ test('provider contract failures receive one constrained official-doc research a
   assert.equal(input.max_tool_calls, 4);
   assert.deepEqual(input.include, ['web_search_call.action.sources']);
   assert.match(input.input[0].content, /one authorized provider-contract repair attempt/);
+  assert.match(input.input[0].content, /JPL is the JSON array at published\.actions/);
+  assert.match(input.input[0].content, /parse updatedEntityJson/);
 
   assert.deepEqual(extractProviderResearchSources({
     output: [{
@@ -283,10 +285,45 @@ test('provider research excludes credentials, transient failures, and Path-only 
     repairAttempt: 1,
   }), false);
   assert.equal(mayRetryRevisionValidation({
+    providerResearch: { attempted: true },
+    originalObject: entity,
+    repairAttempt: 0,
+  }), true);
+  assert.equal(mayRetryRevisionValidation({
     providerResearch: null,
     originalObject: entity,
     repairAttempt: 0,
   }), true);
+});
+
+test('invalid provider revision output gets one continuation without another web search', () => {
+  const input = revisionInput({
+    model: 'gpt-5.6-luna',
+    currentEntity: entity,
+    currentManifest: null,
+    request: {
+      requestId: 'repair-1',
+      requestedChanges: [],
+      explanation: 'Repair malformed output.',
+      convertEssence: [],
+      repairContext: { target: 'entity' },
+    },
+    entityId: 'entity-1',
+    repairFeedback: ["updatedEntity is invalid JSON: Expected ',' or '}'"],
+    providerResearchEvidence: {
+      schemaVersion: 1,
+      provider: 'OpenWeather',
+      providerHost: 'api.openweathermap.org',
+      sources: ['https://openweathermap.org/api/current'],
+    },
+    previousResponseId: 'resp_provider_research',
+  });
+  assert.equal(input.previous_response_id, 'resp_provider_research');
+  assert.equal(input.tools, undefined);
+  assert.equal(input.tool_choice, undefined);
+  assert.match(input.input[0].content, /Do not repeat web research/);
+  assert.match(input.input[1].content, /updatedEntity is invalid JSON/);
+  assert.match(input.input[1].content, /https:\/\/openweathermap\.org\/api\/current/);
 });
 
 test('natural-language provider format requests cannot pass as Path-only changes', () => {
@@ -310,6 +347,10 @@ test('natural-language provider format requests cannot pass as Path-only changes
 test('LLM JSON parsing accepts JSON fences but rejects non-object output', () => {
   assert.deepEqual(parseJsonObject('```json\n{"summary":"ok"}\n```'), { summary: 'ok' });
   assert.throws(() => parseJsonObject('[]'), /must be an object/);
+  assert.throws(
+    () => parseJsonObject('{"broken":true', 'updatedEntity'),
+    /updatedEntity is invalid JSON/
+  );
 });
 
 test('semantic repair plans cannot authorize ContextDB fact mutation', () => {
