@@ -6,6 +6,12 @@ const {
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
 const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
+const {
+  startBackgroundResponse,
+  retrieveBackgroundResponse,
+  responseOutputText,
+  backgroundResponseState,
+} = require("./openAiBackgroundResponse");
 
 const MAX_UTTERANCE_LENGTH = 2000;
 const configuredDiscoveryTimeout = Number(process.env.COMPUTE_DISCOVERY_REQUEST_TIMEOUT_MS);
@@ -431,10 +437,9 @@ function deterministicDiscovery() {
   return null;
 }
 
-async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [], semanticEvidence = [] }) {
-  if (!openai?.chat?.completions?.create) return null;
+function discoveryMessages({ utterance, requestedBy, availableCapabilities = [], semanticEvidence = [] }) {
   const existing = summarizeCapabilities(availableCapabilities);
-  const messages = [
+  return [
       {
         role: "system",
         content: [
@@ -476,7 +481,16 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         }),
       },
     ];
+}
 
+async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [], semanticEvidence = [] }) {
+  if (!openai?.chat?.completions?.create) return null;
+  const messages = discoveryMessages({
+    utterance,
+    requestedBy,
+    availableCapabilities,
+    semanticEvidence,
+  });
   let parsed = null;
   let lastValidationError = null;
   const discoveryDeadline = Date.now() + DISCOVERY_BUDGET_MS;
@@ -523,6 +537,109 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
     }
   }
   throw lastValidationError || new Error("The discovery model did not return a valid contract");
+}
+
+function backgroundDiscoveryInput({
+  utterance,
+  requestedBy,
+  availableCapabilities = [],
+  semanticEvidence = [],
+} = {}) {
+  return {
+    model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+    background: true,
+    store: true,
+    input: discoveryMessages({
+      utterance,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+    }),
+    text: {
+      format: {
+        type: "json_schema",
+        name: "compute_capability_discovery",
+        description: "A classification result and, only for build_compute, a complete semantic capability contract.",
+        strict: true,
+        schema: DISCOVERY_RESPONSE_SCHEMA,
+      },
+    },
+  };
+}
+
+async function startComputeCapabilityDiscovery({
+  utterance,
+  requestedBy = "system",
+  availableCapabilities = [],
+  semanticEvidence = [],
+  startResponse = startBackgroundResponse,
+} = {}) {
+  const clean = cleanUtterance(utterance);
+  if (!clean) throw new Error("compute discovery requires an utterance");
+  const response = await startResponse(backgroundDiscoveryInput({
+    utterance: clean,
+    requestedBy,
+    availableCapabilities,
+    semanticEvidence,
+  }));
+  return {
+    kind: "computeCapabilityDiscoveryBackground",
+    schemaVersion: 1,
+    jobId: String(response.id),
+    status: String(response.status || "queued"),
+    pending: true,
+    retryAfterMs: 2_000,
+    discovery: null,
+  };
+}
+
+async function retrieveComputeCapabilityDiscovery({
+  jobId,
+  utterance,
+  requestedBy = "system",
+  availableCapabilities = [],
+  semanticEvidence = [],
+  retrieveResponse = retrieveBackgroundResponse,
+} = {}) {
+  const clean = cleanUtterance(utterance);
+  if (!clean) throw new Error("compute discovery requires an utterance");
+  const response = await retrieveResponse(jobId);
+  const state = backgroundResponseState(response);
+  if (state.pending) {
+    return {
+      kind: "computeCapabilityDiscoveryBackground",
+      schemaVersion: 1,
+      jobId: String(jobId),
+      ...state,
+      discovery: null,
+    };
+  }
+  const raw = responseOutputText(response);
+  if (!raw) {
+    const error = new Error("OpenAI completed discovery without a JSON result");
+    error.code = "EMPTY_DISCOVERY_RESPONSE";
+    throw error;
+  }
+  let parsed;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (error) {
+    error.code = "INVALID_MODEL_JSON";
+    throw error;
+  }
+  return {
+    kind: "computeCapabilityDiscoveryBackground",
+    schemaVersion: 1,
+    jobId: String(jobId),
+    ...state,
+    discovery: parseDiscoveryDecision({
+      parsed,
+      utterance: clean,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+    }),
+  };
 }
 
 function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapabilities, semanticEvidence = [] }) {
@@ -645,4 +762,7 @@ module.exports = {
   semanticEvidenceContext,
   DISCOVERY_RESPONSE_SCHEMA,
   discoverComputeCapability,
+  backgroundDiscoveryInput,
+  startComputeCapabilityDiscovery,
+  retrieveComputeCapabilityDiscovery,
 };

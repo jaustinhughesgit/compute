@@ -21,7 +21,7 @@ test("Edit revises and registers an entity-owned capability contract atomically"
   assert.match(source, /semanticBundle/);
   assert.match(source, /pathSemanticContractChanged/);
   assert.match(source, /PROVIDER_REPAIR_MODEL/);
-  assert.match(source, /DEFAULT_PROVIDER_REPAIR_MODEL\s*=\s*"gpt-5\.6-luna"/);
+  assert.match(source, /DEFAULT_PROVIDER_REPAIR_MODEL\s*=\s*"gpt-5\.6-terra"/);
   assert.match(source, /type:\s*"web_search"/);
   assert.match(source, /web_search_call\.action\.sources/);
   assert.match(source, /providerResearchSources/);

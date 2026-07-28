@@ -7,9 +7,15 @@ const {
   validateCapabilityManifest,
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
-const { discoverComputeCapability } = require("../capabilityDiscovery");
+const {
+  discoverComputeCapability,
+  startComputeCapabilityDiscovery,
+  retrieveComputeCapabilityDiscovery,
+} = require("../capabilityDiscovery");
 const {
   buildComputeEntitySpec,
+  startComputeEntitySpecBackground,
+  retrieveComputeEntitySpecBackground,
   CapabilityBuildRetryError,
 } = require("../capabilityBlueprints");
 const {
@@ -179,6 +185,7 @@ function register({ on, use }) {
         reason = null,
         record = null,
         continuation = null,
+        backgroundJob = null,
       }) => {
         const created = manifest ? [{
           entity: manifest.entityId,
@@ -214,6 +221,7 @@ function register({ on, use }) {
             replayRequired: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
             reason,
             continuation,
+            backgroundJob,
           },
           existing: !!(meta && meta.cookie && meta.cookie.existing),
           file: manifest?.entityId || record?.capabilityEntityId || "",
@@ -227,6 +235,8 @@ function register({ on, use }) {
         buildId = null,
         continuation = null,
         generationAttemptLimit = 3,
+        background = false,
+        backgroundJobId = null,
       }) => {
         const capabilityId = capabilityBuildRequest.capabilityIdHint;
         const existing = await capabilityRegistry.findByCapability(capabilityId, {
@@ -316,6 +326,7 @@ function register({ on, use }) {
             });
           }
           claim = { acquired: true, ...identity, record };
+          await buildCoordinator.renew(claim);
         } else {
           claim = await buildCoordinator.claim({
             ownerId,
@@ -343,16 +354,63 @@ function register({ on, use }) {
         }
 
         let computeSpec = null;
+        let backgroundBuild = null;
         try {
+          if (background) {
+            backgroundBuild = backgroundJobId
+              ? await retrieveComputeEntitySpecBackground({ jobId: backgroundJobId })
+              : await startComputeEntitySpecBackground({
+                  capabilityRequest: capabilityBuildRequest,
+                  originalUtterance,
+                  buildContinuation: continuation,
+                });
+            if (backgroundBuild.pending) {
+              return capabilityStateResponse({
+                status: "BUILD_PENDING",
+                buildId: claim.buildId,
+                record: claim.record,
+                backgroundJob: {
+                  kind: backgroundBuild.kind,
+                  jobId: backgroundBuild.jobId,
+                  status: backgroundBuild.status,
+                  retryAfterMs: backgroundBuild.retryAfterMs,
+                },
+                continuation,
+                reason: "OpenAI is generating the declarative entity in the background.",
+              });
+            }
+          }
           computeSpec = await buildComputeEntitySpec({
             capabilityRequest: capabilityBuildRequest,
             requestedBy: ownerId,
             originalUtterance,
             openai,
+            generatedImplementation: backgroundBuild?.generatedImplementation || null,
             generationAttemptLimit,
             buildContinuation: continuation,
           });
         } catch (error) {
+          if (
+            background
+            && !(error instanceof CapabilityBuildRetryError)
+            && backgroundBuild?.rawOutput
+          ) {
+            const completedAttempts = Math.min(
+              3,
+              Math.max(0, Number(continuation?.attempt || 0)) + 1
+            );
+            if (completedAttempts < 3) {
+              error = new CapabilityBuildRetryError({
+                schemaVersion: 1,
+                attempt: completedAttempts,
+                previousOutput: String(backgroundBuild.rawOutput).slice(0, 20 * 1024),
+                validationCode: String(error?.code || "INVALID_IMPLEMENTATION").slice(0, 120),
+                validationMessage: String(error?.message || error)
+                  .replace(/[\r\n\t]+/g, " ")
+                  .slice(0, 800),
+              });
+            }
+          }
           if (error instanceof CapabilityBuildRetryError) {
             return capabilityStateResponse({
               status: "BUILD_RETRY_REQUIRED",
@@ -395,6 +453,9 @@ function register({ on, use }) {
         prompt &&
         body.body?.computeDiscovery !== false &&
         body.body?.disableComputeDiscovery !== true;
+      const discoveryJobId = String(body.body?.computeDiscoveryJobId || "").trim();
+      const backgroundDiscoveryRequested =
+        body.body?.backgroundComputeDiscovery === true || !!discoveryJobId;
 
       if (shouldDiscoverCompute) {
         const promptObj = parsePrompt(prompt);
@@ -405,14 +466,47 @@ function register({ on, use }) {
           ownerId,
           minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
         });
-        computeDiscovery = await discoverComputeCapability({
-          openai,
-          utterance: originalUtterance,
-          requestedBy: ownerId,
-          useModel: body.body?.deterministicComputeDiscovery !== true,
-          availableCapabilities,
-          semanticEvidence: promptObj?.relevantItems,
-        });
+        if (
+          backgroundDiscoveryRequested
+          && body.body?.deterministicComputeDiscovery !== true
+        ) {
+          const backgroundDiscovery = discoveryJobId
+            ? await retrieveComputeCapabilityDiscovery({
+                jobId: discoveryJobId,
+                utterance: originalUtterance,
+                requestedBy: ownerId,
+                availableCapabilities,
+                semanticEvidence: promptObj?.relevantItems,
+              })
+            : await startComputeCapabilityDiscovery({
+                utterance: originalUtterance,
+                requestedBy: ownerId,
+                availableCapabilities,
+                semanticEvidence: promptObj?.relevantItems,
+              });
+          if (backgroundDiscovery.pending) {
+            return capabilityStateResponse({
+              status: "DISCOVERY_PENDING",
+              backgroundJob: {
+                kind: backgroundDiscovery.kind,
+                jobId: backgroundDiscovery.jobId,
+                status: backgroundDiscovery.status,
+                retryAfterMs: backgroundDiscovery.retryAfterMs,
+              },
+              reason: "OpenAI is discovering the reusable compute contract in the background.",
+            });
+          }
+          computeDiscovery = backgroundDiscovery.discovery;
+        } else {
+          computeDiscovery = await discoverComputeCapability({
+            openai,
+            utterance: originalUtterance,
+            requestedBy: ownerId,
+            useModel: body.body?.deterministicComputeDiscovery !== true,
+            availableCapabilities,
+            semanticEvidence: promptObj?.relevantItems,
+          });
+        }
 
         if (computeDiscovery.decision === "unsupported") {
           return capabilityStateResponse({
@@ -462,6 +556,8 @@ function register({ on, use }) {
           const immediateResponse = await prepareCapabilityBuild({
             originalUtterance,
             blueprintId: computeDiscovery.buildCommand?.blueprintId || null,
+            background: body.body?.backgroundComputeBuild === true,
+            backgroundJobId: String(body.body?.computeBuildJobId || "").trim() || null,
           });
           if (immediateResponse) return immediateResponse;
         }
@@ -505,6 +601,10 @@ function register({ on, use }) {
           buildId: String(body.body?.buildId || "").trim() || null,
           continuation: body.body?.buildContinuation || null,
           generationAttemptLimit: 1,
+          background:
+            body.body?.backgroundComputeBuild === true
+            || !!String(body.body?.computeBuildJobId || "").trim(),
+          backgroundJobId: String(body.body?.computeBuildJobId || "").trim() || null,
         });
         if (continuedResponse) return continuedResponse;
       }

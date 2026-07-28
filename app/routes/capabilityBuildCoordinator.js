@@ -88,6 +88,28 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     return { buildId: claimResult.buildId, status: "completed", entityId: manifest.entityId, completedAt: now };
   }
 
+  async function renew(claimResult) {
+    const now = Math.floor(Date.now() / 1000);
+    const leaseExpiresAt = now + Math.max(30, Number(leaseSeconds) || DEFAULT_LEASE_SECONDS);
+    await promiseOf(dynamodb.update({
+      TableName: tableName,
+      Key: { su: claimResult.key },
+      UpdateExpression: "SET #lease = :lease",
+      ConditionExpression: "#status = :building AND #buildId = :buildId",
+      ExpressionAttributeNames: {
+        "#lease": "capabilityBuildLeaseExpiresAt",
+        "#status": "capabilityBuildStatus",
+        "#buildId": "capabilityBuildId",
+      },
+      ExpressionAttributeValues: {
+        ":lease": leaseExpiresAt,
+        ":building": "building",
+        ":buildId": claimResult.buildId,
+      },
+    }));
+    return leaseExpiresAt;
+  }
+
   async function fail(claimResult, code = "BUILD_FAILED") {
     const now = new Date().toISOString();
     await promiseOf(dynamodb.update({
@@ -109,7 +131,7 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     }));
   }
 
-  return { identity, get, claim, complete, fail };
+  return { identity, get, claim, renew, complete, fail };
 }
 
 module.exports = { stableHash, createCapabilityBuildCoordinator };

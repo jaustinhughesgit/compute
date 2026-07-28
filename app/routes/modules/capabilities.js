@@ -10,6 +10,7 @@ const { listCapabilityBlueprints } = require("../capabilityBlueprints");
 const { discoverComputeCapability } = require("../capabilityDiscovery");
 const { interpretCapabilityInput } = require("../capabilityInputInterpretation");
 const { diagnoseCapabilityFailure } = require("../capabilityFailureDiagnosis");
+const { verifyCapabilityAnswer } = require("../capabilityAnswerVerification");
 
 function bodyObject(req) {
   const body = req?.body;
@@ -36,6 +37,7 @@ function routeError(error) {
 function register({ on, use }) {
   const shared = use();
   const dynamodb = shared?.deps?.dynamodb || shared?.getDocClient?.();
+  const s3 = shared?.deps?.s3 || shared?.getS3?.();
   const registry = createCapabilityRegistry({ dynamodb });
   on("capabilities", async (ctx) => {
     try {
@@ -102,6 +104,47 @@ function register({ on, use }) {
         });
         return { ok: true, kind: "capabilityFailureDiagnosisResult", diagnosis };
       }
+      if (action === "verify-answer") {
+        const entityId = String(body.entityId || body?.reviewContext?.entityId || "").trim();
+        if (!entityId) {
+          throw new CapabilityError("ENTITY_ID_REQUIRED", "Answer verification requires the selected entity id");
+        }
+        const availableCapabilities = await registry.listAvailable({
+          activeOnly: false,
+          limit: 100,
+          ownerId,
+          minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+        });
+        const manifest = availableCapabilities.find((item) => String(item?.entityId || "") === entityId);
+        if (!manifest) {
+          throw new CapabilityError("CAPABILITY_NOT_FOUND", "The selected compute entity is not available to this user");
+        }
+        const sub = await shared.getSub(entityId, "su", dynamodb);
+        const row = sub?.Items?.[0];
+        if (!row || !s3) {
+          throw new CapabilityError("ENTITY_NOT_FOUND", "The selected compute entity could not be loaded");
+        }
+        const bucket = row.z === true || row.z === "true"
+          ? "public.1var.com"
+          : "private.1var.com";
+        const file = await s3.getObject({ Bucket: bucket, Key: entityId }).promise();
+        if (Number(file.ContentLength || file.Body?.length || 0) > 384 * 1024) {
+          throw new CapabilityError("ENTITY_TOO_LARGE", "The selected compute entity is too large to verify");
+        }
+        let entity;
+        try {
+          entity = JSON.parse(Buffer.isBuffer(file.Body) ? file.Body.toString("utf8") : String(file.Body || ""));
+        } catch {
+          throw new CapabilityError("ENTITY_INVALID", "The selected compute entity is not valid JSON");
+        }
+        const verification = await verifyCapabilityAnswer({
+          openai: shared?.deps?.openai,
+          manifest,
+          entity,
+          reviewContext: body.reviewContext,
+        });
+        return { ok: true, kind: "capabilityAnswerVerificationResult", verification };
+      }
       if (action === "register") {
         const manifest = validateCapabilityManifest(body.manifest || body, { ownerId });
         return { ok: true, kind: "capabilityRegistered", manifest: await registry.register(manifest, { ownerId }) };
@@ -133,7 +176,7 @@ function register({ on, use }) {
       return {
         ok: true,
         kind: "capabilityRegistryHelp",
-        actions: ["register", "blueprints", "discover", "diagnose-failure", "interpret-input", "get/:entityId", "find/:capabilityId", "activate/:entityId", "disable/:entityId", "testing/:entityId", "fail/:entityId"],
+        actions: ["register", "blueprints", "discover", "diagnose-failure", "verify-answer", "interpret-input", "get/:entityId", "find/:capabilityId", "activate/:entityId", "disable/:entityId", "testing/:entityId", "fail/:entityId"],
       };
     } catch (error) {
       console.error("capability registry error", { code: error?.code || "REGISTRY_FAILED" });

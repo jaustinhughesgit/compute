@@ -33,6 +33,29 @@ const entity = {
   expected: [],
 };
 
+function jsonNode(value) {
+  const base = {
+    kind: 'null',
+    stringValue: null,
+    numberValue: null,
+    booleanValue: null,
+    arrayValue: null,
+    objectValue: null,
+  };
+  if (value === null) return base;
+  if (typeof value === 'string') return { ...base, kind: 'string', stringValue: value };
+  if (typeof value === 'number') return { ...base, kind: 'number', numberValue: value };
+  if (typeof value === 'boolean') return { ...base, kind: 'boolean', booleanValue: value };
+  if (Array.isArray(value)) {
+    return { ...base, kind: 'array', arrayValue: value.map(jsonNode) };
+  }
+  return {
+    ...base,
+    kind: 'object',
+    objectValue: Object.entries(value).map(([key, child]) => ({ key, value: jsonNode(child) })),
+  };
+}
+
 test('revision requests require an explicit matching target and user changes', () => {
   assert.deepEqual(
     normalizeRevisionRequest({
@@ -237,7 +260,9 @@ test('provider contract failures receive one constrained official-doc research a
   assert.deepEqual(input.include, ['web_search_call.action.sources']);
   assert.match(input.input[0].content, /one authorized provider-contract repair attempt/);
   assert.match(input.input[0].content, /JPL is the JSON array at published\.actions/);
-  assert.match(input.input[0].content, /parse updatedEntityJson/);
+  assert.match(input.input[0].content, /typed JSON-node schema/);
+  assert.equal(input.text.format.strict, true);
+  assert.ok(input.text.format.schema.properties.entityPatches);
 
   assert.deepEqual(extractProviderResearchSources({
     output: [{
@@ -285,6 +310,21 @@ test('provider research excludes credentials, transient failures, and Path-only 
     repairAttempt: 1,
   }), false);
   assert.equal(mayRetryRevisionValidation({
+    originalObject: entity,
+    repairAttempt: 1,
+    error: new Error("updatedEntity is invalid JSON: Expected ',' or '}'"),
+  }), true);
+  assert.equal(mayRetryRevisionValidation({
+    originalObject: entity,
+    repairAttempt: 2,
+    error: new Error("updatedEntity is invalid JSON: Expected ',' or '}'"),
+  }), false);
+  assert.equal(mayRetryRevisionValidation({
+    originalObject: entity,
+    repairAttempt: 1,
+    error: new Error("the proposed revision did not materially apply the requested change"),
+  }), false);
+  assert.equal(mayRetryRevisionValidation({
     providerResearch: { attempted: true },
     originalObject: entity,
     repairAttempt: 0,
@@ -322,6 +362,8 @@ test('invalid provider revision output gets one continuation without another web
   assert.equal(input.tools, undefined);
   assert.equal(input.tool_choice, undefined);
   assert.match(input.input[0].content, /Do not repeat web research/);
+  assert.match(input.input[0].content, /preceding response failed deterministic server validation/);
+  assert.match(input.input[0].content, /return a new minimal typed patch set/);
   assert.match(input.input[1].content, /updatedEntity is invalid JSON/);
   assert.match(input.input[1].content, /https:\/\/openweathermap\.org\/api\/current/);
 });
@@ -358,9 +400,9 @@ test('semantic repair plans cannot authorize ContextDB fact mutation', () => {
     status: 'completed',
     output_text: JSON.stringify({
       summary: 'Unsafe plan.',
-      updatedEntityJson: JSON.stringify(entity),
-      updatedCapabilityManifestJson: null,
-      semanticRepairPlanJson: JSON.stringify({
+      entityPatches: [],
+      capabilityManifestPatches: [],
+      semanticRepairPlan: {
         schemaVersion: 1,
         target: 'entity',
         summary: 'Rewrite a fact.',
@@ -368,10 +410,13 @@ test('semantic repair plans cannot authorize ContextDB fact mutation', () => {
         pathChanges: [],
         contextBindingChanges: [],
         contextDbFactsChanged: true,
-      }),
+      },
     }),
   };
-  assert.throws(() => parseRevisionResponse(response), /cannot mutate ContextDB facts/);
+  assert.throws(
+    () => parseRevisionResponse(response, { currentEntity: entity }),
+    /cannot mutate ContextDB facts/
+  );
 });
 
 test('revisions preserve top-level structure and primary entity identity', () => {
@@ -510,9 +555,13 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
         status: 'completed',
         output_text: JSON.stringify({
           summary: 'Added battery status.',
-          updatedEntityJson: JSON.stringify(updated),
-          updatedCapabilityManifestJson: null,
-          semanticRepairPlanJson: JSON.stringify({
+          entityPatches: [{
+            operation: 'add',
+            path: '/published/menu/battery',
+            value: jsonNode({ _name: 'Battery' }),
+          }],
+          capabilityManifestPatches: [],
+          semanticRepairPlan: {
             schemaVersion: 1,
             target: 'entity',
             summary: 'Update the Entity menu.',
@@ -520,7 +569,7 @@ test('authorized edits run the LLM, back up the old JSON, save the revision, and
             pathChanges: [],
             contextBindingChanges: [],
             contextDbFactsChanged: false,
-          }),
+          },
         }),
       }),
     };
