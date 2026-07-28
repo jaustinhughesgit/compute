@@ -19,6 +19,7 @@ const FAILURE_DIAGNOSIS_SCHEMA = {
     reason: { type: "string" },
     recommendedChange: { type: "string" },
     userQuestion: { type: "string" },
+    requiresImplementationChange: { type: "boolean" },
   },
   required: [
     "classification",
@@ -27,6 +28,7 @@ const FAILURE_DIAGNOSIS_SCHEMA = {
     "reason",
     "recommendedChange",
     "userQuestion",
+    "requiresImplementationChange",
   ],
 };
 
@@ -134,6 +136,7 @@ function normalizeDiagnosis(parsed = {}, source = "model") {
     reason: cleanText(parsed.reason, 1200),
     recommendedChange: cleanText(parsed.recommendedChange, 1600),
     userQuestion: cleanText(parsed.userQuestion, 1000),
+    requiresImplementationChange: parsed.requiresImplementationChange === true,
   };
 }
 
@@ -147,6 +150,7 @@ async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = 
       reason: "The failure diagnosis model is unavailable.",
       recommendedChange: "",
       userQuestion: "",
+      requiresImplementationChange: false,
     }, "model-unavailable");
   }
   const response = await openai.chat.completions.create({
@@ -171,6 +175,7 @@ async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = 
           "Use target path only when recognition captured, segmented, typed, or bound the utterance incorrectly while the selected entity contract can already perform the requested behavior.",
           "Use target entity when the Path captured the requested value correctly but the provider request, implementation, output, or answer template ignored or contradicted it.",
           "Use target both only when both recognition/binding and entity behavior require changes.",
+          "Set requiresImplementationChange true when the declarative Entity actions (JPL provider request, normalization, transformation, or response mapping) must change. Set it false for Path-only, contract-example-only, or answer-template-only repairs.",
           "An ANSWER_INPUT_CONTRADICTION with a correct structural capture is an entity defect, not a Path defect.",
           "Classify platform_logic only for orchestration, transport, authentication plumbing, runtime infrastructure, or other logic outside the selected entity and Path.",
           "Classify transient_provider for rate limits and temporary upstream outages.",

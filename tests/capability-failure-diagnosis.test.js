@@ -80,6 +80,7 @@ test("failure diagnosis uses a strict read-only model contract", async () => {
                   reason: "The Path captured the complete location, but the entity sent a provider-incompatible representation.",
                   recommendedChange: "Normalize region names to provider-compatible location parameters before lookup.",
                   userQuestion: "May I prepare this entity revision in Edit?",
+                  requiresImplementationChange: true,
                 }),
               },
             }],
@@ -100,6 +101,7 @@ test("failure diagnosis uses a strict read-only model contract", async () => {
   });
   assert.equal(diagnosis.classification, "entity_or_path");
   assert.equal(diagnosis.target, "entity");
+  assert.equal(diagnosis.requiresImplementationChange, true);
   assert.equal(request.response_format.type, "json_schema");
   assert.equal(request.response_format.json_schema.strict, true);
   assert.equal(request.response_format.json_schema.schema, FAILURE_DIAGNOSIS_SCHEMA);
@@ -114,4 +116,5 @@ test("failure diagnosis fails closed when the model is unavailable", async () =>
   assert.equal(diagnosis.source, "model-unavailable");
   assert.equal(diagnosis.classification, "platform_logic");
   assert.equal(diagnosis.target, "none");
+  assert.equal(diagnosis.requiresImplementationChange, false);
 });

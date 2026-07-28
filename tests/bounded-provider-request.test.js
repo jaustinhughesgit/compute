@@ -12,6 +12,7 @@ const {
 } = require("../app/routes/modules/runEntity");
 const { resolveComputeInputPlaceholder } = require("../app/routes/inputPlaceholderTransport");
 const { copyRuntimeContext, useBundledRuntimeModule } = require("../app/routes/runtimeModules");
+const { IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 
 function fakeAxios(calls) {
   const client = {
@@ -213,7 +214,7 @@ test("the entity boundary passes its provider deadline into existing entity exec
       inputs: [],
       outputs: [{ name: "summary", type: "string", required: true }],
     }],
-    implementationPolicyVersion: 10,
+    implementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
   };
   const dynamodb = {
     get: () => ({ promise: async () => ({ Item: { su: manifest.entityId, computeCapability: manifest } }) }),

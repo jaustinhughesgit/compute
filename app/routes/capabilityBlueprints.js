@@ -545,6 +545,22 @@ function validateImplementationBindings(implementation, buildRequest) {
   if (unknown) {
     throw new Error(`compute entity implementation references undeclared ordinary input ${unknown}`);
   }
+  if (operations.length === 1) {
+    const actionText = JSON.stringify(actions);
+    const requiredInputs = (operations[0].inputs || [])
+      .filter((input) => input.required)
+      .map((input) => input.name);
+    const unused = requiredInputs.find((name) => {
+      const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return !new RegExp(
+        String.raw`\{\|(?:req=>body\.)?${escaped}(?:=>[^|{}]+)?\|\}`,
+        "i"
+      ).test(actionText);
+    });
+    if (unused) {
+      throw new Error(`compute entity implementation does not use required ordinary input ${unused}`);
+    }
+  }
   return implementation;
 }
 

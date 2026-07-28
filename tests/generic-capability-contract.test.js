@@ -10,6 +10,7 @@ const {
   buildComputeEntitySpec,
   canonicalizeProviderUrls,
   validateTrustedImplementation,
+  validateImplementationBindings,
   isBlockedHostname,
   CapabilityBuildRetryError,
 } = require("../app/routes/capabilityBlueprints");
@@ -97,6 +98,19 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.deepEqual(spec.computeEntity.published.data.allowedHosts, ["httpbin.org"]);
   assert.equal(spec.computeEntity.manifest.implementationPolicyVersion, IMPLEMENTATION_POLICY_VERSION);
   assert.equal(JSON.stringify(spec).includes("function"), false);
+});
+
+test("a single-operation implementation must use every required ordinary input", () => {
+  const implementation = structuredClone(generatedImplementation);
+  implementation.published.actions[0].chain[0].params[1].params = {
+    place: "{|location_code|}",
+  };
+  assert.throws(
+    () => validateImplementationBindings(implementation, genericRequest),
+    /does not use required ordinary input date/
+  );
+  implementation.published.actions[0].chain[0].params[1].params.date = "{|date|}";
+  assert.doesNotThrow(() => validateImplementationBindings(implementation, genericRequest));
 });
 
 test("generic entity builder removes a generated result envelope around declared outputs", async () => {

@@ -4,9 +4,12 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const {
+  declarativeActionsChanged,
   register,
   normalizeRevisionRequest,
   parseJsonObject,
+  repairRequiresImplementationChange,
+  validateRevisionSynchronization,
   validateRevisedEntity,
 } = require('../app/routes/modules/editEntity');
 
@@ -78,6 +81,47 @@ test('revision requests preserve sanitized Entity and Path repair evidence', () 
   assert.equal(request.repairContext.pathMatch.structuralMatch.captures.date.text, 'tomorrow');
   assert.equal(request.repairContext.pathMatch.apiKey, '[redacted]');
   assert.doesNotMatch(JSON.stringify(request), /must-not-escape/);
+});
+
+test('provider-request repairs cannot publish a manifest-only Entity revision', () => {
+  const current = {
+    published: {
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.dev/current', { params: { q: '{|location|}' } }] }],
+        assign: '{|response|}',
+      }, {
+        target: '{|res|}!',
+        chain: [{ access: 'send', params: [{ result: '{|response=>data.result|}' }] }],
+      }],
+    },
+  };
+  const revised = structuredClone(current);
+  const manifest = {
+    operations: [{
+      operationId: 'lookup',
+      inputs: [{ name: 'location', required: true }],
+      outputs: [{ name: 'result', required: true }],
+    }],
+  };
+  const request = {
+    explanation: 'Normalize the provider request.',
+    requestedChanges: [],
+    repairContext: {
+      target: 'entity',
+      diagnosis: { requiresImplementationChange: true },
+    },
+  };
+  assert.equal(repairRequiresImplementationChange(request), true);
+  assert.equal(declarativeActionsChanged(current, revised), false);
+  assert.throws(
+    () => validateRevisionSynchronization(current, revised, manifest, request),
+    /manifest-only revision is incomplete/
+  );
+  revised.published.actions[0].chain[0].params[1].params.q = '{|location|},US';
+  assert.doesNotThrow(
+    () => validateRevisionSynchronization(current, revised, manifest, request)
+  );
 });
 
 test('LLM JSON parsing accepts JSON fences but rejects non-object output', () => {

@@ -3,12 +3,14 @@
 
 const crypto = require("crypto");
 const {
+  IMPLEMENTATION_POLICY_VERSION,
   validateCapabilityManifest,
   canonicalizeGeneratedOperations,
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const {
   canonicalizeProviderUrls,
+  validateImplementationBindings,
   validateTrustedImplementation,
 } = require("../capabilityBlueprints");
 const { sanitizeDiagnosticValue } = require("../diagnosticSanitizer");
@@ -395,7 +397,38 @@ function hasMaterialRevision(currentEntity, revisedEntity, currentManifest, revi
     || JSON.stringify(withoutCapabilityMetadata(currentManifest)) !== JSON.stringify(withoutCapabilityMetadata(revisedManifest));
 }
 
-function normalizeRevisedImplementation(revisedCandidate) {
+function declarativeActionsChanged(currentEntity, revisedEntity) {
+  return JSON.stringify(currentEntity?.published?.actions || [])
+    !== JSON.stringify(revisedEntity?.published?.actions || []);
+}
+
+function repairRequiresImplementationChange(request = {}) {
+  if (!["entity", "both"].includes(request?.repairContext?.target)) return false;
+  if (request?.repairContext?.diagnosis?.requiresImplementationChange === true) return true;
+  const evidence = [
+    request?.repairContext?.recommendedChange,
+    request?.repairContext?.diagnosis?.recommendedChange,
+    request?.repairContext?.diagnosis?.reason,
+    request?.explanation,
+    ...(request?.requestedChanges || []),
+  ].filter(Boolean).join(" ");
+  return /\b(?:provider|request mapping|provider mapping|endpoint|normaliz|transform|response mapping|input mapping|location format|unit conversion)\b/i.test(evidence);
+}
+
+function validateRevisionSynchronization(currentEntity, revisedEntity, revisedManifest, request) {
+  validateImplementationBindings({ published: revisedEntity?.published || {} }, revisedManifest);
+  if (
+    repairRequiresImplementationChange(request)
+    && !declarativeActionsChanged(currentEntity, revisedEntity)
+  ) {
+    throw new Error(
+      "the diagnosed Entity repair requires updated declarative JPL actions; a manifest-only revision is incomplete"
+    );
+  }
+  return revisedEntity;
+}
+
+function normalizeRevisedImplementation(revisedCandidate, revisedManifest = null) {
   const canonical = canonicalizeProviderUrls({
     published: {
       modules: revisedCandidate?.published?.modules || {},
@@ -407,6 +440,9 @@ function normalizeRevisedImplementation(revisedCandidate) {
   revisedCandidate.published.modules = checked.published.modules || {};
   revisedCandidate.published.actions = checked.published.actions || [];
   revisedCandidate.published.data = checked.published.data || {};
+  if (revisedManifest) {
+    validateImplementationBindings({ published: revisedCandidate.published }, revisedManifest);
+  }
   return revisedCandidate;
 }
 
@@ -686,6 +722,7 @@ function register({ on, use }) {
           status: originalManifest.status,
           ownerId: originalManifest.ownerId,
           createdAt: originalManifest.createdAt,
+          implementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
         }, {
           entityId: request.entityId,
           ownerId: originalManifest.ownerId,
@@ -699,7 +736,13 @@ function register({ on, use }) {
             throw new Error(`capability revision cannot add or modify executable field ${executableField}`);
           }
         }
-        normalizeRevisedImplementation(revisedCandidate);
+        normalizeRevisedImplementation(revisedCandidate, revisedManifest);
+        validateRevisionSynchronization(
+          originalObject,
+          revisedCandidate,
+          revisedManifest,
+          request
+        );
       } else if (generated.updatedCapabilityManifest) {
         throw new Error("a non-capability entity cannot acquire a capability contract through the revision response");
       }
@@ -780,6 +823,15 @@ function register({ on, use }) {
           updatedAt,
           summary: generated.summary,
           capabilityManifest: revisedManifest,
+          implementationRevision: {
+            changed: declarativeActionsChanged(originalObject, revised),
+            actionCountBefore: Array.isArray(originalObject?.published?.actions)
+              ? originalObject.published.actions.length
+              : 0,
+            actionCountAfter: Array.isArray(revised?.published?.actions)
+              ? revised.published.actions.length
+              : 0,
+          },
         },
       };
     } catch (error) {
@@ -888,12 +940,15 @@ function register({ on, use }) {
 module.exports = {
   register,
   hasMaterialRevision,
+  declarativeActionsChanged,
   normalizeRevisedImplementation,
   normalizeRevisionRequest,
   parseJsonObject,
   responseOutputText,
   revisionInput,
   revisionRequestHash,
+  repairRequiresImplementationChange,
   validateSemanticExampleInputs,
+  validateRevisionSynchronization,
   validateRevisedEntity,
 };
