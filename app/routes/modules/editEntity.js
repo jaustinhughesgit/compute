@@ -20,6 +20,7 @@ const { sanitizeDiagnosticValue } = require("../diagnosticSanitizer");
 const MAX_ENTITY_BYTES = 384 * 1024;
 const MAX_REQUEST_CHARS = 20_000;
 const LOCK_SECONDS = 12 * 60;
+const DEFAULT_PROVIDER_REPAIR_MODEL = "gpt-5.6-luna";
 const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
 const TRANSIENT_OR_AUTH_PROVIDER_STATUSES = new Set([401, 403, 408, 409, 425, 429]);
 const MULTIPART_PUBLIC_SUFFIXES = new Set([
@@ -824,7 +825,7 @@ function register({ on, use }) {
 
         const providerResearch = providerRepairResearchContext(request);
         const editModel = providerResearch
-          ? process.env.PROVIDER_REPAIR_MODEL || "gpt-5.6-sol"
+          ? process.env.PROVIDER_REPAIR_MODEL || DEFAULT_PROVIDER_REPAIR_MODEL
           : process.env.ENTITY_EDIT_MODEL || "gpt-5.6-terra";
         const background = await startRevision({
           model: editModel,
@@ -941,7 +942,7 @@ function register({ on, use }) {
     let commitStarted = false;
     const providerResearch = providerRepairResearchContext(request);
     const providerResearchModel = providerResearch
-      ? process.env.PROVIDER_REPAIR_MODEL || "gpt-5.6-sol"
+      ? process.env.PROVIDER_REPAIR_MODEL || DEFAULT_PROVIDER_REPAIR_MODEL
       : null;
     const releaseLock = () => releaseEditState(lockId);
 

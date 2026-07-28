@@ -219,7 +219,7 @@ test('provider contract failures receive one constrained official-doc research a
   assert.deepEqual(research.allowedDomains, ['api.openweathermap.org', 'openweathermap.org']);
 
   const input = revisionInput({
-    model: 'gpt-5.6-sol',
+    model: 'gpt-5.6-luna',
     currentEntity: entity,
     currentManifest: null,
     request,
