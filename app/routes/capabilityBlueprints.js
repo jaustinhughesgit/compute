@@ -547,18 +547,40 @@ function validateImplementationBindings(implementation, buildRequest) {
   }
   if (operations.length === 1) {
     const actionText = JSON.stringify(actions);
-    const requiredInputs = (operations[0].inputs || [])
+    const operation = operations[0];
+    const isClosedSemanticSelector = (input) => {
+      const source = String(input?.bindingHint?.source || "").toLowerCase();
+      if (!["utterance", "environment", "default"].includes(source)) return false;
+      const pattern = String(input?.validation?.pattern || "").trim();
+      if (!pattern.startsWith("^") || !pattern.endsWith("$")) return false;
+      let body = pattern.slice(1, -1);
+      if (/^\(\?:[\s\S]*\)$/.test(body)) body = body.slice(3, -1);
+      else if (/^\([\s\S]*\)$/.test(body)) body = body.slice(1, -1);
+      const alternatives = body.split("|");
+      if (
+        !alternatives.length
+        || alternatives.length > 50
+        || alternatives.some((value) =>
+          !value
+          || value.length > 80
+          || /[\\[\]{}*+?.^$()]/.test(value)
+        )
+      ) return false;
+      const name = String(input?.name || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return new RegExp(String.raw`\{\{\s*${name}\s*\}\}`, "i")
+        .test(String(operation.answerTemplate || ""));
+    };
+    const unused = (operation.inputs || [])
       .filter((input) => input.required)
-      .map((input) => input.name);
-    const unused = requiredInputs.find((name) => {
-      const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      .find((input) => {
+      const escaped = String(input.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       return !new RegExp(
         String.raw`\{\|(?:req=>body\.)?${escaped}(?:=>[^|{}]+)?\|\}`,
         "i"
-      ).test(actionText);
+      ).test(actionText) && !isClosedSemanticSelector(input);
     });
     if (unused) {
-      throw new Error(`compute entity implementation does not use required ordinary input ${unused}`);
+      throw new Error(`compute entity implementation does not use required ordinary input ${unused.name}`);
     }
   }
   return implementation;
@@ -606,6 +628,7 @@ async function generateImplementation({
       "Chain action keys may only be target, chain, assign, and if. Chain step keys may only be access and params. Do not use type, id, name, method, url, request, response, body, or output as action-level keys, and do not flatten a chain step into its action.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Ordinary inputs use {|req=>body.input_name|}. Provider responses use {|response=>data.path|}.",
+      "Every required ordinary input must be used by an action, except a semantic selector that has a finite anchored validation.pattern and is rendered by answerTemplate. A current-data endpoint may therefore keep today/current as a closed semantic selector without sending it to the provider.",
       "Protected values are never ordinary inputs. Declare each in protectedAssetRequirements and reference it only at its injection point as {|protected=>requirement_id.field_name|}.",
       "At each declared injection point, the protected placeholder requirementId and field name must exactly match the corresponding protectedAssetRequirements declaration.",
       "A requirement declares requirementId, operationId, assetType, providerId, providerName, providerHost, purpose, use, approvalMode, acquisition, and fields.",

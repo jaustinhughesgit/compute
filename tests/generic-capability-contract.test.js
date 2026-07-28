@@ -19,6 +19,7 @@ const {
   summarizeCapabilities,
   normalizeGeneratedBuildRequest,
   normalizeDiscoveryInputValues,
+  semanticEvidenceContext,
   DISCOVERY_RESPONSE_SCHEMA,
 } = require("../app/routes/capabilityDiscovery");
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
@@ -111,6 +112,29 @@ test("a single-operation implementation must use every required ordinary input",
   );
   implementation.published.actions[0].chain[0].params[1].params.date = "{|date|}";
   assert.doesNotThrow(() => validateImplementationBindings(implementation, genericRequest));
+});
+
+test("a closed semantic selector may select an operation without becoming a provider parameter", () => {
+  const request = structuredClone(genericRequest);
+  const operation = request.operations[0];
+  const date = operation.inputs.find((input) => input.name === "date");
+  date.bindingHint = { source: "utterance", resolver: "date" };
+  date.validation = { pattern: "^(?:today|current|now)$" };
+  operation.answerTemplate = "The result for {{date}} is {{summary}}.";
+  const implementation = structuredClone(generatedImplementation);
+  delete implementation.published.actions[0].chain[0].params[1].params.date;
+  assert.doesNotThrow(() => validateImplementationBindings(implementation, request));
+
+  delete date.validation;
+  assert.throws(
+    () => validateImplementationBindings(implementation, request),
+    /does not use required ordinary input date/
+  );
+  date.validation = { pattern: "^.*$" };
+  assert.throws(
+    () => validateImplementationBindings(implementation, request),
+    /does not use required ordinary input date/
+  );
 });
 
 test("generic entity builder removes a generated result envelope around declared outputs", async () => {
@@ -656,6 +680,11 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
     openai,
     utterance: "Look up conditions.",
     requestedBy: "u:7",
+    semanticEvidence: [{
+      essence: [["*", "speaker", "live", "{location_code}"]],
+      resolvedContextBindings: { location_code: ["north carolina"] },
+      matchedEssenceRows: [0],
+    }],
   });
   assert.equal(result.decision, "build");
   assert.equal(request.response_format.type, "json_schema");
@@ -667,6 +696,11 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
   assert.match(request.messages[0].content, /semantic domain/);
   assert.match(request.messages[0].content, /bindingHint\.value to null/);
   assert.match(request.messages[0].content, /anchored validation\.pattern/);
+  const discoveryEvidence = JSON.parse(request.messages[1].content).semanticEvidence;
+  assert.deepEqual(discoveryEvidence.resolvedContextBindings, {
+    location_code: ["north carolina"],
+  });
+  assert.deepEqual(discoveryEvidence.matchedEssenceRows, [0]);
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.type, "object");
   assert.equal(DISCOVERY_RESPONSE_SCHEMA.anyOf, undefined);
   assert.ok(DISCOVERY_RESPONSE_SCHEMA.required.includes("inputValues"));
@@ -701,6 +735,25 @@ test("discovery turns LLM semantic evidence into validated literal utterance bin
     utterance: "what is the weather in Raleigh North Carolina?",
     operation,
   }), /must occur literally/);
+});
+
+test("discovery preserves ContextDB bindings separately from utterance input values", () => {
+  const evidence = semanticEvidenceContext([{
+    essence: [
+      ["*", "speaker", "live", "{location}"],
+      ["present", "{location}", "{prop:weather}", "{ask}"],
+    ],
+    resolvedContextBindings: { location: ["north carolina"] },
+    matchedEssenceRows: [0],
+  }]);
+  assert.deepEqual(evidence, {
+    rows: [
+      ["*", "speaker", "live", "{location}"],
+      ["present", "{location}", "{prop:weather}", "{ask}"],
+    ],
+    resolvedContextBindings: { location: ["north carolina"] },
+    matchedEssenceRows: [0],
+  });
 });
 
 test("discovery compacts duplicate entity records before calling the model", () => {

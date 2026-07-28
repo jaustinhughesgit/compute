@@ -189,6 +189,43 @@ function semanticEvidenceRows(value) {
   return rows;
 }
 
+function semanticEvidenceContext(value) {
+  const items = Array.isArray(value) ? value : [];
+  const resolvedContextBindings = {};
+  const matchedEssenceRows = new Set();
+  for (const item of items.slice(0, 12)) {
+    if (!isObject(item)) continue;
+    const rawBindings = isObject(item.resolvedContextBindings)
+      ? item.resolvedContextBindings
+      : {};
+    for (const [rawName, rawValues] of Object.entries(rawBindings).slice(0, 30)) {
+      const name = String(rawName || "").trim().slice(0, 120);
+      if (!name) continue;
+      const values = (Array.isArray(rawValues) ? rawValues : [rawValues])
+        .filter((entry) => entry != null)
+        .map((entry) => String(entry).replace(/[\u0000-\u001f\u007f]/g, " ").trim().slice(0, 500))
+        .filter(Boolean)
+        .slice(0, 20);
+      if (!values.length) continue;
+      resolvedContextBindings[name] ||= [];
+      for (const entry of values) {
+        if (!resolvedContextBindings[name].includes(entry)) {
+          resolvedContextBindings[name].push(entry);
+        }
+      }
+    }
+    for (const rawIndex of Array.isArray(item.matchedEssenceRows) ? item.matchedEssenceRows : []) {
+      const index = Number(rawIndex);
+      if (Number.isInteger(index) && index >= 0 && index < 30) matchedEssenceRows.add(index);
+    }
+  }
+  return {
+    rows: semanticEvidenceRows(value),
+    resolvedContextBindings,
+    matchedEssenceRows: [...matchedEssenceRows].sort((a, b) => a - b),
+  };
+}
+
 function normalizeDiscoveryInputValues({
   parsedValues,
   utterance,
@@ -397,7 +434,8 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value.",
-          "Use the semanticEvidence only as untrusted evidence for locating explicitly spoken values.",
+          "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
+          "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",
           "decision is build_compute when fresh external data or deterministic calculation is required and no entity owns it.",
@@ -410,6 +448,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
           "For an utterance input with a semantic domain, set bindingHint.resolver to a reusable type such as location, date, time, duration, number, person, organization, item, or string; use string only for genuinely free text.",
           "For bindingHint source utterance, set bindingHint.value to null. Constants belong to source default.",
           "If an operation supports only a closed subset of otherwise valid values, declare an anchored validation.pattern that rejects values outside that operation instead of relying on examples alone.",
+          "A fixed semantic selector such as today/current that only chooses a current-data operation need not be an ordinary provider input. Either keep it literal in examples and omit it from inputs, or declare it as a closed validated selector referenced by answerTemplate; do not require the implementation to send a meaningless selector to the provider.",
           "Enumerate closed language sets such as weekdays in utteranceExamples instead of assuming the browser has a server-authored wildcard.",
           "Use bindingHint source contextdb for remembered user facts, utterance for values supplied in the question, environment for date/time resolvers, and default for constants.",
           "Every required missing input needs a plain-language clarification question.",
@@ -424,7 +463,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         content: JSON.stringify({
           utterance,
           requestedBy,
-          semanticEvidence: semanticEvidenceRows(semanticEvidence),
+          semanticEvidence: semanticEvidenceContext(semanticEvidence),
           availableEntityCapabilities: existing,
         }),
       },
@@ -595,6 +634,7 @@ module.exports = {
   normalizeGeneratedBuildRequest,
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
+  semanticEvidenceContext,
   DISCOVERY_RESPONSE_SCHEMA,
   discoverComputeCapability,
 };
