@@ -144,7 +144,7 @@ async function interpretCapabilityInput({
       content: [
         "Interpret one response to a pending capability-input question.",
         interpretationMode === "original_utterance_extraction"
-          ? "The response is the user's original complete utterance. Extract the declared field only when it is explicitly present; for strings, return the exact spoken span without translating, canonicalizing, or abbreviating it."
+          ? "The response is the user's original complete utterance. Extract the declared field only when it is explicitly present; for strings, return the exact spoken span without translating, canonicalizing, or abbreviating it. Evaluate only this declared field: accept it when it is explicit even if a separate sibling input is absent or the same words were previously assigned to a broader sibling field; sibling inputs are validated and clarified separately."
           : "The response is a follow-up answer to the pending question.",
         "Return accept only when the response unambiguously supplies the declared field.",
         "For accept, normalizedValueJson must be a valid JSON encoding of the normalized value and question must be null.",

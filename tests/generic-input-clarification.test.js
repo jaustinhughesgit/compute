@@ -107,6 +107,38 @@ test("original-utterance extraction accepts only a literal spoken span", async (
   assert.match(translated.reason, /literal span/);
 });
 
+test("original extraction evaluates the missing field without requiring sibling inputs", async () => {
+  const capture = {};
+  const stateField = {
+    name: "state",
+    type: "string",
+    required: true,
+    description: "The state in which the location is situated.",
+    bindingHint: { source: "utterance", resolver: "string" },
+    clarification: "Please provide the state name clearly, like 'North Carolina'.",
+  };
+  const result = await interpretCapabilityInput({
+    openai: modelReturning({
+      decision: "accept",
+      normalizedValueJson: JSON.stringify("North Carolina"),
+      question: null,
+      reason: "The state is explicitly present.",
+      confidence: 0.99,
+    }, capture),
+    field: stateField,
+    originalQuestion: "What is the current temperature in North Carolina?",
+    previousQuestion: stateField.clarification,
+    userResponse: "What is the current temperature in North Carolina?",
+    mode: "original_utterance_extraction",
+  });
+  assert.equal(result.decision, "accept");
+  assert.equal(result.normalizedValue, "North Carolina");
+  assert.match(
+    capture.request.messages[0].content,
+    /sibling inputs are validated and clarified separately/
+  );
+});
+
 test("model acceptance cannot bypass deterministic type validation", async () => {
   const result = await interpretCapabilityInput({
     openai: modelReturning({
