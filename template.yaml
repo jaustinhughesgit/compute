@@ -51,6 +51,9 @@ Resources:
                 - dynamodb:PutItem
                 - dynamodb:UpdateItem
                 - dynamodb:Query
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+                - dynamodb:BatchWriteItem
               Resource:
                 - !GetAtt ProtectedAssetsTable.Arn
                 - !Sub ${ProtectedAssetsTable.Arn}/index/*
@@ -59,6 +62,9 @@ Resources:
               Action:
                 - dynamodb:PutItem
                 - dynamodb:Query
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+                - dynamodb:BatchWriteItem
               Resource: !GetAtt ProtectedAssetAuditTable.Arn
             - Sid: UseProtectedAssetExecutorKey
               Effect: Allow
