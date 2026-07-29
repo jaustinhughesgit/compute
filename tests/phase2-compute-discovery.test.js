@@ -2,7 +2,10 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { discoverComputeCapability } = require("../app/routes/capabilityDiscovery");
+const {
+  discoverComputeCapability,
+  localGraphOnlyDiscovery,
+} = require("../app/routes/capabilityDiscovery");
 const { buildComputeEntitySpec, GENERIC_BLUEPRINT_ID } = require("../app/routes/capabilityBlueprints");
 
 const request = {
@@ -31,6 +34,56 @@ test("generic discovery can request an uncatalogued entity capability", async ()
   assert.equal(result.decision, "build");
   assert.equal(result.buildCommand.blueprintId, GENERIC_BLUEPRINT_ID);
   assert.equal(result.buildCommand.capabilityRequest.capabilityIdHint, "color.rgb.lookup");
+});
+
+test("ContextDB recall misses cannot be promoted into JPL entities", async () => {
+  let modelCalls = 0;
+  const result = await discoverComputeCapability({
+    openai: {
+      chat: {
+        completions: {
+          create: async () => {
+            modelCalls += 1;
+            return model({
+              decision: "build_compute",
+              confidence: 0.99,
+              reason: "Count locally stored fruit.",
+              capabilityRequest: request,
+            }).chat.completions.create();
+          },
+        },
+      },
+    },
+    utterance: "How many limes are in the refrigerator?",
+    requestedBy: "u:7",
+    semanticEvidence: [{
+      routing: {
+        missCategory: "NEW_MODIFIER_COMBINATION",
+        localGraphCandidate: true,
+        computeEligible: false,
+      },
+    }],
+  });
+
+  assert.equal(result.decision, "not_compute");
+  assert.equal(result.source, "local-graph-router");
+  assert.equal(result.diagnostics.code, "LOCAL_GRAPH_PATH_REQUIRED");
+  assert.equal(modelCalls, 0);
+});
+
+test("the local graph routing guard is reusable by background discovery", () => {
+  const result = localGraphOnlyDiscovery({
+    utterance: "How many limes are in the refrigerator?",
+    semanticEvidence: [{
+      routing: {
+        missCategory: "NEW_SYNTAX_PATTERN",
+        localGraphCandidate: true,
+        computeEligible: false,
+      },
+    }],
+  });
+  assert.equal(result.decision, "not_compute");
+  assert.equal(result.source, "local-graph-router");
 });
 
 test("the generic builder validates entity-owned declarative implementation data", async () => {

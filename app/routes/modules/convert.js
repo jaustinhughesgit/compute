@@ -9,6 +9,7 @@ const {
 const { createCapabilityRegistry } = require("../capabilityRegistry");
 const {
   discoverComputeCapability,
+  localGraphOnlyDiscovery,
   startComputeCapabilityDiscovery,
   retrieveComputeCapabilityDiscovery,
 } = require("../capabilityDiscovery");
@@ -466,7 +467,13 @@ function register({ on, use }) {
           ownerId,
           minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
         });
+        computeDiscovery = localGraphOnlyDiscovery({
+          utterance: originalUtterance,
+          semanticEvidence: promptObj?.relevantItems,
+        });
         if (
+          !computeDiscovery
+          &&
           backgroundDiscoveryRequested
           && body.body?.deterministicComputeDiscovery !== true
         ) {
@@ -497,7 +504,7 @@ function register({ on, use }) {
             });
           }
           computeDiscovery = backgroundDiscovery.discovery;
-        } else {
+        } else if (!computeDiscovery) {
           computeDiscovery = await discoverComputeCapability({
             openai,
             utterance: originalUtterance,

@@ -199,8 +199,21 @@ function semanticEvidenceContext(value) {
   const items = Array.isArray(value) ? value : [];
   const resolvedContextBindings = {};
   const matchedEssenceRows = new Set();
+  const routing = {
+    missCategory: null,
+    localGraphCandidate: false,
+    computeEligible: true,
+  };
+  let routingSeen = false;
   for (const item of items.slice(0, 12)) {
     if (!isObject(item)) continue;
+    if (isObject(item.routing)) {
+      routingSeen = true;
+      const missCategory = String(item.routing.missCategory || "").trim().toUpperCase();
+      if (missCategory && !routing.missCategory) routing.missCategory = missCategory.slice(0, 120);
+      if (item.routing.localGraphCandidate === true) routing.localGraphCandidate = true;
+      if (item.routing.computeEligible === false) routing.computeEligible = false;
+    }
     const rawBindings = isObject(item.resolvedContextBindings)
       ? item.resolvedContextBindings
       : {};
@@ -229,7 +242,31 @@ function semanticEvidenceContext(value) {
     rows: semanticEvidenceRows(value),
     resolvedContextBindings,
     matchedEssenceRows: [...matchedEssenceRows].sort((a, b) => a - b),
+    ...(routingSeen ? { routing } : {}),
   };
+}
+
+function localGraphOnlyDiscovery({ utterance, semanticEvidence = [] } = {}) {
+  const routing = semanticEvidenceContext(semanticEvidence).routing || {
+    missCategory: null,
+    localGraphCandidate: false,
+    computeEligible: true,
+  };
+  if (!routing.localGraphCandidate && routing.computeEligible !== false) return null;
+  return discoveryEnvelope({
+    decision: "not_compute",
+    source: "local-graph-router",
+    confidence: 1,
+    reason: routing.missCategory
+      ? `This is a local ContextDB/Essence Path miss (${routing.missCategory}), not an external compute capability.`
+      : "This request must be handled by a local ContextDB/Essence Path, not an external compute capability.",
+    utterance,
+    diagnostics: {
+      code: "LOCAL_GRAPH_PATH_REQUIRED",
+      stage: "routing",
+      missCategory: routing.missCategory,
+    },
+  });
 }
 
 function normalizeDiscoveryInputValues({
@@ -727,6 +764,11 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
 async function discoverComputeCapability({ openai, utterance, requestedBy = "system", useModel = true, availableCapabilities = [], semanticEvidence = [] } = {}) {
   const clean = cleanUtterance(utterance);
   if (!clean) return discoveryEnvelope({ decision: "not_compute", source: "empty", confidence: 1, reason: "No utterance was supplied.", utterance: clean });
+  const localGraphDecision = localGraphOnlyDiscovery({
+    utterance: clean,
+    semanticEvidence,
+  });
+  if (localGraphDecision) return localGraphDecision;
   if (!useModel) return discoveryEnvelope({ decision: "not_compute", source: "model-disabled", confidence: 1, reason: "Generic capability discovery requires the configured model.", utterance: clean });
   try {
     return (await modelDiscovery({ openai, utterance: clean, requestedBy, availableCapabilities, semanticEvidence })) ||
@@ -760,6 +802,7 @@ module.exports = {
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
   semanticEvidenceContext,
+  localGraphOnlyDiscovery,
   DISCOVERY_RESPONSE_SCHEMA,
   discoverComputeCapability,
   backgroundDiscoveryInput,
