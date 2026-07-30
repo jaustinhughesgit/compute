@@ -203,6 +203,7 @@ function semanticEvidenceContext(value) {
     missCategory: null,
     localGraphCandidate: false,
     computeEligible: true,
+    localRepairExhausted: false,
   };
   let routingSeen = false;
   for (const item of items.slice(0, 12)) {
@@ -213,6 +214,14 @@ function semanticEvidenceContext(value) {
       if (missCategory && !routing.missCategory) routing.missCategory = missCategory.slice(0, 120);
       if (item.routing.localGraphCandidate === true) routing.localGraphCandidate = true;
       if (item.routing.computeEligible === false) routing.computeEligible = false;
+      if (
+        item.routing.localRepairExhausted === true
+        || item.routing.forcedAfterLocalRepair === true
+      ) {
+        routing.localRepairExhausted = true;
+        routing.localGraphCandidate = false;
+        routing.computeEligible = true;
+      }
     }
     const rawBindings = isObject(item.resolvedContextBindings)
       ? item.resolvedContextBindings
@@ -251,7 +260,9 @@ function localGraphOnlyDiscovery({ utterance, semanticEvidence = [] } = {}) {
     missCategory: null,
     localGraphCandidate: false,
     computeEligible: true,
+    localRepairExhausted: false,
   };
+  if (routing.localRepairExhausted && routing.computeEligible !== false) return null;
   if (!routing.localGraphCandidate && routing.computeEligible !== false) return null;
   return discoveryEnvelope({
     decision: "not_compute",

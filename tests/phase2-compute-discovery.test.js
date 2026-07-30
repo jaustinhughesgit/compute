@@ -86,6 +86,100 @@ test("the local graph routing guard is reusable by background discovery", () => 
   assert.equal(result.source, "local-graph-router");
 });
 
+test("compute discovery proceeds after the browser exhausts local graph repair", async () => {
+  let modelCalls = 0;
+  const result = await discoverComputeCapability({
+    openai: {
+      chat: {
+        completions: {
+          create: async () => {
+            modelCalls += 1;
+            return model({
+              decision: "build_compute",
+              confidence: 0.99,
+              reason: "Fresh external data is required.",
+              capabilityRequest: request,
+              inputValues: [{ name: "color", value: "purple" }],
+            }).chat.completions.create();
+          },
+        },
+      },
+    },
+    utterance: "What is the RGB for purple?",
+    requestedBy: "u:7",
+    semanticEvidence: [{
+      routing: {
+        missCategory: "NEW_MODIFIER_COMBINATION",
+        localGraphCandidate: true,
+        computeEligible: true,
+        localRepairExhausted: true,
+      },
+    }],
+  });
+
+  assert.equal(result.decision, "build");
+  assert.equal(modelCalls, 1);
+});
+
+test("discovery preserves multiple explicit utterance inputs for the entity operation", async () => {
+  const multiInputRequest = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "external.status.lookup",
+    name: "External status lookup",
+    description: "Looks up fresh external status for a location and date.",
+    operations: [{
+      operationId: "lookup",
+      inputs: [
+        {
+          name: "location",
+          type: "string",
+          required: true,
+          bindingHint: { source: "utterance", resolver: "location" },
+          clarification: "Which location?",
+        },
+        {
+          name: "time_reference",
+          type: "string",
+          required: true,
+          bindingHint: { source: "utterance", resolver: "date" },
+          clarification: "Which date?",
+        },
+      ],
+      outputs: [{ name: "status", type: "string", required: true }],
+      utteranceExamples: [{
+        text: "What is the status today in New York?",
+        inputValues: [
+          { name: "location", value: "New York" },
+          { name: "time_reference", value: "today" },
+        ],
+      }],
+      answerTemplate: "The status in {{location}} for {{time_reference}} is {{status}}.",
+    }],
+  };
+  const result = await discoverComputeCapability({
+    openai: model({
+      decision: "build_compute",
+      confidence: 0.99,
+      reason: "Fresh external data is required.",
+      operationId: "lookup",
+      capabilityRequest: multiInputRequest,
+      inputValues: [
+        { name: "location", value: "New York" },
+        { name: "time_reference", value: "today" },
+      ],
+    }),
+    utterance: "What is the status today in New York?",
+    requestedBy: "u:7",
+  });
+
+  assert.equal(result.decision, "build");
+  assert.deepEqual(result.inputValues, {
+    location: "New York",
+    time_reference: "today",
+  });
+});
+
 test("the generic builder validates entity-owned declarative implementation data", async () => {
   const result = await buildComputeEntitySpec({
     capabilityRequest: request,
