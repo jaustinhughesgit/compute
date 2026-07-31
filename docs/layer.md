@@ -17,6 +17,10 @@ It is the execution and persistence layer, not the owner of browser-local semant
 - Trusted-server protected-asset storage, consent enforcement, scoped resolution, use, and audit
 - Durable model/build/repair jobs and idempotent application
 - Server-side authorization enforcement
+- Scheduled task persistence, EventBridge invocation, and due-occurrence execution
+- Account/email-verification records and public device-key/authenticator registration
+- Streaming presence, invitations, scoped session credentials, and channel lifecycle
+- SES email delivery, consent, rate/reputation safeguards, suppression, and bounce events
 
 ## Does not own
 
@@ -51,6 +55,14 @@ This preserves the long-term direction in which providers or builders can publis
 
 Entity creation and repair may outlive a Lambda request. Jobs require stable identity, owner and authorization scope, original request hash, phase/state, model response handle, retry count, checkpointed artifacts, terminal result, expiration, and idempotent application. SQS or another durable trigger can continue work; the website polls status through fresh requests.
 
+## Scheduled tasks
+
+Time-triggered work still executes an entity through ordinary lineage, authorization, input, protected-asset, and audit rules. Each occurrence needs stable identity and idempotency. Persist the user's time zone and recurrence intent, re-check permissions at execution, and keep retry/dead-letter state observable.
+
+## Identity, streaming, and email
+
+Compute stores public device/authenticator material and verification state, but must not imply that credential enrollment alone authorizes a later protected operation. Streaming credentials must be short-lived and scoped to the required Kinesis channel actions. Email delivery must preserve consent, unsubscribe, suppression, rate, bounce, complaint, domain-authentication, and reputation controls for every source, including scheduled tasks and automations.
+
 ## Verification focus
 
 - Schema-invalid and semantically invalid model output
@@ -61,4 +73,7 @@ Entity creation and repair may outlive a Lambda request. Jobs require stable ide
 - Protected-asset host/scope/consent enforcement
 - Job retry without duplicate side effects
 - Entity/Path/context-aware repair and replay
-
+- Schedule idempotency, daylight-saving behavior, authorization expiry, and dead-letter recovery
+- Device enrollment, assertion, key rotation, revocation, and recovery states
+- Streaming invitation/participant authorization and credential scope
+- SES bounce/complaint handling, unsubscribe behavior, suppression, and deployed reputation configuration

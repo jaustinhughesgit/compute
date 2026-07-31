@@ -12,6 +12,8 @@ This repository is the entity, JPL, persistence, capability, and protected-execu
 - Long OpenAI work must use durable, idempotent background jobs with checkpointed status and bounded retries.
 - Never expose plaintext protected assets to prompts, logs, diagnostics, entity JSON, or ordinary persistence. Distinguish trusted-server execution from zero-knowledge local execution.
 - Preserve actionable sanitized provider and validation diagnostics.
+- Scheduled invocations must re-check entity and protected-asset authority and be idempotent per occurrence.
+- Streaming credentials must be short-lived and least-privilege; presence alone never authorizes joining or publishing.
+- Email from entities, automations, and schedules must share consent, unsubscribe, suppression, bounce/complaint, quota, and reputation enforcement.
 
 Update `docs/layer.md`, shared contracts, and architecture decisions when compute changes a cross-layer invariant.
-
