@@ -15,5 +15,8 @@ This repository is the entity, JPL, persistence, capability, and protected-execu
 - Scheduled invocations must re-check entity and protected-asset authority and be idempotent per occurrence.
 - Streaming credentials must be short-lived and least-privilege; presence alone never authorizes joining or publishing.
 - Email from entities, automations, and schedules must share consent, unsubscribe, suppression, bounce/complaint, quota, and reputation enforcement.
+- Treat compute as one entity behavior, not the entity definition. Preserve durable hard-data and interaction entities, typed relations, provenance, versions, and general relationship mechanics.
+- Entity publication and hydration must be idempotent and permission-scoped. Never authorize bulk graph access from a caller-supplied creator ID alone.
+- Recipient key-wrap metadata does not itself authorize retrieval. Require an active principal/device grant and keep recipient access distinct from owner and executor authority.
 
 Update `docs/layer.md`, shared contracts, and architecture decisions when compute changes a cross-layer invariant.
