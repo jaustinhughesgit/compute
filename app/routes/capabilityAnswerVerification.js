@@ -3,6 +3,7 @@
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");
 const { manifestSummary } = require("./capabilityFailureDiagnosis");
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+const { withChatTemplate } = require("../llmTemplates");
 
 const MAX_TEXT_LENGTH = 2_000;
 const MAX_ENTITY_EVIDENCE_BYTES = 96 * 1024;
@@ -154,6 +155,7 @@ async function verifyCapabilityAnswer({
   manifest,
   entity,
   reviewContext,
+  llmTemplateId = null,
 } = {}) {
   const context = cleanReviewContext(reviewContext);
   if (!openai?.chat?.completions?.create) {
@@ -167,11 +169,7 @@ async function verifyCapabilityAnswer({
       requiresImplementationChange: false,
     }, "model-unavailable");
   }
-  const response = await openai.chat.completions.create({
-    model: process.env.COMPUTE_ANSWER_VERIFICATION_MODEL
-      || process.env.COMPUTE_DIAGNOSIS_MODEL
-      || process.env.COMPUTE_DISCOVERY_MODEL
-      || "gpt-4o-mini",
+  const response = await openai.chat.completions.create(withChatTemplate({
     temperature: 0,
     response_format: {
       type: "json_schema",
@@ -214,7 +212,7 @@ async function verifyCapabilityAnswer({
         }),
       },
     ],
-  }, {
+  }, llmTemplateId, "answer-verification"), {
     timeout: 18_000,
     maxRetries: 0,
   });

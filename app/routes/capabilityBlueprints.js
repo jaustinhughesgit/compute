@@ -1,6 +1,7 @@
 "use strict";
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
 
 const net = require("node:net");
 const {
@@ -690,6 +691,7 @@ async function generateImplementation({
   continuation = null,
   requestTimeoutMs = Number(process.env.COMPUTE_BUILDER_REQUEST_TIMEOUT_MS || 18_000),
   onCostTrace = null,
+  llmTemplateId = null,
 }) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
   const { messages, resumed } = implementationMessages({
@@ -705,8 +707,7 @@ async function generateImplementation({
   const timeoutMs = boundedInteger(requestTimeoutMs, 18_000, 1_000, 24_000);
   let lastError;
   for (let attempt = 0; attempt < localAttemptLimit; attempt += 1) {
-    const response = await openai.chat.completions.create({
-      model: process.env.COMPUTE_BUILDER_MODEL || "gpt-5.6-terra",
+    const response = await openai.chat.completions.create(withChatTemplate({
       temperature: 0,
       response_format: {
         type: "json_schema",
@@ -718,7 +719,7 @@ async function generateImplementation({
         },
       },
       messages,
-    }, { timeout: timeoutMs, maxRetries: 0 });
+    }, llmTemplateId, "builder"), { timeout: timeoutMs, maxRetries: 0 });
     const trace = sanitizeOpenAiUsageTrace(
       response,
       `Compute entity generation attempt ${completedAttempts + 1}`
@@ -761,6 +762,7 @@ function backgroundImplementationInput({
   capabilityRequest,
   originalUtterance = "",
   buildContinuation = null,
+  llmTemplateId = null,
 } = {}) {
   const buildRequest = validateCapabilityBuildRequest(capabilityRequest);
   const { messages } = implementationMessages({
@@ -768,8 +770,7 @@ function backgroundImplementationInput({
     originalUtterance,
     continuation: buildContinuation,
   });
-  return {
-    model: process.env.COMPUTE_BUILDER_MODEL || "gpt-5.6-terra",
+  return withResponsesTemplate({
     background: true,
     store: true,
     input: messages,
@@ -782,19 +783,21 @@ function backgroundImplementationInput({
         schema: ENTITY_PLAN_SCHEMA,
       },
     },
-  };
+  }, llmTemplateId, "builder");
 }
 
 async function startComputeEntitySpecBackground({
   capabilityRequest,
   originalUtterance = "",
   buildContinuation = null,
+  llmTemplateId = null,
   startResponse = startBackgroundResponse,
 } = {}) {
   const response = await startResponse(backgroundImplementationInput({
     capabilityRequest,
     originalUtterance,
     buildContinuation,
+    llmTemplateId,
   }));
   return {
     kind: "computeEntityBuildBackground",
@@ -851,6 +854,7 @@ async function buildComputeEntitySpec({
   buildContinuation = null,
   requestTimeoutMs,
   onCostTrace = null,
+  llmTemplateId = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
   const suppliedCandidate = generatedImplementation == null
@@ -862,6 +866,7 @@ async function buildComputeEntitySpec({
         continuation: buildContinuation,
         requestTimeoutMs,
         onCostTrace,
+        llmTemplateId,
       })
     : parseJsonObject(generatedImplementation, "capability EntityPlan response");
   const generatedBuildRequest = attachGeneratedInputs(

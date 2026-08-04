@@ -6,6 +6,7 @@ const {
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+const { withChatTemplate } = require("../llmTemplates");
 
 const MAX_TEXT_LENGTH = 2000;
 const MAX_ATTEMPTS = 3;
@@ -103,6 +104,7 @@ async function interpretCapabilityInput({
   userResponse,
   attempt = 1,
   mode = "clarification_response",
+  llmTemplateId = null,
 } = {}) {
   const field = cleanField(rawField);
   const responseText = cleanText(userResponse);
@@ -128,8 +130,7 @@ async function interpretCapabilityInput({
     return retryResult({ field, reason: "Input interpretation is temporarily unavailable.", attempt: round });
   }
 
-  const completion = await openai.chat.completions.create({
-    model: process.env.COMPUTE_CLARIFICATION_MODEL || process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+  const completion = await openai.chat.completions.create(withChatTemplate({
     temperature: 0,
     response_format: {
       type: "json_schema",
@@ -165,7 +166,7 @@ async function interpretCapabilityInput({
         mode: interpretationMode,
       }),
     }],
-  });
+  }, llmTemplateId, "input-interpretation"));
 
   let parsed;
   try {

@@ -24,6 +24,7 @@ It is the execution and persistence layer, not the owner of browser-local semant
 - Idempotent publication, versioning, linking, authorization, and hydration of ordinary local entities and hard-data facts
 - Recipient/device protected-asset grants, envelope retrieval, key-version lifecycle, and zero-trust sharing metadata
 - Sanitized model usage traces for discovery, generation, interpretation, diagnosis, and verification responses
+- Trusted resolution of versioned LLM template IDs for compute discovery, generation, interpretation, diagnosis, and verification
 
 ## Does not own
 
@@ -68,6 +69,8 @@ Entity creation and repair may outlive a Lambda request. Jobs require stable ide
 
 Completed model responses expose only the versioned cost-trace fields needed for local estimation: provider, model, response identity, service tier, named step, and aggregate token counts. Prompt/output content, hidden reasoning, credentials, headers, and protected values do not belong in this metadata. Polling responses must preserve one response identity so the browser can deduplicate cost.
 
+Background model work also preserves the request's normalized `llmTemplateId`. Compute resolves the ID through a server-owned route registry; a browser value can select only a known template, never an arbitrary model or reasoning parameter. Unknown or omitted IDs use Original.
+
 ## Scheduled tasks
 
 Time-triggered work still executes an entity through ordinary lineage, authorization, input, protected-asset, and audit rules. Each occurrence needs stable identity and idempotency. Persist the user's time zone and recurrence intent, re-check permissions at execution, and keep retry/dead-letter state observable.
@@ -93,3 +96,4 @@ Compute stores public device/authenticator material and verification state, but 
 - Idempotent entity publication, typed values, ID/version acknowledgements, permission-scoped hydration, and tombstone/conflict behavior
 - Recipient-only envelope retrieval, wrong-device/key denial, recipient removal, re-encryption, and separation from executor wraps
 - Cost-trace normalization across Responses and Chat Completions usage shapes, including retry deduplication and content exclusion
+- Original/New template routing, endpoint-correct reasoning fields, unknown-ID fallback, and background continuity

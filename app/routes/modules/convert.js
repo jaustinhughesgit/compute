@@ -23,6 +23,7 @@ const {
   stableHash,
   createCapabilityBuildCoordinator,
 } = require("../capabilityBuildCoordinator");
+const { normalizeLlmTemplateId } = require("../../llmTemplates");
 
 function register({ on, use }) {
   const { getCookie, retrieveAndParseJSON, deps } = use();
@@ -147,6 +148,7 @@ function register({ on, use }) {
       }
 
       const promptObjForEssence = parsePrompt(body.body?.prompt);
+      const llmTemplateId = normalizeLlmTemplateId(body.body?.llmTemplateId);
       let capabilityBuildRequest = body.body?.capabilityRequest
         ? validateCapabilityBuildRequest(body.body.capabilityRequest)
         : null;
@@ -366,6 +368,7 @@ function register({ on, use }) {
                   capabilityRequest: capabilityBuildRequest,
                   originalUtterance,
                   buildContinuation: continuation,
+                  llmTemplateId,
                 });
             if (backgroundBuild.pending) {
               return capabilityStateResponse({
@@ -395,6 +398,7 @@ function register({ on, use }) {
             onCostTrace: (trace) => {
               if (trace) modelCostTrace.push(trace);
             },
+            llmTemplateId,
           });
         } catch (error) {
           if (
@@ -490,12 +494,14 @@ function register({ on, use }) {
                 requestedBy: ownerId,
                 availableCapabilities,
                 semanticEvidence: promptObj?.relevantItems,
+                llmTemplateId,
               })
             : await startComputeCapabilityDiscovery({
                 utterance: originalUtterance,
                 requestedBy: ownerId,
                 availableCapabilities,
                 semanticEvidence: promptObj?.relevantItems,
+                llmTemplateId,
               });
           if (backgroundDiscovery.pending) {
             return capabilityStateResponse({
@@ -519,6 +525,7 @@ function register({ on, use }) {
             useModel: body.body?.deterministicComputeDiscovery !== true,
             availableCapabilities,
             semanticEvidence: promptObj?.relevantItems,
+            llmTemplateId,
           });
           if (Array.isArray(computeDiscovery?.costTrace)) {
             modelCostTrace.push(...computeDiscovery.costTrace);

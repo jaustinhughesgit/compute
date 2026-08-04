@@ -11,6 +11,7 @@ const { discoverComputeCapability } = require("../capabilityDiscovery");
 const { interpretCapabilityInput } = require("../capabilityInputInterpretation");
 const { diagnoseCapabilityFailure } = require("../capabilityFailureDiagnosis");
 const { verifyCapabilityAnswer } = require("../capabilityAnswerVerification");
+const { normalizeLlmTemplateId } = require("../../llmTemplates");
 
 function bodyObject(req) {
   const body = req?.body;
@@ -44,6 +45,7 @@ function register({ on, use }) {
       const segments = String(ctx?.path || "").split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);
       const action = String(segments.shift() || "").toLowerCase();
       const body = bodyObject(ctx?.req);
+      const llmTemplateId = normalizeLlmTemplateId(body.llmTemplateId);
       const ownerId = principalFor(ctx);
       if (action === "blueprints") return { ok: true, kind: "capabilityBlueprints", blueprints: listCapabilityBlueprints() };
       if (action === "discover") {
@@ -59,6 +61,7 @@ function register({ on, use }) {
           requestedBy: ownerId,
           useModel: body.deterministicOnly !== true,
           availableCapabilities,
+          llmTemplateId,
         });
         return { ok: true, kind: "capabilityDiscovery", discovery };
       }
@@ -79,6 +82,7 @@ function register({ on, use }) {
           userResponse: body.userResponse,
           attempt: body.attempt,
           mode: body.mode,
+          llmTemplateId,
         });
         return { ok: true, kind: "capabilityInputInterpretationResult", interpretation };
       }
@@ -101,6 +105,7 @@ function register({ on, use }) {
           openai: shared?.deps?.openai,
           manifest,
           failureContext: body.failureContext,
+          llmTemplateId,
         });
         return { ok: true, kind: "capabilityFailureDiagnosisResult", diagnosis };
       }
@@ -142,6 +147,7 @@ function register({ on, use }) {
           manifest,
           entity,
           reviewContext: body.reviewContext,
+          llmTemplateId,
         });
         return { ok: true, kind: "capabilityAnswerVerificationResult", verification };
       }

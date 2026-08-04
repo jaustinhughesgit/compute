@@ -2,6 +2,7 @@
 "use strict";
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
 
 const {
   validateCapabilityBuildRequest,
@@ -533,7 +534,7 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
     ];
 }
 
-async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [], semanticEvidence = [] }) {
+async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [], semanticEvidence = [], llmTemplateId = null }) {
   if (!openai?.chat?.completions?.create) return null;
   const messages = discoveryMessages({
     utterance,
@@ -548,8 +549,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const remainingMs = discoveryDeadline - Date.now();
     if (remainingMs < 1_000) break;
-    const response = await openai.chat.completions.create({
-      model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+    const response = await openai.chat.completions.create(withChatTemplate({
       temperature: 0,
       response_format: {
         type: "json_schema",
@@ -561,7 +561,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
         },
       },
       messages,
-    }, {
+    }, llmTemplateId, "discovery"), {
       timeout: Math.min(DISCOVERY_REQUEST_TIMEOUT_MS, remainingMs),
       maxRetries: 0,
     });
@@ -603,9 +603,9 @@ function backgroundDiscoveryInput({
   requestedBy,
   availableCapabilities = [],
   semanticEvidence = [],
+  llmTemplateId = null,
 } = {}) {
-  return {
-    model: process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+  return withResponsesTemplate({
     background: true,
     store: true,
     input: discoveryMessages({
@@ -623,7 +623,7 @@ function backgroundDiscoveryInput({
         schema: DISCOVERY_RESPONSE_SCHEMA,
       },
     },
-  };
+  }, llmTemplateId, "discovery");
 }
 
 async function startComputeCapabilityDiscovery({
@@ -631,6 +631,7 @@ async function startComputeCapabilityDiscovery({
   requestedBy = "system",
   availableCapabilities = [],
   semanticEvidence = [],
+  llmTemplateId = null,
   startResponse = startBackgroundResponse,
 } = {}) {
   const clean = cleanUtterance(utterance);
@@ -640,6 +641,7 @@ async function startComputeCapabilityDiscovery({
     requestedBy,
     availableCapabilities,
     semanticEvidence,
+    llmTemplateId,
   }));
   return {
     kind: "computeCapabilityDiscoveryBackground",
@@ -786,7 +788,7 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
   });
 }
 
-async function discoverComputeCapability({ openai, utterance, requestedBy = "system", useModel = true, availableCapabilities = [], semanticEvidence = [] } = {}) {
+async function discoverComputeCapability({ openai, utterance, requestedBy = "system", useModel = true, availableCapabilities = [], semanticEvidence = [], llmTemplateId = null } = {}) {
   const clean = cleanUtterance(utterance);
   if (!clean) return discoveryEnvelope({ decision: "not_compute", source: "empty", confidence: 1, reason: "No utterance was supplied.", utterance: clean });
   const localGraphDecision = localGraphOnlyDiscovery({
@@ -796,7 +798,7 @@ async function discoverComputeCapability({ openai, utterance, requestedBy = "sys
   if (localGraphDecision) return localGraphDecision;
   if (!useModel) return discoveryEnvelope({ decision: "not_compute", source: "model-disabled", confidence: 1, reason: "Generic capability discovery requires the configured model.", utterance: clean });
   try {
-    return (await modelDiscovery({ openai, utterance: clean, requestedBy, availableCapabilities, semanticEvidence })) ||
+    return (await modelDiscovery({ openai, utterance: clean, requestedBy, availableCapabilities, semanticEvidence, llmTemplateId })) ||
       discoveryEnvelope({ decision: "not_compute", source: "model-unavailable", confidence: 0, reason: "Compute discovery was unavailable.", utterance: clean });
   } catch (error) {
     const code = String(error?.code || (error instanceof SyntaxError ? "INVALID_MODEL_JSON" : "DISCOVERY_FAILED"));

@@ -2,6 +2,7 @@
 
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+const { withChatTemplate } = require("../llmTemplates");
 
 const MAX_TEXT_LENGTH = 2000;
 const FAILURE_DIAGNOSIS_SCHEMA = {
@@ -141,7 +142,7 @@ function normalizeDiagnosis(parsed = {}, source = "model") {
   };
 }
 
-async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = {}) {
+async function diagnoseCapabilityFailure({ openai, manifest, failureContext, llmTemplateId = null } = {}) {
   const context = cleanFailureContext(failureContext);
   if (!openai?.chat?.completions?.create) {
     return normalizeDiagnosis({
@@ -154,8 +155,7 @@ async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = 
       requiresImplementationChange: false,
     }, "model-unavailable");
   }
-  const response = await openai.chat.completions.create({
-    model: process.env.COMPUTE_DIAGNOSIS_MODEL || process.env.COMPUTE_DISCOVERY_MODEL || "gpt-4o-mini",
+  const response = await openai.chat.completions.create(withChatTemplate({
     temperature: 0,
     response_format: {
       type: "json_schema",
@@ -197,7 +197,7 @@ async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = 
         }),
       },
     ],
-  }, {
+  }, llmTemplateId, "failure-diagnosis"), {
     timeout: 15_000,
     maxRetries: 0,
   });
