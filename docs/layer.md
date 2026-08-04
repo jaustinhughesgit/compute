@@ -23,6 +23,7 @@ It is the execution and persistence layer, not the owner of browser-local semant
 - SES email delivery, consent, rate/reputation safeguards, suppression, and bounce events
 - Idempotent publication, versioning, linking, authorization, and hydration of ordinary local entities and hard-data facts
 - Recipient/device protected-asset grants, envelope retrieval, key-version lifecycle, and zero-trust sharing metadata
+- Sanitized model usage traces for discovery, generation, interpretation, diagnosis, and verification responses
 
 ## Does not own
 
@@ -65,6 +66,8 @@ The server stores opaque content ciphertext and per-recipient/device wraps creat
 
 Entity creation and repair may outlive a Lambda request. Jobs require stable identity, owner and authorization scope, original request hash, phase/state, model response handle, retry count, checkpointed artifacts, terminal result, expiration, and idempotent application. SQS or another durable trigger can continue work; the website polls status through fresh requests.
 
+Completed model responses expose only the versioned cost-trace fields needed for local estimation: provider, model, response identity, service tier, named step, and aggregate token counts. Prompt/output content, hidden reasoning, credentials, headers, and protected values do not belong in this metadata. Polling responses must preserve one response identity so the browser can deduplicate cost.
+
 ## Scheduled tasks
 
 Time-triggered work still executes an entity through ordinary lineage, authorization, input, protected-asset, and audit rules. Each occurrence needs stable identity and idempotency. Persist the user's time zone and recurrence intent, re-check permissions at execution, and keep retry/dead-letter state observable.
@@ -89,3 +92,4 @@ Compute stores public device/authenticator material and verification state, but 
 - SES bounce/complaint handling, unsubscribe behavior, suppression, and deployed reputation configuration
 - Idempotent entity publication, typed values, ID/version acknowledgements, permission-scoped hydration, and tombstone/conflict behavior
 - Recipient-only envelope retrieval, wrong-device/key denial, recipient removal, re-encryption, and separation from executor wraps
+- Cost-trace normalization across Responses and Chat Completions usage shapes, including retry deduplication and content exclusion

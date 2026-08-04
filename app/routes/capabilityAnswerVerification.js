@@ -2,6 +2,7 @@
 
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");
 const { manifestSummary } = require("./capabilityFailureDiagnosis");
+const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 
 const MAX_TEXT_LENGTH = 2_000;
 const MAX_ENTITY_EVIDENCE_BYTES = 96 * 1024;
@@ -217,7 +218,9 @@ async function verifyCapabilityAnswer({
     timeout: 18_000,
     maxRetries: 0,
   });
-  return normalizeVerification(JSON.parse(String(response?.choices?.[0]?.message?.content || "{}")));
+  const verification = normalizeVerification(JSON.parse(String(response?.choices?.[0]?.message?.content || "{}")));
+  verification.costTrace = sanitizeOpenAiUsageTrace(response, "Compute answer verification");
+  return verification;
 }
 
 module.exports = {

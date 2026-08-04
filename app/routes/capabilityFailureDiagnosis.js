@@ -1,6 +1,7 @@
 "use strict";
 
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");
+const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 
 const MAX_TEXT_LENGTH = 2000;
 const FAILURE_DIAGNOSIS_SCHEMA = {
@@ -200,7 +201,9 @@ async function diagnoseCapabilityFailure({ openai, manifest, failureContext } = 
     timeout: 15_000,
     maxRetries: 0,
   });
-  return normalizeDiagnosis(JSON.parse(String(response?.choices?.[0]?.message?.content || "{}")));
+  const diagnosis = normalizeDiagnosis(JSON.parse(String(response?.choices?.[0]?.message?.content || "{}")));
+  diagnosis.costTrace = sanitizeOpenAiUsageTrace(response, "Compute failure diagnosis");
+  return diagnosis;
 }
 
 module.exports = {

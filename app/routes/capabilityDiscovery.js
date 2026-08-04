@@ -1,6 +1,8 @@
 // routes/capabilityDiscovery.js
 "use strict";
 
+const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+
 const {
   validateCapabilityBuildRequest,
   validateCapabilityInputResponse,
@@ -541,6 +543,7 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
   });
   let parsed = null;
   let lastValidationError = null;
+  const costTrace = [];
   const discoveryDeadline = Date.now() + DISCOVERY_BUDGET_MS;
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const remainingMs = discoveryDeadline - Date.now();
@@ -562,16 +565,24 @@ async function modelDiscovery({ openai, utterance, requestedBy, availableCapabil
       timeout: Math.min(DISCOVERY_REQUEST_TIMEOUT_MS, remainingMs),
       maxRetries: 0,
     });
+    const trace = sanitizeOpenAiUsageTrace(
+      response,
+      `Compute capability discovery attempt ${attempt + 1}`
+    );
+    if (trace) costTrace.push(trace);
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       parsed = JSON.parse(raw);
-      return parseDiscoveryDecision({
-        parsed,
-        utterance,
-        requestedBy,
-        availableCapabilities,
-        semanticEvidence,
-      });
+      return {
+        ...parseDiscoveryDecision({
+          parsed,
+          utterance,
+          requestedBy,
+          availableCapabilities,
+          semanticEvidence,
+        }),
+        costTrace,
+      };
     } catch (error) {
       lastValidationError = error;
       if (attempt > 0) break;
@@ -680,13 +691,16 @@ async function retrieveComputeCapabilityDiscovery({
     schemaVersion: 1,
     jobId: String(jobId),
     ...state,
-    discovery: parseDiscoveryDecision({
-      parsed,
-      utterance: clean,
-      requestedBy,
-      availableCapabilities,
-      semanticEvidence,
-    }),
+    discovery: {
+      ...parseDiscoveryDecision({
+        parsed,
+        utterance: clean,
+        requestedBy,
+        availableCapabilities,
+        semanticEvidence,
+      }),
+      costTrace: sanitizeOpenAiUsageTrace(response, "Compute capability discovery"),
+    },
   };
 }
 

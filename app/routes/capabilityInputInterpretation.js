@@ -5,6 +5,7 @@ const {
   CapabilityError,
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
+const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 
 const MAX_TEXT_LENGTH = 2000;
 const MAX_ATTEMPTS = 3;
@@ -170,11 +171,18 @@ async function interpretCapabilityInput({
   try {
     parsed = JSON.parse(String(completion?.choices?.[0]?.message?.content || "{}"));
   } catch (error) {
-    return retryResult({ field, reason: "The interpretation response was invalid.", attempt: round });
+    return {
+      ...retryResult({ field, reason: "The interpretation response was invalid.", attempt: round }),
+      costTrace: sanitizeOpenAiUsageTrace(completion, "Compute input interpretation"),
+    };
   }
+  const withCostTrace = (result) => ({
+    ...result,
+    costTrace: sanitizeOpenAiUsageTrace(completion, "Compute input interpretation"),
+  });
   const decision = String(parsed?.decision || "retry").toLowerCase();
   if (decision === "cancel") {
-    return {
+    return withCostTrace({
       schemaVersion: 1,
       kind: "capabilityInputInterpretation",
       decision: "cancel",
@@ -184,23 +192,23 @@ async function interpretCapabilityInput({
       confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0)),
       attempt: round,
       maxAttempts: MAX_ATTEMPTS,
-    };
+    });
   }
   if (decision !== "accept") {
-    return retryResult({
+    return withCostTrace(retryResult({
       field,
       reason: parsed?.reason,
       question: parsed?.question,
       confidence: parsed?.confidence,
       attempt: round,
-    });
+    }));
   }
 
   let normalizedValue;
   try {
     normalizedValue = JSON.parse(String(parsed.normalizedValueJson || ""));
   } catch (error) {
-    return retryResult({ field, reason: "The normalized value was invalid.", question: parsed?.question, attempt: round });
+    return withCostTrace(retryResult({ field, reason: "The normalized value was invalid.", question: parsed?.question, attempt: round }));
   }
   try {
     const validated = validateCapabilityInputResponse(field, normalizedValue);
@@ -213,15 +221,15 @@ async function interpretCapabilityInput({
       const haystack = normalizeWords(responseText);
       const needle = normalizeWords(validated.value);
       if (!needle || !` ${haystack} `.includes(` ${needle} `)) {
-        return retryResult({
+        return withCostTrace(retryResult({
           field,
           reason: "The extracted value was not a literal span of the original utterance.",
           question: field.clarification,
           attempt: round,
-        });
+        }));
       }
     }
-    return {
+    return withCostTrace({
       schemaVersion: 1,
       kind: "capabilityInputInterpretation",
       decision: "accept",
@@ -231,15 +239,15 @@ async function interpretCapabilityInput({
       confidence: Math.max(0, Math.min(1, Number(parsed.confidence) || 0)),
       attempt: round,
       maxAttempts: MAX_ATTEMPTS,
-    };
+    });
   } catch (error) {
-    return retryResult({
+    return withCostTrace(retryResult({
       field,
       reason: error?.message || "The normalized value failed validation.",
       question: parsed?.question,
       confidence: parsed?.confidence,
       attempt: round,
-    });
+    }));
   }
 }
 

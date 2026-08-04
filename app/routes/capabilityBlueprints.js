@@ -1,5 +1,7 @@
 "use strict";
 
+const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
+
 const net = require("node:net");
 const {
   IMPLEMENTATION_POLICY_VERSION,
@@ -687,6 +689,7 @@ async function generateImplementation({
   attemptLimit = MAX_GENERATION_ATTEMPTS,
   continuation = null,
   requestTimeoutMs = Number(process.env.COMPUTE_BUILDER_REQUEST_TIMEOUT_MS || 18_000),
+  onCostTrace = null,
 }) {
   if (!openai?.chat?.completions?.create) throw new Error("generic capability generation requires the configured LLM");
   const { messages, resumed } = implementationMessages({
@@ -716,6 +719,11 @@ async function generateImplementation({
       },
       messages,
     }, { timeout: timeoutMs, maxRetries: 0 });
+    const trace = sanitizeOpenAiUsageTrace(
+      response,
+      `Compute entity generation attempt ${completedAttempts + 1}`
+    );
+    if (trace && typeof onCostTrace === "function") onCostTrace(trace);
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       const candidate = parseJsonObject(raw, "capability EntityPlan response");
@@ -829,6 +837,7 @@ async function retrieveComputeEntitySpecBackground({
     ...state,
     generatedImplementation: raw,
     rawOutput: raw,
+    costTrace: sanitizeOpenAiUsageTrace(response, "Compute entity generation"),
   };
 }
 
@@ -841,6 +850,7 @@ async function buildComputeEntitySpec({
   generationAttemptLimit = MAX_GENERATION_ATTEMPTS,
   buildContinuation = null,
   requestTimeoutMs,
+  onCostTrace = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
   const suppliedCandidate = generatedImplementation == null
@@ -851,6 +861,7 @@ async function buildComputeEntitySpec({
         attemptLimit: generationAttemptLimit,
         continuation: buildContinuation,
         requestTimeoutMs,
+        onCostTrace,
       })
     : parseJsonObject(generatedImplementation, "capability EntityPlan response");
   const generatedBuildRequest = attachGeneratedInputs(

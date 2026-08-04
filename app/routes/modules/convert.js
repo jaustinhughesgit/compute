@@ -152,6 +152,7 @@ function register({ on, use }) {
         : null;
       let computeDiscovery = null;
       let preparedCapabilityBuild = null;
+      const modelCostTrace = [];
 
       // ─────────────────────────────────────────────────────────────
       // 7) Essence word extraction (when output === "$essence", or requestOnly mode)
@@ -207,6 +208,7 @@ function register({ on, use }) {
           createdEntities: created,
           capabilityManifest: manifest,
           computeDiscovery,
+          costTrace: modelCostTrace,
           replay: computeDiscovery ? {
             required: status === "CAPABILITY_REUSED" || status === "BUILT_AND_REGISTERED",
             originalUtterance: computeDiscovery.originalUtterance,
@@ -380,6 +382,7 @@ function register({ on, use }) {
                 reason: "OpenAI is generating the declarative entity in the background.",
               });
             }
+            if (backgroundBuild.costTrace) modelCostTrace.push(backgroundBuild.costTrace);
           }
           computeSpec = await buildComputeEntitySpec({
             capabilityRequest: capabilityBuildRequest,
@@ -389,6 +392,9 @@ function register({ on, use }) {
             generatedImplementation: backgroundBuild?.generatedImplementation || null,
             generationAttemptLimit,
             buildContinuation: continuation,
+            onCostTrace: (trace) => {
+              if (trace) modelCostTrace.push(trace);
+            },
           });
         } catch (error) {
           if (
@@ -504,6 +510,7 @@ function register({ on, use }) {
             });
           }
           computeDiscovery = backgroundDiscovery.discovery;
+          if (computeDiscovery?.costTrace) modelCostTrace.push(computeDiscovery.costTrace);
         } else if (!computeDiscovery) {
           computeDiscovery = await discoverComputeCapability({
             openai,
@@ -513,6 +520,9 @@ function register({ on, use }) {
             availableCapabilities,
             semanticEvidence: promptObj?.relevantItems,
           });
+          if (Array.isArray(computeDiscovery?.costTrace)) {
+            modelCostTrace.push(...computeDiscovery.costTrace);
+          }
         }
 
         if (computeDiscovery.decision === "unsupported") {
@@ -1111,6 +1121,7 @@ function subdomains(domain){
         createdEntities: responseCreatedEntities,
         capabilityManifest,
         computeDiscovery,
+        costTrace: modelCostTrace,
         replay: computeDiscovery ? {
           required: automatedBuildSucceeded,
           originalUtterance: computeDiscovery.originalUtterance,
