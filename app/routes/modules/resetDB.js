@@ -58,6 +58,39 @@ function register({ on, use }) {
     { tableName: 'ppCounter', primaryKey: 'ppCounter' }
   ];
 
+  function readBody(ctx) {
+    const outer = ctx?.req?.body || {};
+    if (typeof outer === "string") {
+      try { return JSON.parse(outer); } catch { return {}; }
+    }
+    return outer && typeof outer.body === "object" ? outer.body : outer;
+  }
+
+  function authorizeReset(ctx) {
+    const enabled = process.env.TEST_RESET_ENABLED === "true";
+    const configuredEnvironment = String(process.env.TEST_RESET_ENVIRONMENT_ID || "").trim();
+    const requestedEnvironment = String(readBody(ctx)?.testEnvironmentId || "").trim();
+    const caller = String(ctx?.cookie?.e || "").trim();
+    const allowedUsers = new Set(
+      String(process.env.TEST_RESET_ALLOWED_USER_IDS || "")
+        .split(",")
+        .map((value) => value.trim())
+        .filter(Boolean)
+    );
+    const productionLike = /(^|[._-])(prod|production|live)([._-]|$)/i.test(configuredEnvironment);
+
+    if (!enabled || !configuredEnvironment || productionLike) {
+      return { allowed: false, code: "TEST_RESET_DISABLED" };
+    }
+    if (!requestedEnvironment || requestedEnvironment !== configuredEnvironment) {
+      return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
+    }
+    if (!caller || !allowedUsers.has(caller)) {
+      return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
+    }
+    return { allowed: true };
+  }
+
   // ────────────────────────────────────────────────────────────────────────────
   // Reset helpers
   // ────────────────────────────────────────────────────────────────────────────
@@ -157,6 +190,17 @@ function register({ on, use }) {
   // Action wiring
   // ────────────────────────────────────────────────────────────────────────────
   on("resetDB", async (ctx /*, meta */) => {
+    const authorization = authorizeReset(ctx);
+    if (!authorization.allowed) {
+      return {
+        ok: false,
+        error: {
+          code: authorization.code,
+          message: "Database reset is available only to authorized users in an explicitly enabled test environment."
+        }
+      };
+    }
+
     const dynamodb = getDocClient();
     const dynamodbLL = deps.dynamodbLL;
     const clearedTables = [];

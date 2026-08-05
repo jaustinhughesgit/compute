@@ -15,6 +15,19 @@ Parameters:
     NoEcho: true
     MinLength: 1
     Description: Secret used to sign Compute application sessions.
+  TestResetEnabled:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Enables the destructive reset action for an isolated non-production test stack.
+  TestResetEnvironmentId:
+    Type: String
+    Default: disabled
+    Description: Exact environment identity that a reset request must present.
+  TestResetAllowedUserIds:
+    Type: String
+    Default: ''
+    Description: Comma-separated authenticated test user IDs allowed to reset this stack.
 
 Globals:
   Function:
@@ -41,6 +54,9 @@ Resources:
           PROTECTED_ASSETS_TABLE: !Ref ProtectedAssetsTable
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
+          TEST_RESET_ENABLED: !Ref TestResetEnabled
+          TEST_RESET_ENVIRONMENT_ID: !Ref TestResetEnvironmentId
+          TEST_RESET_ALLOWED_USER_IDS: !Ref TestResetAllowedUserIds
       Policies:
         - Version: '2012-10-17'
           Statement:
