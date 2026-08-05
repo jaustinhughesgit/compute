@@ -33,8 +33,11 @@ function register({ on, use }) {
       throw new Error(`newGroup expects "/<name>/<head>/<uuid?>", got "${ctx.path}"`);
     }
 
+    const authenticatedCookie = cookie?.gi ? cookie : ctx.cookie;
     const ensuredCookie =
-      cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
+      authenticatedCookie?.gi
+        ? authenticatedCookie
+        : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
 
     setIsPublic(true);
 
