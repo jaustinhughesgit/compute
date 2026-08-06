@@ -60,6 +60,7 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           TEST_RESET_ENABLED: ${{ vars.TEST_RESET_ENABLED || 'false' }}
           TEST_RESET_ENVIRONMENT_ID: ${{ vars.TEST_RESET_ENVIRONMENT_ID || 'disabled' }}
+          TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER: ${{ vars.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER || 'false' }}
           TEST_RESET_ALLOWED_USER_IDS: ${{ vars.TEST_RESET_ALLOWED_USER_IDS || 'disabled' }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
@@ -83,6 +84,7 @@ jobs:
               "SessionSecret=$SESSION_SECRET" \
               "TestResetEnabled=$TEST_RESET_ENABLED" \
               "TestResetEnvironmentId=$TEST_RESET_ENVIRONMENT_ID" \
+              "TestResetAllowAnyAuthenticatedUser=$TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER" \
               "TestResetAllowedUserIds=$TEST_RESET_ALLOWED_USER_IDS" \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset

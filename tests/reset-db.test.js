@@ -203,6 +203,49 @@ test("Reset DB status gives an authorized portal the configured identity without
   }
 });
 
+test("Reset DB can allow every authenticated account on an explicitly configured test deployment", async () => {
+  const previous = {
+    enabled: process.env.TEST_RESET_ENABLED,
+    environment: process.env.TEST_RESET_ENVIRONMENT_ID,
+    allowAny: process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER,
+    users: process.env.TEST_RESET_ALLOWED_USER_IDS,
+  };
+  process.env.TEST_RESET_ENABLED = "true";
+  process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
+  process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = "true";
+  process.env.TEST_RESET_ALLOWED_USER_IDS = "";
+  const handlers = {};
+  try {
+    register({
+      on: (name, callback) => { handlers[name] = callback; },
+      use: () => ({
+        getDocClient: () => ({}),
+        getCookie: async (value, key) => ({ Items: value === "session-2" && key === "ak" ? [{ e: "2" }] : [] }),
+        deps: { dynamodbLL: {} },
+      }),
+    });
+    const authenticated = await handlers.resetDBStatus({ req: { cookies: { accessToken: "session-2" } } });
+    assert.deepEqual(authenticated, {
+      ok: true,
+      response: { available: true, reasonCode: null, accountId: "2", environmentId: "test-a" },
+    });
+    const anonymous = await handlers.resetDBStatus({ req: { cookies: {} } });
+    assert.deepEqual(anonymous, {
+      ok: true,
+      response: { available: false, reasonCode: "TEST_RESET_FORBIDDEN", accountId: null, environmentId: null },
+    });
+  } finally {
+    if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
+    else process.env.TEST_RESET_ENABLED = previous.enabled;
+    if (previous.environment == null) delete process.env.TEST_RESET_ENVIRONMENT_ID;
+    else process.env.TEST_RESET_ENVIRONMENT_ID = previous.environment;
+    if (previous.allowAny == null) delete process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER;
+    else process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = previous.allowAny;
+    if (previous.users == null) delete process.env.TEST_RESET_ALLOWED_USER_IDS;
+    else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
+  }
+});
+
 test("Compute template grants Reset DB access to retained Protected Asset tables", () => {
   const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
   for (const action of ["DescribeTable", "Scan", "BatchWriteItem"]) {
@@ -212,5 +255,6 @@ test("Compute template grants Reset DB access to retained Protected Asset tables
   assert.match(template, /PROTECTED_ASSET_AUDIT_TABLE:\s*!Ref ProtectedAssetAuditTable/);
   assert.match(template, /TEST_RESET_ENABLED:\s*!Ref TestResetEnabled/);
   assert.match(template, /TEST_RESET_ENVIRONMENT_ID:\s*!Ref TestResetEnvironmentId/);
+  assert.match(template, /TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER:\s*!Ref TestResetAllowAnyAuthenticatedUser/);
   assert.match(template, /TEST_RESET_ALLOWED_USER_IDS:\s*!Ref TestResetAllowedUserIds/);
 });

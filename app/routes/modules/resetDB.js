@@ -69,6 +69,7 @@ function register({ on, use }) {
 
   function resetConfiguration() {
     const enabled = process.env.TEST_RESET_ENABLED === "true";
+    const allowAnyAuthenticatedUser = process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER === "true";
     const configuredEnvironment = String(process.env.TEST_RESET_ENVIRONMENT_ID || "").trim();
     const allowedUsers = new Set(
       String(process.env.TEST_RESET_ALLOWED_USER_IDS || "")
@@ -80,6 +81,7 @@ function register({ on, use }) {
 
     return {
       enabled,
+      allowAnyAuthenticatedUser,
       configuredEnvironment,
       allowedUsers,
       productionLike,
@@ -106,7 +108,7 @@ function register({ on, use }) {
       return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
     }
     const caller = await resolveCaller(ctx);
-    if (!caller || !access.allowedUsers.has(caller)) {
+    if (!caller || (!access.allowAnyAuthenticatedUser && !access.allowedUsers.has(caller))) {
       return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
     }
     return { allowed: true };
@@ -215,7 +217,8 @@ function register({ on, use }) {
     const caller = access.enabled && access.configuredEnvironment && !access.productionLike
       ? await resolveCaller(ctx)
       : "";
-    const callerAllowed = !!caller && access.allowedUsers.has(caller);
+    const callerAllowed = !!caller
+      && (access.allowAnyAuthenticatedUser || access.allowedUsers.has(caller));
     const available = access.enabled
       && !!access.configuredEnvironment
       && !access.productionLike

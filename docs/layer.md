@@ -88,9 +88,9 @@ Compute stores public device/authenticator material and verification state, but 
 
 ## Test-environment operations
 
-The `resetDB` action is destructive and is never authorized merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, the request repeats that identity, and the authenticated user's ID is allow-listed. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
+The `resetDB` action is destructive and is never authorized merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, and the request repeats that identity. Authentication is always required. A deployment may either require a user allow-list or explicitly enable any-authenticated-user mode for a shared disposable test stack. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
 
-An authorized UI may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. An authenticated but unauthorized caller receives its own account ID for administrator allow-listing but no environment identity. This removes operator guesswork without weakening the server-side enable flag or user allow-list.
+An authorized UI may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. In allow-list mode, an authenticated but unauthorized caller receives its own account ID for administrator configuration but no environment identity. This removes operator guesswork without weakening the server-side enable flag or configured authentication mode.
 
 ## Verification focus
 

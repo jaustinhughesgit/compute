@@ -24,6 +24,11 @@ Parameters:
     Type: String
     Default: disabled
     Description: Exact environment identity that a reset request must present.
+  TestResetAllowAnyAuthenticatedUser:
+    Type: String
+    Default: 'false'
+    AllowedValues: ['true', 'false']
+    Description: Allows any authenticated account to reset an explicitly enabled isolated test stack.
   TestResetAllowedUserIds:
     Type: String
     Default: ''
@@ -56,6 +61,7 @@ Resources:
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
           TEST_RESET_ENABLED: !Ref TestResetEnabled
           TEST_RESET_ENVIRONMENT_ID: !Ref TestResetEnvironmentId
+          TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER: !Ref TestResetAllowAnyAuthenticatedUser
           TEST_RESET_ALLOWED_USER_IDS: !Ref TestResetAllowedUserIds
       Policies:
         - Version: '2012-10-17'
