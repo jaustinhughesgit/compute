@@ -164,6 +164,41 @@ test("Reset DB denies environment mismatches and users outside the allow-list", 
   }
 });
 
+test("Reset DB status gives an authorized portal the configured identity without user input", async () => {
+  const previous = {
+    enabled: process.env.TEST_RESET_ENABLED,
+    environment: process.env.TEST_RESET_ENVIRONMENT_ID,
+    users: process.env.TEST_RESET_ALLOWED_USER_IDS,
+  };
+  process.env.TEST_RESET_ENABLED = "true";
+  process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
+  process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
+  const handlers = {};
+  try {
+    register({
+      on: (name, callback) => { handlers[name] = callback; },
+      use: () => ({ getDocClient: () => ({}), deps: { dynamodbLL: {} } }),
+    });
+    const authorized = await handlers.resetDBStatus({ req: { cookies: { e: "42" } } });
+    assert.deepEqual(authorized, {
+      ok: true,
+      response: { available: true, reasonCode: null, environmentId: "test-a" },
+    });
+    const forbidden = await handlers.resetDBStatus({ cookie: { e: "99" } });
+    assert.deepEqual(forbidden, {
+      ok: true,
+      response: { available: false, reasonCode: "TEST_RESET_FORBIDDEN", environmentId: null },
+    });
+  } finally {
+    if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
+    else process.env.TEST_RESET_ENABLED = previous.enabled;
+    if (previous.environment == null) delete process.env.TEST_RESET_ENVIRONMENT_ID;
+    else process.env.TEST_RESET_ENVIRONMENT_ID = previous.environment;
+    if (previous.users == null) delete process.env.TEST_RESET_ALLOWED_USER_IDS;
+    else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
+  }
+});
+
 test("Compute template grants Reset DB access to retained Protected Asset tables", () => {
   const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
   for (const action of ["DescribeTable", "Scan", "BatchWriteItem"]) {

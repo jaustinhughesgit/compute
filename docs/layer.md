@@ -90,6 +90,8 @@ Compute stores public device/authenticator material and verification state, but 
 
 The `resetDB` action is destructive and is never authorized merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, the request repeats that identity, and the authenticated user's ID is allow-listed. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
 
+An authorized UI may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. Unauthorized callers receive no environment identity. This removes operator guesswork without weakening the server-side enable flag or user allow-list.
+
 ## Verification focus
 
 - Schema-invalid and semantically invalid model output

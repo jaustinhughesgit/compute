@@ -58,6 +58,9 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
+          TEST_RESET_ENABLED: ${{ vars.TEST_RESET_ENABLED || 'false' }}
+          TEST_RESET_ENVIRONMENT_ID: ${{ vars.TEST_RESET_ENVIRONMENT_ID || 'disabled' }}
+          TEST_RESET_ALLOWED_USER_IDS: ${{ secrets.TEST_RESET_ALLOWED_USER_IDS }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "::error::GitHub Actions secret OPENAI_API_KEY is not configured"
@@ -78,6 +81,9 @@ jobs:
             --parameter-overrides \
               "OpenAIApiKey=$OPENAI_API_KEY" \
               "SessionSecret=$SESSION_SECRET" \
+              "TestResetEnabled=$TEST_RESET_ENABLED" \
+              "TestResetEnvironmentId=$TEST_RESET_ENVIRONMENT_ID" \
+              "TestResetAllowedUserIds=$TEST_RESET_ALLOWED_USER_IDS" \
             --no-confirm-changeset \
             --no-fail-on-empty-changeset
 

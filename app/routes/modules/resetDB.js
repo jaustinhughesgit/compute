@@ -66,11 +66,10 @@ function register({ on, use }) {
     return outer && typeof outer.body === "object" ? outer.body : outer;
   }
 
-  function authorizeReset(ctx) {
+  function resetAccess(ctx) {
     const enabled = process.env.TEST_RESET_ENABLED === "true";
     const configuredEnvironment = String(process.env.TEST_RESET_ENVIRONMENT_ID || "").trim();
-    const requestedEnvironment = String(readBody(ctx)?.testEnvironmentId || "").trim();
-    const caller = String(ctx?.cookie?.e || "").trim();
+    const caller = String(ctx?.req?.cookies?.e || ctx?.cookie?.e || "").trim();
     const allowedUsers = new Set(
       String(process.env.TEST_RESET_ALLOWED_USER_IDS || "")
         .split(",")
@@ -79,13 +78,26 @@ function register({ on, use }) {
     );
     const productionLike = /(^|[._-])(prod|production|live)([._-]|$)/i.test(configuredEnvironment);
 
-    if (!enabled || !configuredEnvironment || productionLike) {
+    return {
+      enabled,
+      configuredEnvironment,
+      caller,
+      callerAllowed: !!caller && allowedUsers.has(caller),
+      productionLike,
+    };
+  }
+
+  function authorizeReset(ctx) {
+    const access = resetAccess(ctx);
+    const requestedEnvironment = String(readBody(ctx)?.testEnvironmentId || "").trim();
+
+    if (!access.enabled || !access.configuredEnvironment || access.productionLike) {
       return { allowed: false, code: "TEST_RESET_DISABLED" };
     }
-    if (!requestedEnvironment || requestedEnvironment !== configuredEnvironment) {
+    if (!requestedEnvironment || requestedEnvironment !== access.configuredEnvironment) {
       return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
     }
-    if (!caller || !allowedUsers.has(caller)) {
+    if (!access.callerAllowed) {
       return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
     }
     return { allowed: true };
@@ -189,6 +201,28 @@ function register({ on, use }) {
   // ────────────────────────────────────────────────────────────────────────────
   // Action wiring
   // ────────────────────────────────────────────────────────────────────────────
+  on("resetDBStatus", async (ctx) => {
+    const access = resetAccess(ctx);
+    const available = access.enabled
+      && !!access.configuredEnvironment
+      && !access.productionLike
+      && access.callerAllowed;
+    let reasonCode = null;
+    if (!access.enabled || !access.configuredEnvironment || access.productionLike) {
+      reasonCode = "TEST_RESET_DISABLED";
+    } else if (!access.callerAllowed) {
+      reasonCode = "TEST_RESET_FORBIDDEN";
+    }
+    return {
+      ok: true,
+      response: {
+        available,
+        reasonCode,
+        environmentId: available ? access.configuredEnvironment : null,
+      },
+    };
+  });
+
   on("resetDB", async (ctx /*, meta */) => {
     const authorization = authorizeReset(ctx);
     if (!authorization.allowed) {
