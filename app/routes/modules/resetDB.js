@@ -4,6 +4,7 @@
 function register({ on, use }) {
   const {
     getDocClient,
+    getCookie,
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
@@ -66,10 +67,9 @@ function register({ on, use }) {
     return outer && typeof outer.body === "object" ? outer.body : outer;
   }
 
-  function resetAccess(ctx) {
+  function resetConfiguration() {
     const enabled = process.env.TEST_RESET_ENABLED === "true";
     const configuredEnvironment = String(process.env.TEST_RESET_ENVIRONMENT_ID || "").trim();
-    const caller = String(ctx?.req?.cookies?.e || ctx?.cookie?.e || "").trim();
     const allowedUsers = new Set(
       String(process.env.TEST_RESET_ALLOWED_USER_IDS || "")
         .split(",")
@@ -81,14 +81,22 @@ function register({ on, use }) {
     return {
       enabled,
       configuredEnvironment,
-      caller,
-      callerAllowed: !!caller && allowedUsers.has(caller),
+      allowedUsers,
       productionLike,
     };
   }
 
-  function authorizeReset(ctx) {
-    const access = resetAccess(ctx);
+  async function resolveCaller(ctx) {
+    const direct = String(ctx?.req?.cookies?.e || ctx?.cookie?.e || "").trim();
+    if (direct) return direct;
+    const accessToken = String(ctx?.xAccessToken || ctx?.req?.cookies?.accessToken || "").trim();
+    if (!accessToken || typeof getCookie !== "function") return "";
+    const record = await getCookie(accessToken, "ak", getDocClient());
+    return String(record?.Items?.[0]?.e || "").trim();
+  }
+
+  async function authorizeReset(ctx) {
+    const access = resetConfiguration();
     const requestedEnvironment = String(readBody(ctx)?.testEnvironmentId || "").trim();
 
     if (!access.enabled || !access.configuredEnvironment || access.productionLike) {
@@ -97,7 +105,8 @@ function register({ on, use }) {
     if (!requestedEnvironment || requestedEnvironment !== access.configuredEnvironment) {
       return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
     }
-    if (!access.callerAllowed) {
+    const caller = await resolveCaller(ctx);
+    if (!caller || !access.allowedUsers.has(caller)) {
       return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
     }
     return { allowed: true };
@@ -202,15 +211,19 @@ function register({ on, use }) {
   // Action wiring
   // ────────────────────────────────────────────────────────────────────────────
   on("resetDBStatus", async (ctx) => {
-    const access = resetAccess(ctx);
+    const access = resetConfiguration();
+    const caller = access.enabled && access.configuredEnvironment && !access.productionLike
+      ? await resolveCaller(ctx)
+      : "";
+    const callerAllowed = !!caller && access.allowedUsers.has(caller);
     const available = access.enabled
       && !!access.configuredEnvironment
       && !access.productionLike
-      && access.callerAllowed;
+      && callerAllowed;
     let reasonCode = null;
     if (!access.enabled || !access.configuredEnvironment || access.productionLike) {
       reasonCode = "TEST_RESET_DISABLED";
-    } else if (!access.callerAllowed) {
+    } else if (!callerAllowed) {
       reasonCode = "TEST_RESET_FORBIDDEN";
     }
     return {
@@ -224,7 +237,7 @@ function register({ on, use }) {
   });
 
   on("resetDB", async (ctx /*, meta */) => {
-    const authorization = authorizeReset(ctx);
+    const authorization = await authorizeReset(ctx);
     if (!authorization.allowed) {
       return {
         ok: false,

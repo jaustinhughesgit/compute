@@ -177,9 +177,13 @@ test("Reset DB status gives an authorized portal the configured identity without
   try {
     register({
       on: (name, callback) => { handlers[name] = callback; },
-      use: () => ({ getDocClient: () => ({}), deps: { dynamodbLL: {} } }),
+      use: () => ({
+        getDocClient: () => ({}),
+        getCookie: async (value, key) => ({ Items: value === "session-42" && key === "ak" ? [{ e: "42" }] : [] }),
+        deps: { dynamodbLL: {} },
+      }),
     });
-    const authorized = await handlers.resetDBStatus({ req: { cookies: { e: "42" } } });
+    const authorized = await handlers.resetDBStatus({ req: { cookies: { accessToken: "session-42" } } });
     assert.deepEqual(authorized, {
       ok: true,
       response: { available: true, reasonCode: null, environmentId: "test-a" },
