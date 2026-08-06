@@ -60,7 +60,7 @@ jobs:
           SESSION_SECRET: ${{ secrets.SESSION_SECRET }}
           TEST_RESET_ENABLED: ${{ vars.TEST_RESET_ENABLED || 'false' }}
           TEST_RESET_ENVIRONMENT_ID: ${{ vars.TEST_RESET_ENVIRONMENT_ID || 'disabled' }}
-          TEST_RESET_ALLOWED_USER_IDS: ${{ secrets.TEST_RESET_ALLOWED_USER_IDS || 'disabled' }}
+          TEST_RESET_ALLOWED_USER_IDS: ${{ vars.TEST_RESET_ALLOWED_USER_IDS || 'disabled' }}
         run: |
           if [ -z "$OPENAI_API_KEY" ]; then
             echo "::error::GitHub Actions secret OPENAI_API_KEY is not configured"
