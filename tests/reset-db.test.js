@@ -186,12 +186,12 @@ test("Reset DB status gives an authorized portal the configured identity without
     const authorized = await handlers.resetDBStatus({ req: { cookies: { accessToken: "session-42" } } });
     assert.deepEqual(authorized, {
       ok: true,
-      response: { available: true, reasonCode: null, environmentId: "test-a" },
+      response: { available: true, reasonCode: null, accountId: "42", environmentId: "test-a" },
     });
     const forbidden = await handlers.resetDBStatus({ cookie: { e: "99" } });
     assert.deepEqual(forbidden, {
       ok: true,
-      response: { available: false, reasonCode: "TEST_RESET_FORBIDDEN", environmentId: null },
+      response: { available: false, reasonCode: "TEST_RESET_FORBIDDEN", accountId: "99", environmentId: null },
     });
   } finally {
     if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;

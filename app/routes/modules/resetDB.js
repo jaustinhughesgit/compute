@@ -231,6 +231,7 @@ function register({ on, use }) {
       response: {
         available,
         reasonCode,
+        accountId: caller || null,
         environmentId: available ? access.configuredEnvironment : null,
       },
     };
