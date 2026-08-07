@@ -4,7 +4,7 @@
 
 This repository implements server-side entity and JPL execution, DynamoDB-backed platform operations, capability discovery/build/registry/edit/diagnosis, protected-asset brokering and audit, provider calls, background model responses, relationship modules, indexing, and other server capabilities.
 
-It is the execution and persistence layer, not the owner of browser-local semantics.
+It is the server execution and persistence layer, not the owner of browser-local semantics. Data-defined local semantic entities that describe ContextDB row operations belong to `aws`; they are not remote Compute applications and must not be promoted into JPL merely because a Path was missing.
 
 ## Owns
 
