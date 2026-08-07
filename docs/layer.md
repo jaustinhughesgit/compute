@@ -45,6 +45,8 @@ Generation is the last capability option, not the generic fallback for every Pat
 
 Bulk Path persistence validates every submitted Path before writing any member of the batch. A validation failure returns the rejected signatures with zero writes; callers must never interpret a partially accepted foundation dataset as complete.
 
+Path-family normalization must preserve browser-validated exact aliases. Derived numeric answer operations such as sum, subtraction, division, and count are all quantity-answer contracts for alias compatibility; persistence must not discard an installed wording merely because its canonical query expresses the answer through an arithmetic operator.
+
 Validation should cover:
 
 1. JSON syntax and schema

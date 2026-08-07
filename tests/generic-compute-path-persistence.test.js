@@ -110,3 +110,48 @@ test("bulk Path persistence preflights the complete batch before any writes", ()
   assert.equal(result.rejected[0].sig, invalid.sig);
   assert.match(result.rejected[0].error, /unknown binding quality/);
 });
+
+test("numeric question aliases survive semantic migration and remain installable", () => {
+  const learnedSig = "pattern:v3:learned_lolqtx";
+  const path = {
+    id: "path-1",
+    sig: "pattern:v3:quantity_remaining_query",
+    left: { lib: "tokens", state: {} },
+    right: {
+      lib: "essenceTransform",
+      state: {
+        schemaVersion: 3,
+        familyId: "quantity_observation_current_query",
+        operation: "query_current_quantity",
+        mode: "question",
+        bindings: [],
+        rows: [
+          ["*", "{owner}", "observe_quantity", "{quantity_record}"],
+          ["present", "{quantity_record}", "{prop:quantity_delta}", "{delta}"],
+          ["*", "{ask}", "{op:sum}", ["{delta}", "{quantity_record}"]],
+        ],
+      },
+    },
+    family: {
+      id: "quantity_observation_current_query",
+      canonicalSig: "pattern:v3:quantity_remaining_query",
+      role: "canonical",
+      active: true,
+      aliases: [{
+        sig: learnedSig,
+        active: true,
+        example: "How many ballots did Priya count?",
+        left: { lib: "tokens", state: { pattern: { schemaVersion: 3 } } },
+        bindings: [],
+      }],
+    },
+  };
+
+  assert.equal(pathsTest.pathAnswerCategory(path), "quantity");
+  const migrated = pathsTest.migrateAliasesAcrossPaths([path]);
+  assert.deepEqual(
+    migrated.paths[0].family.aliases.map((alias) => alias.sig),
+    [learnedSig]
+  );
+  assert.deepEqual(migrated.migrations, []);
+});

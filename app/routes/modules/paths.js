@@ -455,6 +455,7 @@ function normalizePredicateName(value) {
   let text = String(value == null ? "" : value).trim().toLowerCase();
   if (/^\{[^{}]+\}$/.test(text)) text = text.slice(1, -1).trim();
   text = text.replace(/^action:/, "").trim();
+  text = text.replace(/^op:/, "").trim();
   text = text.replace(/^(?:prop|property):/, "").trim();
   return text;
 }
@@ -512,7 +513,10 @@ function answerCategory(target) {
   }
   if (["location", "address", "live_at", "where"].includes(value)) return "location";
   if (["age", "age_value", "age_at_event"].includes(value)) return "age";
-  if (["quantity", "count", "number", "total"].includes(value)) return "quantity";
+  if ([
+    "quantity", "count", "number", "total", "sum", "add", "subtract",
+    "multiply", "divide", "difference", "remainder", "ratio"
+  ].includes(value)) return "quantity";
   return value || "unknown";
 }
 
