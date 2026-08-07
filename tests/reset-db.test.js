@@ -258,3 +258,15 @@ test("Compute template grants Reset DB access to retained Protected Asset tables
   assert.match(template, /TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER:\s*!Ref TestResetAllowAnyAuthenticatedUser/);
   assert.match(template, /TEST_RESET_ALLOWED_USER_IDS:\s*!Ref TestResetAllowedUserIds/);
 });
+
+test("confirmed Path foundation storage is retained and excluded from test database reset", () => {
+  const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
+  const resetSource = fs.readFileSync(
+    path.join(__dirname, "../app/routes/modules/resetDB.js"),
+    "utf8"
+  );
+  assert.match(template, /PathFoundationTable:\s*\n\s+Type: AWS::DynamoDB::Table/);
+  assert.match(template, /PATH_FOUNDATION_TABLE:\s*!Ref PathFoundationTable/);
+  assert.match(template, /PathFoundationTable:[\s\S]*?DeletionPolicy: Retain/);
+  assert.doesNotMatch(resetSource, /PATH_FOUNDATION_TABLE|pathFoundation/);
+});

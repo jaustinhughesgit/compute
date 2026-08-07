@@ -3,7 +3,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 
-const { __test: pathsTest } = require("../app/routes/modules/paths");
+const { register, __test: pathsTest } = require("../app/routes/modules/paths");
 
 function approvedQuality() {
   return {
@@ -154,4 +154,111 @@ test("numeric question aliases survive semantic migration and remain installable
     [learnedSig]
   );
   assert.deepEqual(migrated.migrations, []);
+});
+
+test("a quality-gated Path with an originating sentence can be promoted to reset-exempt foundation", () => {
+  const path = computePath("{{place}}: {{conditions}}");
+  const result = pathsTest.validateFoundationPathPromotion(
+    path,
+    "What are the conditions in Raleigh?"
+  );
+  assert.equal(result.sentence, "What are the conditions in Raleigh?");
+  assert.equal(result.evidence.kind, "dataset-quality-gate");
+  assert.equal(result.evidence.passed, true);
+});
+
+test("foundation promotion requires both local proof and the originating sentence", () => {
+  const path = computePath("{{place}}: {{conditions}}");
+  delete path.tests;
+  delete path.quality;
+  assert.throws(
+    () => pathsTest.validateFoundationPathPromotion(path, "What are the conditions?"),
+    /browser-tested or approved dataset Path/
+  );
+
+  path.repair = { candidateTestReport: { passed: true, score: 91 } };
+  assert.throws(
+    () => pathsTest.validateFoundationPathPromotion(path, ""),
+    /originating sentence/
+  );
+});
+
+test("shared foundation confirmation is restricted to an explicitly enabled test author", () => {
+  const previous = {
+    enabled: process.env.TEST_RESET_ENABLED,
+    allowAny: process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER,
+    allowed: process.env.TEST_RESET_ALLOWED_USER_IDS,
+  };
+  try {
+    delete process.env.TEST_RESET_ENABLED;
+    delete process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER;
+    delete process.env.TEST_RESET_ALLOWED_USER_IDS;
+    assert.equal(pathsTest.foundationConfirmationAuthorized("2"), false);
+    process.env.TEST_RESET_ENABLED = "true";
+    process.env.TEST_RESET_ALLOWED_USER_IDS = "2";
+    assert.equal(pathsTest.foundationConfirmationAuthorized("2"), true);
+    assert.equal(pathsTest.foundationConfirmationAuthorized("3"), false);
+    process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = "true";
+    assert.equal(pathsTest.foundationConfirmationAuthorized("3"), true);
+  } finally {
+    if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
+    else process.env.TEST_RESET_ENABLED = previous.enabled;
+    if (previous.allowAny == null) delete process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER;
+    else process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = previous.allowAny;
+    if (previous.allowed == null) delete process.env.TEST_RESET_ALLOWED_USER_IDS;
+    else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.allowed;
+  }
+});
+
+test("confirmed exact Paths round-trip through the retained shared foundation API", async () => {
+  const previous = {
+    enabled: process.env.TEST_RESET_ENABLED,
+    allowAny: process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER,
+    table: process.env.PATH_FOUNDATION_TABLE,
+  };
+  process.env.TEST_RESET_ENABLED = "true";
+  process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = "true";
+  process.env.PATH_FOUNDATION_TABLE = "testPathFoundation";
+  const handlers = {};
+  const items = new Map();
+  const doc = {
+    get: ({ Key }) => ({ promise: async () => ({ Item: items.get(Key.sig) }) }),
+    put: ({ Item }) => ({ promise: async () => { items.set(Item.sig, structuredClone(Item)); } }),
+    scan: () => ({ promise: async () => ({ Items: [...items.values()] }) }),
+  };
+  try {
+    register({
+      on: (name, callback) => { handlers[name] = callback; },
+      use: () => ({
+        getDocClient: () => doc,
+        deps: { AWS: { DynamoDB: function DynamoDB() {} } },
+        getSub: async () => ({ Items: [] }),
+        incrementCounterAndGetNewValue: async () => 1,
+      }),
+    });
+    const path = computePath("{{place}}: {{conditions}}");
+    const confirmed = await handlers.confirmFoundationPath({
+      path: "",
+      req: { body: {
+        e: "source-entity",
+        path,
+        sourceSentence: "What are the conditions in Raleigh?",
+        sourceStorageSignature: path.sig,
+      } },
+    }, { cookie: { e: "2" } });
+    assert.equal(confirmed.response.path.foundation.status, "confirmed");
+    assert.equal(confirmed.response.path.foundation.sourceSentence, "What are the conditions in Raleigh?");
+
+    const listed = await handlers.listConfirmedFoundationPaths({}, { cookie: { e: "3" } });
+    assert.equal(listed.response.paths.length, 1);
+    assert.equal(listed.response.paths[0].sig, path.sig);
+    assert.equal(listed.response.paths[0].foundation.confirmedBy, "2");
+  } finally {
+    if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
+    else process.env.TEST_RESET_ENABLED = previous.enabled;
+    if (previous.allowAny == null) delete process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER;
+    else process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = previous.allowAny;
+    if (previous.table == null) delete process.env.PATH_FOUNDATION_TABLE;
+    else process.env.PATH_FOUNDATION_TABLE = previous.table;
+  }
 });

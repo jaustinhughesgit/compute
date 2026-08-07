@@ -47,6 +47,8 @@ Bulk Path persistence validates every submitted Path before writing any member o
 
 Path-family normalization must preserve browser-validated exact aliases. Derived numeric answer operations such as sum, subtraction, division, and count are all quantity-answer contracts for alias compatibility; persistence must not discard an installed wording merely because its canonical query expresses the answer through an arithmetic operator.
 
+Reviewed Path foundation promotion is distinct from identity-scoped Path persistence. Compute accepts only an authenticated, explicitly authorized confirmation of an exact Path carrying an originating sentence plus passing browser-test or dataset-quality evidence. It stores that artifact and promotion provenance in the retained `PathFoundationTable`. Listing the shared foundation is read-only hydration; browser-local compilation and testing remain the semantic authority.
+
 Validation should cover:
 
 1. JSON syntax and schema
@@ -93,6 +95,8 @@ Compute stores public device/authenticator material and verification state, but 
 ## Test-environment operations
 
 The `resetDB` action is destructive and is never authorized merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, and the request repeats that identity. Authentication is always required. A deployment may either require a user allow-list or explicitly enable any-authenticated-user mode for a shared disposable test stack. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
+
+`resetDB` clears the identity-scoped `paths` table but intentionally does not clear `PathFoundationTable`. A reset therefore removes unconfirmed learned coverage while preserving explicitly reviewed equations that every new account should hydrate. Clearing or revoking the shared foundation is a separate governed lifecycle action and is not implied by test reset.
 
 An authorized UI may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. In allow-list mode, an authenticated but unauthorized caller receives its own account ID for administrator configuration but no environment identity. This removes operator guesswork without weakening the server-side enable flag or configured authentication mode.
 

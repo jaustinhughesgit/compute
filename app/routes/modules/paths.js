@@ -451,6 +451,66 @@ function validatePathBatchForPersistence(paths) {
   return { ok: rejected.length === 0, rejected };
 }
 
+function pathPromotionEvidence(path) {
+  const repair = path?.repair && typeof path.repair === "object"
+    ? path.repair
+    : {};
+  const candidates = [
+    repair.candidateTestReport,
+  ].filter((report) => report && typeof report === "object");
+  const report = candidates.find((candidate) => candidate.passed === true) || null;
+  if (report) {
+    return {
+      kind: "browser-candidate-test",
+      passed: true,
+      score: Number(report.score || 0),
+      candidateSignature: String(report.candidateSignature || path?.sig || ""),
+    };
+  }
+  if (path?.quality?.approved === true && String(path?.quality?.status || "") === "approved") {
+    return {
+      kind: "dataset-quality-gate",
+      passed: true,
+      score: Number(path.quality.score || 0),
+      candidateSignature: String(path?.sig || path?.signature || ""),
+    };
+  }
+  return null;
+}
+
+function validateFoundationPathPromotion(path, sourceSentence) {
+  validatePathForPersistence(path);
+  if (String(path?.right?.lib || "").toLowerCase() === "classifier") {
+    throw new Error("classifier Paths cannot be promoted through the processing Path confirmation flow");
+  }
+  const sentence = String(sourceSentence || "").trim();
+  if (!sentence) throw new Error("confirmed foundation Paths require the originating sentence");
+  if (sentence.length > 2_000) throw new Error("originating sentence exceeds the 2000 character limit");
+  const evidence = pathPromotionEvidence(path);
+  if (!evidence) {
+    throw new Error("only a browser-tested or approved dataset Path can be confirmed as foundation");
+  }
+  return { sentence, evidence };
+}
+
+function foundationConfirmationAuthorized(callerId) {
+  const caller = String(callerId || "").trim();
+  if (!caller) return false;
+  const dedicatedEnabled = process.env.PATH_FOUNDATION_CONFIRM_ENABLED === "true";
+  const sharedTestEnabled = process.env.TEST_RESET_ENABLED === "true";
+  if (!dedicatedEnabled && !sharedTestEnabled) return false;
+  const allowAny = process.env.PATH_FOUNDATION_CONFIRM_ALLOW_ANY_AUTHENTICATED_USER === "true"
+    || process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER === "true";
+  if (allowAny) return true;
+  const allowed = new Set(
+    [
+      process.env.PATH_FOUNDATION_CONFIRM_ALLOWED_USER_IDS,
+      process.env.TEST_RESET_ALLOWED_USER_IDS,
+    ].filter(Boolean).join(",").split(",").map((value) => value.trim()).filter(Boolean)
+  );
+  return allowed.has(caller);
+}
+
 function normalizePredicateName(value) {
   let text = String(value == null ? "" : value).trim().toLowerCase();
   if (/^\{[^{}]+\}$/.test(text)) text = text.slice(1, -1).trim();
@@ -808,6 +868,10 @@ function register({ on, use }) {
 
   const TableName = "paths";
   const CounterTable = "pCounter";
+  // Confirmed foundation Paths are deliberately stored outside the resettable
+  // per-identity `paths` table. resetDB clears test identities and observations,
+  // but not this reviewed platform library.
+  const FoundationTable = process.env.PATH_FOUNDATION_TABLE || "pathFoundation";
 
   // ---------- helpers ----------
   const withEnv = () => {
@@ -917,6 +981,51 @@ function register({ on, use }) {
     return repaired;
   }
 
+  async function loadConfirmedFoundationPaths(doc) {
+    const out = [];
+    let ExclusiveStartKey;
+    do {
+      const page = await doc.scan({
+        TableName: FoundationTable,
+        ConsistentRead: true,
+        ExclusiveStartKey,
+      }).promise();
+      for (const item of page.Items || []) {
+        let storedPath = null;
+        try {
+          storedPath = item.path ? JSON.parse(item.path) : null;
+        } catch {
+          storedPath = null;
+        }
+        if (!storedPath?.sig || !storedPath?.left || !storedPath?.right) continue;
+        let storedEvidence = null;
+        try {
+          storedEvidence = item.evidence ? JSON.parse(item.evidence) : null;
+        } catch {
+          storedEvidence = null;
+        }
+        out.push({
+          ...storedPath,
+          foundation: {
+            schemaVersion: Number(item.schemaVersion || 1),
+            status: "confirmed",
+            sourceSentence: String(item.sourceSentence || ""),
+            confirmedBy: String(item.confirmedBy || ""),
+            confirmedAt: item.confirmedAt || null,
+            updatedAt: item.updatedAt || null,
+            sourceIdentity: String(item.sourceIdentity || ""),
+            sourceStorageSignature: String(item.sourceStorageSignature || ""),
+            evidence: storedEvidence,
+          },
+        });
+      }
+      ExclusiveStartKey = page.LastEvaluatedKey;
+    } while (ExclusiveStartKey);
+    return out.sort((left, right) =>
+      String(left?.foundation?.updatedAt || "").localeCompare(String(right?.foundation?.updatedAt || ""))
+    );
+  }
+
   // ---------- bootstrap ----------
   on("createPaths", async (_ctx, meta) => {
     const { ddbLL } = withEnv();
@@ -1023,6 +1132,79 @@ function register({ on, use }) {
       paths: repaired.paths,
       semanticMigrations: repaired.migrations,
     }, meta, "");
+  });
+
+  // ---------- reset-exempt reviewed foundation library ----------
+  // Path: /listConfirmedFoundationPaths
+  on("listConfirmedFoundationPaths", async (_ctx, meta) => {
+    const { doc } = withEnv();
+    const paths = await loadConfirmedFoundationPaths(doc);
+    return wrap({ paths }, meta, "");
+  });
+
+  // Path: /confirmFoundationPath/:primarySu?
+  // Body: { path, sourceSentence, sourceStorageSignature? }
+  on("confirmFoundationPath", async (ctx, meta) => {
+    const { doc } = withEnv();
+    const segs = String(ctx.path || "").split("/").filter(Boolean);
+    const rb = (ctx?.req?.body && ctx.req.body.body) || ctx?.req?.body || {};
+    const caller = String(meta?.cookie?.e || "").trim();
+    if (!caller) return wrap({ ok: false, error: "authentication is required to confirm a foundation Path" }, meta, "");
+    if (!foundationConfirmationAuthorized(caller)) {
+      return wrap({ ok: false, error: "this account is not authorized to confirm shared foundation Paths" }, meta, "");
+    }
+
+    const sourceIdentity = await resolveE({ body: rb, segs, meta });
+    const proposed = cloneJson(rb.path || {});
+    const sig = String(proposed?.sig || proposed?.signature || "").trim();
+    proposed.sig = sig;
+    proposed.signature = sig;
+
+    let promotion;
+    try {
+      promotion = validateFoundationPathPromotion(proposed, rb.sourceSentence);
+    } catch (error) {
+      return wrap({ ok: false, error: String(error?.message || error) }, meta, "");
+    }
+
+    const now = new Date().toISOString();
+    const existing = await doc.get({ TableName: FoundationTable, Key: { sig } }).promise();
+    const confirmedAt = existing?.Item?.confirmedAt || now;
+    const foundation = {
+      schemaVersion: 1,
+      status: "confirmed",
+      sourceSentence: promotion.sentence,
+      confirmedBy: caller,
+      confirmedAt,
+      updatedAt: now,
+      sourceIdentity,
+      sourceStorageSignature: String(rb.sourceStorageSignature || sig),
+      evidence: promotion.evidence,
+    };
+    proposed.repair = {
+      ...(proposed.repair || {}),
+      sourceSentence: promotion.sentence,
+      foundationConfirmation: cloneJson(foundation),
+    };
+    proposed.foundation = cloneJson(foundation);
+
+    await doc.put({
+      TableName: FoundationTable,
+      Item: {
+        sig,
+        schemaVersion: 1,
+        path: JSON.stringify(proposed),
+        sourceSentence: promotion.sentence,
+        confirmedBy: caller,
+        confirmedAt,
+        updatedAt: now,
+        sourceIdentity,
+        sourceStorageSignature: foundation.sourceStorageSignature,
+        evidence: JSON.stringify(promotion.evidence),
+      },
+    }).promise();
+
+    return wrap({ path: proposed }, meta, sig);
   });
 
   // ---------- save (create or update by (e,sig)) ----------
@@ -1343,6 +1525,9 @@ module.exports = {
     validatePathForPersistence,
     validatePathBatchForPersistence,
     validateQualityContract,
+    pathPromotionEvidence,
+    foundationConfirmationAuthorized,
+    validateFoundationPathPromotion,
     structuralPatternSignature,
   },
 };

@@ -134,3 +134,9 @@ jobs:
             --logical-resource-id ProtectedAssetAuditTable \
             --query 'StackResourceDetail.ResourceStatus' \
             --output text | grep -Eq 'CREATE_COMPLETE|UPDATE_COMPLETE'
+
+          aws cloudformation describe-stack-resource \
+            --stack-name compute \
+            --logical-resource-id PathFoundationTable \
+            --query 'StackResourceDetail.ResourceStatus' \
+            --output text | grep -Eq 'CREATE_COMPLETE|UPDATE_COMPLETE'

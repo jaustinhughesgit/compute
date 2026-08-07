@@ -59,6 +59,7 @@ Resources:
           PROTECTED_ASSETS_TABLE: !Ref ProtectedAssetsTable
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
+          PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
           TEST_RESET_ENABLED: !Ref TestResetEnabled
           TEST_RESET_ENVIRONMENT_ID: !Ref TestResetEnvironmentId
           TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER: !Ref TestResetAllowAnyAuthenticatedUser
@@ -94,12 +95,37 @@ Resources:
                 - kms:GetPublicKey
                 - kms:Decrypt
               Resource: !GetAtt ProtectedAssetExecutorKey.Arn
+            - Sid: UsePathFoundationTable
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+              Resource: !GetAtt PathFoundationTable.Arn
       Events:
         Compute:
           Type: Api
           Properties:
             Path: /{proxy}
             Method: any
+
+  PathFoundationTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: sig
+          AttributeType: S
+      KeySchema:
+        - AttributeName: sig
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
 
   ProtectedAssetsTable:
     Type: AWS::DynamoDB::Table
