@@ -87,3 +87,26 @@ test("compute Path persistence rejects answer templates using unknown values", (
     /answerTemplate references an undeclared input or output/
   );
 });
+
+test("bulk Path persistence preflights the complete batch before any writes", () => {
+  const valid = computePath("{{place}}: {{conditions}}");
+  const invalid = structuredClone(valid);
+  invalid.sig = "pattern:v3:invalid_conditional_binding";
+  invalid.left.state.pattern.patternId = "invalid_conditional_binding";
+  invalid.right.lib = "essenceTransform";
+  invalid.right.state.familyId = "invalid_conditional_binding";
+  invalid.right.state.bindings = [];
+  invalid.right.state.rows = [["*", "speaker", "{prop:conditions}", "{ask}"]];
+  invalid.right.state.forEach = [];
+  delete invalid.right.state.compute;
+  invalid.right.state.conditionalRows = [{
+    whenAll: ["quality"],
+    whenAny: [],
+    rows: [["present", "{record}", "{prop:quality}", { ref: "binding", name: "quality" }]],
+  }];
+  const result = pathsTest.validatePathBatchForPersistence([valid, invalid]);
+  assert.equal(result.ok, false);
+  assert.equal(result.rejected.length, 1);
+  assert.equal(result.rejected[0].sig, invalid.sig);
+  assert.match(result.rejected[0].error, /unknown binding quality/);
+});

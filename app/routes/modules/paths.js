@@ -430,11 +430,25 @@ function validatePathForPersistence(path) {
     state.rows || [],
     conditionalRows,
     state.forEach || [],
+    state.transaction || null,
   ]);
   for (const name of referenced) {
     if (!bindingNames.has(name)) throw new Error(`transform references unknown binding ${name}`);
   }
   return true;
+}
+
+function validatePathBatchForPersistence(paths) {
+  const rejected = [];
+  for (const path of Array.isArray(paths) ? paths : []) {
+    const sig = String(path?.sig || path?.signature || "").trim();
+    try {
+      validatePathForPersistence(path);
+    } catch (error) {
+      rejected.push({ sig, error: String(error?.message || error) });
+    }
+  }
+  return { ok: rejected.length === 0, rejected };
 }
 
 function normalizePredicateName(value) {
@@ -1172,8 +1186,25 @@ function register({ on, use }) {
 
     const by = String(meta?.cookie?.e || "");
     const saved = [];
-    const rejected = [];
     const queue = [...unique.values()];
+    const preflight = validatePathBatchForPersistence(queue);
+    if (!preflight.ok) {
+      return wrap({
+        ok: true,
+        complete: false,
+        paths: [],
+        saved: [],
+        rejected: preflight.rejected,
+        counts: {
+          requested: incoming.length,
+          unique: queue.length,
+          saved: 0,
+          rejected: preflight.rejected.length,
+        },
+        semanticMigrations: [],
+      }, meta, "");
+    }
+    const rejected = [];
     const concurrency = Math.min(8, queue.length);
 
     async function saveOne(path) {
@@ -1306,6 +1337,7 @@ module.exports = {
     pathAnswerCategory,
     validateStructuralPattern,
     validatePathForPersistence,
+    validatePathBatchForPersistence,
     validateQualityContract,
     structuralPatternSignature,
   },
