@@ -451,6 +451,23 @@ function validatePathBatchForPersistence(paths) {
   return { ok: rejected.length === 0, rejected };
 }
 
+function pathCreatorAudit(meta = {}) {
+  const by = String(meta?.cookie?.e || "").trim();
+  return by
+    ? {
+        item: { by },
+        updateSuffix: ", #by = if_not_exists(#by, :by)",
+        names: { "#by": "by" },
+        values: { ":by": by },
+      }
+    : {
+        item: {},
+        updateSuffix: "",
+        names: {},
+        values: {},
+      };
+}
+
 function pathPromotionEvidence(path) {
   const repair = path?.repair && typeof path.repair === "object"
     ? path.repair
@@ -1243,7 +1260,7 @@ function register({ on, use }) {
       })
       .promise();
 
-    const by = String(meta?.cookie?.e || "");
+    const creatorAudit = pathCreatorAudit(meta);
     const leftStr = JSON.stringify(rb.left ?? null);
     const rightStr = JSON.stringify(rb.right ?? null);
     const familyStr = JSON.stringify(rb.family ?? null);
@@ -1258,7 +1275,7 @@ function register({ on, use }) {
           TableName,
           Key: { id: it.id },
           UpdateExpression:
-            "SET #left = :left, #right = :right, #family = :family, #repair = :repair, #tests = :tests, #quality = :quality, #updatedAt = :now, #by = if_not_exists(#by, :by)",
+            `SET #left = :left, #right = :right, #family = :family, #repair = :repair, #tests = :tests, #quality = :quality, #updatedAt = :now${creatorAudit.updateSuffix}`,
           ExpressionAttributeNames: {
             "#left": "left",
             "#right": "right",
@@ -1267,7 +1284,7 @@ function register({ on, use }) {
             "#tests": "tests",
             "#quality": "quality",
             "#updatedAt": "updatedAt",
-            "#by": "by",
+            ...creatorAudit.names,
           },
           ExpressionAttributeValues: {
             ":left": leftStr,
@@ -1277,7 +1294,7 @@ function register({ on, use }) {
             ":tests": testsStr,
             ":quality": qualityStr,
             ":now": now,
-            ":by": by,
+            ...creatorAudit.values,
           },
           ReturnValues: "ALL_NEW",
         })
@@ -1312,7 +1329,7 @@ function register({ on, use }) {
         Item: {
           id,
           e,
-          by,
+          ...creatorAudit.item,
           sig,
           left: leftStr,
           right: rightStr,
@@ -1332,7 +1349,7 @@ function register({ on, use }) {
     const finalPath = repaired.paths.find((path) => String(path.id) === String(id)) || {
       id,
       e,
-      by,
+      by: creatorAudit.item.by,
       sig,
       left: JSON.parse(leftStr),
       right: JSON.parse(rightStr),
@@ -1370,7 +1387,7 @@ function register({ on, use }) {
       unique.set(sig, { ...path, sig });
     }
 
-    const by = String(meta?.cookie?.e || "");
+    const creatorAudit = pathCreatorAudit(meta);
     const saved = [];
     const queue = [...unique.values()];
     const preflight = validatePathBatchForPersistence(queue);
@@ -1422,7 +1439,7 @@ function register({ on, use }) {
             TableName,
             Key: { id: existing.id },
             UpdateExpression:
-              "SET #left = :left, #right = :right, #family = :family, #repair = :repair, #tests = :tests, #quality = :quality, #updatedAt = :now, #by = if_not_exists(#by, :by)",
+              `SET #left = :left, #right = :right, #family = :family, #repair = :repair, #tests = :tests, #quality = :quality, #updatedAt = :now${creatorAudit.updateSuffix}`,
             ExpressionAttributeNames: {
               "#left": "left",
               "#right": "right",
@@ -1431,7 +1448,7 @@ function register({ on, use }) {
               "#tests": "tests",
               "#quality": "quality",
               "#updatedAt": "updatedAt",
-              "#by": "by",
+              ...creatorAudit.names,
             },
             ExpressionAttributeValues: {
               ":left": values.left,
@@ -1441,7 +1458,7 @@ function register({ on, use }) {
               ":tests": values.tests,
               ":quality": values.quality,
               ":now": now,
-              ":by": by,
+              ...creatorAudit.values,
             },
           }).promise();
           saved.push({ id: existing.id, sig, updated: true });
@@ -1454,7 +1471,7 @@ function register({ on, use }) {
           Item: {
             id,
             e,
-            by,
+            ...creatorAudit.item,
             sig,
             left: values.left,
             right: values.right,
@@ -1524,6 +1541,7 @@ module.exports = {
     validateStructuralPattern,
     validatePathForPersistence,
     validatePathBatchForPersistence,
+    pathCreatorAudit,
     validateQualityContract,
     pathPromotionEvidence,
     foundationConfirmationAuthorized,

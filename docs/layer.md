@@ -45,6 +45,8 @@ Generation is the last capability option, not the generic fallback for every Pat
 
 Bulk Path persistence validates every submitted Path before writing any member of the batch. A validation failure returns the rejected signatures with zero writes; callers must never interpret a partially accepted foundation dataset as complete.
 
+The optional Path creator-audit index key is written only when the authenticated cookie supplies a nonempty creator identity. Identity-scoped Path ownership continues to use the separately resolved target identity; persistence must not invent an audit actor or send an empty secondary-index key when creator metadata is unavailable.
+
 Path-family normalization must preserve browser-validated exact aliases. Derived numeric answer operations such as sum, subtraction, division, and count are all quantity-answer contracts for alias compatibility; persistence must not discard an installed wording merely because its canonical query expresses the answer through an arithmetic operator.
 
 Reviewed Path foundation promotion is distinct from identity-scoped Path persistence. Compute accepts only an authenticated, explicitly authorized confirmation of an exact Path carrying an originating sentence plus passing browser-test or dataset-quality evidence. It stores that artifact and promotion provenance in the retained `PathFoundationTable`. Listing the shared foundation is read-only hydration; browser-local compilation and testing remain the semantic authority.

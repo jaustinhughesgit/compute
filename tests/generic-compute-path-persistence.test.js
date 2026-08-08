@@ -111,6 +111,21 @@ test("bulk Path persistence preflights the complete batch before any writes", ()
   assert.match(result.rejected[0].error, /unknown binding quality/);
 });
 
+test("Path persistence omits an unavailable optional creator audit key", () => {
+  assert.deepEqual(pathsTest.pathCreatorAudit({ cookie: {} }), {
+    item: {},
+    updateSuffix: "",
+    names: {},
+    values: {},
+  });
+  assert.deepEqual(pathsTest.pathCreatorAudit({ cookie: { e: "creator-1" } }), {
+    item: { by: "creator-1" },
+    updateSuffix: ", #by = if_not_exists(#by, :by)",
+    names: { "#by": "by" },
+    values: { ":by": "creator-1" },
+  });
+});
+
 test("numeric question aliases survive semantic migration and remain installable", () => {
   const learnedSig = "pattern:v3:learned_lolqtx";
   const path = {
