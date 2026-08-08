@@ -108,7 +108,7 @@ function register({ on, use }) {
       return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
     }
     const caller = await resolveCaller(ctx);
-    if (!caller || (!access.allowAnyAuthenticatedUser && !access.allowedUsers.has(caller))) {
+    if (!access.allowAnyAuthenticatedUser && (!caller || !access.allowedUsers.has(caller))) {
       return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
     }
     return { allowed: true };
@@ -217,8 +217,8 @@ function register({ on, use }) {
     const caller = access.enabled && access.configuredEnvironment && !access.productionLike
       ? await resolveCaller(ctx)
       : "";
-    const callerAllowed = !!caller
-      && (access.allowAnyAuthenticatedUser || access.allowedUsers.has(caller));
+    const callerAllowed = access.allowAnyAuthenticatedUser
+      || (!!caller && access.allowedUsers.has(caller));
     const available = access.enabled
       && !!access.configuredEnvironment
       && !access.productionLike
@@ -247,7 +247,7 @@ function register({ on, use }) {
         ok: false,
         error: {
           code: authorization.code,
-          message: "Database reset is available only to authorized users in an explicitly enabled test environment."
+          message: "Database reset is available only when explicitly enabled for this test environment."
         }
       };
     }

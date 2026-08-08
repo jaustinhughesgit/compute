@@ -96,11 +96,11 @@ Compute stores public device/authenticator material and verification state, but 
 
 ## Test-environment operations
 
-The `resetDB` action is destructive and is never authorized merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, and the request repeats that identity. Authentication is always required. A deployment may either require a user allow-list or explicitly enable any-authenticated-user mode for a shared disposable test stack. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
+The `resetDB` action is destructive and is never enabled merely because a caller knows its route. It fails before acquiring a DynamoDB client unless the deployment explicitly enables reset, declares an exact non-production environment identity, and the request repeats that identity. The normal mode requires an authenticated user allow-list. During the current disposable-stack testing phase, the explicitly configured `TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER` compatibility switch temporarily allows any caller, including an anonymous portal session; the legacy name is retained to avoid changing deployment configuration. Environment, enablement, and request-identity checks still fail closed. The companion client guard in `testing` prevents common operator mistakes but is not an authorization boundary. Prefer disposable test stacks or per-run namespaces as concurrency grows.
 
 `resetDB` clears the identity-scoped `paths` table but intentionally does not clear `PathFoundationTable`. A reset therefore removes unconfirmed learned coverage while preserving explicitly reviewed equations that every new account should hydrate. Clearing or revoking the shared foundation is a separate governed lifecycle action and is not implied by test reset.
 
-An authorized UI may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. In allow-list mode, an authenticated but unauthorized caller receives its own account ID for administrator configuration but no environment identity. This removes operator guesswork without weakening the server-side enable flag or configured authentication mode.
+The portal may call `resetDBStatus` to obtain the configured non-secret environment identity and availability state, then submit that identity to `resetDB` after explicit user confirmation. In allow-list mode, an authenticated but unauthorized caller receives its own account ID for administrator configuration but no environment identity. In temporary any-caller mode, anonymous callers receive the environment identity. This removes operator guesswork without weakening the server-side enable flag or exact environment check.
 
 ## Verification focus
 
@@ -122,4 +122,4 @@ An authorized UI may call `resetDBStatus` to obtain the configured non-secret en
 - Original/New template routing, endpoint-correct reasoning fields, unknown-ID fallback, and background continuity
 - Deterministic contract diff for reuse versus compatible repair versus fork, including source stability and dependent Path compatibility
 - Two users reusing one capability definition with isolated ordinary data, configuration, permissions, and protected-asset bindings
-- Reset denial when disabled, environment identity mismatches, the caller is unauthenticated, or the caller is not allow-listed; prove denial before any database access
+- Reset denial when disabled or the environment identity mismatches; in normal allow-list mode also deny unauthenticated and unlisted callers before database access

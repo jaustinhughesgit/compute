@@ -203,7 +203,7 @@ test("Reset DB status gives an authorized portal the configured identity without
   }
 });
 
-test("Reset DB can allow every authenticated account on an explicitly configured test deployment", async () => {
+test("Reset DB can temporarily allow any caller on an explicitly configured test deployment", async () => {
   const previous = {
     enabled: process.env.TEST_RESET_ENABLED,
     environment: process.env.TEST_RESET_ENVIRONMENT_ID,
@@ -232,8 +232,13 @@ test("Reset DB can allow every authenticated account on an explicitly configured
     const anonymous = await handlers.resetDBStatus({ req: { cookies: {} } });
     assert.deepEqual(anonymous, {
       ok: true,
-      response: { available: false, reasonCode: "TEST_RESET_FORBIDDEN", accountId: null, environmentId: null },
+      response: { available: true, reasonCode: null, accountId: null, environmentId: "test-a" },
     });
+    const resetAuthorization = await handlers.resetDB({
+      req: { body: { testEnvironmentId: "wrong" }, cookies: {} },
+      res: {},
+    });
+    assert.equal(resetAuthorization.error.code, "TEST_RESET_ENVIRONMENT_MISMATCH");
   } finally {
     if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
     else process.env.TEST_RESET_ENABLED = previous.enabled;

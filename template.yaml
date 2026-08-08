@@ -28,7 +28,7 @@ Parameters:
     Type: String
     Default: 'false'
     AllowedValues: ['true', 'false']
-    Description: Allows any authenticated account to reset an explicitly enabled isolated test stack.
+    Description: Temporary test switch allowing any caller, including an anonymous portal session, to reset an explicitly enabled isolated test stack.
   TestResetAllowedUserIds:
     Type: String
     Default: ''
