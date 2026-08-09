@@ -39,7 +39,7 @@ const V3_SLOT_TYPES = new Set([
   "person", "organization", "item", "quantity", "number", "activity_phrase",
   "event_type", "date", "time", "duration", "location", "status", "goal_type",
   "record_reference", "property_value", "frequency", "deadline", "reason",
-  "entity_lemma", "entity_reference", "registered_target", "query", "string",
+  "entity_lemma", "entity_list", "entity_reference", "registered_target", "query", "string",
 ]);
 const SAFE_COMMAND_ACTIONS = new Set(["open", "close", "show", "hide", "go_to", "select"]);
 const EXECUTABLE_COMMAND_FIELDS = new Set(["function", "fn", "custom", "code", "script", "handler", "eval", "worker"]);

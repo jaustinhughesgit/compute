@@ -81,6 +81,21 @@ test("compute Path persistence accepts answer templates using declared inputs an
   );
 });
 
+test("Path persistence accepts the shared repeated-role structural slot", () => {
+  const path = computePath("{{conditions}}");
+  path.left.state.pattern.core = [{ kind: "slot", slot: "objects" }];
+  path.left.state.pattern.slotDefinitions = [{
+    name: "objects",
+    type: "entity_list",
+    minTokens: 2,
+    maxTokens: 20,
+    allowStructuralCoercion: false,
+    bindingValue: "nounList",
+    bindingNames: [],
+  }];
+  assert.equal(pathsTest.validatePathForPersistence(path), true);
+});
+
 test("compute Path persistence rejects answer templates using unknown values", () => {
   assert.throws(
     () => pathsTest.validatePathForPersistence(computePath("{{place}}: {{forecast}}")),

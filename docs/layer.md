@@ -43,7 +43,7 @@ Generators must receive the authoritative schema, allowed modules, runtime refer
 
 Generation is the last capability option, not the generic fallback for every Path miss. Compute must reject or return local-routing diagnostics when validated evidence identifies an ordinary graph operation. An exact compatible contract is reused across callers with separate bindings and installations. A defect may revise implementation only while its semantic contract remains unchanged; a contract delta in inputs, outputs, operations, effects, guarantees, or trust requirements must create a fork/child or new root rather than silently edit the source.
 
-Bulk Path persistence validates every submitted Path before writing any member of the batch. A validation failure returns the rejected signatures with zero writes; callers must never interpret a partially accepted foundation dataset as complete.
+Bulk Path persistence validates every submitted Path before writing any member of the batch. A validation failure returns the rejected signatures with zero writes; callers must never interpret a partially accepted foundation dataset as complete. Its structural schema accepts the browser-owned vocabulary-neutral `entity_list` slot used to persist repeated typed roles; Compute validates that contract but does not interpret or execute the local list.
 
 The optional Path creator-audit index key is written only when the authenticated cookie supplies a nonempty creator identity. Identity-scoped Path ownership continues to use the separately resolved target identity; persistence must not invent an audit actor or send an empty secondary-index key when creator metadata is unavailable.
 
