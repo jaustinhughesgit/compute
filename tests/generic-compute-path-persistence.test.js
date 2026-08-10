@@ -72,6 +72,28 @@ function computePath(answerTemplate) {
   };
 }
 
+function composedComputePath(answerTemplate = "{{conditions}}") {
+  const path = computePath(answerTemplate);
+  path.sig = "pattern:v4:generic_template_contract";
+  path.left.state.pattern = {
+    schemaVersion: 4,
+    patternId: "generic_template_contract",
+    kind: "question",
+    operation: "invoke_compute_capability",
+    routingAnchors: ["conditions"],
+    network: {
+      coverage: "complete",
+      components: [
+        { id: "projection.conditions" },
+        { id: "entity.place", optional: true },
+      ],
+    },
+    slotDefinitions: [],
+    tokenizerAliases: [],
+  };
+  return path;
+}
+
 test("compute Path persistence accepts answer templates using declared inputs and outputs", () => {
   assert.equal(
     pathsTest.validatePathForPersistence(
@@ -94,6 +116,30 @@ test("Path persistence accepts the shared repeated-role structural slot", () => 
     bindingNames: [],
   }];
   assert.equal(pathsTest.validatePathForPersistence(path), true);
+});
+
+test("Path persistence accepts a browser-validated Pattern Schema v4 subpattern network", () => {
+  const path = composedComputePath();
+  assert.equal(pathsTest.structuralPatternSignature(path.left.state.pattern), path.sig);
+  assert.equal(pathsTest.validatePathForPersistence(path), true);
+});
+
+test("Pattern Schema v4 persistence rejects an incomplete network contract", () => {
+  const path = composedComputePath();
+  path.left.state.pattern.network.components = [];
+  assert.throws(
+    () => pathsTest.validatePathForPersistence(path),
+    /network\.components must contain 1 to 64 references/
+  );
+});
+
+test("Pattern Schema versions must agree with their persisted signature namespace", () => {
+  const path = composedComputePath();
+  path.sig = "pattern:v3:generic_template_contract";
+  assert.throws(
+    () => pathsTest.validatePathForPersistence(path),
+    /structural Path sig must be pattern:v4:generic_template_contract/
+  );
 });
 
 test("compute Path persistence rejects answer templates using unknown values", () => {

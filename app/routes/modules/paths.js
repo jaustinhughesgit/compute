@@ -55,7 +55,10 @@ function patternId(value) {
 
 function structuralPatternSignature(pattern) {
   const id = patternId(pattern?.patternId);
-  return id ? `pattern:v3:${id}` : "";
+  if (!id) return "";
+  return Number(pattern?.schemaVersion || 0) === 4
+    ? `pattern:v4:${id}`
+    : `pattern:v3:${id}`;
 }
 
 function validatePatternSyntax(syntax, definitions, label) {
@@ -82,8 +85,9 @@ function validateStructuralPattern(pattern) {
   if (!pattern || typeof pattern !== "object" || Array.isArray(pattern)) {
     throw new Error("left.state.pattern must be an object");
   }
-  if (Number(pattern.schemaVersion || 0) !== 3) {
-    throw new Error("left.state.pattern.schemaVersion must be 3");
+  const schemaVersion = Number(pattern.schemaVersion || 0);
+  if (![3, 4].includes(schemaVersion)) {
+    throw new Error("left.state.pattern.schemaVersion must be 3 or 4");
   }
   if (!patternId(pattern.patternId)) throw new Error("left.state.pattern.patternId is required");
   if (!V3_PATTERN_KINDS.has(String(pattern.kind || ""))) {
@@ -111,7 +115,39 @@ function validateStructuralPattern(pattern) {
     definitions.set(name, definition);
   }
 
-  validatePatternSyntax(pattern.core, definitions, "pattern.core");
+  if (schemaVersion === 4) {
+    const network = pattern.network;
+    if (!network || typeof network !== "object" || Array.isArray(network)) {
+      throw new Error("Pattern Schema v4 requires pattern.network");
+    }
+    if (String(network.coverage || "") !== "complete") {
+      throw new Error("Pattern Schema v4 network.coverage must be complete");
+    }
+    const components = Array.isArray(network.components) ? network.components : [];
+    if (!components.length || components.length > 64) {
+      throw new Error("Pattern Schema v4 network.components must contain 1 to 64 references");
+    }
+    for (const [index, component] of components.entries()) {
+      const id = String(component?.id || component?.componentId || "").trim();
+      if (!/^[a-z0-9][a-z0-9._-]{0,159}$/i.test(id)) {
+        throw new Error(`pattern.network.components[${index}] has an invalid id`);
+      }
+      if (component?.optional != null && typeof component.optional !== "boolean") {
+        throw new Error(`pattern.network.components[${index}].optional must be boolean`);
+      }
+    }
+    if (pattern.routingAnchors != null) {
+      if (
+        !Array.isArray(pattern.routingAnchors)
+        || pattern.routingAnchors.length > 128
+        || pattern.routingAnchors.some((value) => !String(value || "").trim())
+      ) {
+        throw new Error("Pattern Schema v4 routingAnchors must contain bounded non-empty values");
+      }
+    }
+  } else {
+    validatePatternSyntax(pattern.core, definitions, "pattern.core");
+  }
   const modifierIds = new Set();
   for (const [index, modifier] of (Array.isArray(pattern.modifiers) ? pattern.modifiers : []).entries()) {
     const id = patternId(modifier?.modifierId);
