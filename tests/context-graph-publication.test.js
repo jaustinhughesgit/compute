@@ -85,6 +85,23 @@ test("component audiences carry every connected fact to a referenced user", () =
   assert.deepEqual(audiences.get("ent_4"), ["u:1", "u:2"]);
 });
 
+test("public profile publication is limited to components connected to the current speaker", () => {
+  const body = publicationBody();
+  const connectedToAmy = __test.selfConnectedNodeIds(
+    body.relations,
+    new Map([["ent_1", "2"]]),
+    "1"
+  );
+  assert.deepEqual([...connectedToAmy], []);
+
+  const connectedToSpeaker = __test.selfConnectedNodeIds(
+    body.relations,
+    new Map([["ent_1", "1"]]),
+    "1"
+  );
+  assert.equal(connectedToSpeaker.has("ent_4"), true);
+});
+
 test("publication resolves a spoken user, acknowledges stable ids, and hydrates that participant", async () => {
   const doc = memoryDocumentClient();
   const handlers = installRuntime(doc, [{
@@ -211,4 +228,74 @@ test("an ordinary noun is not resolved as a user without an explicit voice perso
   const pass = result.response.nodes.find((node) => node.localId === "ent_4");
   assert.equal(pass.resolution, "publisher-entity");
   assert.notEqual(pass.serverId, "usr_4");
+});
+
+test("a public self-name assertion makes earlier facts available to an exact named hydration", async () => {
+  const doc = memoryDocumentClient();
+  const handlers = installRuntime(doc);
+  const aliceMeta = { cookie: { e: "1" } };
+
+  const quantity = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "cats-1",
+      source: { sentence: "I have three cats." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "observe_quantity", lemmas: ["observe_quantity"] },
+        { localId: "cat_record", lemmas: ["cat observation"] },
+        { localId: "item", lemmas: ["item"] },
+        { localId: "cat", lemmas: ["cat"] },
+        { localId: "quantity_delta", lemmas: ["quantity_delta"] },
+        { localId: "three", lemmas: ["3"] },
+      ],
+      relations: [
+        { localId: "cats-observed", subjectLocalId: "speaker", predicateLocalId: "observe_quantity", objectLocalId: "cat_record" },
+        { localId: "cats-item", subjectLocalId: "cat_record", predicateLocalId: "item", objectLocalId: "cat" },
+        { localId: "cats-delta", subjectLocalId: "cat_record", predicateLocalId: "quantity_delta", objectLocalId: "three" },
+      ],
+    } },
+  }, aliceMeta);
+  assert.equal(quantity.ok, true);
+  assert.ok(Array.from(doc.items.values()).some((item) => item.audienceId === "public:1"));
+
+  const named = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "name-1",
+      source: { sentence: "My name is Austin." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "name", lemmas: ["name"] },
+        { localId: "austin", lemmas: ["austin"], names: ["Austin"] },
+      ],
+      relations: [
+        { localId: "name-assertion", subjectLocalId: "speaker", predicateLocalId: "name", objectLocalId: "austin" },
+      ],
+    } },
+  }, aliceMeta);
+  assert.equal(named.ok, true);
+  const profile = doc.items.get("u:1\u001fprofile#self");
+  assert.equal(profile.displayName, "Austin");
+  assert.equal(profile.profileSource, "context-graph");
+
+  const hydrated = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, { cookie: { e: "2" } });
+  assert.equal(hydrated.ok, true);
+  assert.equal(hydrated.response.found, true);
+  assert.equal(hydrated.response.namedServerId, "usr_1");
+  assert.ok(hydrated.response.nodes.some((node) => (
+    node.serverId === "usr_1" && node.names.includes("Austin")
+  )));
+  assert.ok(hydrated.response.relations.some((relation) => relation.serverId));
+
+  await handlers.get("contextGraphHydrate")({
+    path: "/workspace-alice",
+    req: { body: { schemaVersion: 1 } },
+  }, aliceMeta);
+  assert.equal(doc.items.get("u:1\u001fprofile#self").displayName, "Austin");
 });

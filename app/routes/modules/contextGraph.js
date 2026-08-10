@@ -15,6 +15,7 @@ const GENERIC_PROFILE_NAMES = new Set([
   "primary",
   "content",
 ]);
+const PROFILE_PROPERTY_NAMES = new Set(["name", "display name", "full name"]);
 
 function text(value, max = MAX_LABEL_LENGTH) {
   return String(value == null ? "" : value).trim().slice(0, max);
@@ -110,6 +111,32 @@ function profileCandidates(subdomain, word) {
   return candidates.filter((candidate) => !GENERIC_PROFILE_NAMES.has(normalizedLabel(candidate)));
 }
 
+function publicWorkspace(subdomain) {
+  return subdomain?.z === true || subdomain?.z === "true";
+}
+
+function declaredProfileName(nodes, relations, resolutions, principalId) {
+  const nodeById = new Map((Array.isArray(nodes) ? nodes : []).map((node) => [node.localId, node]));
+  const selfServerId = principalEntityId(principalId);
+  for (const relation of Array.isArray(relations) ? relations : []) {
+    if (relation?.tombstone === true) continue;
+    if (resolutions.get(relation.subjectLocalId)?.serverId !== selfServerId) continue;
+    const predicate = nodeById.get(relation.predicateLocalId);
+    const predicateLabels = uniqueStrings([...(predicate?.lemmas || []), ...(predicate?.names || [])])
+      .map(normalizedLabel);
+    if (!predicateLabels.some((label) => PROFILE_PROPERTY_NAMES.has(label))) continue;
+    const object = nodeById.get(relation.objectLocalId);
+    const displayName = uniqueStrings([...(object?.names || []), ...(object?.lemmas || [])])
+      .find((label) => {
+        const normalized = normalizedLabel(label);
+        return normalized && !GENERIC_PROFILE_NAMES.has(normalized)
+          && !["speaker", "current speaker", "me", "myself", "i"].includes(normalized);
+      });
+    if (displayName) return displayName;
+  }
+  return null;
+}
+
 function componentAudiences(relations, nodePrincipals, ownerAudience) {
   const adjacency = new Map();
   const add = (a, b) => {
@@ -146,6 +173,34 @@ function componentAudiences(relations, nodePrincipals, ownerAudience) {
     for (const nodeId of nodes) byNode.set(nodeId, resolved);
   }
   return byNode;
+}
+
+function selfConnectedNodeIds(relations, nodePrincipals, principalId) {
+  const adjacency = new Map();
+  const add = (a, b) => {
+    if (!adjacency.has(a)) adjacency.set(a, new Set());
+    adjacency.get(a).add(b);
+  };
+  for (const relation of Array.isArray(relations) ? relations : []) {
+    add(relation.subjectLocalId, relation.predicateLocalId);
+    add(relation.predicateLocalId, relation.subjectLocalId);
+    add(relation.subjectLocalId, relation.objectLocalId);
+    add(relation.objectLocalId, relation.subjectLocalId);
+  }
+  const selected = new Set();
+  const queue = Array.from(nodePrincipals)
+    .filter(([, nodePrincipalId]) => String(nodePrincipalId) === String(principalId))
+    .map(([localId]) => localId);
+  for (const localId of queue) selected.add(localId);
+  while (queue.length) {
+    const current = queue.shift();
+    for (const next of adjacency.get(current) || []) {
+      if (selected.has(next)) continue;
+      selected.add(next);
+      queue.push(next);
+    }
+  }
+  return selected;
 }
 
 function encodeCursor(lastEvaluatedKey) {
@@ -189,13 +244,22 @@ function register({ on, use }) {
     return { ok: true, subdomain };
   }
 
-  async function registerCurrentProfile(doc, principalId, subdomain) {
-    if (subdomain?.z !== true && subdomain?.z !== "true") return null;
+  async function registerCurrentProfile(doc, principalId, subdomain, declaredName = null) {
+    if (!publicWorkspace(subdomain)) return null;
+    if (!declaredName) {
+      const existing = await doc.get({
+        TableName: tableName(),
+        Key: { audienceId: `u:${principalId}`, recordKey: "profile#self" },
+        ConsistentRead: true,
+      }).promise();
+      if (existing?.Item?.profileSource === "context-graph") return existing.Item;
+    }
     let word = null;
     if (subdomain?.a && typeof getWord === "function") {
       try { word = (await getWord(String(subdomain.a)))?.Items?.[0] || null; } catch {}
     }
-    const candidates = profileCandidates(subdomain, word);
+    const candidates = uniqueStrings([declaredName, ...profileCandidates(subdomain, word)])
+      .filter((candidate) => !GENERIC_PROFILE_NAMES.has(normalizedLabel(candidate)));
     if (!candidates.length) return null;
     const displayName = candidates[0];
     const handle = normalizedLabel(displayName);
@@ -208,6 +272,7 @@ function register({ on, use }) {
       serverEntityId: principalEntityId(principalId),
       displayName,
       lookupKey: `handle#${handle}`,
+      profileSource: declaredName ? "context-graph" : "workspace",
       updatedAt: now,
     };
     await doc.put({ TableName: tableName(), Item: item }).promise();
@@ -439,10 +504,30 @@ function register({ on, use }) {
         userLabelsByNode.get(node.localId) || []
       ));
     }
+    const assertedProfileName = declaredProfileName(nodes, relations, resolutions, principalId);
+    const assertedProfile = assertedProfileName
+      ? await registerCurrentProfile(doc, principalId, workspace.subdomain, assertedProfileName)
+      : null;
+    if (assertedProfile) {
+      for (const resolution of resolutions.values()) {
+        if (resolution.serverId === assertedProfile.serverEntityId) {
+          resolution.displayName = assertedProfile.displayName;
+        }
+      }
+    }
     const nodePrincipals = new Map(
       Array.from(resolutions, ([localId, resolution]) => [localId, resolution.principalId]).filter(([, value]) => value)
     );
     const audiencesByNode = componentAudiences(relations, nodePrincipals, ownerAudience);
+    const publicAudience = publicWorkspace(workspace.subdomain) ? `public:${principalId}` : null;
+    if (publicAudience) {
+      const publicNodeIds = selfConnectedNodeIds(relations, nodePrincipals, principalId);
+      for (const [localId, audiences] of audiencesByNode) {
+        if (publicNodeIds.has(localId)) {
+          audiencesByNode.set(localId, Array.from(new Set([...audiences, publicAudience])).sort());
+        }
+      }
+    }
     const now = new Date().toISOString();
     const source = {
       requestId: text(body?.source?.requestId, 180) || null,
@@ -457,12 +542,13 @@ function register({ on, use }) {
     for (const node of nodes) {
       const resolution = resolutions.get(node.localId);
       const audienceIds = audiencesByNode.get(node.localId) || [ownerAudience];
+      const publicRecord = !!publicAudience && audienceIds.includes(publicAudience);
       const nodePayload = {
         serverId: resolution.serverId,
         lemmas: node.lemmas,
         names: uniqueStrings([resolution.displayName, ...(node.names || [])]),
         resolution: resolution.resolution,
-        visibility: "participants",
+        visibility: publicRecord ? "public-workspace" : "participants",
       };
       const nodePayloadHash = payloadHash(nodePayload);
       const existingNode = await doc.get({
@@ -510,13 +596,14 @@ function register({ on, use }) {
       const object = resolutions.get(relation.objectLocalId).serverId;
       const serverId = stableId("rel", principalId, relation.localId);
       const currentAudienceIds = audiencesByNode.get(relation.subjectLocalId) || [ownerAudience];
+      const publicRecord = !!publicAudience && currentAudienceIds.includes(publicAudience);
       const relationPayload = {
         serverId,
         subject,
         predicate,
         object,
         source,
-        visibility: "participants",
+        visibility: publicRecord ? "public-workspace" : "participants",
         tombstone: relation.tombstone,
       };
       const relationPayloadHash = payloadHash(relationPayload);
@@ -640,6 +727,109 @@ function register({ on, use }) {
     };
   });
 
+  on("contextGraphHydrateNamed", async (ctx, meta) => {
+    const principalId = await requirePrincipal(meta);
+    if (!principalId) return errorEnvelope("CONTEXT_AUTH_REQUIRED", "A signed-in context identity is required.", 401);
+    const body = unwrapBody(ctx?.req?.body);
+    if (body.schemaVersion != null && Number(body.schemaVersion) !== SCHEMA_VERSION) {
+      return errorEnvelope("CONTEXT_SCHEMA_UNSUPPORTED", "Context hydration schemaVersion 1 is required.");
+    }
+    const workspaceSu = text((ctx?.path || "").split("/").filter(Boolean)[0] || body.workspaceSu, 180);
+    const workspace = await verifyWorkspace(workspaceSu, principalId);
+    if (!workspace.ok) return errorEnvelope(workspace.code, "The active workspace does not belong to this context identity.", 403);
+
+    const query = text(body.query || body.name);
+    if (!query) return errorEnvelope("CONTEXT_USER_QUERY_REQUIRED", "A user name is required.");
+    const doc = getDocClient();
+    const matches = await findProfiles(doc, query);
+    if (matches.length !== 1) {
+      return {
+        ok: true,
+        response: {
+          schemaVersion: SCHEMA_VERSION,
+          kind: "context-named-hydration-page",
+          query,
+          found: false,
+          ambiguous: matches.length > 1,
+          matches: matches.map(({ serverEntityId, displayName }) => ({ serverEntityId, displayName })),
+          selfServerId: principalEntityId(principalId),
+          nodes: [],
+          relations: [],
+          cursor: null,
+          hydratedAt: new Date().toISOString(),
+        },
+      };
+    }
+
+    const target = matches[0];
+    const limit = Math.max(25, Math.min(500, Number(body.limit || 300)));
+    const page = await doc.query({
+      TableName: tableName(),
+      KeyConditionExpression: "#audience = :audience",
+      ExpressionAttributeNames: { "#audience": "audienceId" },
+      ExpressionAttributeValues: { ":audience": `public:${target.principalId}` },
+      ExclusiveStartKey: decodeCursor(body.cursor),
+      Limit: limit,
+      ConsistentRead: true,
+    }).promise();
+    const nodes = [];
+    const relations = [];
+    for (const item of page?.Items || []) {
+      if (item?.recordType === "node") {
+        const serverId = text(item.serverId, 180);
+        const lemmas = uniqueStrings(item.lemmas).filter((label) => (
+          serverId !== target.serverEntityId
+          || !["speaker", "current speaker", "i", "me", "myself"].includes(normalizedLabel(label))
+        ));
+        nodes.push({
+          serverId,
+          lemmas,
+          names: uniqueStrings([
+            ...(item.names || []),
+            ...(serverId === target.serverEntityId ? [target.displayName] : []),
+          ]),
+          version: Number(item.version || 1),
+        });
+      } else if (item?.recordType === "relation") {
+        relations.push({
+          serverId: text(item.serverId, 180),
+          subject: text(item.subject, 180),
+          predicate: text(item.predicate, 180),
+          object: text(item.object, 180),
+          version: Number(item.version || 1),
+          tombstone: item.tombstone === true,
+          publisherId: text(item.publisherId, 80),
+          source: item.source && typeof item.source === "object" ? item.source : null,
+        });
+      }
+    }
+    if (!nodes.some((node) => node.serverId === target.serverEntityId)) {
+      nodes.push({
+        serverId: target.serverEntityId,
+        lemmas: [],
+        names: uniqueStrings([target.displayName]),
+        version: 1,
+      });
+    }
+    return {
+      ok: true,
+      response: {
+        schemaVersion: SCHEMA_VERSION,
+        kind: "context-named-hydration-page",
+        query,
+        found: true,
+        ambiguous: false,
+        namedServerId: target.serverEntityId,
+        displayName: target.displayName,
+        selfServerId: principalEntityId(principalId),
+        nodes,
+        relations,
+        cursor: encodeCursor(page?.LastEvaluatedKey),
+        hydratedAt: new Date().toISOString(),
+      },
+    };
+  });
+
   return { name: "contextGraph" };
 }
 
@@ -654,7 +844,10 @@ module.exports = {
     normalizedRelation,
     normalizedUserReference,
     profileCandidates,
+    publicWorkspace,
+    declaredProfileName,
     componentAudiences,
+    selfConnectedNodeIds,
     encodeCursor,
     decodeCursor,
   },
