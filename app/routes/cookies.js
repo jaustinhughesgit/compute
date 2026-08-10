@@ -92,6 +92,7 @@ function setupRouter(privateKey, dynamodb, dynamodbLL, uuidv4, s3, ses, openai, 
   reg("./modules/get");
   reg("./modules/file");
   reg("./modules/links");
+  reg("./modules/contextGraph");
   reg("./modules/tasks");
   reg("./modules/validation");
   reg("./modules/updateEntityByAI");

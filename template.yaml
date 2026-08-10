@@ -60,6 +60,7 @@ Resources:
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
           PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
+          CONTEXT_GRAPH_TABLE: !Ref ContextGraphTable
           TEST_RESET_ENABLED: !Ref TestResetEnabled
           TEST_RESET_ENVIRONMENT_ID: !Ref TestResetEnvironmentId
           TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER: !Ref TestResetAllowAnyAuthenticatedUser
@@ -103,6 +104,29 @@ Resources:
                 - dynamodb:DescribeTable
                 - dynamodb:Scan
               Resource: !GetAtt PathFoundationTable.Arn
+            - Sid: UseContextGraphTable
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:BatchWriteItem
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+              Resource:
+                - !GetAtt ContextGraphTable.Arn
+                - !Sub ${ContextGraphTable.Arn}/index/*
+            - Sid: ReadLegacyPublicUserIdentity
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+              Resource:
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/subdomains
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/subdomains/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/users
       Events:
         Compute:
           Type: Api
@@ -124,6 +148,43 @@ Resources:
           KeyType: HASH
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  ContextGraphTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: audienceId
+          AttributeType: S
+        - AttributeName: recordKey
+          AttributeType: S
+        - AttributeName: lookupKey
+          AttributeType: S
+        - AttributeName: principalId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: audienceId
+          KeyType: HASH
+        - AttributeName: recordKey
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: lookupKey-index
+          KeySchema:
+            - AttributeName: lookupKey
+              KeyType: HASH
+            - AttributeName: principalId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
       SSESpecification:
         SSEEnabled: true
 

@@ -38,6 +38,7 @@ function register({ on, use }) {
     // through the function environment so Reset DB survives stack replacement.
     process.env.PROTECTED_ASSETS_TABLE,
     process.env.PROTECTED_ASSET_AUDIT_TABLE,
+    process.env.CONTEXT_GRAPH_TABLE,
   ].filter((tableName, index, all) =>
     String(tableName || '').trim()
     && all.indexOf(tableName) === index

@@ -7,14 +7,16 @@ const path = require("node:path");
 
 const { register } = require("../app/routes/modules/resetDB");
 
-test("Reset DB clears both CloudFormation-named Protected Asset tables", async () => {
+test("Reset DB clears CloudFormation-named identity data tables including Context graph", async () => {
   const previousAssetsTable = process.env.PROTECTED_ASSETS_TABLE;
   const previousAuditTable = process.env.PROTECTED_ASSET_AUDIT_TABLE;
+  const previousContextGraphTable = process.env.CONTEXT_GRAPH_TABLE;
   const previousResetEnabled = process.env.TEST_RESET_ENABLED;
   const previousResetEnvironment = process.env.TEST_RESET_ENVIRONMENT_ID;
   const previousResetUsers = process.env.TEST_RESET_ALLOWED_USER_IDS;
   process.env.PROTECTED_ASSETS_TABLE = "compute-ProtectedAssetsTable-SEKP3UPKPBA2";
   process.env.PROTECTED_ASSET_AUDIT_TABLE = "compute-ProtectedAssetAuditTable-SRJ00SECK5RQ";
+  process.env.CONTEXT_GRAPH_TABLE = "compute-ContextGraphTable-CTX123";
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
@@ -30,6 +32,13 @@ test("Reset DB clears both CloudFormation-named Protected Asset tables", async (
         { AttributeName: "eventKey", KeyType: "RANGE" },
       ],
       items: [{ assetId: "asset-1", eventKey: "event-1" }],
+    }],
+    [process.env.CONTEXT_GRAPH_TABLE, {
+      keySchema: [
+        { AttributeName: "audienceId", KeyType: "HASH" },
+        { AttributeName: "recordKey", KeyType: "RANGE" },
+      ],
+      items: [{ audienceId: "u:42", recordKey: "node#usr_42" }],
     }],
   ]);
   const deletedTables = [];
@@ -98,6 +107,8 @@ test("Reset DB clears both CloudFormation-named Protected Asset tables", async (
     else process.env.PROTECTED_ASSETS_TABLE = previousAssetsTable;
     if (previousAuditTable == null) delete process.env.PROTECTED_ASSET_AUDIT_TABLE;
     else process.env.PROTECTED_ASSET_AUDIT_TABLE = previousAuditTable;
+    if (previousContextGraphTable == null) delete process.env.CONTEXT_GRAPH_TABLE;
+    else process.env.CONTEXT_GRAPH_TABLE = previousContextGraphTable;
     if (previousResetEnabled == null) delete process.env.TEST_RESET_ENABLED;
     else process.env.TEST_RESET_ENABLED = previousResetEnabled;
     if (previousResetEnvironment == null) delete process.env.TEST_RESET_ENVIRONMENT_ID;
@@ -274,4 +285,16 @@ test("confirmed Path foundation storage is retained and excluded from test datab
   assert.match(template, /PATH_FOUNDATION_TABLE:\s*!Ref PathFoundationTable/);
   assert.match(template, /PathFoundationTable:[\s\S]*?DeletionPolicy: Retain/);
   assert.doesNotMatch(resetSource, /PATH_FOUNDATION_TABLE|pathFoundation/);
+});
+
+test("Context graph storage is retained across stacks and included in identity reset", () => {
+  const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
+  const resetSource = fs.readFileSync(
+    path.join(__dirname, "../app/routes/modules/resetDB.js"),
+    "utf8"
+  );
+  assert.match(template, /ContextGraphTable:\s*\n\s+Type: AWS::DynamoDB::Table/);
+  assert.match(template, /CONTEXT_GRAPH_TABLE:\s*!Ref ContextGraphTable/);
+  assert.match(template, /ContextGraphTable:[\s\S]*?DeletionPolicy: Retain/);
+  assert.match(resetSource, /CONTEXT_GRAPH_TABLE/);
 });

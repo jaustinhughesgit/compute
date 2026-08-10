@@ -50,9 +50,11 @@ jobs:
           test -f .aws-sam/build/ComputeFunction/routes/placeholderTransport.js
           test -f .aws-sam/build/ComputeFunction/routes/modules/runEntity.js
           test -f .aws-sam/build/ComputeFunction/routes/modules/protectedAssets.js
+          test -f .aws-sam/build/ComputeFunction/routes/modules/contextGraph.js
           grep -q 'preserveExactPlaceholderValue' .aws-sam/build/ComputeFunction/app.js
           grep -q 'normalizeEntityTransportResult' .aws-sam/build/ComputeFunction/routes/modules/runEntity.js
           grep -q 'protectedAssetExecutorKey' .aws-sam/build/ComputeFunction/routes/modules/protectedAssets.js
+          grep -q 'contextGraphPublish' .aws-sam/build/ComputeFunction/routes/modules/contextGraph.js
 
       - name: Deploy Compute stack
         env:
@@ -138,5 +140,18 @@ jobs:
           aws cloudformation describe-stack-resource \
             --stack-name compute \
             --logical-resource-id PathFoundationTable \
+            --query 'StackResourceDetail.ResourceStatus' \
+            --output text | grep -Eq 'CREATE_COMPLETE|UPDATE_COMPLETE'
+
+          CONTEXT_GRAPH_TABLE="$(aws lambda get-function-configuration \
+            --function-name "$FUNCTION_NAME" \
+            --query 'Environment.Variables.CONTEXT_GRAPH_TABLE' \
+            --output text)"
+          test -n "$CONTEXT_GRAPH_TABLE"
+          test "$CONTEXT_GRAPH_TABLE" != "None"
+
+          aws cloudformation describe-stack-resource \
+            --stack-name compute \
+            --logical-resource-id ContextGraphTable \
             --query 'StackResourceDetail.ResourceStatus' \
             --output text | grep -Eq 'CREATE_COMPLETE|UPDATE_COMPLETE'
