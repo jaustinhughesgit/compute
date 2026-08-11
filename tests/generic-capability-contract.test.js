@@ -959,6 +959,8 @@ test("discovery identifies an existing entity that should be extended", async ()
     availableCapabilities: [manifest],
   });
   assert.equal(discovery.decision, "extend");
+  assert.equal(discovery.jurisdiction.effectClass, "repair.capability");
+  assert.equal(discovery.evolution.outcome, "repair");
   assert.equal(discovery.existingManifest.entityId, "entity-1");
   assert.equal(discovery.buildCommand, null);
 });

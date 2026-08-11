@@ -68,6 +68,8 @@ test("ContextDB recall misses cannot be promoted into JPL entities", async () =>
   assert.equal(result.decision, "not_compute");
   assert.equal(result.source, "local-graph-router");
   assert.equal(result.diagnostics.code, "LOCAL_GRAPH_PATH_REQUIRED");
+  assert.equal(result.jurisdiction.effectClass, "read.graph");
+  assert.equal(result.jurisdiction.artifactDecision, "query_data");
   assert.equal(modelCalls, 0);
 });
 
@@ -118,6 +120,8 @@ test("compute discovery proceeds after the browser exhausts local graph repair",
   });
 
   assert.equal(result.decision, "build");
+  assert.equal(result.jurisdiction.effectClass, "define.capability");
+  assert.equal(result.evolution.outcome, "build");
   assert.equal(modelCalls, 1);
 });
 

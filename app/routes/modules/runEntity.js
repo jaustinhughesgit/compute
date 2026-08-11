@@ -19,6 +19,11 @@ const {
   sanitizeDiagnosticValue,
   valueType,
 } = require("../diagnosticSanitizer");
+const {
+  attachResult: attachExecutionResult,
+  computeInvocation,
+  effect: executionEffect,
+} = require("../../executionEnvelope");
 
 function requestObject(req) {
   const body = req && typeof req.body === "object" && req.body ? req.body : {};
@@ -186,6 +191,18 @@ function register({ on, use }) {
     const request = requestObject(req);
     const requestedOperationId = String(request.operationId || "").trim().toLowerCase();
     const requestedCapabilityId = String(request.capabilityId || "").trim().toLowerCase();
+    let executionInvocation = null;
+    try {
+      executionInvocation = computeInvocation(request.execution || null, {
+        entityId: actionFile,
+        operationId: requestedOperationId || "execute",
+      });
+    } catch (error) {
+      return buildExecutionError(new CapabilityError(
+        error?.code || "EXECUTION_ENVELOPE_INVALID",
+        "The Compute execution envelope is invalid."
+      ), { operationId: requestedOperationId || null, entityId: actionFile });
+    }
     if (typeof shared.getCanonicalComposition === "function") {
       try {
         await shared.getCanonicalComposition(dynamodb).authorizeEndpoint(actionFile, "execute", {
@@ -194,9 +211,9 @@ function register({ on, use }) {
           requestId: req?.headers?.["x-request-id"],
         });
       } catch (error) {
-        return buildExecutionError(new CapabilityError(
+        return attachExecutionResult(buildExecutionError(new CapabilityError(
           error?.code || "GOVERNANCE_FORBIDDEN", "Entity execution is not authorized."
-        ), { capabilityId: requestedCapabilityId || null, operationId: requestedOperationId || null, entityId: actionFile });
+        ), { capabilityId: requestedCapabilityId || null, operationId: requestedOperationId || null, entityId: actionFile }), executionInvocation);
       }
     }
     let manifest = null;
@@ -204,21 +221,21 @@ function register({ on, use }) {
       manifest = await registry.getByEntity(actionFile, { includeInactive: true });
     } catch (error) {
       if (requestedCapabilityId) {
-        return buildExecutionError(new CapabilityError("REGISTRY_UNAVAILABLE", "The capability registry is unavailable."), {
+        return attachExecutionResult(buildExecutionError(new CapabilityError("REGISTRY_UNAVAILABLE", "The capability registry is unavailable."), {
           capabilityId: requestedCapabilityId,
           operationId: requestedOperationId,
           entityId: actionFile,
-        });
+        }), executionInvocation);
       }
     }
 
     if (!manifest) {
       if (requestedCapabilityId || requestedOperationId) {
-        return buildExecutionError(new CapabilityError("CAPABILITY_NOT_FOUND", `No capability is registered for entity ${actionFile}`), {
+        return attachExecutionResult(buildExecutionError(new CapabilityError("CAPABILITY_NOT_FOUND", `No capability is registered for entity ${actionFile}`), {
           capabilityId: requestedCapabilityId || null,
           operationId: requestedOperationId || null,
           entityId: actionFile,
-        });
+        }), executionInvocation);
       }
       return runLegacyEntity({ getSub, actionFile, req, res, next, capabilityInvocation: null });
     }
@@ -285,11 +302,19 @@ function register({ on, use }) {
             providerRequestTimeoutMs: providerTimeoutMs,
           });
       const rawResult = await withTimeout(executionPromise, manifest.execution.timeoutMs);
-      return buildExecutionSuccess({
+      return attachExecutionResult(buildExecutionSuccess({
         manifest,
         operation,
         result: validateEntityResult(operation, rawResult),
         source: "compute-entity",
+      }), executionInvocation, {
+        effects: [executionEffect({
+          type: "governance",
+          action: "entity.execute",
+          status: "applied",
+          target: { kind: "entity", id: actionFile },
+          payload: { capabilityId: manifest.capabilityId, operationId: operation.operationId },
+        })],
       });
     } catch (error) {
       const normalized = normalizeProviderExecutionError(
@@ -302,7 +327,7 @@ function register({ on, use }) {
         operationId: context.operationId,
         code: normalized?.code || "EXECUTION_FAILED",
       });
-      return buildExecutionError(normalized, context);
+      return attachExecutionResult(buildExecutionError(normalized, context), executionInvocation);
     } finally {
       protectedUse?.dispose?.();
     }

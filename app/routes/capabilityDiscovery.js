@@ -6,6 +6,7 @@
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
+const { jurisdictionDecision } = require("../intentJurisdiction");
 
 const {
   validateCapabilityBuildRequest,
@@ -460,6 +461,15 @@ function summarizeCapabilities(manifests) {
 
 function discoveryEnvelope({ decision, source, confidence, reason, utterance, capabilityId = null, operationId = null, inputValues = null, manifest = null, buildRequest = null, diagnostics = null }) {
   const build = decision === "build" && buildRequest;
+  const jurisdiction = jurisdictionDecision({
+    utterance,
+    legacyDecision: decision,
+    source,
+    manifest,
+    operationId,
+    capabilityRequest: buildRequest,
+    localGraph: source === "local-graph-router",
+  });
   return {
     kind: "computeCapabilityDiscovery",
     schemaVersion: 1,
@@ -482,6 +492,11 @@ function discoveryEnvelope({ decision, source, confidence, reason, utterance, ca
       capabilityRequest: buildRequest,
     } : null,
     diagnostics: diagnostics || null,
+    jurisdiction,
+    evolution: {
+      outcome: jurisdiction.evolutionOutcome,
+      reasonCode: jurisdiction.reasonCode,
+    },
   };
 }
 
