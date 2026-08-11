@@ -1,6 +1,6 @@
 /**
- * Platform: Executes authorized compute entities while preserving capability contracts, lineage, protected assets, and typed responses.
- * Technical: Shared-router handler validates inputs, invokes manifest or legacy entity execution with timeouts, and normalizes results/errors.
+ * Platform: Executes one governed Compute entity target without collapsing future parent middleware or protected-asset boundaries.
+ * Technical: Authorizes `execute`, validates manifest inputs, invokes current target execution with timeouts, and normalizes results/errors.
  */
 "use strict";
 
@@ -186,6 +186,19 @@ function register({ on, use }) {
     const request = requestObject(req);
     const requestedOperationId = String(request.operationId || "").trim().toLowerCase();
     const requestedCapabilityId = String(request.capabilityId || "").trim().toLowerCase();
+    if (typeof shared.getCanonicalComposition === "function") {
+      try {
+        await shared.getCanonicalComposition(dynamodb).authorizeEndpoint(actionFile, "execute", {
+          actorId: String(ctx.cookie?.e || req?.cookies?.e || ""),
+          cookie: ctx.cookie || req?.cookies || {}, body: req?.body,
+          requestId: req?.headers?.["x-request-id"],
+        });
+      } catch (error) {
+        return buildExecutionError(new CapabilityError(
+          error?.code || "GOVERNANCE_FORBIDDEN", "Entity execution is not authorized."
+        ), { capabilityId: requestedCapabilityId || null, operationId: requestedOperationId || null, entityId: actionFile });
+      }
+    }
     let manifest = null;
     try {
       manifest = await registry.getByEntity(actionFile, { includeInactive: true });

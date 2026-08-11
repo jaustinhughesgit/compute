@@ -18,6 +18,7 @@ function register({ on, use }) {
     convertToJSON,
     // cookies/auth
     manageCookie,
+    getCanonicalComposition,
     // raw deps
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
@@ -47,6 +48,11 @@ function register({ on, use }) {
     const parent = await getSub(fileID, "su", dynamodb);
     setIsPublic(parent.Items[0].z);
     const eParent = await getEntity(parent.Items[0].e, dynamodb);
+    const composition = getCanonicalComposition(dynamodb);
+    await composition.authorizeEndpoint(fileID, "edit", {
+      actorId: String(cookie.e || ""), cookie, body: req?.body,
+      requestId: req?.headers?.["x-request-id"], metadata: { primitive: "extend" },
+    });
 
     const e = await incrementCounterAndGetNewValue("eCounter", dynamodb);
     const aNew = await incrementCounterAndGetNewValue("wCounter", dynamodb);
@@ -130,6 +136,11 @@ function register({ on, use }) {
     const group = eParent.Items[0].g;
     const details3 = await addVersion(e.toString(), "g", group, "1", dynamodb);
     await updateEntityCall(e.toString(), "g", group, details3);
+    await composition.persist({
+      primitive: "extend", sourceEntityId: String(eParent.Items[0].e), targetEntityId: String(e),
+    }, {
+      actorId: String(cookie.e || ""), requestId: req?.headers?.["x-request-id"],
+    });
 
     // final payload mirrors legacy (convertToJSON call & return)
     const mainObj = await convertToJSON(

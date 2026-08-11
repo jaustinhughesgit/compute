@@ -311,3 +311,13 @@ test("canonical projections are retained, encrypted, and included in isolated id
   assert.match(template, /CanonicalProjectionTable:[\s\S]*?SSEEnabled: true/);
   assert.match(resetSource, /CANONICAL_PROJECTION_TABLE/);
 });
+
+test("canonical governance audit is retained, encrypted, and included in isolated identity reset", () => {
+  const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
+  const resetSource = fs.readFileSync(path.join(__dirname, "../app/routes/modules/resetDB.js"), "utf8");
+  assert.match(template, /CanonicalAuditTable:\s*\n\s+Type: AWS::DynamoDB::Table/);
+  assert.match(template, /CANONICAL_AUDIT_TABLE:\s*!Ref CanonicalAuditTable/);
+  assert.match(template, /CanonicalAuditTable:[\s\S]*?DeletionPolicy: Retain/);
+  assert.match(template, /CanonicalAuditTable:[\s\S]*?SSEEnabled: true/);
+  assert.match(resetSource, /CANONICAL_AUDIT_TABLE/);
+});

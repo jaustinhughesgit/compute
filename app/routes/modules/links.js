@@ -8,7 +8,7 @@ function register({ on, use }) {
   const {
     // shared helpers
     getDocClient, getS3,
-    getSub, convertToJSON,
+    getSub, convertToJSON, getCanonicalComposition,
     putLink, deleteLink, migrateLinksFromEntities,
     // raw deps bag
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
@@ -166,8 +166,19 @@ function register({ on, use }) {
     const parentID = segs[1] || "";  // su of parent
     // prop is optional 3rd segment; URL-decoded & normalized
     const propSU = segs[2] || ""; // already an SU, not a surface
+    const actorId = String(meta?.cookie?.e || "");
+    const composition = getCanonicalComposition();
+    const authorization = await composition.authorizeRelation({
+      primitive: "link", sourceAddressId: parentID, targetAddressId: childID,
+      context: {
+        actorId, cookie: meta?.cookie || {}, body: req?.body,
+        requestId: req?.headers?.["x-request-id"], parameters: propSU ? { propertyAddressId: propSU } : {},
+      },
+    });
 
-    // attempt link only if both found; ignore else
+    let legacyLinked = false;
+    // Retain the legacy best-effort link write, then require the canonical
+    // conformance write before acknowledging the mutation.
     try {
       const childSub = await getSub(childID, "su");
       const parentSub = await getSub(parentID, "su");
@@ -198,11 +209,15 @@ function register({ on, use }) {
             console.warn("link: failed to set creator on link", updErr);
           }
         }
+        legacyLinked = true;
       }
     } catch (err) {
-      // keep behavior: don't throw; proceed to return current child view
-      console.error("link action failed (continuing to return child view):", err);
+      console.error("link action failed:", err);
+      throw err;
     }
+    if (legacyLinked) await composition.persist(authorization.edge, {
+      actorId, requestId: req?.headers?.["x-request-id"],
+    });
 
     // return updated child view (strict parity)
     const rb = legacyWrapBody(req?.body);
@@ -235,18 +250,38 @@ function register({ on, use }) {
     const segs = splitPath(path);
     const childID = segs[0] || "";   // su of child
     const parentID = segs[1] || "";  // su of parent
+    const actorId = String(meta?.cookie?.e || "");
+    const composition = getCanonicalComposition();
+    const authorization = await composition.authorizeRelation({
+      primitive: "link", sourceAddressId: parentID, targetAddressId: childID,
+      context: {
+        actorId, cookie: meta?.cookie || {}, body: req?.body,
+        requestId: req?.headers?.["x-request-id"],
+      },
+    });
 
+    let legacyUnlinked = false;
     try {
       const childSub = await getSub(childID, "su");
       const parentSub = await getSub(parentID, "su");
       if (childSub?.Items?.length && parentSub?.Items?.length) {
         const childE = childSub.Items[0].e;
         const parentE = parentSub.Items[0].e;
-        await deleteLink(parentE, childE);
+        // Canonical rows become versioned tombstones. Only pre-canonical rows
+        // need the legacy physical delete before the conformance write.
+        if (!authorization.existingRelation?.canonicalVersion) {
+          await deleteLink(parentE, childE);
+        }
+        legacyUnlinked = true;
       }
     } catch (err) {
-      console.error("unlink action failed (continuing to return child view):", err);
+      console.error("unlink action failed:", err);
+      throw err;
     }
+    if (legacyUnlinked) await composition.persist(authorization.edge, {
+      actorId, requestId: req?.headers?.["x-request-id"], tombstone: true,
+      previous: authorization.existingRelation,
+    });
 
     const rb = legacyWrapBody(req?.body);
     const d = ctx.deps || {};

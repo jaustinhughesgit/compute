@@ -5,6 +5,7 @@
 const moment = require("moment-timezone");
 const crypto = require("crypto");
 const { createCanonicalPersistence } = require("../persistence/canonicalPersistence");
+const { createCanonicalComposition } = require("../persistence/canonicalComposition");
 
 const isObject = (val) =>
   val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
@@ -70,6 +71,7 @@ function createShared(deps = {}) {
   const middlewares = [];
   const registry = Object.create(null);
   const persistenceByClient = new WeakMap();
+  const compositionByClient = new WeakMap();
 
   function getCanonicalPersistence(ddb = dynamodb) {
     if (!ddb || (typeof ddb !== "object" && typeof ddb !== "function")) {
@@ -81,6 +83,38 @@ function createShared(deps = {}) {
       persistenceByClient.set(ddb, persistence);
     }
     return persistence;
+  }
+
+  function getCanonicalComposition(ddb = dynamodb) {
+    let service = compositionByClient.get(ddb);
+    if (!service) {
+      service = createCanonicalComposition({
+        persistence: getCanonicalPersistence(ddb),
+        verifyLegacy: async (addressId, context) => {
+          const result = await verifyThis(addressId, context.cookie || {}, ddb, context.body);
+          if (!result?.verified) return false;
+          if (result.isPublic) return ["find", "read", "aggregate"].includes(context.action);
+          const actionChars = {
+            find: "ro", read: "ro", aggregate: "ro", use: "ro", execute: "eo",
+            set: "awo", edit: "wo", delete: "do", delegate: "po", publish: "o", govern: "o",
+          };
+          const allowed = actionChars[context.action] || "";
+          const entity = result.entity?.Items?.[0];
+          if (!entity || !context.cookie?.gi) return false;
+          const group = await getGroup(entity.g, ddb);
+          const accessIds = new Set([...(entity.ai || []), ...(group.Items?.[0]?.ai || [])].map(String));
+          const verified = await getVerified("gi", String(context.cookie.gi), ddb, context.body);
+          for (const row of verified.Items || []) {
+            if (!row.bo || !accessIds.has(String(row.ai))) continue;
+            const access = await getAccess(String(row.ai), ddb);
+            if ([...String(access.Items?.[0]?.ac || "")].some((char) => allowed.includes(char))) return true;
+          }
+          return false;
+        },
+      });
+      compositionByClient.set(ddb, service);
+    }
+    return service;
   }
 
   const on = (action, handler) => {
@@ -301,7 +335,9 @@ function createShared(deps = {}) {
         ExpressionAttributeValues: { ":e": e },
       })
       .promise();
-    return (res.Items || []).map((it) => it.part);
+    return (res.Items || [])
+      .filter((it) => it.tombstone !== true && it.canonicalLifecycle?.state !== "deleted")
+      .map((it) => it.part);
   }
 
   async function getLinkedParents(e, ddb = dynamodb) {
@@ -313,7 +349,9 @@ function createShared(deps = {}) {
         ExpressionAttributeValues: { ":e": e },
       })
       .promise();
-    return (res.Items || []).map((it) => it.whole);
+    return (res.Items || [])
+      .filter((it) => it.tombstone !== true && it.canonicalLifecycle?.state !== "deleted")
+      .map((it) => it.whole);
   }
 
   async function migrateLinksFromEntities(ddb = dynamodb) {
@@ -1285,7 +1323,7 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
     getHead, sendBack,
 
     // deps exposure
-    getDocClient, getCanonicalPersistence, getS3, getSES,
+    getDocClient, getCanonicalPersistence, getCanonicalComposition, getS3, getSES,
 
     // also surface LLM/AWS if modules want them
     deps: { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }

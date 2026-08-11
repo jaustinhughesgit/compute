@@ -17,6 +17,7 @@ const BASE_TABLES = Object.freeze({
   users: "users",
   contextSidecar: "context_graph",
   canonicalProjections: "canonical_projection",
+  canonicalAudit: "canonical_audit",
   retrievalPostings: "anchor_bands",
 });
 
@@ -25,6 +26,7 @@ function resolvedTables(overrides = {}, env = process.env) {
     ...BASE_TABLES,
     contextSidecar: env.CONTEXT_GRAPH_TABLE || BASE_TABLES.contextSidecar,
     canonicalProjections: env.CANONICAL_PROJECTION_TABLE || BASE_TABLES.canonicalProjections,
+    canonicalAudit: env.CANONICAL_AUDIT_TABLE || BASE_TABLES.canonicalAudit,
     grants: env.PERM_GRANTS_TABLE || BASE_TABLES.grants,
     retrievalPostings: env.ANCHOR_BANDS_TABLE || BASE_TABLES.retrievalPostings,
     ...overrides,
@@ -216,6 +218,73 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
     }),
   });
 
+  const governance = Object.freeze({
+    enabled: Boolean(tableNames.canonicalAudit || (env || process.env).CANONICAL_AUDIT_TABLE),
+    appendAudit: (event, options = {}) => invoke(documentClient, "put", {
+      TableName: tables.canonicalAudit, Item: required(event, "audit event"), ...options,
+    }),
+    writeRelation({ relation, expectedVersion = 0, versionRecord, audit }) {
+      const expected = Math.max(0, Number(expectedVersion) || 0);
+      const relationPut = {
+        TableName: tables.relations, Item: required(relation, "relation"),
+        ConditionExpression: expected
+          ? "#version = :expected" : "attribute_not_exists(#version)",
+        ExpressionAttributeNames: { "#version": "canonicalVersion" },
+        ...(expected ? { ExpressionAttributeValues: { ":expected": expected } } : {}),
+      };
+      const items = [{ Put: relationPut }];
+      if (versionRecord) items.push({ Put: { TableName: tables.versions, Item: versionRecord } });
+      if (audit && governance.enabled) items.push({ Put: { TableName: tables.canonicalAudit, Item: audit } });
+      return invoke(documentClient, "transactWrite", { TransactItems: items });
+    },
+    async auditByResource(resourceId, { month = new Date().toISOString().slice(0, 7), limit = 100 } = {}) {
+      const pages = await Promise.all(Array.from({ length: 16 }, (_, shard) => invoke(documentClient, "query", {
+        TableName: tables.canonicalAudit,
+        KeyConditionExpression: "#partition = :partition",
+        ExpressionAttributeNames: { "#partition": "auditPartition" },
+        ExpressionAttributeValues: {
+          ":partition": `${required(resourceId, "resourceId")}#${month}#${String(shard).padStart(2, "0")}`,
+        },
+        ScanIndexForward: false,
+        Limit: Math.max(1, Math.min(100, Number(limit) || 100)),
+      })));
+      return pages.flatMap((page) => page?.Items || [])
+        .sort((a, b) => String(b.eventKey).localeCompare(String(a.eventKey)))
+        .slice(0, Math.max(1, Math.min(100, Number(limit) || 100)));
+    },
+    transition({ resourceType, key, expectedVersion, nextVersion, lifecycle, updatedAt, versionRecord, audit }) {
+      const resources = {
+        entity: [tables.entities, ["e"]], address: [tables.addresses, ["su"]],
+        group: [tables.groups, ["g"]], relation: [tables.relations, ["id"]],
+        grant: [tables.grants, ["entityID", "principalID"]],
+      };
+      const selected = resources[resourceType];
+      if (!selected) throw new Error(`Lifecycle resource type '${resourceType}' is not supported`);
+      const [TableName, keyNames] = selected;
+      const resourceKey = typeof key === "object"
+        ? Object.fromEntries(keyNames.map((name) => [name, required(key[name], `resource key ${name}`)]))
+        : { [keyNames[0]]: required(key, "resource key") };
+      const expected = Math.max(1, Number(expectedVersion) || 1);
+      const condition = expected === 1
+        ? "attribute_not_exists(#version) OR #version = :expected"
+        : "#version = :expected";
+      const items = [{ Update: {
+        TableName, Key: resourceKey,
+        UpdateExpression: "SET #version = :next, #lifecycle = :lifecycle, #updatedAt = :updatedAt",
+        ConditionExpression: condition,
+        ExpressionAttributeNames: {
+          "#version": "canonicalVersion", "#lifecycle": "canonicalLifecycle", "#updatedAt": "updatedAt",
+        },
+        ExpressionAttributeValues: {
+          ":expected": expected, ":next": Number(nextVersion), ":lifecycle": lifecycle, ":updatedAt": updatedAt,
+        },
+      } }];
+      if (versionRecord) items.push({ Put: { TableName: tables.versions, Item: versionRecord } });
+      if (audit && governance.enabled) items.push({ Put: { TableName: tables.canonicalAudit, Item: audit } });
+      return invoke(documentClient, "transactWrite", { TransactItems: items });
+    },
+  });
+
   const identity = Object.freeze({
     getUser: (userId, { consistentRead = true } = {}) => invoke(documentClient, "get", {
       TableName: tables.users,
@@ -359,6 +428,7 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
     tables,
     foundation,
     authorization,
+    governance,
     identity,
     context,
     canonical,

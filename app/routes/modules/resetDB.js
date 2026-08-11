@@ -43,6 +43,7 @@ function register({ on, use }) {
     process.env.PROTECTED_ASSET_AUDIT_TABLE,
     process.env.CONTEXT_GRAPH_TABLE,
     process.env.CANONICAL_PROJECTION_TABLE,
+    process.env.CANONICAL_AUDIT_TABLE,
   ].filter((tableName, index, all) =>
     String(tableName || '').trim()
     && all.indexOf(tableName) === index

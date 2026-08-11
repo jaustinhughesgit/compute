@@ -12,6 +12,7 @@ function register({ on, use }) {
     createWord, addVersion, createEntity, updateEntity,
     createSubdomain, createFile, convertToJSON,
     setIsPublic,
+    getCanonicalComposition,
     getS3,
     deps, // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
@@ -42,6 +43,14 @@ function register({ on, use }) {
     const subMapParent = await getSub(mappedParent, "su", dynamodb);
     const mpE = await getEntity(subMapParent.Items[0].e, dynamodb);
     const mrE = await getEntity(subRefParent.Items[0].e, dynamodb);
+    const composition = getCanonicalComposition(dynamodb);
+    await composition.authorizeRelation({
+      primitive: "map", sourceAddressId: mappedParent, targetAddressId: referencedParent,
+      context: {
+        actorId: String(cookie.e || ""), cookie, body: req?.body,
+        requestId: req?.headers?.["x-request-id"],
+      },
+    });
 
     const e    = await incrementCounterAndGetNewValue("eCounter", dynamodb);
     const aNew = await incrementCounterAndGetNewValue("wCounter", dynamodb);
@@ -217,6 +226,12 @@ function register({ on, use }) {
       details2a.c,
       dynamodb
     );
+    await composition.persist({
+      primitive: "map", sourceEntityId: String(mpE.Items[0].e), targetEntityId: String(e),
+      parameters: { mappedSourceEntityId: String(mrE.Items[0].e) },
+    }, {
+      actorId: String(cookie.e || ""), requestId: req?.headers?.["x-request-id"],
+    });
 
     // Request-body compatibility: support flattened req.body and legacy body.body
     let reqBodyCompat = {};

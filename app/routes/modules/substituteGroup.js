@@ -12,6 +12,7 @@ function register({ on, use }) {
       addVersion,
       updateEntity,
       convertToJSON,
+      getCanonicalComposition,
       deps, // { uuidv4, ... }
     } = use();
 
@@ -35,6 +36,16 @@ function register({ on, use }) {
       throw new Error(`substituteGroup: subdomain not found`);
     }
 
+    const composition = getCanonicalComposition(dynamodb);
+    const authorization = await composition.authorizeRelation({
+      primitive: "substitute", sourceAddressId: newSubstitutingSU,
+      targetAddressId: headSubstitutingSU,
+      context: {
+        actorId: String(ensuredCookie.e || ""), cookie: ensuredCookie, body: ctx.req?.body,
+        requestId: ctx.req?.headers?.["x-request-id"],
+      },
+    });
+
     const sge = await getEntity(sg.Items[0].e, dynamodb);
     const sde = await getEntity(sd.Items[0].e, dynamodb);
 
@@ -53,6 +64,9 @@ function register({ on, use }) {
       v.c,
       dynamodb
     );
+    await composition.persist(authorization.edge, {
+      actorId: String(ensuredCookie.e || ""), requestId: ctx.req?.headers?.["x-request-id"],
+    });
 
     const headOfSub = await getSub(sge.Items[0].h, "e", dynamodb);
     const body = ctx.req?.body || {};

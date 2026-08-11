@@ -62,6 +62,7 @@ Resources:
           PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
           CONTEXT_GRAPH_TABLE: !Ref ContextGraphTable
           CANONICAL_PROJECTION_TABLE: !Ref CanonicalProjectionTable
+          CANONICAL_AUDIT_TABLE: !Ref CanonicalAuditTable
           CANONICAL_AUDIENCE_SHARDS: '32'
           CANONICAL_WORD_SHARDS: '256'
           CANONICAL_PROFILE_SHARDS: '64'
@@ -130,6 +131,16 @@ Resources:
                 - dynamodb:DescribeTable
                 - dynamodb:Scan
               Resource: !GetAtt CanonicalProjectionTable.Arn
+            - Sid: UseCanonicalAuditTable
+              Effect: Allow
+              Action:
+                - dynamodb:PutItem
+                - dynamodb:Query
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+                - dynamodb:BatchWriteItem
+                - dynamodb:TransactWriteItems
+              Resource: !GetAtt CanonicalAuditTable.Arn
             - Sid: UseCanonicalEntitySubstrate
               Effect: Allow
               Action:
@@ -140,6 +151,7 @@ Resources:
                 - dynamodb:BatchGetItem
                 - dynamodb:BatchWriteItem
                 - dynamodb:Scan
+                - dynamodb:TransactWriteItems
               Resource:
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words/index/*
@@ -239,6 +251,27 @@ Resources:
         - AttributeName: pk
           KeyType: HASH
         - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  CanonicalAuditTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: auditPartition
+          AttributeType: S
+        - AttributeName: eventKey
+          AttributeType: S
+      KeySchema:
+        - AttributeName: auditPartition
+          KeyType: HASH
+        - AttributeName: eventKey
           KeyType: RANGE
       PointInTimeRecoverySpecification:
         PointInTimeRecoveryEnabled: true
@@ -355,3 +388,6 @@ Outputs:
   CanonicalProjectionTableName:
     Description: Rebuildable sharded indexes over canonical entity records
     Value: !Ref CanonicalProjectionTable
+  CanonicalAuditTableName:
+    Description: Append-only sharded authorization and lifecycle evidence
+    Value: !Ref CanonicalAuditTable

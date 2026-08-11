@@ -11,7 +11,7 @@ const {
 function recordingClient(responses = {}) {
   const calls = [];
   const client = { calls };
-  for (const method of ["query", "get", "put", "update", "delete", "scan", "batchGet", "batchWrite"]) {
+  for (const method of ["query", "get", "put", "update", "delete", "scan", "batchGet", "batchWrite", "transactWrite"]) {
     client[method] = (params) => ({
       promise: async () => {
         calls.push({ method, params });
@@ -30,12 +30,14 @@ test("table resolution keeps physical names inside the persistence port", () => 
       CONTEXT_GRAPH_TABLE: "ContextCompatibility",
       PERM_GRANTS_TABLE: "ActionGrants",
       ANCHOR_BANDS_TABLE: "PositionPostings",
+      CANONICAL_AUDIT_TABLE: "GovernanceAudit",
     }
   );
   assert.equal(tables.words, "WordsV2");
   assert.equal(tables.contextSidecar, "ContextCompatibility");
   assert.equal(tables.grants, "ActionGrants");
   assert.equal(tables.retrievalPostings, "PositionPostings");
+  assert.equal(tables.canonicalAudit, "GovernanceAudit");
   assert.equal(Object.isFrozen(tables), true);
 });
 
@@ -127,4 +129,37 @@ test("canonical publication markers are written only after facts and projections
       pk: "SYNC#1#00", sk: "IDEMPOTENCY#input-1", recordType: "canonical-publication",
     } } }] },
   ]);
+});
+
+test("governance lifecycle persistence conditionally writes state, immutable version, and audit", async () => {
+  const client = recordingClient({ transactWrite: {} });
+  const persistence = createCanonicalPersistence({
+    documentClient: client, tableNames: { canonicalAudit: "GovernanceAudit" },
+  });
+  await persistence.governance.transition({
+    resourceType: "entity", key: "entity-1", expectedVersion: 2, nextVersion: 3,
+    lifecycle: { state: "deprecated", tombstone: false }, updatedAt: "2026-08-11T12:00:00.000Z",
+    versionRecord: { v: "v3", d: 3 }, audit: { auditPartition: "a", eventKey: "b" },
+  });
+  const items = client.calls[0].params.TransactItems;
+  assert.equal(items[0].Update.TableName, "entities");
+  assert.equal(items[0].Update.ConditionExpression, "#version = :expected");
+  assert.equal(items[1].Put.TableName, "versions");
+  assert.equal(items[2].Put.TableName, "GovernanceAudit");
+});
+
+test("composition relation, immutable version, and audit share one conditional transaction", async () => {
+  const client = recordingClient({ transactWrite: {} });
+  const persistence = createCanonicalPersistence({
+    documentClient: client, tableNames: { canonicalAudit: "GovernanceAudit" },
+  });
+  await persistence.governance.writeRelation({
+    relation: { id: "cmp-1", canonicalVersion: 2 }, expectedVersion: 1,
+    versionRecord: { v: "v2", d: 2 }, audit: { auditPartition: "a", eventKey: "b" },
+  });
+  const items = client.calls[0].params.TransactItems;
+  assert.equal(items[0].Put.TableName, "links");
+  assert.equal(items[0].Put.ConditionExpression, "#version = :expected");
+  assert.equal(items[1].Put.TableName, "versions");
+  assert.equal(items[2].Put.TableName, "GovernanceAudit");
 });

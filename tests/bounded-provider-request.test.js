@@ -245,3 +245,24 @@ test("the entity boundary passes its provider deadline into existing entity exec
   assert.equal(response.ok, true);
   assert.equal(execution.providerRequestTimeoutMs, 10000);
 });
+
+test("the entity boundary applies canonical execute governance before capability execution", async () => {
+  let handler;
+  let executed = false;
+  const shared = {
+    deps: { dynamodb: {} },
+    getCanonicalComposition: () => ({ authorizeEndpoint: async () => {
+      const error = new Error("denied");
+      error.code = "GOVERNANCE_FORBIDDEN";
+      throw error;
+    } }),
+    runComputeEntity: async () => { executed = true; },
+  };
+  register({ on: (_name, callback) => { handler = callback; }, use: () => shared });
+  const response = await handler({
+    path: "private-entity", cookie: { e: "2" }, req: { body: {}, cookies: { e: "2" } }, res: {},
+  });
+  assert.equal(response.ok, false);
+  assert.equal(response.error.code, "GOVERNANCE_FORBIDDEN");
+  assert.equal(executed, false);
+});
