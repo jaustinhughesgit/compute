@@ -1,5 +1,7 @@
-// modules/groups.js
-//"use strict";
+/**
+ * Platform: Applies group creation, use, and substitution as general entity-composition primitives.
+ * Technical: Registers `newGroup`, `useGroup`, and `substituteGroup` with legacy path/body and response compatibility.
+ */
 
 function register({ on, use }) {
   const {

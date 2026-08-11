@@ -1,4 +1,7 @@
-// modules/resetDB.js
+/**
+ * Platform: Resets only an explicitly enabled isolated test environment; client confirmation is never the authority.
+ * Technical: `resetDBStatus` reports non-secret availability and `resetDB` enforces caller/environment gates before batched deletes/counter resets.
+ */
 "use strict";
 
 function register({ on, use }) {

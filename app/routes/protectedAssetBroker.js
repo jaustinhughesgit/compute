@@ -1,3 +1,7 @@
+/**
+ * Platform: Enforces explicit trusted-server protected-asset use at the Compute execution boundary.
+ * Technical: Loads owner-bound ciphertext, authorizes host/operation policy, decrypts through KMS, injects scoped fields, and audits use.
+ */
 "use strict";
 
 const crypto = require("node:crypto");

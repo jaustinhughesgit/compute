@@ -1,5 +1,7 @@
-// modules/groups/newGroup.js
-// "newGroup"  → /<newGroupName>/<headEntityName>/<headUUID?>
+/**
+ * Platform: Creates a group as a governed composition of entities, subdomains, access, and files.
+ * Technical: Registers newGroup for /<groupName>/<headEntityName>/<headUUID?> and persists its linked records.
+ */
 function register({ on, use }) {
   on("newGroup", async (ctx, { cookie }) => {
     const {
@@ -24,7 +26,6 @@ function register({ on, use }) {
     const dynamodb = getDocClient();
     const { uuidv4, ses } = deps;
 
-    // NEW: table env for owner grants
     const PERM_GRANTS_TABLE = process.env.PERM_GRANTS_TABLE || "perm_grants";
 
     const segs = String(ctx.path || "").split("/").filter(Boolean);

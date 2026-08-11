@@ -1,3 +1,7 @@
+/**
+ * Platform: Supports entity/media processing inside the Compute Lambda image toolchain.
+ * Technical: Returns a small wrapper that invokes the bundled ImageMagick `convert` binary with explicit input/output paths.
+ */
 const { execFile } = require('child_process');
 const util = require('util');
 

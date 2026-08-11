@@ -1,3 +1,7 @@
+/**
+ * Platform: Exposes governed capability discovery, registration, status, and listing through the shared action router.
+ * Technical: `register({on,use})` installs owner-scoped handlers over validated manifests and the DynamoDB capability registry.
+ */
 "use strict";
 
 const {

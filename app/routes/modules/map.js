@@ -1,4 +1,7 @@
-// modules/map.js
+/**
+ * Platform: Applies the general `map` composition primitive across existing entity/subdomain relationships.
+ * Technical: Shared action parses legacy-compatible path/body inputs, performs versioned updates, and preserves the response contract.
+ */
 "use strict";
 
 function register({ on, use }) {

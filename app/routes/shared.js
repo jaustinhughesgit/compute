@@ -1,4 +1,7 @@
-// routes/shared.js
+/**
+ * Platform: Implements the common entity substrate used by Compute actions: Words, entities, subdomains, groups, links, versions, and access.
+ * Technical: `createShared(deps)` exposes DynamoDB/S3/auth helpers plus the action registry consumed by `cookies.js` modules.
+ */
 const moment = require("moment-timezone");
 const crypto = require("crypto");
 

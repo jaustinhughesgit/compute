@@ -1,4 +1,7 @@
-// routes/capabilityDiscovery.js
+/**
+ * Platform: Decides whether server work should reuse, clarify, compose/build, or reject as a local-graph operation.
+ * Technical: Combines deterministic jurisdiction checks with optional resumable model classification and returns a typed discovery envelope.
+ */
 "use strict";
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");

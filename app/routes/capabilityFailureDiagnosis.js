@@ -1,3 +1,7 @@
+/**
+ * Platform: Explains compute/provider failures and identifies the owning repair layer without exposing protected data.
+ * Technical: Sanitizes manifest/failure context, requests a bounded diagnosis, and returns normalized categories and usage.
+ */
 "use strict";
 
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");

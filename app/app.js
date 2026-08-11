@@ -1,4 +1,7 @@
-// app.js
+/**
+ * Platform: Executes and persists authorized server entities, JPL, shared data, providers, and durable capability work.
+ * Technical: Compute Express/Lambda entry point; registers action modules and shared AWS clients but does not own browser Path/Essence semantics.
+ */
 
 process.env.PATH = process.env.PATH + ":/opt/gm/bin:/opt/gm/lib:/opt/gs/bin:/opt/gs/lib";
 
@@ -3337,7 +3340,6 @@ async function processAction(action, libs, nestedPath, req, res, next) {
         await new Promise(r => setTimeout(r, timeoutLength));
     }
 
-    /* ----- NEW: explicit return support -------------------- */
     if (action.hasOwnProperty('return')) {
         const isExec = typeof action.return === 'string'
             && action.return.endsWith('|}!');

@@ -1,4 +1,7 @@
-// modules/opt-in.js
+/**
+ * Platform: Records email participation consent and issues the associated authenticated account session.
+ * Technical: `optIn`/`opt-in` resolve the user, update consent state, and select or create the best cookie record.
+ */
 "use strict";
 
 function register({ on, use }) {
@@ -153,7 +156,6 @@ function register({ on, use }) {
           },
         }).promise();
 
-        // NEW: Give them their account cookie if the browser doesn't have one yet
         const cookieOutcome = await maybeGiveAccountCookie(ctx, user.userID);
 
         return {
@@ -176,7 +178,6 @@ function register({ on, use }) {
           },
         }).promise();
 
-        // NEW: Give them their account cookie if the browser doesn't have one yet
         const cookieOutcome = await maybeGiveAccountCookie(ctx, user.userID);
 
         return {

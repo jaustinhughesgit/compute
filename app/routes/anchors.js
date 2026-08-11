@@ -1,7 +1,10 @@
-// routes/anchors.js
+/**
+ * Platform: Accelerates reusable entity/search candidate discovery without making vector proximity an identity or permission decision.
+ * Technical: Loads S3 anchor vectors, assigns normalized embeddings to quantized bands/shards, and builds posting records.
+ */
 const path = require('path');
 
-// ------- config (can override via env) -------
+// Deployment-tunable anchor artifact locations and quantization.
 const DEFAULT_BUCKET      = process.env.ANCHOR_S3_BUCKET || 'public.1var.com';
 const DEFAULT_SET_ID      = process.env.ANCHOR_SET_ID     || 'anchors_v1';
 const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE || 2000);

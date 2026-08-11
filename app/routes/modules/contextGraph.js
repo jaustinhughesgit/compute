@@ -1,3 +1,7 @@
+/**
+ * Platform: Publishes ordinary browser Context for authorized cross-user hydration while canonical entity-store convergence remains pending.
+ * Technical: Registers `context-graph-sync` v1 handlers for workspace verification, audiences, stable IDs, tombstones, profiles, and pagination.
+ */
 "use strict";
 
 const crypto = require("node:crypto");

@@ -1,8 +1,8 @@
+/**
+ * Platform: Keeps older encrypted passphrase callers working while Protected Assets replace the legacy contract.
+ * Technical: Compatibility action accepts owner-bound ciphertext only and never decrypts it server-side.
+ */
 "use strict";
-
-// Compatibility adapter for legacy {!passphrase!} tokens. New protected data
-// should use Protected Assets. This route accepts ciphertext only, binds each
-// record to its authenticated owner, and never decrypts server-side.
 
 async function nextPpId(dynamodb) {
   const result = await dynamodb.update({

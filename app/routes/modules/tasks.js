@@ -1,8 +1,10 @@
-// modules/tasks.js
+/**
+ * Platform: Schedules entity invocations while retaining ordinary lineage, authorization, occurrence, and audit semantics.
+ * Technical: Registers task create/delete actions over DynamoDB and EventBridge Scheduler with legacy recurrence compatibility.
+ */
 "use strict";
 
-// Preserve legacy AWS EventBridge Scheduler behavior (v3 SDK)
-// This mirrors the old monolith's usage of UpdateScheduleCommand.
+// AWS SDK v3 is loaded lazily because only scheduling actions require it.
 let SchedulerClient, UpdateScheduleCommand; // lazy-require to avoid bundling unless used
 
 function register({ on, use }) {

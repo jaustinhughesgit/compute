@@ -1,4 +1,7 @@
-// modules/updateEntityByAI.js
+/**
+ * Platform: Provides a compatibility AI-assisted entity update path; structured Edit contracts are preferred for governed repair.
+ * Technical: Loads the current entity, requests a model revision, and writes the result through existing S3/entity helpers.
+ */
 "use strict";
 
 function register({ on, use }) {

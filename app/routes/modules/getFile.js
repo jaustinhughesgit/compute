@@ -1,5 +1,7 @@
-// modules/getFile.js
-//"use strict";
+/**
+ * Platform: Retrieves an authorized entity file without exposing raw S3 access to callers.
+ * Technical: `getFile` resolves the file ID from the action path, checks identity, loads JSON, and preserves compatibility fields.
+ */
 
 function register({ on, use }) {
   const {

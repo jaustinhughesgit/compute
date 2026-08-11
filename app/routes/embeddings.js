@@ -1,3 +1,7 @@
+/**
+ * Platform: Developer demonstration of embedding generation; it is not canonical entity identity or production search routing.
+ * Technical: Express GET route that embeds one fixed example, L2-normalizes it, and renders both vectors.
+ */
 var express = require('express');
 var router = express.Router();
 var OpenAI = require("openai").default;
@@ -6,8 +10,6 @@ function normalizeVector(vector) {
     const norm = Math.sqrt(vector.reduce((sum, val) => sum + val * val, 0));
     return vector.map(val => val / norm);
 }
-
-//not updating 1
 
 router.get('/', async function(req, res, next) {
     try {

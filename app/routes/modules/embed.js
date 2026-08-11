@@ -1,4 +1,7 @@
-// modules/embed.js
+/**
+ * Platform: Produces vector features for indexed discovery without treating similarity as semantic proof.
+ * Technical: `embed` accepts text input, calls the configured OpenAI embedding model, normalizes the vector, and returns typed JSON.
+ */
 "use strict";
 
 function register({ on, use }) {

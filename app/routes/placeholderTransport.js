@@ -1,3 +1,7 @@
+/**
+ * Platform: Prevents typed Path inputs from being stringified while substituting runtime placeholders.
+ * Technical: Returns the original value when a template is exactly one matched placeholder; otherwise performs text replacement.
+ */
 "use strict";
 
 function preserveExactPlaceholderValue({

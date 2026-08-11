@@ -1,4 +1,7 @@
-// modules/paths.js
+/**
+ * Platform: Persists browser-proven Paths and reviewed shared foundation coverage without taking over browser matching or Essence authority.
+ * Technical: Registers versioned list/save/bulk/confirm/delete actions; storage schemas and validation constraints follow.
+ */
 "use strict";
 
 /**

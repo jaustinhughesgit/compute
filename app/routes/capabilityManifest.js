@@ -1,3 +1,7 @@
+/**
+ * Platform: Defines the reusable contract boundary for compute capabilities, separate from caller data and credentials.
+ * Technical: Normalizes manifests/build requests and validates operation inputs, protected requirements, outputs, and execution envelopes.
+ */
 "use strict";
 
 const {

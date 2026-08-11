@@ -1,4 +1,7 @@
-// shorthand.js
+/**
+ * Platform: Active row-addressed composition runtime used by Convert to transform and invoke entities without generated JavaScript.
+ * Technical: Executes `{input:[{physical,virtual}], sweeps?, skip?}` matrices; positional arguments supply legacy route/AWS context.
+ */
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
 

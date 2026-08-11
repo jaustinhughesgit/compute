@@ -1,4 +1,7 @@
-// modules/users.js
+/**
+ * Platform: Manages server account, verification, and public device-key records without receiving browser private keys.
+ * Technical: Registers create-user/encryption, key lookup, verification-status, and verification-completion actions.
+ */
 "use strict";
 
 function register({ on, use }) {
@@ -13,9 +16,6 @@ const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
   return b;
   }
 
-
-  // ─────────────────────────────────────────────────────────────────────────────
-  // NEW: update an existing user's encryption + emailHash
   on("createEncryption", async (ctx /* , meta */) => {
     const { req /* , res, path, type, signer */ } = ctx;
     const outer = req?.body || {};

@@ -1,4 +1,7 @@
-// modules/makePublic.js
+/**
+ * Platform: Changes entity discoverability without treating public visibility as unlimited action authorization.
+ * Technical: `makePublic` updates subdomain/file permission state and returns the established converted entity envelope.
+ */
 "use strict";
 
 function register({ on, use }) {

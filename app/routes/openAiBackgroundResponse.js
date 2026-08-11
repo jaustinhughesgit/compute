@@ -1,3 +1,7 @@
+/**
+ * Platform: Lets model-backed builds and repairs outlive one HTTP request without losing their durable response identity.
+ * Technical: Starts/retrieves OpenAI Responses jobs and normalizes job IDs, output text, progress, and terminal state.
+ */
 "use strict";
 
 const RESPONSE_ID_PATTERN = /^resp_[A-Za-z0-9_-]+$/;

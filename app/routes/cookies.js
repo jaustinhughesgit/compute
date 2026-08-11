@@ -1,22 +1,13 @@
-// routes/cookies.js
+/**
+ * Platform: Adapts authenticated HTTP action paths to shared entity, relationship, file, and capability modules.
+ * Technical: Initializes the shared dependency registry, normalizes legacy request envelopes, and dispatches actions through `setupRouter`.
+ */
 "use strict";
 
 const express = require("express");
 const AWS = require("aws-sdk");
 const util = require("util");
-const { createShared } = require("./shared"); /* shared exposes:
-  Registry: on, use, dispatch, expose, actions, registry, cache
-  Toggles: setIsPublic, fileLocation
-  Utils: isObject, isCSV, parseCSV, deepEqual, sleep, getUUID, moment
-  Domain (Dynamo): getSub, getEntity, getWord, getGroup, getAccess, getVerified, getGroups, getTasks
-  Links: makeLinkId, makeCKey, putLink, deleteLink, getLinkedChildren, getLinkedParents, migrateLinksFromEntities
-  Versions/Entities/Words/Groups: incrementCounterAndGetNewValue, addVersion, updateEntity, createWord, createGroup, createEntity, createSubdomain
-  Access/Cookies/Auth: createAccess, createVerified, createCookie, getCookie, manageCookie, verifyThis, useAuth, useFunc
-  S3/Files: createFile, retrieveAndParseJSON
-  Tree: convertToJSON
-  Misc: getHead, sendBack, getDocClient, getS3, getSES
-  Deps bag: deps { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
-*/
+const { createShared } = require("./shared");
 
 let _deps, _shared, _signer;
 const ensureShared = () => (_shared ?? (_shared = createShared(_deps)));

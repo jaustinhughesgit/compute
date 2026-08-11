@@ -1,4 +1,7 @@
-// routes/train.js
+/**
+ * Platform: Hosts the operator page for producing anchor-search training artifacts, not end-user model training.
+ * Technical: Express route renders configured S3 set/prefix values for the anchor tooling.
+ */
 var express = require('express');
 var router = express.Router();
 

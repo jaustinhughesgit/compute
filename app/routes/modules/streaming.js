@@ -1,4 +1,7 @@
-// modules/streaming.js
+/**
+ * Platform: Coordinates governed real-time presence, invitations, signaling channels, and short-lived media credentials.
+ * Technical: Registers `presence`, `live`, and `webrtc`; the detailed action payloads and AWS KVS behavior follow.
+ */
 "use strict";
 
 /**
@@ -44,7 +47,6 @@ function register({ on, use }) {
   const PRESENCE_TTL_SECONDS = parseInt(process.env.PRESENCE_TTL_SECONDS || "120", 10);
   const KVS_CHANNEL_PREFIX = process.env.KVS_CHANNEL_PREFIX || "myapp-";
 
-  // NEW: invites table
   const INVITES_TABLE = process.env.INVITES_TABLE || "presence_invites";
   // GSI expected: to-createdAt-index (PK: to [S], SK: createdAt [N])
 
@@ -287,7 +289,6 @@ function register({ on, use }) {
       return { ok: true, me: { userID: meStr, su } };
     }
 
-    // --- NEW: invites API ---
     if (sp === "invite") {
       const to = asID(body.to);
       const fromName = (body.fromName || "").toString().slice(0, 80) || "Anonymous";

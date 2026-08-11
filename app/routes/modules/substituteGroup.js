@@ -1,5 +1,7 @@
-// modules/groups/substituteGroup.js
-// "substituteGroup" → /<newSubstitutingSU>/<headSubstitutingSU>
+/**
+ * Platform: Applies the general substitute composition primitive between governed groups.
+ * Technical: Registers substituteGroup for /<newSubstitutingSU>/<headSubstitutingSU> and versions both entities.
+ */
 function register({ on, use }) {
   on("substituteGroup", async (ctx, { cookie }) => {
     const {

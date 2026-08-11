@@ -1,3 +1,7 @@
+/**
+ * Platform: Composes configured server modules into one execution context rather than hard-wiring every dependency.
+ * Technical: Accepts `{modules:{contextKey: libraryName}}`, an initial context, and a library registry; returns the augmented context.
+ */
 async function processConfig(config, initialContext, lib) {
     const context = { ...initialContext };
     for (const [key, value] of Object.entries(config.modules, lib)) {

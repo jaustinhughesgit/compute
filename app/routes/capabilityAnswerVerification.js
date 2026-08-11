@@ -1,3 +1,7 @@
+/**
+ * Platform: Optionally reviews a compute answer against its declared capability contract without replacing execution authority.
+ * Technical: Accepts sanitized manifest/execution evidence and returns a normalized verification plus model-usage trace.
+ */
 "use strict";
 
 const { sanitizeDiagnosticValue } = require("./diagnosticSanitizer");

@@ -1,4 +1,7 @@
-// modules/position.js
+/**
+ * Platform: Stores entity position descriptions used by reusable browser presentation and interaction.
+ * Technical: `position` reads/writes JSON DynamoDB records from normalized action/body inputs and returns a compatibility envelope.
+ */
 "use strict";
 
 function register({ on, use }) {

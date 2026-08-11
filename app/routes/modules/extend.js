@@ -1,4 +1,7 @@
-// modules/extend.js
+/**
+ * Platform: Applies the general `extend` composition primitive while retaining existing entity/version/link behavior.
+ * Technical: Shared action accepts flat or legacy body envelopes and performs the established subdomain/entity updates.
+ */
 "use strict";
 
 function register({ on, use }) {

@@ -1,9 +1,8 @@
-// routes/capabilityPaths.js
+/**
+ * Platform: Keeps Compute from becoming the owner of browser token signatures and local Path installation.
+ * Technical: Compatibility shim returning no generated Path dataset; entities publish manifests/examples for browser compilation.
+ */
 "use strict";
-
-// Compatibility shim. Compute entities publish semantic manifests and example
-// utterances only. The browser owns tokenization, signature construction,
-// collision checks, persistence, and replacement of local Paths.
 function buildCapabilityPathDataset() {
   return null;
 }

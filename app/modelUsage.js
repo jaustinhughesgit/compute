@@ -1,3 +1,7 @@
+/**
+ * Platform: Exposes model cost evidence without leaking prompts, outputs, credentials, or hidden reasoning.
+ * Technical: Converts OpenAI usage variants into the bounded `model-cost-trace` response shape.
+ */
 "use strict";
 
 function sanitizeOpenAiUsageTrace(response, step) {

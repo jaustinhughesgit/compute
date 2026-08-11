@@ -1,4 +1,7 @@
-// modules/add.js
+/**
+ * Platform: Creates a child in the shared Word/entity/subdomain/link substrate rather than an isolated compute-only record.
+ * Technical: `add` expects `/<parentSU>/<newEntityName>/<headSU?>`; the detailed compatibility response contract follows.
+ */
 "use strict";
 
 /**

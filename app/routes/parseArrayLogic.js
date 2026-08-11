@@ -1,4 +1,7 @@
-// parseArrayLogic.js
+/**
+ * Platform: Converts approved high-level build plans into entity composition while preserving existing capability reuse and governance.
+ * Technical: Parses ArrayLogic elements into Shorthand/entity operations, validates compute plans, and writes authorized anchors/grants/results.
+ */
 
 const anchorsUtil = require('./anchors');
 const { DynamoDB } = require('aws-sdk');
@@ -446,8 +449,7 @@ async function parseArrayLogic({
     }
   };
 
-  /* ---- anchor_bands helpers (writes postings) ----
-     UPDATED: allow optional policy_id to be stamped on postings */
+  // anchor_bands postings may include an optional policy_id.
   async function _putAllBatched(table, items) {
     if (!items || !items.length) return 0;
     let written = 0;

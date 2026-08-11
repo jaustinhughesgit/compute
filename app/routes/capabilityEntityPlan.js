@@ -1,3 +1,7 @@
+/**
+ * Platform: Keeps model-generated capability designs declarative before they become executable entities.
+ * Technical: Validates an EntityPlan and deterministically compiles declared inputs, protected injections, requests, and responses into JPL.
+ */
 "use strict";
 
 const NULLABLE_STRING = { anyOf: [{ type: "string" }, { type: "null" }] };

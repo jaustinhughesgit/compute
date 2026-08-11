@@ -1,4 +1,7 @@
-// modules/addIndex.js
+/**
+ * Platform: Adds bounded vector references used to discover reusable subdomains; a match grants no identity or access authority.
+ * Technical: `addIndex` upserts one `i_<domain>` row from the payload/path forms documented below.
+ */
 "use strict";
 
 /**

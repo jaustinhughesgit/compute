@@ -1,4 +1,7 @@
-// modules/links.js
+/**
+ * Platform: Persists explicit typed entity relationships used by composition, traversal, sharing, and middleware.
+ * Technical: Registers create/link/unlink/migrate/export actions over link records while accepting flat and legacy body envelopes.
+ */
 "use strict";
 
 function register({ on, use }) {
@@ -69,7 +72,6 @@ function register({ on, use }) {
             { AttributeName: "part", AttributeType: "S" },
             { AttributeName: "ckey", AttributeType: "S" },
             { AttributeName: "type", AttributeType: "S" },
-            // NEW: enable fast queries by creator
             { AttributeName: "by", AttributeType: "S" },
           ],
           KeySchema: [{ AttributeName: "id", KeyType: "HASH" }],
@@ -95,7 +97,6 @@ function register({ on, use }) {
               KeySchema: [{ AttributeName: "ckey", KeyType: "HASH" }],
               Projection: { ProjectionType: "ALL" }
             },
-            // NEW: byIndex (creator)
             {
               IndexName: "byIndex",
               KeySchema: [

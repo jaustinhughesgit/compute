@@ -1,4 +1,7 @@
-// modules/editEntity.js
+/**
+ * Platform: Repairs an entity, its semantic Path contract, or both while preserving authorization, lineage, and replay evidence.
+ * Technical: `editEntity` builds a sanitized model request, validates structured revisions, persists compatible versions, and returns install metadata.
+ */
 "use strict";
 
 const crypto = require("crypto");

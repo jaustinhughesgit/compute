@@ -1,3 +1,7 @@
+/**
+ * Platform: Resolves stable LLM treatment IDs under server policy instead of trusting client-supplied model names.
+ * Technical: Applies route-specific model/reasoning fields to Chat Completions and Responses requests.
+ */
 "use strict";
 
 const ORIGINAL_TEMPLATE_ID = "original-v1";

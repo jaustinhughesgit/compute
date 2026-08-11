@@ -1,4 +1,7 @@
-// modules/saveFile.js
+/**
+ * Platform: Saves authorized entity files while retaining entity/version/access semantics around S3 content.
+ * Technical: `saveFile` normalizes flat/legacy bodies, verifies the path, calls the shared converter, and returns the existing envelope.
+ */
 "use strict";
 
 function register({ on, use }) {

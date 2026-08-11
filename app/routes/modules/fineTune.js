@@ -1,4 +1,7 @@
-// modules/fineTune.js
+/**
+ * Platform: Manages explicit fine-tuning datasets/jobs as a governed server capability, separate from automatic Path learning.
+ * Technical: Registers JSONL upload and OpenAI create/list/delete/event/retrieve/cancel actions using legacy-compatible envelopes.
+ */
 "use strict";
 
 function register({ on, use }) {

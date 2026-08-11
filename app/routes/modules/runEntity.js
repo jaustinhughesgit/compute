@@ -1,3 +1,7 @@
+/**
+ * Platform: Executes authorized compute entities while preserving capability contracts, lineage, protected assets, and typed responses.
+ * Technical: Shared-router handler validates inputs, invokes manifest or legacy entity execution with timeouts, and normalizes results/errors.
+ */
 "use strict";
 
 const {

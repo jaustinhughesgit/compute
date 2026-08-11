@@ -1,17 +1,16 @@
-// modules/get.js
-//"use strict";
+/**
+ * Platform: Retrieves authorized entity state through the shared action boundary.
+ * Technical: `get` normalizes route/body inputs, checks access, and returns the established converted entity response.
+ */
 
 function register({ on, use }) {
   const {
-    // domain / utils from shared
     getDocClient,
     getVerified,
     getTasks, getTasksIOS,
     convertToJSON,
     manageCookie,
-    // NEW: pulled from shared
     verifyPath, allVerified,
-    // deps bag (unchanged)
     deps,
   } = use();
 
@@ -19,10 +18,8 @@ function register({ on, use }) {
     const { req, res, path } = ctx;
     const dynamodb = getDocClient();
 
-    // manage cookie (legacy behavior)
     const cookie = await manageCookie({}, ctx.xAccessToken, res, dynamodb, deps.uuidv4);
 
-    // verify path (moved to shared; same logic)
     const segs = String(path || "").split("/").filter(Boolean);
     const verifications = await getVerified("gi", cookie.gi.toString(), dynamodb);
     const verifiedList = await verifyPath(segs, verifications, dynamodb);

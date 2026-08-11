@@ -1,4 +1,7 @@
-// modules/reqPut.js
+/**
+ * Platform: Persists authorized entity request content through the shared file/version boundary.
+ * Technical: `reqPut` resolves path, cookie, content type, and S3 destination while preserving established response fields.
+ */
 "use strict";
 
 function register({ on, use }) {

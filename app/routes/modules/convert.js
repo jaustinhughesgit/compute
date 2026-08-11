@@ -1,4 +1,7 @@
-// modules/convert.js
+/**
+ * Platform: Routes requests to an existing capability, a composed build, or legacy ArrayLogic without treating every fact as an application.
+ * Technical: Shared-router `convert` handler coordinates discovery/build jobs, then hands validated plans to ArrayLogic/Shorthand.
+ */
 "use strict";
 
 const {
@@ -633,33 +636,16 @@ function register({ on, use }) {
         if (continuedResponse) return continuedResponse;
       }
 
-      // If prompt supplied, we build arrayLogic from your fixed prompt template
+      // Compatibility path for prompt callers that have not adopted the capability-build contract.
       if (!arrayLogic && prompt && (typeof prompt === "string" || typeof prompt === "object")) {
         sourceType = "prompt";
         const promptObj = parsePrompt(prompt); // ← safe (no throws)
 
         const userPath = 1000000000000128;
 
-        // ↓↓↓ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↓↓↓
-        // It must assign the giant template literal to `fixedPrompt`.
-        // For example:
-        //
-        // const fixedPrompt = `... your very long prompt string literal ...`;
-        //
-        // (Do NOT change its contents; just paste the same string you already use.)
-
-
-
-
-
-
-
-        const fixedPrompt = /* PASTE YOUR EXISTING LONG PROMPT STRING LITERAL HERE (UNCHANGED) */ (
+        const fixedPrompt = (
           () => {
-            // This placeholder keeps the file syntactically valid until you paste the string.
-            // Replace this IIFE with your actual template literal.
             return String(
-              // minimal, harmless fallback so local editors don't crash before you paste:
               `directive = [
   \`**this is not a simulation**: do not make up or falsify any data! This is real data!\`,
   \`You are a breadcrumb app sequence generator, meaning you generate an array that is processed in sequence. Row 1, then Row 2, etc. This means any row cannot reference (ref) future rows because they have not been processed yet.\`,
@@ -895,18 +881,13 @@ function subdomains(domain){
             );
           }
         )();
-        // ↑↑↑ KEEP YOUR EXISTING LONG PROMPT STRING HERE, UNCHANGED ↑↑↑
-
-        // Use your fixedPrompt to drive arrayLogic creation on the server
         arrayLogic = fixedPrompt;
       } else if (typeof arrayLogic === "string" && arrayLogic.trim().startsWith("[")) {
         arrayLogic = JSON.parse(arrayLogic);
         sourceType = "arrayLogic";
       }
 
-      // ─────────────────────────────────────────────────────────────
-      // 9) Hand off to parseArrayLogic (passes essence `out` and requestOnly flag)
-      // ─────────────────────────────────────────────────────────────
+      // Legacy plans still compile through the existing ArrayLogic/Shorthand boundary.
       const parseResults = await parseArrayLogic({
         arrayLogic,
         dynamodb,

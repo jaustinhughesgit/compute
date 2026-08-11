@@ -1,3 +1,7 @@
+/**
+ * Platform: Developer experiment for structured model output; it is not the canonical entity or capability schema.
+ * Technical: Express GET route that submits a fixed Zod response schema to OpenAI and renders the result.
+ */
 var express = require('express');
 var router = express.Router();
 var OpenAI = require("openai");
@@ -675,7 +679,6 @@ router.get('/', async function (req, res, next) {
 
 
 module.exports = router;
-
 
 
 

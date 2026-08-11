@@ -1,4 +1,7 @@
-// routes/capabilityInputInterpretation.js
+/**
+ * Platform: Resolves missing declared capability inputs without inventing values or weakening clarification.
+ * Technical: Interprets one typed field from utterance/context evidence, validates it against the manifest, and returns value or retry question.
+ */
 "use strict";
 
 const {

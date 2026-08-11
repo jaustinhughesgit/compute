@@ -1,3 +1,7 @@
+/**
+ * Platform: Keeps diagnostics actionable while preventing secret-bearing or unbounded data from crossing trust boundaries.
+ * Technical: Recursively redacts sensitive keys and limits depth, collection size, and string length while preserving observed shapes.
+ */
 "use strict";
 
 const SENSITIVE_KEY = /(?:authorization|cookie|credential|password|passphrase|secret|token|api[_-]?key|apikey|private[_-]?key|protected[_-]?asset)/i;

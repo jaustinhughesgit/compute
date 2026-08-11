@@ -1,3 +1,7 @@
+/**
+ * Platform: Defines protected-asset metadata, envelope, grant, and use-policy shapes shared by storage and execution.
+ * Technical: Normalizes IDs/policies/wraps/references and performs structural and destination authorization checks; it does not decrypt.
+ */
 "use strict";
 
 const crypto = require("node:crypto");

@@ -1,4 +1,7 @@
-// modules/file.js
+/**
+ * Platform: Resolves authorized entity files as part of the shared entity model, not as an unauthenticated object-store shortcut.
+ * Technical: `file` verifies path/cookie access, loads S3/entity metadata, and preserves established response envelopes.
+ */
 "use strict";
 
 function register({ on, use }) {

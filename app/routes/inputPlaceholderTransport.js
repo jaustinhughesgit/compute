@@ -1,3 +1,7 @@
+/**
+ * Platform: Preserves declared ordinary inputs as they cross from Path bindings into Compute execution.
+ * Technical: Resolves a dotted placeholder path from the runtime context and optional nested suffix without coercing its value.
+ */
 "use strict";
 
 function unwrapContextSlot(value) {

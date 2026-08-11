@@ -1,4 +1,7 @@
-// routes/modules/anchor.js
+/**
+ * Platform: Places entities into anchor-search bands so discovery can query a bounded candidate set.
+ * Technical: `anchor` accepts the embedding/text payload below, resolves anchor artifacts, and writes global/owner postings with policy IDs.
+ */
 "use strict";
 
 /**

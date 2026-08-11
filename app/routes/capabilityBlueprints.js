@@ -1,3 +1,7 @@
+/**
+ * Platform: Builds reusable compute implementations from approved capability contracts rather than generating one-off applications per wording.
+ * Technical: Generates/validates EntityPlans, compiles trusted JPL, and manages resumable OpenAI implementation jobs.
+ */
 "use strict";
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");

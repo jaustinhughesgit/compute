@@ -1,4 +1,7 @@
-// server/modules/validation.js
+/**
+ * Platform: Validates entity access/setup prerequisites before server composition work proceeds.
+ * Technical: `validation` checks the cookie/entity relationship and can create the required initial group/entity under shared rules.
+ */
 "use strict";
 
 function register({ on, use }) {

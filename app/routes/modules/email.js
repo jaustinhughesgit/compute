@@ -1,4 +1,7 @@
-// modules/email.js
+/**
+ * Platform: Sends entity-addressed email under shared consent, verification, suppression, quota, and reputation rules.
+ * Technical: Registers send/verify actions over DynamoDB and SES; accepted body fields and channel behavior are documented below.
+ */
 "use strict";
 
 /*
@@ -46,14 +49,13 @@ function register({ on, use }) {
 
   const CONFIG_SET = process.env.SES_CONFIG_SET || "ses-events";
 
-  // NEW: deliverability + metrics configuration
-  const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks"; // NEW
-  const METRICS_TABLE = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";          // NEW
-  const RATE_WINDOW_DAYS = 14;                                                              // NEW
-  const MIN_RATE_VOLUME = 500;                                                             // NEW
-  const BOUNCE_WARN_RATE = 0.02; // 2% → warn/limit                                        // NEW
-  const BOUNCE_BLOCK_RATE = 0.05; // 5% → block + review                                   // NEW
-  const BOUNCE_HARD_BLOCK_RATE = 0.10; // 10% → hard block                                 // NEW
+  const SUPPRESS_TABLE = process.env.DELIVERABILITY_BLOCKS_TABLE || "deliverability_blocks";
+  const METRICS_TABLE = process.env.EMAIL_METRICS_TABLE || "email_metrics_daily";
+  const RATE_WINDOW_DAYS = 14;
+  const MIN_RATE_VOLUME = 500;
+  const BOUNCE_WARN_RATE = 0.02;
+  const BOUNCE_BLOCK_RATE = 0.05;
+  const BOUNCE_HARD_BLOCK_RATE = 0.10;
 
   const safeNum = (v) => {
     const n = Number(v);
@@ -70,11 +72,9 @@ function register({ on, use }) {
     return [];
   };
 
-  // NEW: simple YYYY-MM-DD key
-  const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 10); // NEW
+  const dayKey = (ms = Date.now()) => new Date(ms).toISOString().slice(0, 10);
 
-  // NEW: add to daily metrics (sends / bounces / complaints, etc.)
-  async function addDailyMetric(ddb, senderUserID, fields) { // NEW
+  async function addDailyMetric(ddb, senderUserID, fields) {
     if (!(senderUserID > 0) || !fields || typeof fields !== "object") return;
     const day = dayKey();
     const names = Object.keys(fields);
@@ -94,8 +94,7 @@ function register({ on, use }) {
     }).promise();
   }
 
-  // NEW: compute last-14-day hard-bounce rate
-  async function getBounceRate14d(ddb, senderUserID) { // NEW
+  async function getBounceRate14d(ddb, senderUserID) {
     if (!(senderUserID > 0)) return { sends14d: 0, bHard14d: 0, rate: 0 };
     const days = Array.from({ length: RATE_WINDOW_DAYS }, (_, i) => dayKey(Date.now() - i * 86400000));
     const keys = days.map(day => ({ senderUserID: Number(senderUserID), day }));
@@ -116,8 +115,7 @@ function register({ on, use }) {
     return { sends14d, bHard14d, rate };
   }
 
-  // NEW: local deliverability suppression check
-  async function isDeliverabilitySuppressed(ddb, recipientHash, senderUserID) { // NEW
+  async function isDeliverabilitySuppressed(ddb, recipientHash, senderUserID) {
     if (!recipientHash) return false;
     const keys = [{ recipientHash, scope: "*" }];
     if (senderUserID > 0) keys.push({ recipientHash, scope: String(senderUserID) });
@@ -135,8 +133,7 @@ function register({ on, use }) {
     return false;
   }
 
-  // NEW: scale daily limit if sender is in warn zone
-  function scaleDailyLimit(base, sends14d, rate) { // NEW
+  function scaleDailyLimit(base, sends14d, rate) {
     if (sends14d >= MIN_RATE_VOLUME && rate >= BOUNCE_WARN_RATE && rate < BOUNCE_BLOCK_RATE) {
       return Math.max(5, Math.ceil(base * 0.5)); // cut by 50% but keep a tiny floor
     }
@@ -332,7 +329,7 @@ function register({ on, use }) {
   }
 
   // --- INTERNAL: create/ensure user via manageCookie (no cookie sent back) & send invite ---
-  async function initEmail(ddb, ses, input, ctx, senderUserID) { // CHANGED: added senderUserID
+async function initEmail(ddb, ses, input, ctx, senderUserID) {
     console.log(">>>initEmail", initEmail);
     const {
       recipientEmail, recipientHash, senderHash, senderName = "A 1var user",
@@ -459,12 +456,10 @@ Privacy: https://1var.com/privacy`;
         ]
       }).promise();
 
-    // NEW: count successful, SES-accepted send in metrics
-    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 }); // NEW
+    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 });
 
 
-    // NEW: treat the initial invite as a verification email having been sent
-    // (so the user doesn't need a separate verify-send later).
+    // The initial invite also satisfies the verification-email send step.
     try {
       if (e) {
         const now = Date.now();
@@ -485,7 +480,7 @@ Privacy: https://1var.com/privacy`;
   }
 
   // --- INTERNAL: for existing users (respect block/allow; send normal email content) ---
-  async function generalEmail(ddb, ses, input, userRecord, senderUserID) { // CHANGED: added senderUserID
+async function generalEmail(ddb, ses, input, userRecord, senderUserID) {
     console.log(">>>generalEmail", generalEmail);
     const {
       recipientEmail, recipientHash, senderHash,
@@ -505,12 +500,11 @@ Privacy: https://1var.com/privacy`;
       return { ok: true, createdUser: false, sent: false, blocked: true, reason: "recipient_has_block_rule" };
     }
 
-    // NEW: local deliverability suppression (global/per-sender)
-    if (await isDeliverabilitySuppressed(ddb, recipientHash, senderUserID)) { // NEW
-      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "deliverability_suppressed" }; // NEW
-    } // NEW
+    if (await isDeliverabilitySuppressed(ddb, recipientHash, senderUserID)) {
+      return { ok: true, createdUser: false, sent: false, blocked: true, reason: "deliverability_suppressed" };
+    }
 
-    // Provide convenient block links in footer (unchanged)
+    // Recipient controls are embedded in every message footer.
     const blockSenderUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}/${encodeURIComponent(senderHash)}`;
     const blockAllUrl = `${linksHost}/stop/${encodeURIComponent(recipientHash)}`;
     const listUnsubPost = `${apiHost}/cookies/stop/${encodeURIComponent(recipientHash)}`;
@@ -564,8 +558,7 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       )
       .promise();
 
-    // NEW: count successful, SES-accepted send in metrics
-    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 }); // NEW
+    if (senderUserID) await addDailyMetric(ddb, senderUserID, { sends: 1 });
 
     return {
       ok: true,
@@ -677,18 +670,17 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
       }
     }
 
-    // NEW: check sender bounce rate over last 14 days and gate
-    let rateInfo = { sends14d: 0, bHard14d: 0, rate: 0 }; // NEW
-    if (senderUserID) rateInfo = await getBounceRate14d(ddb, senderUserID); // NEW
-    if (senderUserID && (rateInfo.rate >= BOUNCE_HARD_BLOCK_RATE || (rateInfo.sends14d >= MIN_RATE_VOLUME && rateInfo.rate >= BOUNCE_BLOCK_RATE))) { // NEW
-      return { // NEW
+    let rateInfo = { sends14d: 0, bHard14d: 0, rate: 0 };
+    if (senderUserID) rateInfo = await getBounceRate14d(ddb, senderUserID);
+    if (senderUserID && (rateInfo.rate >= BOUNCE_HARD_BLOCK_RATE || (rateInfo.sends14d >= MIN_RATE_VOLUME && rateInfo.rate >= BOUNCE_BLOCK_RATE))) {
+      return {
         ok: false,
         error: "sender_reputation_blocked",
         reason: "bounce_rate_threshold",
         details: rateInfo,
-        thresholds: { WARN: BOUNCE_WARN_RATE, BLOCK: BOUNCE_BLOCK_RATE, HARD: BOUNCE_HARD_BLOCK_RATE, WINDOW_DAYS: RATE_WINDOW_DAYS, MIN_RATE_VOLUME } // NEW
-      }; // NEW
-    } // NEW
+        thresholds: { WARN: BOUNCE_WARN_RATE, BLOCK: BOUNCE_BLOCK_RATE, HARD: BOUNCE_HARD_BLOCK_RATE, WINDOW_DAYS: RATE_WINDOW_DAYS, MIN_RATE_VOLUME }
+      };
+    }
 
     // Lookup recipient (decide path)
     let existingUser = null;

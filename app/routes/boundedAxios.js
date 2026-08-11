@@ -1,3 +1,7 @@
+/**
+ * Platform: Bounds provider latency so one entity call cannot consume the whole Compute request window.
+ * Technical: Wraps Axios method signatures and clamps each request config to the configured maximum timeout.
+ */
 "use strict";
 
 const HTTP_METHODS_WITH_CONFIG = ["delete", "get", "head", "options"];

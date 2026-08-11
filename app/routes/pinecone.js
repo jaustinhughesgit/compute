@@ -1,6 +1,10 @@
+/**
+ * Platform: Developer demonstration of vector lookup; it is not the platform's canonical lexical/entity search contract.
+ * Technical: Express GET route that embeds one fixed query, searches one Pinecone namespace, and renders the result.
+ */
 var express = require('express');
 var router = express.Router();
-var OpenAI = require("openai").default; // Changed to CommonJS require
+var OpenAI = require("openai").default;
 const { Pinecone } = require('@pinecone-database/pinecone');
 
 router.get('/', async function(req, res, next) {
@@ -15,21 +19,15 @@ router.get('/', async function(req, res, next) {
         apiKey: process.env.PINECONE_API_KEY
     });
 
-        //,environment: process.env.PINECONE_ENVIRONMENT,
-
     console.log(embedding.data[0].embedding)
     try {
-        // Connect to your Pinecone index
-        //const social = await pinecone.index('categories').namespace('social').fetch(['1']);
         const index = await pinecone.index('categories').namespace('categories').query({ topK: 100, vector: embedding.data[0].embedding})
 
-        // Render your view with Pinecone data
         res.render('pinecone', {
             title: 'Pinecone',
             message: JSON.stringify(index)
         });
     } catch (error) {
-        // Handle any errors
         res.render('error', {
             message: 'Failed to connect to Pinecone',
             error: error

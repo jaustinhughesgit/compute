@@ -1,4 +1,7 @@
-// shorthand.js
+/**
+ * Platform: Compatibility mirror of the active Shorthand matrix runtime for older direct imports.
+ * Technical: Accepts the same matrix document and positional route/AWS context as `routes/modules/shorthand.js`.
+ */
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
 

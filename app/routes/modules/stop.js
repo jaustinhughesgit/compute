@@ -1,4 +1,7 @@
-// modules/stop.js
+/**
+ * Platform: Enforces email stop/block choices across later entity and automation sends.
+ * Technical: `stop`/`block` resolve the caller/target and persist suppression state in DynamoDB.
+ */
 "use strict";
 
 function register({ on, use }) {

@@ -1,3 +1,7 @@
+/**
+ * Platform: Lets users reuse and evolve capability definitions without merging their installations or data.
+ * Technical: DynamoDB registry for validated manifests, owner-scoped lookup, status changes, pagination, and legacy-record migration.
+ */
 "use strict";
 
 const { CapabilityError, validateCapabilityManifest } = require("./capabilityManifest");

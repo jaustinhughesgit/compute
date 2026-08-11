@@ -1,4 +1,7 @@
-// routes/capabilityBuildCoordinator.js
+/**
+ * Platform: Prevents concurrent retries from creating duplicate capability implementations for one contract.
+ * Technical: DynamoDB-backed lease keyed by owner/capability/request hash with claim, renew, complete, and fail transitions.
+ */
 "use strict";
 
 const crypto = require("node:crypto");

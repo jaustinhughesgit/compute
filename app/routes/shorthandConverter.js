@@ -1,30 +1,14 @@
-/* --------------------------------------------------------------------
- *  routes/shorthandConverter.js   (updated 2025‑05‑30)
- *  ------------------------------------------------------------------
- *  convertToShorthand(params)
- *
- *      params = {
- *        // choose ONE of the next two:
- *        prompt?      : string,         // natural‑language prompt → GPT‑4o
- *        arrayLogic?  : string|object[],// pre‑built arrayLogic (string or parsed array)
- *
- *        // required clients – pass the SAME ones used in app.js
- *        openai       : OpenAI,         // already initialised
- *        s3           : AWS.S3,         // already initialised
- *      }
- *
- *  Returns: shorthand 2‑D matrix  →  [["JSON","{…}"], …]
- * ------------------------------------------------------------------ */
+/**
+ * Platform: Converts natural-language or ArrayLogic requests into executable shorthand matrices.
+ * Technical: convertToShorthand accepts {prompt|arrayLogic, openai, s3} and returns a two-dimensional matrix.
+ */
 
 const subIndexCache = new Map();              // root → { subRoot: [vec] }
 
-/* ╔═══════════════  tiny vector helpers ═══════════════╗ */
 const dot       = (a, b) => a.reduce((s, v, i) => s + v * b[i], 0);
 const magnitude = (a)    => Math.sqrt(dot(a, a));
 const cosine    = (a, b) => dot(a, b) / (magnitude(a) * magnitude(b));
-/* ╚════════════════════════════════════════════════════╝ */
 
-/* ─────────────── fetch sub‑index file via S3 ─────────────── */
 async function loadSubIndex(root, s3) {
   if (subIndexCache.has(root)) return subIndexCache.get(root);
 

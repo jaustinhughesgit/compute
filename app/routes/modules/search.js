@@ -1,4 +1,7 @@
-// modules/search.js
+/**
+ * Platform: Finds reusable authorized entities through bounded anchor candidates rather than scanning or loading every graph.
+ * Technical: `search` embeds text, queries anchor-band windows, batch-loads subdomains, filters effective principals, and paginates results.
+ */
 "use strict";
 
 function canEditPermission(permission) {

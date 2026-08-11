@@ -1,5 +1,7 @@
-// modules/groups/useGroup.js
-// "useGroup" → /<newUsingSU>/<headSU>
+/**
+ * Platform: Applies the general use composition primitive between governed groups.
+ * Technical: Registers useGroup for /<newUsingSU>/<headSU> and persists the reciprocal versioned links.
+ */
 function register({ on, use }) {
   on("useGroup", async (ctx, { cookie }) => {
     const {
@@ -16,7 +18,6 @@ function register({ on, use }) {
     const dynamodb = getDocClient();
     const { uuidv4 } = deps;
 
-    // Ensure cookie parity for convertToJSON
     const ensuredCookie =
       cookie?.gi ? cookie : await manageCookie({}, ctx.xAccessToken, ctx.res, dynamodb, uuidv4);
 

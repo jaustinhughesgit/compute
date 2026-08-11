@@ -1,10 +1,14 @@
+/**
+ * Platform: Exposes established Word, entity, group, link, and version operations used by portal/server workflows.
+ * Technical: Dependency-injected Express router over DynamoDB records and counters; several response shapes remain compatibility contracts.
+ */
 var express = require('express');
 var router = express.Router();
 
 module.exports = (dynamodb, dynamodbLL, uuidv4) => {
 
 
-    // helper functions -----------------------------------
+    // DynamoDB allocation and record helpers used by the routes below.
     
     const initializeCounter = async () => {
         try {

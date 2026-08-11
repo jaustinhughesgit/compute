@@ -1,4 +1,7 @@
-// routes/artifacts.js
+/**
+ * Platform: Gives operators a read-only view of current anchor artifacts used by indexed discovery.
+ * Technical: Express GET route that renders configured S3 bucket/set metadata.
+ */
 var express = require('express');
 var router = express.Router();
 

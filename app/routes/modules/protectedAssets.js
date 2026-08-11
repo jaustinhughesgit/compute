@@ -1,3 +1,7 @@
+/**
+ * Platform: Provides authenticated storage, grant, wrap, revocation, and audit operations for protected assets.
+ * Technical: Shared-router handlers validate envelopes against the principal; ordinary routes never receive plaintext or private keys.
+ */
 "use strict";
 
 const crypto = require("node:crypto");
