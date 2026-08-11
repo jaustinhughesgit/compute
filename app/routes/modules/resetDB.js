@@ -1,14 +1,18 @@
 /**
- * Platform: Migrates an isolated test deployment off legacy residue once, then resets its active canonical system.
- * Technical: a control marker records the one-time purge before repeatable canonical and identity cleanup.
+ * Platform: Purges legacy test residue once, then resets the canonical system through a resumable job.
+ * Technical: each authorized continuation deletes one DynamoDB page and checkpoints its signed job step.
  */
 "use strict";
+
+const crypto = require("node:crypto");
 
 function register({ on, use }) {
   const { getDocClient, getCookie, deps } = use();
   const RESET_CONTRACT_VERSION = 1;
   const RESET_MODE = "canonical";
+  const DELETE_PAGE_SIZE = 25;
   const resetControlTable = String(process.env.TEST_RESET_CONTROL_TABLE || "").trim();
+  const resetTokenSecret = String(process.env.SESSION_SECRET || "");
 
   const uniqueNames = (values) => values
     .map((value) => String(value || "").trim())
@@ -40,41 +44,29 @@ function register({ on, use }) {
     process.env.CANONICAL_AUDIT_TABLE,
   ]);
 
-  // Identity is last so a failed data reset normally leaves the caller able to
-  // retry. Cookies are last within the phase for the same reason.
+  // Identity is last so the authorized browser normally survives until the
+  // final phase. The signed continuation also survives a deleted cookie row.
   const identityTables = ["passphrases", "users", "cookies"];
-
-  // Active dual-write adapters remain recurring cleanup until their writers
-  // are retired. Their physical layouts are not the new persistence contract.
   const compatibilityTables = uniqueNames([
     "access",
     "verified",
     process.env.EMBPATHS_TABLE || "embPaths",
   ]);
-
-  // The first reset explicitly purges the old authorization, retrieval, and
-  // Context sidecar stores before entering the canonical phase.
   const legacyTables = uniqueNames([
     ...compatibilityTables,
     process.env.CONTEXT_GRAPH_TABLE,
   ]);
   const legacyTableSet = new Set(legacyTables);
-
   const countersToReset = [
-    ["aiCounter", "aiCounter"],
-    ["ciCounter", "ciCounter"],
-    ["eCounter", "eCounter"],
-    ["enCounter", "enCounter"],
-    ["gCounter", "gCounter"],
-    ["giCounter", "giCounter"],
-    ["siCounter", "siCounter"],
-    ["tiCounter", "tiCounter"],
-    ["vCounter", "vCounter"],
-    ["viCounter", "viCounter"],
-    ["wCounter", "wCounter"],
-    ["pCounter", "pCounter"],
+    ["aiCounter", "aiCounter"], ["ciCounter", "ciCounter"],
+    ["eCounter", "eCounter"], ["enCounter", "enCounter"],
+    ["gCounter", "gCounter"], ["giCounter", "giCounter"],
+    ["siCounter", "siCounter"], ["tiCounter", "tiCounter"],
+    ["vCounter", "vCounter"], ["viCounter", "viCounter"],
+    ["wCounter", "wCounter"], ["pCounter", "pCounter"],
     ["ppCounter", "ppCounter"],
   ].map(([tableName, primaryKey]) => ({ tableName, primaryKey }));
+  const phaseNames = ["legacy", "canonical", "compatibility", "counters", "identity"];
 
   function readBody(ctx) {
     const outer = ctx?.req?.body || {};
@@ -92,9 +84,7 @@ function register({ on, use }) {
       configuredEnvironment,
       allowedUsers: new Set(
         String(process.env.TEST_RESET_ALLOWED_USER_IDS || "")
-          .split(",")
-          .map((value) => value.trim())
-          .filter(Boolean)
+          .split(",").map((value) => value.trim()).filter(Boolean)
       ),
       productionLike: /(^|[._-])(prod|production|live)([._-]|$)/i.test(configuredEnvironment),
       resetControlTable,
@@ -110,6 +100,21 @@ function register({ on, use }) {
     return String(record?.Items?.[0]?.e || "").trim();
   }
 
+  function signContinuation(environmentId, jobId) {
+    if (!resetTokenSecret) return "";
+    return crypto.createHmac("sha256", resetTokenSecret)
+      .update(`1var-reset-v1\n${environmentId}\n${jobId}`)
+      .digest("base64url");
+  }
+
+  function continuationIsValid(body, environmentId) {
+    const jobId = String(body.jobId || "").trim();
+    const supplied = String(body.continuationToken || "").trim();
+    const expected = signContinuation(environmentId, jobId);
+    if (!jobId || !supplied || !expected || supplied.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(expected));
+  }
+
   async function authorizeReset(ctx) {
     const access = resetConfiguration();
     const body = readBody(ctx);
@@ -120,17 +125,20 @@ function register({ on, use }) {
     if (!requestedEnvironment || requestedEnvironment !== access.configuredEnvironment) {
       return { allowed: false, code: "TEST_RESET_ENVIRONMENT_MISMATCH" };
     }
+    if (String(body.mode || RESET_MODE).trim() !== RESET_MODE) {
+      return { allowed: false, code: "TEST_RESET_MODE_UNSUPPORTED" };
+    }
+    if (!access.resetControlTable || !resetTokenSecret) {
+      return { allowed: false, code: "TEST_RESET_CONTROL_UNAVAILABLE" };
+    }
+    if (continuationIsValid(body, access.configuredEnvironment)) {
+      return { allowed: true, access, body, continuation: true, caller: "" };
+    }
     const caller = await resolveCaller(ctx);
     if (!access.allowAnyAuthenticatedUser && (!caller || !access.allowedUsers.has(caller))) {
       return { allowed: false, code: "TEST_RESET_FORBIDDEN" };
     }
-    if (String(body.mode || RESET_MODE).trim() !== RESET_MODE) {
-      return { allowed: false, code: "TEST_RESET_MODE_UNSUPPORTED" };
-    }
-    if (!access.resetControlTable) {
-      return { allowed: false, code: "TEST_RESET_CONTROL_UNAVAILABLE" };
-    }
-    return { allowed: true, access, caller };
+    return { allowed: true, access, body, continuation: false, caller };
   }
 
   const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -146,15 +154,14 @@ function register({ on, use }) {
     if (pending.length) throw new Error(`Unable to delete ${pending.length} item(s) from ${tableName}`);
   }
 
-  async function clearTable(tableName, dynamodb, dynamodbLL) {
+  async function clearTablePage(tableName, dynamodb, dynamodbLL) {
     let description;
     try {
       description = await dynamodbLL.describeTable({ TableName: tableName }).promise();
     } catch (error) {
-      if (isMissingTable(error)) return { tableName, deleted: 0, skipped: true };
+      if (isMissingTable(error)) return { tableName, deleted: 0, skipped: true, done: true };
       throw error;
     }
-
     const keyNames = (description.Table?.KeySchema || [])
       .sort((a, b) => (a.KeyType === "HASH" ? -1 : 1) - (b.KeyType === "HASH" ? -1 : 1))
       .map((key) => key.AttributeName);
@@ -166,67 +173,46 @@ function register({ on, use }) {
       expressionNames[placeholder] = keyName;
       return placeholder;
     }).join(", ");
+    const page = await dynamodb.scan({
+      TableName: tableName,
+      ConsistentRead: true,
+      Limit: DELETE_PAGE_SIZE,
+      ProjectionExpression: projection,
+      ExpressionAttributeNames: expressionNames,
+    }).promise();
+    if (!page.Items?.length) return { tableName, deleted: 0, skipped: false, done: true };
 
-    let deleted = 0;
-    while (true) {
-      const page = await dynamodb.scan({
-        TableName: tableName,
-        ConsistentRead: true,
-        ProjectionExpression: projection,
-        ExpressionAttributeNames: expressionNames,
+    const requests = page.Items.map((item) => ({
+      DeleteRequest: {
+        Key: Object.fromEntries(keyNames.map((keyName) => {
+          if (item[keyName] === undefined) throw new Error(`Key '${keyName}' missing in ${tableName}`);
+          return [keyName, item[keyName]];
+        })),
+      },
+    }));
+    await writeDeleteBatch(tableName, requests, dynamodb);
+    return {
+      tableName,
+      deleted: requests.length,
+      skipped: false,
+      done: !page.LastEvaluatedKey,
+    };
+  }
+
+  async function resetCounter(counter, dynamodb) {
+    try {
+      await dynamodb.update({
+        TableName: counter.tableName,
+        Key: { pk: counter.primaryKey },
+        UpdateExpression: "SET #x = :zero",
+        ExpressionAttributeNames: { "#x": "x" },
+        ExpressionAttributeValues: { ":zero": 0 },
       }).promise();
-      if (!page.Items?.length) break;
-
-      const requests = page.Items.map((item) => ({
-        DeleteRequest: {
-          Key: Object.fromEntries(keyNames.map((keyName) => {
-            if (item[keyName] === undefined) throw new Error(`Key '${keyName}' missing in ${tableName}`);
-            return [keyName, item[keyName]];
-          })),
-        },
-      }));
-      for (let index = 0; index < requests.length; index += 25) {
-        const batch = requests.slice(index, index + 25);
-        await writeDeleteBatch(tableName, batch, dynamodb);
-        deleted += batch.length;
-      }
+      return { skipped: false };
+    } catch (error) {
+      if (isMissingTable(error)) return { skipped: true };
+      throw error;
     }
-    return { tableName, deleted, skipped: false };
-  }
-
-  async function clearTables(tableNames, dynamodb, dynamodbLL) {
-    const report = { clearedTables: [], skippedTables: [], failures: [] };
-    for (const tableName of tableNames) {
-      try {
-        const result = await clearTable(tableName, dynamodb, dynamodbLL);
-        if (result.skipped) report.skippedTables.push(tableName);
-        else report.clearedTables.push({ tableName, deleted: result.deleted });
-      } catch (error) {
-        console.error(`Error clearing table ${tableName}:`, error);
-        report.failures.push({ tableName, error: error.message });
-      }
-    }
-    return report;
-  }
-
-  async function resetCounters(dynamodb) {
-    const report = { resetCounters: [], skippedTables: [], failures: [] };
-    for (const counter of countersToReset) {
-      try {
-        await dynamodb.update({
-          TableName: counter.tableName,
-          Key: { pk: counter.primaryKey },
-          UpdateExpression: "SET #x = :zero",
-          ExpressionAttributeNames: { "#x": "x" },
-          ExpressionAttributeValues: { ":zero": 0 },
-        }).promise();
-        report.resetCounters.push(counter.tableName);
-      } catch (error) {
-        if (isMissingTable(error)) report.skippedTables.push(counter.tableName);
-        else report.failures.push({ tableName: counter.tableName, error: error.message });
-      }
-    }
-    return report;
   }
 
   async function readResetMarker(dynamodb, environmentId) {
@@ -237,24 +223,151 @@ function register({ on, use }) {
     }).promise()).Item || null;
   }
 
-  async function writeResetMarker(dynamodb, { environmentId, caller, previous }) {
-    const now = new Date().toISOString();
-    const item = {
-      environmentId,
-      contractVersion: RESET_CONTRACT_VERSION,
-      legacyPurgeCompletedAt: previous?.legacyPurgeCompletedAt || now,
-      completedBy: caller || "temporary-any-caller-mode",
-    };
-    await dynamodb.put({ TableName: resetControlTable, Item: item }).promise();
-    return item;
+  async function writeResetMarker(dynamodb, marker) {
+    await dynamodb.put({ TableName: resetControlTable, Item: marker }).promise();
   }
 
-  function combineReports(...reports) {
-    return {
-      clearedTables: reports.flatMap((report) => report.clearedTables || []),
-      skippedTables: reports.flatMap((report) => report.skippedTables || []),
-      failures: reports.flatMap((report) => report.failures || []),
+  function phaseItems(job) {
+    const phase = phaseNames[job.phaseIndex];
+    if (phase === "legacy") return job.includeLegacy ? legacyTables : [];
+    if (phase === "canonical") {
+      return job.includeLegacy
+        ? canonicalTables.filter((tableName) => !legacyTableSet.has(tableName))
+        : canonicalTables;
+    }
+    if (phase === "compatibility") return job.includeLegacy ? [] : compatibilityTables;
+    if (phase === "counters") return countersToReset;
+    if (phase === "identity") return identityTables;
+    return [];
+  }
+
+  function finishEmptyPhases(marker, job) {
+    while (job.phaseIndex < phaseNames.length && job.itemIndex >= phaseItems(job).length) {
+      if (phaseNames[job.phaseIndex] === "legacy" && job.includeLegacy) {
+        marker.contractVersion = RESET_CONTRACT_VERSION;
+        marker.legacyPurgeCompletedAt = marker.legacyPurgeCompletedAt || new Date().toISOString();
+        marker.completedBy = job.startedBy;
+      }
+      job.phaseIndex += 1;
+      job.itemIndex = 0;
+    }
+    if (job.phaseIndex >= phaseNames.length) {
+      job.state = "completed";
+      job.completedAt = new Date().toISOString();
+    }
+  }
+
+  function newResetJob(marker, environmentId, caller) {
+    const now = new Date().toISOString();
+    const job = {
+      jobId: crypto.randomUUID(),
+      state: "running",
+      includeLegacy: marker?.contractVersion !== RESET_CONTRACT_VERSION,
+      phaseIndex: 0,
+      itemIndex: 0,
+      step: 0,
+      completedUnits: 0,
+      deletedByTable: {},
+      skippedTables: [],
+      resetCounters: [],
+      failures: [],
+      startedAt: now,
+      updatedAt: now,
+      startedBy: caller || "temporary-any-caller-mode",
     };
+    const nextMarker = { ...(marker || {}), environmentId, resetJob: job };
+    finishEmptyPhases(nextMarker, job);
+    return nextMarker;
+  }
+
+  function addOnce(values, value) {
+    if (!values.includes(value)) values.push(value);
+  }
+
+  function addDeleted(job, tableName, count) {
+    job.deletedByTable[tableName] = Number(job.deletedByTable[tableName] || 0) + Number(count || 0);
+  }
+
+  function totalUnits(job) {
+    return phaseNames.reduce((total, _phase, phaseIndex) => {
+      const original = job.phaseIndex;
+      job.phaseIndex = phaseIndex;
+      const count = phaseItems(job).length;
+      job.phaseIndex = original;
+      return total + count;
+    }, 0);
+  }
+
+  function publicJobResponse(marker, job) {
+    const phase = job.state === "running" ? phaseNames[job.phaseIndex] : null;
+    const item = job.state === "running" ? phaseItems(job)[job.itemIndex] : null;
+    const currentTable = typeof item === "string" ? item : item?.tableName || null;
+    const clearedTables = Object.entries(job.deletedByTable)
+      .map(([tableName, deleted]) => ({ tableName, deleted }));
+    const response = {
+      alert: job.state === "completed" ? "success" : job.state === "failed" ? "failed" : "pending",
+      mode: RESET_MODE,
+      contractVersion: RESET_CONTRACT_VERSION,
+      jobId: job.jobId,
+      step: job.step,
+      progress: {
+        phase,
+        currentTable,
+        completedUnits: job.completedUnits,
+        totalUnits: totalUnits(job),
+        deleted: clearedTables.reduce((sum, row) => sum + row.deleted, 0),
+      },
+      legacyPurge: {
+        performed: job.includeLegacy,
+        completed: marker.contractVersion === RESET_CONTRACT_VERSION,
+        completedAt: marker.legacyPurgeCompletedAt || null,
+      },
+      canonicalReset: { performed: job.phaseIndex >= 1, completed: job.state === "completed" },
+      identityCleanup: { performed: job.phaseIndex >= 4, completed: job.state === "completed" },
+      compatibilityCleanup: { performed: !job.includeLegacy && job.phaseIndex >= 2 },
+      resetCounters: job.resetCounters,
+      clearedTables,
+      skippedTables: job.skippedTables,
+      failures: job.failures,
+    };
+    if (job.state === "running") {
+      response.continuationToken = signContinuation(marker.environmentId, job.jobId);
+    }
+    return { ok: true, response };
+  }
+
+  async function processOneJobStep(marker, dynamodb, dynamodbLL) {
+    const job = marker.resetJob;
+    finishEmptyPhases(marker, job);
+    if (job.state !== "running") return;
+
+    const phase = phaseNames[job.phaseIndex];
+    const item = phaseItems(job)[job.itemIndex];
+    const tableName = typeof item === "string" ? item : item.tableName;
+    try {
+      if (phase === "counters") {
+        const result = await resetCounter(item, dynamodb);
+        if (result.skipped) addOnce(job.skippedTables, tableName);
+        else addOnce(job.resetCounters, tableName);
+        job.itemIndex += 1;
+        job.completedUnits += 1;
+      } else {
+        const result = await clearTablePage(tableName, dynamodb, dynamodbLL);
+        if (result.skipped) addOnce(job.skippedTables, tableName);
+        else addDeleted(job, tableName, result.deleted);
+        if (result.done) {
+          job.itemIndex += 1;
+          job.completedUnits += 1;
+        }
+      }
+    } catch (error) {
+      console.error(`Error resetting table ${tableName}:`, error);
+      job.state = "failed";
+      job.failures = [{ tableName, error: error.message }];
+    }
+    job.step += 1;
+    job.updatedAt = new Date().toISOString();
+    finishEmptyPhases(marker, job);
   }
 
   on("resetDBStatus", async (ctx) => {
@@ -264,15 +377,11 @@ function register({ on, use }) {
       : "";
     const callerAllowed = access.allowAnyAuthenticatedUser || (!!caller && access.allowedUsers.has(caller));
     let available = access.enabled && !!access.configuredEnvironment
-      && !access.productionLike && callerAllowed && !!access.resetControlTable;
+      && !access.productionLike && callerAllowed && !!access.resetControlTable && !!resetTokenSecret;
     let reasonCode = null;
-    if (!access.enabled || !access.configuredEnvironment || access.productionLike) {
-      reasonCode = "TEST_RESET_DISABLED";
-    } else if (!callerAllowed) {
-      reasonCode = "TEST_RESET_FORBIDDEN";
-    } else if (!access.resetControlTable) {
-      reasonCode = "TEST_RESET_CONTROL_UNAVAILABLE";
-    }
+    if (!access.enabled || !access.configuredEnvironment || access.productionLike) reasonCode = "TEST_RESET_DISABLED";
+    else if (!callerAllowed) reasonCode = "TEST_RESET_FORBIDDEN";
+    else if (!access.resetControlTable || !resetTokenSecret) reasonCode = "TEST_RESET_CONTROL_UNAVAILABLE";
 
     let marker = null;
     if (available) {
@@ -284,6 +393,7 @@ function register({ on, use }) {
         reasonCode = "TEST_RESET_CONTROL_UNAVAILABLE";
       }
     }
+    const activeJob = marker?.resetJob?.state === "running" ? marker.resetJob : null;
     return {
       ok: true,
       response: {
@@ -295,6 +405,8 @@ function register({ on, use }) {
         contractVersion: RESET_CONTRACT_VERSION,
         legacyPurgeRequired: available ? marker?.contractVersion !== RESET_CONTRACT_VERSION : null,
         legacyPurgeCompletedAt: marker?.legacyPurgeCompletedAt || null,
+        resetInProgress: !!activeJob,
+        activePhase: activeJob ? phaseNames[activeJob.phaseIndex] || null : null,
       },
     };
   });
@@ -312,111 +424,76 @@ function register({ on, use }) {
     }
 
     const dynamodb = getDocClient();
-    const dynamodbLL = deps.dynamodbLL;
+    const environmentId = authorization.access.configuredEnvironment;
     let marker;
     try {
-      marker = await readResetMarker(dynamodb, authorization.access.configuredEnvironment);
+      marker = await readResetMarker(dynamodb, environmentId);
     } catch {
       return {
         ok: false,
         error: {
           code: "TEST_RESET_CONTROL_UNAVAILABLE",
-          message: "The reset migration marker could not be read; no reset was attempted.",
+          message: "The reset job checkpoint could not be read; no reset step was attempted.",
         },
       };
     }
 
-    const legacyPurgeRequired = marker?.contractVersion !== RESET_CONTRACT_VERSION;
-    const emptyReport = { clearedTables: [], skippedTables: [], failures: [] };
-    const legacyPurge = legacyPurgeRequired
-      ? await clearTables(legacyTables, dynamodb, dynamodbLL)
-      : emptyReport;
-    if (legacyPurge.failures.length) {
-      return {
-        ok: true,
-        response: {
-          alert: "failed",
-          mode: RESET_MODE,
-          contractVersion: RESET_CONTRACT_VERSION,
-          legacyPurge: { performed: true, completed: false, ...legacyPurge },
-          canonicalReset: { performed: false },
-          ...combineReports(legacyPurge),
-        },
-      };
-    }
-
-    let completedMarker = marker;
-    if (legacyPurgeRequired) {
+    const requestedJobId = String(authorization.body.jobId || "").trim();
+    const activeJob = marker?.resetJob;
+    if (requestedJobId) {
+      if (!activeJob || activeJob.jobId !== requestedJobId) {
+        return { ok: false, error: { code: "TEST_RESET_JOB_MISMATCH", message: "Reset job is not active." } };
+      }
+      if (activeJob.state !== "running") {
+        const replay = publicJobResponse(marker, activeJob);
+        if (replay.response.alert === "success") {
+          ctx.res?.setHeader?.(
+            "Set-Cookie",
+            "accessToken=; Max-Age=0; Path=/; Domain=.1var.com; HttpOnly; Secure; SameSite=None"
+          );
+        }
+        return replay;
+      }
+      const requestedStep = Number(authorization.body.step);
+      if (!Number.isInteger(requestedStep) || requestedStep < 0 || requestedStep > activeJob.step) {
+        return { ok: false, error: { code: "TEST_RESET_STEP_MISMATCH", message: "Reset step is invalid." } };
+      }
+      if (requestedStep === activeJob.step) {
+        await processOneJobStep(marker, dynamodb, deps.dynamodbLL);
+        try {
+          await writeResetMarker(dynamodb, marker);
+        } catch {
+          return {
+            ok: false,
+            error: {
+              code: "TEST_RESET_CONTROL_UNAVAILABLE",
+              message: "The reset step ran but its checkpoint could not be saved; retry the same step.",
+            },
+          };
+        }
+      }
+    } else if (activeJob?.state === "running") {
+      // An authorized caller can resume a job whose first response was lost.
+    } else {
+      marker = newResetJob(marker, environmentId, authorization.caller);
       try {
-        completedMarker = await writeResetMarker(dynamodb, {
-          environmentId: authorization.access.configuredEnvironment,
-          caller: authorization.caller,
-          previous: marker,
-        });
-      } catch (error) {
-        const markerFailure = {
-          clearedTables: [],
-          skippedTables: [],
-          failures: [{ tableName: resetControlTable, error: error.message }],
-        };
+        await writeResetMarker(dynamodb, marker);
+      } catch {
         return {
-          ok: true,
-          response: {
-            alert: "failed",
-            mode: RESET_MODE,
-            contractVersion: RESET_CONTRACT_VERSION,
-            legacyPurge: { performed: true, completed: false, ...legacyPurge },
-            canonicalReset: { performed: false },
-            ...combineReports(legacyPurge, markerFailure),
-          },
+          ok: false,
+          error: { code: "TEST_RESET_CONTROL_UNAVAILABLE", message: "Reset job could not be started." },
         };
       }
     }
 
-    const canonical = await clearTables(
-      legacyPurgeRequired
-        ? canonicalTables.filter((tableName) => !legacyTableSet.has(tableName))
-        : canonicalTables,
-      dynamodb,
-      dynamodbLL
-    );
-    const compatibility = legacyPurgeRequired
-      ? { performed: false, ...emptyReport }
-      : { performed: true, ...await clearTables(compatibilityTables, dynamodb, dynamodbLL) };
-    const counters = await resetCounters(dynamodb);
-    const beforeIdentity = combineReports(canonical, compatibility, counters);
-    const identity = beforeIdentity.failures.length
-      ? { performed: false, ...emptyReport }
-      : { performed: true, ...await clearTables(identityTables, dynamodb, dynamodbLL) };
-    const canonicalReset = combineReports(canonical, identity);
-    const combined = combineReports(legacyPurge, canonical, compatibility, counters, identity);
-
-    const success = combined.failures.length === 0;
-    if (success) {
+    const result = publicJobResponse(marker, marker.resetJob);
+    if (result.response.alert === "success") {
       ctx.res?.setHeader?.(
         "Set-Cookie",
         "accessToken=; Max-Age=0; Path=/; Domain=.1var.com; HttpOnly; Secure; SameSite=None"
       );
     }
-    return {
-      ok: true,
-      response: {
-        alert: success ? "success" : "failed",
-        mode: RESET_MODE,
-        contractVersion: RESET_CONTRACT_VERSION,
-        legacyPurge: {
-          performed: legacyPurgeRequired,
-          completed: true,
-          completedAt: completedMarker.legacyPurgeCompletedAt,
-          ...legacyPurge,
-        },
-        canonicalReset: { performed: true, ...canonicalReset },
-        identityCleanup: identity,
-        compatibilityCleanup: compatibility,
-        resetCounters: counters.resetCounters,
-        ...combined,
-      },
-    };
+    return result;
   });
 
   return { name: "resetDB" };

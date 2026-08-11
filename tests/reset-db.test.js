@@ -7,6 +7,28 @@ const path = require("node:path");
 
 const { register } = require("../app/routes/modules/resetDB");
 
+async function runResetJob(handler, initialContext) {
+  let result = await handler(initialContext);
+  for (let requestCount = 0; result?.response?.alert === "pending"; requestCount += 1) {
+    assert.ok(requestCount < 500, "reset job did not finish");
+    const pending = result.response;
+    result = await handler({
+      ...initialContext,
+      cookie: {},
+      req: {
+        ...(initialContext.req || {}),
+        body: {
+          ...(initialContext.req?.body || {}),
+          jobId: pending.jobId,
+          continuationToken: pending.continuationToken,
+          step: pending.step,
+        },
+      },
+    });
+  }
+  return result;
+}
+
 test("first canonical reset purges legacy data, clears active stores, and records completion", async () => {
   const previousAssetsTable = process.env.PROTECTED_ASSETS_TABLE;
   const previousAuditTable = process.env.PROTECTED_ASSET_AUDIT_TABLE;
@@ -15,6 +37,7 @@ test("first canonical reset purges legacy data, clears active stores, and record
   const previousResetEnvironment = process.env.TEST_RESET_ENVIRONMENT_ID;
   const previousResetUsers = process.env.TEST_RESET_ALLOWED_USER_IDS;
   const previousResetControl = process.env.TEST_RESET_CONTROL_TABLE;
+  const previousSessionSecret = process.env.SESSION_SECRET;
   process.env.PROTECTED_ASSETS_TABLE = "compute-ProtectedAssetsTable-SEKP3UPKPBA2";
   process.env.PROTECTED_ASSET_AUDIT_TABLE = "compute-ProtectedAssetAuditTable-SRJ00SECK5RQ";
   process.env.CONTEXT_GRAPH_TABLE = "compute-ContextGraphTable-CTX123";
@@ -22,6 +45,7 @@ test("first canonical reset purges legacy data, clears active stores, and record
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
   process.env.TEST_RESET_CONTROL_TABLE = "compute-TestResetControlTable-RESET1";
+  process.env.SESSION_SECRET = "reset-test-secret";
 
   const protectedTables = new Map([
     [process.env.PROTECTED_ASSETS_TABLE, {
@@ -101,7 +125,7 @@ test("first canonical reset purges legacy data, clears active stores, and record
       }),
     });
     const cookies = [];
-    const result = await handler({
+    const result = await runResetJob(handler, {
       req: { body: { testEnvironmentId: "test-a", mode: "canonical" } },
       cookie: { e: "42" },
       res: { setHeader: (name, value) => cookies.push([name, value]) },
@@ -131,6 +155,8 @@ test("first canonical reset purges legacy data, clears active stores, and record
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previousResetUsers;
     if (previousResetControl == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previousResetControl;
+    if (previousSessionSecret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previousSessionSecret;
   }
 });
 
@@ -140,11 +166,13 @@ test("later canonical resets skip the migration phase but clear active compatibi
     environment: process.env.TEST_RESET_ENVIRONMENT_ID,
     users: process.env.TEST_RESET_ALLOWED_USER_IDS,
     control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
   };
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
   process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
 
   const tableItems = new Map([
     ["users", [{ userID: 42 }]],
@@ -193,7 +221,7 @@ test("later canonical resets skip the migration phase but clear active compatibi
       on: (name, callback) => { if (name === "resetDB") handler = callback; },
       use: () => ({ getDocClient: () => documentClient, deps: { dynamodbLL } }),
     });
-    const result = await handler({
+    const result = await runResetJob(handler, {
       req: { body: { testEnvironmentId: "test-a", mode: "canonical" } },
       cookie: { e: "42" },
       res: { setHeader: () => {} },
@@ -213,22 +241,145 @@ test("later canonical resets skip the migration phase but clear active compatibi
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
     if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
   }
 });
 
-test("a failed legacy purge blocks canonical deletion and marker creation", async () => {
+test("reset continuations delete one bounded page and stale retries do not advance twice", async () => {
   const previous = {
     enabled: process.env.TEST_RESET_ENABLED,
     environment: process.env.TEST_RESET_ENVIRONMENT_ID,
     users: process.env.TEST_RESET_ALLOWED_USER_IDS,
     control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
   };
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
   process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
+
+  let marker = null;
+  const accessItems = Array.from({ length: 30 }, (_, index) => ({ ai: `access-${index}` }));
+  const batchSizes = [];
+  let handler;
+  const missing = () => {
+    const error = new Error("missing");
+    error.code = "ResourceNotFoundException";
+    throw error;
+  };
+  const documentClient = {
+    get: () => ({ promise: async () => ({ Item: marker }) }),
+    put: ({ Item }) => ({ promise: async () => { marker = Item; } }),
+    scan: ({ TableName, Limit }) => ({
+      promise: async () => {
+        if (TableName !== "access") return { Items: [] };
+        const Items = accessItems.splice(0, Limit);
+        return { Items, LastEvaluatedKey: accessItems.length ? { ai: Items.at(-1).ai } : undefined };
+      },
+    }),
+    batchWrite: ({ RequestItems }) => ({
+      promise: async () => {
+        batchSizes.push(RequestItems.access.length);
+        return { UnprocessedItems: {} };
+      },
+    }),
+    update: () => ({ promise: async () => missing() }),
+  };
+  const dynamodbLL = {
+    describeTable: ({ TableName }) => ({
+      promise: async () => {
+        if (TableName !== "access") return missing();
+        return { Table: { KeySchema: [{ AttributeName: "ai", KeyType: "HASH" }] } };
+      },
+    }),
+  };
+
+  try {
+    register({
+      on: (name, callback) => { if (name === "resetDB") handler = callback; },
+      use: () => ({ getDocClient: () => documentClient, deps: { dynamodbLL } }),
+    });
+    const base = { testEnvironmentId: "test-a", mode: "canonical" };
+    const started = await handler({ req: { body: base }, cookie: { e: "42" }, res: {} });
+    assert.equal(started.response.alert, "pending");
+    assert.equal(started.response.step, 0);
+
+    const firstBody = {
+      ...base,
+      jobId: started.response.jobId,
+      continuationToken: started.response.continuationToken,
+      step: 0,
+    };
+    const first = await handler({ req: { body: firstBody }, cookie: {}, res: {} });
+    assert.deepEqual(batchSizes, [25]);
+    assert.equal(first.response.step, 1);
+    assert.equal(first.response.progress.currentTable, "access");
+
+    const stale = await handler({ req: { body: firstBody }, cookie: {}, res: {} });
+    assert.deepEqual(batchSizes, [25]);
+    assert.equal(stale.response.step, 1);
+
+    const second = await handler({
+      req: { body: { ...firstBody, step: stale.response.step } },
+      cookie: {},
+      res: {},
+    });
+    assert.deepEqual(batchSizes, [25, 5]);
+    assert.equal(second.response.step, 2);
+    assert.equal(second.response.progress.currentTable, "verified");
+
+    const completed = await runResetJob(handler, {
+      req: { body: base },
+      cookie: { e: "42" },
+      res: {},
+    });
+    assert.equal(completed.response.alert, "success");
+
+    const replay = await handler({
+      req: {
+        body: {
+          ...base,
+          jobId: started.response.jobId,
+          continuationToken: started.response.continuationToken,
+          step: marker.resetJob.step,
+        },
+      },
+      cookie: {},
+      res: {},
+    });
+    assert.equal(replay.response.alert, "success");
+  } finally {
+    if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
+    else process.env.TEST_RESET_ENABLED = previous.enabled;
+    if (previous.environment == null) delete process.env.TEST_RESET_ENVIRONMENT_ID;
+    else process.env.TEST_RESET_ENVIRONMENT_ID = previous.environment;
+    if (previous.users == null) delete process.env.TEST_RESET_ALLOWED_USER_IDS;
+    else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
+    if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
+    else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
+  }
+});
+
+test("a failed legacy page blocks canonical deletion and legacy completion", async () => {
+  const previous = {
+    enabled: process.env.TEST_RESET_ENABLED,
+    environment: process.env.TEST_RESET_ENVIRONMENT_ID,
+    users: process.env.TEST_RESET_ALLOWED_USER_IDS,
+    control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
+  };
+  process.env.TEST_RESET_ENABLED = "true";
+  process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
+  process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
+  process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
   const described = [];
   let markerWrites = 0;
+  let marker = null;
   let handler;
 
   try {
@@ -236,8 +387,8 @@ test("a failed legacy purge blocks canonical deletion and marker creation", asyn
       on: (name, callback) => { if (name === "resetDB") handler = callback; },
       use: () => ({
         getDocClient: () => ({
-          get: () => ({ promise: async () => ({}) }),
-          put: () => ({ promise: async () => { markerWrites += 1; } }),
+          get: () => ({ promise: async () => ({ Item: marker }) }),
+          put: ({ Item }) => ({ promise: async () => { marker = Item; markerWrites += 1; } }),
         }),
         deps: {
           dynamodbLL: {
@@ -251,7 +402,7 @@ test("a failed legacy purge blocks canonical deletion and marker creation", asyn
         },
       }),
     });
-    const result = await handler({
+    const result = await runResetJob(handler, {
       req: { body: { testEnvironmentId: "test-a", mode: "canonical" } },
       cookie: { e: "42" },
       res: {},
@@ -259,9 +410,11 @@ test("a failed legacy purge blocks canonical deletion and marker creation", asyn
     assert.equal(result.response.alert, "failed");
     assert.equal(result.response.legacyPurge.completed, false);
     assert.equal(result.response.canonicalReset.performed, false);
-    assert.deepEqual(described, ["access", "verified", "embPaths"]);
+    assert.deepEqual(described, ["access"]);
     assert.equal(described.includes("versions"), false);
-    assert.equal(markerWrites, 0);
+    assert.equal(markerWrites, 2);
+    assert.equal(marker.contractVersion, undefined);
+    assert.equal(marker.resetJob.state, "failed");
   } finally {
     if (previous.enabled == null) delete process.env.TEST_RESET_ENABLED;
     else process.env.TEST_RESET_ENABLED = previous.enabled;
@@ -271,6 +424,8 @@ test("a failed legacy purge blocks canonical deletion and marker creation", asyn
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
     if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
   }
 });
 
@@ -303,11 +458,13 @@ test("Reset DB denies environment mismatches and users outside the allow-list", 
     environment: process.env.TEST_RESET_ENVIRONMENT_ID,
     users: process.env.TEST_RESET_ALLOWED_USER_IDS,
     control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
   };
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
   process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
   let handler;
   let accessed = false;
   try {
@@ -338,6 +495,8 @@ test("Reset DB denies environment mismatches and users outside the allow-list", 
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
     if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
   }
 });
 
@@ -347,11 +506,13 @@ test("Reset DB status gives an authorized portal the configured identity without
     environment: process.env.TEST_RESET_ENVIRONMENT_ID,
     users: process.env.TEST_RESET_ALLOWED_USER_IDS,
     control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
   };
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "42";
   process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
   const handlers = {};
   try {
     register({
@@ -376,6 +537,8 @@ test("Reset DB status gives an authorized portal the configured identity without
         contractVersion: 1,
         legacyPurgeRequired: true,
         legacyPurgeCompletedAt: null,
+        resetInProgress: false,
+        activePhase: null,
       },
     });
     const forbidden = await handlers.resetDBStatus({ cookie: { e: "99" } });
@@ -390,6 +553,8 @@ test("Reset DB status gives an authorized portal the configured identity without
         contractVersion: 1,
         legacyPurgeRequired: null,
         legacyPurgeCompletedAt: null,
+        resetInProgress: false,
+        activePhase: null,
       },
     });
   } finally {
@@ -401,6 +566,8 @@ test("Reset DB status gives an authorized portal the configured identity without
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
     if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
   }
 });
 
@@ -411,12 +578,14 @@ test("Reset DB can temporarily allow any caller on an explicitly configured test
     allowAny: process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER,
     users: process.env.TEST_RESET_ALLOWED_USER_IDS,
     control: process.env.TEST_RESET_CONTROL_TABLE,
+    secret: process.env.SESSION_SECRET,
   };
   process.env.TEST_RESET_ENABLED = "true";
   process.env.TEST_RESET_ENVIRONMENT_ID = "test-a";
   process.env.TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER = "true";
   process.env.TEST_RESET_ALLOWED_USER_IDS = "";
   process.env.TEST_RESET_CONTROL_TABLE = "reset-control";
+  process.env.SESSION_SECRET = "reset-test-secret";
   const handlers = {};
   try {
     register({
@@ -449,6 +618,8 @@ test("Reset DB can temporarily allow any caller on an explicitly configured test
         contractVersion: 1,
         legacyPurgeRequired: false,
         legacyPurgeCompletedAt: "2026-08-11T12:00:00.000Z",
+        resetInProgress: false,
+        activePhase: null,
       },
     });
     const anonymous = await handlers.resetDBStatus({ req: { cookies: {} } });
@@ -463,6 +634,8 @@ test("Reset DB can temporarily allow any caller on an explicitly configured test
         contractVersion: 1,
         legacyPurgeRequired: false,
         legacyPurgeCompletedAt: "2026-08-11T12:00:00.000Z",
+        resetInProgress: false,
+        activePhase: null,
       },
     });
     const resetAuthorization = await handlers.resetDB({
@@ -481,6 +654,8 @@ test("Reset DB can temporarily allow any caller on an explicitly configured test
     else process.env.TEST_RESET_ALLOWED_USER_IDS = previous.users;
     if (previous.control == null) delete process.env.TEST_RESET_CONTROL_TABLE;
     else process.env.TEST_RESET_CONTROL_TABLE = previous.control;
+    if (previous.secret == null) delete process.env.SESSION_SECRET;
+    else process.env.SESSION_SECRET = previous.secret;
   }
 });
 
