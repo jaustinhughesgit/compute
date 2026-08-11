@@ -5,6 +5,7 @@
 "use strict";
 
 const crypto = require("node:crypto");
+const { createCanonicalPersistence } = require("../../persistence/canonicalPersistence");
 
 const SCHEMA_VERSION = 1;
 const MAX_NODES = 96;
@@ -228,8 +229,10 @@ function errorEnvelope(code, message, statusCode = 400) {
 }
 
 function register({ on, use }) {
-  const { getDocClient, getSub, getWord } = use();
-  const tableName = () => process.env.CONTEXT_GRAPH_TABLE || "context_graph";
+  const { getDocClient, getCanonicalPersistence, getSub, getWord } = use();
+  const persistence = typeof getCanonicalPersistence === "function"
+    ? getCanonicalPersistence()
+    : createCanonicalPersistence({ documentClient: getDocClient() });
 
   async function requirePrincipal(meta) {
     const principalId = text(meta?.cookie?.e, 80);
@@ -248,14 +251,10 @@ function register({ on, use }) {
     return { ok: true, subdomain };
   }
 
-  async function registerCurrentProfile(doc, principalId, subdomain, declaredName = null) {
+  async function registerCurrentProfile(principalId, subdomain, declaredName = null) {
     if (!publicWorkspace(subdomain)) return null;
     if (!declaredName) {
-      const existing = await doc.get({
-        TableName: tableName(),
-        Key: { audienceId: `u:${principalId}`, recordKey: "profile#self" },
-        ConsistentRead: true,
-      }).promise();
+      const existing = await persistence.context.get(`u:${principalId}`, "profile#self");
       if (existing?.Item?.profileSource === "context-graph") return existing.Item;
     }
     let word = null;
@@ -279,21 +278,14 @@ function register({ on, use }) {
       profileSource: declaredName ? "context-graph" : "workspace",
       updatedAt: now,
     };
-    await doc.put({ TableName: tableName(), Item: item }).promise();
+    await persistence.context.put(item);
     return item;
   }
 
-  async function findProfiles(doc, label) {
+  async function findProfiles(label) {
     const handle = normalizedLabel(label);
     if (!handle) return [];
-    const result = await doc.query({
-      TableName: tableName(),
-      IndexName: "lookupKey-index",
-      KeyConditionExpression: "#lookup = :lookup",
-      ExpressionAttributeNames: { "#lookup": "lookupKey" },
-      ExpressionAttributeValues: { ":lookup": `handle#${handle}` },
-      Limit: 12,
-    }).promise();
+    const result = await persistence.context.byLookup(`handle#${handle}`, { limit: 12 });
     const byPrincipal = new Map();
     for (const item of result?.Items || []) {
       const principalId = text(item?.principalId, 80);
@@ -309,24 +301,13 @@ function register({ on, use }) {
     // matching entity is accepted only when it is public and has a users row.
     if (byPrincipal.size === 0) {
       try {
-        const words = await doc.query({
-          TableName: "words",
-          IndexName: "sIndex",
-          KeyConditionExpression: "#surface = :surface",
-          ExpressionAttributeNames: { "#surface": "s" },
-          ExpressionAttributeValues: { ":surface": handle },
-          Limit: 12,
-        }).promise();
+        const words = await persistence.foundation.words.byNormalized(handle, { limit: 12 });
         for (const word of words?.Items || []) {
           const subdomains = await getSub(String(word.a), "a");
           for (const subdomain of subdomains?.Items || []) {
             const principalId = text(subdomain?.e, 80);
             if (!principalId || principalId === "0" || subdomain?.z !== true) continue;
-            const user = await doc.get({
-              TableName: "users",
-              Key: { userID: Number(principalId) },
-              ConsistentRead: true,
-            }).promise();
+            const user = await persistence.identity.getUser(principalId);
             if (!user?.Item || byPrincipal.has(principalId)) continue;
             byPrincipal.set(principalId, {
               principalId,
@@ -340,7 +321,7 @@ function register({ on, use }) {
     return Array.from(byPrincipal.values());
   }
 
-  async function resolveNode(doc, node, principalId, predicateIds, userReferenceLabels = []) {
+  async function resolveNode(node, principalId, predicateIds, userReferenceLabels = []) {
     const labels = uniqueStrings([...(node.lemmas || []), ...(node.names || [])]);
     const normalized = labels.map(normalizedLabel).filter(Boolean);
     const currentSpeaker = normalized.some((label) => ["speaker", "current speaker", "me", "myself", "i"].includes(label));
@@ -353,11 +334,7 @@ function register({ on, use }) {
     }
 
     if (/^(?:usr_[0-9]+|ctx_[a-f0-9]{32}|term_[a-f0-9]{32})$/.test(node.localId)) {
-      const prior = await doc.get({
-        TableName: tableName(),
-        Key: { audienceId: `u:${principalId}`, recordKey: `node#${node.localId}` },
-        ConsistentRead: true,
-      }).promise();
+      const prior = await persistence.context.get(`u:${principalId}`, `node#${node.localId}`);
       if (prior?.Item?.recordType === "node" && text(prior.Item.serverId, 180) === node.localId) {
         const userMatch = node.localId.match(/^usr_([0-9]+)$/);
         const referencedPrincipal = userMatch?.[1] || null;
@@ -380,7 +357,7 @@ function register({ on, use }) {
     }
 
     for (const label of uniqueStrings(userReferenceLabels)) {
-      const matches = await findProfiles(doc, label);
+      const matches = await findProfiles(label);
       if (matches.length === 1) {
         return {
           serverId: matches[0].serverEntityId,
@@ -406,23 +383,8 @@ function register({ on, use }) {
     };
   }
 
-  async function writeBatches(doc, items) {
-    const byKey = new Map();
-    for (const item of items) {
-      if (!item?.audienceId || !item?.recordKey) continue;
-      byKey.set(`${item.audienceId}\u001f${item.recordKey}`, item);
-    }
-    const uniqueItems = Array.from(byKey.values());
-    for (let index = 0; index < uniqueItems.length; index += 25) {
-      let pending = uniqueItems.slice(index, index + 25).map((Item) => ({ PutRequest: { Item } }));
-      for (let attempt = 0; pending.length && attempt < 7; attempt += 1) {
-        const result = await doc.batchWrite({
-          RequestItems: { [tableName()]: pending },
-        }).promise();
-        pending = result?.UnprocessedItems?.[tableName()] || [];
-      }
-      if (pending.length) throw new Error(`Context graph left ${pending.length} writes unprocessed`);
-    }
+  async function writeBatches(items) {
+    await persistence.context.batchPut(items, { maxAttempts: 7 });
   }
 
   on("contextGraphFindUser", async (ctx, meta) => {
@@ -431,7 +393,7 @@ function register({ on, use }) {
     const body = unwrapBody(ctx?.req?.body);
     const query = text(body.query || body.name);
     if (!query) return errorEnvelope("CONTEXT_USER_QUERY_REQUIRED", "A user name is required.");
-    const matches = await findProfiles(getDocClient(), query);
+    const matches = await findProfiles(query);
     return {
       ok: true,
       response: {
@@ -475,15 +437,13 @@ function register({ on, use }) {
       }
     }
 
-    const doc = getDocClient();
-    await registerCurrentProfile(doc, principalId, workspace.subdomain);
+    await registerCurrentProfile(principalId, workspace.subdomain);
     const ownerAudience = `u:${principalId}`;
     const ownerSyncAudience = `sync:${principalId}`;
-    const idempotencyRecord = await doc.get({
-      TableName: tableName(),
-      Key: { audienceId: ownerSyncAudience, recordKey: `idem#${idempotencyKey}` },
-      ConsistentRead: true,
-    }).promise();
+    const idempotencyRecord = await persistence.context.get(
+      ownerSyncAudience,
+      `idem#${idempotencyKey}`
+    );
     if (idempotencyRecord?.Item?.acknowledgement) {
       return { ok: true, response: idempotencyRecord.Item.acknowledgement };
     }
@@ -501,7 +461,6 @@ function register({ on, use }) {
     const resolutions = new Map();
     for (const node of nodes) {
       resolutions.set(node.localId, await resolveNode(
-        doc,
         node,
         principalId,
         predicateIds,
@@ -510,7 +469,7 @@ function register({ on, use }) {
     }
     const assertedProfileName = declaredProfileName(nodes, relations, resolutions, principalId);
     const assertedProfile = assertedProfileName
-      ? await registerCurrentProfile(doc, principalId, workspace.subdomain, assertedProfileName)
+      ? await registerCurrentProfile(principalId, workspace.subdomain, assertedProfileName)
       : null;
     if (assertedProfile) {
       for (const resolution of resolutions.values()) {
@@ -555,11 +514,10 @@ function register({ on, use }) {
         visibility: publicRecord ? "public-workspace" : "participants",
       };
       const nodePayloadHash = payloadHash(nodePayload);
-      const existingNode = await doc.get({
-        TableName: tableName(),
-        Key: { audienceId: ownerAudience, recordKey: `node#${resolution.serverId}` },
-        ConsistentRead: true,
-      }).promise();
+      const existingNode = await persistence.context.get(
+        ownerAudience,
+        `node#${resolution.serverId}`
+      );
       const nodeVersion = existingNode?.Item?.payloadHash === nodePayloadHash
         ? Number(existingNode.Item.version || 1)
         : Math.max(1, Number(existingNode?.Item?.version || 0) + 1);
@@ -611,11 +569,10 @@ function register({ on, use }) {
         tombstone: relation.tombstone,
       };
       const relationPayloadHash = payloadHash(relationPayload);
-      const existingRelation = await doc.get({
-        TableName: tableName(),
-        Key: { audienceId: ownerAudience, recordKey: `relation#${serverId}` },
-        ConsistentRead: true,
-      }).promise();
+      const existingRelation = await persistence.context.get(
+        ownerAudience,
+        `relation#${serverId}`
+      );
       const previousAudienceIds = Array.isArray(existingRelation?.Item?.audienceIds)
         ? existingRelation.Item.audienceIds : [];
       const audienceIds = Array.from(new Set([
@@ -665,7 +622,7 @@ function register({ on, use }) {
       updatedAt: now,
       expiresAt: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
     });
-    await writeBatches(doc, writes);
+    await writeBatches(writes);
     return { ok: true, response: acknowledgement };
   });
 
@@ -680,18 +637,13 @@ function register({ on, use }) {
     const workspace = await verifyWorkspace(workspaceSu, principalId);
     if (!workspace.ok) return errorEnvelope(workspace.code, "The active workspace does not belong to this context identity.", 403);
 
-    const doc = getDocClient();
-    await registerCurrentProfile(doc, principalId, workspace.subdomain);
+    await registerCurrentProfile(principalId, workspace.subdomain);
     const limit = Math.max(25, Math.min(500, Number(body.limit || 300)));
-    const page = await doc.query({
-      TableName: tableName(),
-      KeyConditionExpression: "#audience = :audience",
-      ExpressionAttributeNames: { "#audience": "audienceId" },
-      ExpressionAttributeValues: { ":audience": `u:${principalId}` },
-      ExclusiveStartKey: decodeCursor(body.cursor),
-      Limit: limit,
-      ConsistentRead: true,
-    }).promise();
+    const page = await persistence.context.byAudience(`u:${principalId}`, {
+      cursor: decodeCursor(body.cursor),
+      limit,
+      consistentRead: true,
+    });
 
     const nodes = [];
     const relations = [];
@@ -744,8 +696,7 @@ function register({ on, use }) {
 
     const query = text(body.query || body.name);
     if (!query) return errorEnvelope("CONTEXT_USER_QUERY_REQUIRED", "A user name is required.");
-    const doc = getDocClient();
-    const matches = await findProfiles(doc, query);
+    const matches = await findProfiles(query);
     if (matches.length !== 1) {
       return {
         ok: true,
@@ -767,15 +718,11 @@ function register({ on, use }) {
 
     const target = matches[0];
     const limit = Math.max(25, Math.min(500, Number(body.limit || 300)));
-    const page = await doc.query({
-      TableName: tableName(),
-      KeyConditionExpression: "#audience = :audience",
-      ExpressionAttributeNames: { "#audience": "audienceId" },
-      ExpressionAttributeValues: { ":audience": `public:${target.principalId}` },
-      ExclusiveStartKey: decodeCursor(body.cursor),
-      Limit: limit,
-      ConsistentRead: true,
-    }).promise();
+    const page = await persistence.context.byAudience(`public:${target.principalId}`, {
+      cursor: decodeCursor(body.cursor),
+      limit,
+      consistentRead: true,
+    });
     const nodes = [];
     const relations = [];
     for (const item of page?.Items || []) {

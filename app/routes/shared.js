@@ -4,6 +4,7 @@
  */
 const moment = require("moment-timezone");
 const crypto = require("crypto");
+const { createCanonicalPersistence } = require("../persistence/canonicalPersistence");
 
 const isObject = (val) =>
   val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
@@ -68,6 +69,19 @@ function createShared(deps = {}) {
   const actions = new Map();
   const middlewares = [];
   const registry = Object.create(null);
+  const persistenceByClient = new WeakMap();
+
+  function getCanonicalPersistence(ddb = dynamodb) {
+    if (!ddb || (typeof ddb !== "object" && typeof ddb !== "function")) {
+      throw new TypeError("A DynamoDB DocumentClient is required");
+    }
+    let persistence = persistenceByClient.get(ddb);
+    if (!persistence) {
+      persistence = createCanonicalPersistence({ documentClient: ddb });
+      persistenceByClient.set(ddb, persistence);
+    }
+    return persistence;
+  }
 
   const on = (action, handler) => {
     if (typeof action !== "string" || !action)
@@ -159,127 +173,57 @@ function createShared(deps = {}) {
   };
 
   async function getSub(val, key, ddb = dynamodb) {
-    let params;
-    if (key === "su") {
-      params = {
-        TableName: "subdomains",
-        KeyConditionExpression: "su = :su",
-        ExpressionAttributeValues: { ":su": val },
-      };
-    } else if (key === "e") {
-      params = {
-        TableName: "subdomains",
-        IndexName: "eIndex",
-        KeyConditionExpression: "e = :e",
-        ExpressionAttributeValues: { ":e": val },
-      };
-    } else if (key === "a") {
-      params = {
-        TableName: "subdomains",
-        IndexName: "aIndex",
-        KeyConditionExpression: "a = :a",
-        ExpressionAttributeValues: { ":a": val },
-      };
-    } else if (key === "g") {
-      params = {
-        TableName: "subdomains",
-        IndexName: "gIndex",
-        KeyConditionExpression: "g = :g",
-        ExpressionAttributeValues: { ":g": val },
-      };
-    } else if (key === "path") {
-      params = {
-        TableName: "subdomains",
-        IndexName: "path-index",
-        KeyConditionExpression: "#p = :p",
-        ExpressionAttributeNames: { "#p": "path" },
-        ExpressionAttributeValues: { ":p": val },
-      };
-    } else {
-      throw new Error(`getSub: unknown key "${key}"`);
+    try {
+      return await getCanonicalPersistence(ddb).compatibility.querySubdomain(val, key);
+    } catch (error) {
+      if (error?.message?.includes("is not supported")) {
+        throw new Error(`getSub: unknown key "${key}"`);
+      }
+      throw error;
     }
-    return await ddb.query(params).promise();
   }
 
   async function getEntity(e, ddb = dynamodb) {
     if (cache.getEntity[e]) return cache.getEntity[e];
-    const params = {
-      TableName: "entities",
-      KeyConditionExpression: "e = :e",
-      ExpressionAttributeValues: { ":e": e },
-    };
-    const res = await ddb.query(params).promise();
+    const res = await getCanonicalPersistence(ddb).compatibility.queryEntity(e);
     cache.getEntity[e] = res;
     return res;
   }
 
   async function getWord(a, ddb = dynamodb) {
     if (cache.getWord[a]) return cache.getWord[a];
-    const params = {
-      TableName: "words",
-      KeyConditionExpression: "a = :a",
-      ExpressionAttributeValues: { ":a": a },
-    };
-    const res = await ddb.query(params).promise();
+    const res = await getCanonicalPersistence(ddb).compatibility.queryWord(a);
     cache.getWord[a] = res;
     return res;
   }
 
   async function getGroup(g, ddb = dynamodb) {
     if (cache.getGroup[g]) return cache.getGroup[g];
-    const params = {
-      TableName: "groups",
-      KeyConditionExpression: "g = :g",
-      ExpressionAttributeValues: { ":g": g },
-    };
-    const res = await ddb.query(params).promise();
+    const res = await getCanonicalPersistence(ddb).compatibility.queryGroup(g);
     cache.getGroup[g] = res;
     return res;
   }
 
   async function getAccess(ai, ddb = dynamodb) {
     if (cache.getAccess[ai]) return cache.getAccess[ai];
-    const params = {
-      TableName: "access",
-      KeyConditionExpression: "ai = :ai",
-      ExpressionAttributeValues: { ":ai": ai },
-    };
-    const res = await ddb.query(params).promise();
+    const res = await getCanonicalPersistence(ddb).compatibility.queryAccess(ai);
     cache.getAccess[ai] = res;
     return res;
   }
 
   async function getVerified(key, val, ddb = dynamodb) {
-    let params;
-    if (key === "vi") {
-      params = {
-        TableName: "verified",
-        KeyConditionExpression: "vi = :vi",
-        ExpressionAttributeValues: { ":vi": val },
-      };
-    } else if (key === "ai") {
-      params = {
-        TableName: "verified",
-        IndexName: "aiIndex",
-        KeyConditionExpression: "ai = :ai",
-        ExpressionAttributeValues: { ":ai": val },
-      };
-    } else if (key === "gi") {
-      params = {
-        TableName: "verified",
-        IndexName: "giIndex",
-        KeyConditionExpression: "gi = :gi",
-        ExpressionAttributeValues: { ":gi": val },
-      };
-    } else {
-      throw new Error(`getVerified: unknown key "${key}`);
+    try {
+      return await getCanonicalPersistence(ddb).compatibility.queryVerified(key, val);
+    } catch (error) {
+      if (error?.message?.includes("is not supported")) {
+        throw new Error(`getVerified: unknown key "${key}"`);
+      }
+      throw error;
     }
-    return await ddb.query(params).promise();
   }
 
   async function getGroups(ddb = dynamodb) {
-    const params = { TableName: "groups" };
-    const groups = await ddb.scan(params).promise();
+    const groups = await getCanonicalPersistence(ddb).foundation.groups.scan();
     const out = [];
     // parallel lookups
     const subsByG = await Promise.all(
@@ -1341,7 +1285,7 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
     getHead, sendBack,
 
     // deps exposure
-    getDocClient, getS3, getSES,
+    getDocClient, getCanonicalPersistence, getS3, getSES,
 
     // also surface LLM/AWS if modules want them
     deps: { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
