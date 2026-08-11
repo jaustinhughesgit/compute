@@ -1,12 +1,12 @@
 /**
  * Platform: Stores entity position descriptions used by reusable browser presentation and interaction.
- * Technical: `position` reads/writes JSON DynamoDB records from normalized action/body inputs and returns a compatibility envelope.
+ * Technical: `position` authorizes a canonical address, writes its anchor through the persistence port, and preserves the response envelope.
  */
 "use strict";
 
 function register({ on, use }) {
-  const { getDocClient } = use();
-  const doc = getDocClient(); // DocumentClient (JSON in/out)
+  const { getCanonicalPersistence, getSub } = use();
+  const persistence = getCanonicalPersistence();
 
   // Keep legacy body handling parity: support both flattened req.body and legacy req.body.body
   const getLegacyBody = (req) => {
@@ -28,20 +28,30 @@ function register({ on, use }) {
       return { __handled: true };
     }
 
+    const callerId = String(meta?.cookie?.e || "").trim();
+    if (!callerId || callerId === "0") {
+      res.status(401).json({ error: "authenticated identity is required" });
+      return { __handled: true };
+    }
+    const row = (await getSub(String(entity), "su"))?.Items?.[0] || null;
+    if (!row) {
+      res.status(404).json({ error: "entity was not found" });
+      return { __handled: true };
+    }
+    let canPosition = String(row.e || "") === callerId;
+    if (!canPosition) {
+      const grants = await persistence.authorization.batchGetGrants([
+        { entityID: String(entity), principalID: `u:${callerId}` },
+      ]);
+      canPosition = grants.some((grant) => /[wo]/.test(String(grant?.perms || "")));
+    }
+    if (!canPosition) {
+      res.status(403).json({ error: "entity positioning is not authorized" });
+      return { __handled: true };
+    }
+
     try {
-      // Just set the anchor attribute on the subdomains row keyed by su = entity
-      await doc.update({
-        TableName: "subdomains",
-        Key: { su: String(entity) },
-        UpdateExpression: "SET #anchor = :anchor",
-        ExpressionAttributeNames: {
-          "#anchor": "anchor",
-        },
-        ExpressionAttributeValues: {
-          ":anchor": anchor, // e.g. { setId, band_scale, num_shards, assigns:[{l0,l1,band,dist_q16}] }
-        },
-        ReturnValues: "NONE",
-      }).promise();
+      await persistence.foundation.addresses.setPosition(String(entity), anchor);
     } catch (err) {
       console.error("Failed to update subdomains table (anchor):", err);
       res.status(502).json({ error: "failed to save anchor" });

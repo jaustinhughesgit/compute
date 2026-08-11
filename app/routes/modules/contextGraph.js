@@ -1,11 +1,12 @@
 /**
- * Platform: Publishes ordinary browser Context for authorized cross-user hydration while canonical entity-store convergence remains pending.
- * Technical: Registers `context-graph-sync` v1 handlers for workspace verification, audiences, stable IDs, tombstones, profiles, and pagination.
+ * Platform: Publishes browser Context into the canonical entity substrate and preserves the sidecar during migration.
+ * Technical: Registers `context-graph-sync` v1 handlers with canonical compilation, authorized dual-read hydration, stable IDs, and pagination.
  */
 "use strict";
 
 const crypto = require("node:crypto");
 const { createCanonicalPersistence } = require("../../persistence/canonicalPersistence");
+const { createCanonicalContextStore } = require("../../persistence/canonicalContextStore");
 
 const SCHEMA_VERSION = 1;
 const MAX_NODES = 96;
@@ -233,6 +234,7 @@ function register({ on, use }) {
   const persistence = typeof getCanonicalPersistence === "function"
     ? getCanonicalPersistence()
     : createCanonicalPersistence({ documentClient: getDocClient() });
+  const canonicalStore = createCanonicalContextStore({ persistence });
 
   async function requirePrincipal(meta) {
     const principalId = text(meta?.cookie?.e, 80);
@@ -251,7 +253,7 @@ function register({ on, use }) {
     return { ok: true, subdomain };
   }
 
-  async function registerCurrentProfile(principalId, subdomain, declaredName = null) {
+  async function registerCurrentProfile(principalId, subdomain, declaredName = null, persist = true) {
     if (!publicWorkspace(subdomain)) return null;
     if (!declaredName) {
       const existing = await persistence.context.get(`u:${principalId}`, "profile#self");
@@ -278,15 +280,20 @@ function register({ on, use }) {
       profileSource: declaredName ? "context-graph" : "workspace",
       updatedAt: now,
     };
-    await persistence.context.put(item);
+    if (persist) await persistence.context.put(item);
     return item;
   }
 
   async function findProfiles(label) {
     const handle = normalizedLabel(label);
     if (!handle) return [];
-    const result = await persistence.context.byLookup(`handle#${handle}`, { limit: 12 });
     const byPrincipal = new Map();
+    if (canonicalStore.enabled) {
+      for (const profile of await canonicalStore.findProfiles(handle)) {
+        byPrincipal.set(profile.principalId, profile);
+      }
+    }
+    const result = await persistence.context.byLookup(`handle#${handle}`, { limit: 12 });
     for (const item of result?.Items || []) {
       const principalId = text(item?.principalId, 80);
       if (!principalId || byPrincipal.has(principalId)) continue;
@@ -387,6 +394,93 @@ function register({ on, use }) {
     await persistence.context.batchPut(items, { maxAttempts: 7 });
   }
 
+  function graphFromSidecar(page) {
+    const nodes = [];
+    const relations = [];
+    for (const item of page?.Items || []) {
+      if (item?.recordType === "node") {
+        nodes.push({
+          serverId: text(item.serverId, 180),
+          lemmas: uniqueStrings(item.lemmas),
+          names: uniqueStrings(item.names),
+          version: Number(item.version || 1),
+        });
+      } else if (item?.recordType === "relation") {
+        relations.push({
+          serverId: text(item.serverId, 180),
+          subject: text(item.subject, 180),
+          predicate: text(item.predicate, 180),
+          object: text(item.object, 180),
+          version: Number(item.version || 1),
+          tombstone: item.tombstone === true,
+          publisherId: text(item.publisherId, 80),
+          source: item.source && typeof item.source === "object" ? item.source : null,
+        });
+      }
+    }
+    return { nodes, relations };
+  }
+
+  function mergeGraphs(canonical, sidecar) {
+    const merge = (primary, fallback) => {
+      const records = new Map();
+      for (const item of fallback || []) records.set(item.serverId, item);
+      for (const item of primary || []) records.set(item.serverId, item);
+      return [...records.values()];
+    };
+    return {
+      nodes: merge(canonical.nodes, sidecar.nodes),
+      relations: merge(canonical.relations, sidecar.relations),
+    };
+  }
+
+  async function hydrateAudienceRecords(audienceId, encodedCursor, limit) {
+    const decoded = decodeCursor(encodedCursor);
+    if (!canonicalStore.enabled) {
+      const page = await persistence.context.byAudience(audienceId, {
+        cursor: decoded,
+        limit,
+        consistentRead: true,
+      });
+      return { ...graphFromSidecar(page), cursor: encodeCursor(page?.LastEvaluatedKey) };
+    }
+
+    // Cursors created before this cutover continue the sidecar page instead of
+    // replaying canonical records ahead of the caller's existing position.
+    const state = decoded?.source === "context-dual-read-v1"
+      ? decoded
+      : decoded
+        ? { source: "context-dual-read-v1", canonicalDone: true, canonical: null, sidecarDone: false, sidecar: decoded }
+        : { source: "context-dual-read-v1", canonicalDone: false, canonical: null, sidecarDone: false, sidecar: null };
+    const bothActive = !state.canonicalDone && !state.sidecarDone;
+    const canonicalLimit = bothActive ? Math.ceil(limit / 2) : limit;
+    const sidecarLimit = bothActive ? Math.floor(limit / 2) : limit;
+    const canonicalPage = state.canonicalDone
+      ? { nodes: [], relations: [], cursor: null }
+      : await canonicalStore.hydrateAudience(audienceId, {
+          cursor: state.canonical,
+          limit: canonicalLimit,
+        });
+    const sidecarPage = state.sidecarDone
+      ? { Items: [], LastEvaluatedKey: null }
+      : await persistence.context.byAudience(audienceId, {
+          cursor: state.sidecar,
+          limit: sidecarLimit,
+          consistentRead: true,
+        });
+    const canonicalDone = state.canonicalDone || !canonicalPage.cursor;
+    const sidecarDone = state.sidecarDone || !sidecarPage?.LastEvaluatedKey;
+    const merged = mergeGraphs(canonicalPage, graphFromSidecar(sidecarPage));
+    const next = canonicalDone && sidecarDone ? null : {
+      source: "context-dual-read-v1",
+      canonicalDone,
+      canonical: canonicalPage.cursor,
+      sidecarDone,
+      sidecar: sidecarPage?.LastEvaluatedKey || null,
+    };
+    return { ...merged, cursor: encodeCursor(next) };
+  }
+
   on("contextGraphFindUser", async (ctx, meta) => {
     const principalId = await requirePrincipal(meta);
     if (!principalId) return errorEnvelope("CONTEXT_AUTH_REQUIRED", "A signed-in context identity is required.", 401);
@@ -437,15 +531,18 @@ function register({ on, use }) {
       }
     }
 
-    await registerCurrentProfile(principalId, workspace.subdomain);
+    const currentProfile = await registerCurrentProfile(principalId, workspace.subdomain, null, false);
     const ownerAudience = `u:${principalId}`;
     const ownerSyncAudience = `sync:${principalId}`;
     const idempotencyRecord = await persistence.context.get(
       ownerSyncAudience,
       `idem#${idempotencyKey}`
     );
-    if (idempotencyRecord?.Item?.acknowledgement) {
-      return { ok: true, response: idempotencyRecord.Item.acknowledgement };
+    const priorAcknowledgement = idempotencyRecord?.Item?.acknowledgement || null;
+    if (priorAcknowledgement) {
+      if (!canonicalStore.enabled || await canonicalStore.hasPublication(principalId, idempotencyKey)) {
+        return { ok: true, response: priorAcknowledgement };
+      }
     }
 
     const predicateIds = new Set(relations.map((relation) => relation.predicateLocalId));
@@ -469,7 +566,7 @@ function register({ on, use }) {
     }
     const assertedProfileName = declaredProfileName(nodes, relations, resolutions, principalId);
     const assertedProfile = assertedProfileName
-      ? await registerCurrentProfile(principalId, workspace.subdomain, assertedProfileName)
+      ? await registerCurrentProfile(principalId, workspace.subdomain, assertedProfileName, false)
       : null;
     if (assertedProfile) {
       for (const resolution of resolutions.values()) {
@@ -499,6 +596,9 @@ function register({ on, use }) {
       pathSignature: text(body?.source?.pathSignature, 300) || null,
     };
     const writes = [];
+    if (assertedProfile || currentProfile) writes.push(assertedProfile || currentProfile);
+    const canonicalNodes = [];
+    const canonicalRelations = [];
     const nodeAcks = [];
     const warnings = [];
 
@@ -530,6 +630,7 @@ function register({ on, use }) {
         version: nodeVersion,
         updatedAt: now,
       };
+      canonicalNodes.push({ localId: node.localId, ...canonicalNode });
       for (const audienceId of audienceIds) {
         writes.push({ audienceId, recordKey: `node#${resolution.serverId}`, ...canonicalNode });
       }
@@ -591,6 +692,7 @@ function register({ on, use }) {
         version: relationVersion,
         updatedAt: now,
       };
+      canonicalRelations.push({ localId: relation.localId, ...canonicalRelation });
       for (const audienceId of audienceIds) {
         const revokedForAudience = relation.tombstone || !currentAudienceIds.includes(audienceId);
         writes.push({
@@ -622,6 +724,27 @@ function register({ on, use }) {
       updatedAt: now,
       expiresAt: Math.floor(Date.now() / 1000) + (30 * 24 * 60 * 60),
     });
+    if (canonicalStore.enabled) {
+      try {
+        await canonicalStore.publish({
+          principalId,
+          workspaceSu,
+          idempotencyKey,
+          nodes: canonicalNodes,
+          relations: canonicalRelations,
+          profile: assertedProfile || currentProfile,
+        });
+      } catch {
+        return errorEnvelope(
+          "CONTEXT_CANONICAL_PERSIST_FAILED",
+          "Canonical Context persistence did not complete; the publication can be retried safely.",
+          503
+        );
+      }
+    }
+    if (priorAcknowledgement) {
+      return { ok: true, response: priorAcknowledgement };
+    }
     await writeBatches(writes);
     return { ok: true, response: acknowledgement };
   });
@@ -639,35 +762,7 @@ function register({ on, use }) {
 
     await registerCurrentProfile(principalId, workspace.subdomain);
     const limit = Math.max(25, Math.min(500, Number(body.limit || 300)));
-    const page = await persistence.context.byAudience(`u:${principalId}`, {
-      cursor: decodeCursor(body.cursor),
-      limit,
-      consistentRead: true,
-    });
-
-    const nodes = [];
-    const relations = [];
-    for (const item of page?.Items || []) {
-      if (item?.recordType === "node") {
-        nodes.push({
-          serverId: text(item.serverId, 180),
-          lemmas: uniqueStrings(item.lemmas),
-          names: uniqueStrings(item.names),
-          version: Number(item.version || 1),
-        });
-      } else if (item?.recordType === "relation") {
-        relations.push({
-          serverId: text(item.serverId, 180),
-          subject: text(item.subject, 180),
-          predicate: text(item.predicate, 180),
-          object: text(item.object, 180),
-          version: Number(item.version || 1),
-          tombstone: item.tombstone === true,
-          publisherId: text(item.publisherId, 80),
-          source: item.source && typeof item.source === "object" ? item.source : null,
-        });
-      }
-    }
+    const page = await hydrateAudienceRecords(`u:${principalId}`, body.cursor, limit);
     return {
       ok: true,
       response: {
@@ -675,9 +770,9 @@ function register({ on, use }) {
         kind: "context-hydration-page",
         principalId,
         selfServerId: principalEntityId(principalId),
-        nodes,
-        relations,
-        cursor: encodeCursor(page?.LastEvaluatedKey),
+        nodes: page.nodes,
+        relations: page.relations,
+        cursor: page.cursor,
         hydratedAt: new Date().toISOString(),
       },
     };
@@ -718,42 +813,22 @@ function register({ on, use }) {
 
     const target = matches[0];
     const limit = Math.max(25, Math.min(500, Number(body.limit || 300)));
-    const page = await persistence.context.byAudience(`public:${target.principalId}`, {
-      cursor: decodeCursor(body.cursor),
-      limit,
-      consistentRead: true,
-    });
-    const nodes = [];
-    const relations = [];
-    for (const item of page?.Items || []) {
-      if (item?.recordType === "node") {
-        const serverId = text(item.serverId, 180);
-        const lemmas = uniqueStrings(item.lemmas).filter((label) => (
+    const page = await hydrateAudienceRecords(`public:${target.principalId}`, body.cursor, limit);
+    const nodes = page.nodes.map((item) => {
+      const serverId = text(item.serverId, 180);
+      return {
+        ...item,
+        lemmas: uniqueStrings(item.lemmas).filter((label) => (
           serverId !== target.serverEntityId
           || !["speaker", "current speaker", "i", "me", "myself"].includes(normalizedLabel(label))
-        ));
-        nodes.push({
-          serverId,
-          lemmas,
-          names: uniqueStrings([
-            ...(item.names || []),
-            ...(serverId === target.serverEntityId ? [target.displayName] : []),
-          ]),
-          version: Number(item.version || 1),
-        });
-      } else if (item?.recordType === "relation") {
-        relations.push({
-          serverId: text(item.serverId, 180),
-          subject: text(item.subject, 180),
-          predicate: text(item.predicate, 180),
-          object: text(item.object, 180),
-          version: Number(item.version || 1),
-          tombstone: item.tombstone === true,
-          publisherId: text(item.publisherId, 80),
-          source: item.source && typeof item.source === "object" ? item.source : null,
-        });
-      }
-    }
+        )),
+        names: uniqueStrings([
+          ...(item.names || []),
+          ...(serverId === target.serverEntityId ? [target.displayName] : []),
+        ]),
+      };
+    });
+    const relations = page.relations;
     if (!nodes.some((node) => node.serverId === target.serverEntityId)) {
       nodes.push({
         serverId: target.serverEntityId,
@@ -775,7 +850,7 @@ function register({ on, use }) {
         selfServerId: principalEntityId(principalId),
         nodes,
         relations,
-        cursor: encodeCursor(page?.LastEvaluatedKey),
+        cursor: page.cursor,
         hydratedAt: new Date().toISOString(),
       },
     };

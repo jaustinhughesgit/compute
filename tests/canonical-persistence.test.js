@@ -104,3 +104,27 @@ test("the port rejects unsupported compatibility keys before database access", (
   );
   assert.equal(client.calls.length, 0);
 });
+
+test("canonical publication markers are written only after facts and projections", async () => {
+  const client = recordingClient({ batchWrite: { UnprocessedItems: {} } });
+  const persistence = createCanonicalPersistence({
+    documentClient: client,
+    tableNames: { canonicalProjections: "CanonicalProjection" },
+  });
+  await persistence.canonical.batchPut({
+    entities: [{ e: "entity-1" }],
+    projections: [
+      { pk: "AUD#1#00", sk: "NODE#entity-1", recordType: "audience-node" },
+      { pk: "SYNC#1#00", sk: "IDEMPOTENCY#input-1", recordType: "canonical-publication" },
+    ],
+  });
+  assert.deepEqual(client.calls.map((call) => call.params.RequestItems), [
+    { entities: [{ PutRequest: { Item: { e: "entity-1" } } }] },
+    { CanonicalProjection: [{ PutRequest: { Item: {
+      pk: "AUD#1#00", sk: "NODE#entity-1", recordType: "audience-node",
+    } } }] },
+    { CanonicalProjection: [{ PutRequest: { Item: {
+      pk: "SYNC#1#00", sk: "IDEMPOTENCY#input-1", recordType: "canonical-publication",
+    } } }] },
+  ]);
+});

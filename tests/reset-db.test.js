@@ -298,3 +298,16 @@ test("Context graph storage is retained across stacks and included in identity r
   assert.match(template, /ContextGraphTable:[\s\S]*?DeletionPolicy: Retain/);
   assert.match(resetSource, /CONTEXT_GRAPH_TABLE/);
 });
+
+test("canonical projections are retained, encrypted, and included in isolated identity reset", () => {
+  const template = fs.readFileSync(path.join(__dirname, "../template.yaml"), "utf8");
+  const resetSource = fs.readFileSync(
+    path.join(__dirname, "../app/routes/modules/resetDB.js"),
+    "utf8"
+  );
+  assert.match(template, /CanonicalProjectionTable:\s*\n\s+Type: AWS::DynamoDB::Table/);
+  assert.match(template, /CANONICAL_PROJECTION_TABLE:\s*!Ref CanonicalProjectionTable/);
+  assert.match(template, /CanonicalProjectionTable:[\s\S]*?DeletionPolicy: Retain/);
+  assert.match(template, /CanonicalProjectionTable:[\s\S]*?SSEEnabled: true/);
+  assert.match(resetSource, /CANONICAL_PROJECTION_TABLE/);
+});

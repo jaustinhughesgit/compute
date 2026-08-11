@@ -61,6 +61,11 @@ Resources:
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
           PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
           CONTEXT_GRAPH_TABLE: !Ref ContextGraphTable
+          CANONICAL_PROJECTION_TABLE: !Ref CanonicalProjectionTable
+          CANONICAL_AUDIENCE_SHARDS: '32'
+          CANONICAL_WORD_SHARDS: '256'
+          CANONICAL_PROFILE_SHARDS: '64'
+          CANONICAL_MAPPING_SHARDS: '32'
           TEST_RESET_ENABLED: !Ref TestResetEnabled
           TEST_RESET_ENVIRONMENT_ID: !Ref TestResetEnvironmentId
           TEST_RESET_ALLOW_ANY_AUTHENTICATED_USER: !Ref TestResetAllowAnyAuthenticatedUser
@@ -116,17 +121,48 @@ Resources:
               Resource:
                 - !GetAtt ContextGraphTable.Arn
                 - !Sub ${ContextGraphTable.Arn}/index/*
-            - Sid: ReadLegacyPublicUserIdentity
+            - Sid: UseCanonicalProjectionTable
               Effect: Allow
               Action:
                 - dynamodb:GetItem
                 - dynamodb:Query
+                - dynamodb:BatchWriteItem
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+              Resource: !GetAtt CanonicalProjectionTable.Arn
+            - Sid: UseCanonicalEntitySubstrate
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:Query
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:BatchGetItem
+                - dynamodb:BatchWriteItem
+                - dynamodb:Scan
               Resource:
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/words/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/entities
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/entities/index/*
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/subdomains
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/subdomains/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/groups
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/groups/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/links
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/links/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/versions
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/versions/index/*
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/perm_grants
+                - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/perm_grants/index/*
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/users
+            - Sid: UseDerivedRetrievalPostings
+              Effect: Allow
+              Action:
+                - dynamodb:Query
+                - dynamodb:BatchWriteItem
+                - dynamodb:Scan
+              Resource: !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/anchor_bands
       Events:
         Compute:
           Type: Api
@@ -185,6 +221,27 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: expiresAt
         Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  CanonicalProjectionTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: pk
+          AttributeType: S
+        - AttributeName: sk
+          AttributeType: S
+      KeySchema:
+        - AttributeName: pk
+          KeyType: HASH
+        - AttributeName: sk
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
       SSESpecification:
         SSEEnabled: true
 
@@ -295,3 +352,6 @@ Outputs:
   ProtectedAssetExecutorKeyArn:
     Description: KMS key ARN used only at the authorized execution boundary
     Value: !GetAtt ProtectedAssetExecutorKey.Arn
+  CanonicalProjectionTableName:
+    Description: Rebuildable sharded indexes over canonical entity records
+    Value: !Ref CanonicalProjectionTable

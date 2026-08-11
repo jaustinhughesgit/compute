@@ -1,29 +1,14 @@
 /**
  * Platform: Places entities into anchor-search bands so discovery can query a bounded candidate set.
- * Technical: `anchor` accepts the embedding/text payload below, resolves anchor artifacts, and writes global/owner postings with policy IDs.
+ * Technical: `anchor` authorizes the addressed subdomain, resolves anchor artifacts, and writes sharded v2 global/owner projections.
  */
 "use strict";
 
+const crypto = require("node:crypto");
+
 /**
- * Anchor-based positioner (minimal):
- * - expects body.body: {
- *     entity,              // required (your subdomains.su / entity id)
- *     embedding?,          // number[]
- *     text?,               // if no embedding, used to compute one
- *     output?,             // optional, just echoed back
- *     anchor_set_id?,      // optional override
- *     band_scale?,         // optional override
- *     topL0?,              // optional override
- *     num_shards?,         // optional override
- *     policy_id?,          // optional ACL policy pointer
- *     e?                   // optional owner id (for user-scoped postings)
- *   }
- *
- * Flow:
- * - compute/normalize embedding if needed (using OpenAI if `text` is provided)
- * - load anchors (L0/L1) from S3
- * - assign to top-L0 → nearest L1
- * - write postings to `anchor_bands` (both global and user-scoped) WITH policy_id
+ * Input accepts `entity`/`su` plus either a numeric embedding or text. Caller
+ * identity and visibility policy always come from authenticated server state.
  */
 
 const anchorsUtil = require("../anchors");
@@ -31,15 +16,14 @@ const anchorsUtil = require("../anchors");
 const DEFAULT_SET_ID = process.env.ANCHOR_SET_ID || "anchors_v1";
 const DEFAULT_BAND_SCALE = Number(process.env.BAND_SCALE || 2000);
 const DEFAULT_NUM_SHARDS = Number(process.env.NUM_SHARDS || 8);
-const ANCHOR_BANDS_TABLE = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
 const EMB_MODEL_ID = process.env.EMB_MODEL || "text-embedding-3-large";
 
 // default policy namespace for per-entity ACL
 const PERM_DEFAULT_POLICY_PREFIX = "entity";
 
 function register({ on, use }) {
-  const { getDocClient, deps } = use();
-  const doc = getDocClient(); // AWS.DynamoDB.DocumentClient
+  const { getCanonicalPersistence, getSub, deps } = use();
+  const persistence = getCanonicalPersistence();
   const s3 = deps.s3;
   const openai = deps.openai;
 
@@ -64,36 +48,7 @@ function register({ on, use }) {
     return arr.map((v) => +v / n);
   };
 
-  const batchWriteAll = async (table, puts) => {
-    if (!puts || !puts.length) return 0;
-    let i = 0,
-      total = 0;
-    while (i < puts.length) {
-      const chunk = puts.slice(i, i + 25);
-      const params = {
-        RequestItems: {
-          [table]: chunk.map((Item) => ({ PutRequest: { Item } })),
-        },
-      };
-      // retry any unprocessed items with backoff
-      let backoff = 100;
-      /* eslint no-constant-condition: 0 */
-      while (true) {
-        const rsp = await doc.batchWrite(params).promise();
-        const un =
-          (rsp.UnprocessedItems && rsp.UnprocessedItems[table]) || [];
-        total += chunk.length - un.length;
-        if (!un.length) break;
-        await new Promise((r) => setTimeout(r, backoff));
-        backoff = Math.min(2000, backoff * 2);
-        params.RequestItems = { [table]: un };
-      }
-      i += 25;
-    }
-    return total;
-  };
-
-  on("anchor", async (ctx) => {
+  on("anchor", async (ctx, meta) => {
     const { req, res } = ctx;
     const body = getBody(req);
 
@@ -105,6 +60,29 @@ function register({ on, use }) {
       res
         .status(400)
         .json({ ok: false, error: "entity (su) is required" });
+      return { __handled: true };
+    }
+
+    const callerId = String(meta?.cookie?.e || "").trim();
+    if (!callerId || callerId === "0") {
+      res.status(401).json({ ok: false, error: "authenticated identity is required" });
+      return { __handled: true };
+    }
+    const subdomain = (await getSub(String(su), "su"))?.Items?.[0] || null;
+    if (!subdomain) {
+      res.status(404).json({ ok: false, error: "entity was not found" });
+      return { __handled: true };
+    }
+    const ownerId = String(subdomain.e || "");
+    let canPosition = ownerId === callerId;
+    if (!canPosition) {
+      const grants = await persistence.authorization.batchGetGrants([
+        { entityID: String(su), principalID: `u:${callerId}` },
+      ]);
+      canPosition = grants.some((grant) => /[wo]/.test(String(grant?.perms || "")));
+    }
+    if (!canPosition) {
+      res.status(403).json({ ok: false, error: "entity positioning is not authorized" });
       return { __handled: true };
     }
 
@@ -137,11 +115,9 @@ function register({ on, use }) {
       ? +body.band_scale
       : DEFAULT_BAND_SCALE;
     const topL0 = Number.isFinite(+body.topL0)
-      ? Math.max(1, +body.topL0)
+      ? Math.max(1, Math.min(4, +body.topL0))
       : 2;
-    const numShards = Number.isFinite(+body.num_shards)
-      ? +body.num_shards
-      : DEFAULT_NUM_SHARDS;
+    const numShards = Math.max(1, Math.min(64, DEFAULT_NUM_SHARDS));
 
     const anchors = await anchorsUtil.loadAnchors({
       s3,
@@ -181,25 +157,18 @@ function register({ on, use }) {
     // 4) Write postings to anchor_bands (global + user-scoped)
     const nowIso = new Date().toISOString();
 
-    const ownerId =
-      typeof body.e === "number" || typeof body.e === "string"
-        ? String(body.e)
-        : typeof req?.body?.e === "number" ||
-          typeof req?.body?.e === "string"
-        ? String(req.body.e)
-        : null;
-
     const userId = ownerId || null;
-
-    // policy_id (for ACL): allow override, else default to entity:<su>
-    const policyId =
-      typeof body.policy_id === "string" && body.policy_id.trim()
-        ? body.policy_id.trim()
-        : `${PERM_DEFAULT_POLICY_PREFIX}:${String(su)}`;
+    const policyId = subdomain.z === true
+      ? "pub"
+      : `${PERM_DEFAULT_POLICY_PREFIX}:${String(su)}`;
+    const entityVersion = Number(subdomain.editVersion || subdomain.canonicalVersion || 0);
+    const contentHash = crypto.createHash("sha256")
+      .update(JSON.stringify({ su: String(su), output: subdomain.output || output, entityVersion }))
+      .digest("hex");
 
     // Build the postings (global)
     const postingsGlobal = assigns.map((a) => {
-      const post = anchorsUtil.makePosting({
+      const post = anchorsUtil.makePostingV2({
         setId,
         su: String(su),
         assign: a,
@@ -211,42 +180,36 @@ function register({ on, use }) {
         setId,
         updatedAt: nowIso,
         policy_id: policyId,
+        entityVersion,
+        contentHash,
       };
     });
 
     // And user-scoped duplicates (if we have userId)
-    const pad = (n, w = 2) => String(n).padStart(w, "0");
     const postingsUser = userId
       ? assigns.map((a) => {
-          const pk = `AB#${setId}#U=${userId}#L0=${a.l0}#L1=${a.l1}`;
-          const sk = `B=${String(a.band).padStart(
-            5,
-            "0"
-          )}#S=${pad(
-            anchorsUtil.shardOf(String(su), numShards)
-          )}#T=su#SU=${su}`;
-          return {
-            pk,
-            sk,
-            su: String(su),
-            type: "su",
+          const post = anchorsUtil.makePostingV2({
             setId,
-            l0: a.l0,
-            l1: a.l1,
-            band: a.band,
-            dist_q16: a.dist_q16,
+            su: String(su),
+            assign: a,
+            type: "su",
+            shards: numShards,
+            userId,
+          });
+          return {
+            ...post,
+            setId,
             updatedAt: nowIso,
             u: userId,
             policy_id: policyId,
+            entityVersion,
+            contentHash,
           };
         })
       : [];
 
     // batch write
-    const written = await batchWriteAll(
-      ANCHOR_BANDS_TABLE,
-      postingsGlobal.concat(postingsUser)
-    );
+    const written = await persistence.retrieval.batchPut(postingsGlobal.concat(postingsUser));
 
     // anchor metadata object (not persisted here; just returned)
     const anchorObj = {

@@ -138,11 +138,31 @@ function makePosting({ setId, su, assign, type = 'su', shards = DEFAULT_NUM_SHAR
   };
 }
 
+/**
+ * V2 puts the shard in the partition key so a busy anchor cell distributes
+ * writes and reads across physical DynamoDB partitions.
+ */
+function makePostingV2({ setId, su, assign, type = 'su', shards = DEFAULT_NUM_SHARDS, userId = null }) {
+  const { l0, l1, band, dist_q16 } = assign;
+  const shard = shardOf(String(su), shards);
+  const scope = userId == null ? "" : `#U=${userId}`;
+  const pk = `AB2#${setId}${scope}#L0=${l0}#L1=${l1}#S=${String(shard).padStart(2, '0')}`;
+  const sk = `B=${String(band).padStart(5, '0')}#T=${type}#SU=${su}`;
+  return {
+    pk, sk,
+    su: String(su), type,
+    l0, l1, band, dist_q16,
+    shard,
+    indexVersion: 2,
+  };
+}
+
 module.exports = {
   loadAnchors,
   assign,
   unit,
   makePosting,
+  makePostingV2,
   shardOf,
   DEFAULT_BUCKET,
   DEFAULT_SET_ID,

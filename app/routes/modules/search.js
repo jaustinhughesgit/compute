@@ -1,6 +1,6 @@
 /**
  * Platform: Finds reusable authorized entities through bounded anchor candidates rather than scanning or loading every graph.
- * Technical: `search` embeds text, queries anchor-band windows, batch-loads subdomains, filters effective principals, and paginates results.
+ * Technical: `search` embeds text, unions sharded-v2 and legacy candidates, reloads canonical rows, authorizes them, then ranks results.
  */
 "use strict";
 
@@ -23,21 +23,18 @@ function entityRevisionFromRow(row) {
 
 function register({ on, use }) {
   const {
-    getDocClient,
+    getCanonicalPersistence,
     getCookie,            // reuse cookie -> user-id logic
     deps,                 // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
   } = use();
 
   // Keep knobs in lockstep with the positioner
   const anchorsUtil         = require("../anchors");
-  const ANCHOR_BANDS_TABLE  = process.env.ANCHOR_BANDS_TABLE || "anchor_bands";
   const DEFAULT_SET_ID      = process.env.ANCHOR_SET_ID       || "anchors_v1";
   const EMB_MODEL_ID        = process.env.EMB_MODEL           || "text-embedding-3-large";
   const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE   || 2000);
   const DEFAULT_NUM_SHARDS  = Number(process.env.NUM_SHARDS   || 8);
-  const PERM_GRANTS_TABLE   = process.env.PERM_GRANTS_TABLE   || "perm_grants"; // <— new
-
-  const doc    = getDocClient();
+  const persistence = getCanonicalPersistence();
   const s3     = deps.s3;
   const openai = deps.openai;
 
@@ -66,10 +63,9 @@ function register({ on, use }) {
     return m ? Number(m[1]) : null;
   };
 
-  async function getUserIdFromReq(req, body) {
-    // precedence: explicit body.e → cookie token → default 0
-    if (body && Number.isFinite(Number(body.e))) return Number(body.e);
-
+  async function getUserIdFromReq(req, meta) {
+    const authenticated = Number(meta?.cookie?.e);
+    if (Number.isFinite(authenticated) && authenticated > 0) return authenticated;
     try {
       const hdrs = req?.body?.headers || req?.headers || {};
       const tok = hdrs["X-accessToken"] || hdrs["x-accesstoken"] || hdrs["x-access-token"];
@@ -107,37 +103,34 @@ function register({ on, use }) {
     return anchorsUtil.assign(eU, anchors, { topL0, band_scale: bandScale, num_shards: numShards });
   }
 
-  async function queryOneWindow({ pk, bandCenter, delta, numShards, limitPerAssign = 500 }) {
+  async function queryOneWindow({ pk, bandCenter, delta, legacy = false, limitPerAssign = 500 }) {
     const bLo = Math.max(0, bandCenter - delta);
     const bHi = bandCenter + delta;
-
-    const skLo = `B=${padBand(bLo)}#S=00`;
-    const skHi = `B=${padBand(bHi)}#S=${pad2(numShards - 1)}`;
-
-    const { Items } = await doc.query({
-      TableName: ANCHOR_BANDS_TABLE,
-      KeyConditionExpression: "#pk = :pk AND #sk BETWEEN :lo AND :hi",
-      ExpressionAttributeNames: { "#pk": "pk", "#sk": "sk" },
-      ExpressionAttributeValues: { ":pk": pk, ":lo": skLo, ":hi": skHi },
-      Limit: Number(limitPerAssign || 500)
-    }).promise();
-
-    return Items || [];
+    const skLo = legacy ? `B=${padBand(bLo)}#S=00` : `B=${padBand(bLo)}`;
+    const skHi = legacy ? `B=${padBand(bHi)}#S=99#\uffff` : `B=${padBand(bHi)}#\uffff`;
+    const maximum = Math.max(1, Math.min(1000, Number(limitPerAssign) || 500));
+    const items = [];
+    let cursor;
+    do {
+      const page = await persistence.retrieval.queryWindow({
+        partitionKey: pk,
+        startKey: skLo,
+        endKey: skHi,
+        limit: maximum - items.length,
+        cursor,
+      });
+      items.push(...(page?.Items || []));
+      cursor = page?.LastEvaluatedKey;
+    } while (cursor && items.length < maximum);
+    return items;
   }
 
-  async function batchGetSubdomains(keys /* [{su}] */) {
-    if (!keys.length) return new Map();
+  async function batchGetSubdomains(keys) {
     const out = new Map();
-    const TableName = "subdomains";
-
-    let i = 0;
-    while (i < keys.length) {
-      const chunk = keys.slice(i, i + 100); // BatchGet limit
-      const rsp = await doc.batchGet({ RequestItems: { [TableName]: { Keys: chunk } } }).promise();
-      const rows = rsp.Responses?.[TableName] || [];
-      for (const r of rows) out.set(String(r.su), r);
-      i += 100;
-    }
+    const rows = await persistence.foundation.addresses.batchGet(
+      keys.map((key) => String(key.su))
+    );
+    for (const row of rows) out.set(String(row.su), row);
     return out;
   }
 
@@ -163,7 +156,7 @@ function register({ on, use }) {
     return 0.0;
   }
 
-  on("search", async (ctx) => {
+  on("search", async (ctx, meta) => {
     const { req, res } = ctx;
 
     // Accept both flattened req.body and legacy { body: {...} }
@@ -183,55 +176,59 @@ function register({ on, use }) {
       // ---- inputs / defaults
       const setId          = body.setId || DEFAULT_SET_ID;
       const bandScale      = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
-      const numShards      = Number.isFinite(+body.num_shards) ? +body.num_shards : DEFAULT_NUM_SHARDS;
-      const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, +body.topL0) : 3;
-      const bandWindow     = Number.isFinite(+body.bandWindow) ? +body.bandWindow : 96; // conservative
-      const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? +body.limitPerAssign : 500;
-      const topK           = Number.isFinite(+body.topK) ? +body.topK : 50;
+      const numShards      = Math.max(1, Math.min(64, DEFAULT_NUM_SHARDS));
+      const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, Math.min(4, +body.topL0)) : 3;
+      const bandWindow     = Number.isFinite(+body.bandWindow) ? Math.max(0, Math.min(2000, +body.bandWindow)) : 96;
+      const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? Math.max(1, Math.min(1000, +body.limitPerAssign)) : 500;
+      const topK           = Number.isFinite(+body.topK) ? Math.max(1, Math.min(500, +body.topK)) : 50;
 
-      const e   = await getUserIdFromReq(req, body);
+      const e   = await getUserIdFromReq(req, meta);
       const eU  = await ensureQueryEmbedding({ embedding: body.embedding, text: searchString });
 
       // ---- compute query assignments (L0/L1 + band)
       const assigns = await anchorAssignments(eU, { setId, bandScale, topL0, numShards });
 
-      // ---- query: prefer tenant PK, fallback to global
-      const makePkTenant = (a) => `AB#${setId}#U=${e}#L0=${a.l0}#L1=${a.l1}`;
-      const makePkGlobal = (a) => `AB#${setId}#L0=${a.l0}#L1=${a.l1}`;
-
+      // Query every v2 shard and legacy v1 partition. Tenant and global rows
+      // are unioned because either scope may contain an authorized candidate.
       let anyTenantHit = false;
       const perAssignResults = [];
-
+      const sourceLimit = Math.max(1, Math.ceil(limitPerAssign / ((2 * numShards) + 2)));
       for (const a of assigns) {
-        // 1) tenant
-        let rows = [];
-        try {
-          rows = await queryOneWindow({
-            pk: makePkTenant(a),
-            bandCenter: a.band,
-            delta: bandWindow,
-            numShards,
-            limitPerAssign
-          });
-        } catch {/* ignore */}
-        if (rows && rows.length) {
-          anyTenantHit = true;
-          perAssignResults.push({ a, rows, pkType: "tenant" });
-          continue;
+        const scopes = [
+          ...(e > 0 ? [{ userId: e, type: "tenant" }] : []),
+          { userId: null, type: "global" },
+        ];
+        for (const scope of scopes) {
+          for (let shard = 0; shard < numShards; shard += 1) {
+            const userScope = scope.userId == null ? "" : `#U=${scope.userId}`;
+            const pk = `AB2#${setId}${userScope}#L0=${a.l0}#L1=${a.l1}#S=${pad2(shard)}`;
+            let rows = [];
+            try {
+              rows = await queryOneWindow({
+                pk,
+                bandCenter: a.band,
+                delta: bandWindow,
+                limitPerAssign: sourceLimit,
+              });
+            } catch {/* a missing projection shard is an empty candidate source */}
+            if (rows.length && scope.type === "tenant") anyTenantHit = true;
+            perAssignResults.push({ a, rows, pkType: `${scope.type}-v2` });
+          }
+          const legacyScope = scope.userId == null ? "" : `#U=${scope.userId}`;
+          const legacyPk = `AB#${setId}${legacyScope}#L0=${a.l0}#L1=${a.l1}`;
+          let legacyRows = [];
+          try {
+            legacyRows = await queryOneWindow({
+              pk: legacyPk,
+              bandCenter: a.band,
+              delta: bandWindow,
+              legacy: true,
+              limitPerAssign: sourceLimit,
+            });
+          } catch {/* legacy compatibility is best-effort during backfill */}
+          if (legacyRows.length && scope.type === "tenant") anyTenantHit = true;
+          perAssignResults.push({ a, rows: legacyRows, pkType: `${scope.type}-v1` });
         }
-
-        // 2) global
-        let rows2 = [];
-        try {
-          rows2 = await queryOneWindow({
-            pk: makePkGlobal(a),
-            bandCenter: a.band,
-            delta: bandWindow,
-            numShards,
-            limitPerAssign
-          });
-        } catch {/* ignore */}
-        perAssignResults.push({ a, rows: rows2 || [], pkType: "global" });
       }
 
       // ---- merge, dedupe by su (min bandDelta), carry policy_id if present
@@ -255,21 +252,27 @@ function register({ on, use }) {
               pkType,
               pk: r.pk,
               sk: r.sk,
-              policy_id: (typeof r?.policy_id === "string" && r.policy_id) ? r.policy_id : `entity:${su}`
+              projectionPolicy: typeof r?.policy_id === "string" ? r.policy_id : null,
             });
           }
         }
       }
 
       let candidates = Array.from(bySu.values()).sort((x, y) => x.bandDelta - y.bandDelta);
-      if (candidates.length > topK) candidates = candidates.slice(0, topK);
 
-      // ---- join subdomains (best-effort)
+      // Reload canonical rows before trusting visibility, ownership, or policy.
       let subMap = new Map();
       if (candidates.length) {
         const keys = candidates.map(c => ({ su: String(c.su) }));
         subMap = await batchGetSubdomains(keys);
       }
+      candidates = candidates.filter((candidate) => {
+        const row = subMap.get(String(candidate.su));
+        if (!row || row?.canonicalLifecycle?.tombstone === true) return false;
+        candidate.policy_id = row.z === true ? "pub" : `entity:${candidate.su}`;
+        candidate.isOwner = e > 0 && String(row.e) === String(e);
+        return true;
+      });
 
       // ---- PERMISSION ENFORCEMENT
       // Build effective principals for the caller
@@ -304,13 +307,13 @@ function register({ on, use }) {
 
       // Batch-get grants
       const bestBySu = new Map(); // su -> 'o'|'w'|'r'|null (best seen)
+      for (const candidate of candidates) {
+        if (candidate.isOwner) bestBySu.set(String(candidate.su), "o");
+      }
       for (let i = 0; i < permKeys.length; i += 100) {
         const chunk = permKeys.slice(i, i + 100);
         if (!chunk.length) break;
-        const rsp = await doc.batchGet({
-          RequestItems: { [PERM_GRANTS_TABLE]: { Keys: chunk } }
-        }).promise();
-        const rows = (rsp.Responses && rsp.Responses[PERM_GRANTS_TABLE]) || [];
+        const rows = await persistence.authorization.batchGetGrants(chunk);
         for (const row of rows) {
           if (!row) continue;
           if (Number.isFinite(row.expires) && row.expires < nowSec) continue;
@@ -330,6 +333,7 @@ function register({ on, use }) {
         const ch = bestBySu.get(String(c.su));
         return ch === "r" || ch === "w" || ch === "o";
       });
+      if (candidates.length > topK) candidates = candidates.slice(0, topK);
 
       // ---- shape output (score + ownership boost)
       const enriched = candidates.map(c => {

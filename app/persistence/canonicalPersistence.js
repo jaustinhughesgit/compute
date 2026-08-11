@@ -16,6 +16,7 @@ const BASE_TABLES = Object.freeze({
   grants: "perm_grants",
   users: "users",
   contextSidecar: "context_graph",
+  canonicalProjections: "canonical_projection",
   retrievalPostings: "anchor_bands",
 });
 
@@ -23,6 +24,7 @@ function resolvedTables(overrides = {}, env = process.env) {
   return Object.freeze({
     ...BASE_TABLES,
     contextSidecar: env.CONTEXT_GRAPH_TABLE || BASE_TABLES.contextSidecar,
+    canonicalProjections: env.CANONICAL_PROJECTION_TABLE || BASE_TABLES.canonicalProjections,
     grants: env.PERM_GRANTS_TABLE || BASE_TABLES.grants,
     retrievalPostings: env.ANCHOR_BANDS_TABLE || BASE_TABLES.retrievalPostings,
     ...overrides,
@@ -59,9 +61,15 @@ async function batchWriteAll(client, TableName, items, maxAttempts = 7) {
   const byKey = new Map();
   for (const item of Array.isArray(items) ? items : []) {
     if (!item || typeof item !== "object") continue;
-    const key = item.audienceId && item.recordKey
-      ? `${item.audienceId}\u001f${item.recordKey}`
-      : JSON.stringify(item);
+    const key = item.pk != null && item.sk != null
+      ? `${item.pk}\u001f${item.sk}`
+      : item.audienceId && item.recordKey
+        ? `${item.audienceId}\u001f${item.recordKey}`
+        : item.entityID != null && item.principalID != null
+          ? `${item.entityID}\u001f${item.principalID}`
+          : item.v != null && item.d != null
+            ? `${item.v}\u001f${item.d}`
+            : String(item.a ?? item.e ?? item.su ?? item.g ?? item.id ?? JSON.stringify(item));
     byKey.set(key, item);
   }
   const uniqueItems = [...byKey.values()];
@@ -86,6 +94,29 @@ async function batchWriteAll(client, TableName, items, maxAttempts = 7) {
   return written;
 }
 
+async function batchGetAll(client, TableName, keys, maxAttempts = 7) {
+  const unique = [...new Map(
+    (Array.isArray(keys) ? keys : []).map((key) => [JSON.stringify(key), key])
+  ).values()];
+  const items = [];
+  for (let offset = 0; offset < unique.length; offset += 100) {
+    let pending = unique.slice(offset, offset + 100);
+    for (let attempt = 0; pending.length && attempt < maxAttempts; attempt += 1) {
+      const result = await invoke(client, "batchGet", {
+        RequestItems: { [TableName]: { Keys: pending } },
+      });
+      items.push(...(result?.Responses?.[TableName] || []));
+      pending = result?.UnprocessedKeys?.[TableName]?.Keys || [];
+    }
+    if (pending.length) {
+      const error = new Error(`${TableName} left ${pending.length} reads unprocessed`);
+      error.code = "CANONICAL_PERSISTENCE_UNPROCESSED";
+      throw error;
+    }
+  }
+  return items;
+}
+
 function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {}) {
   if (!documentClient) throw new TypeError("documentClient is required");
   const tables = resolvedTables(tableNames, env || process.env);
@@ -104,12 +135,18 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
       put: (item, options = {}) => invoke(documentClient, "put", {
         TableName: tables.words, Item: required(item, "word item"), ...options,
       }),
+      batchGet: (wordIds) => batchGetAll(
+        documentClient, tables.words, (Array.isArray(wordIds) ? wordIds : []).map((a) => ({ a }))
+      ),
     }),
     entities: Object.freeze({
       byId: (entityId) => queryByKey(documentClient, tables.entities, "e", entityId),
       put: (item, options = {}) => invoke(documentClient, "put", {
         TableName: tables.entities, Item: required(item, "entity item"), ...options,
       }),
+      batchGet: (entityIds) => batchGetAll(
+        documentClient, tables.entities, (Array.isArray(entityIds) ? entityIds : []).map((e) => ({ e }))
+      ),
     }),
     addresses: Object.freeze({
       byId: (addressId) => queryByKey(documentClient, tables.addresses, "su", addressId),
@@ -128,14 +165,11 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
         ExpressionAttributeValues: { ":position": required(position, "position") },
         ReturnValues: "NONE",
       }),
-      batchGet: (addressIds) => invoke(documentClient, "batchGet", {
-        RequestItems: {
-          [tables.addresses]: {
-            Keys: (Array.isArray(addressIds) ? addressIds : [])
-              .map((su) => ({ su: String(su) })),
-          },
-        },
-      }),
+      batchGet: (addressIds) => batchGetAll(
+        documentClient,
+        tables.addresses,
+        (Array.isArray(addressIds) ? addressIds : []).map((su) => ({ su: String(su) }))
+      ),
     }),
     groups: Object.freeze({
       byId: (groupId) => queryByKey(documentClient, tables.groups, "g", groupId),
@@ -154,6 +188,9 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
       put: (item, options = {}) => invoke(documentClient, "put", {
         TableName: tables.relations, Item: required(item, "relation item"), ...options,
       }),
+      batchGet: (relationIds) => batchGetAll(
+        documentClient, tables.relations, (Array.isArray(relationIds) ? relationIds : []).map((id) => ({ id }))
+      ),
       remove: (relationId, options = {}) => invoke(documentClient, "delete", {
         TableName: tables.relations, Key: { id: required(relationId, "relationId") }, ...options,
       }),
@@ -173,9 +210,7 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
       if (!Object.hasOwn(indexes, key)) throw new Error(`verified key '${key}' is not supported`);
       return queryByKey(documentClient, tables.verified, key, value, indexes[key]);
     },
-    batchGetGrants: (keys) => invoke(documentClient, "batchGet", {
-      RequestItems: { [tables.grants]: { Keys: Array.isArray(keys) ? keys : [] } },
-    }),
+    batchGetGrants: (keys) => batchGetAll(documentClient, tables.grants, keys),
     putGrant: (item, options = {}) => invoke(documentClient, "put", {
       TableName: tables.grants, Item: required(item, "grant item"), ...options,
     }),
@@ -244,6 +279,62 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
     }),
   });
 
+  const canonical = Object.freeze({
+    enabled: Boolean(
+      tableNames.canonicalProjections
+      || (env || process.env).CANONICAL_PROJECTION_TABLE
+    ),
+    queryProjection: (partitionKey, { cursor, limit = 100 } = {}) => invoke(documentClient, "query", {
+      TableName: tables.canonicalProjections,
+      KeyConditionExpression: "#pk = :pk",
+      ExpressionAttributeNames: { "#pk": "pk" },
+      ExpressionAttributeValues: { ":pk": required(partitionKey, "partitionKey") },
+      ...(cursor ? { ExclusiveStartKey: cursor } : {}),
+      Limit: Math.max(1, Math.min(500, Number(limit) || 100)),
+      ConsistentRead: true,
+    }),
+    getProjection: (pk, sk) => invoke(documentClient, "get", {
+      TableName: tables.canonicalProjections,
+      Key: { pk: required(pk, "pk"), sk: required(sk, "sk") },
+      ConsistentRead: true,
+    }),
+    async batchPut(recordSets = {}, options = {}) {
+      const maximumAttempts = Math.max(1, Number(options.maxAttempts) || 7);
+      const foundationSets = [
+        [tables.words, recordSets.words],
+        [tables.entities, recordSets.entities],
+        [tables.addresses, recordSets.addresses],
+        [tables.groups, recordSets.groups],
+        [tables.relations, recordSets.relations],
+        [tables.versions, recordSets.versions],
+        [tables.grants, recordSets.grants],
+      ].filter(([, items]) => Array.isArray(items) && items.length);
+      const counts = await Promise.all(foundationSets.map(([table, items]) => batchWriteAll(
+        documentClient,
+        table,
+        items,
+        maximumAttempts
+      )));
+      const projections = (recordSets.projections || [])
+        .filter((item) => item?.recordType !== "canonical-publication");
+      const commitMarkers = (recordSets.projections || [])
+        .filter((item) => item?.recordType === "canonical-publication");
+      if (projections.length) {
+        counts.push(await batchWriteAll(
+          documentClient, tables.canonicalProjections, projections, maximumAttempts
+        ));
+      }
+      // A publication marker is written only after canonical facts, grants, and
+      // projections have completed, so retry checks cannot accept partial work.
+      if (commitMarkers.length) {
+        counts.push(await batchWriteAll(
+          documentClient, tables.canonicalProjections, commitMarkers, maximumAttempts
+        ));
+      }
+      return counts.reduce((sum, count) => sum + count, 0);
+    },
+  });
+
   const compatibility = Object.freeze({
     querySubdomain(value, key) {
       const readers = {
@@ -270,6 +361,7 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
     authorization,
     identity,
     context,
+    canonical,
     retrieval,
     compatibility,
   });
@@ -277,6 +369,7 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
 
 module.exports = {
   BASE_TABLES,
+  batchGetAll,
   batchWriteAll,
   createCanonicalPersistence,
   resolvedTables,
