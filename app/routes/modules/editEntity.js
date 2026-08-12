@@ -938,6 +938,68 @@ function normalizeRevisedImplementation(revisedCandidate, revisedManifest = null
   return revisedCandidate;
 }
 
+function protectedFieldsFromActions(actions) {
+  const inferred = new Map();
+  const inspectContainer = (container, location) => {
+    if (!container || typeof container !== "object" || Array.isArray(container)) return;
+    for (const [parameter, value] of Object.entries(container)) {
+      if (typeof value !== "string") continue;
+      const match = /^(.*?)\{\|protected=>([a-zA-Z][a-zA-Z0-9_.-]*)\.([a-zA-Z][a-zA-Z0-9_.-]*)\|\}$/.exec(value);
+      if (!match) continue;
+      const [, prefix, requirementId, name] = match;
+      const fields = inferred.get(requirementId) || [];
+      if (!fields.some((field) => field.name === name)) {
+        fields.push({ name, required: true, injection: { location, parameter, prefix } });
+      }
+      inferred.set(requirementId, fields);
+    }
+  };
+  for (const action of Array.isArray(actions) ? actions : []) {
+    if (String(action?.target || "") !== "{|axios|}") continue;
+    for (const step of Array.isArray(action.chain) ? action.chain : []) {
+      const config = Array.isArray(step?.params) && step.params[1]
+        && typeof step.params[1] === "object" && !Array.isArray(step.params[1])
+        ? step.params[1]
+        : {};
+      inspectContainer(config.params, "query");
+      inspectContainer(config.headers, "header");
+      inspectContainer(config.data, "body");
+    }
+  }
+  return inferred;
+}
+
+function synchronizeProtectedRequirementFields(entity, manifest) {
+  if (!entity || !manifest) return { entity, manifest };
+  const entityRequirements = Array.isArray(entity?.published?.data?.protectedAssetRequirements)
+    ? entity.published.data.protectedAssetRequirements
+    : [];
+  const operationRequirements = (Array.isArray(manifest.operations) ? manifest.operations : [])
+    .flatMap((operation) => (Array.isArray(operation?.protectedAssetRequirements)
+      ? operation.protectedAssetRequirements.map((requirement) => ({ operation, requirement }))
+      : []));
+  const inferred = protectedFieldsFromActions(entity?.published?.actions);
+  const all = [
+    ...entityRequirements.map((requirement) => ({ requirement })),
+    ...operationRequirements,
+  ];
+  for (const { operation, requirement } of all) {
+    if (!requirement || typeof requirement !== "object" || Array.isArray(requirement)) continue;
+    const requirementId = plainText(requirement.requirementId, 128);
+    if (!requirementId || (Array.isArray(requirement.fields) && requirement.fields.length)) continue;
+    const peer = all.find((candidate) =>
+      candidate.requirement !== requirement
+      && plainText(candidate.requirement?.requirementId, 128) === requirementId
+      && Array.isArray(candidate.requirement?.fields)
+      && candidate.requirement.fields.length
+    );
+    const fields = peer?.requirement?.fields || inferred.get(requirementId);
+    if (Array.isArray(fields) && fields.length) requirement.fields = clone(fields);
+    if (operation && !requirement.operationId) requirement.operationId = operation.operationId;
+  }
+  return { entity, manifest };
+}
+
 function register({ on, use }) {
   const {
     manageCookie,
@@ -1279,6 +1341,7 @@ function register({ on, use }) {
       if (originalManifest) {
         const rawManifest = generated.updatedCapabilityManifest || revisedCandidate?.published?.computeCapability;
         if (!rawManifest) throw new Error("capability entity revision did not return its updated capability manifest");
+        synchronizeProtectedRequirementFields(revisedCandidate, rawManifest);
         revisedManifest = validateCapabilityManifest({
           ...rawManifest,
           operations: canonicalizeGeneratedOperations(rawManifest.operations),
@@ -1557,6 +1620,8 @@ module.exports = {
   providerDocumentationDomains,
   providerRepairResearchContext,
   reconnectableRevisionJob,
+  protectedFieldsFromActions,
+  synchronizeProtectedRequirementFields,
   extractProviderResearchSources,
   mayRetryRevisionValidation,
   responseOutputText,

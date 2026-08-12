@@ -14,6 +14,8 @@ const {
   providerDocumentationDomains,
   providerRepairResearchContext,
   reconnectableRevisionJob,
+  protectedFieldsFromActions,
+  synchronizeProtectedRequirementFields,
   repairRequiresImplementationChange,
   requestDescribesImplementationChange,
   revisionInput,
@@ -32,6 +34,43 @@ test('a repeated revision request reconnects only to its own durable job', () =>
   assert.equal(reconnectableRevisionJob(row, 'different-request-hash'), null);
   assert.equal(reconnectableRevisionJob({ ...row, editLock: 'resp_other' }, 'same-request-hash'), null);
   assert.equal(reconnectableRevisionJob({ editJobHash: 'same-request-hash' }, 'same-request-hash'), null);
+});
+
+test('protected requirement fields synchronize from the exact declarative placeholder', () => {
+  const revisedEntity = {
+    published: {
+      data: { protectedAssetRequirements: [{ requirementId: 'provider_credentials', fields: [] }] },
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+          params: { appid: '{|protected=>provider_credentials.api_key|}' },
+          headers: { Authorization: 'Bearer {|protected=>provider_credentials.access_token|}' },
+        }] }],
+        assign: '{|providerResponse|}',
+      }],
+    },
+  };
+  const revisedManifest = {
+    operations: [{
+      operationId: 'lookup',
+      protectedAssetRequirements: [{ requirementId: 'provider_credentials' }],
+    }],
+  };
+  const inferred = protectedFieldsFromActions(revisedEntity.published.actions);
+  assert.deepEqual(inferred.get('provider_credentials'), [
+    { name: 'api_key', required: true, injection: { location: 'query', parameter: 'appid', prefix: '' } },
+    { name: 'access_token', required: true, injection: { location: 'header', parameter: 'Authorization', prefix: 'Bearer ' } },
+  ]);
+  synchronizeProtectedRequirementFields(revisedEntity, revisedManifest);
+  assert.deepEqual(
+    revisedEntity.published.data.protectedAssetRequirements[0].fields,
+    inferred.get('provider_credentials')
+  );
+  assert.deepEqual(
+    revisedManifest.operations[0].protectedAssetRequirements[0].fields,
+    inferred.get('provider_credentials')
+  );
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].operationId, 'lookup');
 });
 
 const entity = {

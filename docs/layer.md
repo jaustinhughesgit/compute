@@ -72,6 +72,8 @@ Entity Plans may bind a later request parameter to a path in an earlier provider
 
 Protected request fields use canonical `query`, `header`, or `body` injection locations. Bounded generator aliases such as “query parameter” are normalized at the protected-contract boundary, while the stored requirement, entity data, and declarative provider placeholder remain synchronized.
 
+During an authorized entity revision, a missing requirement-field copy may be reconstructed only from its exact `{|protected=>requirement.field|}` placeholder and literal request container/parameter in declarative JPL. Compute mirrors that non-secret metadata into the entity and manifest before ordinary protected-contract and implementation validation; it cannot infer a credential value or a new destination.
+
 Background provider construction researches primary provider documentation through bounded OpenAI web search before proposing the EntityPlan. If deterministic validation rejects a plan that named real public hosts, the next bounded correction restricts search to those provider domains. Researched output still has no authority until the ordinary EntityPlan compiler, host policy, protected-field checks, and output validation pass.
 
 Background discovery failures cross the relay as a sanitized application-error contract containing code, stage, retryability, safe provider status, and message. HTTP 200 from the relay does not turn that nested failure into success. Terminal build envelopes carry the same retryability signal for transient 429, 503, timeout, and connection failures. These failures may authorize a bounded replacement job in the browser; configuration, authorization, malformed-job identity, and deterministic validation failures remain non-retryable.
