@@ -969,6 +969,47 @@ function protectedFieldsFromActions(actions) {
   return inferred;
 }
 
+function protectUnambiguousUndeclaredRequestField(entity, manifest, requirementId) {
+  const declaredInputs = new Set((Array.isArray(manifest?.operations) ? manifest.operations : [])
+    .flatMap((operation) => Array.isArray(operation?.inputs) ? operation.inputs : [])
+    .map((input) => plainText(input?.name, 128))
+    .filter(Boolean));
+  const candidates = [];
+  const inspectContainer = (container, location) => {
+    if (!container || typeof container !== "object" || Array.isArray(container)) return;
+    for (const [parameter, value] of Object.entries(container)) {
+      if (typeof value !== "string") continue;
+      const match = /^(.*?)\{\|req=>body\.([a-zA-Z][a-zA-Z0-9_.-]*)\|\}$/.exec(value);
+      if (!match || declaredInputs.has(match[2])) continue;
+      candidates.push({ container, parameter, location, prefix: match[1], name: match[2] });
+    }
+  };
+  for (const action of Array.isArray(entity?.published?.actions) ? entity.published.actions : []) {
+    if (String(action?.target || "") !== "{|axios|}") continue;
+    for (const step of Array.isArray(action.chain) ? action.chain : []) {
+      const config = Array.isArray(step?.params) && step.params[1]
+        && typeof step.params[1] === "object" && !Array.isArray(step.params[1])
+        ? step.params[1]
+        : {};
+      inspectContainer(config.params, "query");
+      inspectContainer(config.headers, "header");
+      inspectContainer(config.data, "body");
+    }
+  }
+  if (candidates.length !== 1) return [];
+  const candidate = candidates[0];
+  candidate.container[candidate.parameter] = `${candidate.prefix}{|protected=>${requirementId}.${candidate.name}|}`;
+  return [{
+    name: candidate.name,
+    required: true,
+    injection: {
+      location: candidate.location,
+      parameter: candidate.parameter,
+      prefix: candidate.prefix,
+    },
+  }];
+}
+
 function synchronizeProtectedRequirementFields(entity, manifest) {
   if (!entity || !manifest) return { entity, manifest };
   const entityRequirements = Array.isArray(entity?.published?.data?.protectedAssetRequirements)
@@ -983,6 +1024,15 @@ function synchronizeProtectedRequirementFields(entity, manifest) {
     ...entityRequirements.map((requirement) => ({ requirement })),
     ...operationRequirements,
   ];
+  const incompleteIds = [...new Set(all
+    .filter(({ requirement }) => requirement && typeof requirement === "object"
+      && (!Array.isArray(requirement.fields) || !requirement.fields.length))
+    .map(({ requirement }) => plainText(requirement.requirementId, 128))
+    .filter(Boolean))];
+  if (incompleteIds.length === 1 && !inferred.get(incompleteIds[0])?.length) {
+    const recovered = protectUnambiguousUndeclaredRequestField(entity, manifest, incompleteIds[0]);
+    if (recovered.length) inferred.set(incompleteIds[0], recovered);
+  }
   for (const { operation, requirement } of all) {
     if (!requirement || typeof requirement !== "object" || Array.isArray(requirement)) continue;
     const requirementId = plainText(requirement.requirementId, 128);
@@ -1621,6 +1671,7 @@ module.exports = {
   providerRepairResearchContext,
   reconnectableRevisionJob,
   protectedFieldsFromActions,
+  protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
   extractProviderResearchSources,
   mayRetryRevisionValidation,

@@ -15,6 +15,7 @@ const {
   providerRepairResearchContext,
   reconnectableRevisionJob,
   protectedFieldsFromActions,
+  protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
   repairRequiresImplementationChange,
   requestDescribesImplementationChange,
@@ -71,6 +72,47 @@ test('protected requirement fields synchronize from the exact declarative placeh
     inferred.get('provider_credentials')
   );
   assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].operationId, 'lookup');
+});
+
+test('one undeclared provider request input moves into one incomplete protected requirement', () => {
+  const revisedEntity = {
+    published: {
+      data: { protectedAssetRequirements: [{ requirementId: 'provider_credentials' }] },
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+          params: {
+            q: '{|req=>body.location|}',
+            appid: '{|req=>body.api_key|}',
+          },
+        }] }],
+        assign: '{|providerResponse|}',
+      }],
+    },
+  };
+  const revisedManifest = {
+    operations: [{
+      operationId: 'lookup',
+      inputs: [{ name: 'location' }],
+      protectedAssetRequirements: [{ requirementId: 'provider_credentials', fields: [] }],
+    }],
+  };
+  assert.deepEqual(
+    protectUnambiguousUndeclaredRequestField(revisedEntity, revisedManifest, 'provider_credentials'),
+    [{ name: 'api_key', required: true, injection: { location: 'query', parameter: 'appid', prefix: '' } }]
+  );
+  assert.equal(
+    revisedEntity.published.actions[0].chain[0].params[1].params.appid,
+    '{|protected=>provider_credentials.api_key|}'
+  );
+
+  const ambiguousEntity = structuredClone(revisedEntity);
+  ambiguousEntity.published.actions[0].chain[0].params[1].params.appid = '{|req=>body.api_key|}';
+  ambiguousEntity.published.actions[0].chain[0].params[1].params.token = '{|req=>body.access_token|}';
+  assert.deepEqual(
+    protectUnambiguousUndeclaredRequestField(ambiguousEntity, revisedManifest, 'provider_credentials'),
+    []
+  );
 });
 
 const entity = {
