@@ -114,6 +114,8 @@ The legacy passphrase route remains ciphertext-only compatibility. Its useful ex
 
 Entity creation and repair may outlive a Lambda request. Jobs require stable identity, owner and authorization scope, original request hash, phase/state, model response handle, retry count, checkpointed artifacts, terminal result, expiration, and idempotent application. SQS or another durable trigger can continue work; the website polls status through fresh requests.
 
+If an entity-revision submission response is lost, repeating the identical revision reconnects to the stored job with the same request hash. A different revision still receives the active-edit conflict and cannot adopt another request's model work.
+
 Completed capability output uses a short single-finalizer lease before Shorthand materialization and registry publication. Overlapping Lambda polls remain pending, a lost holder may be replaced after expiry, and only the holder may commit terminal state. Failed state retains a bounded code and sanitized message for later polls. Approved child-capability Shorthand uses an empty published seed when the optional parent workspace document is unavailable; it still creates and saves the child through ordinary entity routes. See [decision 0031](../../architecture/decisions/0031-lease-compute-build-finalization.md).
 
 Generated entity/app Shorthand reads registered-route results through `ROUTEGET`, which unwraps direct and relayed transport envelopes before selecting a named field. Ordinary `GET` remains exact object traversal; compilers must not encode one historical router wrapper depth into new entity-creation plans.

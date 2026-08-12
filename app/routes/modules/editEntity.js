@@ -406,6 +406,29 @@ function revisionRequestHash(request) {
   })).digest("hex");
 }
 
+function reconnectableRevisionJob(row, requestHash) {
+  const jobId = plainText(row?.editJobId, 200);
+  return jobId
+    && plainText(row?.editJobHash, 200) === plainText(requestHash, 200)
+    && plainText(row?.editLock, 200) === jobId
+    ? jobId
+    : null;
+}
+
+function queuedRevisionResponse(entityId, jobId, { reconnected = false } = {}) {
+  return {
+    ok: true,
+    response: {
+      action: "editEntityQueued",
+      entityId,
+      jobId,
+      status: "in_progress",
+      retryAfterMs: 2_000,
+      ...(reconnected ? { reconnected: true } : {}),
+    },
+  };
+}
+
 function revisionInput({
   model,
   currentEntity,
@@ -993,6 +1016,10 @@ function register({ on, use }) {
     };
 
     if (!request.pollOnly) {
+      const existingJobId = reconnectableRevisionJob(row, requestHash);
+      if (existingJobId) {
+        return queuedRevisionResponse(request.entityId, existingJobId, { reconnected: true });
+      }
       const startupLock = `starting_${crypto.randomUUID()}`;
       const nowSeconds = Math.floor(Date.now() / 1000);
       try {
@@ -1013,6 +1040,11 @@ function register({ on, use }) {
         }).promise();
       } catch (error) {
         if (error?.code === "ConditionalCheckFailedException") {
+          const activeRow = (await getSub(request.entityId, "su", dynamodb))?.Items?.[0];
+          const racedJobId = reconnectableRevisionJob(activeRow, requestHash);
+          if (racedJobId) {
+            return queuedRevisionResponse(request.entityId, racedJobId, { reconnected: true });
+          }
           res.status(409).json({ ok: false, error: "This entity is already being edited. Try again shortly." });
           return { __handled: true };
         }
@@ -1522,6 +1554,7 @@ module.exports = {
   parseRevisionResponse,
   providerDocumentationDomains,
   providerRepairResearchContext,
+  reconnectableRevisionJob,
   extractProviderResearchSources,
   mayRetryRevisionValidation,
   responseOutputText,

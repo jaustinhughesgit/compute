@@ -13,6 +13,7 @@ const {
   parseRevisionResponse,
   providerDocumentationDomains,
   providerRepairResearchContext,
+  reconnectableRevisionJob,
   repairRequiresImplementationChange,
   requestDescribesImplementationChange,
   revisionInput,
@@ -20,6 +21,18 @@ const {
   validateRevisionSynchronization,
   validateRevisedEntity,
 } = require('../app/routes/modules/editEntity');
+
+test('a repeated revision request reconnects only to its own durable job', () => {
+  const row = {
+    editLock: 'resp_existing',
+    editJobId: 'resp_existing',
+    editJobHash: 'same-request-hash',
+  };
+  assert.equal(reconnectableRevisionJob(row, 'same-request-hash'), 'resp_existing');
+  assert.equal(reconnectableRevisionJob(row, 'different-request-hash'), null);
+  assert.equal(reconnectableRevisionJob({ ...row, editLock: 'resp_other' }, 'same-request-hash'), null);
+  assert.equal(reconnectableRevisionJob({ editJobHash: 'same-request-hash' }, 'same-request-hash'), null);
+});
 
 const entity = {
   input: [],
