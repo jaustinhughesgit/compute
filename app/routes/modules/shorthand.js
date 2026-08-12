@@ -2,6 +2,20 @@
  * Platform: Active row-addressed composition runtime used by Convert to transform and invoke entities without generated JavaScript.
  * Technical: Executes `{input:[{physical,virtual}], sweeps?, skip?}` matrices; positional arguments supply legacy route/AWS context.
  */
+function routeEnvelopeValue(value, key) {
+    const field = String(key || "").trim();
+    if (!field) return undefined;
+    let current = value;
+    const wrappers = ["response", "oai", "html", "result", "value", "body", "data"];
+    for (let depth = 0; depth < 8 && current && typeof current === "object"; depth += 1) {
+        if (Object.prototype.hasOwnProperty.call(current, field)) return current[field];
+        const wrapper = wrappers.find((name) => current[name] && typeof current[name] === "object");
+        if (!wrapper) return undefined;
+        current = current[wrapper];
+    }
+    return undefined;
+}
+
 async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uuidv4, s3, ses, openai, Anthropic, dynamodbLL, isShorthand, reqPath, reqBody, reqMethod, reqType, reqHeaderSent, signer, action, xAccessToken) {
     const math = require('mathjs');
 
@@ -1653,6 +1667,7 @@ return resp;
             let nested = getNested(baseRef, pathTokens);
             return nested;
         },
+        ROUTEGET: (rowArray) => routeEnvelopeValue(rowArray[1], rowArray[2]),
         DELETEPROPERTY: (rowArray) => {
             const baseRef = rowArray[1];
             if (!isRowResultRef(baseRef) && !isJSON(baseRef)) {
@@ -1969,5 +1984,6 @@ function register({ on, use }) {
 
 module.exports = {
     register,
-    shorthand
+    shorthand,
+    routeEnvelopeValue,
 };

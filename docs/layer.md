@@ -112,6 +112,8 @@ Entity creation and repair may outlive a Lambda request. Jobs require stable ide
 
 Completed capability output uses a short single-finalizer lease before Shorthand materialization and registry publication. Overlapping Lambda polls remain pending, a lost holder may be replaced after expiry, and only the holder may commit terminal state. Failed state retains a bounded code and sanitized message for later polls. Approved child-capability Shorthand uses an empty published seed when the optional parent workspace document is unavailable; it still creates and saves the child through ordinary entity routes. See [decision 0031](../../architecture/decisions/0031-lease-compute-build-finalization.md).
 
+Generated entity/app Shorthand reads registered-route results through `ROUTEGET`, which unwraps direct and relayed transport envelopes before selecting a named field. Ordinary `GET` remains exact object traversal; compilers must not encode one historical router wrapper depth into new entity-creation plans.
+
 Repair and fork jobs are distinct lifecycle operations. A published repair creates an immutable compatible implementation release in the same capability lineage. A fork creates a separate identity with explicit source lineage and cannot replace or migrate dependents without a separately authorized promotion decision.
 
 Completed model responses expose only the versioned cost-trace fields needed for local estimation: provider, model, response identity, service tier, named step, and aggregate token counts. Prompt/output content, hidden reasoning, credentials, headers, and protected values do not belong in this metadata. Polling responses must preserve one response identity so the browser can deduplicate cost.

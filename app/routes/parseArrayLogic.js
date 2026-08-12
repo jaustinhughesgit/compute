@@ -517,7 +517,7 @@ async function parseArrayLogic({
       };
 
       const refNewGroup = pushRow(["ROUTE", { output: appName }, {}, "newGroup", groupName, appName]);
-      const refNewEntity = pushRow(["GET", refNewGroup, "response", "file"]);
+      const refNewEntity = pushRow(["ROUTEGET", refNewGroup, "file"]);
       const refGetFile = pushRow(["ROUTE", {}, {}, "getFile", refNewEntity, ""]);
       let refWorkingFile = pushRow(["GET", refGetFile, "response"]);
 
@@ -589,7 +589,7 @@ async function parseArrayLogic({
 
       console.log("appEntity:newGroup", { groupName, appName, parentWorkspace, buildAppMode });
       const refNewGroup = pushRow(["ROUTE", { output: appName }, {}, "newGroup", groupName, appName]);
-      const refNewEntity = pushRow(["GET", refNewGroup, "response", "file"]);
+      const refNewEntity = pushRow(["ROUTEGET", refNewGroup, "file"]);
       const refGetFile = pushRow(["ROUTE", {}, {}, "getFile", refNewEntity, ""]);
       let refWorkingFile = pushRow(["GET", refGetFile, "response"]);
 
@@ -779,8 +779,8 @@ async function parseArrayLogic({
     ]);
 
     routeRowNewIndex = shorthand.length;
-    console.log("4-shorthand", ["GET", padRef(routeRowNewIndex), "response", "file"])
-    shorthand.push(["GET", padRef(routeRowNewIndex), "response", "file"]);
+    console.log("4-shorthand", ["ROUTEGET", padRef(routeRowNewIndex), "file"])
+    shorthand.push(["ROUTEGET", padRef(routeRowNewIndex), "file"]);
 
     if (fixedOutput) {
       // generate JPL to wire initial actions
