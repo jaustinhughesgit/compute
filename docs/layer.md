@@ -72,6 +72,8 @@ Entity Plans may bind a later request parameter to a path in an earlier provider
 
 Background provider construction researches primary provider documentation through bounded OpenAI web search before proposing the EntityPlan. If deterministic validation rejects a plan that named real public hosts, the next bounded correction restricts search to those provider domains. Researched output still has no authority until the ordinary EntityPlan compiler, host policy, protected-field checks, and output validation pass.
 
+Background discovery failures cross the relay as a sanitized application-error contract containing code, stage, retryability, safe provider status, and message. HTTP 200 from the relay does not turn that nested failure into success. Semantic/background-provider failures may authorize a bounded replacement job in the browser; configuration, authorization, malformed-job identity, and other terminal failures remain non-retryable.
+
 This preserves the long-term direction in which providers or builders can publish their protocol work through 1var rather than requiring every end-user entity to rediscover an API.
 
 ## Distributed entities

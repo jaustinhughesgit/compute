@@ -28,6 +28,38 @@ const {
   createCapabilityBuildCoordinator,
 } = require("../capabilityBuildCoordinator");
 const { normalizeLlmTemplateId } = require("../../llmTemplates");
+const { sanitizeDiagnosticValue } = require("../diagnosticSanitizer");
+
+function markBackgroundDiscoveryError(error) {
+  const failure = error instanceof Error ? error : new Error(String(error || "Compute discovery failed."));
+  const status = Number(failure.status || 0);
+  failure.onevarStage = "compute_discovery";
+  failure.retryable = failure.retryable === true
+    || (!status && failure.code !== "OPENAI_BACKGROUND_ID_INVALID")
+    || status === 404
+    || status === 408
+    || status === 409
+    || status === 425
+    || status === 429
+    || status >= 500;
+  return failure;
+}
+
+function convertErrorDetails(error) {
+  const code = String(error?.code || "COMPUTE_CONVERT_FAILED").slice(0, 120);
+  const message = String(error?.message || error || "Compute conversion failed.");
+  return sanitizeDiagnosticValue({
+    kind: "computeError",
+    schemaVersion: 1,
+    code,
+    stage: String(error?.onevarStage || "compute_convert").slice(0, 120),
+    retryable: error?.retryable === true,
+    status: Number.isInteger(Number(error?.status)) && Number(error.status) > 0
+      ? Number(error.status)
+      : null,
+    message,
+  });
+}
 
 function shorthandExecutionSource(retrieved, capabilityBuild) {
   if (capabilityBuild) return { published: {} };
@@ -631,22 +663,27 @@ function register({ on, use }) {
           backgroundDiscoveryRequested
           && body.body?.deterministicComputeDiscovery !== true
         ) {
-          const backgroundDiscovery = discoveryJobId
-            ? await retrieveComputeCapabilityDiscovery({
-                jobId: discoveryJobId,
-                utterance: originalUtterance,
-                requestedBy: ownerId,
-                availableCapabilities,
-                semanticEvidence: promptObj?.relevantItems,
-                llmTemplateId,
-              })
-            : await startComputeCapabilityDiscovery({
-                utterance: originalUtterance,
-                requestedBy: ownerId,
-                availableCapabilities,
-                semanticEvidence: promptObj?.relevantItems,
-                llmTemplateId,
-              });
+          let backgroundDiscovery;
+          try {
+            backgroundDiscovery = discoveryJobId
+              ? await retrieveComputeCapabilityDiscovery({
+                  jobId: discoveryJobId,
+                  utterance: originalUtterance,
+                  requestedBy: ownerId,
+                  availableCapabilities,
+                  semanticEvidence: promptObj?.relevantItems,
+                  llmTemplateId,
+                })
+              : await startComputeCapabilityDiscovery({
+                  utterance: originalUtterance,
+                  requestedBy: ownerId,
+                  availableCapabilities,
+                  semanticEvidence: promptObj?.relevantItems,
+                  llmTemplateId,
+                });
+          } catch (error) {
+            throw markBackgroundDiscoveryError(error);
+          }
           if (backgroundDiscovery.pending) {
             return capabilityStateResponse({
               status: "DISCOVERY_PENDING",
@@ -1298,9 +1335,11 @@ function subdomains(domain){
       if (failActiveBuild) {
         try { await failActiveBuild(err); } catch (_) {}
       }
+      const errorDetails = convertErrorDetails(err);
       return {
         ok: false,
-        error: err?.message || String(err),
+        error: errorDetails.message,
+        errorDetails,
       };
     }
   });
@@ -1316,4 +1355,6 @@ module.exports = {
   resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
   shorthandExecutionSource,
+  convertErrorDetails,
+  markBackgroundDiscoveryError,
 };

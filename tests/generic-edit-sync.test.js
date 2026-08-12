@@ -4,6 +4,35 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const path = require("node:path");
+const {
+  convertErrorDetails,
+  markBackgroundDiscoveryError,
+} = require("../app/routes/modules/convert");
+
+test("Convert returns a sanitized retry contract for background discovery failures", () => {
+  const retryable = new Error("provider rejected https://example.test/data?appid=private-value");
+  retryable.code = "INVALID_DISCOVERY_CONTRACT";
+  markBackgroundDiscoveryError(retryable);
+  const details = convertErrorDetails(retryable);
+  assert.deepEqual({
+    kind: details.kind,
+    schemaVersion: details.schemaVersion,
+    code: details.code,
+    stage: details.stage,
+    retryable: details.retryable,
+  }, {
+    kind: "computeError",
+    schemaVersion: 1,
+    code: "INVALID_DISCOVERY_CONTRACT",
+    stage: "compute_discovery",
+    retryable: true,
+  });
+  assert.doesNotMatch(details.message, /private-value/);
+
+  const invalidId = new Error("invalid OpenAI background response id");
+  invalidId.code = "OPENAI_BACKGROUND_ID_INVALID";
+  assert.equal(markBackgroundDiscoveryError(invalidId).retryable, false);
+});
 
 test("Edit revises and registers an entity-owned capability contract atomically", () => {
   const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/editEntity.js"), "utf8");
