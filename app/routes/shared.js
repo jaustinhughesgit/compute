@@ -6,6 +6,7 @@ const moment = require("moment-timezone");
 const crypto = require("crypto");
 const { createCanonicalPersistence } = require("../persistence/canonicalPersistence");
 const { createCanonicalComposition } = require("../persistence/canonicalComposition");
+const { cookieRecordFromQuery } = require("./sessionCookie");
 
 const isObject = (val) =>
   val && typeof val === "object" && !Array.isArray(val) && !Buffer.isBuffer(val);
@@ -691,9 +692,14 @@ async function manageCookie(mainObj, xAccessToken, res, ddb = dynamodb, uuid = u
 
   // If the caller sent us an access token, just authenticate and return the cookie record.
   if (xAccessToken) {
-    mainObj.status = "authenticated";
-    const cookie = await getCookie(xAccessToken, "ak", ddb);
-    return cookie.Items?.[0];
+    const record = cookieRecordFromQuery(await getCookie(xAccessToken, "ak", ddb));
+    if (record) {
+      mainObj.status = "authenticated";
+      return record;
+    }
+    // Reset and expiry can leave an HttpOnly cookie whose server row no longer
+    // exists. Treat it as anonymous and replace it through the normal flow.
+    mainObj.status = "session-recovery";
   }
 
   // ---------- OPT-IN: DO NOT create a new cookie ----------
