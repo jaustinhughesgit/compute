@@ -35,6 +35,22 @@ const ALLOWED_USES = new Set([
 const REQUIREMENT_USE_ALIASES = new Map([
   ["access", "inject"],
 ]);
+const INJECTION_LOCATION_ALIASES = new Map([
+  ["query_parameter", "query"],
+  ["query_param", "query"],
+  ["queryparameter", "query"],
+  ["queryparam", "query"],
+  ["queryparams", "query"],
+  ["querystring", "query"],
+  ["querystring_parameter", "query"],
+  ["params", "query"],
+  ["headers", "header"],
+  ["request_header", "header"],
+  ["request_body", "body"],
+  ["json_body", "body"],
+  ["payload", "body"],
+  ["data", "body"],
+]);
 const APPROVAL_MODES = new Set(["every_use", "session", "preapproved"]);
 // Generated capability requirements historically used "auto" to mean that
 // the protected answer may be used immediately after the user explicitly
@@ -265,7 +281,11 @@ function normalizeProtectedAssetRequirement(raw, { capabilityId = null, operatio
   if (!ALLOWED_USES.has(use)) throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", `unsupported asset use ${use}`);
   const fields = (Array.isArray(raw.fields) ? raw.fields : []).map((field, index) => {
     if (!isObject(field)) throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", `requirement field ${index} must be an object`);
-    const location = String(field.injection?.location || "").trim().toLowerCase();
+    const requestedLocation = String(field.injection?.location || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[\s-]+/g, "_");
+    const location = INJECTION_LOCATION_ALIASES.get(requestedLocation) || requestedLocation;
     if (!["query", "header", "body"].includes(location)) {
       throw new ProtectedAssetError("INVALID_ASSET_REQUIREMENT", `requirement field ${index} injection location is invalid`);
     }

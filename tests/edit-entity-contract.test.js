@@ -274,6 +274,8 @@ test('provider contract failures receive one constrained official-doc research a
   assert.match(input.input[0].content, /one authorized provider-contract repair attempt/);
   assert.match(input.input[0].content, /JPL is the JSON array at published\.actions/);
   assert.match(input.input[0].content, /typed JSON-node schema/);
+  assert.match(input.input[0].content, /Use exactly query, header, or body/);
+  assert.match(input.input[0].content, /synchronize operation\.protectedAssetRequirements/);
   assert.equal(input.text.format.strict, true);
   assert.ok(input.text.format.schema.properties.entityPatches);
 

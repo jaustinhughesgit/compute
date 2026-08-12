@@ -8,6 +8,7 @@ const {
   normalizeGrantRequests,
 } = require("../app/routes/protectedAssetGrants");
 const { register } = require("../app/routes/modules/protectedAssets");
+const { normalizeProtectedAssetRequirement } = require("../app/routes/protectedAssetContract");
 
 const assetId = "pa_1234567890abcdef1234567890abcdef";
 const envelope = {
@@ -28,6 +29,29 @@ function storeWith(grants) {
   };
   return { calls, grants: createProtectedAssetGrantStore({ dynamodb }) };
 }
+
+test("generated protected injection location aliases normalize to the canonical request containers", () => {
+  const base = {
+    requirementId: "weather_credentials",
+    assetType: "credential",
+    providerId: "weather_provider",
+    providerHost: "api.weather.example",
+    fields: [{
+      name: "api_key",
+      required: true,
+      injection: { location: "query parameter", parameter: "appid", prefix: "" },
+    }],
+  };
+  assert.equal(normalizeProtectedAssetRequirement(base).fields[0].injection.location, "query");
+  assert.equal(normalizeProtectedAssetRequirement({
+    ...base,
+    fields: [{ ...base.fields[0], injection: { ...base.fields[0].injection, location: "headers" } }],
+  }).fields[0].injection.location, "header");
+  assert.equal(normalizeProtectedAssetRequirement({
+    ...base,
+    fields: [{ ...base.fields[0], injection: { ...base.fields[0].injection, location: "request-body" } }],
+  }).fields[0].injection.location, "body");
+});
 
 test("recipient salts/wraps are paired with explicit canonical use grants", () => {
   const requests = normalizeGrantRequests([
