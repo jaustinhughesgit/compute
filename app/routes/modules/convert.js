@@ -74,6 +74,12 @@ function describeEntityReferenceShape(reference, depth = 0) {
   ).join(",")}}`;
 }
 
+function attachAuthenticatedCookie(req, row) {
+  if (!req || !row || typeof row !== "object") return false;
+  req.cookies = { ...(req.cookies || {}), ...row };
+  return true;
+}
+
 function resolveCreatedCapabilityEntityId({ conclusion, createdEntities, manifest } = {}) {
   const references = [
     conclusion?.entity,
@@ -151,7 +157,9 @@ function register({ on, use }) {
         const xAccessToken = req?.body?.headers?.["X-accessToken"];
         if (xAccessToken) {
           const cookie = await getCookie(xAccessToken, "ak");
-          const maybeE = cookie?.Items?.[0]?.e;
+          const cookieRow = cookie?.Items?.[0];
+          attachAuthenticatedCookie(req, cookieRow);
+          const maybeE = cookieRow?.e;
           if (Number.isFinite(Number(maybeE))) e = Number(maybeE);
         }
       } catch {
@@ -1301,6 +1309,7 @@ function subdomains(domain){
 }
 
 module.exports = {
+  attachAuthenticatedCookie,
   register,
   describeEntityReferenceShape,
   normalizeCreatedEntityId,

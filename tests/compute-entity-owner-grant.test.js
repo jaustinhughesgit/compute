@@ -3,11 +3,19 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
+  attachAuthenticatedCookie,
   describeEntityReferenceShape,
   normalizeCreatedEntityId,
   resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
 } = require("../app/routes/modules/convert");
+
+test("Convert preserves the authenticated cookie row for internal composition", () => {
+  const req = { cookies: { existing: true } };
+  assert.equal(attachAuthenticatedCookie(req, { e: "7", gi: "11", ci: "cookie-1" }), true);
+  assert.deepEqual(req.cookies, { existing: true, e: "7", gi: "11", ci: "cookie-1" });
+  assert.equal(attachAuthenticatedCookie(req, null), false);
+});
 
 test("compute build entity references normalize legacy nested result shapes", () => {
   assert.equal(normalizeCreatedEntityId("entity-plain"), "entity-plain");
