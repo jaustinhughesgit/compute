@@ -29,6 +29,7 @@ const {
 
 const GENERIC_BLUEPRINT_ID = "entity.declarative.remote.v1";
 const TRUSTED_MODULES = new Set(["axios"]);
+const TRUSTED_MATH_ACTIONS = new Set(["add", "subtract", "multiply", "divide", "mod", "pow", "min", "max"]);
 const MAX_IMPLEMENTATION_BYTES = 384 * 1024;
 const MAX_GENERATION_ATTEMPTS = 3;
 const MAX_BUILD_CONTINUATION_BYTES = 20 * 1024;
@@ -473,7 +474,7 @@ function validateAction(action, index) {
     );
   }
   if (!chain) return;
-  if (!["{|axios|}", "{|res|}!"].includes(action.target)) throw new Error(`declarative action ${index} has an unsupported target`);
+  if (!["{|axios|}", "{|math|}", "{|res|}!"].includes(action.target)) throw new Error(`declarative action ${index} has an unsupported target`);
   for (const step of action.chain) {
     if (!isObject(step) || !Array.isArray(step.params)) throw new Error(`declarative action ${index} contains an unsupported chain step`);
     if (action.target === "{|axios|}") {
@@ -481,6 +482,10 @@ function validateAction(action, index) {
       publicHttpsUrl(step.params[0], `declarative action ${index} URL`);
       if (String(step.params[0]).includes("{|")) {
         throw new Error(`declarative action ${index} must use a literal public HTTPS provider URL`);
+      }
+    } else if (action.target === "{|math|}") {
+      if (!TRUSTED_MATH_ACTIONS.has(String(step.access).toLowerCase()) || step.params.length !== 2) {
+        throw new Error(`declarative action ${index} uses an unsupported arithmetic operation`);
       }
     } else if (String(step.access).toLowerCase() !== "send") {
       throw new Error(`declarative action ${index} response access must be send`);

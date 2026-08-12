@@ -66,6 +66,8 @@ Validation should cover:
 
 Provider knowledge belongs in reusable versioned entities or protocol lineages. The core runtime supplies generic HTTP, transformation, credential-reference, validation, and diagnostic mechanics. A provider entity supplies endpoints, parameter definitions, response mappings, versions, and provider-specific normalization.
 
+Validated compute entities may also use the allow-listed, side-effect-free binary arithmetic target supplied by the JPL runtime. This supports reusable local transforms without inventing a provider call or admitting arbitrary modules or JavaScript.
+
 Entity Plans may bind a later request parameter to a path in an earlier provider response from the same ordered operation. This is the generic discovery-then-detail primitive needed for flows such as place lookup followed by current conditions; the compiler rejects future request references. Provider credentials remain Protected Asset requirements rather than ordinary inputs.
 
 Background provider construction researches primary provider documentation through bounded OpenAI web search before proposing the EntityPlan. If deterministic validation rejects a plan that named real public hosts, the next bounded correction restricts search to those provider domains. Researched output still has no authority until the ordinary EntityPlan compiler, host policy, protected-field checks, and output validation pass.

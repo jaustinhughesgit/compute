@@ -101,6 +101,37 @@ test("generic entity builder derives the manifest from the model-declared contra
   assert.equal(JSON.stringify(spec).includes("function"), false);
 });
 
+test("generic entity builder accepts bounded local arithmetic without a provider", async () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "math.increment.number",
+    name: "Number incrementer",
+    description: "Adds one to a number.",
+    operations: [{
+      operationId: "increment",
+      inputs: [{ name: "number", type: "number", required: true, bindingHint: { source: "utterance" } }],
+      outputs: [{ name: "result", type: "number", required: true }],
+      utteranceExamples: [{ text: "Increment 4.", inputs: { number: 4 } }],
+      answerTemplate: "{{result}}",
+    }],
+  };
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:7",
+    generatedImplementation: { published: {
+      modules: {},
+      actions: [
+        { target: "{|math|}", chain: [{ access: "add", params: ["{|req=>body.number|}", 1] }], assign: "{|result|}" },
+        { target: "{|res|}!", chain: [{ access: "send", params: [{ result: "{|result|}" }] }] },
+      ],
+      data: {},
+    } },
+  });
+  assert.equal(result.computeEntity.published.actions[0].target, "{|math|}");
+  assert.deepEqual(result.computeEntity.published.data.allowedHosts, []);
+});
+
 test("a single-operation implementation must use every required ordinary input", () => {
   const implementation = structuredClone(generatedImplementation);
   implementation.published.actions[0].chain[0].params[1].params = {
