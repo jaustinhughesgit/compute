@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   ENTITY_PLAN_SCHEMA,
+  attachGeneratedInputs,
   buildComputeEntitySpec,
 } = require("../app/routes/capabilityBlueprints");
 
@@ -98,6 +99,30 @@ test("EntityPlan schema is strict and does not expose raw JPL containers", () =>
   assert.equal(ENTITY_PLAN_SCHEMA.additionalProperties, false);
   assert.ok(ENTITY_PLAN_SCHEMA.properties.executionPlan);
   assert.equal(ENTITY_PLAN_SCHEMA.properties.published, undefined);
+});
+
+test("generated duplicate examples keep the literal spoken temporal value", () => {
+  const request = JSON.parse(JSON.stringify(baseRequest));
+  request.operations[0].inputs = [{
+    name: "date",
+    type: "string",
+    required: true,
+    bindingHint: { source: "utterance", resolver: "date" },
+  }];
+  request.operations[0].utteranceExamples = [{
+    text: "What is the weather today?",
+    inputs: { date: "today" },
+  }];
+  const merged = attachGeneratedInputs(request, [{
+    operationId: "get_weather",
+    inputs: [],
+    utteranceExamples: [{
+      text: "what is the weather today",
+      inputValues: [{ name: "date", value: "2026-08-12" }],
+    }],
+  }]);
+  assert.equal(merged.operations[0].utteranceExamples.length, 1);
+  assert.deepEqual(merged.operations[0].utteranceExamples[0].inputs, { date: "today" });
 });
 
 test("EntityPlan compiler adds a missing explicit input and generates JPL deterministically", async () => {

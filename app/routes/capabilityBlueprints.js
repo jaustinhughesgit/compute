@@ -202,7 +202,7 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
     if (!Array.isArray(rawGroup.inputs)) {
       throw new Error(`input requirement group ${index} inputs must be an array`);
     }
-    const existing = new Set(operation.inputs.map((input) => input.name));
+    const existingInputNames = new Set(operation.inputs.map((input) => input.name));
     for (const rawInput of rawGroup.inputs) {
       if (!isObject(rawInput)) throw new Error(`input requirement for ${operationId} must be an object`);
       const name = canonicalizeGeneratedIdentifier(rawInput.name || rawInput.id || rawInput.key);
@@ -212,9 +212,9 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
       }
       // The original capability contract wins on conflicts. Generated
       // requirements may only add missing ordinary inputs.
-      if (existing.has(name)) continue;
+      if (existingInputNames.has(name)) continue;
       operation.inputs.push({ ...clone(rawInput), name });
-      existing.add(name);
+      existingInputNames.add(name);
     }
     if (rawGroup.utteranceExamples != null && !Array.isArray(rawGroup.utteranceExamples)) {
       throw new Error(`input requirement group ${index} utteranceExamples must be an array`);
@@ -230,15 +230,51 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
       const inputs = {};
       for (const item of rawExample.inputValues) {
         const name = canonicalizeGeneratedIdentifier(item?.name);
-        if (!existing.has(name) || item?.value == null) {
+        if (!existingInputNames.has(name) || item?.value == null) {
           throw new Error(`input requirement group ${index} utterance example references invalid input ${name || "(blank)"}`);
         }
         inputs[name] = clone(item.value);
       }
-      operation.utteranceExamples.push({
+      const generatedExample = {
         text: String(rawExample.text).trim(),
         inputs,
-      });
+      };
+      const normalizedText = (value) => String(value || "")
+        .toLowerCase().split(/[^a-z0-9]+/).filter(Boolean).join(" ");
+      const occursInExample = (value) => {
+        const haystack = normalizedText(generatedExample.text);
+        const needle = normalizedText(value);
+        return !!haystack && !!needle && ` ${haystack} `.includes(` ${needle} `);
+      };
+      const existingIndex = operation.utteranceExamples.findIndex((example) =>
+        normalizedText(typeof example === "string" ? example : example?.text || example?.utterance)
+          === normalizedText(generatedExample.text)
+      );
+      if (existingIndex < 0) {
+        operation.utteranceExamples.push(generatedExample);
+        continue;
+      }
+      const existingExample = operation.utteranceExamples[existingIndex];
+      const merged = {
+        text: String(typeof existingExample === "string"
+          ? existingExample
+          : existingExample?.text || existingExample?.utterance).trim(),
+        inputs: isObject(existingExample?.inputs) ? clone(existingExample.inputs) : {},
+      };
+      for (const [name, value] of Object.entries(generatedExample.inputs)) {
+        if (!Object.prototype.hasOwnProperty.call(merged.inputs, name)) {
+          merged.inputs[name] = clone(value);
+          continue;
+        }
+        if (
+          normalizedText(merged.inputs[name]) !== normalizedText(value)
+          && !occursInExample(merged.inputs[name])
+          && occursInExample(value)
+        ) {
+          merged.inputs[name] = clone(value);
+        }
+      }
+      operation.utteranceExamples[existingIndex] = merged;
     }
   }
   return validateCapabilityBuildRequest(augmented);
