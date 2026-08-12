@@ -113,6 +113,7 @@ function register({ on, use }) {
   const { getCookie, getCanonicalPersistence, retrieveAndParseJSON, deps } = use();
 
   on("convert", async (ctx, meta = {}) => {
+    let failActiveBuild = null;
     try {
       const { req, res, path, signer } = ctx;
       const { dynamodb, dynamodbLL, uuidv4, s3, ses, openai, Anthropic } = deps;
@@ -583,6 +584,11 @@ function register({ on, use }) {
           coordinator: buildCoordinator,
           blueprintId,
         };
+        failActiveBuild = async (error) => buildCoordinator.fail(
+          claim,
+          error?.code || "ENTITY_CREATION_FAILED",
+          error?.message || "The compute entity could not be created."
+        );
         arrayLogic = [computeSpec];
         sourceType = "arrayLogic";
         return null;
@@ -1281,6 +1287,9 @@ function subdomains(domain){
       return { ok: true, response: mainObj };
     } catch (err) {
       console.error("convert handler error:", err);
+      if (failActiveBuild) {
+        try { await failActiveBuild(err); } catch (_) {}
+      }
       return {
         ok: false,
         error: err?.message || String(err),

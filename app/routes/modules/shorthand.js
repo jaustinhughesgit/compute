@@ -1257,6 +1257,8 @@ async function shorthand(shorthandObj, req, res, next, privateKey, dynamodb, uui
             let reqBody2 = req.body;
             const action = reqPath.split("/")[2];
             let newReq = {};
+            newReq.cookies = { ...(req.cookies || {}) };
+            newReq.headers = { ...(req.headers || {}) };
             newReq.body = {
                 ...(req.body || {}),
                 headers: { ...(req.headers || {}), ...(req.body?.headers || {}) }

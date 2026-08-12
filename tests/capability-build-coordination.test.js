@@ -54,12 +54,14 @@ test("Shorthand reads a created entity id from the registered route envelope", a
     if (request === "mathjs") return { evaluate: Number };
     return originalLoad.call(this, request, parent, isMain);
   };
+  let forwardedCookies = null;
   require.cache[cookiesPath] = {
     id: cookiesPath,
     filename: cookiesPath,
     loaded: true,
     exports: {
       route: async (...args) => {
+        forwardedCookies = args[0]?.cookies;
         const action = args[18];
         if (action === "newGroup") {
           return { response: { oai: { html: { ok: true, response: { file: "entity-file" } } } } };
@@ -81,7 +83,7 @@ test("Shorthand reads a created entity id from the registered route envelope", a
           ] },
         ],
       },
-      { body: {}, headers: {} },
+      { body: {}, headers: {}, cookies: { gi: "7", e: "7" } },
       {},
       undefined,
       undefined,
@@ -99,6 +101,7 @@ test("Shorthand reads a created entity id from the registered route envelope", a
       "cookies"
     );
     assert.equal(result.conclusion, "entity-file");
+    assert.deepEqual(forwardedCookies, { gi: "7", e: "7" });
   } finally {
     Module._load = originalLoad;
     if (previousModule) require.cache[cookiesPath] = previousModule;
