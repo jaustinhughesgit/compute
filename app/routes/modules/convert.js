@@ -34,11 +34,28 @@ function shorthandExecutionSource(retrieved, capabilityBuild) {
   return capabilityBuild ? { published: {} } : null;
 }
 
+function normalizeCreatedEntityId(reference, depth = 0) {
+  if (depth > 4 || reference == null) return "";
+  if (["string", "number", "bigint"].includes(typeof reference)) {
+    return String(reference).trim();
+  }
+  if (Array.isArray(reference)) {
+    return reference.length === 1 ? normalizeCreatedEntityId(reference[0], depth + 1) : "";
+  }
+  if (typeof reference !== "object") return "";
+  for (const key of ["entityId", "entityID", "entity", "id", "su", "value", "S"]) {
+    if (reference[key] === undefined || reference[key] === reference) continue;
+    const entityId = normalizeCreatedEntityId(reference[key], depth + 1);
+    if (entityId) return entityId;
+  }
+  return "";
+}
+
 async function seedCreatedComputeOwnerGrant({ persistence, entityId, ownerId, createdEntities }) {
-  const resourceId = String(entityId || "").trim();
+  const resourceId = normalizeCreatedEntityId(entityId);
   const actorId = String(ownerId || "").replace(/^u:/, "").trim();
   const createdHere = (Array.isArray(createdEntities) ? createdEntities : [])
-    .some((item) => String(item?.entity || item?.id || "") === resourceId);
+    .some((item) => normalizeCreatedEntityId(item) === resourceId);
   if (!resourceId || !actorId || !createdHere) return false;
   await persistence.authorization.putGrant({
     entityID: resourceId,
@@ -1051,10 +1068,10 @@ function subdomains(domain){
           createdEntities = rawConclusion && Array.isArray(rawConclusion.createdEntities)
             ? rawConclusion.createdEntities
             : [];
-          entityFromConclusion =
-            (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity) ||
-            (createdEntities[0]?.entity) ||
-            null;
+          entityFromConclusion = normalizeCreatedEntityId(
+            (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity)
+              || createdEntities[0]
+          ) || null;
           conclusion = conclusionValue;
 
           if (capabilityManifestCandidate && entityFromConclusion) {
@@ -1229,4 +1246,9 @@ function subdomains(domain){
   return { name: "convert" };
 }
 
-module.exports = { register, seedCreatedComputeOwnerGrant, shorthandExecutionSource };
+module.exports = {
+  register,
+  normalizeCreatedEntityId,
+  seedCreatedComputeOwnerGrant,
+  shorthandExecutionSource,
+};
