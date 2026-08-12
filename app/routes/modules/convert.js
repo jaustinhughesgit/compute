@@ -43,6 +43,11 @@ function normalizeCreatedEntityId(reference, depth = 0) {
     return reference.length === 1 ? normalizeCreatedEntityId(reference[0], depth + 1) : "";
   }
   if (typeof reference !== "object") return "";
+  // Legacy Shorthand may preserve a scalar row value as its first matrix
+  // column. Restrict this compatibility shape to canonical subdomain IDs.
+  if (typeof reference.AA === "string" && /^1v4r[a-z0-9-]+$/i.test(reference.AA.trim())) {
+    return reference.AA.trim();
+  }
   for (const key of [
     "entityId", "su", "file", "id", "entityID", "entity", "value", "S",
     "response", "oai", "html", "result", "data", "body", "output", "M", "L",
@@ -63,7 +68,9 @@ function describeEntityReferenceShape(reference, depth = 0) {
   }
   if (typeof reference !== "object") return typeof reference;
   return `{${Object.keys(reference).slice(0, 8).map((key) =>
-    `${key}:${describeEntityReferenceShape(reference[key], depth + 1)}`
+    key === "AA" && typeof reference[key] === "string"
+      ? `AA:${JSON.stringify(reference[key].replace(/[\r\n\t]+/g, " ").slice(0, 80))}`
+      : `${key}:${describeEntityReferenceShape(reference[key], depth + 1)}`
   ).join(",")}}`;
 }
 

@@ -15,6 +15,8 @@ test("compute build entity references normalize legacy nested result shapes", ()
   assert.equal(normalizeCreatedEntityId({ entity: { id: "entity-nested" } }), "entity-nested");
   assert.equal(normalizeCreatedEntityId({ entityId: { S: "entity-ddb" } }), "entity-ddb");
   assert.equal(normalizeCreatedEntityId({ response: { file: "entity-route" } }), "entity-route");
+  assert.equal(normalizeCreatedEntityId({ AA: "1v4r-created-subdomain" }), "1v4r-created-subdomain");
+  assert.equal(normalizeCreatedEntityId({ AA: "ADDPROPERTY" }), "");
   assert.equal(normalizeCreatedEntityId({ response: { oai: { html: { response: {
     response: { file: "entity-deep-route", entity: "not-the-subdomain-id" },
   } } } } }), "entity-deep-route");
@@ -23,6 +25,7 @@ test("compute build entity references normalize legacy nested result shapes", ()
     describeEntityReferenceShape({ route: { opaque: true } }),
     "{route:{opaque:boolean}}"
   );
+  assert.equal(describeEntityReferenceShape({ AA: "ADDPROPERTY" }), "{AA:\"ADDPROPERTY\"}");
 });
 
 test("capability registration recovers the created id from its manifest reference", () => {
