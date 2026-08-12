@@ -128,6 +128,8 @@ Generated Protected Asset requirement, provider, and field labels are canonicali
 
 When one incomplete requirement and one credential-like ordinary request input are unambiguous, revision validation moves that input into the protected namespace, removes it from utterance examples, and derives the field's existing literal request destination. Competing inputs or destinations remain ambiguous and fail closed.
 
+If a protected placeholder occurs in exactly one literal declarative provider host, missing non-secret provider metadata is derived from that host before validation. Multiple hosts remain ambiguous; no protected value is inspected or inferred.
+
 An official-provider repair may receive up to three bounded validation continuations after its single research pass. Each continuation receives only deterministic failure feedback and the already-approved evidence; it cannot repeat research or bypass validation.
 
 Completed capability output uses a short single-finalizer lease before Shorthand materialization and registry publication. Overlapping Lambda polls remain pending, a lost holder may be replaced after expiry, and only the holder may commit terminal state. Failed state retains a bounded code and sanitized message for later polls. Approved child-capability Shorthand uses an empty published seed when the optional parent workspace document is unavailable; it still creates and saves the child through ordinary entity routes. See [decision 0031](../../architecture/decisions/0031-lease-compute-build-finalization.md).

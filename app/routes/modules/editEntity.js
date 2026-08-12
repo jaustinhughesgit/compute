@@ -969,6 +969,45 @@ function protectedFieldsFromActions(actions) {
   return inferred;
 }
 
+function protectedHostsFromActions(actions) {
+  const hosts = new Map();
+  const collectReferences = (value, target) => {
+    if (typeof value === "string") {
+      for (const match of value.matchAll(/\{\|protected=>([a-zA-Z][a-zA-Z0-9_.-]*)\.[a-zA-Z][a-zA-Z0-9_.-]*\|\}/g)) {
+        target.add(match[1]);
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach((item) => collectReferences(item, target));
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    Object.values(value).forEach((item) => collectReferences(item, target));
+  };
+  for (const action of Array.isArray(actions) ? actions : []) {
+    if (String(action?.target || "") !== "{|axios|}") continue;
+    for (const step of Array.isArray(action.chain) ? action.chain : []) {
+      const params = Array.isArray(step?.params) ? step.params : [];
+      const requestUrl = String(params[0] || "").trim();
+      let host = "";
+      try {
+        const parsed = new URL(requestUrl);
+        if (["http:", "https:"].includes(parsed.protocol)) host = parsed.hostname.toLowerCase();
+      } catch {}
+      if (!host) continue;
+      const requirementIds = new Set();
+      collectReferences(params[1], requirementIds);
+      for (const requirementId of requirementIds) {
+        const current = hosts.get(requirementId) || new Set();
+        current.add(host);
+        hosts.set(requirementId, current);
+      }
+    }
+  }
+  return hosts;
+}
+
 function canonicalGeneratedProtectedId(value, fallback = "protected_asset") {
   const normalizedFallback = String(fallback || "protected_asset")
     .trim()
@@ -1158,6 +1197,7 @@ function synchronizeProtectedRequirementFields(entity, manifest) {
       ? operation.protectedAssetRequirements.map((requirement) => ({ operation, requirement }))
       : []));
   const inferred = protectedFieldsFromActions(entity?.published?.actions);
+  const inferredHosts = protectedHostsFromActions(entity?.published?.actions);
   const all = [
     ...entityRequirements.map((requirement) => ({ requirement })),
     ...operationRequirements,
@@ -1184,6 +1224,21 @@ function synchronizeProtectedRequirementFields(entity, manifest) {
     const fields = peer?.requirement?.fields || inferred.get(requirementId);
     if (Array.isArray(fields) && fields.length) requirement.fields = clone(fields);
     if (operation && !requirement.operationId) requirement.operationId = operation.operationId;
+  }
+  for (const { requirement } of all) {
+    if (!requirement || typeof requirement !== "object" || Array.isArray(requirement)) continue;
+    const requirementId = plainText(requirement.requirementId, 128);
+    const hosts = inferredHosts.get(requirementId);
+    if (!hosts || hosts.size !== 1) continue;
+    const [host] = hosts;
+    if (!plainText(requirement.providerHost, 255)) requirement.providerHost = host;
+    const providerId = plainText(requirement.providerId, 128);
+    if (!providerId || /^provider(?:_id)?$/i.test(providerId)) {
+      requirement.providerId = canonicalGeneratedProtectedId(host, "provider");
+    }
+    if (!plainText(requirement.providerName, 160) || /^provider$/i.test(plainText(requirement.providerName, 160))) {
+      requirement.providerName = host;
+    }
   }
   return { entity, manifest };
 }
@@ -1811,6 +1866,7 @@ module.exports = {
   reconnectableRevisionJob,
   canonicalizeGeneratedProtectedIdentifiers,
   protectedFieldsFromActions,
+  protectedHostsFromActions,
   protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
   extractProviderResearchSources,

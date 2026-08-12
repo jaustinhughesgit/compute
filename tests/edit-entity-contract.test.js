@@ -16,6 +16,7 @@ const {
   reconnectableRevisionJob,
   canonicalizeGeneratedProtectedIdentifiers,
   protectedFieldsFromActions,
+  protectedHostsFromActions,
   protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
   repairRequiresImplementationChange,
@@ -133,7 +134,7 @@ test('a canonicalized generated placeholder supplies omitted protected fields', 
       },
       actions: [{
         target: '{|axios|}',
-        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+        chain: [{ access: 'get', params: ['https://api.provider.example/data', {
           params: { appid: '{|protected=>Provider API Key.API Key|}' },
         }] }],
       }],
@@ -150,6 +151,10 @@ test('a canonicalized generated placeholder supplies omitted protected fields', 
     }],
   };
   canonicalizeGeneratedProtectedIdentifiers(revisedEntity, revisedManifest);
+  assert.deepEqual(
+    [...protectedHostsFromActions(revisedEntity.published.actions).get('provider_api_key')],
+    ['api.provider.example']
+  );
   synchronizeProtectedRequirementFields(revisedEntity, revisedManifest);
   const expected = [{
     name: 'api_key',
@@ -158,6 +163,9 @@ test('a canonicalized generated placeholder supplies omitted protected fields', 
   }];
   assert.deepEqual(revisedEntity.published.data.protectedAssetRequirements[0].fields, expected);
   assert.deepEqual(revisedManifest.operations[0].protectedAssetRequirements[0].fields, expected);
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].providerHost, 'api.provider.example');
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].providerId, 'api.provider.example');
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].providerName, 'api.provider.example');
 });
 
 test('one undeclared provider request input moves into one incomplete protected requirement', () => {
