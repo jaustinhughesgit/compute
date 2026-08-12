@@ -38,6 +38,7 @@ function register({ on, use }) {
     process.env.EMAIL_METRICS_TABLE || "email_metrics_daily",
     "anchor_bands",
     process.env.PROTECTED_ASSETS_TABLE,
+    process.env.PROTECTED_ASSET_GRANTS_TABLE,
     process.env.PROTECTED_ASSET_AUDIT_TABLE,
     process.env.CONTEXT_GRAPH_TABLE,
     process.env.CANONICAL_PROJECTION_TABLE,

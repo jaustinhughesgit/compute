@@ -5,6 +5,7 @@
 "use strict";
 
 const { shardFor } = require("./canonicalIdentifiers");
+const { grantActions } = require("../governance");
 const { compileContextRecords } = require("./canonicalContextCompiler");
 const {
   DEFAULT_SHARDS,
@@ -72,7 +73,7 @@ function createCanonicalContextStore({ persistence, env = process.env, now = () 
           entityID: item.canonicalId, principalID,
         }))) : [];
     const allowed = new Set(grants.filter((grant) => (
-      String(grant?.perms || "").includes("r")
+      grantActions(grant).has("use")
       && (!Number.isFinite(grant.expires) || grant.expires >= Math.floor(Date.now() / 1000))
     )).map((grant) => `${grant.entityID}\u001f${grant.principalID}`));
     const visible = candidates.filter((item) => allowed.has(`${item.canonicalId}\u001f${principalID}`));

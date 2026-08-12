@@ -146,3 +146,57 @@ test("EntityPlan compiler rejects an execution plan that drops its declared utte
     /does not use required ordinary input location/
   );
 });
+
+test("EntityPlan composes an earlier provider response into a later provider request", async () => {
+  const chained = plan({
+    source: "input", inputName: "location", requirementId: null, fieldName: null,
+    requestId: null, path: null, literal: null, prefix: "", suffix: "",
+  });
+  chained.executionPlan.requests = [{
+    operationId: "get_weather", requestId: "geocode", method: "GET",
+    url: "https://geocoding-api.open-meteo.com/v1/search",
+    parameters: [{ location: "query", name: "name", value: {
+      source: "input", inputName: "location", requirementId: null, fieldName: null,
+      requestId: null, path: null, literal: null, prefix: "", suffix: "",
+    } }],
+  }, {
+    operationId: "get_weather", requestId: "weather", method: "GET",
+    url: "https://api.open-meteo.com/v1/forecast",
+    parameters: ["latitude", "longitude"].map((name) => ({
+      location: "query", name, value: {
+        source: "provider_response", inputName: null, requirementId: null, fieldName: null,
+        requestId: "geocode", path: `results.0.${name}`, literal: null, prefix: "", suffix: "",
+      },
+    })).concat({
+      location: "query", name: "current", value: {
+        source: "literal", inputName: null, requirementId: null, fieldName: null,
+        requestId: null, path: null, literal: "temperature_2m", prefix: "", suffix: "",
+      },
+    }),
+  }];
+  chained.executionPlan.response.outputs[0].value.requestId = "weather";
+  chained.executionPlan.response.outputs[0].value.path = "current.temperature_2m";
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: baseRequest,
+    requestedBy: "u:2",
+    originalUtterance: "What is the weather in Raleigh?",
+    generatedImplementation: chained,
+  });
+  assert.equal(
+    result.computeEntity.published.actions[1].chain[0].params[1].params.latitude,
+    "{|geocode=>data.results.0.latitude|}"
+  );
+});
+
+test("EntityPlan cannot read a future provider response", async () => {
+  const invalid = plan({
+    source: "provider_response", inputName: null, requirementId: null, fieldName: null,
+    requestId: "future", path: "value", literal: null, prefix: "", suffix: "",
+  });
+  await assert.rejects(buildComputeEntitySpec({
+    capabilityRequest: baseRequest,
+    requestedBy: "u:2",
+    originalUtterance: "What is the weather?",
+    generatedImplementation: invalid,
+  }), /unavailable prior request future/);
+});

@@ -98,6 +98,22 @@ function appendBuildCorrection(messages, continuation) {
   });
 }
 
+function providerResearchDomains(continuation) {
+  if (!continuation || !/(?:provider|endpoint|response|url|host|http)/i.test(
+    `${continuation.validationCode} ${continuation.validationMessage}`
+  )) return [];
+  const domains = new Set();
+  for (const match of continuation.previousOutput.matchAll(/https:\/\/[^\s"'<>}]+/g)) {
+    try {
+      const host = new URL(match[0]).hostname.toLowerCase();
+      if (!isBlockedHostname(host) && !/\b(?:example\.(?:com|net|org)|provider\.invalid)$/.test(host)) {
+        domains.add(host);
+      }
+    } catch {}
+  }
+  return [...domains].slice(0, 4);
+}
+
 function parseJsonObject(value, label = "JSON") {
   let parsed = value;
   if (typeof parsed === "string") {
@@ -655,7 +671,8 @@ function implementationMessages({
       "Return exactly schemaVersion, name, provider, inputRequirements, protectedAssetRequirements, and executionPlan.",
       "inputRequirements must be an array, including when empty. It may add missing ordinary inputs and annotated examples to an operation using {operationId,inputs:[...],utteranceExamples:[{text,inputValues:[{name,value}]}]}. Never put credentials or protected values there.",
       "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
-      "executionPlan.requests contains typed public provider GET requests. Each parameter declares a query, header, or body location and a value source: input, protected, or literal.",
+      "executionPlan.requests contains ordered typed public provider GET requests. Each parameter declares a query, header, or body location and a value source: input, protected, a prior provider_response requestId/path, or literal.",
+      "Use provider_response only for a request that appears earlier in the same operation; this supports reusable discovery-then-detail protocols such as geocoding followed by conditions lookup.",
       "executionPlan.response declares the operation outputs and maps each from a provider_response path, ordinary input, or literal.",
       "Choose a real documented provider endpoint appropriate to the requested capability. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, or invented hostnames.",
       "Provider selection is data-driven. Include the chosen endpoint, required ordinary inputs, protected fields, and credential acquisition URL/instructions in this entity response; do not assume the shared runtime knows any provider.",
@@ -769,12 +786,12 @@ function backgroundImplementationInput({
   llmTemplateId = null,
 } = {}) {
   const buildRequest = validateCapabilityBuildRequest(capabilityRequest);
-  const { messages } = implementationMessages({
+  const { messages, resumed } = implementationMessages({
     buildRequest,
     originalUtterance,
     continuation: buildContinuation,
   });
-  return withResponsesTemplate({
+  const body = withResponsesTemplate({
     background: true,
     store: true,
     input: messages,
@@ -788,6 +805,20 @@ function backgroundImplementationInput({
       },
     },
   }, llmTemplateId, "builder");
+  const allowedDomains = providerResearchDomains(resumed);
+  messages[0].content += allowedDomains.length
+    ? " Search only the selected provider's official documentation and verify endpoint parameters and response paths."
+    : " Research an appropriate provider using only that provider's primary official documentation before designing the plan.";
+  messages[0].content += " Never search for or include credentials.";
+  body.tools = [{
+    type: "web_search",
+    search_context_size: allowedDomains.length ? "high" : "medium",
+    ...(allowedDomains.length ? { filters: { allowed_domains: allowedDomains } } : {}),
+  }];
+  body.tool_choice = "required";
+  body.max_tool_calls = allowedDomains.length ? 4 : 3;
+  body.include = ["web_search_call.action.sources"];
+  return body;
 }
 
 async function startComputeEntitySpecBackground({
@@ -954,4 +985,5 @@ module.exports = {
   validateImplementationBindings,
   CapabilityBuildRetryError,
   normalizeBuildContinuation,
+  providerResearchDomains,
 };

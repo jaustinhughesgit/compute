@@ -31,6 +31,7 @@ async function runResetJob(handler, initialContext) {
 
 test("first canonical reset purges legacy data, clears active stores, and records completion", async () => {
   const previousAssetsTable = process.env.PROTECTED_ASSETS_TABLE;
+  const previousGrantsTable = process.env.PROTECTED_ASSET_GRANTS_TABLE;
   const previousAuditTable = process.env.PROTECTED_ASSET_AUDIT_TABLE;
   const previousContextGraphTable = process.env.CONTEXT_GRAPH_TABLE;
   const previousResetEnabled = process.env.TEST_RESET_ENABLED;
@@ -39,6 +40,7 @@ test("first canonical reset purges legacy data, clears active stores, and record
   const previousResetControl = process.env.TEST_RESET_CONTROL_TABLE;
   const previousSessionSecret = process.env.SESSION_SECRET;
   process.env.PROTECTED_ASSETS_TABLE = "compute-ProtectedAssetsTable-SEKP3UPKPBA2";
+  process.env.PROTECTED_ASSET_GRANTS_TABLE = "compute-ProtectedAssetGrantsTable-GRANT1";
   process.env.PROTECTED_ASSET_AUDIT_TABLE = "compute-ProtectedAssetAuditTable-SRJ00SECK5RQ";
   process.env.CONTEXT_GRAPH_TABLE = "compute-ContextGraphTable-CTX123";
   process.env.TEST_RESET_ENABLED = "true";
@@ -51,6 +53,13 @@ test("first canonical reset purges legacy data, clears active stores, and record
     [process.env.PROTECTED_ASSETS_TABLE, {
       keySchema: [{ AttributeName: "assetId", KeyType: "HASH" }],
       items: [{ assetId: "asset-1" }],
+    }],
+    [process.env.PROTECTED_ASSET_GRANTS_TABLE, {
+      keySchema: [
+        { AttributeName: "principalId", KeyType: "HASH" },
+        { AttributeName: "assetId", KeyType: "RANGE" },
+      ],
+      items: [{ principalId: "u:2", assetId: "asset-1" }],
     }],
     [process.env.PROTECTED_ASSET_AUDIT_TABLE, {
       keySchema: [
@@ -143,6 +152,8 @@ test("first canonical reset purges legacy data, clears active stores, and record
   } finally {
     if (previousAssetsTable == null) delete process.env.PROTECTED_ASSETS_TABLE;
     else process.env.PROTECTED_ASSETS_TABLE = previousAssetsTable;
+    if (previousGrantsTable == null) delete process.env.PROTECTED_ASSET_GRANTS_TABLE;
+    else process.env.PROTECTED_ASSET_GRANTS_TABLE = previousGrantsTable;
     if (previousAuditTable == null) delete process.env.PROTECTED_ASSET_AUDIT_TABLE;
     else process.env.PROTECTED_ASSET_AUDIT_TABLE = previousAuditTable;
     if (previousContextGraphTable == null) delete process.env.CONTEXT_GRAPH_TABLE;
@@ -665,6 +676,7 @@ test("Compute template grants Reset DB access to retained Protected Asset tables
     assert.match(template, new RegExp(`dynamodb:${action}`, "g"));
   }
   assert.match(template, /PROTECTED_ASSETS_TABLE:\s*!Ref ProtectedAssetsTable/);
+  assert.match(template, /PROTECTED_ASSET_GRANTS_TABLE:\s*!Ref ProtectedAssetGrantsTable/);
   assert.match(template, /PROTECTED_ASSET_AUDIT_TABLE:\s*!Ref ProtectedAssetAuditTable/);
   assert.match(template, /TEST_RESET_ENABLED:\s*!Ref TestResetEnabled/);
   assert.match(template, /TEST_RESET_ENVIRONMENT_ID:\s*!Ref TestResetEnvironmentId/);

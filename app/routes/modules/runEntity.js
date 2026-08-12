@@ -205,7 +205,7 @@ function register({ on, use }) {
     }
     if (typeof shared.getCanonicalComposition === "function") {
       try {
-        await shared.getCanonicalComposition(dynamodb).authorizeEndpoint(actionFile, "execute", {
+        await shared.getCanonicalComposition(dynamodb).authorizeEndpoint(actionFile, "use", {
           actorId: String(ctx.cookie?.e || req?.cookies?.e || ""),
           cookie: ctx.cookie || req?.cookies || {}, body: req?.body,
           requestId: req?.headers?.["x-request-id"],

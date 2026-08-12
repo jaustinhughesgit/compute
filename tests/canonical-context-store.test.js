@@ -49,6 +49,8 @@ test("Context compilation emits established canonical records without counter al
   assert.ok(records.relations.some((row) => row.id === "rel_has_cats"));
   assert.ok(records.versions.length >= records.entities.length + records.relations.length);
   assert.ok(records.grants.some((row) => row.entityID === "ctx_cats" && row.principalID === "pub"));
+  assert.ok(records.grants.filter((row) => row.principalID === "pub")
+    .every((row) => row.canonicalActions.includes("use")));
   assert.ok(records.projections.every((row) => row.pk && row.sk));
   assert.equal(JSON.stringify(records).includes("Counter"), false);
 });

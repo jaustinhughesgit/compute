@@ -80,7 +80,7 @@ function addGrant(grants, resourceId, principalId, ownerId, updatedAt) {
     perms: owner ? "rwdop" : "r",
     canonicalActions: owner
       ? ["find", "read", "aggregate", "use", "set", "edit", "delete", "delegate", "publish", "govern"]
-      : ["find", "read", "aggregate"],
+      : ["find", "read", "aggregate", "use"],
     canonicalSchemaVersion: 1,
     created: Math.floor(Date.parse(updatedAt) / 1000),
     updatedAt,

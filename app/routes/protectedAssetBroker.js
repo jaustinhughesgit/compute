@@ -10,6 +10,7 @@ const {
   normalizeProtectedAssetReference,
   policyAllowsUse,
 } = require("./protectedAssetContract");
+const { createProtectedAssetGrantStore } = require("./protectedAssetGrants");
 
 const ASSET_TABLE = process.env.PROTECTED_ASSETS_TABLE || "protectedAssets";
 const AUDIT_TABLE = process.env.PROTECTED_ASSET_AUDIT_TABLE || "protectedAssetAudit";
@@ -24,8 +25,9 @@ const zeroObject = (value) => {
   }
 };
 
-function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
+function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId, grantStore } = {}) {
   if (!dynamodb) throw new Error("protected asset broker requires DynamoDB");
+  const grants = grantStore || createProtectedAssetGrantStore({ dynamodb });
 
   async function audit(event) {
     try {
@@ -51,17 +53,38 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
     }
   }
 
-  async function getAsset(reference, ownerId) {
+  async function loadAsset(reference) {
     const { assetId } = normalizeProtectedAssetReference(reference);
     const result = await dynamodb.get({ TableName: ASSET_TABLE, Key: { assetId } }).promise();
     const asset = result?.Item;
     if (!asset || asset.deletedAt || asset.revokedAt) {
       throw new ProtectedAssetError("ASSET_UNAVAILABLE", "Protected asset is unavailable");
     }
+    return asset;
+  }
+
+  async function getAsset(reference, ownerId) {
+    const asset = await loadAsset(reference);
     if (String(asset.ownerId) !== String(ownerId)) {
       throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset access denied");
     }
     return asset;
+  }
+
+  async function getAssetForUse(reference, actorId, delivery = null) {
+    const asset = await loadAsset(reference);
+    const access = delivery
+      ? await grants.requireUse(asset, actorId, delivery)
+      : String(asset.ownerId) === String(actorId)
+        ? { source: "owner", grant: null }
+        : await (async () => {
+            const grant = await grants.get(asset.assetId, actorId);
+            if (!grant?.canonicalActions?.includes("use") || Number(grant.assetVersion) !== Number(asset.version)) {
+              throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset use is not granted");
+            }
+            return { source: "grant", grant };
+          })();
+    return { asset, access };
   }
 
   async function decryptAtBoundary(asset) {
@@ -119,7 +142,7 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
     approved = false,
     unattended = false,
   }) {
-    const asset = await getAsset(reference, ownerId);
+    const { asset, access } = await getAssetForUse(reference, ownerId, "provider");
     const decision = policyAllowsUse(asset.metadata, {
       capabilityId,
       operationId,
@@ -134,7 +157,9 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
     await audit({
       eventType: decision.allowed ? "asset_use_authorized" : "asset_use_denied",
       assetId: asset.assetId,
-      ownerId: String(ownerId),
+      ownerId: String(asset.ownerId),
+      actorId: String(ownerId),
+      grantSource: access.source,
       capabilityId: String(capabilityId || ""),
       operationId: String(operationId || ""),
       purpose: `${capabilityId}.${operationId}`,
@@ -169,7 +194,7 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
         ExpressionAttributeValues: {
           ":one": 1,
           ":now": new Date().toISOString(),
-          ":owner": String(ownerId),
+          ":owner": String(asset.ownerId),
           ...(maxUses > 0 ? { ":maxUses": maxUses } : {}),
         },
       }).promise();
@@ -178,7 +203,8 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
         await audit({
           eventType: "asset_use_denied",
           assetId: asset.assetId,
-          ownerId: String(ownerId),
+          ownerId: String(asset.ownerId),
+          actorId: String(ownerId),
           capabilityId: String(capabilityId || ""),
           operationId: String(operationId || ""),
           use,
@@ -253,7 +279,7 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId } = {}) {
     }
   }
 
-  return { getAsset, authorizeAndResolve, resolveCapabilityBindings, audit };
+  return { grants, loadAsset, getAsset, getAssetForUse, authorizeAndResolve, resolveCapabilityBindings, audit };
 }
 
 module.exports = { createProtectedAssetBroker, zeroObject };

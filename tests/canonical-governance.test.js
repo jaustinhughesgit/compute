@@ -20,7 +20,11 @@ test("one governance decision covers owner, action grant, expiry, public visibil
   assert.equal(authorize({ actor: "reader", resource, action: "read", grants: [{ ...grant, expires: 1 }], now: Date.now() }).allowed, false);
   assert.equal(authorize({ actor: "anyone", resource: { ...resource, visibility: "public" }, action: "aggregate" }).allowed, true);
   assert.equal(authorize({ actor: "anyone", resource: { ...resource, visibility: "public" }, action: "edit" }).allowed, false);
-  assert.equal(authorize({ actor: "runner", resource, action: "execute", grants: [{ entityID: "entity-1", principalID: "runner", perms: "e" }] }).allowed, true);
+  const legacyExecution = authorize({ actor: "runner", resource, action: "execute", grants: [{ entityID: "entity-1", principalID: "runner", perms: "e" }] });
+  assert.equal(legacyExecution.allowed, true);
+  assert.equal(legacyExecution.action, "use");
+  assert.equal(legacyExecution.requestedAction, "execute");
+  assert.equal(authorize({ actor: "runner", resource, action: "use", grants: [{ entityID: "entity-1", principalID: "runner", canonicalActions: ["execute"] }] }).allowed, true);
   assert.equal(authorize({ actor: "permit", resource, action: "delegate", grants: [{ entityID: "entity-1", principalID: "permit", perms: "p" }] }).allowed, true);
 });
 

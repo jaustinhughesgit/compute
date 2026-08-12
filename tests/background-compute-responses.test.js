@@ -7,6 +7,7 @@ const {
   retrieveComputeCapabilityDiscovery,
 } = require("../app/routes/capabilityDiscovery");
 const {
+  backgroundImplementationInput,
   startComputeEntitySpecBackground,
   retrieveComputeEntitySpecBackground,
 } = require("../app/routes/capabilityBlueprints");
@@ -106,6 +107,8 @@ test("background entity generation returns JSON for server validation after poll
   assert.equal(submitted.text.format.type, "json_schema");
   assert.equal(submitted.text.format.strict, true);
   assert.ok(submitted.text.format.schema.properties.executionPlan);
+  assert.deepEqual(submitted.tools, [{ type: "web_search", search_context_size: "medium" }]);
+  assert.equal(submitted.tool_choice, "required");
 
   const pending = await retrieveComputeEntitySpecBackground({
     jobId: started.jobId,
@@ -164,4 +167,28 @@ test("terminal background failures remain explicit instead of polling forever", 
     }),
     /provider model failed/
   );
+});
+
+test("a provider build retry may research only the selected official provider domains", () => {
+  const body = backgroundImplementationInput({
+    capabilityRequest: buildRequest,
+    originalUtterance: "What is the weather today?",
+    buildContinuation: {
+      schemaVersion: 1,
+      attempt: 1,
+      validationCode: "PROVIDER_RESPONSE_INVALID",
+      validationMessage: "The provider response path is invalid.",
+      previousOutput: JSON.stringify({
+        url: "https://api.open-meteo.com/v1/forecast",
+        acquisition: "https://open-meteo.com/en/docs",
+      }),
+    },
+  });
+  assert.deepEqual(body.tools, [{
+    type: "web_search",
+    search_context_size: "high",
+    filters: { allowed_domains: ["api.open-meteo.com", "open-meteo.com"] },
+  }]);
+  assert.equal(body.tool_choice, "required");
+  assert.deepEqual(body.include, ["web_search_call.action.sources"]);
 });

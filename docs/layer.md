@@ -66,6 +66,10 @@ Validation should cover:
 
 Provider knowledge belongs in reusable versioned entities or protocol lineages. The core runtime supplies generic HTTP, transformation, credential-reference, validation, and diagnostic mechanics. A provider entity supplies endpoints, parameter definitions, response mappings, versions, and provider-specific normalization.
 
+Entity Plans may bind a later request parameter to a path in an earlier provider response from the same ordered operation. This is the generic discovery-then-detail primitive needed for flows such as place lookup followed by current conditions; the compiler rejects future request references. Provider credentials remain Protected Asset requirements rather than ordinary inputs.
+
+Background provider construction researches primary provider documentation through bounded OpenAI web search before proposing the EntityPlan. If deterministic validation rejects a plan that named real public hosts, the next bounded correction restricts search to those provider domains. Researched output still has no authority until the ordinary EntityPlan compiler, host policy, protected-field checks, and output validation pass.
+
 This preserves the long-term direction in which providers or builders can publish their protocol work through 1var rather than requiring every end-user entity to rediscover an API.
 
 ## Distributed entities
@@ -78,7 +82,7 @@ New Position postings use `AB2` partition-key shards and carry canonical revisio
 
 ## Entity middleware, composition, and governance
 
-`app/entityComposition.js` is the mechanical source of truth for `map`, `extend`, `link`, `use`, and `substitute`. Only owning `extend` edges participate in ordinary middleware ancestry. Root-to-target lineage must be unique, bounded, and acyclic. `app/entityMiddleware.js` runs that lineage sequentially, re-authorizes `execute` per node, and terminates on the first validated `respond` or `fail`; it does not imply retry or execution-plane authority.
+`app/entityComposition.js` is the mechanical source of truth for `map`, `extend`, `link`, `use`, and `substitute`. Only owning `extend` edges participate in ordinary middleware ancestry. Root-to-target lineage must be unique, bounded, and acyclic. `app/entityMiddleware.js` runs that lineage sequentially, re-authorizes `use` per node, and terminates on the first validated `respond` or `fail`; it does not imply retry or execution-plane authority. Legacy `execute` authorization is normalized to `use` at the governance boundary.
 
 The active `map`, `extend`, `link`, `useGroup`, and `substituteGroup` routes preserve their legacy response and field writes while calling `canonicalComposition` for endpoint authorization and typed relation/version/audit conformance. Exact `verifyThis` evidence is accepted only for the same legacy resource/action while older records lack canonical ownership/grants. Do not broaden that adapter or infer authority from relationship membership.
 
@@ -94,7 +98,13 @@ The active Context graph v1 actions verify that the path-selected workspace belo
 
 ## Recipient-specific protected sharing
 
-The server stores opaque content ciphertext and per-recipient/device wraps created locally. Recipient retrieval requires an active grant bound to the authenticated principal and public-key version, but does not confer owner authority. Executor/KMS wraps remain a separate trusted-server option. Membership changes, key rotation, recipient removal, and future-version confidentiality require explicit rewrap or re-encryption lifecycle operations.
+The server stores opaque content ciphertext and per-recipient/device wraps created locally. A separate principal-first record grants canonical `use` with `provider` or `recipient` delivery. Provider-only use can inject plaintext only inside a destination-bound Compute request; it cannot return an envelope or grant edit/delete/delegate. Recipient retrieval returns only that principal's wrap. Both paths require the current asset version. Executor/KMS wraps remain a separate trusted-server option. Membership changes, key rotation, recipient removal, and future-version confidentiality still require explicit rewrap or re-encryption lifecycle operations.
+
+The legacy passphrase route remains ciphertext-only compatibility. Its useful exchange is now carried by Protected Assets: recipients publish public encryption keys, the sender creates a fresh salt and wrap locally, and the server stores the salt, ephemeral public key, IV, ciphertext, and explicit grant without plaintext.
+
+## Canonical migration proof
+
+`app/persistence/canonicalMigration.js` replays one bounded sidecar audience page at a time, compares identity-bearing graph fields, and blocks canonical-only cutover until backfill, zero-mismatch parity, scale, security, and rollback evidence all pass. `canonicalScaleProof.js` measures sample size, p95 latency, fan-out, partition skew, cross-principal/protected leakage, compatibility regressions, and unclassified failures. These are deployment gates, not claims that production backfill or load testing has already completed.
 
 ## Background lifecycle
 

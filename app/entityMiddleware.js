@@ -78,7 +78,7 @@ async function runEntityMiddleware({ invocation, lineage, authorize, invoke, sig
       throw new MiddlewareError("MIDDLEWARE_ENTITY_REQUIRED", "Each lineage node needs entityId and entityVersion");
     }
     const startedAt = Date.now();
-    const auth = await authorize({ action: "execute", entityId, node, invocation });
+    const auth = await authorize({ action: "use", entityId, node, invocation });
     if (!auth?.allowed) {
       const result = { contractVersion: 1, recordType: "entity-middleware-result", disposition: "fail", effects, error: {
         code: String(auth?.code || "MIDDLEWARE_FORBIDDEN"), message: "Entity execution is not authorized",

@@ -15,6 +15,7 @@ const {
   policyAllowsUse,
 } = require("../protectedAssetContract");
 const { createProtectedAssetBroker } = require("../protectedAssetBroker");
+const { createGrantItems, normalizeGrantRequests } = require("../protectedAssetGrants");
 
 const ASSET_TABLE = process.env.PROTECTED_ASSETS_TABLE || "protectedAssets";
 const AUDIT_TABLE = process.env.PROTECTED_ASSET_AUDIT_TABLE || "protectedAssetAudit";
@@ -35,7 +36,7 @@ function principalFor(ctx) {
   return `u:${String(value)}`;
 }
 
-function publicAsset(asset) {
+function publicAsset(asset, access = { owner: true, use: true, reveal: true, manage: true }) {
   return {
     assetId: asset.assetId,
     reference: `protected_asset:${asset.assetId}`,
@@ -45,6 +46,27 @@ function publicAsset(asset) {
     createdAt: asset.createdAt,
     updatedAt: asset.updatedAt,
     revokedAt: asset.revokedAt || null,
+    access,
+  };
+}
+
+function publicAccess(asset, actorId, grant = null) {
+  const owner = String(asset.ownerId) === String(actorId);
+  return {
+    owner,
+    use: owner || grant?.canonicalActions?.includes("use") === true,
+    reveal: owner || grant?.deliveries?.includes("recipient") === true,
+    manage: owner,
+  };
+}
+
+function recipientEnvelope(asset, actorId) {
+  const userID = String(actorId).replace(/^u:/, "");
+  const wrap = asset.envelope?.keyWraps?.user?.[userID];
+  if (!wrap) throw new ProtectedAssetError("ASSET_RECIPIENT_WRAP_REQUIRED", "No encrypted wrap exists for this recipient");
+  return {
+    ...asset.envelope,
+    keyWraps: { user: { [userID]: wrap }, executor: null },
   };
 }
 
@@ -202,11 +224,26 @@ function register({ on, use }) {
           createdAt: now,
           updatedAt: now,
         };
-        await dynamodb.put({
-          TableName: ASSET_TABLE,
-          Item: item,
-          ConditionExpression: "attribute_not_exists(assetId)",
-        }).promise();
+        const requests = normalizeGrantRequests(body.recipientGrants, { ownerId, envelope });
+        const grantItems = createGrantItems({ asset: item, requests, now });
+        if (grantItems.length) {
+          await dynamodb.transactWrite({
+            TransactItems: [
+              { Put: { TableName: ASSET_TABLE, Item: item, ConditionExpression: "attribute_not_exists(assetId)" } },
+              ...grantItems.map((grant) => ({ Put: {
+                TableName: process.env.PROTECTED_ASSET_GRANTS_TABLE || "protectedAssetGrants",
+                Item: grant,
+                ConditionExpression: "attribute_not_exists(principalId) AND attribute_not_exists(assetId)",
+              } })),
+            ],
+          }).promise();
+        } else {
+          await dynamodb.put({
+            TableName: ASSET_TABLE,
+            Item: item,
+            ConditionExpression: "attribute_not_exists(assetId)",
+          }).promise();
+        }
         await broker.audit({
           eventType: "asset_created",
           assetId,
@@ -214,18 +251,18 @@ function register({ on, use }) {
           assetType: metadata.assetType,
           providerId: metadata.providerId,
         });
-        return { ok: true, kind: "protectedAssetCreated", asset: publicAsset(item) };
+        return { ok: true, kind: "protectedAssetCreated", asset: publicAsset(item), grantsCreated: grantItems.length };
       }
 
       if (action === "get") {
         const reference = body.reference || body.assetId || segments[0];
-        const asset = await broker.getAsset(reference, ownerId);
-        return { ok: true, kind: "protectedAssetMetadata", asset: publicAsset(asset) };
+        const { asset, access } = await broker.getAssetForUse(reference, ownerId);
+        return { ok: true, kind: "protectedAssetMetadata", asset: publicAsset(asset, publicAccess(asset, ownerId, access.grant)) };
       }
 
       if (action === "envelope") {
         const reference = body.reference || body.assetId || segments[0];
-        const asset = await broker.getAsset(reference, ownerId);
+        const { asset, access } = await broker.getAssetForUse(reference, ownerId, "recipient");
         if (body.purpose !== "local_reveal" || body.approved !== true) {
           throw new ProtectedAssetError("ASSET_APPROVAL_REQUIRED", "Local reveal requires explicit approval");
         }
@@ -249,8 +286,8 @@ function register({ on, use }) {
         return {
           ok: true,
           kind: "protectedAssetEnvelope",
-          asset: publicAsset(asset),
-          envelope: asset.envelope,
+          asset: publicAsset(asset, publicAccess(asset, ownerId, access.grant)),
+          envelope: access.source === "owner" ? asset.envelope : recipientEnvelope(asset, ownerId),
         };
       }
 
@@ -265,11 +302,32 @@ function register({ on, use }) {
           ScanIndexForward: false,
           Limit: Math.max(1, Math.min(100, Number(body.limit || 50))),
         }).promise();
+        const sharedGrants = await broker.grants.listForPrincipal(ownerId, body.limit || 50);
+        const shared = await Promise.all(sharedGrants.map(async (grant) => {
+          try {
+            const asset = await broker.loadAsset(grant.assetId);
+            return publicAsset(asset, publicAccess(asset, ownerId, grant));
+          } catch (error) {
+            return error instanceof ProtectedAssetError ? null : Promise.reject(error);
+          }
+        }));
+        const owned = (data?.Items || []).map((asset) => publicAsset(asset));
+        const assets = [...owned, ...shared.filter(Boolean)]
+          .filter((asset, index, all) => all.findIndex((candidate) => candidate.assetId === asset.assetId) === index)
+          .slice(0, Math.max(1, Math.min(100, Number(body.limit || 50))));
         return {
           ok: true,
           kind: "protectedAssetList",
-          assets: (data?.Items || []).map(publicAsset),
+          assets,
         };
+      }
+
+      if (action === "revoke-grant") {
+        const { assetId } = normalizeProtectedAssetReference(body.reference || body.assetId || segments[0]);
+        await broker.getAsset(assetId, ownerId);
+        await broker.grants.revoke(assetId, body.userID || body.principalId, ownerId);
+        await broker.audit({ eventType: "asset_grant_revoked", assetId, ownerId, actorId: ownerId });
+        return { ok: true, kind: "protectedAssetGrantRevoked", assetId };
       }
 
       if (action === "rotate") {
@@ -359,7 +417,7 @@ function register({ on, use }) {
       return {
         ok: true,
         kind: "protectedAssetHelp",
-        actions: ["executor-key", "create", "get", "envelope", "list", "rotate", "revoke", "delete", "audit"],
+        actions: ["executor-key", "create", "get", "envelope", "list", "revoke-grant", "rotate", "revoke", "delete", "audit"],
       };
     } catch (error) {
       if (!(error instanceof ProtectedAssetError)) {
@@ -370,7 +428,7 @@ function register({ on, use }) {
   }
 
   on("protectedAssets", route);
-  for (const action of ["executor-key", "create", "get", "envelope", "list", "rotate", "revoke", "delete", "audit"]) {
+  for (const action of ["executor-key", "create", "get", "envelope", "list", "revoke-grant", "rotate", "revoke", "delete", "audit"]) {
     on(`protectedAsset:${action}`, (ctx) => route(ctx, action));
   }
   return { name: "protectedAssets" };

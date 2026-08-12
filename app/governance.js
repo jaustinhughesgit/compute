@@ -7,12 +7,13 @@
 const crypto = require("node:crypto");
 
 const ACTIONS = Object.freeze([
-  "find", "read", "aggregate", "use", "execute", "set", "edit", "delete", "delegate", "publish", "govern",
+  "find", "read", "aggregate", "use", "set", "edit", "delete", "delegate", "publish", "govern",
 ]);
+const ACTION_ALIASES = Object.freeze({ execute: "use" });
 const MUTATIONS = new Set(["set", "edit", "delete", "delegate", "publish", "govern"]);
 const PUBLIC_ACTIONS = new Set(["find", "read", "aggregate"]);
 const LEGACY_ACTIONS = Object.freeze({
-  e: ["execute"],
+  e: ["use"],
   r: ["find", "read", "aggregate", "use"],
   w: ["set", "edit"],
   a: ["set"],
@@ -46,7 +47,8 @@ function lifecycle(resource) {
 }
 
 function grantActions(grant) {
-  const actions = new Set(Array.isArray(grant?.actions) ? grant.actions : grant?.canonicalActions || []);
+  const actions = new Set((Array.isArray(grant?.actions) ? grant.actions : grant?.canonicalActions || [])
+    .map((action) => ACTION_ALIASES[String(action).toLowerCase()] || String(action).toLowerCase()));
   for (const character of String(grant?.perms || "")) {
     for (const action of LEGACY_ACTIONS[character] || []) actions.add(action);
   }
@@ -64,12 +66,14 @@ function activeGrant(grant, actorId, resourceId, nowMs) {
 }
 
 function authorize(input = {}) {
-  const action = String(input.action || "").toLowerCase();
+  const requestedAction = String(input.action || "").toLowerCase();
+  const action = ACTION_ALIASES[requestedAction] || requestedAction;
   const resource = input.resource || {};
   const resourceId = String(resource.id || resource.e || resource.su || resource.g || resource.entityID || "").trim();
   const actorId = principalId(input.actor);
   const result = (value) => ({
-    contractVersion: 1, recordType: "governance-decision", resourceId, actorId, action, ...value,
+    contractVersion: 1, recordType: "governance-decision", resourceId, actorId, action,
+    ...(requestedAction !== action ? { requestedAction } : {}), ...value,
   });
   if (!ACTIONS.includes(action)) return result({ allowed: false, code: "GOVERNANCE_ACTION_INVALID", source: "none" });
   if (!resourceId || !actorId) return result({ allowed: false, code: "GOVERNANCE_IDENTITY_REQUIRED", source: "none" });
@@ -93,7 +97,8 @@ function authorize(input = {}) {
   const evidence = input.compatibilityEvidence;
   if (evidence?.authority === "legacy-verifyThis"
     && evidence.resourceId === resourceId
-    && Array.isArray(evidence.actions) && evidence.actions.includes(action)) {
+    && Array.isArray(evidence.actions)
+    && evidence.actions.map((value) => ACTION_ALIASES[String(value).toLowerCase()] || String(value).toLowerCase()).includes(action)) {
     return result({ allowed: true, code: "GOVERNANCE_COMPATIBILITY", source: "compatibility" });
   }
   return result({ allowed: false, code: "GOVERNANCE_FORBIDDEN", source: "none" });
@@ -138,4 +143,4 @@ function auditEvent({ resourceId, resourceType, actor, action, decision, request
   };
 }
 
-module.exports = { ACTIONS, LEGACY_ACTIONS, auditEvent, authorize, grantActions, transitionLifecycle };
+module.exports = { ACTIONS, ACTION_ALIASES, LEGACY_ACTIONS, auditEvent, authorize, grantActions, transitionLifecycle };

@@ -57,6 +57,7 @@ Resources:
           OPENAI_API_KEY: !Ref OpenAIApiKey
           SESSION_SECRET: !Ref SessionSecret
           PROTECTED_ASSETS_TABLE: !Ref ProtectedAssetsTable
+          PROTECTED_ASSET_GRANTS_TABLE: !Ref ProtectedAssetGrantsTable
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
           PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
@@ -85,9 +86,24 @@ Resources:
                 - dynamodb:DescribeTable
                 - dynamodb:Scan
                 - dynamodb:BatchWriteItem
+                - dynamodb:TransactWriteItems
               Resource:
                 - !GetAtt ProtectedAssetsTable.Arn
                 - !Sub ${ProtectedAssetsTable.Arn}/index/*
+            - Sid: UseProtectedAssetGrantsTable
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+                - dynamodb:BatchWriteItem
+                - dynamodb:TransactWriteItems
+              Resource:
+                - !GetAtt ProtectedAssetGrantsTable.Arn
+                - !Sub ${ProtectedAssetGrantsTable.Arn}/index/*
             - Sid: UseProtectedAssetAuditTable
               Effect: Allow
               Action:
@@ -395,6 +411,36 @@ Resources:
       SSESpecification:
         SSEEnabled: true
 
+  ProtectedAssetGrantsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: principalId
+          AttributeType: S
+        - AttributeName: assetId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: principalId
+          KeyType: HASH
+        - AttributeName: assetId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: assetId-principalId-index
+          KeySchema:
+            - AttributeName: assetId
+              KeyType: HASH
+            - AttributeName: principalId
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
   ProtectedAssetExecutorKey:
     Type: AWS::KMS::Key
     DeletionPolicy: Retain
@@ -448,6 +494,9 @@ Outputs:
   ProtectedAssetAuditTableName:
     Description: Protected Asset append-only audit table
     Value: !Ref ProtectedAssetAuditTable
+  ProtectedAssetGrantsTableName:
+    Description: DynamoDB table for principal-first Protected Asset use grants
+    Value: !Ref ProtectedAssetGrantsTable
   ProtectedAssetExecutorKeyArn:
     Description: KMS key ARN used only at the authorized execution boundary
     Value: !GetAtt ProtectedAssetExecutorKey.Arn

@@ -184,11 +184,13 @@ const REQUEST_VALUE_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
-    source: { type: "string", enum: ["input", "protected", "literal"] },
+    source: { type: "string", enum: ["input", "protected", "provider_response", "literal"] },
     inputName: NULLABLE_STRING,
     requirementId: NULLABLE_STRING,
     fieldName: NULLABLE_STRING,
     literal: NULLABLE_SCALAR,
+    requestId: NULLABLE_STRING,
+    path: NULLABLE_STRING,
     prefix: { type: "string" },
     suffix: { type: "string" },
   },
@@ -198,6 +200,8 @@ const REQUEST_VALUE_SCHEMA = {
     "requirementId",
     "fieldName",
     "literal",
+    "requestId",
+    "path",
     "prefix",
     "suffix",
   ],
@@ -307,7 +311,7 @@ function decorate(value, prefix = "", suffix = "") {
   return `${prefix}${value == null ? "" : value}${suffix}`;
 }
 
-function compileRequestValue(raw, declaredInputs, protectedFields) {
+function compileRequestValue(raw, declaredInputs, protectedFields, priorRequestIds) {
   const source = String(raw?.source || "");
   if (source === "input") {
     const name = cleanId(raw.inputName, "request input name");
@@ -321,6 +325,15 @@ function compileRequestValue(raw, declaredInputs, protectedFields) {
       throw new Error(`entity plan references undeclared protected field ${requirementId}.${fieldName}`);
     }
     return decorate(`{|protected=>${requirementId}.${fieldName}|}`, raw.prefix, raw.suffix);
+  }
+  if (source === "provider_response") {
+    const requestId = cleanId(raw.requestId, "request source id");
+    if (!priorRequestIds.has(requestId)) {
+      throw new Error(`entity plan request references unavailable prior request ${requestId}`);
+    }
+    const path = String(raw.path || "").trim().replace(/^data\./, "");
+    if (!path || /[|{}]/.test(path)) throw new Error("entity plan request source path is invalid");
+    return decorate(`{|${requestId}=>data.${path}|}`, raw.prefix, raw.suffix);
   }
   if (source === "literal") return decorate(raw.literal, raw.prefix, raw.suffix);
   throw new Error(`entity plan request value source ${source || "(blank)"} is unsupported`);
@@ -394,7 +407,8 @@ function compileEntityPlan(rawPlan, buildRequest) {
       config[containerName][parameter.name] = compileRequestValue(
         parameter.value,
         declaredInputs,
-        protectedFields
+        protectedFields,
+        requestIds
       );
     }
     actions.push({
