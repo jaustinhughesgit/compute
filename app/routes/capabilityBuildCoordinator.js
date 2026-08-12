@@ -8,6 +8,7 @@ const crypto = require("node:crypto");
 
 const DEFAULT_TABLE = process.env.SUBDOMAINS_TABLE || "subdomains";
 const DEFAULT_LEASE_SECONDS = 120;
+const DEFAULT_FINALIZE_LEASE_SECONDS = 45;
 
 function promiseOf(request) {
   return request && typeof request.promise === "function" ? request.promise() : request;
@@ -15,6 +16,22 @@ function promiseOf(request) {
 
 function stableHash(value) {
   return crypto.createHash("sha256").update(String(value || "")).digest("hex");
+}
+
+function cleanFailureMessage(value, limit = 800) {
+  return String(value || "")
+    .replace(/[\u0000-\u001f\u007f]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, limit);
+}
+
+function failureReason(record) {
+  const code = cleanFailureMessage(record?.capabilityBuildErrorCode, 120) || "BUILD_FAILED";
+  const detail = cleanFailureMessage(record?.capabilityBuildErrorMessage);
+  return detail
+    ? `The capability build failed (${code}): ${detail}`
+    : `The capability build failed (${code}).`;
 }
 
 function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE, leaseSeconds = DEFAULT_LEASE_SECONDS } = {}) {
@@ -71,22 +88,34 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
 
   async function complete(claimResult, manifest) {
     const now = new Date().toISOString();
+    const names = {
+      "#status": "capabilityBuildStatus",
+      "#buildId": "capabilityBuildId",
+      "#entity": "capabilityEntityId",
+      "#version": "capabilityVersion",
+      "#completed": "capabilityBuildCompletedAt",
+    };
+    const values = {
+      ":building": "building",
+      ":status": "completed",
+      ":buildId": claimResult.buildId,
+      ":entity": manifest.entityId,
+      ":version": manifest.version,
+      ":completed": now,
+    };
+    let condition = "#status = :building AND #buildId = :buildId";
+    if (claimResult.finalizeToken) {
+      names["#finalizeToken"] = "capabilityBuildFinalizeToken";
+      values[":finalizeToken"] = claimResult.finalizeToken;
+      condition += " AND #finalizeToken = :finalizeToken";
+    }
     await promiseOf(dynamodb.update({
       TableName: tableName,
       Key: { su: claimResult.key },
       UpdateExpression: "SET #status = :status, #entity = :entity, #version = :version, #completed = :completed",
-      ExpressionAttributeNames: {
-        "#status": "capabilityBuildStatus",
-        "#entity": "capabilityEntityId",
-        "#version": "capabilityVersion",
-        "#completed": "capabilityBuildCompletedAt",
-      },
-      ExpressionAttributeValues: {
-        ":status": "completed",
-        ":entity": manifest.entityId,
-        ":version": manifest.version,
-        ":completed": now,
-      },
+      ConditionExpression: condition,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
     }));
     return { buildId: claimResult.buildId, status: "completed", entityId: manifest.entityId, completedAt: now };
   }
@@ -113,28 +142,120 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     return leaseExpiresAt;
   }
 
-  async function fail(claimResult, code = "BUILD_FAILED") {
-    const now = new Date().toISOString();
+  async function beginFinalization(claimResult, { jobId } = {}) {
+    const now = Math.floor(Date.now() / 1000);
+    const finalizeToken = crypto.randomUUID();
+    const finalizeLeaseExpiresAt = now + DEFAULT_FINALIZE_LEASE_SECONDS;
+    try {
+      await promiseOf(dynamodb.update({
+        TableName: tableName,
+        Key: { su: claimResult.key },
+        UpdateExpression: "SET #token = :token, #finalizeLease = :finalizeLease, #jobId = :jobId",
+        ConditionExpression: [
+          "#status = :building",
+          "#buildId = :buildId",
+          "(attribute_not_exists(#finalizeLease) OR #finalizeLease < :now)",
+        ].join(" AND "),
+        ExpressionAttributeNames: {
+          "#status": "capabilityBuildStatus",
+          "#buildId": "capabilityBuildId",
+          "#token": "capabilityBuildFinalizeToken",
+          "#finalizeLease": "capabilityBuildFinalizeLeaseExpiresAt",
+          "#jobId": "capabilityBuildBackgroundJobId",
+        },
+        ExpressionAttributeValues: {
+          ":building": "building",
+          ":buildId": claimResult.buildId,
+          ":token": finalizeToken,
+          ":finalizeLease": finalizeLeaseExpiresAt,
+          ":now": now,
+          ":jobId": String(jobId || ""),
+        },
+      }));
+      return { acquired: true, finalizeToken, finalizeLeaseExpiresAt };
+    } catch (error) {
+      if (error?.code !== "ConditionalCheckFailedException" && error?.name !== "ConditionalCheckFailedException") {
+        throw error;
+      }
+      return { acquired: false, record: await get(claimResult) };
+    }
+  }
+
+  async function releaseFinalization(claimResult) {
+    if (!claimResult?.finalizeToken) return false;
     await promiseOf(dynamodb.update({
       TableName: tableName,
       Key: { su: claimResult.key },
-      UpdateExpression: "SET #status = :status, #code = :code, #completed = :completed, #lease = :lease",
+      UpdateExpression: "REMOVE #token, #finalizeLease",
+      ConditionExpression: "#status = :building AND #buildId = :buildId AND #token = :token",
       ExpressionAttributeNames: {
         "#status": "capabilityBuildStatus",
-        "#code": "capabilityBuildErrorCode",
-        "#completed": "capabilityBuildCompletedAt",
-        "#lease": "capabilityBuildLeaseExpiresAt",
+        "#buildId": "capabilityBuildId",
+        "#token": "capabilityBuildFinalizeToken",
+        "#finalizeLease": "capabilityBuildFinalizeLeaseExpiresAt",
       },
       ExpressionAttributeValues: {
-        ":status": "failed",
-        ":code": String(code || "BUILD_FAILED"),
-        ":completed": now,
-        ":lease": 0,
+        ":building": "building",
+        ":buildId": claimResult.buildId,
+        ":token": claimResult.finalizeToken,
       },
+    }));
+    return true;
+  }
+
+  async function fail(claimResult, code = "BUILD_FAILED", message = "") {
+    const now = new Date().toISOString();
+    const names = {
+      "#status": "capabilityBuildStatus",
+      "#code": "capabilityBuildErrorCode",
+      "#message": "capabilityBuildErrorMessage",
+      "#completed": "capabilityBuildCompletedAt",
+      "#lease": "capabilityBuildLeaseExpiresAt",
+    };
+    const values = {
+      ":status": "failed",
+      ":code": String(code || "BUILD_FAILED").slice(0, 120),
+      ":message": cleanFailureMessage(message),
+      ":completed": now,
+      ":lease": 0,
+    };
+    let condition;
+    if (claimResult?.record) {
+      names["#buildId"] = "capabilityBuildId";
+      values[":building"] = "building";
+      values[":buildId"] = claimResult.buildId;
+      condition = "#status = :building AND #buildId = :buildId";
+      if (claimResult.finalizeToken) {
+        names["#finalizeToken"] = "capabilityBuildFinalizeToken";
+        values[":finalizeToken"] = claimResult.finalizeToken;
+        condition += " AND #finalizeToken = :finalizeToken";
+      }
+    }
+    await promiseOf(dynamodb.update({
+      TableName: tableName,
+      Key: { su: claimResult.key },
+      UpdateExpression: "SET #status = :status, #code = :code, #message = :message, #completed = :completed, #lease = :lease",
+      ...(condition ? { ConditionExpression: condition } : {}),
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
     }));
   }
 
-  return { identity, get, claim, renew, complete, fail };
+  return {
+    identity,
+    get,
+    claim,
+    renew,
+    beginFinalization,
+    releaseFinalization,
+    complete,
+    fail,
+  };
 }
 
-module.exports = { stableHash, createCapabilityBuildCoordinator };
+module.exports = {
+  stableHash,
+  cleanFailureMessage,
+  failureReason,
+  createCapabilityBuildCoordinator,
+};

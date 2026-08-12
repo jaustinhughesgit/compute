@@ -24,9 +24,15 @@ const {
 } = require("../capabilityBlueprints");
 const {
   stableHash,
+  failureReason,
   createCapabilityBuildCoordinator,
 } = require("../capabilityBuildCoordinator");
 const { normalizeLlmTemplateId } = require("../../llmTemplates");
+
+function shorthandExecutionSource(retrieved, capabilityBuild) {
+  if (retrieved?.published) return retrieved;
+  return capabilityBuild ? { published: {} } : null;
+}
 
 function register({ on, use }) {
   const { getCookie, retrieveAndParseJSON, deps } = use();
@@ -330,7 +336,9 @@ function register({ on, use }) {
               status: "BUILD_FAILED",
               buildId,
               record,
-              reason: `The capability build cannot resume from ${record.capabilityBuildStatus || "unknown"} state.`,
+              reason: record.capabilityBuildStatus === "failed"
+                ? failureReason(record)
+                : `The capability build cannot resume from ${record.capabilityBuildStatus || "unknown"} state.`,
             });
           }
           claim = { acquired: true, ...identity, record };
@@ -388,6 +396,45 @@ function register({ on, use }) {
                 reason: "OpenAI is generating the declarative entity in the background.",
               });
             }
+            const finalization = await buildCoordinator.beginFinalization(claim, {
+              jobId: backgroundBuild.jobId,
+            });
+            if (!finalization.acquired) {
+              let finalizedManifest = null;
+              if (
+                finalization.record?.capabilityBuildStatus === "completed"
+                && finalization.record?.capabilityEntityId
+              ) {
+                finalizedManifest = await capabilityRegistry.getByEntity(
+                  finalization.record.capabilityEntityId,
+                  { includeInactive: true }
+                );
+              }
+              return capabilityStateResponse({
+                status: finalizedManifest
+                  ? "CAPABILITY_REUSED"
+                  : finalization.record?.capabilityBuildStatus === "completed"
+                  ? "BUILD_FAILED"
+                  : finalization.record?.capabilityBuildStatus === "failed"
+                  ? "BUILD_FAILED"
+                  : "BUILD_PENDING",
+                manifest: finalizedManifest,
+                buildId: claim.buildId,
+                record: finalization.record,
+                backgroundJob: finalization.record?.capabilityBuildStatus === "building" ? {
+                  kind: backgroundBuild.kind,
+                  jobId: backgroundBuild.jobId,
+                  status: "finalizing",
+                  retryAfterMs: 2_000,
+                } : null,
+                reason: finalization.record?.capabilityBuildStatus === "failed"
+                  ? failureReason(finalization.record)
+                  : finalization.record?.capabilityBuildStatus === "completed"
+                  ? "The completed build no longer has a readable capability manifest."
+                  : "Another Lambda is finalizing this completed capability build.",
+              });
+            }
+            claim = { ...claim, finalizeToken: finalization.finalizeToken };
             if (backgroundBuild.costTrace) modelCostTrace.push(backgroundBuild.costTrace);
           }
           computeSpec = await buildComputeEntitySpec({
@@ -426,6 +473,7 @@ function register({ on, use }) {
             }
           }
           if (error instanceof CapabilityBuildRetryError) {
+            await buildCoordinator.releaseFinalization(claim);
             return capabilityStateResponse({
               status: "BUILD_RETRY_REQUIRED",
               buildId: claim.buildId,
@@ -434,7 +482,11 @@ function register({ on, use }) {
               reason: "The provider implementation needs another bounded validation pass.",
             });
           }
-          await buildCoordinator.fail(claim, error?.code || "GENERATION_FAILED");
+          await buildCoordinator.fail(
+            claim,
+            error?.code || "GENERATION_FAILED",
+            error?.message || "The generic entity implementation did not pass validation."
+          );
           return capabilityStateResponse({
             status: "BUILD_FAILED",
             buildId: claim.buildId,
@@ -442,7 +494,7 @@ function register({ on, use }) {
           });
         }
         if (!computeSpec) {
-          await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE");
+          await buildCoordinator.fail(claim, "BLUEPRINT_UNAVAILABLE", "No validated entity implementation is available.");
           return capabilityStateResponse({
             status: "BLUEPRINT_UNAVAILABLE",
             buildId: claim.buildId,
@@ -922,6 +974,7 @@ function subdomains(domain){
           console.error("retrieveAndParseJSON failed:", err && err.message);
         }
 
+        jsonpl = shorthandExecutionSource(jsonpl, preparedCapabilityBuild);
         if (jsonpl?.published) {
           // Clone and prepare for runner
           const shorthandLogic = JSON.parse(JSON.stringify(jsonpl));
@@ -1065,7 +1118,8 @@ function subdomains(domain){
             try {
               await preparedCapabilityBuild.coordinator.fail(
                 preparedCapabilityBuild.claim,
-                capabilityRegistration.code
+                capabilityRegistration.code,
+                capabilityRegistration.message
               );
             } catch (_) {}
           }
@@ -1079,7 +1133,8 @@ function subdomains(domain){
           try {
             await preparedCapabilityBuild.coordinator.fail(
               preparedCapabilityBuild.claim,
-              capabilityRegistration.code
+              capabilityRegistration.code,
+              capabilityRegistration.message
             );
           } catch (_) {}
         }
@@ -1144,4 +1199,4 @@ function subdomains(domain){
   return { name: "convert" };
 }
 
-module.exports = { register };
+module.exports = { register, shorthandExecutionSource };
