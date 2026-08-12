@@ -121,6 +121,45 @@ test('generated protected labels become canonical identifiers before contract va
   );
 });
 
+test('a canonicalized generated placeholder supplies omitted protected fields', () => {
+  const revisedEntity = {
+    published: {
+      data: {
+        protectedAssetRequirements: [{
+          requirementId: 'Provider API Key',
+          providerId: 'Provider',
+          fields: [],
+        }],
+      },
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+          params: { appid: '{|protected=>Provider API Key.API Key|}' },
+        }] }],
+      }],
+    },
+  };
+  const revisedManifest = {
+    operations: [{
+      operationId: 'lookup',
+      protectedAssetRequirements: [{
+        requirementId: 'Provider API Key',
+        providerId: 'Provider',
+        fields: [],
+      }],
+    }],
+  };
+  canonicalizeGeneratedProtectedIdentifiers(revisedEntity, revisedManifest);
+  synchronizeProtectedRequirementFields(revisedEntity, revisedManifest);
+  const expected = [{
+    name: 'api_key',
+    required: true,
+    injection: { location: 'query', parameter: 'appid', prefix: '' },
+  }];
+  assert.deepEqual(revisedEntity.published.data.protectedAssetRequirements[0].fields, expected);
+  assert.deepEqual(revisedManifest.operations[0].protectedAssetRequirements[0].fields, expected);
+});
+
 test('one undeclared provider request input moves into one incomplete protected requirement', () => {
   const revisedEntity = {
     published: {

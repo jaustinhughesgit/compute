@@ -998,6 +998,7 @@ function canonicalizeGeneratedProtectedIdentifiers(entity, manifest) {
   const requirements = [...entityRequirements, ...manifestRequirements]
     .filter((requirement) => requirement && typeof requirement === "object" && !Array.isArray(requirement));
   const references = new Map();
+  const requirementIds = [];
   for (const requirement of requirements) {
     const rawRequirementId = plainText(requirement.requirementId, 256);
     const providerId = canonicalGeneratedProtectedId(
@@ -1008,6 +1009,7 @@ function canonicalizeGeneratedProtectedIdentifiers(entity, manifest) {
       rawRequirementId,
       `${providerId}_credential`
     );
+    requirementIds.push({ raw: rawRequirementId, canonical: requirementId });
     requirement.requirementId = requirementId;
     if (requirement.providerId != null) requirement.providerId = providerId;
     for (const field of Array.isArray(requirement.fields) ? requirement.fields : []) {
@@ -1020,6 +1022,32 @@ function canonicalizeGeneratedProtectedIdentifiers(entity, manifest) {
       }
     }
   }
+  const escapePattern = (value) => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const discoverReferences = (value) => {
+    if (typeof value === "string") {
+      for (const { raw, canonical } of requirementIds) {
+        for (const alias of [...new Set([raw, canonical])].filter(Boolean)) {
+          const pattern = new RegExp(`\\{\\|protected=>${escapePattern(alias)}\\.([^|]+)\\|\\}`, "g");
+          for (const match of value.matchAll(pattern)) {
+            const rawFieldName = plainText(match[1], 256);
+            if (!rawFieldName) continue;
+            references.set(
+              `${alias}.${rawFieldName}`,
+              `${canonical}.${canonicalGeneratedProtectedId(rawFieldName, "credential")}`
+            );
+          }
+        }
+      }
+      return;
+    }
+    if (Array.isArray(value)) {
+      value.forEach(discoverReferences);
+      return;
+    }
+    if (!value || typeof value !== "object") return;
+    Object.values(value).forEach(discoverReferences);
+  };
+  discoverReferences(entity?.published?.actions);
   const rewrite = (value) => {
     if (typeof value === "string") {
       let next = value;
