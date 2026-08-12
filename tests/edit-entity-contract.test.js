@@ -14,6 +14,7 @@ const {
   providerDocumentationDomains,
   providerRepairResearchContext,
   reconnectableRevisionJob,
+  canonicalizeGeneratedProtectedIdentifiers,
   protectedFieldsFromActions,
   protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
@@ -72,6 +73,52 @@ test('protected requirement fields synchronize from the exact declarative placeh
     inferred.get('provider_credentials')
   );
   assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].operationId, 'lookup');
+});
+
+test('generated protected labels become canonical identifiers before contract validation', () => {
+  const revisedEntity = {
+    published: {
+      data: {
+        protectedAssetRequirements: [{
+          requirementId: 'OpenWeatherMap API Key',
+          providerId: 'Open Weather Map',
+          fields: [{
+            name: 'API Key',
+            injection: { location: 'query', parameter: 'appid' },
+          }],
+        }],
+      },
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+          params: { appid: '{|protected=>OpenWeatherMap API Key.API Key|}' },
+        }] }],
+      }],
+    },
+  };
+  const revisedManifest = {
+    operations: [{
+      protectedAssetRequirements: [{
+        requirementId: 'OpenWeatherMap API Key',
+        providerId: 'Open Weather Map',
+        fields: [{
+          name: 'API Key',
+          injection: { location: 'query', parameter: 'appid' },
+        }],
+      }],
+    }],
+  };
+  canonicalizeGeneratedProtectedIdentifiers(revisedEntity, revisedManifest);
+  assert.equal(
+    revisedEntity.published.data.protectedAssetRequirements[0].requirementId,
+    'openweathermap_api_key'
+  );
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].providerId, 'open_weather_map');
+  assert.equal(revisedManifest.operations[0].protectedAssetRequirements[0].fields[0].name, 'api_key');
+  assert.equal(
+    revisedEntity.published.actions[0].chain[0].params[1].params.appid,
+    '{|protected=>openweathermap_api_key.api_key|}'
+  );
 });
 
 test('one undeclared provider request input moves into one incomplete protected requirement', () => {

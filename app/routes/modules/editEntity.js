@@ -969,6 +969,74 @@ function protectedFieldsFromActions(actions) {
   return inferred;
 }
 
+function canonicalGeneratedProtectedId(value, fallback = "protected_asset") {
+  const normalizedFallback = String(fallback || "protected_asset")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "_")
+    .replace(/^[^a-z]+/, "")
+    .replace(/[_.-]+$/g, "") || "protected_asset";
+  let normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_.-]+/g, "_")
+    .replace(/^[^a-z]+/, "")
+    .replace(/[_.-]+$/g, "");
+  if (!normalized) normalized = normalizedFallback;
+  if (normalized.length < 2) normalized = `${normalized}_id`;
+  return normalized.slice(0, 128).replace(/[_.-]+$/g, "");
+}
+
+function canonicalizeGeneratedProtectedIdentifiers(entity, manifest) {
+  const entityRequirements = Array.isArray(entity?.published?.data?.protectedAssetRequirements)
+    ? entity.published.data.protectedAssetRequirements
+    : [];
+  const manifestRequirements = (Array.isArray(manifest?.operations) ? manifest.operations : [])
+    .flatMap((operation) => Array.isArray(operation?.protectedAssetRequirements)
+      ? operation.protectedAssetRequirements
+      : []);
+  const requirements = [...entityRequirements, ...manifestRequirements]
+    .filter((requirement) => requirement && typeof requirement === "object" && !Array.isArray(requirement));
+  const references = new Map();
+  for (const requirement of requirements) {
+    const rawRequirementId = plainText(requirement.requirementId, 256);
+    const providerId = canonicalGeneratedProtectedId(
+      requirement.providerId,
+      rawRequirementId || "provider"
+    );
+    const requirementId = canonicalGeneratedProtectedId(
+      rawRequirementId,
+      `${providerId}_credential`
+    );
+    requirement.requirementId = requirementId;
+    if (requirement.providerId != null) requirement.providerId = providerId;
+    for (const field of Array.isArray(requirement.fields) ? requirement.fields : []) {
+      if (!field || typeof field !== "object" || Array.isArray(field)) continue;
+      const rawFieldName = plainText(field.name, 256);
+      const fieldName = canonicalGeneratedProtectedId(rawFieldName, "credential");
+      field.name = fieldName;
+      if (rawRequirementId && rawFieldName) {
+        references.set(`${rawRequirementId}.${rawFieldName}`, `${requirementId}.${fieldName}`);
+      }
+    }
+  }
+  const rewrite = (value) => {
+    if (typeof value === "string") {
+      let next = value;
+      for (const [rawReference, canonicalReference] of references) {
+        next = next.split(`{|protected=>${rawReference}|}`).join(`{|protected=>${canonicalReference}|}`);
+      }
+      return next;
+    }
+    if (Array.isArray(value)) return value.map(rewrite);
+    if (!value || typeof value !== "object") return value;
+    for (const [key, child] of Object.entries(value)) value[key] = rewrite(child);
+    return value;
+  };
+  rewrite(entity?.published?.actions);
+  return { entity, manifest };
+}
+
 function protectUnambiguousUndeclaredRequestField(entity, manifest, requirementId) {
   const declaredInputs = new Set((Array.isArray(manifest?.operations) ? manifest.operations : [])
     .flatMap((operation) => Array.isArray(operation?.inputs) ? operation.inputs : [])
@@ -1391,6 +1459,7 @@ function register({ on, use }) {
       if (originalManifest) {
         const rawManifest = generated.updatedCapabilityManifest || revisedCandidate?.published?.computeCapability;
         if (!rawManifest) throw new Error("capability entity revision did not return its updated capability manifest");
+        canonicalizeGeneratedProtectedIdentifiers(revisedCandidate, rawManifest);
         synchronizeProtectedRequirementFields(revisedCandidate, rawManifest);
         revisedManifest = validateCapabilityManifest({
           ...rawManifest,
@@ -1670,6 +1739,7 @@ module.exports = {
   providerDocumentationDomains,
   providerRepairResearchContext,
   reconnectableRevisionJob,
+  canonicalizeGeneratedProtectedIdentifiers,
   protectedFieldsFromActions,
   protectUnambiguousUndeclaredRequestField,
   synchronizeProtectedRequirementFields,
