@@ -6,6 +6,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const {
   convertErrorDetails,
+  markBackgroundBuildError,
   markBackgroundDiscoveryError,
 } = require("../app/routes/modules/convert");
 
@@ -32,6 +33,16 @@ test("Convert returns a sanitized retry contract for background discovery failur
   const invalidId = new Error("invalid OpenAI background response id");
   invalidId.code = "OPENAI_BACKGROUND_ID_INVALID";
   assert.equal(markBackgroundDiscoveryError(invalidId).retryable, false);
+
+  const transientBuild = new Error("OpenAI Responses request failed (503)");
+  transientBuild.code = "OPENAI_RESPONSES_REQUEST_FAILED";
+  const buildDetails = convertErrorDetails(markBackgroundBuildError(transientBuild));
+  assert.equal(buildDetails.stage, "compute_build");
+  assert.equal(buildDetails.retryable, true);
+
+  const invalidImplementation = new Error("Generated response omitted a declared output");
+  invalidImplementation.code = "INVALID_IMPLEMENTATION";
+  assert.equal(markBackgroundBuildError(invalidImplementation).retryable, false);
 });
 
 test("Edit revises and registers an entity-owned capability contract atomically", () => {

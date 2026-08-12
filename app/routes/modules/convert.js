@@ -45,6 +45,31 @@ function markBackgroundDiscoveryError(error) {
   return failure;
 }
 
+function markBackgroundBuildError(error) {
+  const failure = error instanceof Error ? error : new Error(String(error || "Compute build failed."));
+  const status = Number(failure.status || 0);
+  const code = String(failure.code || "").toUpperCase();
+  const message = String(failure.message || "");
+  failure.onevarStage = "compute_build";
+  failure.retryable = failure.retryable === true
+    || status === 408
+    || status === 409
+    || status === 425
+    || status === 429
+    || status >= 500
+    || [
+      "OPENAI_RESPONSES_REQUEST_FAILED",
+      "OPENAI_BACKGROUND_RESPONSE_FAILED",
+      "ETIMEDOUT",
+      "ECONNRESET",
+      "EAI_AGAIN",
+      "UND_ERR_CONNECT_TIMEOUT",
+      "UND_ERR_SOCKET",
+    ].includes(code)
+    || /(?:\b(?:408|409|425|429|5\d\d)\b|timed?\s*out|temporar(?:y|ily)|rate\s*limit|unavailable|connection\s*reset|fetch\s*failed)/i.test(message);
+  return failure;
+}
+
 function convertErrorDetails(error) {
   const code = String(error?.code || "COMPUTE_CONVERT_FAILED").slice(0, 120);
   const message = String(error?.message || error || "Compute conversion failed.");
@@ -315,6 +340,8 @@ function register({ on, use }) {
         record = null,
         continuation = null,
         backgroundJob = null,
+        retryable = false,
+        errorDetails = null,
       }) => {
         const created = manifest ? [{
           entity: manifest.entityId,
@@ -352,6 +379,8 @@ function register({ on, use }) {
             reason,
             continuation,
             backgroundJob,
+            retryable: retryable === true,
+            errorDetails,
           },
           existing: !!(meta && meta.cookie && meta.cookie.existing),
           file: manifest?.entityId || record?.capabilityEntityId || "",
@@ -448,6 +477,12 @@ function register({ on, use }) {
             });
           }
           if (record.capabilityBuildStatus !== "building") {
+            const persistedFailure = new Error(
+              record.capabilityBuildErrorMessage || "The capability build failed."
+            );
+            persistedFailure.code = record.capabilityBuildErrorCode || "BUILD_FAILED";
+            markBackgroundBuildError(persistedFailure);
+            const persistedDetails = convertErrorDetails(persistedFailure);
             return capabilityStateResponse({
               status: "BUILD_FAILED",
               buildId,
@@ -455,6 +490,8 @@ function register({ on, use }) {
               reason: record.capabilityBuildStatus === "failed"
                 ? failureReason(record)
                 : `The capability build cannot resume from ${record.capabilityBuildStatus || "unknown"} state.`,
+              retryable: record.capabilityBuildStatus === "failed" && persistedDetails.retryable === true,
+              errorDetails: record.capabilityBuildStatus === "failed" ? persistedDetails : null,
             });
           }
           claim = { acquired: true, ...identity, record };
@@ -598,15 +635,19 @@ function register({ on, use }) {
               reason: "The provider implementation needs another bounded validation pass.",
             });
           }
+          const buildFailure = markBackgroundBuildError(error);
+          const buildErrorDetails = convertErrorDetails(buildFailure);
           await buildCoordinator.fail(
             claim,
-            error?.code || "GENERATION_FAILED",
-            error?.message || "The generic entity implementation did not pass validation."
+            buildFailure.code || "GENERATION_FAILED",
+            buildErrorDetails.message || "The generic entity implementation did not pass validation."
           );
           return capabilityStateResponse({
             status: "BUILD_FAILED",
             buildId: claim.buildId,
-            reason: error?.message || "The generic entity implementation did not pass validation.",
+            reason: buildErrorDetails.message || "The generic entity implementation did not pass validation.",
+            retryable: background && buildErrorDetails.retryable === true,
+            errorDetails: buildErrorDetails,
           });
         }
         if (!computeSpec) {
@@ -1357,4 +1398,5 @@ module.exports = {
   shorthandExecutionSource,
   convertErrorDetails,
   markBackgroundDiscoveryError,
+  markBackgroundBuildError,
 };
