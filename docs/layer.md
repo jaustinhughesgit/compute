@@ -118,6 +118,8 @@ Entity creation and repair may outlive a Lambda request. Jobs require stable ide
 
 If an entity-revision submission response is lost, repeating the identical revision reconnects to the stored job with the same request hash. A different revision still receives the active-edit conflict and cannot adopt another request's model work.
 
+Typed revision patches keep array replacement strict. For object members, `add` and a generated `replace` of a missing member converge to the same assignment before the complete revised entity, manifest, JPL, protected contract, and semantic synchronization gates run.
+
 Completed capability output uses a short single-finalizer lease before Shorthand materialization and registry publication. Overlapping Lambda polls remain pending, a lost holder may be replaced after expiry, and only the holder may commit terminal state. Failed state retains a bounded code and sanitized message for later polls. Approved child-capability Shorthand uses an empty published seed when the optional parent workspace document is unavailable; it still creates and saves the child through ordinary entity routes. See [decision 0031](../../architecture/decisions/0031-lease-compute-build-finalization.md).
 
 Generated entity/app Shorthand reads registered-route results through `ROUTEGET`, which unwraps direct and relayed transport envelopes before selecting a named field. Ordinary `GET` remains exact object traversal; compilers must not encode one historical router wrapper depth into new entity-creation plans.

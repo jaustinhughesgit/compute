@@ -516,7 +516,7 @@ function revisionInput({
           "Before returning, review the complete patched result against the user's request and correct any inconsistency between implementation, provider request, mappings, outputs, templates, and examples.",
           "Return one JSON object with exactly four fields: summary, entityPatches, capabilityManifestPatches, and semanticRepairPlan.",
           "summary must be a short plain-language description.",
-          "entityPatches and capabilityManifestPatches are minimal RFC-6902-style add, replace, or remove operations using JSON Pointer paths. Return an empty array when that document does not change.",
+          "entityPatches and capabilityManifestPatches are minimal RFC-6902-style add, replace, or remove operations using JSON Pointer paths. Use add—not replace—when the target object member does not already exist. Return an empty array when that document does not change.",
           "Patch values use the typed JSON-node schema. Set exactly the value matching kind and set all non-applicable value fields to null. Objects are objectValue arrays of unique {key,value} entries; arrays are arrayValue arrays.",
           "Never replace the document root. Prefer replacing the smallest complete safe container, such as /published/actions or /operations/0/utteranceExamples, instead of many fragile leaf patches.",
           "semanticRepairPlan must directly contain {schemaVersion:1,target:\"entity\"|\"path\"|\"both\",summary:string,entityChanges:string[],pathChanges:string[],contextBindingChanges:string[],contextDbFactsChanged:false}.",
@@ -745,7 +745,7 @@ function applyTypedPatches(document, patches, label) {
     const exists = parent != null
       && typeof parent === "object"
       && Object.prototype.hasOwnProperty.call(parent, key);
-    if (operation === "replace" && !exists) {
+    if (operation === "replace" && !exists && Array.isArray(parent)) {
       throw new Error(`${label} patch ${index + 1} cannot replace a missing value`);
     }
     if (operation === "remove") {

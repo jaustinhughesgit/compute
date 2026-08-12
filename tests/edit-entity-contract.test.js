@@ -434,6 +434,32 @@ test('semantic repair plans cannot authorize ContextDB fact mutation', () => {
   );
 });
 
+test('a typed object replacement may safely converge on a missing member before full validation', () => {
+  const response = {
+    status: 'completed',
+    output_text: JSON.stringify({
+      summary: 'Add a protected contract.',
+      entityPatches: [{
+        operation: 'replace',
+        path: '/published/menu/protected',
+        value: jsonNode({ _name: 'Protected' }),
+      }],
+      capabilityManifestPatches: [],
+      semanticRepairPlan: {
+        schemaVersion: 1,
+        target: 'entity',
+        summary: 'Add one missing object member.',
+        entityChanges: ['Add the member.'],
+        pathChanges: [],
+        contextBindingChanges: [],
+        contextDbFactsChanged: false,
+      },
+    }),
+  };
+  const parsed = parseRevisionResponse(response, { currentEntity: entity });
+  assert.deepEqual(parsed.updatedEntity.published.menu.protected, { _name: 'Protected' });
+});
+
 test('revisions preserve top-level structure and primary entity identity', () => {
   const revised = JSON.parse(JSON.stringify(entity));
   revised.published.menu.status = { _name: 'Battery status' };
