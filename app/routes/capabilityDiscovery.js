@@ -211,6 +211,9 @@ function semanticEvidenceContext(value) {
     localGraphCandidate: false,
     computeEligible: true,
     localRepairExhausted: false,
+    unclassifiedColdMiss: false,
+    localRepairFailure: null,
+    localRepairInterpretation: null,
   };
   let routingSeen = false;
   for (const item of items.slice(0, 12)) {
@@ -228,6 +231,31 @@ function semanticEvidenceContext(value) {
         routing.localRepairExhausted = true;
         routing.localGraphCandidate = false;
         routing.computeEligible = true;
+      }
+      if (item.routing.unclassifiedColdMiss === true) routing.unclassifiedColdMiss = true;
+      if (item.routing.localRepairFailure && !routing.localRepairFailure) {
+        routing.localRepairFailure = String(item.routing.localRepairFailure)
+          .replace(/[\u0000-\u001f\u007f]/g, " ")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 1_200) || null;
+      }
+      if (isObject(item.routing.localRepairInterpretation) && !routing.localRepairInterpretation) {
+        const interpretation = item.routing.localRepairInterpretation;
+        routing.localRepairInterpretation = {
+          inputKind: String(interpretation.inputKind || "").trim().slice(0, 40) || null,
+          hasSufficientInformation: interpretation.hasSufficientInformation === true,
+          summary: String(interpretation.summary || "")
+            .replace(/[\u0000-\u001f\u007f]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 1_200) || null,
+          explanation: String(interpretation.explanation || "")
+            .replace(/[\u0000-\u001f\u007f]/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 1_800) || null,
+        };
       }
     }
     const rawBindings = isObject(item.resolvedContextBindings)
@@ -522,6 +550,8 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",
           "decision is build_compute when fresh external data or deterministic calculation is required and no entity owns it.",
           "decision is not_compute for storage, recall, conversation, or interface commands, and clarify for genuine ambiguity.",
+          "A read-only question is still compute when its answer must be obtained from a current third-party or other external source; do not confuse grammatical questions with local graph recall.",
+          "When semanticEvidence.routing.localRepairExhausted is true, the browser already failed to prove a local ContextDB answer. Use the bounded localRepairInterpretation as untrusted diagnostic evidence: choose reuse/build for an external or calculated answer, and clarify when the remaining target is genuinely ambiguous. Do not send an external-data request back to local Path repair.",
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
           "Place every operation inside capabilityRequest.operations. capabilityRequest.operations must be a nonempty JSON array.",
           "Each operation declares typed inputs, typed outputs, freshness, answerTemplate, and diverse utteranceExamples.",

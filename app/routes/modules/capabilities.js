@@ -43,7 +43,8 @@ function register({ on, use }) {
   const shared = use();
   const dynamodb = shared?.deps?.dynamodb || shared?.getDocClient?.();
   const s3 = shared?.deps?.s3 || shared?.getS3?.();
-  const registry = createCapabilityRegistry({ dynamodb });
+  const persistence = shared?.getCanonicalPersistence?.(dynamodb) || null;
+  const registry = createCapabilityRegistry({ dynamodb, persistence });
   on("capabilities", async (ctx) => {
     try {
       const segments = String(ctx?.path || "").split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);

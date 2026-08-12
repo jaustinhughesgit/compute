@@ -5,6 +5,7 @@
 "use strict";
 
 const { CapabilityError, validateCapabilityManifest } = require("./capabilityManifest");
+const { authorize } = require("../governance");
 const DEFAULT_TABLE = process.env.SUBDOMAINS_TABLE || "subdomains";
 
 const promiseOf = (request) => request && typeof request.promise === "function" ? request.promise() : request;
@@ -95,7 +96,7 @@ function migrateStoredManifest(raw) {
   return manifest;
 }
 
-function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) {
+function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DEFAULT_TABLE } = {}) {
   if (!dynamodb) throw new Error("capability registry requires a DynamoDB DocumentClient");
 
   async function getEntityRecord(entityId) {
@@ -171,7 +172,7 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
     includeSystem = true,
     minimumImplementationPolicyVersion = 1,
   } = {}) {
-    const matches = [];
+    const candidates = [];
     let ExclusiveStartKey;
     do {
       const names = { "#capabilityId": "capabilityId" };
@@ -192,14 +193,51 @@ function createCapabilityRegistry({ dynamodb, tableName = DEFAULT_TABLE } = {}) 
         if (!item?.computeCapability) continue;
         try {
           const manifest = validateCapabilityManifest(migrateStoredManifest(item.computeCapability), { entityId: item.su });
-          if (ownerId && manifest.ownerId !== String(ownerId) && !(includeSystem && manifest.ownerId === "system")) continue;
           if (Number(manifest.implementationPolicyVersion || 1) < Number(minimumImplementationPolicyVersion)) continue;
-          if (!activeOnly || manifest.status === "active") matches.push(manifest);
+          if (!activeOnly || manifest.status === "active") candidates.push(manifest);
         } catch (_) {}
-        if (matches.length >= limit) break;
+        if (!ownerId && candidates.length >= limit) break;
       }
-      ExclusiveStartKey = matches.length >= limit ? null : data?.LastEvaluatedKey;
+      ExclusiveStartKey = !ownerId && candidates.length >= limit ? null : data?.LastEvaluatedKey;
     } while (ExclusiveStartKey);
+
+    let matches = candidates;
+    if (ownerId) {
+      const actorId = String(ownerId);
+      const owned = [];
+      const governed = [];
+      for (const manifest of candidates) {
+        if (manifest.ownerId === actorId || (includeSystem && manifest.ownerId === "system")) {
+          owned.push(manifest);
+        } else if (manifest.status === "active") {
+          governed.push(manifest);
+        }
+      }
+      const batchGetGrants = persistence?.authorization?.batchGetGrants;
+      const grants = typeof batchGetGrants === "function" && governed.length
+        ? await batchGetGrants(governed.map((manifest) => ({
+            entityID: String(manifest.entityId),
+            principalID: actorId,
+          })))
+        : [];
+      const grantsByEntity = new Map();
+      for (const grant of Array.isArray(grants) ? grants : []) {
+        const entityId = String(grant?.entityID || grant?.resourceId || "");
+        if (!entityId) continue;
+        if (!grantsByEntity.has(entityId)) grantsByEntity.set(entityId, []);
+        grantsByEntity.get(entityId).push(grant);
+      }
+      matches = owned.concat(governed.filter((manifest) => authorize({
+        actor: actorId,
+        action: "use",
+        resource: {
+          id: manifest.entityId,
+          ownerId: manifest.ownerId,
+          version: manifest.version,
+        },
+        grants: grantsByEntity.get(String(manifest.entityId)) || [],
+      }).allowed));
+    }
     return matches.sort((a, b) =>
       String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")) || b.version - a.version
     ).slice(0, limit);

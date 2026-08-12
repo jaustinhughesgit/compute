@@ -329,7 +329,10 @@ function register({ on, use }) {
       let prompt = body.body?.prompt;
 
       const ownerId = e ? `u:${String(e)}` : "system";
-      const capabilityRegistry = createCapabilityRegistry({ dynamodb });
+      const capabilityRegistry = createCapabilityRegistry({
+        dynamodb,
+        persistence: getCanonicalPersistence(dynamodb),
+      });
       const buildCoordinator = createCapabilityBuildCoordinator({ dynamodb });
 
       const capabilityStateResponse = ({

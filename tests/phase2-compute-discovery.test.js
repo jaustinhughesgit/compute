@@ -5,6 +5,7 @@ const assert = require("node:assert/strict");
 const {
   discoverComputeCapability,
   localGraphOnlyDiscovery,
+  semanticEvidenceContext,
 } = require("../app/routes/capabilityDiscovery");
 const { buildComputeEntitySpec, GENERIC_BLUEPRINT_ID } = require("../app/routes/capabilityBlueprints");
 
@@ -123,6 +124,34 @@ test("compute discovery proceeds after the browser exhausts local graph repair",
   assert.equal(result.jurisdiction.effectClass, "define.capability");
   assert.equal(result.evolution.outcome, "build");
   assert.equal(modelCalls, 1);
+});
+
+test("post-repair discovery preserves bounded jurisdiction evidence for an external capability decision", () => {
+  const context = semanticEvidenceContext([{
+    routing: {
+      localGraphCandidate: false,
+      computeEligible: true,
+      localRepairExhausted: true,
+      unclassifiedColdMiss: true,
+      localRepairFailure: "No local query produced an answer.\nTry external work.",
+      localRepairInterpretation: {
+        inputKind: "question",
+        hasSufficientInformation: false,
+        summary: "The requested value belongs to an external provider.",
+        explanation: "The local graph has no authoritative current value.",
+      },
+    },
+  }]);
+
+  assert.equal(context.routing.localRepairExhausted, true);
+  assert.equal(context.routing.unclassifiedColdMiss, true);
+  assert.equal(context.routing.localRepairFailure, "No local query produced an answer. Try external work.");
+  assert.deepEqual(context.routing.localRepairInterpretation, {
+    inputKind: "question",
+    hasSufficientInformation: false,
+    summary: "The requested value belongs to an external provider.",
+    explanation: "The local graph has no authoritative current value.",
+  });
 });
 
 test("discovery preserves multiple explicit utterance inputs for the entity operation", async () => {

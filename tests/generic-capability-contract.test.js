@@ -25,7 +25,7 @@ const {
 const { validateCapabilityManifest, IMPLEMENTATION_POLICY_VERSION } = require("../app/routes/capabilityManifest");
 const { validateCapabilityBuildRequest } = require("../app/routes/capabilityManifest");
 const { buildCapabilityPathDataset } = require("../app/routes/capabilityPaths");
-const { migrateStoredManifest } = require("../app/routes/capabilityRegistry");
+const { createCapabilityRegistry, migrateStoredManifest } = require("../app/routes/capabilityRegistry");
 
 const genericRequest = {
   schemaVersion: 1,
@@ -78,6 +78,57 @@ const generatedImplementation = {
     data: {},
   },
 };
+
+function registryManifest(entityId, ownerId, capabilityId) {
+  return {
+    schemaVersion: 1,
+    capabilityId,
+    entityId,
+    version: 1,
+    status: "active",
+    ownerId,
+    description: `${capabilityId} capability`,
+    execution: { type: "remote", readOnly: true, timeoutMs: 10_000 },
+    implementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+    operations: [{
+      operationId: "lookup",
+      description: "Look up a value.",
+      inputs: [],
+      outputs: [{ name: "value", type: "string", required: true }],
+      utteranceExamples: ["Look it up."],
+      answerTemplate: "{{value}}",
+    }],
+  };
+}
+
+test("capability discovery includes only owned, system, or use-granted definitions", async () => {
+  const items = [
+    registryManifest("entity-owned", "u:2", "owned.lookup"),
+    registryManifest("entity-shared", "u:1", "shared.lookup"),
+    registryManifest("entity-denied", "u:3", "denied.lookup"),
+    registryManifest("entity-system", "system", "system.lookup"),
+  ].map((manifest) => ({ su: manifest.entityId, computeCapability: manifest }));
+  const dynamodb = {
+    scan: () => ({ promise: async () => ({ Items: items }) }),
+  };
+  const persistence = {
+    authorization: {
+      batchGetGrants: async () => [{
+        entityID: "entity-shared",
+        principalID: "u:2",
+        perms: "r",
+        canonicalLifecycle: { state: "active", tombstone: false },
+      }],
+    },
+  };
+  const registry = createCapabilityRegistry({ dynamodb, persistence });
+  const manifests = await registry.listAvailable({ ownerId: "u:2", activeOnly: false });
+
+  assert.deepEqual(
+    manifests.map((manifest) => manifest.entityId).sort(),
+    ["entity-owned", "entity-shared", "entity-system"]
+  );
+});
 
 function modelReturning(value) {
   return {
