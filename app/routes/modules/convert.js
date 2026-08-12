@@ -43,10 +43,27 @@ function normalizeCreatedEntityId(reference, depth = 0) {
     return reference.length === 1 ? normalizeCreatedEntityId(reference[0], depth + 1) : "";
   }
   if (typeof reference !== "object") return "";
-  for (const key of ["entityId", "entityID", "entity", "id", "su", "value", "S"]) {
+  for (const key of [
+    "entityId", "entityID", "entity", "id", "su", "file", "value", "S",
+    "response", "result", "data", "body", "output", "M", "L",
+  ]) {
     if (reference[key] === undefined || reference[key] === reference) continue;
     const entityId = normalizeCreatedEntityId(reference[key], depth + 1);
     if (entityId) return entityId;
+  }
+  return "";
+}
+
+function resolveCreatedCapabilityEntityId({ conclusion, createdEntities, manifest } = {}) {
+  const references = [
+    conclusion?.entity,
+    ...(Array.isArray(createdEntities) ? createdEntities : []),
+    manifest?.entityId,
+    conclusion?.value,
+  ];
+  for (const reference of references) {
+    const entityId = normalizeCreatedEntityId(reference);
+    if (entityId && entityId !== "pending-capability-entity") return entityId;
   }
   return "";
 }
@@ -1068,10 +1085,11 @@ function subdomains(domain){
           createdEntities = rawConclusion && Array.isArray(rawConclusion.createdEntities)
             ? rawConclusion.createdEntities
             : [];
-          entityFromConclusion = normalizeCreatedEntityId(
-            (rawConclusion && typeof rawConclusion === "object" && rawConclusion.entity)
-              || createdEntities[0]
-          ) || null;
+          entityFromConclusion = resolveCreatedCapabilityEntityId({
+            conclusion: rawConclusion,
+            createdEntities,
+            manifest: capabilityManifestCandidate,
+          }) || null;
           conclusion = conclusionValue;
 
           if (capabilityManifestCandidate && entityFromConclusion) {
@@ -1122,7 +1140,7 @@ function subdomains(domain){
       if (capabilityManifestCandidate) {
         try {
           capabilityManifest = validateCapabilityManifest(capabilityManifestCandidate, {
-            entityId: entityFromConclusion || capabilityManifestCandidate.entityId,
+            entityId: entityFromConclusion || normalizeCreatedEntityId(capabilityManifestCandidate.entityId),
             ownerId,
           });
           manifestValidation = { ok: true };
@@ -1249,6 +1267,7 @@ function subdomains(domain){
 module.exports = {
   register,
   normalizeCreatedEntityId,
+  resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
   shorthandExecutionSource,
 };

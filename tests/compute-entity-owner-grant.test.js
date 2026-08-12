@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {
   normalizeCreatedEntityId,
+  resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
 } = require("../app/routes/modules/convert");
 
@@ -12,7 +13,21 @@ test("compute build entity references normalize legacy nested result shapes", ()
   assert.equal(normalizeCreatedEntityId({ entity: "entity-row" }), "entity-row");
   assert.equal(normalizeCreatedEntityId({ entity: { id: "entity-nested" } }), "entity-nested");
   assert.equal(normalizeCreatedEntityId({ entityId: { S: "entity-ddb" } }), "entity-ddb");
+  assert.equal(normalizeCreatedEntityId({ response: { file: "entity-route" } }), "entity-route");
   assert.equal(normalizeCreatedEntityId({ unrelated: "value" }), "");
+});
+
+test("capability registration recovers the created id from its manifest reference", () => {
+  assert.equal(resolveCreatedCapabilityEntityId({
+    conclusion: { entity: { unrelated: "shape" } },
+    createdEntities: [],
+    manifest: { entityId: { response: { file: "entity-from-manifest" } } },
+  }), "entity-from-manifest");
+  assert.equal(resolveCreatedCapabilityEntityId({
+    conclusion: {},
+    createdEntities: [],
+    manifest: { entityId: "pending-capability-entity" },
+  }), "");
 });
 
 test("compute creation grants canonical use to the authenticated creator", async () => {
