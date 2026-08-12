@@ -2,6 +2,10 @@
  * Platform: Creates a group as a governed composition of entities, subdomains, access, and files.
  * Technical: Registers newGroup for /<groupName>/<headEntityName>/<headUUID?> and persists its linked records.
  */
+function shouldReuseAuthenticatedEntity(ctx) {
+  return ctx?.req?.body?._isFunction !== true;
+}
+
 function register({ on, use }) {
   on("newGroup", async (ctx, { cookie }) => {
     const {
@@ -43,7 +47,12 @@ function register({ on, use }) {
     setIsPublic(true);
 
     // ---------- EARLY EXIT if manageCookie already created an entity ----------
-    if (ensuredCookie?.existing === true && ensuredCookie?.e && ensuredCookie.e !== "0") {
+    if (
+      shouldReuseAuthenticatedEntity(ctx)
+      && ensuredCookie?.existing === true
+      && ensuredCookie?.e
+      && ensuredCookie.e !== "0"
+    ) {
       try {
         const subByE = await getSub(ensuredCookie.e.toString(), "e", dynamodb);
         const suDoc =
@@ -361,4 +370,4 @@ function register({ on, use }) {
   });
 }
 
-module.exports = { register };
+module.exports = { register, shouldReuseAuthenticatedEntity };

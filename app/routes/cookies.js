@@ -342,6 +342,7 @@ async function route(
     }
   } catch (err) {
     console.error("cookies route adapter error", { action: a, path: ctx.path, err });
+    if (isShorthand) throw err;
     if (!res?.headersSent && res?.status && res?.json) {
       console.log("~~3")
       _shared.sendBack(res, "json", { ok: false, response: {} }, /*isShorthand*/ !!isShorthand);

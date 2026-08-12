@@ -30,8 +30,8 @@ const {
 const { normalizeLlmTemplateId } = require("../../llmTemplates");
 
 function shorthandExecutionSource(retrieved, capabilityBuild) {
-  if (retrieved?.published) return retrieved;
-  return capabilityBuild ? { published: {} } : null;
+  if (capabilityBuild) return { published: {} };
+  return retrieved?.published ? retrieved : null;
 }
 
 function normalizeCreatedEntityId(reference, depth = 0) {
@@ -1134,7 +1134,7 @@ function subdomains(domain){
           }
 
           // Persist updated published logic when actionFile is provided
-          if (actionFile) {
+          if (actionFile && !preparedCapabilityBuild) {
             try {
               await s3
                 .putObject({

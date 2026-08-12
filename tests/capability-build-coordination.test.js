@@ -33,7 +33,8 @@ test("a generated capability can execute without a readable parent workspace fil
   assert.deepEqual(shorthandExecutionSource(null, { claim: {} }), { published: {} });
   assert.equal(shorthandExecutionSource(null, null), null);
   const existing = { published: { content: "workspace" } };
-  assert.equal(shorthandExecutionSource(existing, { claim: {} }), existing);
+  assert.deepEqual(shorthandExecutionSource(existing, { claim: {} }), { published: {} });
+  assert.equal(shorthandExecutionSource(existing, null), existing);
 });
 
 test("route envelopes expose a named value through registered transport wrappers", () => {

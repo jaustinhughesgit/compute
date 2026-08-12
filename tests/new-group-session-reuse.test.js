@@ -2,7 +2,15 @@
 
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { register } = require("../app/routes/modules/newGroup");
+const {
+  register,
+  shouldReuseAuthenticatedEntity,
+} = require("../app/routes/modules/newGroup");
+
+test("internal entity composition does not reuse the authenticated root entity", () => {
+  assert.equal(shouldReuseAuthenticatedEntity({ req: { body: { _isFunction: true } } }), false);
+  assert.equal(shouldReuseAuthenticatedEntity({ req: { body: {} } }), true);
+});
 
 test("newGroup reuses the authenticated cookie installed by request middleware", async () => {
   let handler;
