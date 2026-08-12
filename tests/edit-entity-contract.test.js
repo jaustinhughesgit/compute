@@ -322,7 +322,12 @@ test('provider research excludes credentials, transient failures, and Path-only 
   assert.equal(mayRetryRevisionValidation({
     providerResearch: { attempted: true },
     originalObject: entity,
-    repairAttempt: 1,
+    repairAttempt: 2,
+  }), true);
+  assert.equal(mayRetryRevisionValidation({
+    providerResearch: { attempted: true },
+    originalObject: entity,
+    repairAttempt: 3,
   }), false);
   assert.equal(mayRetryRevisionValidation({
     originalObject: entity,
@@ -336,7 +341,7 @@ test('provider research excludes credentials, transient failures, and Path-only 
   }), false);
   assert.equal(mayRetryRevisionValidation({
     originalObject: entity,
-    repairAttempt: 1,
+    repairAttempt: 3,
     error: new Error("the proposed revision did not materially apply the requested change"),
   }), false);
   assert.equal(mayRetryRevisionValidation({
