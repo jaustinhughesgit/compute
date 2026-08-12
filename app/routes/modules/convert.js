@@ -35,7 +35,7 @@ function shorthandExecutionSource(retrieved, capabilityBuild) {
 }
 
 function normalizeCreatedEntityId(reference, depth = 0) {
-  if (depth > 4 || reference == null) return "";
+  if (depth > 8 || reference == null) return "";
   if (["string", "number", "bigint"].includes(typeof reference)) {
     return String(reference).trim();
   }
@@ -44,14 +44,27 @@ function normalizeCreatedEntityId(reference, depth = 0) {
   }
   if (typeof reference !== "object") return "";
   for (const key of [
-    "entityId", "entityID", "entity", "id", "su", "file", "value", "S",
-    "response", "result", "data", "body", "output", "M", "L",
+    "entityId", "su", "file", "id", "entityID", "entity", "value", "S",
+    "response", "oai", "html", "result", "data", "body", "output", "M", "L",
   ]) {
     if (reference[key] === undefined || reference[key] === reference) continue;
     const entityId = normalizeCreatedEntityId(reference[key], depth + 1);
     if (entityId) return entityId;
   }
   return "";
+}
+
+function describeEntityReferenceShape(reference, depth = 0) {
+  if (reference == null) return String(reference);
+  if (depth >= 5) return typeof reference;
+  if (Array.isArray(reference)) {
+    return `array(${reference.length})[${reference.slice(0, 2)
+      .map((item) => describeEntityReferenceShape(item, depth + 1)).join(",")}]`;
+  }
+  if (typeof reference !== "object") return typeof reference;
+  return `{${Object.keys(reference).slice(0, 8).map((key) =>
+    `${key}:${describeEntityReferenceShape(reference[key], depth + 1)}`
+  ).join(",")}}`;
 }
 
 function resolveCreatedCapabilityEntityId({ conclusion, createdEntities, manifest } = {}) {
@@ -1139,8 +1152,15 @@ function subdomains(domain){
       let capabilityRegistration = null;
       if (capabilityManifestCandidate) {
         try {
+          const resolvedCapabilityEntityId = entityFromConclusion
+            || normalizeCreatedEntityId(capabilityManifestCandidate.entityId);
+          if (!resolvedCapabilityEntityId) {
+            throw Object.assign(new Error(
+              `Created compute entity id was not resolved from ${describeEntityReferenceShape(capabilityManifestCandidate.entityId)}`
+            ), { code: "ENTITY_ID_UNRESOLVED" });
+          }
           capabilityManifest = validateCapabilityManifest(capabilityManifestCandidate, {
-            entityId: entityFromConclusion || normalizeCreatedEntityId(capabilityManifestCandidate.entityId),
+            entityId: resolvedCapabilityEntityId,
             ownerId,
           });
           manifestValidation = { ok: true };
@@ -1266,6 +1286,7 @@ function subdomains(domain){
 
 module.exports = {
   register,
+  describeEntityReferenceShape,
   normalizeCreatedEntityId,
   resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
