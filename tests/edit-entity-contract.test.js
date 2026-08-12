@@ -201,6 +201,54 @@ test('one undeclared provider request input moves into one incomplete protected 
   );
 });
 
+test('one credential-like ordinary input migrates into its incomplete protected requirement', () => {
+  const revisedEntity = {
+    published: {
+      data: { protectedAssetRequirements: [{
+        requirementId: 'provider_api_key',
+        assetType: 'credential',
+        purpose: 'Use the provider API key for authentication.',
+      }] },
+      actions: [{
+        target: '{|axios|}',
+        chain: [{ access: 'get', params: ['https://api.example.com/data', {
+          params: {
+            q: '{|req=>body.location|}',
+            appid: '{|req=>body.api_key|}',
+          },
+        }] }],
+      }],
+    },
+  };
+  const revisedManifest = {
+    operations: [{
+      operationId: 'lookup',
+      inputs: [
+        { name: 'location', type: 'string', description: 'Place to look up.' },
+        { name: 'api_key', type: 'string', description: 'Provider API key.' },
+      ],
+      utteranceExamples: [{ text: 'Look up Boston', inputs: { location: 'Boston', api_key: 'not-a-secret' } }],
+      protectedAssetRequirements: [{
+        requirementId: 'provider_api_key',
+        assetType: 'credential',
+        purpose: 'Use the provider API key for authentication.',
+      }],
+    }],
+  };
+  synchronizeProtectedRequirementFields(revisedEntity, revisedManifest);
+  assert.equal(
+    revisedEntity.published.actions[0].chain[0].params[1].params.appid,
+    '{|protected=>provider_api_key.api_key|}'
+  );
+  assert.deepEqual(revisedManifest.operations[0].inputs.map((input) => input.name), ['location']);
+  assert.deepEqual(revisedManifest.operations[0].utteranceExamples[0].inputs, { location: 'Boston' });
+  assert.deepEqual(revisedManifest.operations[0].protectedAssetRequirements[0].fields, [{
+    name: 'api_key',
+    required: true,
+    injection: { location: 'query', parameter: 'appid', prefix: '' },
+  }]);
+});
+
 const entity = {
   input: [],
   published: {

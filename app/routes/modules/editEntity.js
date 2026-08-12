@@ -1066,17 +1066,18 @@ function canonicalizeGeneratedProtectedIdentifiers(entity, manifest) {
 }
 
 function protectUnambiguousUndeclaredRequestField(entity, manifest, requirementId) {
-  const declaredInputs = new Set((Array.isArray(manifest?.operations) ? manifest.operations : [])
+  const operations = Array.isArray(manifest?.operations) ? manifest.operations : [];
+  const declaredInputRecords = operations
     .flatMap((operation) => Array.isArray(operation?.inputs) ? operation.inputs : [])
-    .map((input) => plainText(input?.name, 128))
-    .filter(Boolean));
+    .filter((input) => input && typeof input === "object" && !Array.isArray(input));
+  const declaredInputs = new Set(declaredInputRecords.map((input) => plainText(input?.name, 128)).filter(Boolean));
   const candidates = [];
   const inspectContainer = (container, location) => {
     if (!container || typeof container !== "object" || Array.isArray(container)) return;
     for (const [parameter, value] of Object.entries(container)) {
       if (typeof value !== "string") continue;
       const match = /^(.*?)\{\|req=>body\.([a-zA-Z][a-zA-Z0-9_.-]*)\|\}$/.exec(value);
-      if (!match || declaredInputs.has(match[2])) continue;
+      if (!match) continue;
       candidates.push({ container, parameter, location, prefix: match[1], name: match[2] });
     }
   };
@@ -1092,9 +1093,50 @@ function protectUnambiguousUndeclaredRequestField(entity, manifest, requirementI
       inspectContainer(config.data, "body");
     }
   }
-  if (candidates.length !== 1) return [];
-  const candidate = candidates[0];
+  const undeclared = candidates.filter((candidate) => !declaredInputs.has(candidate.name));
+  let candidate = undeclared.length === 1 ? undeclared[0] : null;
+  if (!candidate && undeclared.length === 0) {
+    const requirements = [
+      ...(Array.isArray(entity?.published?.data?.protectedAssetRequirements)
+        ? entity.published.data.protectedAssetRequirements
+        : []),
+      ...operations.flatMap((operation) => Array.isArray(operation?.protectedAssetRequirements)
+        ? operation.protectedAssetRequirements
+        : []),
+    ].filter((requirement) => plainText(requirement?.requirementId, 128) === requirementId);
+    const requirementWords = new Set(requirements.flatMap((requirement) => [
+      requirement?.requirementId,
+      requirement?.assetType,
+      requirement?.purpose,
+    ]).flatMap((value) => String(value || "").toLowerCase().split(/[^a-z0-9]+/)).filter((word) => word.length >= 3));
+    const declaredCandidates = candidates.filter((requestCandidate) => {
+      const input = declaredInputRecords.find((entry) => plainText(entry?.name, 128) === requestCandidate.name);
+      if (!input) return false;
+      if (input.sensitive === true || input.credential || input.protectedAssetRequirement) return true;
+      const inputWords = [input.name, input.description]
+        .flatMap((value) => String(value || "").toLowerCase().split(/[^a-z0-9]+/))
+        .filter((word) => word.length >= 3);
+      return inputWords.some((word) => requirementWords.has(word));
+    });
+    if (declaredCandidates.length === 1) candidate = declaredCandidates[0];
+  }
+  if (!candidate) return [];
   candidate.container[candidate.parameter] = `${candidate.prefix}{|protected=>${requirementId}.${candidate.name}|}`;
+  if (declaredInputs.has(candidate.name)) {
+    for (const operation of operations) {
+      const ownsRequirement = (Array.isArray(operation?.protectedAssetRequirements)
+        ? operation.protectedAssetRequirements
+        : []).some((requirement) => plainText(requirement?.requirementId, 128) === requirementId);
+      if (!ownsRequirement) continue;
+      operation.inputs = (Array.isArray(operation.inputs) ? operation.inputs : [])
+        .filter((input) => plainText(input?.name, 128) !== candidate.name);
+      for (const example of Array.isArray(operation.utteranceExamples) ? operation.utteranceExamples : []) {
+        if (example?.inputs && typeof example.inputs === "object" && !Array.isArray(example.inputs)) {
+          delete example.inputs[candidate.name];
+        }
+      }
+    }
+  }
   return [{
     name: candidate.name,
     required: true,
