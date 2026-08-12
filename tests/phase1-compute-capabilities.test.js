@@ -78,3 +78,23 @@ test("entity outputs are validated generically and strict numeric strings are no
   assert.equal(result.longitude, -78.6382);
   assert.throws(() => validateOperationResult(operation, { latitude: "north", longitude: -78.6 }), /latitude must be number/);
 });
+
+test("typed utterance examples normalize strict scalar strings from model output", () => {
+  const value = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "math.increment.number",
+    entityId: "increment-entity",
+    version: 1,
+    status: "active",
+    ownerId: "u:7",
+    execution: { type: "remote", readOnly: true, timeoutMs: 10000 },
+    operations: [{
+      operationId: "increment",
+      inputs: [{ name: "number", type: "number", required: true, bindingHint: { source: "utterance" } }],
+      outputs: [{ name: "result", type: "number", required: true }],
+      utteranceExamples: [{ text: "Increment 4.", inputs: { number: "4" } }],
+      answerTemplate: "{{result}}",
+    }],
+  });
+  assert.equal(value.operations[0].utteranceExamples[0].inputs.number, 4);
+});

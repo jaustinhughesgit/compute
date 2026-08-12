@@ -34,8 +34,29 @@ function shorthandExecutionSource(retrieved, capabilityBuild) {
   return capabilityBuild ? { published: {} } : null;
 }
 
+async function seedCreatedComputeOwnerGrant({ persistence, entityId, ownerId, createdEntities }) {
+  const resourceId = String(entityId || "").trim();
+  const actorId = String(ownerId || "").replace(/^u:/, "").trim();
+  const createdHere = (Array.isArray(createdEntities) ? createdEntities : [])
+    .some((item) => String(item?.entity || item?.id || "") === resourceId);
+  if (!resourceId || !actorId || !createdHere) return false;
+  await persistence.authorization.putGrant({
+    entityID: resourceId,
+    principalID: `u:${actorId}`,
+    perms: "rwdop",
+    canonicalActions: ["find", "read", "aggregate", "use", "set", "edit", "delete", "delegate", "publish", "govern"],
+    canonicalSchemaVersion: 1,
+    canonicalRecordType: "grant",
+    canonicalVersion: 1,
+    canonicalOwnerId: `u:${actorId}`,
+    canonicalLifecycle: { state: "active", tombstone: false },
+    created: Math.floor(Date.now() / 1000),
+  });
+  return true;
+}
+
 function register({ on, use }) {
-  const { getCookie, retrieveAndParseJSON, deps } = use();
+  const { getCookie, getCanonicalPersistence, retrieveAndParseJSON, deps } = use();
 
   on("convert", async (ctx, meta = {}) => {
     try {
@@ -1036,6 +1057,15 @@ function subdomains(domain){
             null;
           conclusion = conclusionValue;
 
+          if (capabilityManifestCandidate && entityFromConclusion) {
+            await seedCreatedComputeOwnerGrant({
+              persistence: getCanonicalPersistence(dynamodb),
+              entityId: entityFromConclusion,
+              ownerId,
+              createdEntities,
+            });
+          }
+
           // Cleanup fields we don't want to echo
           if (newShorthand) {
             delete newShorthand.input;
@@ -1199,4 +1229,4 @@ function subdomains(domain){
   return { name: "convert" };
 }
 
-module.exports = { register, shorthandExecutionSource };
+module.exports = { register, seedCreatedComputeOwnerGrant, shorthandExecutionSource };

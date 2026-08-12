@@ -114,6 +114,8 @@ Completed capability output uses a short single-finalizer lease before Shorthand
 
 Generated entity/app Shorthand reads registered-route results through `ROUTEGET`, which unwraps direct and relayed transport envelopes before selecting a named field. Ordinary `GET` remains exact object traversal; compilers must not encode one historical router wrapper depth into new entity-creation plans.
 
+When Convert creates a compute entity, it also writes the creator's canonical action grant for the newly returned entity address before reporting the manifest ready. Creation must not return an entity that its creator cannot immediately `use`; the grant is scoped to an entity proven to be in that request's `createdEntities` result.
+
 Repair and fork jobs are distinct lifecycle operations. A published repair creates an immutable compatible implementation release in the same capability lineage. A fork creates a separate identity with explicit source lineage and cannot replace or migrate dependents without a separately authorized promotion decision.
 
 Completed model responses expose only the versioned cost-trace fields needed for local estimation: provider, model, response identity, service tier, named step, and aggregate token counts. Prompt/output content, hidden reasoning, credentials, headers, and protected values do not belong in this metadata. Polling responses must preserve one response identity so the browser can deduplicate cost.

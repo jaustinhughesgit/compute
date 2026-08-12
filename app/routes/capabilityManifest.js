@@ -286,8 +286,7 @@ function normalizeOperation(raw, capabilityId = null) {
       for (const [name, value] of Object.entries(sampleInputs)) {
         const input = inputMap.get(String(name).toLowerCase());
         if (!input) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} example references unknown input ${name}`);
-        validateFieldValue(input, value, "example input");
-        values[input.name] = clone(value);
+        values[input.name] = validateCapabilityInputResponse(input, value).value;
       }
       return text ? { text, inputs: values } : null;
     }).filter(Boolean).slice(0, 40);
