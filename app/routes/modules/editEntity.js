@@ -499,6 +499,7 @@ function revisionInput({
           "An Axios assignment is the full response object, so provider JSON paths begin at its data field.",
           "JPL is the JSON array at published.actions and runs sequentially; it is data, never JavaScript source.",
           "A provider-call action has target {|axios|}, one chain step whose access is get or post, params containing the literal documented public HTTPS URL and request-config object, and an assign placeholder naming the full Axios response.",
+          "Any ordinary input referenced by a provider request is an execution dependency: mark it required or give it a non-null defaultValue, and provide a clarification plus annotated example when speech must supply it.",
           "Runtime references use {|name|}; nested values use {|name=>path|}; executed targets end in !. Preserve these placeholder forms exactly.",
           "Read Axios results from {|responseName=>data...|}. The final response action calls {|res|}! send with one object whose keys exactly match the declared operation outputs.",
           "Keep every published.actions item, chain step, params array, request config, placeholder, and string valid JSON. Do not emit comments, trailing commas, functions, imports, or code.",

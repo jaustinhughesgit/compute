@@ -70,6 +70,8 @@ Validated compute entities may also use the allow-listed, side-effect-free binar
 
 Entity Plans may bind a later request parameter to a path in an earlier provider response from the same ordered operation. This is the generic discovery-then-detail primitive needed for flows such as place lookup followed by current conditions; the compiler rejects future request references. Provider credentials remain Protected Asset requirements rather than ordinary inputs.
 
+An ordinary input referenced by an EntityPlan provider request is execution-required unless it has a non-null default. Provider research may promote an existing optional input to required while preserving its type and binding contract. The compiler and legacy declarative-action validator reject optional unresolved provider placeholders, and implementation policy 12 forces older entities to rebuild under this invariant.
+
 Protected request fields use canonical `query`, `header`, or `body` injection locations. Bounded generator aliases such as “query parameter” are normalized at the protected-contract boundary, while the stored requirement, entity data, and declarative provider placeholder remain synchronized.
 
 During an authorized entity revision, a missing requirement-field copy may be reconstructed only from its exact `{|protected=>requirement.field|}` placeholder and literal request container/parameter in declarative JPL. Compute mirrors that non-secret metadata into the entity and manifest before ordinary protected-contract and implementation validation; it cannot infer a credential value or a new destination.

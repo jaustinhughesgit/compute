@@ -10,7 +10,7 @@ const {
 } = require("./protectedAssetContract");
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 11;
+const IMPLEMENTATION_POLICY_VERSION = 12;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([

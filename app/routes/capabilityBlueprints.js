@@ -47,6 +47,10 @@ const CREDENTIAL_PLACEHOLDER = new RegExp([
 const clone = (value) => JSON.parse(JSON.stringify(value));
 
 const isObject = (value) => !!value && typeof value === "object" && !Array.isArray(value);
+const hasUsableDefaultValue = (input) =>
+  Object.prototype.hasOwnProperty.call(input || {}, "defaultValue")
+  && input.defaultValue != null
+  && input.defaultValue !== "";
 
 class CapabilityBuildRetryError extends Error {
   constructor(continuation) {
@@ -202,7 +206,7 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
     if (!Array.isArray(rawGroup.inputs)) {
       throw new Error(`input requirement group ${index} inputs must be an array`);
     }
-    const existingInputNames = new Set(operation.inputs.map((input) => input.name));
+    const existingInputs = new Map(operation.inputs.map((input) => [input.name, input]));
     for (const rawInput of rawGroup.inputs) {
       if (!isObject(rawInput)) throw new Error(`input requirement for ${operationId} must be an object`);
       const name = canonicalizeGeneratedIdentifier(rawInput.name || rawInput.id || rawInput.key);
@@ -210,11 +214,25 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
       if (CREDENTIAL_FIELD.test(name) || rawInput.sensitive === true || rawInput.credential != null) {
         throw new Error(`protected value ${name} must be declared in protectedAssetRequirements`);
       }
-      // The original capability contract wins on conflicts. Generated
-      // requirements may only add missing ordinary inputs.
-      if (existingInputNames.has(name)) continue;
+      const existing = existingInputs.get(name);
+      if (existing) {
+        // Provider research may discover that a previously optional semantic
+        // input is mandatory for execution. It may strengthen that one bit,
+        // but cannot silently replace the input's type or binding contract.
+        if (
+          rawInput.required !== false
+          && existing.required === false
+          && !hasUsableDefaultValue(existing)
+        ) {
+          existing.required = true;
+          if (!String(existing.clarification || "").trim() && String(rawInput.clarification || "").trim()) {
+            existing.clarification = String(rawInput.clarification).trim();
+          }
+        }
+        continue;
+      }
       operation.inputs.push({ ...clone(rawInput), name });
-      existingInputNames.add(name);
+      existingInputs.set(name, operation.inputs.at(-1));
     }
     if (rawGroup.utteranceExamples != null && !Array.isArray(rawGroup.utteranceExamples)) {
       throw new Error(`input requirement group ${index} utteranceExamples must be an array`);
@@ -230,7 +248,7 @@ function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
       const inputs = {};
       for (const item of rawExample.inputValues) {
         const name = canonicalizeGeneratedIdentifier(item?.name);
-        if (!existingInputNames.has(name) || item?.value == null) {
+        if (!existingInputs.has(name) || item?.value == null) {
           throw new Error(`input requirement group ${index} utterance example references invalid input ${name || "(blank)"}`);
         }
         inputs[name] = clone(item.value);
@@ -647,6 +665,23 @@ function validateImplementationBindings(implementation, buildRequest) {
   if (operations.length === 1) {
     const actionText = JSON.stringify(actions);
     const operation = operations[0];
+    const providerActionText = JSON.stringify(
+      actions.filter((action) => action?.target === "{|axios|}")
+    );
+    const providerBoundInputs = new Set(
+      [...providerActionText.matchAll(/\{\|req=>body\.([^|{}]+)\|\}/g)]
+        .map((match) => String(match[1] || "").split(/[.[\]]/, 1)[0])
+    );
+    const unsafeOptional = (operation.inputs || []).find((input) =>
+      providerBoundInputs.has(input.name)
+      && input.required === false
+      && !hasUsableDefaultValue(input)
+    );
+    if (unsafeOptional) {
+      throw new Error(
+        `compute entity provider request input ${unsafeOptional.name} must be required or declare a defaultValue`
+      );
+    }
     const isClosedSemanticSelector = (input) => {
       const source = String(input?.bindingHint?.source || "").toLowerCase();
       if (!["utterance", "environment", "default"].includes(source)) return false;
@@ -722,6 +757,7 @@ function implementationMessages({
       "Review locations, people, organizations, dates, times, quantities, requested units, and other explicit arguments in the original utterance. Never silently discard one because the supplied capability contract omitted it; add it through inputRequirements and wire it into the provider request.",
       "When adding an utterance input, include the original utterance as an annotated utteranceExample and map the literal spoken value through inputValues.",
       "Every required ordinary input must be used by a request or response, except a semantic selector that has a finite anchored validation.pattern and is rendered by answerTemplate.",
+      "Any ordinary input referenced by a provider request parameter is an execution dependency: declare it required, or give it a non-null defaultValue. Optional unresolved placeholders may never reach a provider.",
       "Protected values are never ordinary inputs. Declare each in protectedAssetRequirements and use a protected request-value source only at its declared injection point.",
       "At each declared injection point, the protected placeholder requirementId and field name must exactly match the corresponding protectedAssetRequirements declaration.",
       "A requirement declares requirementId, operationId, assetType, providerId, providerName, providerHost, purpose, use, approvalMode, acquisition, and fields.",

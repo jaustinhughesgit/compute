@@ -13,6 +13,10 @@ const NULLABLE_SCALAR = {
     { type: "null" },
   ],
 };
+const hasUsableDefaultValue = (input) =>
+  Object.prototype.hasOwnProperty.call(input || {}, "defaultValue")
+  && input.defaultValue != null
+  && input.defaultValue !== "";
 
 const BINDING_HINT_SCHEMA = {
   anyOf: [{
@@ -368,6 +372,10 @@ function compileEntityPlan(rawPlan, buildRequest) {
     String(operation.operationId),
     operation,
   ]));
+  const inputByOperation = new Map((buildRequest?.operations || []).map((operation) => [
+    String(operation.operationId),
+    new Map((operation.inputs || []).map((input) => [String(input.name), input])),
+  ]));
   const declaredInputs = new Set((buildRequest?.operations || [])
     .flatMap((operation) => operation.inputs || [])
     .map((input) => String(input.name)));
@@ -390,6 +398,7 @@ function compileEntityPlan(rawPlan, buildRequest) {
     const requestId = cleanId(request.requestId, "request id");
     if (requestIds.has(requestId)) throw new Error(`entity plan contains duplicate request ${requestId}`);
     requestIds.add(requestId);
+    const operationInputs = inputByOperation.get(operationId) || new Map();
     const config = {};
     for (const parameter of request.parameters || []) {
       const containerName = parameter.location === "query"
@@ -403,6 +412,18 @@ function compileEntityPlan(rawPlan, buildRequest) {
       config[containerName] ||= {};
       if (Object.prototype.hasOwnProperty.call(config[containerName], parameter.name)) {
         throw new Error(`entity plan contains duplicate ${parameter.location} parameter ${parameter.name}`);
+      }
+      if (String(parameter?.value?.source || "") === "input") {
+        const inputName = cleanId(parameter.value.inputName, "request input name");
+        const input = operationInputs.get(inputName);
+        if (
+          input?.required === false
+          && !hasUsableDefaultValue(input)
+        ) {
+          throw new Error(
+            `entity plan provider request input ${inputName} must be required or declare a defaultValue`
+          );
+        }
       }
       config[containerName][parameter.name] = compileRequestValue(
         parameter.value,

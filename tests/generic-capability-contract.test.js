@@ -196,6 +196,20 @@ test("a single-operation implementation must use every required ordinary input",
   assert.doesNotThrow(() => validateImplementationBindings(implementation, genericRequest));
 });
 
+test("a provider request cannot depend on an uncollected optional ordinary input", () => {
+  const request = structuredClone(genericRequest);
+  const location = request.operations[0].inputs.find((input) => input.name === "location_code");
+  location.required = false;
+  assert.throws(
+    () => validateImplementationBindings(structuredClone(generatedImplementation), request),
+    /provider request input location_code must be required or declare a defaultValue/
+  );
+  location.defaultValue = "default-location";
+  assert.doesNotThrow(
+    () => validateImplementationBindings(structuredClone(generatedImplementation), request)
+  );
+});
+
 test("a closed semantic selector may select an operation without becoming a provider parameter", () => {
   const request = structuredClone(genericRequest);
   const operation = request.operations[0];

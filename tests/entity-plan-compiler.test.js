@@ -125,6 +125,31 @@ test("generated duplicate examples keep the literal spoken temporal value", () =
   assert.deepEqual(merged.operations[0].utteranceExamples[0].inputs, { date: "today" });
 });
 
+test("provider research can strengthen an existing optional input required by execution", () => {
+  const request = JSON.parse(JSON.stringify(baseRequest));
+  request.operations[0].inputs = [{
+    name: "location",
+    type: "string",
+    required: false,
+    bindingHint: { source: "utterance", resolver: "location" },
+    clarification: "Which location should I use?",
+  }];
+  request.operations[0].utteranceExamples = ["What is the weather today?"];
+  const merged = attachGeneratedInputs(request, [{
+    operationId: "get_weather",
+    inputs: [locationInput()],
+    utteranceExamples: [{
+      text: "What is the weather in New York?",
+      inputValues: [{ name: "location", value: "New York" }],
+    }],
+  }]);
+  assert.equal(merged.operations[0].inputs[0].required, true);
+  assert.deepEqual(
+    merged.operations[0].utteranceExamples.at(-1).inputs,
+    { location: "New York" }
+  );
+});
+
 test("EntityPlan compiler adds a missing explicit input and generates JPL deterministically", async () => {
   const result = await buildComputeEntitySpec({
     capabilityRequest: baseRequest,
@@ -169,6 +194,34 @@ test("EntityPlan compiler rejects an execution plan that drops its declared utte
       }),
     }),
     /does not use required ordinary input location/
+  );
+});
+
+test("EntityPlan compiler rejects an optional input wired into every provider request", async () => {
+  const request = JSON.parse(JSON.stringify(baseRequest));
+  request.operations[0].inputs = [{
+    ...locationInput(),
+    required: false,
+  }];
+  request.operations[0].utteranceExamples = ["What is the weather today?"];
+  const invalidPlan = plan({
+    source: "input",
+    inputName: "location",
+    requirementId: null,
+    fieldName: null,
+    literal: null,
+    prefix: "",
+    suffix: "",
+  });
+  invalidPlan.inputRequirements = [];
+  await assert.rejects(
+    buildComputeEntitySpec({
+      capabilityRequest: request,
+      requestedBy: "u:2",
+      originalUtterance: "What is the weather today?",
+      generatedImplementation: invalidPlan,
+    }),
+    /provider request input location must be required or declare a defaultValue/
   );
 });
 
