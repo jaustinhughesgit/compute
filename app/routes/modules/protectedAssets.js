@@ -92,12 +92,17 @@ function stableJson(value) {
 }
 
 function comparablePolicy(raw = {}) {
+  const providerUse = (raw.allowedUses || []).some((use) =>
+    ["authenticate", "inject", "compare", "send", "derive"].includes(use)
+  );
   return {
     allowedUses: raw.allowedUses || [],
     destinations: raw.destinations || [],
     capabilityIds: raw.capabilityIds || [],
     moduleIds: raw.moduleIds || [],
     approvalMode: normalizeProtectedAssetApprovalMode(raw.approvalMode),
+    trustMode: String(raw.trustMode || (providerUse ? "trusted-server" : "local-zero-knowledge")),
+    plaintextRetention: "never",
     unattendedAutomation: raw.unattendedAutomation === true,
     expiresAt: raw.expiresAt || null,
     maxUses: raw.maxUses || null,
@@ -126,7 +131,11 @@ function assertEnvelopeBinding({ assetId, metadata, envelope }) {
   const requiresExecutor = metadata.policy.allowedUses.some((use) =>
     ["authenticate", "inject", "compare", "send", "derive"].includes(use)
   );
-  if (requiresExecutor && !envelope.keyWraps.executor) {
+  const trustedServer = metadata.policy.trustMode === "trusted-server";
+  if (!trustedServer && envelope.keyWraps.executor) {
+    throw new ProtectedAssetError("EXECUTOR_WRAP_FORBIDDEN", "Local-only protected assets cannot include a server executor wrap");
+  }
+  if (trustedServer && requiresExecutor && !envelope.keyWraps.executor) {
     throw new ProtectedAssetError("EXECUTOR_WRAP_REQUIRED", "This protected asset policy requires a secure-executor key wrap");
   }
 }
@@ -263,25 +272,30 @@ function register({ on, use }) {
       if (action === "envelope") {
         const reference = body.reference || body.assetId || segments[0];
         const { asset, access } = await broker.getAssetForUse(reference, ownerId, "recipient");
-        if (body.purpose !== "local_reveal" || body.approved !== true) {
-          throw new ProtectedAssetError("ASSET_APPROVAL_REQUIRED", "Local reveal requires explicit approval");
+        const purpose = String(body.purpose || "");
+        if (!["local_reveal", "policy_change"].includes(purpose) || body.approved !== true) {
+          throw new ProtectedAssetError("ASSET_APPROVAL_REQUIRED", "Local protected-asset access requires explicit approval");
         }
-        const decision = policyAllowsUse(asset.metadata, {
-          use: "reveal",
-          moduleId: "surface",
-          approved: true,
-          unattended: false,
-        });
-        if (!decision.allowed) {
-          throw new ProtectedAssetError("ASSET_POLICY_DENIED", "Protected asset policy does not allow local reveal", {
-            reason: decision.reason,
+        if (purpose === "local_reveal") {
+          const decision = policyAllowsUse(asset.metadata, {
+            use: "reveal",
+            moduleId: "surface",
+            approved: true,
+            unattended: false,
           });
+          if (!decision.allowed) {
+            throw new ProtectedAssetError("ASSET_POLICY_DENIED", "Protected asset policy does not allow local reveal", {
+              reason: decision.reason,
+            });
+          }
+        } else if (access.source !== "owner") {
+          throw new ProtectedAssetError("ASSET_POLICY_DENIED", "Only the owner may change protected-asset policy");
         }
         await broker.audit({
           eventType: "asset_envelope_retrieved",
           assetId: asset.assetId,
           ownerId,
-          purpose: "local_reveal",
+          purpose,
         });
         return {
           ok: true,
@@ -333,8 +347,9 @@ function register({ on, use }) {
       if (action === "rotate") {
         const { assetId } = normalizeProtectedAssetReference(body.reference || body.assetId || segments[0]);
         const existing = await broker.getAsset(assetId, ownerId);
+        const metadata = normalizeProtectedAssetMetadata(body.metadata || existing.metadata, { ownerId });
         const envelope = normalizeProtectedAssetEnvelope(body.envelope);
-        assertEnvelopeBinding({ assetId, metadata: existing.metadata, envelope });
+        assertEnvelopeBinding({ assetId, metadata, envelope });
         const expectedVersion = Number(body.expectedVersion);
         if (!Number.isInteger(expectedVersion) || expectedVersion < 1) {
           throw new ProtectedAssetError("INVALID_ASSET_VERSION", "expectedVersion is required");
@@ -343,14 +358,14 @@ function register({ on, use }) {
         const result = await dynamodb.update({
           TableName: ASSET_TABLE,
           Key: { assetId },
-          UpdateExpression: "SET #envelope = :envelope, #version = #version + :one, #updated = :now",
+          UpdateExpression: "SET #envelope = :envelope, #metadata = :metadata, #version = #version + :one, #updated = :now",
           ConditionExpression: "#owner = :owner AND #version = :expected AND attribute_not_exists(#revoked)",
           ExpressionAttributeNames: {
-            "#envelope": "envelope", "#version": "version", "#updated": "updatedAt",
+            "#envelope": "envelope", "#metadata": "metadata", "#version": "version", "#updated": "updatedAt",
             "#owner": "ownerId", "#revoked": "revokedAt",
           },
           ExpressionAttributeValues: {
-            ":envelope": envelope, ":one": 1, ":now": now,
+            ":envelope": envelope, ":metadata": metadata, ":one": 1, ":now": now,
             ":owner": ownerId, ":expected": expectedVersion,
           },
           ReturnValues: "ALL_NEW",

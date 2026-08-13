@@ -114,6 +114,8 @@ The active Context graph v1 actions verify that the path-selected workspace belo
 
 The server stores opaque content ciphertext and per-recipient/device wraps created locally. A separate principal-first record grants canonical `use` with `provider` or `recipient` delivery. Provider-only use can inject plaintext only inside a destination-bound Compute request; it cannot return an envelope or grant edit/delete/delegate. Recipient retrieval returns only that principal's wrap. Both paths require the current asset version. Executor/KMS wraps remain a separate trusted-server option. Membership changes, key rotation, recipient removal, and future-version confidentiality still require explicit rewrap or re-encryption lifecycle operations.
 
+Protected policy now also declares `trustMode` and `plaintextRetention: never`. Local-zero-knowledge envelopes are rejected if they contain an executor wrap, and the broker returns `LOCAL_EXECUTION_REQUIRED` before KMS decryption. Trusted-server provider-use envelopes require an executor wrap; `every_use` and `preapproved` distinguish options 2 and 3. Owner policy changes arrive as a new browser-encrypted envelope plus normalized metadata in one conditional version rotation; no plaintext enters this route.
+
 The legacy passphrase route remains ciphertext-only compatibility. Its useful exchange is now carried by Protected Assets: recipients publish public encryption keys, the sender creates a fresh salt and wrap locally, and the server stores the salt, ephemeral public key, IV, ciphertext, and explicit grant without plaintext.
 
 ## Canonical migration proof

@@ -143,6 +143,12 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId, grantStore } = {}
     unattended = false,
   }) {
     const { asset, access } = await getAssetForUse(reference, ownerId, "provider");
+    if (asset.metadata?.policy?.trustMode === "local-zero-knowledge") {
+      throw new ProtectedAssetError(
+        "LOCAL_EXECUTION_REQUIRED",
+        "This protected asset may only be decrypted and used by the browser-local execution plane"
+      );
+    }
     const decision = policyAllowsUse(asset.metadata, {
       capabilityId,
       operationId,

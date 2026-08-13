@@ -8,7 +8,10 @@ const {
   normalizeGrantRequests,
 } = require("../app/routes/protectedAssetGrants");
 const { register } = require("../app/routes/modules/protectedAssets");
-const { normalizeProtectedAssetRequirement } = require("../app/routes/protectedAssetContract");
+const {
+  normalizeProtectedAssetMetadata,
+  normalizeProtectedAssetRequirement,
+} = require("../app/routes/protectedAssetContract");
 
 const assetId = "pa_1234567890abcdef1234567890abcdef";
 const envelope = {
@@ -51,6 +54,29 @@ test("generated protected injection location aliases normalize to the canonical 
     ...base,
     fields: [{ ...base.fields[0], injection: { ...base.fields[0].injection, location: "request-body" } }],
   }).fields[0].injection.location, "body");
+});
+
+test("protected metadata makes the plaintext execution boundary explicit", () => {
+  const base = {
+    label: "Credential", assetType: "credential", ownerId: "u:1",
+    fields: [{ name: "value", type: "string", required: true }],
+    policy: { allowedUses: ["inject"], destinations: [], capabilityIds: [], moduleIds: [] },
+  };
+  assert.equal(normalizeProtectedAssetMetadata({
+    ...base,
+    policy: { ...base.policy, trustMode: "local-zero-knowledge" },
+  }).policy.trustMode, "local-zero-knowledge");
+  const trusted = normalizeProtectedAssetMetadata({
+    ...base,
+    policy: { ...base.policy, trustMode: "trusted-server", approvalMode: "preapproved" },
+  });
+  assert.equal(trusted.policy.trustMode, "trusted-server");
+  assert.equal(trusted.policy.approvalMode, "preapproved");
+  assert.equal(trusted.policy.plaintextRetention, "never");
+  assert.throws(() => normalizeProtectedAssetMetadata({
+    ...base,
+    policy: { ...base.policy, plaintextRetention: "logs" },
+  }), (error) => error.code === "INVALID_ASSET_POLICY");
 });
 
 test("recipient salts/wraps are paired with explicit canonical use grants", () => {

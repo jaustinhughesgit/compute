@@ -52,6 +52,7 @@ const INJECTION_LOCATION_ALIASES = new Map([
   ["data", "body"],
 ]);
 const APPROVAL_MODES = new Set(["every_use", "session", "preapproved"]);
+const TRUST_MODES = new Set(["local-zero-knowledge", "trusted-server"]);
 // Generated capability requirements historically used "auto" to mean that
 // the protected answer may be used immediately after the user explicitly
 // encrypts and submits it. Stored asset policies call that state
@@ -154,6 +155,15 @@ function normalizePolicy(raw = {}) {
     throw new ProtectedAssetError("INVALID_ASSET_POLICY", "policy.allowedUses is invalid");
   }
   const approvalMode = normalizeProtectedAssetApprovalMode(policy.approvalMode);
+  const providerUse = allowedUses.some((use) => ["authenticate", "inject", "compare", "send", "derive"].includes(use));
+  const trustMode = String(policy.trustMode || (providerUse ? "trusted-server" : "local-zero-knowledge"))
+    .trim().toLowerCase();
+  if (!TRUST_MODES.has(trustMode)) {
+    throw new ProtectedAssetError("INVALID_ASSET_POLICY", "policy.trustMode is invalid");
+  }
+  if (policy.plaintextRetention && policy.plaintextRetention !== "never") {
+    throw new ProtectedAssetError("INVALID_ASSET_POLICY", "protected plaintext retention must be never");
+  }
   return {
     allowedUses,
     destinations: (Array.isArray(policy.destinations) ? policy.destinations : [])
@@ -161,6 +171,8 @@ function normalizePolicy(raw = {}) {
     capabilityIds: stringList(policy.capabilityIds, { max: 100, lower: true }),
     moduleIds: stringList(policy.moduleIds, { max: 100, lower: true }),
     approvalMode,
+    trustMode,
+    plaintextRetention: "never",
     unattendedAutomation: policy.unattendedAutomation === true,
     expiresAt: policy.expiresAt ? new Date(policy.expiresAt).toISOString() : null,
     maxUses: Number.isInteger(Number(policy.maxUses)) && Number(policy.maxUses) > 0
