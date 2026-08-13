@@ -352,6 +352,17 @@ function normalizeDiscoveryInputValues({
     const field = utteranceInputs.get(name);
     const { value } = validateCapabilityInputResponse(field, rawValue);
     const literal = normalizedWords(value);
+    const resolver = normalizedWords(field?.bindingHint?.resolver);
+    const temporalField = ["date", "datetime"].includes(String(field?.type || "").toLowerCase())
+      || /\bdate\b/.test(resolver);
+    const relativeDateSurfaces = temporalField
+      ? [...new Set(
+          String(utterance || "").toLowerCase()
+            .match(/\b(?:today|tomorrow|yesterday|next\s+(?:sunday|monday|tuesday|wednesday|thursday|friday|saturday)|sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/g)
+          || []
+        )]
+      : [];
+    const relativeDateSurface = relativeDateSurfaces.length === 1 ? relativeDateSurfaces[0] : "";
     const booleanWasSpoken = field.type === "boolean"
       && ((value === true && /\b(?:true|yes|on|enabled?)\b/i.test(utterance))
         || (value === false && /\b(?:false|no|off|disabled?)\b/i.test(utterance)));
@@ -363,12 +374,12 @@ function normalizeDiscoveryInputValues({
       // compiled as though the remembered value appeared in the utterance.
       continue;
     }
-    if (!literal || (!literalWasSpoken && !booleanWasSpoken)) {
+    if (!literal || (!literalWasSpoken && !booleanWasSpoken && !relativeDateSurface)) {
       const error = new Error(`discovery input ${name} must occur literally in the utterance`);
       error.code = "INVALID_DISCOVERY_INPUT_VALUE";
       throw error;
     }
-    normalized[name] = value;
+    normalized[name] = relativeDateSurface || value;
   }
   return normalized;
 }
@@ -543,7 +554,7 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
           "Classify an unanswered platform utterance without relying on a hard-coded capability catalog.",
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
-          "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value.",
+          "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
           "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
           "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",

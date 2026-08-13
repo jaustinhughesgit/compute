@@ -833,6 +833,24 @@ test("discovery turns LLM semantic evidence into validated literal utterance bin
   }), /must occur literally/);
 });
 
+test("discovery restores a normalized date to its explicit relative-day surface", () => {
+  const operation = {
+    operationId: "fetch_weather",
+    inputs: [{
+      name: "date",
+      type: "date",
+      required: true,
+      description: "Requested date.",
+      bindingHint: { source: "utterance", resolver: "date" },
+    }],
+  };
+  assert.deepEqual(normalizeDiscoveryInputValues({
+    parsedValues: [{ name: "date", value: "2026-08-12" }],
+    utterance: "What is the weather today?",
+    operation,
+  }), { date: "today" });
+});
+
 test("discovery preserves ContextDB bindings separately from utterance input values", () => {
   const evidence = semanticEvidenceContext([{
     essence: [
