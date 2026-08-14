@@ -7,6 +7,7 @@
 const crypto = require("node:crypto");
 const { createCanonicalPersistence } = require("../../persistence/canonicalPersistence");
 const { createCanonicalContextStore } = require("../../persistence/canonicalContextStore");
+const { normalizeProtectedAssetReference } = require("../protectedAssetContract");
 
 const SCHEMA_VERSION = 1;
 const MAX_NODES = 96;
@@ -14,6 +15,7 @@ const MAX_RELATIONS = 192;
 const MAX_LABELS = 12;
 const MAX_LABEL_LENGTH = 160;
 const MAX_SOURCE_SENTENCE = 1200;
+const PROTECTED_ASSETS_TABLE = process.env.PROTECTED_ASSETS_TABLE || "protectedAssets";
 const GENERIC_PROFILE_NAMES = new Set([
   "newuser",
   "new user",
@@ -79,11 +81,42 @@ function uniqueStrings(values, max = MAX_LABELS) {
 function normalizedNode(raw) {
   const localId = text(raw?.localId, 180);
   if (!localId) return null;
+  const protectedAssetReference = text(raw?.protectedAssetReference, 220);
   return {
     localId,
     lemmas: uniqueStrings(raw?.lemmas),
     names: uniqueStrings(raw?.names),
+    ...(protectedAssetReference ? { protectedAssetReference } : {}),
   };
+}
+
+async function validateProtectedNodeReferences(nodes, principalId, documentClient) {
+  const references = [...new Set((Array.isArray(nodes) ? nodes : [])
+    .map((node) => node?.protectedAssetReference).filter(Boolean))];
+  for (const reference of references) {
+    let assetId;
+    try {
+      ({ assetId } = normalizeProtectedAssetReference(reference));
+    } catch {
+      return errorEnvelope(
+        "CONTEXT_PROTECTED_REFERENCE_INVALID",
+        "A protected Context node contains an invalid asset reference."
+      );
+    }
+    const result = await documentClient.get({
+      TableName: PROTECTED_ASSETS_TABLE,
+      Key: { assetId },
+    }).promise();
+    const asset = result?.Item;
+    if (!asset || asset.deletedAt || asset.revokedAt || String(asset.ownerId) !== `u:${principalId}`) {
+      return errorEnvelope(
+        "CONTEXT_PROTECTED_REFERENCE_FORBIDDEN",
+        "A protected Context node must reference an active asset owned by the publisher.",
+        403
+      );
+    }
+  }
+  return null;
 }
 
 function normalizedRelation(raw) {
@@ -403,6 +436,9 @@ function register({ on, use }) {
           serverId: text(item.serverId, 180),
           lemmas: uniqueStrings(item.lemmas),
           names: uniqueStrings(item.names),
+          ...(text(item.protectedAssetReference, 220)
+            ? { protectedAssetReference: text(item.protectedAssetReference, 220) }
+            : {}),
           version: Number(item.version || 1),
         });
       } else if (item?.recordType === "relation") {
@@ -524,6 +560,12 @@ function register({ on, use }) {
     if (nodes.length > MAX_NODES || relations.length > MAX_RELATIONS) {
       return errorEnvelope("CONTEXT_DELTA_TOO_LARGE", "The Context graph delta exceeds the publication limit.", 413);
     }
+    const protectedReferenceError = await validateProtectedNodeReferences(
+      nodes,
+      principalId,
+      getDocClient()
+    );
+    if (protectedReferenceError) return protectedReferenceError;
     const nodeById = new Map(nodes.map((node) => [node.localId, node]));
     for (const relation of relations) {
       for (const localId of [relation.subjectLocalId, relation.predicateLocalId, relation.objectLocalId]) {
@@ -610,6 +652,9 @@ function register({ on, use }) {
         serverId: resolution.serverId,
         lemmas: node.lemmas,
         names: uniqueStrings([resolution.displayName, ...(node.names || [])]),
+        ...(node.protectedAssetReference
+          ? { protectedAssetReference: node.protectedAssetReference }
+          : {}),
         resolution: resolution.resolution,
         visibility: publicRecord ? "public-workspace" : "participants",
       };
@@ -869,6 +914,7 @@ module.exports = {
     normalizedNode,
     normalizedRelation,
     normalizedUserReference,
+    validateProtectedNodeReferences,
     profileCandidates,
     publicWorkspace,
     declaredProfileName,

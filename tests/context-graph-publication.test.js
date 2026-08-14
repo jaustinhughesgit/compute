@@ -11,7 +11,11 @@ function memoryDocumentClient() {
   return {
     items,
     put: ({ Item }) => ({ promise: async () => { items.set(key(Item), structuredClone(Item)); } }),
-    get: ({ Key }) => ({ promise: async () => ({ Item: structuredClone(items.get(key(Key))) }) }),
+    get: ({ Key }) => ({ promise: async () => ({
+      Item: structuredClone(Key.assetId
+        ? items.get(`protected-asset\u001f${Key.assetId}`)
+        : items.get(key(Key))),
+    }) }),
     batchWrite: ({ RequestItems }) => ({
       promise: async () => {
         for (const requests of Object.values(RequestItems)) {
@@ -298,4 +302,90 @@ test("a public self-name assertion makes earlier facts available to an exact nam
     req: { body: { schemaVersion: 1 } },
   }, aliceMeta);
   assert.equal(doc.items.get("u:1\u001fprofile#self").displayName, "Austin");
+});
+
+test("owned protected placeholders hydrate by name without publishing plaintext", async () => {
+  const doc = memoryDocumentClient();
+  const reference = "protected_asset:pa_1234567890abcdef";
+  doc.items.set("protected-asset\u001fpa_1234567890abcdef", {
+    assetId: "pa_1234567890abcdef",
+    ownerId: "u:1",
+    version: 1,
+  });
+  const handlers = installRuntime(doc);
+  const owner = { cookie: { e: "1" } };
+  const protectedFact = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "protected-dogs-1",
+      source: { sentence: "I have *** dogs." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "observe_quantity", lemmas: ["observe_quantity"] },
+        { localId: "dog_record", lemmas: ["dog observation"] },
+        { localId: "item", lemmas: ["item"] },
+        { localId: "dog", lemmas: ["dog"] },
+        { localId: "quantity_delta", lemmas: ["quantity_delta"] },
+        {
+          localId: "protected_value",
+          lemmas: ["protected_asset"],
+          protectedAssetReference: reference,
+        },
+      ],
+      relations: [
+        { localId: "dogs-observed", subjectLocalId: "speaker", predicateLocalId: "observe_quantity", objectLocalId: "dog_record" },
+        { localId: "dogs-item", subjectLocalId: "dog_record", predicateLocalId: "item", objectLocalId: "dog" },
+        { localId: "dogs-delta", subjectLocalId: "dog_record", predicateLocalId: "quantity_delta", objectLocalId: "protected_value" },
+      ],
+    } },
+  }, owner);
+  assert.equal(protectedFact.ok, true);
+
+  await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "protected-name-1",
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "name", lemmas: ["name"] },
+        { localId: "austin", lemmas: ["austin"], names: ["Austin"] },
+      ],
+      relations: [
+        { localId: "name-assertion", subjectLocalId: "speaker", predicateLocalId: "name", objectLocalId: "austin" },
+      ],
+    } },
+  }, owner);
+
+  const hydrated = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, { cookie: { e: "2" } });
+  const placeholder = hydrated.response.nodes.find((node) => (
+    node.protectedAssetReference === reference
+  ));
+  assert.ok(placeholder);
+  assert.deepEqual(placeholder.lemmas, ["protected_asset"]);
+  assert.equal(JSON.stringify(hydrated.response).includes('"2"'), false);
+  assert.ok(hydrated.response.relations.some((relation) => relation.object === placeholder.serverId));
+});
+
+test("protected Context references must belong to the authenticated publisher", async () => {
+  const doc = memoryDocumentClient();
+  doc.items.set("protected-asset\u001fpa_1234567890abcdef", {
+    assetId: "pa_1234567890abcdef",
+    ownerId: "u:2",
+    version: 1,
+  });
+  const handlers = installRuntime(doc);
+  const body = publicationBody();
+  body.nodes[0].protectedAssetReference = "protected_asset:pa_1234567890abcdef";
+  const result = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body },
+  }, { cookie: { e: "1" } });
+  assert.equal(result.ok, false);
+  assert.equal(result.statusCode, 403);
+  assert.equal(result.error.code, "CONTEXT_PROTECTED_REFERENCE_FORBIDDEN");
 });

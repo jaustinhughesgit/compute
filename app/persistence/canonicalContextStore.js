@@ -88,6 +88,9 @@ function createCanonicalContextStore({ persistence, env = process.env, now = () 
     return {
       nodes: entityRows.map((item) => ({
         serverId: String(item.e), lemmas: uniqueStrings(item.lemmas), names: uniqueStrings(item.names),
+        ...(item.protectedAssetReference
+          ? { protectedAssetReference: String(item.protectedAssetReference) }
+          : {}),
         version: Math.max(1, Number(item.canonicalVersion || 1)),
       })),
       relations: relationRows.map((item) => ({

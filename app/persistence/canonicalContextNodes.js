@@ -72,6 +72,9 @@ function addNodeRecords({ node, ownerId, workspaceSu, groupId, timestamp, shards
     wordIds: [...new Set(wordIds)],
     lemmas: uniqueStrings(node.lemmas),
     names: uniqueStrings(node.names),
+    ...(node.protectedAssetReference
+      ? { protectedAssetReference: String(node.protectedAssetReference) }
+      : {}),
     properties: literalProperty(labels),
     visibility: node.visibility || "participants",
     audienceIds: [...new Set(node.audienceIds || [`u:${ownerId}`])],

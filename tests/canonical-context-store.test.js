@@ -76,6 +76,28 @@ test("canonical publication hydrates authorized facts and supports profile and w
   assert.deepEqual(candidates.entityIds, ["ctx_cats"]);
 });
 
+test("canonical Context preserves an opaque protected reference without lexicalizing it", async () => {
+  const client = memoryClient();
+  const persistence = createCanonicalPersistence({
+    documentClient: client,
+    tableNames: { canonicalProjections: "canonical_projection" },
+  });
+  const store = createCanonicalContextStore({ persistence });
+  const input = examplePublication();
+  const reference = "protected_asset:pa_1234567890abcdef";
+  input.nodes[2] = {
+    ...input.nodes[2],
+    lemmas: ["protected_asset"],
+    protectedAssetReference: reference,
+  };
+  await store.publish(input);
+  const hydrated = await store.hydrateAudience("public:1");
+  const placeholder = hydrated.nodes.find((row) => row.serverId === "ctx_three");
+  assert.equal(placeholder.protectedAssetReference, reference);
+  assert.deepEqual(placeholder.lemmas, ["protected_asset"]);
+  assert.equal(JSON.stringify(placeholder).includes('"3"'), false);
+});
+
 test("hydration reloads grants instead of trusting an audience projection", async () => {
   const client = memoryClient();
   const persistence = createCanonicalPersistence({
