@@ -82,7 +82,10 @@ function createProtectedAssetGrantStore({ dynamodb } = {}) {
     const grant = await get(asset.assetId, actorId);
     if (!grant || Number(grant.assetVersion) !== Number(asset.version)
       || !grant.canonicalActions?.includes("use") || !grant.deliveries?.includes(delivery)) {
-      throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset use is not granted for this delivery");
+      throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset use is not granted for this delivery", {
+        requestable: true,
+        reference: `protected_asset:${asset.assetId}`,
+      });
     }
     return { source: "grant", grant };
   }

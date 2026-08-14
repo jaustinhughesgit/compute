@@ -25,6 +25,7 @@ It is the server execution and persistence layer, not the owner of browser-local
 - SES email delivery, consent, rate/reputation safeguards, suppression, and bounce events
 - Idempotent publication, versioning, linking, authorization, and hydration of ordinary local entities and hard-data facts
 - Recipient/device protected-asset grants, envelope retrieval, key-version lifecycle, and zero-trust sharing metadata
+- Durable authenticated notifications, browser acknowledgement, lifecycle resolution, and privacy-safe email fallback
 - Sanitized model usage traces for discovery, generation, interpretation, diagnosis, and verification responses
 - Trusted resolution of versioned LLM template IDs for compute discovery, generation, interpretation, diagnosis, and verification
 
@@ -117,6 +118,10 @@ The server stores opaque content ciphertext and per-recipient/device wraps creat
 Protected policy now also declares `trustMode` and `plaintextRetention: never`. Local-zero-knowledge envelopes are rejected if they contain an executor wrap, and the broker returns `LOCAL_EXECUTION_REQUIRED` before KMS decryption. Trusted-server provider-use envelopes require an executor wrap; `every_use` and `preapproved` distinguish options 2 and 3. Owner policy changes arrive as a new browser-encrypted envelope plus normalized metadata in one conditional version rotation; no plaintext enters this route.
 
 The legacy passphrase route remains ciphertext-only compatibility. Its useful exchange is now carried by Protected Assets: recipients publish public encryption keys, the sender creates a fresh salt and wrap locally, and the server stores the salt, ephemeral public key, IV, ciphertext, and explicit grant without plaintext.
+
+When a recipient lacks `use`, the server can persist an opaque access request and notify the owner. Approval is not a notification effect: the owner browser unwraps the existing content key and supplies a wrap for the requester's current account public key. Compute atomically stores that wrap, a version-bound recipient-delivery `use` grant, and the decision. A retryable, idempotent publication then confirms the decision to the requester.
+
+The generic notification inbox distinguishes browser acknowledgement from governance resolution. Publications schedule a one-minute SQS fallback; a browser acknowledgement suppresses email and clears the per-principal reminder latch but leaves unresolved work in the inbox. Only a decision or explicit dismissal resolves it. Verified notification contacts are stored separately as KMS ciphertext and decrypted only at the SES send boundary. Email contains no protected reference, request details, or decision.
 
 ## Canonical migration proof
 

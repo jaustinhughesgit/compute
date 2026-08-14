@@ -19,6 +19,8 @@ const { createGrantItems, normalizeGrantRequests } = require("../protectedAssetG
 
 const ASSET_TABLE = process.env.PROTECTED_ASSETS_TABLE || "protectedAssets";
 const AUDIT_TABLE = process.env.PROTECTED_ASSET_AUDIT_TABLE || "protectedAssetAudit";
+const GRANT_TABLE = process.env.PROTECTED_ASSET_GRANTS_TABLE || "protectedAssetGrants";
+const ACCESS_REQUEST_TABLE = process.env.PROTECTED_ASSET_ACCESS_REQUESTS_TABLE || "protectedAssetAccessRequests";
 
 function bodyObject(req) {
   const body = req?.body;
@@ -182,6 +184,7 @@ function register({ on, use }) {
   const kms = kmsClient(shared);
   const kmsKeyId = process.env.PROTECTED_ASSET_KMS_KEY_ID || "";
   const broker = createProtectedAssetBroker({ dynamodb, kms, kmsKeyId });
+  const notifications = shared?.registry?.notificationLifecycle || null;
   shared.expose?.("protectedAssetBroker", broker);
 
   async function route(ctx, forcedAction = "") {
@@ -336,6 +339,207 @@ function register({ on, use }) {
         };
       }
 
+      if (action === "request-access") {
+        if (!notifications) throw new ProtectedAssetError("NOTIFICATION_UNAVAILABLE", "Protected access requests are unavailable");
+        const { assetId, reference } = normalizeProtectedAssetReference(body.reference || body.assetId || segments[0]);
+        const asset = await broker.loadAsset(assetId);
+        if (asset.ownerId === ownerId) {
+          throw new ProtectedAssetError("ASSET_ALREADY_OWNED", "The owner does not need to request access");
+        }
+        const existingGrant = await broker.grants.get(assetId, ownerId);
+        if (existingGrant?.canonicalActions?.includes("use")
+          && Number(existingGrant.assetVersion) === Number(asset.version)) {
+          return { ok: true, kind: "protectedAssetAccessAlreadyGranted", requestId: null };
+        }
+        const idempotencyKey = String(body.idempotencyKey || crypto.randomUUID()).trim().slice(0, 180);
+        const requestId = `par_${crypto.createHash("sha256")
+          .update(`${assetId}\n${ownerId}\n${idempotencyKey}`).digest("hex").slice(0, 40)}`;
+        const now = new Date().toISOString();
+        const item = {
+          requestId,
+          recordType: "protected-asset-access-request",
+          schemaVersion: 1,
+          assetId,
+          ownerId: String(asset.ownerId),
+          requesterId: ownerId,
+          delivery: "recipient",
+          status: "pending",
+          createdAt: now,
+          updatedAt: now,
+          expiresAt: Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60,
+        };
+        try {
+          await dynamodb.put({
+            TableName: ACCESS_REQUEST_TABLE,
+            Item: item,
+            ConditionExpression: "attribute_not_exists(#requestId)",
+            ExpressionAttributeNames: { "#requestId": "requestId" },
+          }).promise();
+        } catch (error) {
+          if (error?.code !== "ConditionalCheckFailedException") throw error;
+          const existing = (await dynamodb.get({
+            TableName: ACCESS_REQUEST_TABLE, Key: { requestId }, ConsistentRead: true,
+          }).promise()).Item;
+          if (existing?.requesterId === ownerId && existing?.assetId === assetId && existing?.status === "pending") {
+            const notification = await notifications.publish({
+              recipient: asset.ownerId,
+              kind: "protected_access_request",
+              payload: { requestId, requesterId: ownerId, reference },
+              dedupeKey: `access-request:${requestId}`,
+              occurredAt: existing.createdAt,
+            });
+            await dynamodb.update({
+              TableName: ACCESS_REQUEST_TABLE,
+              Key: { requestId },
+              UpdateExpression: "SET #ownerNotificationId = :notificationId",
+              ExpressionAttributeNames: { "#ownerNotificationId": "ownerNotificationId" },
+              ExpressionAttributeValues: { ":notificationId": notification.notificationId },
+            }).promise();
+            return { ok: true, kind: "protectedAssetAccessRequested", requestId, duplicate: true };
+          }
+          throw error;
+        }
+        try {
+          const notification = await notifications.publish({
+            recipient: asset.ownerId,
+            kind: "protected_access_request",
+            payload: { requestId, requesterId: ownerId, reference },
+            dedupeKey: `access-request:${requestId}`,
+            occurredAt: item.createdAt,
+          });
+          await dynamodb.update({
+            TableName: ACCESS_REQUEST_TABLE,
+            Key: { requestId },
+            UpdateExpression: "SET #ownerNotificationId = :notificationId",
+            ExpressionAttributeNames: { "#ownerNotificationId": "ownerNotificationId" },
+            ExpressionAttributeValues: { ":notificationId": notification.notificationId },
+          }).promise();
+          await broker.audit({ eventType: "asset_access_requested", assetId, ownerId: asset.ownerId, actorId: ownerId });
+          return { ok: true, kind: "protectedAssetAccessRequested", requestId };
+        } catch (error) {
+          await dynamodb.delete({ TableName: ACCESS_REQUEST_TABLE, Key: { requestId } }).promise().catch(() => {});
+          throw error;
+        }
+      }
+
+      if (action === "decide-access") {
+        if (!notifications) throw new ProtectedAssetError("NOTIFICATION_UNAVAILABLE", "Protected access decisions are unavailable");
+        const requestId = String(body.requestId || "").trim();
+        const decision = String(body.decision || "").trim().toLowerCase();
+        if (!/^par_[a-f0-9]{40}$/.test(requestId) || !["approved", "denied"].includes(decision)) {
+          throw new ProtectedAssetError("INVALID_ACCESS_DECISION", "A valid request and decision are required");
+        }
+        const request = (await dynamodb.get({
+          TableName: ACCESS_REQUEST_TABLE,
+          Key: { requestId },
+          ConsistentRead: true,
+        }).promise()).Item;
+        if (!request || request.ownerId !== ownerId) {
+          throw new ProtectedAssetError("ACCESS_REQUEST_UNAVAILABLE", "The protected access request is unavailable");
+        }
+        const decisionOccurredAt = request.decidedAt || new Date().toISOString();
+        const publishDecision = async () => {
+          const notification = await notifications.publish({
+            recipient: request.requesterId,
+            kind: "protected_access_decision",
+            payload: { requestId, decision },
+            dedupeKey: `access-decision:${requestId}:${decision}`,
+            occurredAt: decisionOccurredAt,
+          });
+          await dynamodb.update({
+            TableName: ACCESS_REQUEST_TABLE,
+            Key: { requestId },
+            UpdateExpression: "SET #decisionNotificationId = :notificationId, #updatedAt = :now",
+            ExpressionAttributeNames: {
+              "#decisionNotificationId": "decisionNotificationId",
+              "#updatedAt": "updatedAt",
+            },
+            ExpressionAttributeValues: {
+              ":notificationId": notification.notificationId,
+              ":now": new Date().toISOString(),
+            },
+          }).promise();
+          const ownerNotificationId = String(body.notificationId || request.ownerNotificationId || "").trim();
+          if (ownerNotificationId) await notifications.resolve(ownerId, ownerNotificationId);
+          return notification;
+        };
+        if (request.status !== "pending") {
+          if (request.status !== decision) {
+            throw new ProtectedAssetError("ACCESS_REQUEST_UNAVAILABLE", "The protected access request is unavailable");
+          }
+          await publishDecision();
+          return { ok: true, kind: "protectedAssetAccessDecided", requestId, decision, duplicate: true };
+        }
+        const asset = await broker.getAsset(request.assetId, ownerId);
+        const decidedAt = decisionOccurredAt;
+        const requestUpdate = {
+          Update: {
+            TableName: ACCESS_REQUEST_TABLE,
+            Key: { requestId },
+            UpdateExpression: "SET #status = :status, #decidedAt = :now, #updatedAt = :now",
+            ConditionExpression: "#ownerId = :ownerId AND #status = :pending",
+            ExpressionAttributeNames: {
+              "#status": "status", "#decidedAt": "decidedAt", "#updatedAt": "updatedAt", "#ownerId": "ownerId",
+            },
+            ExpressionAttributeValues: {
+              ":status": decision, ":now": decidedAt, ":ownerId": ownerId, ":pending": "pending",
+            },
+          },
+        };
+        const transaction = [requestUpdate];
+        if (decision === "approved") {
+          const requesterUserId = String(request.requesterId || "").replace(/^u:/, "");
+          const candidateEnvelope = normalizeProtectedAssetEnvelope({
+            ...asset.envelope,
+            keyWraps: {
+              ...asset.envelope.keyWraps,
+              user: { [requesterUserId]: body.recipientWrap },
+            },
+          });
+          const recipientWrap = candidateEnvelope.keyWraps.user[requesterUserId];
+          if (![requesterUserId, `${requesterUserId}:v${Number(body.keyVersion || 1)}`].includes(recipientWrap.keyId)) {
+            throw new ProtectedAssetError("ASSET_RECIPIENT_KEY_MISMATCH", "The recipient wrap has the wrong key identity");
+          }
+          const grant = createGrantItems({
+            asset: {
+              ...asset,
+              envelope: { ...asset.envelope, keyWraps: {
+                ...asset.envelope.keyWraps,
+                user: { ...asset.envelope.keyWraps.user, [requesterUserId]: recipientWrap },
+              } },
+            },
+            requests: [{ principalId: request.requesterId, userID: requesterUserId, deliveries: ["recipient"] }],
+            now: decidedAt,
+          })[0];
+          transaction.unshift(
+            { Update: {
+              TableName: ASSET_TABLE,
+              Key: { assetId: asset.assetId },
+              UpdateExpression: "SET #envelope.#keyWraps.#user.#recipient = :wrap, #updatedAt = :now",
+              ConditionExpression: "#ownerId = :ownerId AND #version = :version AND attribute_not_exists(#revokedAt)",
+              ExpressionAttributeNames: {
+                "#envelope": "envelope", "#keyWraps": "keyWraps", "#user": "user", "#recipient": requesterUserId,
+                "#updatedAt": "updatedAt", "#ownerId": "ownerId", "#version": "version", "#revokedAt": "revokedAt",
+              },
+              ExpressionAttributeValues: {
+                ":wrap": recipientWrap, ":now": decidedAt, ":ownerId": ownerId, ":version": Number(asset.version),
+              },
+            } },
+            { Put: { TableName: GRANT_TABLE, Item: grant } },
+          );
+        }
+        await dynamodb.transactWrite({ TransactItems: transaction }).promise();
+        await publishDecision();
+        await broker.audit({
+          eventType: `asset_access_${decision}`,
+          assetId: asset.assetId,
+          ownerId,
+          actorId: ownerId,
+          requesterId: request.requesterId,
+        });
+        return { ok: true, kind: "protectedAssetAccessDecided", requestId, decision };
+      }
+
       if (action === "revoke-grant") {
         const { assetId } = normalizeProtectedAssetReference(body.reference || body.assetId || segments[0]);
         await broker.getAsset(assetId, ownerId);
@@ -432,7 +636,7 @@ function register({ on, use }) {
       return {
         ok: true,
         kind: "protectedAssetHelp",
-        actions: ["executor-key", "create", "get", "envelope", "list", "revoke-grant", "rotate", "revoke", "delete", "audit"],
+        actions: ["executor-key", "create", "get", "envelope", "list", "request-access", "decide-access", "revoke-grant", "rotate", "revoke", "delete", "audit"],
       };
     } catch (error) {
       if (!(error instanceof ProtectedAssetError)) {
@@ -443,7 +647,7 @@ function register({ on, use }) {
   }
 
   on("protectedAssets", route);
-  for (const action of ["executor-key", "create", "get", "envelope", "list", "revoke-grant", "rotate", "revoke", "delete", "audit"]) {
+  for (const action of ["executor-key", "create", "get", "envelope", "list", "request-access", "decide-access", "revoke-grant", "rotate", "revoke", "delete", "audit"]) {
     on(`protectedAsset:${action}`, (ctx) => route(ctx, action));
   }
   return { name: "protectedAssets" };

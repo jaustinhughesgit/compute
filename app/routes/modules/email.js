@@ -25,13 +25,15 @@ Body:
 */
 
 function register({ on, use }) {
+  const shared = use();
   const {
     getDocClient,
     getSES,
     hashEmail,
     normalizeEmail,
     manageCookie,
-  } = use();
+  } = shared;
+  const notificationLifecycle = shared?.registry?.notificationLifecycle || null;
 
   // --- Reputation constants + helpers -----------------------------------
   // Block-ratio tiers (unique recipients vs. % who blocked)
@@ -870,6 +872,12 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     const alreadyVer = !!userRes.Item.emailVerified;
     const alreadySent = !!userRes.Item.emailVerifySent;
 
+    // The account table intentionally keeps only a hash. Stage a KMS-encrypted
+    // delivery contact so it can become usable only after this hash is verified.
+    if (notificationLifecycle) {
+      await notificationLifecycle.stageContact({ recipient: `u:${userID}`, email, emailHash });
+    }
+
     // If email changed → update + reset verification flags
     if (currentHash !== emailHash) {
       await ddb.update({
@@ -893,6 +901,9 @@ Block all ${escapeHtml(brand)} emails: <a href="${blockAllUrl}">Block all</a>
     console.log("emailHash",emailHash)
     // If verified → do not send again
     if (alreadyVer && currentHash === emailHash) {
+      if (notificationLifecycle) {
+        await notificationLifecycle.activateContact({ recipient: `u:${userID}`, emailHash });
+      }
       return { ok: true, sent: false, alreadyVerified: true, verifyUrl, userID };
     }
 

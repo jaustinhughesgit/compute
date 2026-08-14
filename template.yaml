@@ -60,6 +60,11 @@ Resources:
           PROTECTED_ASSET_GRANTS_TABLE: !Ref ProtectedAssetGrantsTable
           PROTECTED_ASSET_AUDIT_TABLE: !Ref ProtectedAssetAuditTable
           PROTECTED_ASSET_KMS_KEY_ID: !GetAtt ProtectedAssetExecutorKey.Arn
+          PROTECTED_ASSET_ACCESS_REQUESTS_TABLE: !Ref ProtectedAssetAccessRequestsTable
+          NOTIFICATIONS_TABLE: !Ref NotificationsTable
+          NOTIFICATION_CONTACTS_TABLE: !Ref NotificationContactsTable
+          NOTIFICATION_DELAY_QUEUE_URL: !Ref NotificationDelayQueue
+          NOTIFICATION_CONTACT_KMS_KEY_ID: !GetAtt NotificationContactKey.Arn
           PATH_FOUNDATION_TABLE: !Ref PathFoundationTable
           CONTEXT_GRAPH_TABLE: !Ref ContextGraphTable
           CANONICAL_PROJECTION_TABLE: !Ref CanonicalProjectionTable
@@ -119,6 +124,41 @@ Resources:
                 - kms:GetPublicKey
                 - kms:Decrypt
               Resource: !GetAtt ProtectedAssetExecutorKey.Arn
+            - Sid: UseNotificationTables
+              Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:DeleteItem
+                - dynamodb:UpdateItem
+                - dynamodb:Query
+                - dynamodb:DescribeTable
+                - dynamodb:Scan
+                - dynamodb:BatchWriteItem
+                - dynamodb:TransactWriteItems
+              Resource:
+                - !GetAtt NotificationsTable.Arn
+                - !GetAtt NotificationContactsTable.Arn
+                - !GetAtt ProtectedAssetAccessRequestsTable.Arn
+            - Sid: UseNotificationContactKey
+              Effect: Allow
+              Action:
+                - kms:Encrypt
+                - kms:Decrypt
+              Resource: !GetAtt NotificationContactKey.Arn
+            - Sid: QueueNotificationReminders
+              Effect: Allow
+              Action:
+                - sqs:SendMessage
+                - sqs:ReceiveMessage
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+              Resource: !GetAtt NotificationDelayQueue.Arn
+            - Sid: SendTransactionalNotificationEmail
+              Effect: Allow
+              Action:
+                - ses:SendEmail
+              Resource: '*'
             - Sid: UsePathFoundationTable
               Effect: Allow
               Action:
@@ -237,6 +277,9 @@ Resources:
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/wCounter
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/pCounter
                 - !Sub arn:${AWS::Partition}:dynamodb:${AWS::Region}:${AWS::AccountId}:table/ppCounter
+                - !GetAtt NotificationsTable.Arn
+                - !GetAtt NotificationContactsTable.Arn
+                - !GetAtt ProtectedAssetAccessRequestsTable.Arn
             - Sid: UseDerivedRetrievalPostings
               Effect: Allow
               Action:
@@ -250,6 +293,13 @@ Resources:
           Properties:
             Path: /{proxy}
             Method: any
+        NotificationDelay:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt NotificationDelayQueue.Arn
+            BatchSize: 10
+            FunctionResponseTypes:
+              - ReportBatchItemFailures
 
   PathFoundationTable:
     Type: AWS::DynamoDB::Table
@@ -359,6 +409,104 @@ Resources:
           KeyType: HASH
       SSESpecification:
         SSEEnabled: true
+
+  NotificationsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: principalId
+          AttributeType: S
+        - AttributeName: notificationId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: principalId
+          KeyType: HASH
+        - AttributeName: notificationId
+          KeyType: RANGE
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  NotificationContactsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: principalId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: principalId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  ProtectedAssetAccessRequestsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: requestId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: requestId
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      TimeToLiveSpecification:
+        AttributeName: expiresAt
+        Enabled: true
+      SSESpecification:
+        SSEEnabled: true
+
+  NotificationContactKey:
+    Type: AWS::KMS::Key
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      Description: Symmetric key for verified notification delivery contacts; plaintext is used only inside the email boundary.
+      Enabled: true
+      KeySpec: SYMMETRIC_DEFAULT
+      KeyUsage: ENCRYPT_DECRYPT
+      PendingWindowInDays: 30
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: EnableAccountIAMPolicies
+            Effect: Allow
+            Principal:
+              AWS: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:root
+            Action: kms:*
+            Resource: '*'
+
+  NotificationDeadLetterQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      MessageRetentionPeriod: 1209600
+      SqsManagedSseEnabled: true
+
+  NotificationDelayQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      DelaySeconds: 60
+      VisibilityTimeout: 90
+      MessageRetentionPeriod: 345600
+      SqsManagedSseEnabled: true
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt NotificationDeadLetterQueue.Arn
+        maxReceiveCount: 5
 
   ProtectedAssetsTable:
     Type: AWS::DynamoDB::Table
@@ -509,3 +657,12 @@ Outputs:
   TestResetControlTableName:
     Description: Test-only migration marker ordering the legacy purge before canonical resets
     Value: !Ref TestResetControlTable
+  NotificationsTableName:
+    Description: Authenticated durable browser notification inbox and per-user email latch
+    Value: !Ref NotificationsTable
+  NotificationContactsTableName:
+    Description: KMS-encrypted verified notification delivery contacts
+    Value: !Ref NotificationContactsTable
+  ProtectedAssetAccessRequestsTableName:
+    Description: Opaque pending/decided protected-access request lifecycle records
+    Value: !Ref ProtectedAssetAccessRequestsTable

@@ -26,6 +26,10 @@ const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
 const { copyRuntimeContext, useBundledRuntimeModule } = require('./routes/runtimeModules');
+const {
+  createNotificationLifecycle,
+  isNotificationSqsEvent,
+} = require('./notifications/notificationLifecycle');
 
 
 const OpenAI = require("openai");
@@ -45,6 +49,12 @@ dynamodb = new AWS.DynamoDB.DocumentClient();
 SM = new AWS.SecretsManager();
 s3 = new AWS.S3();
 ses = new AWS.SES();
+const notificationLifecycle = createNotificationLifecycle({
+  dynamodb,
+  sqs: new AWS.SQS(),
+  kms: new AWS.KMS(),
+  ses,
+});
 
 let { setupRouter, getHead, convertToJSON, manageCookie, getSub, createVerified, incrementCounterAndGetNewValue, getWord, createWord, addVersion, updateEntity, getEntity, verifyThis } = require('./routes/cookies')
 const { createShared } = require("./routes/shared");
@@ -1607,6 +1617,10 @@ const lambdaHandler = async (event, context) => {
     detailType: event?.["detail-type"] || null,
     requestId: event?.requestContext?.requestId || context?.awsRequestId || null,
   });
+
+  if (isNotificationSqsEvent(event)) {
+    return notificationLifecycle.processSqsEvent(event);
+  }
 
   if (event?.source === "aws.ses" && event?.["detail-type"] === "Email Bounced") {
     console.log("INSIDE EVENT")

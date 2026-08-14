@@ -4,8 +4,12 @@
  */
 "use strict";
 
+const DEFAULT_VERIFY_LINKS_HOST = process.env.VERIFY_LINKS_HOST || "https://email.1var.com";
+
 function register({ on, use }) {
-const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
+const shared = use();
+const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = shared;
+const notificationLifecycle = shared?.registry?.notificationLifecycle || null;
 
   function unwrapBody(b) {
   if (!b) return b;
@@ -302,6 +306,13 @@ const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
 
     // Idempotent: if already verified, just confirm success.
     if (res.Item.emailVerified === true) {
+      if (notificationLifecycle) {
+        try {
+          await notificationLifecycle.activateContact({ recipient: `u:${userID}`, emailHash: checkHash });
+        } catch (error) {
+          if (error?.code !== "ConditionalCheckFailedException") throw error;
+        }
+      }
       return { ok: true, emailVerified: true, userID };
     }
 
@@ -313,6 +324,10 @@ const { getDocClient, hashEmail, getSub /* , getS3, deps */ } = use();
       ExpressionAttributeNames: { "#upd": "updated" },
       ExpressionAttributeValues: { ":t": true, ":now": now }
     }).promise();
+
+    if (notificationLifecycle) {
+      await notificationLifecycle.activateContact({ recipient: `u:${userID}`, emailHash: checkHash });
+    }
 
     return { ok: true, emailVerified: true, userID };
   });

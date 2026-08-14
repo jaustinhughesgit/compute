@@ -80,7 +80,10 @@ function createProtectedAssetBroker({ dynamodb, kms, kmsKeyId, grantStore } = {}
         : await (async () => {
             const grant = await grants.get(asset.assetId, actorId);
             if (!grant?.canonicalActions?.includes("use") || Number(grant.assetVersion) !== Number(asset.version)) {
-              throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset use is not granted");
+              throw new ProtectedAssetError("ASSET_ACCESS_DENIED", "Protected asset use is not granted", {
+                requestable: true,
+                reference: `protected_asset:${asset.assetId}`,
+              });
             }
             return { source: "grant", grant };
           })();
