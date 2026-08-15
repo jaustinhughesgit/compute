@@ -35,6 +35,22 @@ test("notification payloads retain only bounded lifecycle identifiers", () => {
   assert.throws(() => safePayload("protected_access_decision", {
     requestId: "request-1", decision: "maybe",
   }), /invalid protected access decision/);
+  assert.deepEqual(safePayload("protected_access_decision", {
+    requestId: "request-1",
+    decision: "approved",
+    reference: "protected_asset:pa_1234567890abcdef",
+    grantDuration: "1_hour",
+    grantExpiresAt: "2026-08-15T01:00:00.000Z",
+    grantMaxUses: null,
+    plaintext: "discard",
+  }), {
+    requestId: "request-1",
+    decision: "approved",
+    reference: "protected_asset:pa_1234567890abcdef",
+    grantDuration: "1_hour",
+    grantExpiresAt: "2026-08-15T01:00:00.000Z",
+    grantMaxUses: null,
+  });
 });
 
 test("verified email is KMS-encrypted before it enters the contact table", async () => withNotificationEnv(async () => {

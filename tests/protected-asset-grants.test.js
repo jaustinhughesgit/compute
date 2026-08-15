@@ -5,6 +5,8 @@ const assert = require("node:assert/strict");
 const {
   createGrantItems,
   createProtectedAssetGrantStore,
+  grantIsActive,
+  normalizeGrantDuration,
   normalizeGrantRequests,
 } = require("../app/routes/protectedAssetGrants");
 const { register } = require("../app/routes/modules/protectedAssets");
@@ -92,6 +94,39 @@ test("recipient salts/wraps are paired with explicit canonical use grants", () =
   assert.deepEqual(items.map((item) => item.canonicalActions), [["use"], ["use"]]);
   assert.deepEqual(items.map((item) => item.deliveries), [["provider"], ["recipient"]]);
   assert.deepEqual(items.map((item) => item.assetVersion), [4, 4]);
+  assert.deepEqual(items.map((item) => item.lifecycle.grantDuration), ["forever", "forever"]);
+});
+
+test("owner-selected recipient windows expire or allow one consumed use", async () => {
+  const now = Date.parse("2026-08-15T00:00:00.000Z");
+  assert.deepEqual(normalizeGrantDuration("once", now), {
+    mode: "once", expiresAt: null, maxUses: 1,
+  });
+  assert.deepEqual(normalizeGrantDuration("15_minutes", now), {
+    mode: "15_minutes", expiresAt: "2026-08-15T00:15:00.000Z", maxUses: null,
+  });
+  const once = createGrantItems({
+    asset: { assetId, ownerId: "u:1", version: 1, envelope },
+    requests: [{ principalId: "u:2", userID: "2", deliveries: ["recipient"], grantDuration: "once" }],
+    now: "2026-08-15T00:00:00.000Z",
+  })[0];
+  assert.equal(grantIsActive(once, now), true);
+  once.lifecycle.useCount = 1;
+  assert.equal(grantIsActive(once, now), false);
+  const timed = structuredClone(once);
+  timed.lifecycle = {
+    state: "active", tombstone: false, grantDuration: "15_minutes",
+    expiresAt: "2026-08-15T00:15:00.000Z", maxUses: null, useCount: 0,
+  };
+  assert.equal(grantIsActive(timed, now + 14 * 60_000), true);
+  assert.equal(grantIsActive(timed, now + 15 * 60_000), false);
+
+  const state = storeWith(new Map([[`u:2|${assetId}`, {
+    ...once, lifecycle: { ...once.lifecycle, useCount: 0 },
+  }]]));
+  await state.grants.consumeUse({ assetId, ownerId: "u:1", version: 1 }, "u:2", "recipient", now);
+  assert.match(state.calls[0].UpdateExpression, /#useCount/);
+  assert.match(state.calls[0].ConditionExpression, /#maxUses/);
 });
 
 test("a listed recipient wrap alone is never authorization", () => {

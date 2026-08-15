@@ -30,7 +30,17 @@ function safePayload(kind, raw = {}) {
   if (kind === "protected_access_decision") {
     const decision = String(raw.decision || "").toLowerCase();
     if (!new Set(["approved", "denied"]).has(decision)) throw new Error("invalid protected access decision");
-    return { requestId: bounded(raw.requestId, 160), decision };
+    const grantDuration = String(raw.grantDuration || "").toLowerCase();
+    return {
+      requestId: bounded(raw.requestId, 160),
+      decision,
+      reference: bounded(raw.reference, 220),
+      grantDuration: new Set(["once", "15_minutes", "1_hour", "1_day", "forever"]).has(grantDuration)
+        ? grantDuration
+        : null,
+      grantExpiresAt: raw.grantExpiresAt ? bounded(raw.grantExpiresAt, 64) : null,
+      grantMaxUses: Number(raw.grantMaxUses || 0) || null,
+    };
   }
   throw new Error("unsupported notification kind");
 }

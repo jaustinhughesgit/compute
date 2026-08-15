@@ -15,7 +15,11 @@ const {
   policyAllowsUse,
 } = require("../protectedAssetContract");
 const { createProtectedAssetBroker } = require("../protectedAssetBroker");
-const { createGrantItems, normalizeGrantRequests } = require("../protectedAssetGrants");
+const {
+  createGrantItems,
+  normalizeGrantDuration,
+  normalizeGrantRequests,
+} = require("../protectedAssetGrants");
 
 const ASSET_TABLE = process.env.PROTECTED_ASSETS_TABLE || "protectedAssets";
 const AUDIT_TABLE = process.env.PROTECTED_ASSET_AUDIT_TABLE || "protectedAssetAudit";
@@ -276,10 +280,10 @@ function register({ on, use }) {
         const reference = body.reference || body.assetId || segments[0];
         const { asset, access } = await broker.getAssetForUse(reference, ownerId, "recipient");
         const purpose = String(body.purpose || "");
-        if (!["local_reveal", "policy_change"].includes(purpose) || body.approved !== true) {
+        if (!["local_reveal", "policy_change", "recipient_query"].includes(purpose) || body.approved !== true) {
           throw new ProtectedAssetError("ASSET_APPROVAL_REQUIRED", "Local protected-asset access requires explicit approval");
         }
-        if (purpose === "local_reveal") {
+        if (["local_reveal", "recipient_query"].includes(purpose)) {
           const decision = policyAllowsUse(asset.metadata, {
             use: "reveal",
             moduleId: "surface",
@@ -293,6 +297,12 @@ function register({ on, use }) {
           }
         } else if (access.source !== "owner") {
           throw new ProtectedAssetError("ASSET_POLICY_DENIED", "Only the owner may change protected-asset policy");
+        }
+        if (purpose === "recipient_query") {
+          if (access.source !== "grant") {
+            throw new ProtectedAssetError("ASSET_POLICY_DENIED", "Recipient query use requires a recipient grant");
+          }
+          await broker.grants.consumeUse(asset, ownerId, "recipient");
         }
         await broker.audit({
           eventType: "asset_envelope_retrieved",
@@ -348,6 +358,7 @@ function register({ on, use }) {
         }
         const existingGrant = await broker.grants.get(assetId, ownerId);
         if (existingGrant?.canonicalActions?.includes("use")
+          && existingGrant?.deliveries?.includes("recipient")
           && Number(existingGrant.assetVersion) === Number(asset.version)) {
           return { ok: true, kind: "protectedAssetAccessAlreadyGranted", requestId: null };
         }
@@ -438,11 +449,26 @@ function register({ on, use }) {
           throw new ProtectedAssetError("ACCESS_REQUEST_UNAVAILABLE", "The protected access request is unavailable");
         }
         const decisionOccurredAt = request.decidedAt || new Date().toISOString();
+        const requestedGrant = decision === "approved"
+          ? normalizeGrantDuration(
+              request.status === "pending"
+                ? (body.grantDuration || "once")
+                : (request.grantDuration || "forever"),
+              Date.parse(decisionOccurredAt)
+            )
+          : null;
         const publishDecision = async () => {
           const notification = await notifications.publish({
             recipient: request.requesterId,
             kind: "protected_access_decision",
-            payload: { requestId, decision },
+            payload: {
+              requestId,
+              decision,
+              reference: `protected_asset:${request.assetId}`,
+              grantDuration: requestedGrant?.mode || null,
+              grantExpiresAt: requestedGrant?.expiresAt || null,
+              grantMaxUses: requestedGrant?.maxUses || null,
+            },
             dedupeKey: `access-decision:${requestId}:${decision}`,
             occurredAt: decisionOccurredAt,
           });
@@ -476,13 +502,17 @@ function register({ on, use }) {
           Update: {
             TableName: ACCESS_REQUEST_TABLE,
             Key: { requestId },
-            UpdateExpression: "SET #status = :status, #decidedAt = :now, #updatedAt = :now",
+            UpdateExpression: "SET #status = :status, #decidedAt = :now, #updatedAt = :now, #grantDuration = :grantDuration, #grantExpiresAt = :grantExpiresAt, #grantMaxUses = :grantMaxUses",
             ConditionExpression: "#ownerId = :ownerId AND #status = :pending",
             ExpressionAttributeNames: {
               "#status": "status", "#decidedAt": "decidedAt", "#updatedAt": "updatedAt", "#ownerId": "ownerId",
+              "#grantDuration": "grantDuration", "#grantExpiresAt": "grantExpiresAt", "#grantMaxUses": "grantMaxUses",
             },
             ExpressionAttributeValues: {
               ":status": decision, ":now": decidedAt, ":ownerId": ownerId, ":pending": "pending",
+              ":grantDuration": requestedGrant?.mode || null,
+              ":grantExpiresAt": requestedGrant?.expiresAt || null,
+              ":grantMaxUses": requestedGrant?.maxUses || null,
             },
           },
         };
@@ -508,7 +538,12 @@ function register({ on, use }) {
                 user: { ...asset.envelope.keyWraps.user, [requesterUserId]: recipientWrap },
               } },
             },
-            requests: [{ principalId: request.requesterId, userID: requesterUserId, deliveries: ["recipient"] }],
+            requests: [{
+              principalId: request.requesterId,
+              userID: requesterUserId,
+              deliveries: ["recipient"],
+              grantDuration: requestedGrant?.mode || "once",
+            }],
             now: decidedAt,
           })[0];
           transaction.unshift(

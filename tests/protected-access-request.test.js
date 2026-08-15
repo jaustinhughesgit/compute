@@ -164,6 +164,7 @@ test("approval atomically stores the requester wrap and a version-bound recipien
       decision: "approved",
       keyVersion: 1,
       recipientWrap,
+      grantDuration: "15_minutes",
     } },
     cookie: { e: "1" },
   });
@@ -176,4 +177,62 @@ test("approval atomically stores the requester wrap and a version-bound recipien
   assert.deepEqual(grant.canonicalActions, ["use"]);
   assert.deepEqual(grant.deliveries, ["recipient"]);
   assert.equal(grant.assetVersion, 1);
+  assert.equal(grant.lifecycle.grantDuration, "15_minutes");
+  assert.equal(Date.parse(grant.lifecycle.expiresAt) - Date.parse(grant.createdAt), 15 * 60_000);
+  assert.equal(grant.lifecycle.maxUses, null);
+  assert.deepEqual(state.notifications.published.at(-1).payload, {
+    requestId: request.requestId,
+    decision: "approved",
+    reference: `protected_asset:${assetId}`,
+    grantDuration: "15_minutes",
+    grantExpiresAt: grant.lifecycle.expiresAt,
+    grantMaxUses: null,
+  });
+});
+
+test("an approved recipient query returns only that recipient wrap and consumes one grant use", async () => {
+  const recipientWrap = {
+    algorithm: "ECDH-ES+A256KW", keyId: "2:v1", ephemeralPublicKey: "B".repeat(64),
+    iv: "B".repeat(16), salt: "B".repeat(43), wrappedKey: "B".repeat(48),
+  };
+  const sharedAsset = {
+    ...asset,
+    metadata: {
+      ...asset.metadata,
+      policy: {
+        allowedUses: ["reveal"], destinations: [], capabilityIds: [], moduleIds: [],
+        approvalMode: "every_use", trustMode: "local-zero-knowledge", plaintextRetention: "never",
+      },
+    },
+    envelope: {
+      schemaVersion: 1, algorithm: "A256GCM", iv: "A".repeat(16), ciphertext: "A".repeat(32),
+      aad: "A".repeat(16), keyWraps: { user: { "2": recipientWrap }, executor: null },
+    },
+  };
+  const grant = {
+    principalId: "u:2", assetId, ownerId: "u:1", assetVersion: 1,
+    canonicalActions: ["use"], deliveries: ["recipient"],
+    lifecycle: { state: "active", tombstone: false, grantDuration: "once", maxUses: 1, useCount: 0 },
+  };
+  const state = registeredWith({
+    getItem: (read) => {
+      if (read.TableName === "protectedAssets") return sharedAsset;
+      if (read.TableName === "protectedAssetGrants") return grant;
+      return null;
+    },
+  });
+  const result = await state.handlers.get("protectedAsset:envelope")({
+    req: { cookies: { e: "2" }, body: {
+      reference: `protected_asset:${assetId}`,
+      purpose: "recipient_query",
+      approved: true,
+    } },
+    cookie: { e: "2" },
+  });
+  assert.equal(result.ok, true);
+  assert.deepEqual(Object.keys(result.envelope.keyWraps.user), ["2"]);
+  const consume = state.writes.find((write) => (
+    write.TableName === "protectedAssetGrants" && write.UpdateExpression?.includes("#useCount")
+  ));
+  assert.ok(consume);
 });
