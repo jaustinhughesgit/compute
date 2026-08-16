@@ -198,6 +198,25 @@ test("provider request errors preserve sanitized response evidence", () => {
   assert.doesNotMatch(JSON.stringify(error.details), /must-not-escape/);
 });
 
+test("declared calculations return a sanitized actionable runtime diagnostic", () => {
+  const error = normalizeProviderExecutionError(new TypeError("Cannot read calculation slot"), {
+    calculation: {
+      operator: "add",
+      operands: [],
+      outputName: "sum",
+    },
+    protectedAssetRequirements: [],
+  });
+
+  assert.equal(error.code, "CALCULATION_RUNTIME_FAILED");
+  assert.equal(error.details.stage, "entity-runtime");
+  assert.deepEqual(error.details.cause, {
+    name: "TypeError",
+    code: null,
+    message: "Cannot read calculation slot",
+  });
+});
+
 test("the entity boundary passes its provider deadline into existing entity execution", async () => {
   let handler;
   let execution;

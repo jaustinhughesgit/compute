@@ -94,7 +94,23 @@ function normalizeProviderExecutionError(error, operation) {
     || (Number.isFinite(status) && status > 0)
     || ["ECONNABORTED", "ECONNRESET", "ENOTFOUND", "ETIMEDOUT"].includes(String(error?.code || "").toUpperCase())
   );
-  if (!providerFailure) return error;
+  if (!providerFailure) {
+    if (operation?.calculation) {
+      return new CapabilityError(
+        "CALCULATION_RUNTIME_FAILED",
+        "The declared calculation could not execute.",
+        {
+          stage: "entity-runtime",
+          cause: sanitizeDiagnosticValue({
+            name: error?.name || null,
+            code: error?.code || null,
+            message: error?.message || String(error || "Unknown runtime failure"),
+          }),
+        }
+      );
+    }
+    return error;
+  }
   const details = {
     stage: "provider-request",
     provider: provider.name,
