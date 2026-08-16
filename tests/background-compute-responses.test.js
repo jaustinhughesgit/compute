@@ -91,6 +91,97 @@ test("fresh Lambdas can retrieve pending and completed discovery responses", asy
   assert.equal(completed.discovery.decision, "not_compute");
 });
 
+test("background discovery drops mistyped teaching annotations and keeps literal numeric bindings", async () => {
+  const completed = await retrieveComputeCapabilityDiscovery({
+    jobId: "resp_discovery_numeric",
+    utterance: "What is 8 plus 13?",
+    requestedBy: "u:2",
+    retrieveResponse: async () => ({
+      id: "resp_discovery_numeric",
+      status: "completed",
+      output_text: JSON.stringify({
+        decision: "build_compute",
+        confidence: 0.99,
+        reason: "A deterministic calculation is required.",
+        capabilityId: "math.add.two_numbers",
+        entityId: null,
+        operationId: "add",
+        inputValues: [
+          { name: "number1", value: "8" },
+          { name: "number2", value: "13" },
+        ],
+        capabilityRequest: {
+          schemaVersion: 1,
+          kind: "computeCapabilityBuild",
+          capabilityIdHint: "math.add.two_numbers",
+          name: "Add two numbers",
+          description: "Adds two required numbers.",
+          operations: [{
+            operationId: "add",
+            description: "Adds two required numbers.",
+            inputs: [
+              {
+                name: "number1",
+                type: "number",
+                required: true,
+                description: "First number.",
+                bindingHint: { source: "utterance", subject: null, property: null, resolver: "number", aliases: null, value: null },
+                clarification: "What is the first number?",
+                defaultValue: null,
+                validation: null,
+              },
+              {
+                name: "number2",
+                type: "number",
+                required: true,
+                description: "Second number.",
+                bindingHint: { source: "utterance", subject: null, property: null, resolver: "number", aliases: null, value: null },
+                clarification: "What is the second number?",
+                defaultValue: null,
+                validation: null,
+              },
+            ],
+            outputs: [{
+              name: "sum",
+              type: "number",
+              required: true,
+              description: "Numeric sum.",
+              bindingHint: null,
+              clarification: null,
+              defaultValue: null,
+              validation: null,
+            }],
+            freshness: { mode: "none", ttlSeconds: 0 },
+            answerTemplate: "{{number1}} plus {{number2}} is {{sum}}.",
+            utteranceExamples: [{
+              text: "Add the first number and the second number.",
+              inputValues: [
+                { name: "number1", value: "first number" },
+                { name: "number2", value: "second number" },
+              ],
+            }],
+            calculation: {
+              operator: "add",
+              operands: [
+                { source: "input", inputName: "number1", literal: null },
+                { source: "input", inputName: "number2", literal: null },
+              ],
+              outputName: "sum",
+            },
+          }],
+        },
+      }),
+    }),
+  });
+
+  assert.equal(completed.discovery.decision, "build");
+  assert.deepEqual(completed.discovery.inputValues, { number1: 8, number2: 13 });
+  assert.deepEqual(
+    completed.discovery.buildCommand.capabilityRequest.operations[0].utteranceExamples.at(-1),
+    { text: "What is 8 plus 13?", inputs: { number1: 8, number2: 13 } }
+  );
+});
+
 test("background entity generation returns JSON for server validation after polling", async () => {
   let submitted;
   const started = await startComputeEntitySpecBackground({

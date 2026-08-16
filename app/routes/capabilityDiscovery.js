@@ -479,6 +479,42 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy) {
           };
         });
       }
+
+      // Example annotations are model-authored teaching evidence, not caller
+      // inputs. Discard mistyped annotations while preserving their spoken
+      // text; a single illustrative value such as "first number" must not
+      // invalidate an otherwise typed capability contract. The current
+      // utterance is added separately below only from server-validated,
+      // literally-spoken values.
+      const inputFields = new Map((normalized.inputs || []).map((field) => [
+        String(field?.name || "").trim().toLowerCase(),
+        field,
+      ]));
+      normalized.utteranceExamples = normalized.utteranceExamples.map((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return example;
+        const text = String(example.text || example.utterance || "").trim();
+        const inputs = {};
+        for (const [name, rawValue] of Object.entries(example.inputs)) {
+          const field = inputFields.get(String(name).trim().toLowerCase());
+          if (!field) continue;
+          try {
+            inputs[field.name] = validateCapabilityInputResponse(field, rawValue).value;
+          } catch (_) {
+            // Keep the example text, but never publish an annotation that
+            // contradicts the declared input type.
+          }
+        }
+        return Object.keys(inputs).length ? { text, inputs } : text;
+      }).filter(Boolean);
+
+      const spokenInputs = normalizeDiscoveryInputValues({
+        parsedValues: parsed?.inputValues,
+        utterance,
+        operation: normalized,
+      });
+      if (Object.keys(spokenInputs).length) {
+        normalized.utteranceExamples.push({ text: utterance, inputs: spokenInputs });
+      }
       return normalized;
     });
   }
