@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createBoundedAxios } = require("../app/routes/boundedAxios");
 const {
+  legacyEntityOriginalHost,
   normalizeEntityTransportResult,
   normalizeProviderExecutionError,
   providerRequestTimeoutMs,
@@ -38,6 +39,20 @@ function fakeAxios(calls) {
   }
   return client;
 }
+
+test("entity execution canonicalizes the public action path to the legacy internal route", () => {
+  assert.equal(
+    legacyEntityOriginalHost(
+      "https://1var.com/runEntity/entity-123",
+      "entity-123"
+    ),
+    "https://1var.com/cookies/runEntity/entity-123"
+  );
+  assert.equal(
+    legacyEntityOriginalHost("", "entity with space"),
+    "https://1var.com/cookies/runEntity/entity%20with%20space"
+  );
+});
 
 test("generated provider requests receive a bounded Axios timeout", async () => {
   const calls = [];

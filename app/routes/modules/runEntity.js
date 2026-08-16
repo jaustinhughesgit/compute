@@ -183,6 +183,16 @@ function providerRequestTimeoutMs(executionTimeoutMs) {
   return Math.max(250, Math.min(10000, Math.floor(timeout) - 2500));
 }
 
+function legacyEntityOriginalHost(originalHost, entityId) {
+  const raw = String(originalHost || "");
+  const marker = "1var.com";
+  const markerIndex = raw.indexOf(marker);
+  const origin = markerIndex >= 0
+    ? raw.slice(0, markerIndex + marker.length)
+    : "https://1var.com";
+  return `${origin}/cookies/runEntity/${encodeURIComponent(String(entityId || ""))}`;
+}
+
 function kmsClient(shared) {
   if (shared?.deps?.kms) return shared.deps.kms;
   return shared?.deps?.AWS?.KMS
@@ -368,6 +378,7 @@ async function runLegacyEntity({
   const fromBodyHeaders = rawBody.headers || rawBody.body?.headers || undefined;
   const mergedHeaders = { ...(req?.headers || {}), ...(fromBodyHeaders || {}) };
   const getHeader = (name) => mergedHeaders[name] ?? mergedHeaders[String(name).toLowerCase()];
+  const executionOriginalHost = legacyEntityOriginalHost(getHeader("X-Original-Host"), actionFile);
   const invocationBody = capabilityInvocation ? {
     ...rawBody,
     body: capabilityInvocation.inputs,
@@ -387,8 +398,8 @@ async function runLegacyEntity({
       ...invocationBody,
       headers: {
         ...(fromBodyHeaders || {}),
-        "X-Original-Host": getHeader("X-Original-Host") || "",
-        "x-original-host": getHeader("X-Original-Host") || "",
+        "X-Original-Host": executionOriginalHost,
+        "x-original-host": executionOriginalHost,
         "X-accessToken": getHeader("X-accessToken") || "",
         "x-accesstoken": getHeader("X-accessToken") || "",
       },
@@ -415,6 +426,7 @@ async function runLegacyEntity({
 }
 
 module.exports = {
+  legacyEntityOriginalHost,
   providerRequestTimeoutMs,
   register,
   normalizeEntityTransportResult,
