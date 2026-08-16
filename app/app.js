@@ -26,6 +26,7 @@ const anchorsUtil = require('./routes/anchors');
 const { preserveExactPlaceholderValue } = require('./routes/placeholderTransport');
 const { resolveComputeInputPlaceholder } = require('./routes/inputPlaceholderTransport');
 const { copyRuntimeContext, useBundledRuntimeModule } = require('./routes/runtimeModules');
+const { prepareJplMethodParameters } = require('./routes/jplMethodParameters');
 const {
   createNotificationLifecycle,
   isNotificationSqsEvent,
@@ -3550,6 +3551,11 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                 const isObj = await isOnePlaceholder(accessClean)
                 accessClean = await removeBrackets(accessClean, isObj, false);
             }
+            chainParams = prepareJplMethodParameters(chainParams, {
+                target: action.target,
+                access: accessClean,
+                isFunction: req?.body?._isFunction === true,
+            });
 
             if (accessClean && (!chainAction.params || chainAction.params.length == 0) && !chainAction.new) {
                 if (chainAction.express) {
@@ -3587,12 +3593,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                         else {
                             console.log("entity action resolved", { parameterCount: chainParams.length })
                             try {
-                                /* tidy numeric arg → string */
-                                if (chainParams && chainParams.length > 0 &&
-                                    typeof chainParams[0] === 'number') {
-                                    chainParams[0] = chainParams[0].toString();
-                                }
-
                                 if (assignExecuted) {
                                     /* special JSON/PDF case */
                                     if ((accessClean === 'json' || accessClean === 'pdf') &&
@@ -3677,11 +3677,6 @@ async function applyMethodChain(target, action, libs, nestedPath, assignExecuted
                         }
                     } else {
                         try {
-                            if (chainParams.length > 0) {
-                                if (typeof chainParams[0] === "number") {
-                                    chainParams[0] = chainParams[0].toString();
-                                }
-                            }
                             result = await result(...chainParams);
                         } catch (err) {
                             if (axios.isAxiosError(err)) throw err;
