@@ -40,7 +40,7 @@ function createCanonicalComposition({ persistence, verifyLegacy, now = () => new
     if (!entity) throw Object.assign(new Error(`Entity '${address.e}' was not found`), { code: "COMPOSITION_ENTITY_NOT_FOUND" });
     const actorId = String(context.actorId || "").trim();
     const principalIds = actorId
-      ? [actorId, ...(!actorId.startsWith("u:") ? [`u:${actorId}`] : [])] : [];
+      ? [actorId, ...(!actorId.startsWith("u:") ? [`u:${actorId}`] : []), "pub"] : [];
     const grants = principalIds.length ? await persistence.authorization.batchGetGrants(
       [String(entity.e), String(address.su)].flatMap((entityID) => (
         principalIds.map((principalID) => ({ entityID, principalID }))

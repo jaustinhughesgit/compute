@@ -142,6 +142,46 @@ function attachProtectedRequirementsToPublished(generated, requirements) {
   return generated;
 }
 
+function declaredCalculationImplementation(buildRequest) {
+  if (!Array.isArray(buildRequest?.operations) || buildRequest.operations.length !== 1) return null;
+  const operation = buildRequest.operations[0];
+  const calculation = operation?.calculation;
+  if (!calculation) return null;
+  const params = calculation.operands.map((operand) => operand.source === "input"
+    ? `{|req=>body.${operand.inputName}|}`
+    : operand.literal);
+  const assignment = "calculation_result";
+  return {
+    name: buildRequest.name || buildRequest.capabilityIdHint,
+    provider: "local-declarative-math",
+    inputRequirements: [],
+    protectedAssetRequirements: [],
+    published: {
+      modules: {},
+      actions: [
+        {
+          target: "{|math|}",
+          chain: [{ access: calculation.operator, params }],
+          assign: `{|${assignment}|}`,
+        },
+        {
+          target: "{|res|}!",
+          chain: [{ access: "send", params: [{ [calculation.outputName]: `{|${assignment}|}` }] }],
+        },
+      ],
+      data: {},
+    },
+  };
+}
+
+function hasDeclaredCalculation(buildRequest) {
+  try {
+    return !!declaredCalculationImplementation(validateCapabilityBuildRequest(buildRequest));
+  } catch (_) {
+    return false;
+  }
+}
+
 function assertDeclarativeJson(value, path = "$") {
   if (value == null || ["string", "number", "boolean"].includes(typeof value)) return;
   if (Array.isArray(value)) return value.forEach((item, index) => assertDeclarativeJson(item, `${path}[${index}]`));
@@ -969,7 +1009,8 @@ async function buildComputeEntitySpec({
   llmTemplateId = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
-  const suppliedCandidate = generatedImplementation == null
+  const declaredImplementation = declaredCalculationImplementation(initial);
+  const suppliedCandidate = declaredImplementation || (generatedImplementation == null
     ? await generateImplementation({
         openai,
         buildRequest: initial,
@@ -980,7 +1021,7 @@ async function buildComputeEntitySpec({
         onCostTrace,
         llmTemplateId,
       })
-    : parseJsonObject(generatedImplementation, "capability EntityPlan response");
+    : parseJsonObject(generatedImplementation, "capability EntityPlan response"));
   const generatedBuildRequest = attachGeneratedInputs(
     initial,
     suppliedCandidate.inputRequirements || []
@@ -1045,6 +1086,8 @@ async function buildComputeEntitySpec({
 module.exports = {
   GENERIC_BLUEPRINT_ID,
   ENTITY_PLAN_SCHEMA,
+  hasDeclaredCalculation,
+  declaredCalculationImplementation,
   listCapabilityBlueprints,
   buildComputeEntitySpec,
   backgroundImplementationInput,

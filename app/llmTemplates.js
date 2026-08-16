@@ -67,6 +67,11 @@ function resolveComputeLlmRoute(templateId, route, options = {}) {
 function withChatTemplate(request, templateId, route, options = {}) {
   const selection = resolveComputeLlmRoute(templateId, route, options);
   const result = { ...request, model: selection.model };
+  // Current GPT-5-family Chat Completions models accept only their default
+  // temperature. Keep deterministic temperature=0 on models that support it,
+  // but omit the field for GPT-5 so capability generation cannot fail before
+  // schema validation begins.
+  if (/^gpt-5(?:\.|-|$)/i.test(selection.model)) delete result.temperature;
   if (selection.reasoningEffort) result.reasoning_effort = selection.reasoningEffort;
   return result;
 }

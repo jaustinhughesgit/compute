@@ -16,6 +16,7 @@ const { interpretCapabilityInput } = require("../capabilityInputInterpretation")
 const { diagnoseCapabilityFailure } = require("../capabilityFailureDiagnosis");
 const { verifyCapabilityAnswer } = require("../capabilityAnswerVerification");
 const { normalizeLlmTemplateId } = require("../../llmTemplates");
+const { loadCapabilityCandidates } = require("../capabilityCandidates");
 
 function bodyObject(req) {
   const body = req?.body;
@@ -44,7 +45,12 @@ function register({ on, use }) {
   const dynamodb = shared?.deps?.dynamodb || shared?.getDocClient?.();
   const s3 = shared?.deps?.s3 || shared?.getS3?.();
   const persistence = shared?.getCanonicalPersistence?.(dynamodb) || null;
-  const registry = createCapabilityRegistry({ dynamodb, persistence });
+  const registry = createCapabilityRegistry({
+    dynamodb,
+    persistence,
+    s3,
+    openai: shared?.deps?.openai,
+  });
   on("capabilities", async (ctx) => {
     try {
       const segments = String(ctx?.path || "").split("?")[0].split("/").filter(Boolean).map(decodeURIComponent);
@@ -54,11 +60,14 @@ function register({ on, use }) {
       const ownerId = principalFor(ctx);
       if (action === "blueprints") return { ok: true, kind: "capabilityBlueprints", blueprints: listCapabilityBlueprints() };
       if (action === "discover") {
-        const availableCapabilities = await registry.listAvailable({
-          activeOnly: false,
-          limit: 100,
+        const availableCapabilities = await loadCapabilityCandidates({
+          searchEntities: shared?.registry?.searchEntities,
+          registry,
+          utterance: body.utterance || body.userRequest || "",
           ownerId,
           minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+          limit: 60,
+          meta: { cookie: ctx?.cookie || ctx?.req?.cookies || {} },
         });
         const discovery = await discoverComputeCapability({
           openai: shared?.deps?.openai,

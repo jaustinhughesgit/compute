@@ -1245,6 +1245,7 @@ function synchronizeProtectedRequirementFields(entity, manifest) {
 }
 
 function register({ on, use }) {
+  const shared = use();
   const {
     manageCookie,
     getVerified,
@@ -1252,13 +1253,18 @@ function register({ on, use }) {
     allVerified,
     getSub,
     deps,
-  } = use();
+  } = shared;
 
   on("editEntity", async (ctx) => {
     const { req, res, path } = ctx;
     const runtime = ctx.deps || deps || {};
-    const { dynamodb, uuidv4, s3 } = runtime;
-    const capabilityRegistry = createCapabilityRegistry({ dynamodb });
+    const { dynamodb, uuidv4, s3, openai } = runtime;
+    const capabilityRegistry = createCapabilityRegistry({
+      dynamodb,
+      persistence: shared.getCanonicalPersistence?.(dynamodb) || null,
+      s3,
+      openai,
+    });
     const entityIdFromPath = String(path || "").split("/").filter(Boolean)[0] || "";
 
     let request;

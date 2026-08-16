@@ -183,6 +183,54 @@ test("generic entity builder accepts bounded local arithmetic without a provider
   assert.deepEqual(result.computeEntity.published.data.allowedHosts, []);
 });
 
+test("a declared calculation compiles to local JPL without calling a provider or builder model", async () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "math.add.two_numbers",
+    name: "Add two numbers",
+    description: "Adds two supplied numbers.",
+    operations: [{
+      operationId: "add",
+      description: "Add two numbers.",
+      inputs: [
+        { name: "left", type: "number", required: true, bindingHint: { source: "utterance", resolver: "number" } },
+        { name: "right", type: "number", required: true, bindingHint: { source: "utterance", resolver: "number" } },
+      ],
+      outputs: [{ name: "sum", type: "number", required: true }],
+      utteranceExamples: [{ text: "Add 4 and 7.", inputs: { left: 4, right: 7 } }],
+      answerTemplate: "{{sum}}",
+      calculation: {
+        operator: "add",
+        operands: [
+          { source: "input", inputName: "left" },
+          { source: "input", inputName: "right" },
+        ],
+        outputName: "sum",
+      },
+    }],
+  };
+  let modelCalls = 0;
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:7",
+    openai: { chat: { completions: { create: async () => { modelCalls += 1; } } } },
+  });
+  assert.equal(modelCalls, 0);
+  assert.deepEqual(result.computeEntity.published.actions, [
+    {
+      target: "{|math|}",
+      chain: [{ access: "add", params: ["{|req=>body.left|}", "{|req=>body.right|}"] }],
+      assign: "{|calculation_result|}",
+    },
+    {
+      target: "{|res|}!",
+      chain: [{ access: "send", params: [{ sum: "{|calculation_result|}" }] }],
+    },
+  ]);
+  assert.equal(result.computeEntity.manifest.operations[0].calculation.operator, "add");
+});
+
 test("a single-operation implementation must use every required ordinary input", () => {
   const implementation = structuredClone(generatedImplementation);
   implementation.published.actions[0].chain[0].params[1].params = {

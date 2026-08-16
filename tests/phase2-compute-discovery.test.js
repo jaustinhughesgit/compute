@@ -37,6 +37,45 @@ test("generic discovery can request an uncatalogued entity capability", async ()
   assert.equal(result.buildCommand.capabilityRequest.capabilityIdHint, "color.rgb.lookup");
 });
 
+test("discovery preserves a declared generic calculation contract", async () => {
+  const calculationRequest = structuredClone(request);
+  calculationRequest.capabilityIdHint = "math.add.two_numbers";
+  calculationRequest.operations = [{
+    operationId: "add",
+    description: "Add two numbers.",
+    inputs: [
+      { name: "left", type: "number", required: true, bindingHint: { source: "utterance", resolver: "number" } },
+      { name: "right", type: "number", required: true, bindingHint: { source: "utterance", resolver: "number" } },
+    ],
+    outputs: [{ name: "sum", type: "number", required: true }],
+    utteranceExamples: [{ text: "Add 5 and 9.", inputs: { left: 5, right: 9 } }],
+    answerTemplate: "{{sum}}",
+    calculation: {
+      operator: "add",
+      operands: [
+        { source: "input", inputName: "left", literal: null },
+        { source: "input", inputName: "right", literal: null },
+      ],
+      outputName: "sum",
+    },
+  }];
+  const result = await discoverComputeCapability({
+    openai: model({
+      decision: "build_compute",
+      confidence: 0.99,
+      reason: "A deterministic calculation is required.",
+      capabilityId: "math.add.two_numbers",
+      entityId: null,
+      operationId: "add",
+      inputValues: [{ name: "left", value: 5 }, { name: "right", value: 9 }],
+      capabilityRequest: calculationRequest,
+    }),
+    utterance: "Add 5 and 9.",
+    requestedBy: "u:7",
+  });
+  assert.equal(result.buildCommand.capabilityRequest.operations[0].calculation.operator, "add");
+});
+
 test("ContextDB recall misses cannot be promoted into JPL entities", async () => {
   let modelCalls = 0;
   const result = await discoverComputeCapability({

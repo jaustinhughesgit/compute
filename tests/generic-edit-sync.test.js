@@ -70,7 +70,8 @@ test("Edit revises and registers an entity-owned capability contract atomically"
 
 test("Convert uses generic discovery, reuse, extension, and model-built entity paths", () => {
   const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
-  assert.match(source, /listAvailable/);
+  assert.match(source, /loadCapabilityCandidates/);
+  assert.match(source, /searchEntities/);
   assert.match(source, /CAPABILITY_EXTENSION_REQUIRED/);
   assert.match(source, /await buildComputeEntitySpec/);
   assert.match(source, /capabilityRequest:\s*capabilityBuildRequest/);

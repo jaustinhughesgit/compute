@@ -4,6 +4,8 @@
  */
 "use strict";
 
+const { grantActions } = require("../../governance");
+
 function canEditPermission(permission) {
   const value = String(permission || "").toLowerCase();
   return value === "o" || value === "w";
@@ -26,6 +28,7 @@ function register({ on, use }) {
     getCanonicalPersistence,
     getCookie,            // reuse cookie -> user-id logic
     deps,                 // { dynamodb, dynamodbLL, uuidv4, s3, ses, AWS, openai, Anthropic }
+    expose,
   } = use();
 
   // Keep knobs in lockstep with the positioner
@@ -156,7 +159,7 @@ function register({ on, use }) {
     return 0.0;
   }
 
-  on("search", async (ctx, meta) => {
+  const searchHandler = async (ctx, meta) => {
     const { req, res } = ctx;
 
     // Accept both flattened req.body and legacy { body: {...} }
@@ -285,8 +288,6 @@ function register({ on, use }) {
 
       for (const c of candidates) {
         const pol = c.policy_id || `entity:${c.su}`;
-        if (pol === "pub") continue; // globally readable
-
         // For now we only expect entity:<su>
         let entityID = null;
         if (pol.startsWith("entity:")) {
@@ -307,8 +308,14 @@ function register({ on, use }) {
 
       // Batch-get grants
       const bestBySu = new Map(); // su -> 'o'|'w'|'r'|null (best seen)
+      const useBySu = new Set();
       for (const candidate of candidates) {
-        if (candidate.isOwner) bestBySu.set(String(candidate.su), "o");
+        if (candidate.isOwner) {
+          bestBySu.set(String(candidate.su), "o");
+          useBySu.add(String(candidate.su));
+        } else if (candidate.policy_id === "pub") {
+          bestBySu.set(String(candidate.su), "r");
+        }
       }
       for (let i = 0; i < permKeys.length; i += 100) {
         const chunk = permKeys.slice(i, i + 100);
@@ -317,9 +324,10 @@ function register({ on, use }) {
         for (const row of rows) {
           if (!row) continue;
           if (Number.isFinite(row.expires) && row.expires < nowSec) continue;
+          const su = entityToSu[row.entityID] || row.entityID;
+          if (grantActions(row).has("use")) useBySu.add(String(su));
           const ch = bestPermChar(row.perms);
           if (!ch) continue;
-          const su = entityToSu[row.entityID] || row.entityID;
           const prev = bestBySu.get(su);
           const ord = { r: 1, w: 2, o: 3 };
           if (!prev || ord[ch] > ord[prev]) bestBySu.set(su, ch);
@@ -331,7 +339,7 @@ function register({ on, use }) {
         const pol = c.policy_id || `entity:${c.su}`;
         if (pol === "pub") return true;
         const ch = bestBySu.get(String(c.su));
-        return ch === "r" || ch === "w" || ch === "o";
+        return ch === "r" || ch === "w" || ch === "o" || useBySu.has(String(c.su));
       });
       if (candidates.length > topK) candidates = candidates.slice(0, topK);
 
@@ -358,7 +366,7 @@ function register({ on, use }) {
           perm: permChar || null,
           // Advisory UI metadata only. Every eventual write must independently
           // re-authorize the caller and re-check the current entity version.
-          canUse: permChar === "r" || canEditPermission(permChar),
+          canUse: useBySu.has(String(c.su)),
           canEdit: canEditPermission(permChar),
           entityVersion: revision.entityVersion,
           entityUpdatedAt: revision.entityUpdatedAt,
@@ -392,7 +400,19 @@ function register({ on, use }) {
       }
       return { ok: false, error: err?.message || "bad-request" };
     }
-  });
+  };
+
+  on("search", searchHandler);
+  if (typeof expose === "function") {
+    expose("searchEntities", async ({ text, embedding, topK = 50 } = {}, meta = {}) => {
+      const result = await searchHandler({
+        req: { body: { text, embedding, topK } },
+        res: {},
+      }, meta);
+      if (!result?.ok) throw new Error(result?.error || "semantic entity search failed");
+      return result.response?.results || [];
+    });
+  }
 
   return { name: "search" };
 }

@@ -6,6 +6,7 @@
 
 const { CapabilityError, validateCapabilityManifest } = require("./capabilityManifest");
 const { authorize } = require("../governance");
+const { createCapabilitySignature, indexCapabilityManifest } = require("./capabilitySignature");
 const DEFAULT_TABLE = process.env.SUBDOMAINS_TABLE || "subdomains";
 
 const promiseOf = (request) => request && typeof request.promise === "function" ? request.promise() : request;
@@ -96,7 +97,7 @@ function migrateStoredManifest(raw) {
   return manifest;
 }
 
-function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DEFAULT_TABLE } = {}) {
+function createCapabilityRegistry({ dynamodb, persistence = null, s3 = null, openai = null, tableName = DEFAULT_TABLE } = {}) {
   if (!dynamodb) throw new Error("capability registry requires a DynamoDB DocumentClient");
 
   async function getEntityRecord(entityId) {
@@ -128,6 +129,7 @@ function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DE
     });
     normalized.createdAt = String(existing.computeCapability?.createdAt || normalized.createdAt || now);
     normalized.updatedAt = now;
+    const signature = createCapabilitySignature(normalized);
     await promiseOf(dynamodb.update({
       TableName: tableName,
       Key: { su: entityId },
@@ -135,19 +137,102 @@ function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DE
         "SET #manifest = :manifest", "#capabilityId = :capabilityId",
         "#capabilityVersion = :capabilityVersion", "#capabilityStatus = :capabilityStatus",
         "#capabilityOwnerId = :capabilityOwnerId", "#capabilityUpdatedAt = :capabilityUpdatedAt",
+        "#capabilitySignatureVersion = :capabilitySignatureVersion",
+        "#capabilityContractHash = :capabilityContractHash",
       ].join(", "),
       ExpressionAttributeNames: {
         "#manifest": "computeCapability", "#capabilityId": "capabilityId",
         "#capabilityVersion": "capabilityVersion", "#capabilityStatus": "capabilityStatus",
         "#capabilityOwnerId": "capabilityOwnerId", "#capabilityUpdatedAt": "capabilityUpdatedAt",
+        "#capabilitySignatureVersion": "capabilitySignatureVersion",
+        "#capabilityContractHash": "capabilityContractHash",
       },
       ExpressionAttributeValues: {
         ":manifest": normalized, ":capabilityId": normalized.capabilityId,
         ":capabilityVersion": normalized.version, ":capabilityStatus": normalized.status,
         ":capabilityOwnerId": normalized.ownerId, ":capabilityUpdatedAt": now,
+        ":capabilitySignatureVersion": signature.schemaVersion,
+        ":capabilityContractHash": signature.contractHash,
       },
     }));
+    try {
+      await indexCapabilityManifest({ manifest: normalized, signature, persistence, s3, openai });
+    } catch (error) {
+      // Position is a rebuildable projection. Preserve the canonical manifest
+      // and surface the indexing failure in logs for backfill/repair.
+      console.warn("capability semantic indexing failed", {
+        entityId,
+        code: error?.code || "CAPABILITY_INDEX_FAILED",
+        message: String(error?.message || error).slice(0, 300),
+      });
+    }
     return normalized;
+  }
+
+  async function filterAvailable(records, {
+    ownerId = null,
+    includeSystem = true,
+  } = {}) {
+    if (!ownerId) return records.map((record) => record.manifest);
+    const actorId = String(ownerId);
+    const owned = [];
+    const governed = [];
+    for (const record of records) {
+      const manifest = record.manifest;
+      if (manifest.ownerId === actorId || (includeSystem && manifest.ownerId === "system")) owned.push(manifest);
+      else if (manifest.status === "active") governed.push(record);
+    }
+    const batchGetGrants = persistence?.authorization?.batchGetGrants;
+    const grants = typeof batchGetGrants === "function" && governed.length
+      ? await batchGetGrants(governed.flatMap(({ manifest }) => ([
+          { entityID: String(manifest.entityId), principalID: actorId },
+          { entityID: String(manifest.entityId), principalID: "pub" },
+        ])))
+      : [];
+    const grantsByEntity = new Map();
+    for (const grant of Array.isArray(grants) ? grants : []) {
+      const entityId = String(grant?.entityID || grant?.resourceId || "");
+      if (!entityId) continue;
+      if (!grantsByEntity.has(entityId)) grantsByEntity.set(entityId, []);
+      grantsByEntity.get(entityId).push(grant);
+    }
+    return owned.concat(governed.filter(({ manifest }) => authorize({
+      actor: actorId,
+      action: "use",
+      resource: {
+        id: manifest.entityId,
+        ownerId: manifest.ownerId,
+        version: manifest.version,
+      },
+      grants: grantsByEntity.get(String(manifest.entityId)) || [],
+    }).allowed).map(({ manifest }) => manifest));
+  }
+
+  async function listAvailableByEntityIds(entityIds, options = {}) {
+    const ids = [...new Set((Array.isArray(entityIds) ? entityIds : [])
+      .map((value) => String(value || "").trim()).filter(Boolean))].slice(0, 500);
+    if (!ids.length) return [];
+    let rows;
+    if (persistence?.foundation?.addresses?.batchGet) {
+      rows = await persistence.foundation.addresses.batchGet(ids);
+    } else {
+      rows = await Promise.all(ids.map(getEntityRecord));
+    }
+    const byId = new Map((rows || []).filter(Boolean).map((row) => [String(row.su), row]));
+    const records = [];
+    for (const id of ids) {
+      const row = byId.get(id);
+      if (!row?.computeCapability) continue;
+      try {
+        const manifest = validateCapabilityManifest(migrateStoredManifest(row.computeCapability), { entityId: row.su });
+        if (options.activeOnly !== false && manifest.status !== "active") continue;
+        if (Number(manifest.implementationPolicyVersion || 1) < Number(options.minimumImplementationPolicyVersion || 1)) continue;
+        records.push({ manifest, row });
+      } catch (_) {}
+    }
+    const available = await filterAvailable(records, options);
+    return available.sort((a, b) => ids.indexOf(String(a.entityId)) - ids.indexOf(String(b.entityId)))
+      .slice(0, Math.max(1, Math.min(500, Number(options.limit || ids.length))));
   }
 
   async function setStatus(entityId, status, { ownerId = "system", allowOwnerOverride = false } = {}) {
@@ -194,50 +279,14 @@ function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DE
         try {
           const manifest = validateCapabilityManifest(migrateStoredManifest(item.computeCapability), { entityId: item.su });
           if (Number(manifest.implementationPolicyVersion || 1) < Number(minimumImplementationPolicyVersion)) continue;
-          if (!activeOnly || manifest.status === "active") candidates.push(manifest);
+          if (!activeOnly || manifest.status === "active") candidates.push({ manifest, row: item });
         } catch (_) {}
         if (!ownerId && candidates.length >= limit) break;
       }
       ExclusiveStartKey = !ownerId && candidates.length >= limit ? null : data?.LastEvaluatedKey;
     } while (ExclusiveStartKey);
 
-    let matches = candidates;
-    if (ownerId) {
-      const actorId = String(ownerId);
-      const owned = [];
-      const governed = [];
-      for (const manifest of candidates) {
-        if (manifest.ownerId === actorId || (includeSystem && manifest.ownerId === "system")) {
-          owned.push(manifest);
-        } else if (manifest.status === "active") {
-          governed.push(manifest);
-        }
-      }
-      const batchGetGrants = persistence?.authorization?.batchGetGrants;
-      const grants = typeof batchGetGrants === "function" && governed.length
-        ? await batchGetGrants(governed.map((manifest) => ({
-            entityID: String(manifest.entityId),
-            principalID: actorId,
-          })))
-        : [];
-      const grantsByEntity = new Map();
-      for (const grant of Array.isArray(grants) ? grants : []) {
-        const entityId = String(grant?.entityID || grant?.resourceId || "");
-        if (!entityId) continue;
-        if (!grantsByEntity.has(entityId)) grantsByEntity.set(entityId, []);
-        grantsByEntity.get(entityId).push(grant);
-      }
-      matches = owned.concat(governed.filter((manifest) => authorize({
-        actor: actorId,
-        action: "use",
-        resource: {
-          id: manifest.entityId,
-          ownerId: manifest.ownerId,
-          version: manifest.version,
-        },
-        grants: grantsByEntity.get(String(manifest.entityId)) || [],
-      }).allowed));
-    }
+    const matches = await filterAvailable(candidates, { ownerId, includeSystem });
     return matches.sort((a, b) =>
       String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")) || b.version - a.version
     ).slice(0, limit);
@@ -248,6 +297,7 @@ function createCapabilityRegistry({ dynamodb, persistence = null, tableName = DE
     getByEntity,
     register,
     setStatus,
+    listAvailableByEntityIds,
     findByCapability: (capabilityId, options = {}) => scanManifests({ ...options, capabilityId, limit: Number(options.limit || 25) }),
     listAvailable: (options = {}) => scanManifests(options),
   };

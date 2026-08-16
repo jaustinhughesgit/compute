@@ -10,6 +10,7 @@ const {
   validateCapabilityManifest,
 } = require("../capabilityManifest");
 const { createCapabilityRegistry } = require("../capabilityRegistry");
+const { loadCapabilityCandidates } = require("../capabilityCandidates");
 const {
   discoverComputeCapability,
   localGraphOnlyDiscovery,
@@ -21,6 +22,7 @@ const {
   startComputeEntitySpecBackground,
   retrieveComputeEntitySpecBackground,
   CapabilityBuildRetryError,
+  hasDeclaredCalculation,
 } = require("../capabilityBlueprints");
 const {
   stableHash,
@@ -29,6 +31,7 @@ const {
 } = require("../capabilityBuildCoordinator");
 const { normalizeLlmTemplateId } = require("../../llmTemplates");
 const { sanitizeDiagnosticValue } = require("../diagnosticSanitizer");
+const { normalizeConvertPrompt } = require("../convertRequirements");
 
 function markBackgroundDiscoveryError(error) {
   const failure = error instanceof Error ? error : new Error(String(error || "Compute discovery failed."));
@@ -172,8 +175,32 @@ async function seedCreatedComputeOwnerGrant({ persistence, entityId, ownerId, cr
   return true;
 }
 
+async function seedCreatedComputePublicUseGrant({ persistence, entityId, ownerId, createdEntities }) {
+  const resourceId = normalizeCreatedEntityId(entityId);
+  const createdHere = (Array.isArray(createdEntities) ? createdEntities : [])
+    .some((item) => normalizeCreatedEntityId(item) === resourceId);
+  if (!resourceId || !createdHere) return false;
+  const addressResult = await persistence.foundation.addresses.byId(resourceId);
+  const address = addressResult?.Item || addressResult?.Items?.[0] || null;
+  if (!address || (address.z !== true && address.z !== "true")) return false;
+  await persistence.authorization.putGrant({
+    entityID: resourceId,
+    principalID: "pub",
+    perms: "r",
+    canonicalActions: ["find", "read", "aggregate", "use"],
+    canonicalSchemaVersion: 1,
+    canonicalRecordType: "grant",
+    canonicalVersion: 1,
+    canonicalOwnerId: String(ownerId || "system"),
+    canonicalLifecycle: { state: "active", tombstone: false },
+    created: Math.floor(Date.now() / 1000),
+  });
+  return true;
+}
+
 function register({ on, use }) {
-  const { getCookie, getCanonicalPersistence, retrieveAndParseJSON, deps } = use();
+  const shared = use();
+  const { getCookie, getCanonicalPersistence, retrieveAndParseJSON, deps } = shared;
 
   on("convert", async (ctx, meta = {}) => {
     let failActiveBuild = null;
@@ -270,31 +297,7 @@ function register({ on, use }) {
       //    - Ensures relevantItems is an array
       // ─────────────────────────────────────────────────────────────
       function parsePrompt(p) {
-        if (!p) return {};
-        if (p && typeof p === "object") {
-          let obj = { ...p };
-          if (typeof obj.userRequest !== "string" && typeof obj.prompt === "string") {
-            obj.userRequest = obj.prompt;
-          }
-          if (!Array.isArray(obj.relevantItems)) obj.relevantItems = obj.relevantItems ?? [];
-          return obj;
-        }
-        const s = String(p).trim();
-        if (!s) return {};
-        try {
-          const asObj = JSON.parse(s);
-          if (asObj && typeof asObj === "object") {
-            if (typeof asObj.userRequest !== "string" && typeof asObj.prompt === "string") {
-              asObj.userRequest = asObj.prompt;
-            }
-            if (!Array.isArray(asObj.relevantItems)) asObj.relevantItems = asObj.relevantItems ?? [];
-            return asObj;
-          }
-        } catch {
-          // Plain sentence → wrap
-          return { userRequest: s, relevantItems: [] };
-        }
-        return {};
+        return normalizeConvertPrompt(p);
       }
 
       const promptObjForEssence = parsePrompt(body.body?.prompt);
@@ -332,6 +335,8 @@ function register({ on, use }) {
       const capabilityRegistry = createCapabilityRegistry({
         dynamodb,
         persistence: getCanonicalPersistence(dynamodb),
+        s3,
+        openai,
       });
       const buildCoordinator = createCapabilityBuildCoordinator({ dynamodb });
 
@@ -528,7 +533,7 @@ function register({ on, use }) {
         let computeSpec = null;
         let backgroundBuild = null;
         try {
-          if (background) {
+          if (background && !hasDeclaredCalculation(capabilityBuildRequest)) {
             backgroundBuild = backgroundJobId
               ? await retrieveComputeEntitySpecBackground({ jobId: backgroundJobId })
               : await startComputeEntitySpecBackground({
@@ -691,15 +696,23 @@ function register({ on, use }) {
       if (shouldDiscoverCompute) {
         const promptObj = parsePrompt(prompt);
         const originalUtterance = String(promptObj?.userRequest || "").trim();
-        const availableCapabilities = await capabilityRegistry.listAvailable({
-          activeOnly: false,
-          limit: 100,
+        const requirementSegments = Array.isArray(promptObj?.requirementSegments)
+          ? promptObj.requirementSegments
+          : [];
+        const semanticEvidence = requirementSegments.length ? [] : promptObj?.relevantItems;
+        const availableCapabilities = await loadCapabilityCandidates({
+          searchEntities: shared.registry?.searchEntities,
+          registry: capabilityRegistry,
+          utterance: originalUtterance,
+          requirementSegments,
           ownerId,
           minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
+          limit: 60,
+          meta: { ...meta, cookie: { ...(meta?.cookie || {}), e: String(e || "") } },
         });
         computeDiscovery = localGraphOnlyDiscovery({
           utterance: originalUtterance,
-          semanticEvidence: promptObj?.relevantItems,
+          semanticEvidence,
         });
         if (
           !computeDiscovery
@@ -715,14 +728,16 @@ function register({ on, use }) {
                   utterance: originalUtterance,
                   requestedBy: ownerId,
                   availableCapabilities,
-                  semanticEvidence: promptObj?.relevantItems,
+                  semanticEvidence,
+                  requirementSegments,
                   llmTemplateId,
                 })
               : await startComputeCapabilityDiscovery({
                   utterance: originalUtterance,
                   requestedBy: ownerId,
                   availableCapabilities,
-                  semanticEvidence: promptObj?.relevantItems,
+                  semanticEvidence,
+                  requirementSegments,
                   llmTemplateId,
                 });
           } catch (error) {
@@ -749,7 +764,8 @@ function register({ on, use }) {
             requestedBy: ownerId,
             useModel: body.body?.deterministicComputeDiscovery !== true,
             availableCapabilities,
-            semanticEvidence: promptObj?.relevantItems,
+            semanticEvidence,
+            requirementSegments,
             llmTemplateId,
           });
           if (Array.isArray(computeDiscovery?.costTrace)) {
@@ -1208,8 +1224,15 @@ function subdomains(domain){
           conclusion = conclusionValue;
 
           if (capabilityManifestCandidate && entityFromConclusion) {
+            const canonicalPersistence = getCanonicalPersistence(dynamodb);
             await seedCreatedComputeOwnerGrant({
-              persistence: getCanonicalPersistence(dynamodb),
+              persistence: canonicalPersistence,
+              entityId: entityFromConclusion,
+              ownerId,
+              createdEntities,
+            });
+            await seedCreatedComputePublicUseGrant({
+              persistence: canonicalPersistence,
               entityId: entityFromConclusion,
               ownerId,
               createdEntities,
@@ -1398,6 +1421,7 @@ module.exports = {
   normalizeCreatedEntityId,
   resolveCreatedCapabilityEntityId,
   seedCreatedComputeOwnerGrant,
+  seedCreatedComputePublicUseGrant,
   shorthandExecutionSource,
   convertErrorDetails,
   markBackgroundDiscoveryError,

@@ -60,7 +60,7 @@ function activeGrant(grant, actorId, resourceId, nowMs) {
   const target = String(grant?.resourceId || grant?.entityID || "");
   const state = lifecycle(grant).state;
   const expires = grant?.expiresAt ? Date.parse(grant.expiresAt) : Number(grant?.expires) * 1000;
-  return samePrincipal(grantee, actorId) && target === resourceId
+  return (grantee === "pub" || samePrincipal(grantee, actorId)) && target === resourceId
     && !["revoked", "deleted"].includes(state)
     && (!Number.isFinite(expires) || expires >= nowMs);
 }

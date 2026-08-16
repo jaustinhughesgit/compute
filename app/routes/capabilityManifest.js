@@ -268,6 +268,39 @@ function normalizeOperation(raw, capabilityId = null) {
     outputs,
     protectedAssetRequirements,
   };
+  if (operation.calculation != null) {
+    const calculation = requireObject(operation.calculation, `operation ${operationId} calculation`);
+    const operator = String(calculation.operator || "").trim().toLowerCase();
+    if (!["add", "subtract", "multiply", "divide", "mod", "pow", "min", "max"].includes(operator)) {
+      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an unsupported calculation operator`);
+    }
+    const operands = Array.isArray(calculation.operands) ? calculation.operands : [];
+    if (operands.length !== 2) {
+      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} calculation requires exactly two operands`);
+    }
+    const inputMap = new Map(inputs.map((input) => [input.name, input]));
+    const normalizedOperands = operands.map((operand, index) => {
+      const source = String(operand?.source || "").toLowerCase();
+      if (source === "input") {
+        const inputName = normalizeId(operand.inputName, `calculation operand ${index + 1} inputName`);
+        const input = inputMap.get(inputName);
+        if (!input || !["number", "integer"].includes(input.type)) {
+          throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} calculation operand ${inputName} must be a numeric input`);
+        }
+        return { source, inputName };
+      }
+      if (source === "literal" && typeof operand.literal === "number" && Number.isFinite(operand.literal)) {
+        return { source, literal: operand.literal };
+      }
+      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} calculation operand ${index + 1} is invalid`);
+    });
+    const outputName = normalizeId(calculation.outputName, `operation ${operationId} calculation outputName`);
+    const output = outputs.find((field) => field.name === outputName);
+    if (!output || !["number", "integer"].includes(output.type)) {
+      throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} calculation output ${outputName} must be numeric`);
+    }
+    normalized.calculation = { operator, operands: normalizedOperands, outputName };
+  }
   if (isObject(operation.freshness)) {
     const ttlSeconds = Number(operation.freshness.ttlSeconds || 0);
     normalized.freshness = {

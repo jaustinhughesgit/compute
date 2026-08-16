@@ -31,6 +31,15 @@ test("Original preserves legacy models and omitted reasoning", () => {
   });
 });
 
+test("GPT-5 chat templates omit unsupported temperature overrides", () => {
+  assert.deepEqual(withChatTemplate({ temperature: 0, messages: [] }, "original-v1", "builder", {
+    env: { COMPUTE_BUILDER_MODEL: "gpt-5.6-terra" },
+  }), {
+    messages: [],
+    model: "gpt-5.6-terra",
+  });
+});
+
 test("New maps simple interpretation to Luna none and complex work to Terra low", () => {
   assert.deepEqual(resolveComputeLlmRoute("new-v1", "input-interpretation", { env: {} }), {
     templateId: "new-v1",

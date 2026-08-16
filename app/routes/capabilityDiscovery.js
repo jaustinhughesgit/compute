@@ -100,6 +100,28 @@ const UTTERANCE_EXAMPLE_SCHEMA = {
     },
   ],
 };
+const CALCULATION_VALUE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    source: { type: "string", enum: ["input", "literal"] },
+    inputName: NULLABLE_STRING_SCHEMA,
+    literal: { anyOf: [{ type: "number" }, { type: "null" }] },
+  },
+  required: ["source", "inputName", "literal"],
+};
+const CALCULATION_SCHEMA = {
+  anyOf: [{
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      operator: { type: "string", enum: ["add", "subtract", "multiply", "divide", "mod", "pow", "min", "max"] },
+      operands: { type: "array", minItems: 2, maxItems: 2, items: CALCULATION_VALUE_SCHEMA },
+      outputName: { type: "string", minLength: 1 },
+    },
+    required: ["operator", "operands", "outputName"],
+  }, { type: "null" }],
+};
 const OPERATION_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -121,8 +143,9 @@ const OPERATION_SCHEMA = {
     },
     answerTemplate: NULLABLE_STRING_SCHEMA,
     utteranceExamples: { type: "array", minItems: 1, items: UTTERANCE_EXAMPLE_SCHEMA },
+    calculation: CALCULATION_SCHEMA,
   },
-  required: ["operationId", "description", "inputs", "outputs", "freshness", "answerTemplate", "utteranceExamples"],
+  required: ["operationId", "description", "inputs", "outputs", "freshness", "answerTemplate", "utteranceExamples", "calculation"],
 };
 const CAPABILITY_BUILD_SCHEMA = {
   type: "object",
@@ -493,6 +516,7 @@ function summarizeCapabilities(manifests) {
       description: text(operation.description, 400),
       inputs: (operation.inputs || []).slice(0, 30),
       outputs: (operation.outputs || []).slice(0, 30),
+      calculation: operation.calculation || null,
       utteranceExamples: (operation.utteranceExamples || []).slice(0, 12),
     })),
   }));
@@ -545,13 +569,25 @@ function deterministicDiscovery() {
   return null;
 }
 
-function discoveryMessages({ utterance, requestedBy, availableCapabilities = [], semanticEvidence = [] }) {
+function discoveryMessages({
+  utterance,
+  requestedBy,
+  availableCapabilities = [],
+  semanticEvidence = [],
+  requirementSegments = [],
+}) {
   const existing = summarizeCapabilities(availableCapabilities);
+  const requirements = Array.isArray(requirementSegments)
+    ? requirementSegments.map(cleanUtterance).filter(Boolean)
+    : [];
   return [
       {
         role: "system",
         content: [
           "Classify an unanswered platform utterance without relying on a hard-coded capability catalog.",
+          "When requirements is nonempty, it contains one ordered Convert authoring request split by user-created hard stops. Treat every segment as a requirement for the same capability, preserve their order and constraints, and do not reinterpret the boundaries as separate conversations.",
+          "Convert requirements are not Essence or ContextDB evidence. Do not infer remembered facts or graph mutations from them.",
+          "When requirements is nonempty, do not declare contextdb input bindings; the current Convert requirements contract has no implicit contextual attachments.",
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
@@ -566,6 +602,7 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
           "Place every operation inside capabilityRequest.operations. capabilityRequest.operations must be a nonempty JSON array.",
           "Each operation declares typed inputs, typed outputs, freshness, answerTemplate, and diverse utteranceExamples.",
+          "For a deterministic two-operand arithmetic operation, declare calculation with operator, two input/literal operands, and the declared numeric outputName. Set calculation to null for every other operation. This lets the server compile arithmetic locally instead of inventing a provider request.",
           "An utteranceExample may be a string or {text,inputValues:[{name,value}]}. Use inputValues for values captured from speech, for example {text:'What is the code for purple?',inputValues:[{name:'color',value:'purple'}]}.",
           "Every required input whose bindingHint source is utterance must appear by name in inputValues for at least one utteranceExample.",
           "For an utterance input with a semantic domain, set bindingHint.resolver to a reusable type such as location, date, time, duration, number, person, organization, item, or string; use string only for genuinely free text.",
@@ -585,6 +622,7 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
         role: "user",
         content: JSON.stringify({
           utterance,
+          requirements,
           requestedBy,
           semanticEvidence: semanticEvidenceContext(semanticEvidence),
           availableEntityCapabilities: existing,
@@ -593,13 +631,22 @@ function discoveryMessages({ utterance, requestedBy, availableCapabilities = [],
     ];
 }
 
-async function modelDiscovery({ openai, utterance, requestedBy, availableCapabilities = [], semanticEvidence = [], llmTemplateId = null }) {
+async function modelDiscovery({
+  openai,
+  utterance,
+  requestedBy,
+  availableCapabilities = [],
+  semanticEvidence = [],
+  requirementSegments = [],
+  llmTemplateId = null,
+}) {
   if (!openai?.chat?.completions?.create) return null;
   const messages = discoveryMessages({
     utterance,
     requestedBy,
     availableCapabilities,
     semanticEvidence,
+    requirementSegments,
   });
   let parsed = null;
   let lastValidationError = null;
@@ -662,6 +709,7 @@ function backgroundDiscoveryInput({
   requestedBy,
   availableCapabilities = [],
   semanticEvidence = [],
+  requirementSegments = [],
   llmTemplateId = null,
 } = {}) {
   return withResponsesTemplate({
@@ -672,6 +720,7 @@ function backgroundDiscoveryInput({
       requestedBy,
       availableCapabilities,
       semanticEvidence,
+      requirementSegments,
     }),
     text: {
       format: {
@@ -690,6 +739,7 @@ async function startComputeCapabilityDiscovery({
   requestedBy = "system",
   availableCapabilities = [],
   semanticEvidence = [],
+  requirementSegments = [],
   llmTemplateId = null,
   startResponse = startBackgroundResponse,
 } = {}) {
@@ -700,6 +750,7 @@ async function startComputeCapabilityDiscovery({
     requestedBy,
     availableCapabilities,
     semanticEvidence,
+    requirementSegments,
     llmTemplateId,
   }));
   return {
@@ -847,7 +898,16 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
   });
 }
 
-async function discoverComputeCapability({ openai, utterance, requestedBy = "system", useModel = true, availableCapabilities = [], semanticEvidence = [], llmTemplateId = null } = {}) {
+async function discoverComputeCapability({
+  openai,
+  utterance,
+  requestedBy = "system",
+  useModel = true,
+  availableCapabilities = [],
+  semanticEvidence = [],
+  requirementSegments = [],
+  llmTemplateId = null,
+} = {}) {
   const clean = cleanUtterance(utterance);
   if (!clean) return discoveryEnvelope({ decision: "not_compute", source: "empty", confidence: 1, reason: "No utterance was supplied.", utterance: clean });
   const localGraphDecision = localGraphOnlyDiscovery({
@@ -857,7 +917,15 @@ async function discoverComputeCapability({ openai, utterance, requestedBy = "sys
   if (localGraphDecision) return localGraphDecision;
   if (!useModel) return discoveryEnvelope({ decision: "not_compute", source: "model-disabled", confidence: 1, reason: "Generic capability discovery requires the configured model.", utterance: clean });
   try {
-    return (await modelDiscovery({ openai, utterance: clean, requestedBy, availableCapabilities, semanticEvidence, llmTemplateId })) ||
+    return (await modelDiscovery({
+      openai,
+      utterance: clean,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+      requirementSegments,
+      llmTemplateId,
+    })) ||
       discoveryEnvelope({ decision: "not_compute", source: "model-unavailable", confidence: 0, reason: "Compute discovery was unavailable.", utterance: clean });
   } catch (error) {
     const code = String(error?.code || (error instanceof SyntaxError ? "INVALID_MODEL_JSON" : "DISCOVERY_FAILED"));
