@@ -56,6 +56,7 @@ test("Search derives identity and policy from server state before applying topK"
   }, { cookie: { e: "7" } });
   assert.equal(result.ok, true);
   assert.equal(result.response.query.e, 7);
+  assert.equal(result.response.params.bandWindow, 160);
   assert.deepEqual(result.response.results.map((row) => row.su), ["allowed"]);
   assert.ok(queryPartitions.some((pk) => pk.includes("#U=7#")));
   assert.equal(queryPartitions.some((pk) => pk.includes("#U=99#")), false);

@@ -37,6 +37,7 @@ function register({ on, use }) {
   const EMB_MODEL_ID        = process.env.EMB_MODEL           || "text-embedding-3-large";
   const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE   || 2000);
   const DEFAULT_NUM_SHARDS  = Number(process.env.NUM_SHARDS   || 8);
+  const DEFAULT_BAND_WINDOW = Math.max(0, Math.min(2000, Number(process.env.SEARCH_BAND_WINDOW || 160)));
   const persistence = getCanonicalPersistence();
   const s3     = deps.s3;
   const openai = deps.openai;
@@ -181,7 +182,7 @@ function register({ on, use }) {
       const bandScale      = Number.isFinite(+body.band_scale) ? +body.band_scale : DEFAULT_BAND_SCALE;
       const numShards      = Math.max(1, Math.min(64, DEFAULT_NUM_SHARDS));
       const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, Math.min(4, +body.topL0)) : 3;
-      const bandWindow     = Number.isFinite(+body.bandWindow) ? Math.max(0, Math.min(2000, +body.bandWindow)) : 96;
+      const bandWindow     = Number.isFinite(+body.bandWindow) ? Math.max(0, Math.min(2000, +body.bandWindow)) : DEFAULT_BAND_WINDOW;
       const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? Math.max(1, Math.min(1000, +body.limitPerAssign)) : 500;
       const topK           = Number.isFinite(+body.topK) ? Math.max(1, Math.min(500, +body.topK)) : 50;
 
