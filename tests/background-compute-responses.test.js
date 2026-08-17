@@ -199,7 +199,12 @@ test("background entity generation returns JSON for server validation after poll
   assert.equal(submitted.text.format.strict, true);
   assert.ok(submitted.text.format.schema.properties.executionPlan);
   assert.deepEqual(submitted.tools, [{ type: "web_search", search_context_size: "medium" }]);
-  assert.equal(submitted.tool_choice, "required");
+  assert.equal(submitted.tool_choice, "auto");
+  assert.match(
+    submitted.input[0].content,
+    /Never fetch contextdb, utterance, environment, or default binding sources/
+  );
+  assert.match(submitted.input[0].content, /Do not search when the operation only transforms/);
 
   const pending = await retrieveComputeEntitySpecBackground({
     jobId: started.jobId,

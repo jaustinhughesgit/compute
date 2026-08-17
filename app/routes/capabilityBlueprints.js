@@ -96,7 +96,8 @@ function appendBuildCorrection(messages, continuation) {
     content: [
       `Validation failed (${continuation.validationCode}): ${continuation.validationMessage}.`,
       "Correct the JSON without explanation.",
-      "Provider action shape: {\"target\":\"{|axios|}\",\"chain\":[{\"access\":\"get\",\"params\":[\"https://provider.invalid/path\",{\"params\":{}}]}],\"assign\":\"{|response|}\"}; replace provider.invalid with a real public endpoint.",
+      "If the operation needs external information, correct its typed public-provider request using a real documented endpoint.",
+      "If the operation only transforms or presents ordinary inputs already supplied by the browser, remove the provider request and use an empty executionPlan.requests array.",
       "The final response send parameter must be one object whose top-level keys are the declared operation output names.",
       "For an output named summary, use {\"target\":\"{|res|}!\",\"chain\":[{\"access\":\"send\",\"params\":[{\"summary\":\"{|response=>data.summary|}\"}]}]}. Never add a result wrapper unless result is itself a declared output name.",
     ].join(" "),
@@ -787,10 +788,11 @@ function implementationMessages({
       "Return exactly schemaVersion, name, provider, inputRequirements, protectedAssetRequirements, and executionPlan.",
       "inputRequirements must be an array, including when empty. It may add missing ordinary inputs and annotated examples to an operation using {operationId,inputs:[...],utteranceExamples:[{text,inputValues:[{name,value}]}]}. Never put credentials or protected values there.",
       "protectedAssetRequirements must be an array of requirement objects, including when it is empty.",
-      "executionPlan.requests contains ordered typed public provider GET requests. Each parameter declares a query, header, or body location and a value source: input, protected, a prior provider_response requestId/path, or literal.",
+      "executionPlan.requests contains zero or more ordered typed public provider GET requests. Each parameter declares a query, header, or body location and a value source: input, protected, a prior provider_response requestId/path, or literal.",
+      "Binding hints describe how the browser resolves ordinary inputs before Compute runs. Never fetch contextdb, utterance, environment, or default binding sources. If all outputs can be produced from supplied inputs or literals, use an empty requests array and map the response directly from those inputs or literals.",
       "Use provider_response only for a request that appears earlier in the same operation; this supports reusable discovery-then-detail protocols such as geocoding followed by conditions lookup.",
       "executionPlan.response declares the operation outputs and maps each from a provider_response path, ordinary input, or literal.",
-      "Choose a real documented provider endpoint appropriate to the requested capability. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, or invented hostnames.",
+      "Only when the capability requires external information, choose a real documented provider endpoint appropriate to the request. Never use example.com, example.net, example.org, provider.invalid, placeholder hosts, invented hostnames, or browser-local binding sources such as contextdb.local.",
       "Provider selection is data-driven. Include the chosen endpoint, required ordinary inputs, protected fields, and credential acquisition URL/instructions in this entity response; do not assume the shared runtime knows any provider.",
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Every meaningful variable explicitly supplied by the original utterance must be represented by a typed operation input and used by the executionPlan, unless it is a closed semantic selector rendered by answerTemplate.",
@@ -925,14 +927,14 @@ function backgroundImplementationInput({
   const allowedDomains = providerResearchDomains(resumed);
   messages[0].content += allowedDomains.length
     ? " Search only the selected provider's official documentation and verify endpoint parameters and response paths."
-    : " Research an appropriate provider using only that provider's primary official documentation before designing the plan.";
+    : " If an external provider is necessary, research it using only that provider's primary official documentation before designing the plan. Do not search when the operation only transforms or presents browser-resolved ordinary inputs.";
   messages[0].content += " Never search for or include credentials.";
   body.tools = [{
     type: "web_search",
     search_context_size: allowedDomains.length ? "high" : "medium",
     ...(allowedDomains.length ? { filters: { allowed_domains: allowedDomains } } : {}),
   }];
-  body.tool_choice = "required";
+  body.tool_choice = allowedDomains.length ? "required" : "auto";
   body.max_tool_calls = allowedDomains.length ? 4 : 3;
   body.include = ["web_search_call.action.sources"];
   return body;

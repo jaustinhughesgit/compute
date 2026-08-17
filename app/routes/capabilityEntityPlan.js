@@ -241,7 +241,6 @@ const ENTITY_PLAN_SCHEMA = {
       properties: {
         requests: {
           type: "array",
-          minItems: 1,
           items: {
             type: "object",
             additionalProperties: false,
@@ -493,7 +492,7 @@ function compileEntityPlan(rawPlan, buildRequest) {
     inputRequirements: plan.inputRequirements || [],
     protectedAssetRequirements: plan.protectedAssetRequirements || [],
     published: {
-      modules: { axios: "axios" },
+      modules: requestIds.size ? { axios: "axios" } : {},
       actions,
       data: {},
     },

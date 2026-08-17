@@ -98,7 +98,85 @@ function plan(parameterValue) {
 test("EntityPlan schema is strict and does not expose raw JPL containers", () => {
   assert.equal(ENTITY_PLAN_SCHEMA.additionalProperties, false);
   assert.ok(ENTITY_PLAN_SCHEMA.properties.executionPlan);
+  assert.equal(
+    ENTITY_PLAN_SCHEMA.properties.executionPlan.properties.requests.minItems,
+    undefined
+  );
   assert.equal(ENTITY_PLAN_SCHEMA.properties.published, undefined);
+});
+
+test("EntityPlan compiles a browser-resolved ContextDB input without a provider request", async () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "register_status_report",
+    name: "Register status report",
+    description: "Reports the register status supplied by the browser.",
+    operations: [{
+      operationId: "generate_register_status_report",
+      description: "Generate a register status report.",
+      inputs: [{
+        name: "status",
+        type: "string",
+        required: true,
+        description: "Current register status.",
+        bindingHint: {
+          source: "contextdb",
+          subject: "speaker",
+          property: "register_status",
+        },
+      }],
+      outputs: [{
+        name: "report",
+        type: "string",
+        required: true,
+        description: "Current status report.",
+      }],
+      freshness: { mode: "none", ttlSeconds: 0 },
+      answerTemplate: "{{report}}",
+      utteranceExamples: ["Give me the register status report"],
+    }],
+  };
+  const result = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:2",
+    originalUtterance: "Give me the register status report",
+    generatedImplementation: {
+      schemaVersion: 1,
+      name: "Register status report",
+      provider: "browser-resolved input",
+      inputRequirements: [],
+      protectedAssetRequirements: [],
+      executionPlan: {
+        requests: [],
+        response: {
+          operationId: "generate_register_status_report",
+          outputs: [{
+            name: "report",
+            value: {
+              source: "input",
+              requestId: null,
+              path: null,
+              inputName: "status",
+              literal: null,
+              prefix: "The current register status is ",
+              suffix: ".",
+            },
+          }],
+        },
+      },
+    },
+  });
+
+  assert.deepEqual(result.computeEntity.published.modules, {});
+  assert.deepEqual(result.computeEntity.published.data.allowedHosts, []);
+  assert.deepEqual(result.computeEntity.published.actions, [{
+    target: "{|res|}!",
+    chain: [{
+      access: "send",
+      params: [{ report: "The current register status is {|req=>body.status|}." }],
+    }],
+  }]);
 });
 
 test("generated duplicate examples keep the literal spoken temporal value", () => {
