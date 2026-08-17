@@ -89,6 +89,26 @@ test("component audiences carry every connected fact to a referenced user", () =
   assert.deepEqual(audiences.get("ent_4"), ["u:1", "u:2"]);
 });
 
+test("dual-read hydration keeps the newest record while canonical data converges", () => {
+  const merged = __test.mergeHydrationGraphs({
+    nodes: [{ serverId: "ctx_item", lemmas: ["cat"], version: 2 }],
+    relations: [{ serverId: "rel_item", object: "ctx_cat", version: 2 }],
+  }, {
+    nodes: [{ serverId: "ctx_item", lemmas: ["lantern"], version: 3 }],
+    relations: [{ serverId: "rel_item", object: "ctx_lantern", version: 3 }],
+  });
+
+  assert.deepEqual(merged.nodes, [{ serverId: "ctx_item", lemmas: ["lantern"], version: 3 }]);
+  assert.deepEqual(merged.relations, [{ serverId: "rel_item", object: "ctx_lantern", version: 3 }]);
+
+  const canonicalTie = __test.mergeHydrationGraphs({
+    nodes: [{ serverId: "ctx_item", lemmas: ["canonical"], version: 3 }],
+  }, {
+    nodes: [{ serverId: "ctx_item", lemmas: ["sidecar"], version: 3 }],
+  });
+  assert.deepEqual(canonicalTie.nodes[0].lemmas, ["canonical"]);
+});
+
 test("public profile publication is limited to components connected to the current speaker", () => {
   const body = publicationBody();
   const connectedToAmy = __test.selfConnectedNodeIds(

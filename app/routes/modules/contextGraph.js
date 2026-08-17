@@ -258,6 +258,27 @@ function decodeCursor(cursor) {
   }
 }
 
+function mergeHydrationGraphs(canonical = {}, sidecar = {}) {
+  const merge = (canonicalRecords, sidecarRecords) => {
+    const records = new Map();
+    for (const item of sidecarRecords || []) records.set(item.serverId, item);
+    for (const item of canonicalRecords || []) {
+      const current = records.get(item.serverId);
+      const canonicalVersion = Math.max(0, Number(item?.version || 0));
+      const currentVersion = Math.max(0, Number(current?.version || 0));
+      // Canonical wins equal revisions, but an immediately consistent newer
+      // sidecar revision must not be replaced by an eventually visible older
+      // canonical foundation record during the dual-read migration.
+      if (!current || canonicalVersion >= currentVersion) records.set(item.serverId, item);
+    }
+    return [...records.values()];
+  };
+  return {
+    nodes: merge(canonical.nodes, sidecar.nodes),
+    relations: merge(canonical.relations, sidecar.relations),
+  };
+}
+
 function errorEnvelope(code, message, statusCode = 400) {
   return { ok: false, statusCode, error: { code, message } };
 }
@@ -476,19 +497,6 @@ function register({ on, use }) {
     return { nodes, relations };
   }
 
-  function mergeGraphs(canonical, sidecar) {
-    const merge = (primary, fallback) => {
-      const records = new Map();
-      for (const item of fallback || []) records.set(item.serverId, item);
-      for (const item of primary || []) records.set(item.serverId, item);
-      return [...records.values()];
-    };
-    return {
-      nodes: merge(canonical.nodes, sidecar.nodes),
-      relations: merge(canonical.relations, sidecar.relations),
-    };
-  }
-
   async function hydrateAudienceRecords(audienceId, encodedCursor, limit) {
     const decoded = decodeCursor(encodedCursor);
     if (!canonicalStore.enabled) {
@@ -525,7 +533,7 @@ function register({ on, use }) {
         });
     const canonicalDone = state.canonicalDone || !canonicalPage.cursor;
     const sidecarDone = state.sidecarDone || !sidecarPage?.LastEvaluatedKey;
-    const merged = mergeGraphs(canonicalPage, graphFromSidecar(sidecarPage));
+    const merged = mergeHydrationGraphs(canonicalPage, graphFromSidecar(sidecarPage));
     const next = canonicalDone && sidecarDone ? null : {
       source: "context-dual-read-v1",
       canonicalDone,
@@ -949,5 +957,6 @@ module.exports = {
     selfConnectedNodeIds,
     encodeCursor,
     decodeCursor,
+    mergeHydrationGraphs,
   },
 };
