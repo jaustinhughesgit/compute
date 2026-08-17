@@ -23,6 +23,13 @@ function entityRevisionFromRow(row) {
   };
 }
 
+function configuredBandWindow(name, fallback) {
+  const value = Number(process.env[name]);
+  return Number.isFinite(value)
+    ? Math.max(0, Math.min(2000, value))
+    : fallback;
+}
+
 function register({ on, use }) {
   const {
     getCanonicalPersistence,
@@ -37,7 +44,7 @@ function register({ on, use }) {
   const EMB_MODEL_ID        = process.env.EMB_MODEL           || "text-embedding-3-large";
   const DEFAULT_BAND_SCALE  = Number(process.env.BAND_SCALE   || 2000);
   const DEFAULT_NUM_SHARDS  = Number(process.env.NUM_SHARDS   || 8);
-  const DEFAULT_BAND_WINDOW = Math.max(0, Math.min(2000, Number(process.env.SEARCH_BAND_WINDOW || 160)));
+  const DEFAULT_BAND_WINDOW = configuredBandWindow("SEARCH_BAND_WINDOW", 160);
   const persistence = getCanonicalPersistence();
   const s3     = deps.s3;
   const openai = deps.openai;
@@ -183,6 +190,10 @@ function register({ on, use }) {
       const numShards      = Math.max(1, Math.min(64, DEFAULT_NUM_SHARDS));
       const topL0          = Number.isFinite(+body.topL0) ? Math.max(1, Math.min(4, +body.topL0)) : 3;
       const bandWindow     = Number.isFinite(+body.bandWindow) ? Math.max(0, Math.min(2000, +body.bandWindow)) : DEFAULT_BAND_WINDOW;
+      const emptyFallbackBandWindow = Math.max(
+        bandWindow,
+        configuredBandWindow("SEARCH_EMPTY_BAND_WINDOW", 320)
+      );
       const limitPerAssign = Number.isFinite(+body.limitPerAssign) ? Math.max(1, Math.min(1000, +body.limitPerAssign)) : 500;
       const topK           = Number.isFinite(+body.topK) ? Math.max(1, Math.min(500, +body.topK)) : 50;
 
@@ -194,46 +205,60 @@ function register({ on, use }) {
 
       // Query every v2 shard and legacy v1 partition. Tenant and global rows
       // are unioned because either scope may contain an authorized candidate.
-      let anyTenantHit = false;
-      const perAssignResults = [];
       const sourceLimit = Math.max(1, Math.ceil(limitPerAssign / ((2 * numShards) + 2)));
-      for (const a of assigns) {
-        const scopes = [
-          ...(e > 0 ? [{ userId: e, type: "tenant" }] : []),
-          { userId: null, type: "global" },
-        ];
-        for (const scope of scopes) {
-          for (let shard = 0; shard < numShards; shard += 1) {
-            const userScope = scope.userId == null ? "" : `#U=${scope.userId}`;
-            const pk = `AB2#${setId}${userScope}#L0=${a.l0}#L1=${a.l1}#S=${pad2(shard)}`;
-            let rows = [];
+      const collectCandidates = async (delta) => {
+        let tenantHit = false;
+        const results = [];
+        for (const a of assigns) {
+          const scopes = [
+            ...(e > 0 ? [{ userId: e, type: "tenant" }] : []),
+            { userId: null, type: "global" },
+          ];
+          for (const scope of scopes) {
+            for (let shard = 0; shard < numShards; shard += 1) {
+              const userScope = scope.userId == null ? "" : `#U=${scope.userId}`;
+              const pk = `AB2#${setId}${userScope}#L0=${a.l0}#L1=${a.l1}#S=${pad2(shard)}`;
+              let rows = [];
+              try {
+                rows = await queryOneWindow({
+                  pk,
+                  bandCenter: a.band,
+                  delta,
+                  limitPerAssign: sourceLimit,
+                });
+              } catch {/* a missing projection shard is an empty candidate source */}
+              if (rows.length && scope.type === "tenant") tenantHit = true;
+              results.push({ a, rows, pkType: `${scope.type}-v2` });
+            }
+            const legacyScope = scope.userId == null ? "" : `#U=${scope.userId}`;
+            const legacyPk = `AB#${setId}${legacyScope}#L0=${a.l0}#L1=${a.l1}`;
+            let legacyRows = [];
             try {
-              rows = await queryOneWindow({
-                pk,
+              legacyRows = await queryOneWindow({
+                pk: legacyPk,
                 bandCenter: a.band,
-                delta: bandWindow,
+                delta,
+                legacy: true,
                 limitPerAssign: sourceLimit,
               });
-            } catch {/* a missing projection shard is an empty candidate source */}
-            if (rows.length && scope.type === "tenant") anyTenantHit = true;
-            perAssignResults.push({ a, rows, pkType: `${scope.type}-v2` });
+            } catch {/* legacy compatibility is best-effort during backfill */}
+            if (legacyRows.length && scope.type === "tenant") tenantHit = true;
+            results.push({ a, rows: legacyRows, pkType: `${scope.type}-v1` });
           }
-          const legacyScope = scope.userId == null ? "" : `#U=${scope.userId}`;
-          const legacyPk = `AB#${setId}${legacyScope}#L0=${a.l0}#L1=${a.l1}`;
-          let legacyRows = [];
-          try {
-            legacyRows = await queryOneWindow({
-              pk: legacyPk,
-              bandCenter: a.band,
-              delta: bandWindow,
-              legacy: true,
-              limitPerAssign: sourceLimit,
-            });
-          } catch {/* legacy compatibility is best-effort during backfill */}
-          if (legacyRows.length && scope.type === "tenant") anyTenantHit = true;
-          perAssignResults.push({ a, rows: legacyRows, pkType: `${scope.type}-v1` });
         }
+        return { tenantHit, results };
+      };
+      let effectiveBandWindow = bandWindow;
+      let collected = await collectCandidates(bandWindow);
+      if (
+        emptyFallbackBandWindow > bandWindow
+        && !collected.results.some((source) => source.rows.length)
+      ) {
+        effectiveBandWindow = emptyFallbackBandWindow;
+        collected = await collectCandidates(emptyFallbackBandWindow);
       }
+      const anyTenantHit = collected.tenantHit;
+      const perAssignResults = collected.results;
 
       // ---- merge, dedupe by su (min bandDelta), carry policy_id if present
       const bySu = new Map();
@@ -382,7 +407,7 @@ function register({ on, use }) {
           setId,
           usedTenantPK: anyTenantHit,
           params: {
-            bandScale, topL0, bandWindow, numShards, topK
+            bandScale, topL0, bandWindow, effectiveBandWindow, numShards, topK
           },
           query: {
             text: searchString ?? null,
@@ -407,7 +432,12 @@ function register({ on, use }) {
   if (typeof expose === "function") {
     expose("searchEntities", async ({ text, embedding, topK = 50 } = {}, meta = {}) => {
       const result = await searchHandler({
-        req: { body: { text, embedding, topK } },
+        req: { body: {
+          text,
+          embedding,
+          topK,
+          bandWindow: configuredBandWindow("CAPABILITY_SEARCH_BAND_WINDOW", 320),
+        } },
         res: {},
       }, meta);
       if (!result?.ok) throw new Error(result?.error || "semantic entity search failed");
