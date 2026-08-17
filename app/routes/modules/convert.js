@@ -407,54 +407,8 @@ function register({ on, use }) {
         backgroundJobId = null,
       }) => {
         const capabilityId = capabilityBuildRequest.capabilityIdHint;
-        const existing = await capabilityRegistry.findByCapability(capabilityId, {
-          activeOnly: false,
-          limit: 10,
-          ownerId,
-        });
-        const legacyActive = existing.filter((item) =>
-          item.status === "active"
-          && Number(item.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION
-        );
-        for (const legacy of legacyActive) {
-          await capabilityRegistry.setStatus(legacy.entityId, "failed", { ownerId });
-        }
-        if (legacyActive.length) {
-          await buildCoordinator.fail(
-            buildCoordinator.identity({ ownerId, capabilityId }),
-            "IMPLEMENTATION_POLICY_UPGRADE"
-          );
-        }
-        const active = existing.find((item) =>
-          item.status === "active"
-          && Number(item.implementationPolicyVersion || 1) >= IMPLEMENTATION_POLICY_VERSION
-        );
-        if (active) {
-          return capabilityStateResponse({
-            status: "CAPABILITY_EXTENSION_REQUIRED",
-            manifest: active,
-            reason: "An entity already owns this capability identifier, but discovery did not confirm that its current contract satisfies the request. Edit that entity instead of creating a competing copy.",
-          });
-        }
-        const testing = existing.find((item) => item.status === "testing");
-        if (testing) {
-          return capabilityStateResponse({
-            status: "CAPABILITY_PENDING",
-            manifest: testing,
-            reason: "A matching capability exists but has not been activated.",
-          });
-        }
-        const disabled = existing.find((item) => item.status === "disabled");
-        if (disabled) {
-          return capabilityStateResponse({
-            status: "CAPABILITY_DISABLED",
-            manifest: disabled,
-            reason: "A matching capability was deliberately disabled and will not be rebuilt automatically.",
-          });
-        }
-
         const requestHash = stableHash(JSON.stringify(capabilityBuildRequest));
-        let claim;
+        let resumedClaim = null;
         if (buildId) {
           const identity = buildCoordinator.identity({ ownerId, capabilityId });
           const record = await buildCoordinator.get(identity);
@@ -503,7 +457,58 @@ function register({ on, use }) {
               errorDetails: record.capabilityBuildStatus === "failed" ? persistedDetails : null,
             });
           }
-          claim = { acquired: true, ...identity, record };
+          resumedClaim = { acquired: true, ...identity, record };
+        }
+
+        const existing = resumedClaim ? [] : await capabilityRegistry.findByCapability(capabilityId, {
+          activeOnly: false,
+          limit: 10,
+          ownerId,
+        });
+        const legacyActive = existing.filter((item) =>
+          item.status === "active"
+          && Number(item.implementationPolicyVersion || 1) < IMPLEMENTATION_POLICY_VERSION
+        );
+        for (const legacy of legacyActive) {
+          await capabilityRegistry.setStatus(legacy.entityId, "failed", { ownerId });
+        }
+        if (legacyActive.length) {
+          await buildCoordinator.fail(
+            buildCoordinator.identity({ ownerId, capabilityId }),
+            "IMPLEMENTATION_POLICY_UPGRADE"
+          );
+        }
+        const active = existing.find((item) =>
+          item.status === "active"
+          && Number(item.implementationPolicyVersion || 1) >= IMPLEMENTATION_POLICY_VERSION
+        );
+        if (active) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_EXTENSION_REQUIRED",
+            manifest: active,
+            reason: "An entity already owns this capability identifier, but discovery did not confirm that its current contract satisfies the request. Edit that entity instead of creating a competing copy.",
+          });
+        }
+        const testing = existing.find((item) => item.status === "testing");
+        if (testing) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_PENDING",
+            manifest: testing,
+            reason: "A matching capability exists but has not been activated.",
+          });
+        }
+        const disabled = existing.find((item) => item.status === "disabled");
+        if (disabled) {
+          return capabilityStateResponse({
+            status: "CAPABILITY_DISABLED",
+            manifest: disabled,
+            reason: "A matching capability was deliberately disabled and will not be rebuilt automatically.",
+          });
+        }
+
+        let claim;
+        if (resumedClaim) {
+          claim = resumedClaim;
           await buildCoordinator.renew(claim);
         } else {
           claim = await buildCoordinator.claim({

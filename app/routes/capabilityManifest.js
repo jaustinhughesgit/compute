@@ -54,6 +54,20 @@ function canonicalizeGeneratedIdentifier(value) {
     .replace(/^[_ .-]+|[_ .-]+$/g, "");
 }
 
+function normalizeContextBindingSubject(value) {
+  const original = String(value || "").trim();
+  const canonical = original
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  return new Set([
+    "i", "me", "my", "myself", "self", "speaker",
+    "user", "current user", "current speaker",
+  ]).has(canonical) ? "speaker" : original;
+}
+
 function normalizeBindingHint(raw, inputName, inputType) {
   if (raw == null) return null;
   const hint = requireObject(raw, `input ${inputName} bindingHint`);
@@ -62,7 +76,9 @@ function normalizeBindingHint(raw, inputName, inputType) {
     throw new CapabilityError("INVALID_MANIFEST", `input ${inputName} has unsupported binding source ${source || "(blank)"}`);
   }
   const normalized = { source };
-  if (hint.subject != null) normalized.subject = String(hint.subject).trim();
+  if (hint.subject != null) normalized.subject = source === "contextdb"
+    ? normalizeContextBindingSubject(hint.subject)
+    : String(hint.subject).trim();
   if (hint.property != null) normalized.property = String(hint.property).trim();
   if (hint.resolver != null) normalized.resolver = String(hint.resolver).trim();
   if (hint.value != null) normalized.value = clone(hint.value);
@@ -179,7 +195,9 @@ function canonicalizeGeneratedOperations(rawOperations) {
           const source = String(field.bindingHint.source || "").toLowerCase();
           field.bindingHint.source = sourceAliases.get(source) || source;
           if (field.bindingHint.source === "contextdb") {
-            field.bindingHint.subject = String(field.bindingHint.subject || "speaker").trim();
+            field.bindingHint.subject = normalizeContextBindingSubject(
+              field.bindingHint.subject || "speaker"
+            );
             field.bindingHint.property = String(field.bindingHint.property || field.name).trim();
           }
           if (field.bindingHint.source === "environment" && !field.bindingHint.resolver) {
@@ -575,6 +593,7 @@ module.exports = {
   CapabilityError,
   validateCapabilityBuildRequest,
   canonicalizeGeneratedIdentifier,
+  normalizeContextBindingSubject,
   canonicalizeGeneratedOperations,
   validateCapabilityManifest,
   getCapabilityOperation,

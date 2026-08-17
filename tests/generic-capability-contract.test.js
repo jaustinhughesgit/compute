@@ -738,6 +738,38 @@ test("generated generic type and binding aliases normalize without domain rules"
   assert.equal(request.operations[0].outputs[0].type, "number");
 });
 
+test("generated current-user ContextDB subjects use the canonical speaker identity", () => {
+  for (const subject of ["user", "currentUser", "current_user", "self", "my", "I"]) {
+    const request = validateCapabilityBuildRequest({
+      schemaVersion: 1,
+      kind: "computeCapabilityBuild",
+      capabilityIdHint: "generic remembered value",
+      description: "Return one remembered value.",
+      operations: [{
+        operationId: "read value",
+        inputs: [{
+          name: "value",
+          type: "string",
+          required: true,
+          bindingHint: { source: "contextdb", subject, property: "rememberedValue" },
+          clarification: "What value should I use?",
+        }],
+        outputs: [{ name: "result", type: "string", required: true }],
+        utteranceExamples: ["Give me the remembered value."],
+        answerTemplate: "{{result}}",
+      }],
+    });
+    assert.equal(request.operations[0].inputs[0].bindingHint.subject, "speaker", subject);
+  }
+});
+
+test("Convert requirements may explicitly declare ContextDB contracts without attaching values", () => {
+  const discovery = fs.readFileSync(path.join(__dirname, "../app/routes/capabilityDiscovery.js"), "utf8");
+  assert.match(discovery, /explicit requirement may declare a contextdb input binding contract/);
+  assert.match(discovery, /Do not read, attach, copy, or infer any current ContextDB value/);
+  assert.doesNotMatch(discovery, /do not declare contextdb input bindings/);
+});
+
 test("missing generated operation fields use stable generic aliases and fallbacks", () => {
   const request = validateCapabilityBuildRequest({
     schemaVersion: 1,

@@ -83,6 +83,15 @@ test("Convert uses generic discovery, reuse, extension, and model-built entity p
   assert.doesNotMatch(source, /weather/i);
 });
 
+test("a resumed build reconnects before its completed entity can look like a collision", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  const resumeValidation = source.indexOf("const validResume = record");
+  const collisionLookup = source.indexOf("await capabilityRegistry.findByCapability", resumeValidation);
+  assert.ok(resumeValidation >= 0 && collisionLookup > resumeValidation);
+  assert.match(source, /const existing = resumedClaim \? \[\] : await capabilityRegistry\.findByCapability/);
+  assert.match(source, /if \(resumedClaim\) \{\s*claim = resumedClaim;\s*await buildCoordinator\.renew\(claim\)/);
+});
+
 test("Compute request middleware does not log credentials or the dependency container", () => {
   const source = fs.readFileSync(path.join(__dirname, "../app/routes/cookies.js"), "utf8");
   assert.doesNotMatch(source, /console\.log\(["']ctx["']/);
