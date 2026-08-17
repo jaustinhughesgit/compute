@@ -361,6 +361,25 @@ function register({ on, use }) {
     return Array.from(byPrincipal.values());
   }
 
+  async function findProfileByServerEntityId(entityId, label) {
+    const serverEntityId = text(entityId, 180);
+    const expectedHandle = normalizedLabel(label);
+    if (!/^usr_[a-zA-Z0-9_-]+$/.test(serverEntityId) || !expectedHandle) return null;
+    const principalId = serverEntityId.slice(4);
+    const result = await persistence.context.get(`u:${principalId}`, "profile#self");
+    const profile = result?.Item;
+    if (
+      profile?.recordType !== "profile"
+      || text(profile.serverEntityId, 180) !== serverEntityId
+      || normalizedLabel(profile.displayName) !== expectedHandle
+    ) return null;
+    return {
+      principalId: text(profile.principalId, 80),
+      serverEntityId,
+      displayName: text(profile.displayName),
+    };
+  }
+
   async function resolveNode(node, principalId, predicateIds, userReferenceLabels = []) {
     const labels = uniqueStrings([...(node.lemmas || []), ...(node.names || [])]);
     const normalized = labels.map(normalizedLabel).filter(Boolean);
@@ -523,7 +542,11 @@ function register({ on, use }) {
     const body = unwrapBody(ctx?.req?.body);
     const query = text(body.query || body.name);
     if (!query) return errorEnvelope("CONTEXT_USER_QUERY_REQUIRED", "A user name is required.");
-    const matches = await findProfiles(query);
+    const preferredEntityId = text(body.entityId, 180);
+    const preferredProfile = preferredEntityId
+      ? await findProfileByServerEntityId(preferredEntityId, query)
+      : null;
+    const matches = preferredProfile ? [preferredProfile] : await findProfiles(query);
     return {
       ok: true,
       response: {

@@ -918,6 +918,35 @@ test("discovery preserves ContextDB bindings separately from utterance input val
   });
 });
 
+test("discovery separates the concrete Austin referent from the reusable capability query", () => {
+  const evidence = semanticEvidenceContext([{
+    capabilityQuery: "register status report",
+    invocationReferents: [{
+      role: "qualified_owner",
+      mention: "Austin",
+      mentionKey: "austin",
+      resolvedLocally: true,
+      resolution: "contextdb-unique",
+      entityId: "must-not-cross",
+    }],
+  }]);
+  assert.deepEqual(evidence, {
+    rows: [],
+    resolvedContextBindings: {},
+    matchedEssenceRows: [],
+    capabilityQuery: "register status report",
+    invocationReferents: [{
+      role: "qualified_owner",
+      mention: "Austin",
+      mentionKey: "austin",
+      resolvedLocally: true,
+      resolution: "contextdb-unique",
+    }],
+  });
+  const convertSource = fs.readFileSync(path.join(__dirname, "../app/routes/modules/convert.js"), "utf8");
+  assert.match(convertSource, /utterance:\s*semanticContext\.capabilityQuery \|\| originalUtterance/);
+});
+
 test("discovery discards a ContextDB value copied into utterance inputValues", () => {
   const operation = {
     operationId: "fetch_weather",

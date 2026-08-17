@@ -297,6 +297,14 @@ test("a public self-name assertion makes earlier facts available to an exact nam
   )));
   assert.ok(hydrated.response.relations.some((relation) => relation.serverId));
 
+  const remembered = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin", entityId: "usr_1" } },
+  }, { cookie: { e: "2" } });
+  assert.equal(remembered.ok, true);
+  assert.equal(remembered.response.found, true);
+  assert.equal(remembered.response.namedServerId, "usr_1");
+
   await handlers.get("contextGraphHydrate")({
     path: "/workspace-alice",
     req: { body: { schemaVersion: 1 } },

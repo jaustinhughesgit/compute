@@ -241,8 +241,25 @@ function semanticEvidenceContext(value) {
     localRepairInterpretation: null,
   };
   let routingSeen = false;
+  let capabilityQuery = null;
+  const invocationReferents = [];
   for (const item of items.slice(0, 12)) {
     if (!isObject(item)) continue;
+    if (!capabilityQuery && item.capabilityQuery) {
+      capabilityQuery = cleanUtterance(item.capabilityQuery).slice(0, 600) || null;
+    }
+    for (const referent of Array.isArray(item.invocationReferents) ? item.invocationReferents.slice(0, 8) : []) {
+      if (!isObject(referent)) continue;
+      const mentionKey = normalizedWords(referent.mentionKey || referent.mention).slice(0, 160);
+      if (!mentionKey || invocationReferents.some((entry) => entry.mentionKey === mentionKey)) continue;
+      invocationReferents.push({
+        role: String(referent.role || "referent").replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
+        mention: cleanUtterance(referent.mention).slice(0, 160),
+        mentionKey,
+        resolvedLocally: referent.resolvedLocally === true,
+        resolution: String(referent.resolution || "").replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
+      });
+    }
     if (isObject(item.routing)) {
       routingSeen = true;
       const missCategory = String(item.routing.missCategory || "").trim().toUpperCase();
@@ -311,6 +328,8 @@ function semanticEvidenceContext(value) {
     rows: semanticEvidenceRows(value),
     resolvedContextBindings,
     matchedEssenceRows: [...matchedEssenceRows].sort((a, b) => a - b),
+    ...(capabilityQuery ? { capabilityQuery } : {}),
+    ...(invocationReferents.length ? { invocationReferents } : {}),
     ...(routingSeen ? { routing } : {}),
   };
 }
@@ -631,6 +650,7 @@ function discoveryMessages({
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
           "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
+          "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. Their names are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
           "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",

@@ -14,6 +14,7 @@ const { loadCapabilityCandidates } = require("../capabilityCandidates");
 const {
   discoverComputeCapability,
   localGraphOnlyDiscovery,
+  semanticEvidenceContext,
   startComputeCapabilityDiscovery,
   retrieveComputeCapabilityDiscovery,
 } = require("../capabilityDiscovery");
@@ -700,10 +701,11 @@ function register({ on, use }) {
           ? promptObj.requirementSegments
           : [];
         const semanticEvidence = requirementSegments.length ? [] : promptObj?.relevantItems;
+        const semanticContext = semanticEvidenceContext(semanticEvidence);
         const availableCapabilities = await loadCapabilityCandidates({
           searchEntities: shared.registry?.searchEntities,
           registry: capabilityRegistry,
-          utterance: originalUtterance,
+          utterance: semanticContext.capabilityQuery || originalUtterance,
           requirementSegments,
           ownerId,
           minimumImplementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,

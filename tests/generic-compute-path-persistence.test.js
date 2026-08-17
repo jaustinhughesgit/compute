@@ -103,6 +103,37 @@ test("compute Path persistence accepts answer templates using declared inputs an
   );
 });
 
+test("compute Path persistence accepts identity-scoped referent memory for a ContextDB input", () => {
+  const path = computePath("{{conditions}}");
+  path.right.state.compute.inputs[0].bindingHint = {
+    source: "contextdb",
+    subject: "speaker",
+    property: "RegisterStatus",
+  };
+  path.right.state.compute.contextBindingHints = {
+    place: {
+      source: "contextdb",
+      subject: "Austin",
+      subjectEntityId: "usr_1",
+      property: "RegisterStatus",
+    },
+  };
+  path.right.state.compute.referentMemory = [{
+    role: "context_subject",
+    mentionKey: "austin",
+    entityId: "usr_1",
+    inputNames: ["place"],
+    successfulUses: 1,
+    corrections: 0,
+  }];
+  assert.equal(pathsTest.validatePathForPersistence(path), true);
+  path.right.state.compute.referentMemory[0].inputNames = ["missing"];
+  assert.throws(
+    () => pathsTest.validatePathForPersistence(path),
+    /referentMemory\[0\] is invalid/
+  );
+});
+
 test("Path persistence accepts the shared repeated-role structural slot", () => {
   const path = computePath("{{conditions}}");
   path.left.state.pattern.core = [{ kind: "slot", slot: "objects" }];

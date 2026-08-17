@@ -274,6 +274,39 @@ function validateComputeCapabilityState(state, pattern) {
       }
     }
   }
+  if (compute.contextBindingHints != null) {
+    if (!compute.contextBindingHints || typeof compute.contextBindingHints !== "object" || Array.isArray(compute.contextBindingHints)) {
+      throw new Error("compute contextBindingHints must be an object");
+    }
+    for (const [inputName, hint] of Object.entries(compute.contextBindingHints)) {
+      if (
+        !inputNames.has(inputName)
+        || !hint
+        || typeof hint !== "object"
+        || Array.isArray(hint)
+        || String(hint.source || "").toLowerCase() !== "contextdb"
+        || !String(hint.subject || "").trim()
+        || !String(hint.property || "").trim()
+      ) throw new Error(`compute context binding ${inputName} is invalid`);
+    }
+  }
+  if (compute.referentMemory != null) {
+    if (!Array.isArray(compute.referentMemory) || compute.referentMemory.length > 32) {
+      throw new Error("compute referentMemory must be a bounded array");
+    }
+    for (const [index, memory] of compute.referentMemory.entries()) {
+      const memoryInputs = Array.isArray(memory?.inputNames) ? memory.inputNames : [];
+      if (
+        !memory
+        || typeof memory !== "object"
+        || Array.isArray(memory)
+        || !String(memory.mentionKey || "").trim()
+        || !String(memory.entityId || "").trim()
+        || !memoryInputs.length
+        || memoryInputs.some((name) => !inputNames.has(String(name || "").trim()))
+      ) throw new Error(`compute referentMemory[${index}] is invalid`);
+    }
+  }
   if (!Array.isArray(compute.outputs) || !compute.outputs.length) {
     throw new Error("computeCapability Paths require declared outputs");
   }
