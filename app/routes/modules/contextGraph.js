@@ -859,7 +859,11 @@ function register({ on, use }) {
 
     const query = text(body.query || body.name);
     if (!query) return errorEnvelope("CONTEXT_USER_QUERY_REQUIRED", "A user name is required.");
-    const matches = await findProfiles(query);
+    const preferredEntityId = text(body.entityId, 180);
+    const preferredProfile = preferredEntityId
+      ? await findProfileByServerEntityId(preferredEntityId, query)
+      : null;
+    const matches = preferredProfile ? [preferredProfile] : await findProfiles(query);
     if (matches.length !== 1) {
       return {
         ok: true,

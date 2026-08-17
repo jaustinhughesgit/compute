@@ -297,6 +297,23 @@ test("a public self-name assertion makes earlier facts available to an exact nam
   )));
   assert.ok(hydrated.response.relations.some((relation) => relation.serverId));
 
+  doc.items.set("u:3\u001fprofile#self", {
+    audienceId: "u:3",
+    recordKey: "profile#self",
+    recordType: "profile",
+    principalId: "3",
+    serverEntityId: "usr_3",
+    displayName: "Austin",
+    lookupKey: "handle#austin",
+  });
+  const ambiguous = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, { cookie: { e: "2" } });
+  assert.equal(ambiguous.ok, true);
+  assert.equal(ambiguous.response.found, false);
+  assert.equal(ambiguous.response.ambiguous, true);
+
   const remembered = await handlers.get("contextGraphHydrateNamed")({
     path: "/workspace-amy",
     req: { body: { schemaVersion: 1, query: "Austin", entityId: "usr_1" } },
