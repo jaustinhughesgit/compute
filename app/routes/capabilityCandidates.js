@@ -20,6 +20,7 @@ async function loadCapabilityCandidates({
   ownerId,
   minimumImplementationPolicyVersion = 1,
   limit = 60,
+  bandWindow = 512,
   meta = {},
 } = {}) {
   if (!registry) throw new TypeError("capability candidate loading requires a registry");
@@ -27,6 +28,11 @@ async function loadCapabilityCandidates({
     const rows = await searchEntities({
       text: candidateQueryText(utterance, requirementSegments),
       topK: Math.max(1, Math.min(100, Number(limit) || 60)),
+      // Capability contracts are short semantic documents whose useful
+      // paraphrases can sit outside the narrower interactive Search window.
+      // Keep recall bounded by the same partitions, per-partition limits,
+      // authorization reload, and top-K result cap.
+      bandWindow: Math.max(160, Math.min(2000, Number(bandWindow) || 512)),
     }, meta);
     const ids = (Array.isArray(rows) ? rows : [])
       .filter((row) => row?.canUse === true)

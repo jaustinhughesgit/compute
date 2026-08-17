@@ -329,6 +329,72 @@ test("a public self-name assertion makes earlier facts available to an exact nam
   assert.equal(doc.items.get("u:1\u001fprofile#self").displayName, "Austin");
 });
 
+test("a repeated exact named hydration returns facts published after the first hydration", async () => {
+  const doc = memoryDocumentClient();
+  const handlers = installRuntime(doc);
+  const owner = { cookie: { e: "1" } };
+  const reader = { cookie: { e: "2" } };
+
+  await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "refresh-name-1",
+      source: { sentence: "My name is Austin." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "name", lemmas: ["name"] },
+        { localId: "austin", lemmas: ["austin"], names: ["Austin"] },
+      ],
+      relations: [
+        { localId: "name-assertion", subjectLocalId: "speaker", predicateLocalId: "name", objectLocalId: "austin" },
+      ],
+    } },
+  }, owner);
+
+  const first = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin" } },
+  }, reader);
+  assert.equal(first.response.namedServerId, "usr_1");
+  assert.equal(first.response.nodes.some((node) => node.lemmas.includes("cat observation")), false);
+
+  const published = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "refresh-cats-1",
+      source: { sentence: "I have three cats." },
+      nodes: [
+        { localId: "speaker", lemmas: ["speaker"] },
+        { localId: "observe_quantity", lemmas: ["observe_quantity"] },
+        { localId: "cat_record", lemmas: ["cat observation"] },
+        { localId: "item", lemmas: ["item"] },
+        { localId: "cat", lemmas: ["cat"] },
+        { localId: "quantity_delta", lemmas: ["quantity_delta"] },
+        { localId: "three", lemmas: ["3"] },
+      ],
+      relations: [
+        { localId: "cats-observed", subjectLocalId: "speaker", predicateLocalId: "observe_quantity", objectLocalId: "cat_record" },
+        { localId: "cats-item", subjectLocalId: "cat_record", predicateLocalId: "item", objectLocalId: "cat" },
+        { localId: "cats-delta", subjectLocalId: "cat_record", predicateLocalId: "quantity_delta", objectLocalId: "three" },
+      ],
+    } },
+  }, owner);
+  assert.equal(published.ok, true);
+
+  const refreshed = await handlers.get("contextGraphHydrateNamed")({
+    path: "/workspace-amy",
+    req: { body: { schemaVersion: 1, query: "Austin", entityId: "usr_1" } },
+  }, reader);
+  assert.equal(refreshed.response.namedServerId, "usr_1");
+  const catObservation = refreshed.response.nodes.find((node) => node.lemmas.includes("cat observation"));
+  assert.ok(catObservation);
+  assert.ok(refreshed.response.relations.some((relation) => (
+    relation.subject === "usr_1" && relation.object === catObservation.serverId
+  )));
+});
+
 test("owned protected placeholders hydrate by name without publishing plaintext", async () => {
   const doc = memoryDocumentClient();
   const reference = "protected_asset:pa_1234567890abcdef";

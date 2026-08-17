@@ -405,9 +405,9 @@ function register({ on, use }) {
 
   on("search", searchHandler);
   if (typeof expose === "function") {
-    expose("searchEntities", async ({ text, embedding, topK = 50 } = {}, meta = {}) => {
+    expose("searchEntities", async ({ text, embedding, topK = 50, bandWindow } = {}, meta = {}) => {
       const result = await searchHandler({
-        req: { body: { text, embedding, topK } },
+        req: { body: { text, embedding, topK, ...(bandWindow == null ? {} : { bandWindow }) } },
         res: {},
       }, meta);
       if (!result?.ok) throw new Error(result?.error || "semantic entity search failed");

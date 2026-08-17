@@ -97,6 +97,50 @@ test("Convert canonicalizes a model-confused current-speaker input to its Contex
   assert.equal(request.operations[0].answerTemplate, "The register status is {{register_status}}.");
 });
 
+test("Convert removes a deictic prefix fused into a generated speaker property", () => {
+  const request = normalizeGeneratedBuildRequest(
+    discoveryParsed([
+      input("register_status", {
+        source: "contextdb",
+        subject: "speaker",
+        property: "myRegisterStatus",
+        resolver: null,
+        aliases: null,
+        value: null,
+      }),
+    ], { answerTemplate: "The register status is {{register_status}}." }),
+    segments.join("\n"),
+    "u:test",
+    segments
+  );
+
+  assert.equal(request.operations[0].inputs[0].bindingHint.subject, "speaker");
+  assert.equal(request.operations[0].inputs[0].bindingHint.property, "register_status");
+});
+
+test("Convert preserves an explicitly declared property even when its name begins with my", () => {
+  const explicitSegments = [
+    "Create a generic property report.",
+    "Its required input is named status. Its ContextDB subject is speaker and its property is my status.",
+  ];
+  const request = normalizeGeneratedBuildRequest(
+    discoveryParsed([
+      input("status", {
+        source: "contextdb",
+        subject: "speaker",
+        property: "myStatus",
+        resolver: null,
+        aliases: null,
+        value: null,
+      }),
+    ]),
+    explicitSegments.join("\n"),
+    "u:test",
+    explicitSegments
+  );
+  assert.equal(request.operations[0].inputs[0].bindingHint.property, "myStatus");
+});
+
 test("Convert removes a redundant deictic owner while preserving the ContextDB value input", () => {
   const request = normalizeGeneratedBuildRequest(
     discoveryParsed([

@@ -88,12 +88,16 @@ test("public capability positioning writes tenant and global v2 postings", async
 test("indexed discovery reloads only Search candidates and never scans after an empty indexed result", async () => {
   let scans = 0;
   let ids = null;
+  let searchRequest = null;
   const registry = {
     listAvailableByEntityIds: async (value) => { ids = value; return [manifest()]; },
     listAvailable: async () => { scans += 1; return []; },
   };
   const found = await loadCapabilityCandidates({
-    searchEntities: async () => [{ su: "denied", canUse: false }, { su: "entity-add", canUse: true }],
+    searchEntities: async (request) => {
+      searchRequest = request;
+      return [{ su: "denied", canUse: false }, { su: "entity-add", canUse: true }];
+    },
     registry,
     utterance: "Combine five with nine.",
     requirementSegments: ["Return the total."],
@@ -101,6 +105,8 @@ test("indexed discovery reloads only Search candidates and never scans after an 
   });
   assert.deepEqual(ids, ["entity-add"]);
   assert.equal(found[0].entityId, "entity-add");
+  assert.equal(searchRequest.bandWindow, 512);
+  assert.equal(searchRequest.topK, 60);
   await loadCapabilityCandidates({ searchEntities: async () => [], registry, utterance: "unmatched", ownerId: "u:12" });
   assert.equal(scans, 0);
 });

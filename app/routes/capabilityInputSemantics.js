@@ -55,6 +55,29 @@ function explicitInputDeclaration(requirementSegments, rawName) {
   ].some((pattern) => pattern.test(text));
 }
 
+function explicitPropertyDeclaration(requirementSegments, rawProperty) {
+  const property = canonicalizeGeneratedIdentifier(rawProperty).replace(/[_-]+/g, " ");
+  if (!property) return false;
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const text = (Array.isArray(requirementSegments) ? requirementSegments : [])
+    .map((segment) => String(segment || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .toLowerCase())
+    .join("\n");
+  return [
+    new RegExp(`\\bproperty\\s+(?:is|named|called)\\s+["']?${escaped}\\b`, "i"),
+    new RegExp(`\\bproperty\\s+name\\s+(?:is|equals)\\s+["']?${escaped}\\b`, "i"),
+  ].some((pattern) => pattern.test(text));
+}
+
+function deicticPropertyValue(rawProperty) {
+  const property = canonicalizeGeneratedIdentifier(rawProperty);
+  const prefixes = ["my_", "speaker_", "current_user_", "current_speaker_"];
+  const prefix = prefixes.find((value) => property.startsWith(value));
+  return prefix ? property.slice(prefix.length) : "";
+}
+
 function contextAddress(input) {
   const hint = isObject(input?.bindingHint) ? input.bindingHint : null;
   if (String(hint?.source || "").toLowerCase() !== "contextdb") return null;
@@ -151,6 +174,22 @@ function normalizeGeneratedConvertOwnerBindings(rawRequest, requirementSegments 
     operation.inputs = Array.isArray(operation.inputs) ? operation.inputs : [];
 
     for (const input of [...operation.inputs]) {
+      const hint = isObject(input?.bindingHint) ? input.bindingHint : null;
+      const subject = String(hint?.source || "").toLowerCase() === "contextdb"
+        ? normalizeContextBindingSubject(hint.subject || "speaker")
+        : "";
+      const propertyValue = deicticPropertyValue(hint?.property);
+      if (
+        subject === "speaker"
+        && propertyValue
+        && propertyValue === canonicalizeGeneratedIdentifier(input?.name)
+        && !explicitPropertyDeclaration(requirementSegments, hint?.property)
+      ) {
+        // A generated `myRegisterStatus` property confuses the grammatical
+        // owner with the owned value. The owner is already the speaker subject;
+        // the property address is the non-deictic input semantic.
+        hint.property = propertyValue;
+      }
       const oldName = input?.name;
       const address = contextAddress(input);
       if (address && String(address.subject).toLowerCase() === "speaker") {
