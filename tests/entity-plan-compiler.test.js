@@ -6,6 +6,8 @@ const {
   ENTITY_PLAN_SCHEMA,
   attachGeneratedInputs,
   buildComputeEntitySpec,
+  declaredInputProjectionImplementation,
+  hasDeclaredDeterministicImplementation,
 } = require("../app/routes/capabilityBlueprints");
 
 const baseRequest = {
@@ -177,6 +179,56 @@ test("EntityPlan compiles a browser-resolved ContextDB input without a provider 
       params: [{ report: "The current register status is {|req=>body.status|}." }],
     }],
   }]);
+});
+
+test("a one-input local projection compiles without asking a model to rewrite its contract", async () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "generic_property_report",
+    name: "Generic property report",
+    description: "Reports a value resolved by the browser.",
+    operations: [{
+      operationId: "report",
+      description: "Return the resolved value.",
+      inputs: [{
+        name: "status",
+        type: "string",
+        required: true,
+        description: "A current property value.",
+        bindingHint: { source: "contextdb", subject: "speaker", property: "register_status" },
+      }],
+      outputs: [{ name: "report", type: "string", required: true, description: "The report value." }],
+      freshness: { mode: "none", ttlSeconds: 0 },
+      answerTemplate: "Your register status is {{report}}.",
+      utteranceExamples: ["What is my register status?"],
+    }],
+  };
+  let modelCalls = 0;
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:2",
+    originalUtterance: "What is my register status?",
+    openai: { responses: { create: async () => { modelCalls += 1; throw new Error("must not run"); } } },
+  });
+
+  assert.equal(hasDeclaredDeterministicImplementation(request), true);
+  assert.equal(modelCalls, 0);
+  assert.equal(spec.computeEntity.provider, "local-declarative-input-projection");
+  assert.deepEqual(spec.computeEntity.published.actions, [{
+    target: "{|res|}!",
+    chain: [{ access: "send", params: [{ report: "{|req=>body.status|}" }] }],
+  }]);
+});
+
+test("a multi-input semantic transformation is not guessed as a local projection", () => {
+  const request = structuredClone(baseRequest);
+  request.operations[0].inputs = [locationInput(), {
+    ...locationInput(), name: "date", bindingHint: { source: "utterance", resolver: "date" },
+  }];
+  request.operations[0].outputs = [{ name: "summary", type: "string", required: true }];
+  assert.equal(declaredInputProjectionImplementation(request), null);
+  assert.equal(hasDeclaredDeterministicImplementation(request), false);
 });
 
 test("generated duplicate examples keep the literal spoken temporal value", () => {

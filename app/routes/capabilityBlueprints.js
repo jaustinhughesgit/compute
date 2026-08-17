@@ -178,13 +178,83 @@ function declaredCalculationImplementation(buildRequest) {
   };
 }
 
-function hasDeclaredCalculation(buildRequest) {
+function compatibleProjectionType(input, output) {
+  const inputType = String(input?.type || "any").toLowerCase();
+  const outputType = String(output?.type || "any").toLowerCase();
+  return inputType === outputType || inputType === "any" || outputType === "any";
+}
+
+function declaredInputProjectionImplementation(buildRequest) {
+  if (!Array.isArray(buildRequest?.operations) || buildRequest.operations.length !== 1) return null;
+  const operation = buildRequest.operations[0];
+  if (operation?.calculation) return null;
+  const inputs = Array.isArray(operation?.inputs) ? operation.inputs : [];
+  const outputs = Array.isArray(operation?.outputs) ? operation.outputs : [];
+  if (!inputs.length || !outputs.length) return null;
+
+  const unusedInputs = new Set(inputs.map((input) => input.name));
+  const outputSources = new Map();
+  for (const output of outputs) {
+    const exact = inputs.find((input) => (
+      input.name === output.name && compatibleProjectionType(input, output)
+    ));
+    if (exact) {
+      outputSources.set(output.name, exact);
+      unusedInputs.delete(exact.name);
+    }
+  }
+
+  // A one-input/one-output contract is an unambiguous local projection even
+  // when the semantic role names differ (for example status -> report). More
+  // complicated transformations remain model-authored EntityPlans.
+  if (inputs.length === 1 && outputs.length === 1 && !outputSources.has(outputs[0].name)) {
+    if (!compatibleProjectionType(inputs[0], outputs[0])) return null;
+    outputSources.set(outputs[0].name, inputs[0]);
+    unusedInputs.delete(inputs[0].name);
+  }
+
+  if (
+    outputSources.size !== outputs.length
+    || inputs.some((input) => input.required && unusedInputs.has(input.name))
+  ) return null;
+
+  return {
+    name: buildRequest.name || buildRequest.capabilityIdHint,
+    provider: "local-declarative-input-projection",
+    inputRequirements: [],
+    protectedAssetRequirements: [],
+    published: {
+      modules: {},
+      actions: [{
+        target: "{|res|}!",
+        chain: [{
+          access: "send",
+          params: [Object.fromEntries(outputs.map((output) => [
+            output.name,
+            `{|req=>body.${outputSources.get(output.name).name}|}`,
+          ]))],
+        }],
+      }],
+      data: {},
+    },
+  };
+}
+
+function declaredDeterministicImplementation(buildRequest) {
+  return declaredCalculationImplementation(buildRequest)
+    || declaredInputProjectionImplementation(buildRequest);
+}
+
+function hasDeclaredDeterministicImplementation(buildRequest) {
   try {
-    return !!declaredCalculationImplementation(validateCapabilityBuildRequest(buildRequest));
+    return !!declaredDeterministicImplementation(validateCapabilityBuildRequest(buildRequest));
   } catch (_) {
     return false;
   }
 }
+
+// Kept as a public compatibility alias for callers outside this repository.
+const hasDeclaredCalculation = hasDeclaredDeterministicImplementation;
 
 function assertDeclarativeJson(value, path = "$") {
   if (value == null || ["string", "number", "boolean"].includes(typeof value)) return;
@@ -1024,9 +1094,9 @@ async function buildComputeEntitySpec({
   llmTemplateId = null,
 } = {}) {
   const initial = validateCapabilityBuildRequest(capabilityRequest);
-  const declaredImplementation = declaredCalculationImplementation(initial);
-  const suppliedCandidate = declaredImplementation || (generatedImplementation == null
-    ? await generateImplementation({
+  const declaredImplementation = declaredDeterministicImplementation(initial);
+  const suppliedCandidate = generatedImplementation == null
+    ? (declaredImplementation || await generateImplementation({
         openai,
         buildRequest: initial,
         originalUtterance,
@@ -1035,8 +1105,8 @@ async function buildComputeEntitySpec({
         requestTimeoutMs,
         onCostTrace,
         llmTemplateId,
-      })
-    : parseJsonObject(generatedImplementation, "capability EntityPlan response"));
+      }))
+    : parseJsonObject(generatedImplementation, "capability EntityPlan response");
   const generatedBuildRequest = attachGeneratedInputs(
     initial,
     suppliedCandidate.inputRequirements || [],
@@ -1103,7 +1173,9 @@ module.exports = {
   GENERIC_BLUEPRINT_ID,
   ENTITY_PLAN_SCHEMA,
   hasDeclaredCalculation,
+  hasDeclaredDeterministicImplementation,
   declaredCalculationImplementation,
+  declaredInputProjectionImplementation,
   listCapabilityBlueprints,
   buildComputeEntitySpec,
   backgroundImplementationInput,

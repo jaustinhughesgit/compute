@@ -23,7 +23,7 @@ const {
   startComputeEntitySpecBackground,
   retrieveComputeEntitySpecBackground,
   CapabilityBuildRetryError,
-  hasDeclaredCalculation,
+  hasDeclaredDeterministicImplementation,
 } = require("../capabilityBlueprints");
 const {
   stableHash,
@@ -539,7 +539,7 @@ function register({ on, use }) {
         let computeSpec = null;
         let backgroundBuild = null;
         try {
-          if (background && !hasDeclaredCalculation(capabilityBuildRequest)) {
+          if (background && !hasDeclaredDeterministicImplementation(capabilityBuildRequest)) {
             backgroundBuild = backgroundJobId
               ? await retrieveComputeEntitySpecBackground({ jobId: backgroundJobId })
               : await startComputeEntitySpecBackground({
