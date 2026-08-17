@@ -34,9 +34,9 @@ function createCanonicalComposition({ persistence, verifyLegacy, now = () => new
   }
 
   async function endpoint(addressId, action, context = {}) {
-    const address = item(await persistence.foundation.addresses.byId(addressId));
+    const address = item(await persistence.foundation.addresses.byId(addressId, { consistentRead: true }));
     if (!address) throw Object.assign(new Error(`Address '${addressId}' was not found`), { code: "COMPOSITION_ADDRESS_NOT_FOUND" });
-    const entity = item(await persistence.foundation.entities.byId(address.e));
+    const entity = item(await persistence.foundation.entities.byId(address.e, { consistentRead: true }));
     if (!entity) throw Object.assign(new Error(`Entity '${address.e}' was not found`), { code: "COMPOSITION_ENTITY_NOT_FOUND" });
     const actorId = String(context.actorId || "").trim();
     const principalIds = actorId

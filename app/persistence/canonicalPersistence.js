@@ -48,11 +48,12 @@ function invoke(client, method, params) {
   return request && typeof request.promise === "function" ? request.promise() : Promise.resolve(request);
 }
 
-function queryByKey(client, TableName, key, value, IndexName) {
+function queryByKey(client, TableName, key, value, IndexName, { consistentRead = false } = {}) {
   required(value, key);
   return invoke(client, "query", {
     TableName,
     ...(IndexName ? { IndexName } : {}),
+    ...(!IndexName && consistentRead ? { ConsistentRead: true } : {}),
     KeyConditionExpression: "#key = :value",
     ExpressionAttributeNames: { "#key": key },
     ExpressionAttributeValues: { ":value": value },
@@ -142,7 +143,9 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
       ),
     }),
     entities: Object.freeze({
-      byId: (entityId) => queryByKey(documentClient, tables.entities, "e", entityId),
+      byId: (entityId, options = {}) => queryByKey(
+        documentClient, tables.entities, "e", entityId, undefined, options
+      ),
       put: (item, options = {}) => invoke(documentClient, "put", {
         TableName: tables.entities, Item: required(item, "entity item"), ...options,
       }),
@@ -151,7 +154,9 @@ function createCanonicalPersistence({ documentClient, tableNames = {}, env } = {
       ),
     }),
     addresses: Object.freeze({
-      byId: (addressId) => queryByKey(documentClient, tables.addresses, "su", addressId),
+      byId: (addressId, options = {}) => queryByKey(
+        documentClient, tables.addresses, "su", addressId, undefined, options
+      ),
       byEntity: (entityId) => queryByKey(documentClient, tables.addresses, "e", entityId, "eIndex"),
       byWord: (wordId) => queryByKey(documentClient, tables.addresses, "a", wordId, "aIndex"),
       byGroup: (groupId) => queryByKey(documentClient, tables.addresses, "g", groupId, "gIndex"),

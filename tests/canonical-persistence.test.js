@@ -58,6 +58,29 @@ test("foundation and compatibility readers preserve existing DynamoDB envelopes"
   });
 });
 
+test("foundation identity reads can require immediate post-write visibility", async () => {
+  const client = recordingClient({ query: { Items: [] } });
+  const persistence = createCanonicalPersistence({ documentClient: client });
+  await persistence.foundation.addresses.byId("address-new", { consistentRead: true });
+  await persistence.foundation.entities.byId("entity-new", { consistentRead: true });
+  assert.deepEqual(client.calls.map((call) => call.params), [
+    {
+      TableName: "subdomains",
+      ConsistentRead: true,
+      KeyConditionExpression: "#key = :value",
+      ExpressionAttributeNames: { "#key": "su" },
+      ExpressionAttributeValues: { ":value": "address-new" },
+    },
+    {
+      TableName: "entities",
+      ConsistentRead: true,
+      KeyConditionExpression: "#key = :value",
+      ExpressionAttributeNames: { "#key": "e" },
+      ExpressionAttributeValues: { ":value": "entity-new" },
+    },
+  ]);
+});
+
 test("context compatibility writes deduplicate records and retry unprocessed items", async () => {
   let attempt = 0;
   const client = recordingClient({

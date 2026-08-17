@@ -17,11 +17,18 @@ function fakePersistence() {
   ]);
   const relations = new Map();
   const audits = [];
+  const identityReads = [];
   return {
-    relations, audits,
+    relations, audits, identityReads,
     foundation: {
-      addresses: { byId: async (id) => ({ Items: addresses.has(id) ? [addresses.get(id)] : [] }) },
-      entities: { byId: async (id) => ({ Items: entities.has(id) ? [entities.get(id)] : [] }) },
+      addresses: { byId: async (id, options) => {
+        identityReads.push({ kind: "address", id, options });
+        return { Items: addresses.has(id) ? [addresses.get(id)] : [] };
+      } },
+      entities: { byId: async (id, options) => {
+        identityReads.push({ kind: "entity", id, options });
+        return { Items: entities.has(id) ? [entities.get(id)] : [] };
+      } },
       relations: {
         byId: async (id) => ({ Item: relations.get(id) }),
         put: async (row) => { relations.set(row.id, row); },
@@ -46,6 +53,8 @@ test("composition authorization checks source edit and target use before writing
   assert.equal(row.part, "target");
   assert.equal(row.canonicalVersion, 1);
   assert.equal(persistence.audits.length, 3);
+  assert.equal(persistence.identityReads.length, 4);
+  assert.ok(persistence.identityReads.every((read) => read.options?.consistentRead === true));
 });
 
 test("all active composition routes use the canonical conformance adapter", () => {
