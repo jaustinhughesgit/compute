@@ -4,7 +4,10 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
 
-const { normalizeConvertPrompt } = require("../app/routes/convertRequirements");
+const {
+  declaredInvocationExamples,
+  normalizeConvertPrompt,
+} = require("../app/routes/convertRequirements");
 const { discoverComputeCapability } = require("../app/routes/capabilityDiscovery");
 const { buildComputeEntitySpec } = require("../app/routes/capabilityBlueprints");
 const {
@@ -187,6 +190,76 @@ test("three Convert hard stops discover and materialize one arithmetic compute e
   assert.ok(parsed.shorthand.some((row) => row[0] === "ROUTE" && row[3] === "newGroup"));
   assert.ok(parsed.shorthand.some((row) => row[0] === "NESTED" && row[2] === "published" && row[3] === "actions"));
   assert.ok(parsed.shorthand.some((row) => row[0] === "ROUTE" && row[3] === "saveFile"));
+});
+
+test("Convert preserves a declared command-shaped invocation instead of a generated paraphrase", async () => {
+  const segments = [
+    "Create a compute entity that produces a register status report.",
+    "Its required status input comes from ContextDB.",
+    "When I ask, give me the register status report, return the current register status.",
+  ];
+  assert.deepEqual(declaredInvocationExamples(segments), [
+    "give me the register status report",
+  ]);
+
+  const generatedRequest = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "register_status_report",
+    name: "Register status report",
+    description: "Reports a browser-resolved register status.",
+    operations: [{
+      operationId: "report",
+      description: "Return the register status.",
+      inputs: [{
+        name: "status",
+        type: "string",
+        required: true,
+        description: "Current register status.",
+        bindingHint: {
+          source: "contextdb", subject: "speaker", property: "register_status",
+          resolver: null, aliases: null, value: null,
+        },
+        clarification: null,
+        defaultValue: null,
+        validation: null,
+      }],
+      outputs: [{
+        name: "report", type: "string", required: true,
+        description: "Rendered report.", bindingHint: null,
+        clarification: null, defaultValue: null, validation: null,
+      }],
+      freshness: { mode: "none", ttlSeconds: 0 },
+      answerTemplate: "{{report}}",
+      utteranceExamples: ["What is the current register status?"],
+      calculation: null,
+    }],
+  };
+  const openai = {
+    chat: { completions: { create: async () => ({
+      choices: [{ message: { content: JSON.stringify({
+        decision: "build_compute",
+        confidence: 0.99,
+        reason: "A reusable input transformation was requested.",
+        capabilityId: "register_status_report",
+        entityId: null,
+        operationId: "report",
+        inputValues: [],
+        capabilityRequest: generatedRequest,
+      }) } }],
+    }) } },
+  };
+  const discovery = await discoverComputeCapability({
+    openai,
+    utterance: segments.join("\n\n"),
+    requestedBy: "u:test",
+    requirementSegments: segments,
+  });
+  assert.equal(discovery.decision, "build");
+  assert.deepEqual(
+    discovery.buildCommand.capabilityRequest.operations[0].utteranceExamples,
+    ["What is the current register status?", "give me the register status report"],
+  );
 });
 
 test("the generated Shorthand materializes the validated JPL into the created entity", async () => {

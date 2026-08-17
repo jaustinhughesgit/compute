@@ -4,6 +4,8 @@
  */
 "use strict";
 
+const { preserveDeclaredInvocationExamples } = require("./convertRequirements");
+
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
 const { jurisdictionDecision } = require("../intentJurisdiction");
@@ -622,6 +624,7 @@ function discoveryMessages({
         content: [
           "Classify an unanswered platform utterance without relying on a hard-coded capability catalog.",
           "When requirements is nonempty, it contains one ordered Convert authoring request split by user-created hard stops. Treat every segment as a requirement for the same capability, preserve their order and constraints, and do not reinterpret the boundaries as separate conversations.",
+          "When a Convert requirement explicitly declares the wording the user will ask, say, type, enter, or request, preserve that wording as an utteranceExample for the selected operation. Do not replace it with a model-preferred paraphrase.",
           "Convert requirements are not Essence or ContextDB evidence. Do not infer remembered facts or graph mutations from them.",
           "When requirements is nonempty, do not declare contextdb input bindings; the current Convert requirements contract has no implicit contextual attachments.",
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
@@ -722,6 +725,7 @@ async function modelDiscovery({
           requestedBy,
           availableCapabilities,
           semanticEvidence,
+          requirementSegments,
         }),
         costTrace,
       };
@@ -806,6 +810,7 @@ async function retrieveComputeCapabilityDiscovery({
   requestedBy = "system",
   availableCapabilities = [],
   semanticEvidence = [],
+  requirementSegments = [],
   retrieveResponse = retrieveBackgroundResponse,
 } = {}) {
   const clean = cleanUtterance(utterance);
@@ -846,13 +851,21 @@ async function retrieveComputeCapabilityDiscovery({
         requestedBy,
         availableCapabilities,
         semanticEvidence,
+        requirementSegments,
       }),
       costTrace: sanitizeOpenAiUsageTrace(response, "Compute capability discovery"),
     },
   };
 }
 
-function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapabilities, semanticEvidence = [] }) {
+function parseDiscoveryDecision({
+  parsed,
+  utterance,
+  requestedBy,
+  availableCapabilities,
+  semanticEvidence = [],
+  requirementSegments = [],
+}) {
   const rawDecision = String(parsed.decision || "").toLowerCase();
   if (!["reuse_existing", "extend_existing", "build_compute", "not_compute", "clarify"].includes(rawDecision)) {
     const error = new Error(`discovery decision ${rawDecision || "(blank)"} is unsupported`);
@@ -901,8 +914,10 @@ function parseDiscoveryDecision({ parsed, utterance, requestedBy, availableCapab
     });
   }
   if (rawDecision === "build_compute") {
+    const normalizedRequest = normalizeGeneratedBuildRequest(parsed, utterance, requestedBy);
+    preserveDeclaredInvocationExamples(normalizedRequest, requirementSegments, operationId);
     const buildRequest = validateCapabilityBuildRequest(
-      normalizeGeneratedBuildRequest(parsed, utterance, requestedBy)
+      normalizedRequest
     );
     const selectedOperation = buildRequest.operations.find((item) =>
       String(item?.operationId || "") === String(operationId || "")
