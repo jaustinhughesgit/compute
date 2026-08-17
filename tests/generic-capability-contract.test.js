@@ -767,6 +767,8 @@ test("Convert requirements may explicitly declare ContextDB contracts without at
   const discovery = fs.readFileSync(path.join(__dirname, "../app/routes/capabilityDiscovery.js"), "utf8");
   assert.match(discovery, /explicit requirement may declare a contextdb input binding contract/);
   assert.match(discovery, /Do not read, attach, copy, or infer any current ContextDB value/);
+  assert.match(discovery, /ContextDB subject is a binding address, not an ordinary operation value/);
+  assert.match(discovery, /Never create a separate user, current_user, speaker/);
   assert.doesNotMatch(discovery, /do not declare contextdb input bindings/);
 });
 

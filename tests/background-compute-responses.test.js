@@ -204,6 +204,8 @@ test("background entity generation returns JSON for server validation after poll
     submitted.input[0].content,
     /Never fetch contextdb, utterance, environment, or default binding sources/
   );
+  assert.match(submitted.input[0].content, /grammatical owner used only as a ContextDB binding subject/);
+  assert.match(submitted.input[0].content, /never add a separate user or speaker input/);
   assert.match(submitted.input[0].content, /Do not search when the operation only transforms/);
 
   const pending = await retrieveComputeEntitySpecBackground({

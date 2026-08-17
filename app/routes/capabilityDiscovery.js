@@ -14,6 +14,9 @@ const {
   validateCapabilityBuildRequest,
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
+const {
+  normalizeGeneratedConvertOwnerBindings,
+} = require("./capabilityInputSemantics");
 const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
 const {
   startBackgroundResponse,
@@ -431,7 +434,7 @@ function normalizeDiscoveryInputValues({
 // Discovery models sometimes place an otherwise complete operation beside
 // capabilityRequest, or flatten its fields onto capabilityRequest. Recover
 // those declared semantics without inferring any missing inputs or outputs.
-function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy) {
+function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirementSegments = []) {
   const request = isObject(parsed?.capabilityRequest)
     ? { ...parsed.capabilityRequest }
     : {};
@@ -539,7 +542,10 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy) {
       return normalized;
     });
   }
-  return { ...request, requestedBy };
+  return {
+    ...normalizeGeneratedConvertOwnerBindings(request, requirementSegments),
+    requestedBy,
+  };
 }
 
 function summarizeCapabilities(manifests) {
@@ -646,6 +652,7 @@ function discoveryMessages({
           "When a Convert requirement explicitly declares the wording the user will ask, say, type, enter, or request, preserve that wording as an utteranceExample for the selected operation. Do not replace it with a model-preferred paraphrase.",
           "Convert requirements are not Essence or ContextDB evidence. Do not infer remembered facts or graph mutations from them.",
           "When requirements is nonempty, an explicit requirement may declare a contextdb input binding contract, including its subject and property. Preserve those declared identifiers and grammatical ownership: my, me, I, self, current user, and user refer to the canonical current speaker subject. Do not read, attach, copy, or infer any current ContextDB value during Convert authoring.",
+          "A ContextDB subject is a binding address, not an ordinary operation value. Never create a separate user, current_user, speaker, self, me, my, or I input merely because a requirement says my or otherwise identifies the current speaker. For my <property>, declare the property value as the input and set that input's contextdb subject to speaker.",
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
@@ -934,7 +941,12 @@ function parseDiscoveryDecision({
     });
   }
   if (rawDecision === "build_compute") {
-    const normalizedRequest = normalizeGeneratedBuildRequest(parsed, utterance, requestedBy);
+    const normalizedRequest = normalizeGeneratedBuildRequest(
+      parsed,
+      utterance,
+      requestedBy,
+      requirementSegments
+    );
     preserveDeclaredInvocationExamples(normalizedRequest, requirementSegments, operationId);
     const buildRequest = validateCapabilityBuildRequest(
       normalizedRequest

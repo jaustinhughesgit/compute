@@ -26,6 +26,9 @@ const {
   compileEntityPlan,
   isEntityPlan,
 } = require("./capabilityEntityPlan");
+const {
+  filterGeneratedOwnerInputRequirements,
+} = require("./capabilityInputSemantics");
 
 const GENERIC_BLUEPRINT_ID = "entity.declarative.remote.v1";
 const TRUSTED_MODULES = new Set(["axios"]);
@@ -230,11 +233,16 @@ function configuredHostAllowlist() {
     .split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
 }
 
-function attachGeneratedInputs(rawBuildRequest, rawInputRequirements) {
+function attachGeneratedInputs(rawBuildRequest, rawInputRequirements, { originalUtterance = "" } = {}) {
   const initial = validateCapabilityBuildRequest(rawBuildRequest);
   if (rawInputRequirements != null && !Array.isArray(rawInputRequirements)) {
     throw new Error("compute entity inputRequirements must be an array");
   }
+  rawInputRequirements = filterGeneratedOwnerInputRequirements(
+    initial,
+    rawInputRequirements,
+    originalUtterance
+  );
   const augmented = clone(initial);
   const operations = new Map(augmented.operations.map((operation) => [operation.operationId, operation]));
   for (const [index, rawGroup] of (rawInputRequirements || []).entries()) {
@@ -797,6 +805,7 @@ function implementationMessages({
       "Provider URLs must be literal public HTTPS scheme/host/path; query values belong in params.",
       "Every meaningful variable explicitly supplied by the original utterance must be represented by a typed operation input and used by the executionPlan, unless it is a closed semantic selector rendered by answerTemplate.",
       "Review locations, people, organizations, dates, times, quantities, requested units, and other explicit arguments in the original utterance. Never silently discard one because the supplied capability contract omitted it; add it through inputRequirements and wire it into the provider request.",
+      "A grammatical owner used only as a ContextDB binding subject is not an explicit ordinary input. In particular, my, me, I, self, user, current user, and speaker identify the canonical speaker subject; never add a separate user or speaker input when a supplied input already reads the owned ContextDB property.",
       "When adding an utterance input, include the original utterance as an annotated utteranceExample and map the literal spoken value through inputValues.",
       "Every required ordinary input must be used by a request or response, except a semantic selector that has a finite anchored validation.pattern and is rendered by answerTemplate.",
       "Any ordinary input referenced by a provider request parameter is an execution dependency: declare it required, or give it a non-null defaultValue. Optional unresolved placeholders may never reach a provider.",
@@ -868,7 +877,11 @@ async function generateImplementation({
     const raw = String(response?.choices?.[0]?.message?.content || "{}");
     try {
       const candidate = parseJsonObject(raw, "capability EntityPlan response");
-      const generatedBuildRequest = attachGeneratedInputs(buildRequest, candidate.inputRequirements || []);
+      const generatedBuildRequest = attachGeneratedInputs(
+        buildRequest,
+        candidate.inputRequirements || [],
+        { originalUtterance }
+      );
       const generated = canonicalizeProviderUrls(
         isEntityPlan(candidate) ? compileEntityPlan(candidate, generatedBuildRequest) : candidate
       );
@@ -1026,7 +1039,8 @@ async function buildComputeEntitySpec({
     : parseJsonObject(generatedImplementation, "capability EntityPlan response"));
   const generatedBuildRequest = attachGeneratedInputs(
     initial,
-    suppliedCandidate.inputRequirements || []
+    suppliedCandidate.inputRequirements || [],
+    { originalUtterance }
   );
   const generated = canonicalizeProviderUrls(
     isEntityPlan(suppliedCandidate)
