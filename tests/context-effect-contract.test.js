@@ -194,6 +194,13 @@ test("an effect precondition removes a redundant defaulted ContextDB input", () 
   assert.equal(request.operations[0].utteranceExamples[0].inputs.current_status, undefined);
 });
 
+test("a subject sample hard-coded in the answer becomes the invocation placeholder", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your car is clean";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].answerTemplate, "Your {{vehicle}} is clean");
+});
+
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
   const spec = await buildComputeEntitySpec({
     capabilityRequest: carwashBuildRequest(),

@@ -334,6 +334,27 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
         };
       });
     }
+    for (const effect of operation.contextEffects) {
+      const sampleValues = [...new Set(operation.utteranceExamples.flatMap((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return [];
+        return Object.entries(example.inputs)
+          .filter(([name]) => canonicalizeGeneratedIdentifier(name) === effect.subjectInput)
+          .map(([, value]) => String(value ?? "").trim())
+          .filter(Boolean);
+      }))];
+      if (
+        sampleValues.length < 2
+        || new RegExp(`{{\\s*${effect.subjectInput.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\s*}}`, "i")
+          .test(String(operation.answerTemplate || ""))
+      ) continue;
+      for (const sampleValue of sampleValues.sort((left, right) => right.length - left.length)) {
+        const escapedValue = sampleValue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        operation.answerTemplate = String(operation.answerTemplate || "").replace(
+          new RegExp(`\\b${escapedValue}\\b`, "i"),
+          `{{${effect.subjectInput}}}`
+        );
+      }
+    }
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
         /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,
