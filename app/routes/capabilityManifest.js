@@ -232,6 +232,17 @@ function canonicalizeGeneratedOperations(rawOperations) {
         subjectInput: canonicalizeGeneratedIdentifier(effect?.subjectInput),
         valueOutput: canonicalizeGeneratedIdentifier(effect?.valueOutput),
       }));
+    const effectSubjectNames = new Set(operation.contextEffects.map((effect) => effect.subjectInput));
+    for (const input of operation.inputs) {
+      if (
+        effectSubjectNames.has(input.name)
+        && input.type === "string"
+        && input.required !== false
+        && input.bindingHint?.source === "utterance"
+      ) {
+        input.bindingHint = { ...input.bindingHint, resolver: "entity_reference" };
+      }
+    }
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
         /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,

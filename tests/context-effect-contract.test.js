@@ -68,6 +68,13 @@ test("a ContextDB replacement effect is part of the validated capability contrac
   }), /cannot be cached|read-only|context effect/i);
 });
 
+test("an effect subject repairs a model-generated spoken-string resolver", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs[0].bindingHint.resolver = "literal";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].inputs[0].bindingHint.resolver, "entity_reference");
+});
+
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
   const spec = await buildComputeEntitySpec({
     capabilityRequest: carwashBuildRequest(),
@@ -96,4 +103,3 @@ test("a capability with ContextDB effects is built as non-read-only JPL", async 
     state: "clean",
   });
 });
-
