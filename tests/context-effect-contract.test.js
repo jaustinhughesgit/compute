@@ -12,6 +12,7 @@ const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSeman
 const { normalizeGeneratedConvertOwnerBindings } = require("../app/routes/capabilityInputSemantics");
 const {
   DISCOVERY_RESPONSE_SCHEMA,
+  normalizeGeneratedBuildRequest,
   repairGeneratedContextEffectTransitions,
 } = require("../app/routes/capabilityDiscovery");
 
@@ -196,6 +197,29 @@ test("an explicit hard-stop transition repairs a missing generated new value", (
     "Update its status from dirty to clean.",
   ]);
   assert.equal(repaired.operations[0].contextEffects[0].newValue, "clean");
+});
+
+test("a unique operation and output complete omitted answer-plan identifiers", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].outputs = generated.operations[0].outputs.filter((output) => output.name === "state");
+  const request = normalizeGeneratedBuildRequest({
+    decision: "build_compute",
+    operationId: "wash",
+    answerPlan: {
+      source: "literal",
+      operationId: null,
+      subject: null,
+      property: null,
+      inputName: null,
+      outputName: null,
+      statement: "The resulting state is clean.",
+    },
+    capabilityRequest: generated,
+  }, "Build a vehicle cleaner.", "u:test", [
+    "Switch the selected object from dirty to clean.",
+  ]);
+  assert.equal(request.answerPlan.operationId, "wash");
+  assert.equal(request.answerPlan.outputName, "state");
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {

@@ -11,6 +11,7 @@ const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
 const { jurisdictionDecision } = require("../intentJurisdiction");
 
 const {
+  canonicalizeGeneratedIdentifier,
   validateCapabilityBuildRequest,
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
@@ -591,9 +592,23 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
       return normalized;
     });
   }
+  const recoveredAnswerPlan = isObject(parsed?.answerPlan)
+    ? { ...parsed.answerPlan }
+    : parsed?.answerPlan;
+  if (isObject(recoveredAnswerPlan)) {
+    recoveredAnswerPlan.operationId ||= parsed?.operationId
+      || (request.operations?.length === 1 ? request.operations[0]?.operationId : null);
+    const selectedOperation = (request.operations || []).find((operation) =>
+      canonicalizeGeneratedIdentifier(operation?.operationId)
+        === canonicalizeGeneratedIdentifier(recoveredAnswerPlan.operationId)
+    );
+    recoveredAnswerPlan.outputName ||= selectedOperation?.outputs?.length === 1
+      ? selectedOperation.outputs[0]?.name
+      : null;
+  }
   const answerPlannedRequest = applyGeneratedAnswerPlan(
     request,
-    parsed?.answerPlan,
+    recoveredAnswerPlan,
     requirementSegments
   );
   const ownerNormalizedRequest = normalizeGeneratedConvertOwnerBindings(
