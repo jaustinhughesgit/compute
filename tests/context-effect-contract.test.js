@@ -8,6 +8,8 @@ const {
   validateCapabilityManifest,
 } = require("../app/routes/capabilityManifest");
 const { buildComputeEntitySpec } = require("../app/routes/capabilityBlueprints");
+const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSemantics");
+const { DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
   return {
@@ -73,6 +75,24 @@ test("an effect subject repairs a model-generated spoken-string resolver", () =>
   generated.operations[0].inputs[0].bindingHint.resolver = "literal";
   const request = validateCapabilityBuildRequest(generated);
   assert.equal(request.operations[0].inputs[0].bindingHint.resolver, "entity_reference");
+});
+
+test("a fixed transition result has a literal semantic answer source", () => {
+  const request = applyGeneratedAnswerPlan(carwashBuildRequest(), {
+    source: "literal",
+    operationId: "wash",
+    subject: null,
+    property: null,
+    inputName: null,
+    outputName: "state",
+    statement: "The requested resulting state is clean.",
+  });
+  assert.equal(request.answerPlan.source, "literal");
+  assert.equal(request.operations[0].inputs[0].bindingHint.source, "utterance");
+  assert.ok(
+    DISCOVERY_RESPONSE_SCHEMA.properties.answerPlan.anyOf[0]
+      .properties.source.enum.includes("literal")
+  );
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {

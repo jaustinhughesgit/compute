@@ -202,7 +202,7 @@ const ANSWER_PLAN_SCHEMA = {
     type: "object",
     additionalProperties: false,
     properties: {
-      source: { type: "string", enum: ["contextdb", "utterance", "environment", "default", "calculation", "provider", "none"] },
+      source: { type: "string", enum: ["contextdb", "utterance", "environment", "default", "calculation", "provider", "literal", "none"] },
       operationId: NULLABLE_STRING_SCHEMA,
       subject: NULLABLE_STRING_SCHEMA,
       property: NULLABLE_STRING_SCHEMA,
@@ -708,7 +708,7 @@ function discoveryMessages({
           "When requirements is nonempty, an explicit requirement or matching browser-proven authoring context may establish a contextdb input binding contract, including its subject and property. Preserve those identifiers and grammatical ownership: my, me, I, self, current user, and user refer to the canonical current speaker subject. A current value in authoring context proves that the address is available, but must never become a default, constant, utterance inputValue, capability identity, or generated implementation literal.",
           "A ContextDB subject is a binding address, not an ordinary operation value. Never create a separate user, current_user, speaker, self, me, my, or I input merely because a requirement says my or otherwise identifies the current speaker. For my <property>, declare the property value as the input and set that input's contextdb subject to speaker.",
           "Answer the semantic question before designing the executable contract: first return answerPlan, then make capabilityRequest implement exactly that frozen plan.",
-          "answerPlan states where the answer comes from, the selected operationId, inputName and outputName, and one plain statement of what answers the request. Use null for inapplicable fields. For a remembered property owned by the current speaker, use source contextdb, subject speaker, and the owned property name; never put the remembered value itself in answerPlan.",
+          "answerPlan states where the answer comes from, the selected operationId, inputName and outputName, and one plain statement of what answers the request. Use null for inapplicable fields. For a remembered property owned by the current speaker, use source contextdb, subject speaker, and the owned property name; never put the remembered value itself in answerPlan. For an explicitly requested fixed result produced by the operation, including a declared ContextDB transition to a named new state, use source literal with null inputName rather than rewriting the spoken entity reference as ContextDB data.",
           "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, answerPlan, and capabilityRequest. Set answerPlan to null unless decision is build_compute.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",

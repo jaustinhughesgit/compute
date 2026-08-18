@@ -266,7 +266,7 @@ function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = [])
       "a build answer plan must identify where its declared output comes from"
     );
   }
-  if (plan.source === "provider") return request;
+  if (["provider", "literal"].includes(plan.source)) return request;
 
   if (!plan.inputName) {
     throw semanticContractError(
@@ -354,9 +354,15 @@ function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = [])
     && candidateExamples.some((value) => !isCurrentSpeakerValue(value))
     && !currentSpeakerPropertyRequest(requirementSegments, plan.property)
   ) {
+    const isEffectSubject = (operation.contextEffects || []).some((effect) =>
+      canonicalizeGeneratedIdentifier(effect?.subjectInput) === canonicalizeGeneratedIdentifier(candidate.name)
+      && canonicalizeGeneratedIdentifier(effect?.valueOutput) === plan.outputName
+    );
     throw semanticContractError(
       "ANSWER_PLAN_SOURCE_MISMATCH",
-      `the answer plan cannot rewrite input ${candidate.name} because its examples contain ordinary values`
+      isEffectSubject
+        ? `the answer plan cannot rewrite effect subject ${candidate.name} as ContextDB answer data; use source literal for its declared result output`
+        : `the answer plan cannot rewrite input ${candidate.name} because its examples contain ordinary values`
     );
   }
 
