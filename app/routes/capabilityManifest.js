@@ -290,6 +290,49 @@ function canonicalizeGeneratedOperations(rawOperations) {
         };
       }
     }
+    for (const effect of operation.contextEffects) {
+      const groups = new Map();
+      for (const [exampleIndex, example] of operation.utteranceExamples.entries()) {
+        if (!isObject(example) || !isObject(example.inputs)) continue;
+        const tokens = String(example.text || "").toLowerCase().match(/[a-z0-9]+/g) || [];
+        if (!tokens.length) continue;
+        const group = groups.get(tokens.length) || [];
+        group.push({ exampleIndex, tokens });
+        groups.set(tokens.length, group);
+      }
+      for (const group of groups.values()) {
+        if (group.length < 2) continue;
+        let prefixLength = 0;
+        while (
+          prefixLength < group[0].tokens.length
+          && group.every((item) => item.tokens[prefixLength] === group[0].tokens[prefixLength])
+        ) prefixLength += 1;
+        let suffixLength = 0;
+        while (
+          suffixLength < group[0].tokens.length - prefixLength
+          && group.every((item) =>
+            item.tokens[item.tokens.length - 1 - suffixLength]
+              === group[0].tokens[group[0].tokens.length - 1 - suffixLength]
+          )
+        ) suffixLength += 1;
+        const varyingValues = group.map((item) =>
+          item.tokens.slice(prefixLength, item.tokens.length - suffixLength).join(" ")
+        );
+        if (
+          varyingValues.some((value) => !value)
+          || new Set(varyingValues).size < 2
+        ) continue;
+        group.forEach((item, index) => {
+          operation.utteranceExamples[item.exampleIndex] = {
+            ...operation.utteranceExamples[item.exampleIndex],
+            inputs: {
+              ...operation.utteranceExamples[item.exampleIndex].inputs,
+              [effect.subjectInput]: varyingValues[index],
+            },
+          };
+        });
+      }
+    }
     const effectCurrentValues = new Set(operation.contextEffects.map((effect) =>
       String(effect.currentValue ?? "").trim().toLowerCase()
     ));

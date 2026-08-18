@@ -185,8 +185,16 @@ test("an effect precondition removes a redundant defaulted ContextDB input", () 
 test("a subject sample hard-coded in the answer becomes the invocation placeholder", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your car is clean";
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { vehicle: "car" },
+  }));
   const request = validateCapabilityBuildRequest(generated);
   assert.equal(request.operations[0].answerTemplate, "Your {{vehicle}} is clean");
+  assert.deepEqual(
+    request.operations[0].utteranceExamples.map((example) => example.inputs.vehicle),
+    ["car", "camry", "toyota"]
+  );
 });
 
 test("an explicit hard-stop transition repairs a missing generated new value", () => {
