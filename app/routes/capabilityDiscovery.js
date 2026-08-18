@@ -4,7 +4,10 @@
  */
 "use strict";
 
-const { preserveDeclaredInvocationExamples } = require("./convertRequirements");
+const {
+  declaredInvocationExamples,
+  preserveDeclaredInvocationExamples,
+} = require("./convertRequirements");
 
 const { sanitizeOpenAiUsageTrace } = require("../modelUsage");
 const { withChatTemplate, withResponsesTemplate } = require("../llmTemplates");
@@ -735,6 +738,98 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
   return request;
 }
 
+function repairGeneratedEffectSpokenInputs(rawRequest, requirementSegments = [], operationId = "") {
+  const request = JSON.parse(JSON.stringify(rawRequest || {}));
+  if (!Array.isArray(request.operations)) return request;
+  const declared = declaredInvocationExamples(requirementSegments);
+  const groups = new Map();
+  for (const text of declared) {
+    const tokens = String(text || "").toLowerCase().match(/[a-z0-9]+/g) || [];
+    if (!tokens.length) continue;
+    const group = groups.get(tokens.length) || [];
+    group.push(tokens);
+    groups.set(tokens.length, group);
+  }
+  const families = [];
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    let prefixLength = 0;
+    while (
+      prefixLength < group[0].length
+      && group.every((tokens) => tokens[prefixLength] === group[0][prefixLength])
+    ) prefixLength += 1;
+    let suffixLength = 0;
+    while (
+      suffixLength < group[0].length - prefixLength
+      && group.every((tokens) =>
+        tokens[tokens.length - 1 - suffixLength]
+          === group[0][group[0].length - 1 - suffixLength]
+      )
+    ) suffixLength += 1;
+    const varyingValues = group.map((tokens) =>
+      tokens.slice(prefixLength, tokens.length - suffixLength).join(" ")
+    );
+    if (varyingValues.some((value) => !value) || new Set(varyingValues).size < 2) continue;
+    families.push(varyingValues);
+  }
+  if (!families.length) return request;
+  const requestedOperation = canonicalizeGeneratedIdentifier(operationId);
+  request.operations = request.operations.map((operation) => {
+    if (
+      requestedOperation
+      && request.operations.length > 1
+      && canonicalizeGeneratedIdentifier(operation?.operationId) !== requestedOperation
+    ) return operation;
+    const effects = Array.isArray(operation?.contextEffects) ? operation.contextEffects : [];
+    const effectSubjects = new Set(effects.map((effect) =>
+      canonicalizeGeneratedIdentifier(effect?.subjectInput)
+    ).filter(Boolean));
+    if (effectSubjects.size !== 1) return operation;
+    const [subjectInput] = effectSubjects;
+    const subjectValues = new Set((operation.utteranceExamples || []).flatMap((example) => {
+      if (!isObject(example) || !isObject(example.inputs)) return [];
+      return Object.entries(example.inputs)
+        .filter(([name]) => canonicalizeGeneratedIdentifier(name) === subjectInput)
+        .map(([, value]) => String(value ?? "").trim().toLowerCase())
+        .filter(Boolean);
+    }));
+    if (!families.some((values) => values.every((value) => subjectValues.has(value)))) return operation;
+    const answerTemplate = String(operation.answerTemplate || "");
+    const escapedSubject = subjectInput.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    if (!new RegExp(`{{\\s*${escapedSubject}\\s*}}`, "i").test(answerTemplate)) return operation;
+    const usedByCalculation = new Set((operation.calculation?.operands || []).flatMap((operand) =>
+      operand?.source === "input" ? [canonicalizeGeneratedIdentifier(operand.inputName)] : []
+    ));
+    const removable = new Set((operation.inputs || []).filter((input) => {
+      const name = canonicalizeGeneratedIdentifier(input?.name);
+      if (
+        !name
+        || effectSubjects.has(name)
+        || input?.required === false
+        || String(input?.bindingHint?.source || "").toLowerCase() !== "utterance"
+        || usedByCalculation.has(name)
+      ) return false;
+      const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      return !new RegExp(`{{\\s*${escaped}\\s*}}`, "i").test(answerTemplate);
+    }).map((input) => canonicalizeGeneratedIdentifier(input.name)));
+    if (!removable.size) return operation;
+    operation.inputs = (operation.inputs || []).filter((input) =>
+      !removable.has(canonicalizeGeneratedIdentifier(input?.name))
+    );
+    operation.utteranceExamples = (operation.utteranceExamples || []).map((example) => {
+      if (!isObject(example) || !isObject(example.inputs)) return example;
+      return {
+        ...example,
+        inputs: Object.fromEntries(Object.entries(example.inputs).filter(([name]) =>
+          !removable.has(canonicalizeGeneratedIdentifier(name))
+        )),
+      };
+    });
+    return operation;
+  });
+  return request;
+}
+
 function summarizeCapabilities(manifests) {
   const ranked = (Array.isArray(manifests) ? manifests : [])
     .filter((manifest) => manifest?.capabilityId && manifest?.entityId)
@@ -1215,8 +1310,13 @@ function parseDiscoveryDecision({
       requirementSegments
     );
     preserveDeclaredInvocationExamples(normalizedRequest, requirementSegments, operationId);
+    const inputRepairedRequest = repairGeneratedEffectSpokenInputs(
+      normalizedRequest,
+      requirementSegments,
+      operationId
+    );
     const buildRequest = validateCapabilityBuildRequest(
-      normalizedRequest
+      inputRepairedRequest
     );
     const selectedOperation = buildRequest.operations.find((item) =>
       String(item?.operationId || "") === String(operationId || "")
@@ -1310,6 +1410,7 @@ module.exports = {
   normalizeGeneratedBuildRequest,
   repairGeneratedContextEffectTransitions,
   repairGeneratedEffectResponseTemplates,
+  repairGeneratedEffectSpokenInputs,
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
   semanticEvidenceContext,
