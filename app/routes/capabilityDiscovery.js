@@ -596,10 +596,48 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
     parsed?.answerPlan,
     requirementSegments
   );
+  const ownerNormalizedRequest = normalizeGeneratedConvertOwnerBindings(
+    answerPlannedRequest,
+    requirementSegments
+  );
   return {
-    ...normalizeGeneratedConvertOwnerBindings(answerPlannedRequest, requirementSegments),
+    ...repairGeneratedContextEffectTransitions(ownerNormalizedRequest, requirementSegments),
     requestedBy,
   };
+}
+
+function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments = []) {
+  const request = JSON.parse(JSON.stringify(rawRequest || {}));
+  if (!Array.isArray(request.operations)) return request;
+  const transitions = (Array.isArray(requirementSegments) ? requirementSegments : [])
+    .flatMap((segment) => [...String(segment || "").matchAll(
+      /\bfrom\s+["“‘']?([^,.;!?"”’']+?)["”’']?\s+to\s+["“‘']?([^,.;!?"”’']+?)["”’']?(?=$|[,.;!?])/gi
+    )].map((match) => ({
+      currentValue: String(match[1] || "").trim(),
+      newValue: String(match[2] || "").trim(),
+    })))
+    .filter((transition) => transition.currentValue && transition.newValue);
+  const unique = [...new Map(transitions.map((transition) => [
+    `${transition.currentValue.toLowerCase()}\n${transition.newValue.toLowerCase()}`,
+    transition,
+  ])).values()];
+  request.operations = request.operations.map((operation) => ({
+    ...operation,
+    contextEffects: (Array.isArray(operation?.contextEffects) ? operation.contextEffects : []).map((effect) => {
+      if (effect?.type !== "contextdb.replace_object") return effect;
+      const currentValue = String(effect.currentValue || "").trim();
+      const candidates = unique.filter((transition) =>
+        !currentValue || transition.currentValue.toLowerCase() === currentValue.toLowerCase()
+      );
+      if (candidates.length !== 1) return effect;
+      return {
+        ...effect,
+        currentValue: currentValue || candidates[0].currentValue,
+        newValue: String(effect.newValue || "").trim() || candidates[0].newValue,
+      };
+    }),
+  }));
+  return request;
 }
 
 function summarizeCapabilities(manifests) {
@@ -1175,6 +1213,7 @@ module.exports = {
   deterministicDiscovery,
   summarizeCapabilities,
   normalizeGeneratedBuildRequest,
+  repairGeneratedContextEffectTransitions,
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
   semanticEvidenceContext,

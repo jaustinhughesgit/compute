@@ -10,7 +10,10 @@ const {
 const { buildComputeEntitySpec } = require("../app/routes/capabilityBlueprints");
 const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSemantics");
 const { normalizeGeneratedConvertOwnerBindings } = require("../app/routes/capabilityInputSemantics");
-const { DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
+const {
+  DISCOVERY_RESPONSE_SCHEMA,
+  repairGeneratedContextEffectTransitions,
+} = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
   return {
@@ -183,6 +186,16 @@ test("a subject sample hard-coded in the answer becomes the invocation placehold
   generated.operations[0].answerTemplate = "Your car is clean";
   const request = validateCapabilityBuildRequest(generated);
   assert.equal(request.operations[0].answerTemplate, "Your {{vehicle}} is clean");
+});
+
+test("an explicit hard-stop transition repairs a missing generated new value", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].contextEffects[0].newValue = "";
+  const repaired = repairGeneratedContextEffectTransitions(generated, [
+    "Switch the selected object from dirty to clean.",
+    "Update its status from dirty to clean.",
+  ]);
+  assert.equal(repaired.operations[0].contextEffects[0].newValue, "clean");
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
