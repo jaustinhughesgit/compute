@@ -303,6 +303,37 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
         };
       }
     }
+    const effectCurrentValues = new Set(operation.contextEffects.map((effect) =>
+      String(effect.currentValue ?? "").trim().toLowerCase()
+    ));
+    const redundantContextInputNames = new Set(operation.inputs.filter((input) => {
+      if (
+        input.bindingHint?.source !== "contextdb"
+        || !Object.prototype.hasOwnProperty.call(input, "defaultValue")
+        || !effectCurrentValues.has(String(input.defaultValue ?? "").trim().toLowerCase())
+        || effectSubjectNames.has(input.name)
+      ) return false;
+      const escaped = input.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const usedByAnswer = new RegExp(`{{\\s*${escaped}\\s*}}`, "i")
+        .test(String(operation.answerTemplate || ""));
+      const usedByCalculation = (operation.calculation?.operands || []).some((operand) =>
+        operand?.source === "input"
+        && canonicalizeGeneratedIdentifier(operand?.inputName) === input.name
+      );
+      return !usedByAnswer && !usedByCalculation;
+    }).map((input) => input.name));
+    if (redundantContextInputNames.size) {
+      operation.inputs = operation.inputs.filter((input) => !redundantContextInputNames.has(input.name));
+      operation.utteranceExamples = operation.utteranceExamples.map((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return example;
+        return {
+          ...example,
+          inputs: Object.fromEntries(Object.entries(example.inputs).filter(([name]) =>
+            !redundantContextInputNames.has(canonicalizeGeneratedIdentifier(name))
+          )),
+        };
+      });
+    }
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
         /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,

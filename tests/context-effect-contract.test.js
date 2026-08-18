@@ -177,6 +177,23 @@ test("an effect current value cannot masquerade as its annotated spoken subject"
   assert.equal(request.operations[0].contextEffects[0].subjectInput, "vehicle");
 });
 
+test("an effect precondition removes a redundant defaulted ContextDB input", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs.push({
+    name: "current_status",
+    type: "string",
+    required: true,
+    description: "The current locally stored status.",
+    defaultValue: "dirty",
+    bindingHint: { source: "contextdb", subject: "speaker", property: "condition" },
+    clarification: "What is the current status?",
+  });
+  generated.operations[0].utteranceExamples[0].inputs.current_status = "dirty";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
+  assert.equal(request.operations[0].utteranceExamples[0].inputs.current_status, undefined);
+});
+
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
   const spec = await buildComputeEntitySpec({
     capabilityRequest: carwashBuildRequest(),
