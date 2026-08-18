@@ -72,9 +72,16 @@ test("a ContextDB replacement effect is part of the validated capability contrac
 
 test("an effect subject repairs a model-generated spoken-string resolver", () => {
   const generated = carwashBuildRequest();
-  generated.operations[0].inputs[0].bindingHint.resolver = "literal";
+  generated.operations[0].inputs[0].bindingHint = {
+    source: "contextdb",
+    subject: "speaker",
+    property: "car",
+    resolver: null,
+  };
   const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].inputs[0].bindingHint.source, "utterance");
   assert.equal(request.operations[0].inputs[0].bindingHint.resolver, "entity_reference");
+  assert.equal(request.operations[0].inputs[0].bindingHint.property, undefined);
 });
 
 test("a fixed transition result has a literal semantic answer source", () => {

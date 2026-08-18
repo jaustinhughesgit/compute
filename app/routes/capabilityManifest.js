@@ -238,9 +238,14 @@ function canonicalizeGeneratedOperations(rawOperations) {
         effectSubjectNames.has(input.name)
         && input.type === "string"
         && input.required !== false
-        && input.bindingHint?.source === "utterance"
       ) {
-        input.bindingHint = { ...input.bindingHint, resolver: "entity_reference" };
+        input.bindingHint = {
+          source: "utterance",
+          resolver: "entity_reference",
+          ...(Array.isArray(input.bindingHint?.aliases)
+            ? { aliases: input.bindingHint.aliases }
+            : {}),
+        };
       }
     }
     if (operation.answerTemplate != null) {
