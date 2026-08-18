@@ -157,6 +157,26 @@ test("a dangling effect value resolves to the frozen answer-plan output", () => 
   assert.equal(request.operations[0].contextEffects[0].valueOutput, "state");
 });
 
+test("an effect current value cannot masquerade as its annotated spoken subject", () => {
+  const generated = carwashBuildRequest();
+  const operation = generated.operations[0];
+  operation.inputs.push({
+    name: "dirty_state",
+    type: "string",
+    required: true,
+    description: "The prior state.",
+    bindingHint: { source: "utterance", resolver: "string" },
+    clarification: "What is the prior state?",
+  });
+  operation.utteranceExamples = operation.utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { ...example.inputs, dirty_state: "dirty" },
+  }));
+  operation.contextEffects[0].subjectInput = "dirty";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].contextEffects[0].subjectInput, "vehicle");
+});
+
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
   const spec = await buildComputeEntitySpec({
     capabilityRequest: carwashBuildRequest(),

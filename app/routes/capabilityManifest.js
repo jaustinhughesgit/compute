@@ -231,6 +231,24 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
     const soleEffectSubjectCandidate = operation.inputs.filter((input) =>
       input.type === "string" && input.required !== false
     );
+    const entityReferenceSubjectCandidates = soleEffectSubjectCandidate.filter((input) =>
+      ["entity", "entity_reference", "resolved_entity"].includes(
+        String(input.bindingHint?.resolver || "").trim().toLowerCase().replace(/[ -]+/g, "_")
+      )
+    );
+    const spokenExampleSubjectCandidates = soleEffectSubjectCandidate.filter((input) => {
+      const values = operation.utteranceExamples.flatMap((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return [];
+        return Object.entries(example.inputs)
+          .filter(([name]) => canonicalizeGeneratedIdentifier(name) === input.name)
+          .map(([, value]) => ({ text: String(example.text || ""), value }));
+      });
+      return values.length > 0 && values.every(({ text, value }) => {
+        const normalizedText = ` ${String(text).toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+        const normalizedValue = String(value ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        return normalizedValue && normalizedText.includes(` ${normalizedValue} `);
+      });
+    });
     const soleScalarOutputCandidate = operation.outputs.filter((output) =>
       ["string", "number", "integer", "boolean"].includes(output.type)
     );
@@ -247,10 +265,16 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
           /^(?:my|user|speaker|current_user|current_speaker)_+/,
           ""
         );
-        const subjectInput = operationInputNames.has(generatedSubject)
+        const generatedSubjectIsCurrentValue = generatedSubject
+          === canonicalizeGeneratedIdentifier(effect?.currentValue);
+        const subjectInput = !generatedSubjectIsCurrentValue && operationInputNames.has(generatedSubject)
           ? generatedSubject
-          : operationInputNames.has(nonDeicticSubject)
+          : !generatedSubjectIsCurrentValue && operationInputNames.has(nonDeicticSubject)
             ? nonDeicticSubject
+            : entityReferenceSubjectCandidates.length === 1
+              ? entityReferenceSubjectCandidates[0].name
+              : spokenExampleSubjectCandidates.length === 1
+                ? spokenExampleSubjectCandidates[0].name
             : soleEffectSubjectCandidate.length === 1
               ? soleEffectSubjectCandidate[0].name
               : generatedSubject;
