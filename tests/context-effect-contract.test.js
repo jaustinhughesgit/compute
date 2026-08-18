@@ -9,6 +9,7 @@ const {
 } = require("../app/routes/capabilityManifest");
 const { buildComputeEntitySpec } = require("../app/routes/capabilityBlueprints");
 const { applyGeneratedAnswerPlan } = require("../app/routes/capabilityInputSemantics");
+const { normalizeGeneratedConvertOwnerBindings } = require("../app/routes/capabilityInputSemantics");
 const { DISCOVERY_RESPONSE_SCHEMA } = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
@@ -100,6 +101,44 @@ test("a fixed transition result has a literal semantic answer source", () => {
     DISCOVERY_RESPONSE_SCHEMA.properties.answerPlan.anyOf[0]
       .properties.source.enum.includes("literal")
   );
+});
+
+test("deictic input repair remaps the ContextDB effect subject with the input", () => {
+  const generated = carwashBuildRequest();
+  const operation = generated.operations[0];
+  operation.inputs[0].name = "user";
+  operation.inputs[0].bindingHint = {
+    source: "contextdb",
+    subject: "speaker",
+    property: "car",
+  };
+  operation.utteranceExamples = operation.utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { user: example.inputs.vehicle },
+  }));
+  operation.contextEffects[0].subjectInput = "user";
+
+  const repaired = normalizeGeneratedConvertOwnerBindings(generated, [
+    "Build an app that changes my car from dirty to clean.",
+  ]);
+  assert.equal(repaired.operations[0].inputs[0].name, "car");
+  assert.equal(repaired.operations[0].contextEffects[0].subjectInput, "car");
+});
+
+test("a dangling generated effect reference uses the sole compatible spoken subject", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs[0].name = "car";
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { car: example.inputs.vehicle },
+  }));
+  generated.operations[0].contextEffects[0].subjectInput = "my_car";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].contextEffects[0].subjectInput, "car");
+  assert.deepEqual(request.operations[0].inputs[0].bindingHint, {
+    source: "utterance",
+    resolver: "entity_reference",
+  });
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {

@@ -147,6 +147,12 @@ function remapInputReferences(operation, oldName, newName = null) {
       operand.inputName = newId;
     }
   }
+  operation.contextEffects = (Array.isArray(operation?.contextEffects)
+    ? operation.contextEffects
+    : []).map((effect) => {
+    if (canonicalizeGeneratedIdentifier(effect?.subjectInput) !== oldId || !newId) return effect;
+    return { ...effect, subjectInput: newId };
+  });
   operation.utteranceExamples = (Array.isArray(operation.utteranceExamples)
     ? operation.utteranceExamples
     : []).map((example) => {
@@ -179,7 +185,10 @@ function inputUsedBySemanticContract(operation, rawName) {
     String(operand?.source || "") === "input"
     && canonicalizeGeneratedIdentifier(operand?.inputName) === name
   );
-  return templateUse || calculationUse;
+  const contextEffectUse = (operation?.contextEffects || []).some((effect) =>
+    canonicalizeGeneratedIdentifier(effect?.subjectInput) === name
+  );
+  return templateUse || calculationUse || contextEffectUse;
 }
 
 function semanticContractError(code, message) {

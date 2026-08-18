@@ -226,12 +226,30 @@ function canonicalizeGeneratedOperations(rawOperations) {
         ])),
       };
     });
+    const operationInputNames = new Set(operation.inputs.map((input) => input.name));
+    const soleEffectSubjectCandidate = operation.inputs.filter((input) =>
+      input.type === "string" && input.required !== false
+    );
     operation.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
-      .map((effect) => ({
-        ...effect,
-        subjectInput: canonicalizeGeneratedIdentifier(effect?.subjectInput),
-        valueOutput: canonicalizeGeneratedIdentifier(effect?.valueOutput),
-      }));
+      .map((effect) => {
+        const generatedSubject = canonicalizeGeneratedIdentifier(effect?.subjectInput);
+        const nonDeicticSubject = generatedSubject.replace(
+          /^(?:my|user|speaker|current_user|current_speaker)_+/,
+          ""
+        );
+        const subjectInput = operationInputNames.has(generatedSubject)
+          ? generatedSubject
+          : operationInputNames.has(nonDeicticSubject)
+            ? nonDeicticSubject
+            : soleEffectSubjectCandidate.length === 1
+              ? soleEffectSubjectCandidate[0].name
+              : generatedSubject;
+        return {
+          ...effect,
+          subjectInput,
+          valueOutput: canonicalizeGeneratedIdentifier(effect?.valueOutput),
+        };
+      });
     const effectSubjectNames = new Set(operation.contextEffects.map((effect) => effect.subjectInput));
     for (const input of operation.inputs) {
       if (
