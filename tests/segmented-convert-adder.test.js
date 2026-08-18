@@ -293,6 +293,12 @@ test("Convert preserves a declared command-shaped invocation instead of a genera
   );
 });
 
+test("Convert preserves every quoted invocation in an I-can-say requirement", () => {
+  assert.deepEqual(declaredInvocationExamples([
+    "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
+  ]), ["wash my car", "wash my camry", "wash my toyota"]);
+});
+
 test("the generated Shorthand materializes the validated JPL into the created entity", async () => {
   const materializeRequest = structuredClone(capabilityRequest);
   materializeRequest.operations[0].utteranceExamples = [{

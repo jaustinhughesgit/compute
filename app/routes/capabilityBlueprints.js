@@ -1144,7 +1144,11 @@ async function buildComputeEntitySpec({
     ownerId: requestedBy,
     name: generated.name || buildRequest.name || capabilityId,
     description: buildRequest.description,
-    execution: { type: "remote", readOnly: true, timeoutMs: 15000 },
+    execution: {
+      type: "remote",
+      readOnly: !buildRequest.operations.some((operation) => (operation.contextEffects || []).length),
+      timeoutMs: 15000,
+    },
     operations: buildRequest.operations,
     implementationPolicyVersion: IMPLEMENTATION_POLICY_VERSION,
   });

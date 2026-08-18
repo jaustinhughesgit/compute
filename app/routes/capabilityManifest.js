@@ -226,6 +226,12 @@ function canonicalizeGeneratedOperations(rawOperations) {
         ])),
       };
     });
+    operation.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
+      .map((effect) => ({
+        ...effect,
+        subjectInput: canonicalizeGeneratedIdentifier(effect?.subjectInput),
+        valueOutput: canonicalizeGeneratedIdentifier(effect?.valueOutput),
+      }));
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
         /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,
@@ -286,6 +292,46 @@ function normalizeOperation(raw, capabilityId = null) {
     outputs,
     protectedAssetRequirements,
   };
+  const inputMapForEffects = new Map(inputs.map((input) => [input.name, input]));
+  const outputMapForEffects = new Map(outputs.map((output) => [output.name, output]));
+  normalized.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
+    .map((rawEffect, index) => {
+      const effect = requireObject(rawEffect, `operation ${operationId} context effect ${index + 1}`);
+      if (String(effect.type || "") !== "contextdb.replace_object") {
+        throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} context effect ${index + 1} has an unsupported type`);
+      }
+      const subjectInput = normalizeId(effect.subjectInput, `operation ${operationId} context effect subjectInput`);
+      const subject = inputMapForEffects.get(subjectInput);
+      const resolver = String(subject?.bindingHint?.resolver || "").trim().toLowerCase().replace(/[ -]+/g, "_");
+      if (
+        !subject
+        || subject.type !== "string"
+        || subject.required === false
+        || subject.bindingHint?.source !== "utterance"
+        || !["entity", "entity_reference", "resolved_entity"].includes(resolver)
+      ) {
+        throw new CapabilityError(
+          "INVALID_MANIFEST",
+          `operation ${operationId} context effect subjectInput ${subjectInput} must be a required utterance entity-reference string`
+        );
+      }
+      const currentValue = String(effect.currentValue || "").trim();
+      if (!currentValue || currentValue.length > 300) {
+        throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} context effect currentValue is invalid`);
+      }
+      const valueOutput = normalizeId(effect.valueOutput, `operation ${operationId} context effect valueOutput`);
+      const output = outputMapForEffects.get(valueOutput);
+      if (!output || !["string", "number", "integer", "boolean"].includes(output.type)) {
+        throw new CapabilityError(
+          "INVALID_MANIFEST",
+          `operation ${operationId} context effect valueOutput ${valueOutput} must be a declared scalar output`
+        );
+      }
+      return { type: "contextdb.replace_object", subjectInput, currentValue, valueOutput };
+    });
+  if (normalized.contextEffects.length > 8) {
+    throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} declares too many context effects`);
+  }
   if (operation.calculation != null) {
     const calculation = requireObject(operation.calculation, `operation ${operationId} calculation`);
     const operator = String(calculation.operator || "").trim().toLowerCase();
@@ -325,6 +371,9 @@ function normalizeOperation(raw, capabilityId = null) {
       mode: String(operation.freshness.mode || (ttlSeconds > 0 ? "cache" : "none")),
       ttlSeconds: Number.isFinite(ttlSeconds) && ttlSeconds >= 0 ? Math.floor(ttlSeconds) : 0,
     };
+  }
+  if (normalized.contextEffects.length && normalized.freshness?.mode === "cache") {
+    throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} with context effects cannot be cached`);
   }
   if (Array.isArray(operation.utteranceExamples)) {
     normalized.utteranceExamples = operation.utteranceExamples.map((example) => {
@@ -426,6 +475,12 @@ function validateCapabilityManifest(raw, options = {}) {
     if (ids.has(operation.operationId)) throw new CapabilityError("INVALID_MANIFEST", `duplicate operation ${operation.operationId}`);
     ids.add(operation.operationId);
   });
+  if (operations.some((operation) => operation.contextEffects.length) && execution.readOnly !== false) {
+    throw new CapabilityError(
+      "INVALID_MANIFEST",
+      "a capability with ContextDB effects cannot declare read-only execution"
+    );
+  }
   const normalized = {
     schemaVersion: CAPABILITY_SCHEMA_VERSION,
     capabilityId,

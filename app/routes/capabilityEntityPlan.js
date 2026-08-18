@@ -481,7 +481,10 @@ function compileEntityPlan(rawPlan, buildRequest) {
       && pattern.endsWith("$")
       && new RegExp(`\\{\\{\\s*${escaped}\\s*\\}\\}`, "i")
         .test(String(operation.answerTemplate || ""));
-    if (!closedSelector) {
+    const usedByContextEffect = (operation.contextEffects || []).some((effect) =>
+      String(effect?.subjectInput || "") === String(input.name)
+    );
+    if (!closedSelector && !usedByContextEffect) {
       throw new Error(`entity plan does not use required ordinary input ${input.name}`);
     }
   }

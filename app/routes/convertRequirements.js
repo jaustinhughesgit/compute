@@ -124,6 +124,10 @@ function declaredInvocationExamples(requirementSegments = []) {
       /\bwhen\s+i\s+(?:ask|say|type|enter|request)\s*[,,:-]?\s*(.+?)(?=\s*,\s*(?:then\s+)?(?:return|respond|answer|show|display|provide|run|execute)\b|\s+then\s+(?:return|respond|answer|show|display|provide|run|execute)\b|$)/i
     );
     if (clause?.[1]) add(clause[1]);
+
+    if (/\bi\s+can\s+(?:ask|say|type|enter|request)\b/i.test(segment)) {
+      for (const match of segment.matchAll(/["“‘']([^"”’']+)["”’']/g)) add(match[1]);
+    }
     if (examples.length >= MAX_DECLARED_INVOCATION_EXAMPLES) break;
   }
   return examples.slice(0, MAX_DECLARED_INVOCATION_EXAMPLES);
