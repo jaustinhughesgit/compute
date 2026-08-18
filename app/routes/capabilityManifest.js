@@ -160,7 +160,7 @@ function validateFieldValue(field, value, label) {
   }
 }
 
-function canonicalizeGeneratedOperations(rawOperations) {
+function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
   const typeAliases = new Map([
     ["text", "string"], ["enum", "string"], ["location", "string"],
     ["float", "number"], ["double", "number"], ["decimal", "number"],
@@ -227,9 +227,19 @@ function canonicalizeGeneratedOperations(rawOperations) {
       };
     });
     const operationInputNames = new Set(operation.inputs.map((input) => input.name));
+    const operationOutputNames = new Set(operation.outputs.map((output) => output.name));
     const soleEffectSubjectCandidate = operation.inputs.filter((input) =>
       input.type === "string" && input.required !== false
     );
+    const soleScalarOutputCandidate = operation.outputs.filter((output) =>
+      ["string", "number", "integer", "boolean"].includes(output.type)
+    );
+    const plannedOperationId = canonicalizeGeneratedIdentifier(rawAnswerPlan?.operationId);
+    const plannedOutputName = canonicalizeGeneratedIdentifier(rawAnswerPlan?.outputName);
+    const plannedEffectOutput = plannedOperationId === operation.operationId
+      && operationOutputNames.has(plannedOutputName)
+      ? plannedOutputName
+      : "";
     operation.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
       .map((effect) => {
         const generatedSubject = canonicalizeGeneratedIdentifier(effect?.subjectInput);
@@ -247,7 +257,10 @@ function canonicalizeGeneratedOperations(rawOperations) {
         return {
           ...effect,
           subjectInput,
-          valueOutput: canonicalizeGeneratedIdentifier(effect?.valueOutput),
+          valueOutput: operationOutputNames.has(canonicalizeGeneratedIdentifier(effect?.valueOutput))
+            ? canonicalizeGeneratedIdentifier(effect?.valueOutput)
+            : plannedEffectOutput
+              || (soleScalarOutputCandidate.length === 1 ? soleScalarOutputCandidate[0].name : canonicalizeGeneratedIdentifier(effect?.valueOutput)),
         };
       });
     const effectSubjectNames = new Set(operation.contextEffects.map((effect) => effect.subjectInput));
@@ -541,7 +554,7 @@ function validateCapabilityBuildRequest(raw) {
   if (!description) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
   const capabilityIdHint = request.capabilityIdHint || request.capabilityId || request.name;
   const canonicalId = capabilityIdHint ? normalizeId(canonicalizeGeneratedIdentifier(capabilityIdHint), "capabilityIdHint") : null;
-  const operations = canonicalizeGeneratedOperations(request.operations)
+  const operations = canonicalizeGeneratedOperations(request.operations, request.answerPlan)
     .map((operation) => normalizeOperation(operation, canonicalId));
   if (!operations.length) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
   const answerPlan = isObject(request.answerPlan) ? {

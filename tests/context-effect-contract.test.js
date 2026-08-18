@@ -141,6 +141,22 @@ test("a dangling generated effect reference uses the sole compatible spoken subj
   });
 });
 
+test("a dangling effect value resolves to the frozen answer-plan output", () => {
+  const generated = carwashBuildRequest();
+  generated.answerPlan = {
+    source: "literal",
+    operationId: "wash",
+    subject: null,
+    property: null,
+    inputName: null,
+    outputName: "state",
+    statement: "The resulting state is clean.",
+  };
+  generated.operations[0].contextEffects[0].valueOutput = "clean";
+  const request = validateCapabilityBuildRequest(generated);
+  assert.equal(request.operations[0].contextEffects[0].valueOutput, "state");
+});
+
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
   const spec = await buildComputeEntitySpec({
     capabilityRequest: carwashBuildRequest(),
