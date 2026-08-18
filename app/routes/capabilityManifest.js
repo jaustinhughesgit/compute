@@ -160,7 +160,7 @@ function validateFieldValue(field, value, label) {
   }
 }
 
-function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
+function canonicalizeGeneratedOperations(rawOperations) {
   const typeAliases = new Map([
     ["text", "string"], ["enum", "string"], ["location", "string"],
     ["float", "number"], ["double", "number"], ["decimal", "number"],
@@ -227,7 +227,6 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
       };
     });
     const operationInputNames = new Set(operation.inputs.map((input) => input.name));
-    const operationOutputNames = new Set(operation.outputs.map((output) => output.name));
     const soleEffectSubjectCandidate = operation.inputs.filter((input) =>
       input.type === "string" && input.required !== false
     );
@@ -249,15 +248,6 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
         return normalizedValue && normalizedText.includes(` ${normalizedValue} `);
       });
     });
-    const soleScalarOutputCandidate = operation.outputs.filter((output) =>
-      ["string", "number", "integer", "boolean"].includes(output.type)
-    );
-    const plannedOperationId = canonicalizeGeneratedIdentifier(rawAnswerPlan?.operationId);
-    const plannedOutputName = canonicalizeGeneratedIdentifier(rawAnswerPlan?.outputName);
-    const plannedEffectOutput = plannedOperationId === operation.operationId
-      && operationOutputNames.has(plannedOutputName)
-      ? plannedOutputName
-      : "";
     operation.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
       .map((effect) => {
         const generatedSubject = canonicalizeGeneratedIdentifier(effect?.subjectInput);
@@ -281,10 +271,7 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
         return {
           ...effect,
           subjectInput,
-          valueOutput: operationOutputNames.has(canonicalizeGeneratedIdentifier(effect?.valueOutput))
-            ? canonicalizeGeneratedIdentifier(effect?.valueOutput)
-            : plannedEffectOutput
-              || (soleScalarOutputCandidate.length === 1 ? soleScalarOutputCandidate[0].name : canonicalizeGeneratedIdentifier(effect?.valueOutput)),
+          newValue: String(effect?.newValue ?? "").trim(),
         };
       });
     const effectSubjectNames = new Set(operation.contextEffects.map((effect) => effect.subjectInput));
@@ -416,7 +403,6 @@ function normalizeOperation(raw, capabilityId = null) {
     protectedAssetRequirements,
   };
   const inputMapForEffects = new Map(inputs.map((input) => [input.name, input]));
-  const outputMapForEffects = new Map(outputs.map((output) => [output.name, output]));
   normalized.contextEffects = (Array.isArray(operation.contextEffects) ? operation.contextEffects : [])
     .map((rawEffect, index) => {
       const effect = requireObject(rawEffect, `operation ${operationId} context effect ${index + 1}`);
@@ -442,15 +428,11 @@ function normalizeOperation(raw, capabilityId = null) {
       if (!currentValue || currentValue.length > 300) {
         throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} context effect currentValue is invalid`);
       }
-      const valueOutput = normalizeId(effect.valueOutput, `operation ${operationId} context effect valueOutput`);
-      const output = outputMapForEffects.get(valueOutput);
-      if (!output || !["string", "number", "integer", "boolean"].includes(output.type)) {
-        throw new CapabilityError(
-          "INVALID_MANIFEST",
-          `operation ${operationId} context effect valueOutput ${valueOutput} must be a declared scalar output`
-        );
+      const newValue = String(effect.newValue || "").trim();
+      if (!newValue || newValue.length > 300) {
+        throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} context effect newValue is invalid`);
       }
-      return { type: "contextdb.replace_object", subjectInput, currentValue, valueOutput };
+      return { type: "contextdb.replace_object", subjectInput, currentValue, newValue };
     });
   if (normalized.contextEffects.length > 8) {
     throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} declares too many context effects`);
@@ -630,7 +612,7 @@ function validateCapabilityBuildRequest(raw) {
   if (!description) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
   const capabilityIdHint = request.capabilityIdHint || request.capabilityId || request.name;
   const canonicalId = capabilityIdHint ? normalizeId(canonicalizeGeneratedIdentifier(capabilityIdHint), "capabilityIdHint") : null;
-  const operations = canonicalizeGeneratedOperations(request.operations, request.answerPlan)
+  const operations = canonicalizeGeneratedOperations(request.operations)
     .map((operation) => normalizeOperation(operation, canonicalId));
   if (!operations.length) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
   const answerPlan = isObject(request.answerPlan) ? {

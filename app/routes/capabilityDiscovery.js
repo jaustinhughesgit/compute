@@ -135,9 +135,9 @@ const CONTEXT_EFFECT_SCHEMA = {
     type: { type: "string", enum: ["contextdb.replace_object"] },
     subjectInput: { type: "string", minLength: 1 },
     currentValue: { type: "string", minLength: 1 },
-    valueOutput: { type: "string", minLength: 1 },
+    newValue: { type: "string", minLength: 1 },
   },
-  required: ["type", "subjectInput", "currentValue", "valueOutput"],
+  required: ["type", "subjectInput", "currentValue", "newValue"],
 };
 const OPERATION_SCHEMA = {
   type: "object",
@@ -725,8 +725,8 @@ function discoveryMessages({
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
           "Place every operation inside capabilityRequest.operations. capabilityRequest.operations must be a nonempty JSON array.",
           "Each operation declares typed inputs, typed outputs, freshness, answerTemplate, and diverse utteranceExamples.",
-          "When an explicitly requested reusable action must change ordinary ContextDB state after successful Compute execution, declare contextEffects. The only supported effect is {type:'contextdb.replace_object',subjectInput,currentValue,valueOutput}. subjectInput must be a required utterance string input with resolver entity_reference; currentValue is the existing object value named by the request; valueOutput is the declared output whose validated value replaces it. This is a browser-applied, fail-closed relation rewrite: Compute receives no graph snapshot and the effect does not grant server access to ContextDB. Use [] for read-only operations.",
-          "For a requested transition such as dirty to clean, preserve the referent words as the subjectInput, return the new state through valueOutput, use freshness none, and include every explicitly declared invocation phrase as an annotated utteranceExample.",
+          "When an explicitly requested reusable action must change ordinary ContextDB state after successful Compute execution, declare contextEffects. The only supported effect is {type:'contextdb.replace_object',subjectInput,currentValue,newValue}. subjectInput must be a required utterance string input with resolver entity_reference; currentValue and newValue are the fixed old and new graph object values named by the request. Response outputs remain separate presentation or result fields. This is a browser-applied, fail-closed relation rewrite: Compute receives no graph snapshot and the effect does not grant server access to ContextDB. Use [] for read-only operations.",
+          "For a requested transition such as dirty to clean, preserve the referent words as the subjectInput, declare currentValue dirty and newValue clean, use freshness none, and include every explicitly declared invocation phrase as an annotated utteranceExample.",
           "For a deterministic two-operand arithmetic operation, declare calculation with operator, two input/literal operands, and the declared numeric outputName. Set calculation to null for every other operation. This lets the server compile arithmetic locally instead of inventing a provider request.",
           "An utteranceExample may be a string or {text,inputValues:[{name,value}]}. Use inputValues for values captured from speech, for example {text:'What is the code for purple?',inputValues:[{name:'color',value:'purple'}]}.",
           "Every required input whose bindingHint source is utterance must appear by name in inputValues for at least one utteranceExample.",

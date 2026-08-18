@@ -365,7 +365,6 @@ function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = [])
   ) {
     const isEffectSubject = (operation.contextEffects || []).some((effect) =>
       canonicalizeGeneratedIdentifier(effect?.subjectInput) === canonicalizeGeneratedIdentifier(candidate.name)
-      && canonicalizeGeneratedIdentifier(effect?.valueOutput) === plan.outputName
     );
     throw semanticContractError(
       "ANSWER_PLAN_SOURCE_MISMATCH",

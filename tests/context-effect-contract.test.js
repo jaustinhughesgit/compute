@@ -46,7 +46,7 @@ function carwashBuildRequest() {
         type: "contextdb.replace_object",
         subjectInput: "vehicle",
         currentValue: "dirty",
-        valueOutput: "state",
+        newValue: "clean",
       }],
     }],
   };
@@ -58,7 +58,7 @@ test("a ContextDB replacement effect is part of the validated capability contrac
     type: "contextdb.replace_object",
     subjectInput: "vehicle",
     currentValue: "dirty",
-    valueOutput: "state",
+    newValue: "clean",
   }]);
   assert.throws(() => validateCapabilityManifest({
     schemaVersion: 1,
@@ -139,22 +139,6 @@ test("a dangling generated effect reference uses the sole compatible spoken subj
     source: "utterance",
     resolver: "entity_reference",
   });
-});
-
-test("a dangling effect value resolves to the frozen answer-plan output", () => {
-  const generated = carwashBuildRequest();
-  generated.answerPlan = {
-    source: "literal",
-    operationId: "wash",
-    subject: null,
-    property: null,
-    inputName: null,
-    outputName: "state",
-    statement: "The resulting state is clean.",
-  };
-  generated.operations[0].contextEffects[0].valueOutput = "clean";
-  const request = validateCapabilityBuildRequest(generated);
-  assert.equal(request.operations[0].contextEffects[0].valueOutput, "state");
 });
 
 test("an effect current value cannot masquerade as its annotated spoken subject", () => {
