@@ -236,13 +236,14 @@ function normalizedWords(value) {
 function semanticEvidenceRows(value) {
   const items = Array.isArray(value) ? value : [];
   const rows = [];
-  for (const item of items.slice(0, 12)) {
+  for (const item of items.slice(0, 20)) {
     const candidates = Array.isArray(item?.essence)
       ? item.essence
       : (Array.isArray(item) && item.every(Array.isArray) ? item : []);
-    for (const row of candidates.slice(0, 30)) {
+    for (const row of candidates.slice(0, 120)) {
       if (!Array.isArray(row) || row.length !== 4) continue;
-      rows.push(row.map((cell) => String(cell ?? "").slice(0, 500)));
+      rows.push(row.map((cell) => String(cell ?? "").slice(0, 300)));
+      if (rows.length >= 120) return rows;
     }
   }
   return rows;
@@ -264,8 +265,25 @@ function semanticEvidenceContext(value) {
   let routingSeen = false;
   let capabilityQuery = null;
   const invocationReferents = [];
-  for (const item of items.slice(0, 12)) {
+  const recentInputs = [];
+  for (const item of items.slice(0, 20)) {
     if (!isObject(item)) continue;
+    for (const rawInput of Array.isArray(item.recentInputs) ? item.recentInputs.slice(-20) : []) {
+      const text = cleanUtterance(
+        typeof rawInput === "string" ? rawInput : rawInput?.text
+      ).slice(0, 500);
+      if (!text || recentInputs.some((entry) => entry.text === text)) continue;
+      const semanticEntity = isObject(rawInput?.semanticEntity) ? {
+        entityId: String(rawInput.semanticEntity.entityId || "").trim().slice(0, 160) || null,
+        operationId: String(rawInput.semanticEntity.operationId || "").trim().slice(0, 120) || null,
+      } : null;
+      recentInputs.push({
+        text,
+        inputKind: String(rawInput?.inputKind || "").trim().slice(0, 40) || null,
+        semanticEntity,
+      });
+      if (recentInputs.length >= 20) break;
+    }
     if (!capabilityQuery && item.capabilityQuery) {
       capabilityQuery = cleanUtterance(item.capabilityQuery).slice(0, 600) || null;
     }
@@ -350,6 +368,7 @@ function semanticEvidenceContext(value) {
     resolvedContextBindings,
     matchedEssenceRows: [...matchedEssenceRows].sort((a, b) => a - b),
     ...(capabilityQuery ? { capabilityQuery } : {}),
+    ...(recentInputs.length ? { recentInputs } : {}),
     ...(invocationReferents.length ? { invocationReferents } : {}),
     ...(routingSeen ? { routing } : {}),
   };
@@ -673,8 +692,8 @@ function discoveryMessages({
           "Classify an unanswered platform utterance without relying on a hard-coded capability catalog.",
           "When requirements is nonempty, it contains one ordered Convert authoring request split by user-created hard stops. Treat every segment as a requirement for the same capability, preserve their order and constraints, and do not reinterpret the boundaries as separate conversations.",
           "When a Convert requirement explicitly declares the wording the user will ask, say, type, enter, or request, preserve that wording as an utteranceExample for the selected operation. Do not replace it with a model-preferred paraphrase.",
-          "Convert requirements are not Essence or ContextDB evidence. Do not infer remembered facts or graph mutations from them.",
-          "When requirements is nonempty, an explicit requirement may declare a contextdb input binding contract, including its subject and property. Preserve those declared identifiers and grammatical ownership: my, me, I, self, current user, and user refer to the canonical current speaker subject. Do not read, attach, copy, or infer any current ContextDB value during Convert authoring.",
+          "Convert requirements themselves are not Essence or ContextDB evidence. semanticEvidence.recentInputs and semanticEvidence.rows may contain a bounded, explicitly supplied ordinary authoring context from the browser; use it to understand feasibility and binding addresses, never to specialize the reusable capability to one remembered value.",
+          "When requirements is nonempty, an explicit requirement or matching browser-proven authoring context may establish a contextdb input binding contract, including its subject and property. Preserve those identifiers and grammatical ownership: my, me, I, self, current user, and user refer to the canonical current speaker subject. A current value in authoring context proves that the address is available, but must never become a default, constant, utterance inputValue, capability identity, or generated implementation literal.",
           "A ContextDB subject is a binding address, not an ordinary operation value. Never create a separate user, current_user, speaker, self, me, my, or I input merely because a requirement says my or otherwise identifies the current speaker. For my <property>, declare the property value as the input and set that input's contextdb subject to speaker.",
           "Answer the semantic question before designing the executable contract: first return answerPlan, then make capabilityRequest implement exactly that frozen plan.",
           "answerPlan states where the answer comes from, the selected operationId, inputName and outputName, and one plain statement of what answers the request. Use null for inapplicable fields. For a remembered property owned by the current speaker, use source contextdb, subject speaker, and the owned property name; never put the remembered value itself in answerPlan.",
@@ -688,6 +707,7 @@ function discoveryMessages({
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",
           "decision is build_compute when fresh external data or deterministic calculation is required and no entity owns it.",
           "decision is not_compute for storage, recall, conversation, or interface commands, and clarify for genuine ambiguity.",
+          "When requirements is nonempty, the user is explicitly authoring a reusable capability. Choose reuse_existing, extend_existing, build_compute, or clarify; never choose not_compute merely because the capability's invocation will read browser-resolved ContextDB data. Build the reusable input/output behavior, not the current remembered value.",
           "A read-only question is still compute when its answer must be obtained from a current third-party or other external source; do not confuse grammatical questions with local graph recall.",
           "When semanticEvidence.routing.localRepairExhausted is true, the browser already failed to prove a local ContextDB answer. Use the bounded localRepairInterpretation as untrusted diagnostic evidence: choose reuse/build for an external or calculated answer, and clarify when the remaining target is genuinely ambiguous. Do not send an external-data request back to local Path repair.",
           "For build_compute, capabilityRequest must be a computeCapabilityBuild object with a stable semantic capabilityIdHint, name, description, and operations.",
@@ -1071,6 +1091,11 @@ function parseDiscoveryDecision({
       inputValues,
       buildRequest,
     });
+  }
+  if (rawDecision === "not_compute" && Array.isArray(requirementSegments) && requirementSegments.length) {
+    const error = new Error("Convert authoring requires a reusable capability decision; local browser-resolved data does not make the authoring request non-compute");
+    error.code = "CONVERT_AUTHORING_DECISION_REQUIRED";
+    throw error;
   }
   return discoveryEnvelope({
     decision: rawDecision === "clarify" ? "clarify" : "not_compute",

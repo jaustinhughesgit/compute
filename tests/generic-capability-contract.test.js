@@ -765,8 +765,8 @@ test("generated current-user ContextDB subjects use the canonical speaker identi
 
 test("Convert requirements may explicitly declare ContextDB contracts without attaching values", () => {
   const discovery = fs.readFileSync(path.join(__dirname, "../app/routes/capabilityDiscovery.js"), "utf8");
-  assert.match(discovery, /explicit requirement may declare a contextdb input binding contract/);
-  assert.match(discovery, /Do not read, attach, copy, or infer any current ContextDB value/);
+  assert.match(discovery, /explicit requirement or matching browser-proven authoring context may establish a contextdb input binding contract/);
+  assert.match(discovery, /must never become a default, constant, utterance inputValue/);
   assert.match(discovery, /ContextDB subject is a binding address, not an ordinary operation value/);
   assert.match(discovery, /Never create a separate user, current_user, speaker/);
   assert.doesNotMatch(discovery, /do not declare contextdb input bindings/);

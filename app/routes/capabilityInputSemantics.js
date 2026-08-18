@@ -71,6 +71,22 @@ function explicitPropertyDeclaration(requirementSegments, rawProperty) {
   ].some((pattern) => pattern.test(text));
 }
 
+function currentSpeakerPropertyRequest(requirementSegments, rawProperty) {
+  const property = canonicalizeGeneratedIdentifier(rawProperty).replace(/[_-]+/g, " ");
+  if (!property) return false;
+  const escaped = property.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const text = (Array.isArray(requirementSegments) ? requirementSegments : [])
+    .map((segment) => String(segment || "")
+      .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+      .replace(/[_-]+/g, " ")
+      .toLowerCase())
+    .join("\n");
+  return [
+    new RegExp(`\\b(?:my|my own)\\s+${escaped}\\b`, "i"),
+    new RegExp(`\\b${escaped}\\s+(?:for|of)\\s+(?:me|myself|the current user)\\b`, "i"),
+  ].some((pattern) => pattern.test(text));
+}
+
 function deicticPropertyValue(rawProperty) {
   const property = canonicalizeGeneratedIdentifier(rawProperty);
   const prefixes = ["my_", "speaker_", "current_user_", "current_speaker_"];
@@ -333,7 +349,11 @@ function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = [])
     );
   }
   const candidateExamples = exampleValuesForInput(operation, candidate?.name);
-  if (!candidateAddress && candidateExamples.some((value) => !isCurrentSpeakerValue(value))) {
+  if (
+    !candidateAddress
+    && candidateExamples.some((value) => !isCurrentSpeakerValue(value))
+    && !currentSpeakerPropertyRequest(requirementSegments, plan.property)
+  ) {
     throw semanticContractError(
       "ANSWER_PLAN_SOURCE_MISMATCH",
       `the answer plan cannot rewrite input ${candidate.name} because its examples contain ordinary values`

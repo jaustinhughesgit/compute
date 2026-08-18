@@ -722,7 +722,9 @@ function register({ on, use }) {
         const requirementSegments = Array.isArray(promptObj?.requirementSegments)
           ? promptObj.requirementSegments
           : [];
-        const semanticEvidence = requirementSegments.length ? [] : promptObj?.relevantItems;
+        const semanticEvidence = requirementSegments.length
+          ? (promptObj?.authoringContext ? [promptObj.authoringContext] : [])
+          : promptObj?.relevantItems;
         const semanticContext = semanticEvidenceContext(semanticEvidence);
         const availableCapabilities = await loadCapabilityCandidates({
           searchEntities: shared.registry?.searchEntities,

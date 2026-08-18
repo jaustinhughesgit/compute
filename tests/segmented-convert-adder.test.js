@@ -6,6 +6,7 @@ const Module = require("node:module");
 
 const {
   declaredInvocationExamples,
+  normalizeConvertAuthoringContext,
   normalizeConvertPrompt,
 } = require("../app/routes/convertRequirements");
 const { discoverComputeCapability } = require("../app/routes/capabilityDiscovery");
@@ -102,13 +103,37 @@ const generatedImplementation = {
   },
 };
 
+test("Convert authoring context is independently bounded at the Compute boundary", () => {
+  const normalized = normalizeConvertAuthoringContext({
+    recentInputs: Array.from({ length: 25 }, (_, index) => ({
+      text: `Recent input ${index + 1}`,
+      inputKind: "statement",
+      ignored: "not part of the contract",
+    })),
+    essence: Array.from({ length: 125 }, (_, index) => [
+      "present", "speaker", `property ${index + 1}`, `value ${index + 1}`,
+    ]),
+  });
+  assert.equal(normalized.recentInputs.length, 20);
+  assert.equal(normalized.recentInputs[0].text, "Recent input 6");
+  assert.equal(normalized.essence.length, 120);
+  assert.equal(Object.hasOwn(normalized.recentInputs[0], "ignored"), false);
+});
+
 test("three Convert hard stops discover and materialize one arithmetic compute entity", async () => {
   const prompt = normalizeConvertPrompt({
     requirementSegments,
     relevantItems: [{ essence: [["speaker", "has", "unrelated", "context"]] }],
+    authoringContext: {
+      schemaVersion: 1,
+      kind: "convertAuthoringContext",
+      recentInputs: [{ text: "I recently checked a different workflow.", inputKind: "statement", semanticEntity: null }],
+      essence: [["present", "speaker", "workflow", "different"]],
+    },
   });
   assert.deepEqual(prompt.requirementSegments, requirementSegments);
   assert.deepEqual(prompt.relevantItems, []);
+  assert.equal(prompt.authoringContext.recentInputs[0].text, "I recently checked a different workflow.");
 
   let discoveryUserPayload = null;
   const openai = {
@@ -137,13 +162,19 @@ test("three Convert hard stops discover and materialize one arithmetic compute e
     utterance: prompt.userRequest,
     requestedBy: "u:test",
     availableCapabilities: [],
-    semanticEvidence: prompt.relevantItems,
+    semanticEvidence: [prompt.authoringContext],
     requirementSegments: prompt.requirementSegments,
   });
 
   assert.equal(discovery.decision, "build");
   assert.deepEqual(discoveryUserPayload.requirements, requirementSegments);
-  assert.deepEqual(discoveryUserPayload.semanticEvidence.rows, []);
+  assert.deepEqual(discoveryUserPayload.semanticEvidence.rows, [
+    ["present", "speaker", "workflow", "different"],
+  ]);
+  assert.equal(
+    discoveryUserPayload.semanticEvidence.recentInputs[0].text,
+    "I recently checked a different workflow."
+  );
   assert.equal(discovery.buildCommand.capabilityRequest.operations[0].inputs.length, 2);
   assert.match(discovery.buildCommand.capabilityRequest.operations[0].inputs[0].clarification, /left/i);
   assert.match(discovery.buildCommand.capabilityRequest.operations[0].inputs[1].clarification, /right/i);

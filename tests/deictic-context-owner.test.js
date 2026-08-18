@@ -4,6 +4,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 
 const {
+  discoverComputeCapability,
   normalizeGeneratedBuildRequest,
 } = require("../app/routes/capabilityDiscovery");
 const {
@@ -102,11 +103,11 @@ test("semantic-first discovery repairs the exact owner-as-value failure before e
     "Create me a compute entity that tells me my register status.",
   ];
   const parsed = discoveryParsed([
-    input("user", {
+    input("status", {
       source: "utterance",
-      subject: "user",
+      subject: null,
       property: null,
-      resolver: "person",
+      resolver: "string",
       aliases: null,
       value: null,
     }),
@@ -114,7 +115,7 @@ test("semantic-first discovery repairs the exact owner-as-value failure before e
     answerTemplate: null,
     examples: [{
       text: "Create me a compute entity that tells me my register status.",
-      inputValues: [{ name: "user", value: "my" }],
+      inputValues: [{ name: "status", value: "open" }],
     }],
   });
   parsed.answerPlan = {
@@ -159,6 +160,113 @@ test("semantic-first discovery repairs the exact owner-as-value failure before e
     target: "{|res|}!",
     chain: [{ access: "send", params: [{ report: "{|req=>body.status|}" }] }],
   }]);
+});
+
+test("Convert discovery sees bounded recent inputs and browser-proven ContextDB rows", async () => {
+  const exactSegments = ["What is my register status?"];
+  const parsed = discoveryParsed([
+    input("status", {
+      source: "utterance",
+      subject: null,
+      property: null,
+      resolver: "string",
+      aliases: null,
+      value: null,
+    }),
+  ], {
+    answerTemplate: null,
+    examples: [{
+      text: "What is my register status?",
+      inputValues: [{ name: "status", value: "open" }],
+    }],
+  });
+  parsed.answerPlan = {
+    source: "contextdb",
+    operationId: "report",
+    subject: "speaker",
+    property: "register_status",
+    inputName: "status",
+    outputName: "report",
+    statement: "The current speaker's register_status property answers the request.",
+  };
+  let modelInput;
+  const discovery = await discoverComputeCapability({
+    openai: { chat: { completions: { create: async (request) => {
+      modelInput = JSON.parse(request.messages.find((message) => message.role === "user").content);
+      return { choices: [{ message: { content: JSON.stringify(parsed) } }] };
+    } } } },
+    utterance: exactSegments[0],
+    requestedBy: "u:test",
+    requirementSegments: exactSegments,
+    semanticEvidence: [{
+      kind: "convertAuthoringContext",
+      recentInputs: [
+        { text: "My name is Austin.", inputKind: "statement", semanticEntity: null },
+        { text: "My register status is open.", inputKind: "statement", semanticEntity: null },
+      ],
+      essence: [["present", "speaker", "register status", "open"]],
+    }],
+  });
+
+  assert.deepEqual(modelInput.semanticEvidence.recentInputs.map((entry) => entry.text), [
+    "My name is Austin.",
+    "My register status is open.",
+  ]);
+  assert.deepEqual(modelInput.semanticEvidence.rows, [[
+    "present", "speaker", "register status", "open",
+  ]]);
+  assert.equal(discovery.decision, "build");
+  assert.deepEqual(
+    discovery.buildCommand.capabilityRequest.operations[0].inputs[0].bindingHint,
+    { source: "contextdb", subject: "speaker", property: "register_status" }
+  );
+});
+
+test("Convert authoring corrects a model that declines a browser-resolved capability as local recall", async () => {
+  const exactSegments = ["What is my register status?"];
+  const corrected = discoveryParsed([
+    input("status", {
+      source: "contextdb",
+      subject: "speaker",
+      property: "register_status",
+      resolver: null,
+      aliases: null,
+      value: null,
+    }),
+  ]);
+  corrected.answerPlan = {
+    source: "contextdb",
+    operationId: "report",
+    subject: "speaker",
+    property: "register_status",
+    inputName: "status",
+    outputName: "report",
+    statement: "The browser-resolved speaker property supplies the report.",
+  };
+  let calls = 0;
+  const discovery = await discoverComputeCapability({
+    openai: { chat: { completions: { create: async () => {
+      calls += 1;
+      const response = calls === 1 ? {
+        decision: "not_compute",
+        confidence: 0.9,
+        reason: "This is local recall.",
+        capabilityId: null,
+        entityId: null,
+        operationId: null,
+        answerPlan: null,
+        inputValues: [],
+        capabilityRequest: null,
+      } : corrected;
+      return { choices: [{ message: { content: JSON.stringify(response) } }] };
+    } } } },
+    utterance: exactSegments[0],
+    requestedBy: "u:test",
+    requirementSegments: exactSegments,
+  });
+
+  assert.equal(calls, 2);
+  assert.equal(discovery.decision, "build");
 });
 
 test("Convert removes a deictic prefix fused into a generated speaker property", () => {

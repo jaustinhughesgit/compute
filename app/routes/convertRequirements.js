@@ -1,6 +1,6 @@
 /**
- * Platform: Preserves user-authored Convert requirements as ordered hard-stop segments without importing Essence or ContextDB evidence.
- * Technical: Validates the v1 Convert prompt envelope and derives the bounded combined request used by capability discovery.
+ * Platform: Preserves user-authored Convert requirements and bounded ordinary authoring context without importing protected data.
+ * Technical: Validates the v1 Convert prompt envelope, recent-input summaries, and browser-proven Essence rows used by capability discovery.
  */
 "use strict";
 
@@ -8,6 +8,8 @@ const MAX_REQUIREMENT_SEGMENTS = 12;
 const MAX_REQUIREMENT_SEGMENT_LENGTH = 1_000;
 const MAX_COMBINED_REQUIREMENT_LENGTH = 4_000;
 const MAX_DECLARED_INVOCATION_EXAMPLES = 8;
+const MAX_AUTHORING_RECENT_INPUTS = 20;
+const MAX_AUTHORING_ESSENCE_ROWS = 120;
 
 function cleanRequirementText(value) {
   return String(value ?? "")
@@ -49,6 +51,43 @@ function normalizeRequirementSegments(value) {
     throw error;
   }
   return segments;
+}
+
+function normalizeConvertAuthoringContext(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const recentInputs = (Array.isArray(value.recentInputs) ? value.recentInputs : [])
+    .slice(-MAX_AUTHORING_RECENT_INPUTS)
+    .map((entry) => {
+      const text = cleanRequirementText(
+        typeof entry === "string" ? entry : entry?.text
+      ).slice(0, 500);
+      if (!text) return null;
+      const semanticEntity = entry?.semanticEntity
+        && typeof entry.semanticEntity === "object"
+        && !Array.isArray(entry.semanticEntity)
+          ? {
+              entityId: cleanRequirementText(entry.semanticEntity.entityId).slice(0, 160) || null,
+              operationId: cleanRequirementText(entry.semanticEntity.operationId).slice(0, 120) || null,
+            }
+          : null;
+      return {
+        text,
+        inputKind: cleanRequirementText(entry?.inputKind).slice(0, 40) || null,
+        semanticEntity,
+      };
+    })
+    .filter(Boolean);
+  const essence = (Array.isArray(value.essence) ? value.essence : [])
+    .slice(0, MAX_AUTHORING_ESSENCE_ROWS)
+    .filter((row) => Array.isArray(row) && row.length === 4)
+    .map((row) => row.map((cell) => cleanRequirementText(cell).slice(0, 300)));
+  if (!recentInputs.length && !essence.length) return null;
+  return {
+    schemaVersion: 1,
+    kind: "convertAuthoringContext",
+    recentInputs,
+    essence,
+  };
 }
 
 function invocationComparisonKey(value) {
@@ -138,15 +177,15 @@ function normalizeConvertPrompt(value) {
   }
   const requirementSegments = normalizeRequirementSegments(prompt.requirementSegments);
   if (requirementSegments.length) {
+    const authoringContext = normalizeConvertAuthoringContext(prompt.authoringContext);
     return {
       ...prompt,
       schemaVersion: 1,
       kind: "convertRequirements",
       userRequest: requirementSegments.join("\n\n"),
       requirementSegments,
-      // Convert requirements are authoring instructions. Context is attached
-      // only through a future explicit reference contract, never implicitly.
       relevantItems: [],
+      ...(authoringContext ? { authoringContext } : {}),
     };
   }
   return {
@@ -159,6 +198,7 @@ function normalizeConvertPrompt(value) {
 module.exports = {
   MAX_REQUIREMENT_SEGMENTS,
   declaredInvocationExamples,
+  normalizeConvertAuthoringContext,
   normalizeRequirementSegments,
   normalizeConvertPrompt,
   preserveDeclaredInvocationExamples,
