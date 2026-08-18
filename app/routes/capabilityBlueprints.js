@@ -186,6 +186,10 @@ function compatibleProjectionType(input, output) {
 
 function declaredInputProjectionImplementation(buildRequest) {
   if (!Array.isArray(buildRequest?.operations) || buildRequest.operations.length !== 1) return null;
+  const answerSource = String(buildRequest?.answerPlan?.source || "").trim().toLowerCase();
+  if (answerSource && !["contextdb", "utterance", "environment", "default"].includes(answerSource)) {
+    return null;
+  }
   const operation = buildRequest.operations[0];
   if (operation?.calculation) return null;
   const inputs = Array.isArray(operation?.inputs) ? operation.inputs : [];

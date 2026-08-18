@@ -97,6 +97,70 @@ test("Convert canonicalizes a model-confused current-speaker input to its Contex
   assert.equal(request.operations[0].answerTemplate, "The register status is {{register_status}}.");
 });
 
+test("semantic-first discovery repairs the exact owner-as-value failure before entity code is built", async () => {
+  const exactSegments = [
+    "Create me a compute entity that tells me my register status.",
+  ];
+  const parsed = discoveryParsed([
+    input("user", {
+      source: "utterance",
+      subject: "user",
+      property: null,
+      resolver: "person",
+      aliases: null,
+      value: null,
+    }),
+  ], {
+    answerTemplate: null,
+    examples: [{
+      text: "Create me a compute entity that tells me my register status.",
+      inputValues: [{ name: "user", value: "my" }],
+    }],
+  });
+  parsed.answerPlan = {
+    source: "contextdb",
+    operationId: "report",
+    subject: "speaker",
+    property: "register_status",
+    inputName: "status",
+    outputName: "report",
+    statement: "The current speaker's register_status property answers the request.",
+  };
+
+  const request = normalizeGeneratedBuildRequest(
+    parsed,
+    exactSegments[0],
+    "u:test",
+    exactSegments
+  );
+  assert.deepEqual(request.operations[0].inputs.map((field) => ({
+    name: field.name,
+    source: field.bindingHint.source,
+    subject: field.bindingHint.subject,
+    property: field.bindingHint.property,
+  })), [{
+    name: "status",
+    source: "contextdb",
+    subject: "speaker",
+    property: "register_status",
+  }]);
+  assert.equal(request.operations[0].answerTemplate, "{{report}}");
+  assert.equal(request.operations[0].utteranceExamples[0].inputs.status, undefined);
+
+  let modelCalls = 0;
+  const spec = await buildComputeEntitySpec({
+    capabilityRequest: request,
+    requestedBy: "u:test",
+    originalUtterance: exactSegments[0],
+    openai: { responses: { create: async () => { modelCalls += 1; } } },
+  });
+  assert.equal(modelCalls, 0);
+  assert.deepEqual(spec.computeEntity.published.actions, [{
+    target: "{|res|}!",
+    chain: [{ access: "send", params: [{ report: "{|req=>body.status|}" }] }],
+  }]);
+});
+
 test("Convert removes a deictic prefix fused into a generated speaker property", () => {
   const request = normalizeGeneratedBuildRequest(
     discoveryParsed([

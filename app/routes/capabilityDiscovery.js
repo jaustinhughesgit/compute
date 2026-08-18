@@ -15,6 +15,7 @@ const {
   validateCapabilityInputResponse,
 } = require("./capabilityManifest");
 const {
+  applyGeneratedAnswerPlan,
   normalizeGeneratedConvertOwnerBindings,
 } = require("./capabilityInputSemantics");
 const { GENERIC_BLUEPRINT_ID } = require("./capabilityBlueprints");
@@ -184,6 +185,22 @@ const DISCOVERY_INPUT_VALUES_SCHEMA = {
     required: ["name", "value"],
   },
 };
+const ANSWER_PLAN_SCHEMA = {
+  anyOf: [{
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      source: { type: "string", enum: ["contextdb", "utterance", "environment", "default", "calculation", "provider", "none"] },
+      operationId: NULLABLE_STRING_SCHEMA,
+      subject: NULLABLE_STRING_SCHEMA,
+      property: NULLABLE_STRING_SCHEMA,
+      inputName: NULLABLE_STRING_SCHEMA,
+      outputName: NULLABLE_STRING_SCHEMA,
+      statement: { type: "string", minLength: 1 },
+    },
+    required: ["source", "operationId", "subject", "property", "inputName", "outputName", "statement"],
+  }, { type: "null" }],
+};
 const DISCOVERY_RESPONSE_SCHEMA = {
   type: "object",
   additionalProperties: false,
@@ -193,10 +210,11 @@ const DISCOVERY_RESPONSE_SCHEMA = {
       enum: ["build_compute", "reuse_existing", "extend_existing", "not_compute", "clarify"],
     },
     ...DISCOVERY_BASE_PROPERTIES,
+    answerPlan: ANSWER_PLAN_SCHEMA,
     inputValues: DISCOVERY_INPUT_VALUES_SCHEMA,
     capabilityRequest: { anyOf: [CAPABILITY_BUILD_SCHEMA, { type: "null" }] },
   },
-  required: ["decision", "confidence", "reason", "capabilityId", "entityId", "operationId", "inputValues", "capabilityRequest"],
+  required: ["decision", "confidence", "reason", "capabilityId", "entityId", "operationId", "answerPlan", "inputValues", "capabilityRequest"],
 };
 
 function cleanUtterance(value) {
@@ -542,8 +560,13 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
       return normalized;
     });
   }
+  const answerPlannedRequest = applyGeneratedAnswerPlan(
+    request,
+    parsed?.answerPlan,
+    requirementSegments
+  );
   return {
-    ...normalizeGeneratedConvertOwnerBindings(request, requirementSegments),
+    ...normalizeGeneratedConvertOwnerBindings(answerPlannedRequest, requirementSegments),
     requestedBy,
   };
 }
@@ -653,7 +676,9 @@ function discoveryMessages({
           "Convert requirements are not Essence or ContextDB evidence. Do not infer remembered facts or graph mutations from them.",
           "When requirements is nonempty, an explicit requirement may declare a contextdb input binding contract, including its subject and property. Preserve those declared identifiers and grammatical ownership: my, me, I, self, current user, and user refer to the canonical current speaker subject. Do not read, attach, copy, or infer any current ContextDB value during Convert authoring.",
           "A ContextDB subject is a binding address, not an ordinary operation value. Never create a separate user, current_user, speaker, self, me, my, or I input merely because a requirement says my or otherwise identifies the current speaker. For my <property>, declare the property value as the input and set that input's contextdb subject to speaker.",
-          "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, and capabilityRequest.",
+          "Answer the semantic question before designing the executable contract: first return answerPlan, then make capabilityRequest implement exactly that frozen plan.",
+          "answerPlan states where the answer comes from, the selected operationId, inputName and outputName, and one plain statement of what answers the request. Use null for inapplicable fields. For a remembered property owned by the current speaker, use source contextdb, subject speaker, and the owned property name; never put the remembered value itself in answerPlan.",
+          "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, answerPlan, and capabilityRequest. Set answerPlan to null unless decision is build_compute.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
           "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
@@ -778,17 +803,26 @@ function backgroundDiscoveryInput({
   semanticEvidence = [],
   requirementSegments = [],
   llmTemplateId = null,
+  correction = null,
 } = {}) {
+  const input = discoveryMessages({
+    utterance,
+    requestedBy,
+    availableCapabilities,
+    semanticEvidence,
+    requirementSegments,
+  });
+  if (isObject(correction)) {
+    input.push({ role: "assistant", content: String(correction.previousOutput || "").slice(0, 12_000) });
+    input.push({
+      role: "system",
+      content: `The previous JSON failed server validation (${String(correction.validationCode || "INVALID_DISCOVERY_CONTRACT")}): ${String(correction.validationMessage || "The discovery contract was invalid.").slice(0, 600)}. Reconsider the answerPlan first, then return one corrected JSON object that implements it; do not explain.`,
+    });
+  }
   return withResponsesTemplate({
     background: true,
     store: true,
-    input: discoveryMessages({
-      utterance,
-      requestedBy,
-      availableCapabilities,
-      semanticEvidence,
-      requirementSegments,
-    }),
+    input,
     text: {
       format: {
         type: "json_schema",
@@ -799,6 +833,19 @@ function backgroundDiscoveryInput({
       },
     },
   }, llmTemplateId, "discovery");
+}
+
+const DISCOVERY_CORRECTION_JOB_PREFIX = "compute-discovery-correction:1:";
+
+function discoveryJobState(rawJobId) {
+  const jobId = String(rawJobId || "");
+  if (jobId.startsWith(DISCOVERY_CORRECTION_JOB_PREFIX)) {
+    return {
+      responseId: jobId.slice(DISCOVERY_CORRECTION_JOB_PREFIX.length),
+      correctionAttempt: 1,
+    };
+  }
+  return { responseId: jobId, correctionAttempt: 0 };
 }
 
 async function startComputeCapabilityDiscovery({
@@ -838,11 +885,14 @@ async function retrieveComputeCapabilityDiscovery({
   availableCapabilities = [],
   semanticEvidence = [],
   requirementSegments = [],
+  llmTemplateId = null,
   retrieveResponse = retrieveBackgroundResponse,
+  startResponse = startBackgroundResponse,
 } = {}) {
   const clean = cleanUtterance(utterance);
   if (!clean) throw new Error("compute discovery requires an utterance");
-  const response = await retrieveResponse(jobId);
+  const job = discoveryJobState(jobId);
+  const response = await retrieveResponse(job.responseId);
   const state = backgroundResponseState(response);
   if (state.pending) {
     return {
@@ -864,7 +914,64 @@ async function retrieveComputeCapabilityDiscovery({
     parsed = JSON.parse(raw);
   } catch (error) {
     error.code = "INVALID_MODEL_JSON";
-    throw error;
+    if (job.correctionAttempt > 0) throw error;
+    const corrected = await startResponse(backgroundDiscoveryInput({
+      utterance: clean,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+      requirementSegments,
+      llmTemplateId,
+      correction: {
+        previousOutput: raw,
+        validationCode: error.code,
+        validationMessage: error.message,
+      },
+    }));
+    return {
+      kind: "computeCapabilityDiscoveryBackground",
+      schemaVersion: 1,
+      jobId: `${DISCOVERY_CORRECTION_JOB_PREFIX}${String(corrected.id)}`,
+      status: String(corrected.status || "queued"),
+      pending: true,
+      retryAfterMs: 2_000,
+      discovery: null,
+    };
+  }
+  let discovery;
+  try {
+    discovery = parseDiscoveryDecision({
+      parsed,
+      utterance: clean,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+      requirementSegments,
+    });
+  } catch (error) {
+    if (job.correctionAttempt > 0) throw error;
+    const corrected = await startResponse(backgroundDiscoveryInput({
+      utterance: clean,
+      requestedBy,
+      availableCapabilities,
+      semanticEvidence,
+      requirementSegments,
+      llmTemplateId,
+      correction: {
+        previousOutput: raw,
+        validationCode: error?.code,
+        validationMessage: error?.message,
+      },
+    }));
+    return {
+      kind: "computeCapabilityDiscoveryBackground",
+      schemaVersion: 1,
+      jobId: `${DISCOVERY_CORRECTION_JOB_PREFIX}${String(corrected.id)}`,
+      status: String(corrected.status || "queued"),
+      pending: true,
+      retryAfterMs: 2_000,
+      discovery: null,
+    };
   }
   return {
     kind: "computeCapabilityDiscoveryBackground",
@@ -872,14 +979,7 @@ async function retrieveComputeCapabilityDiscovery({
     jobId: String(jobId),
     ...state,
     discovery: {
-      ...parseDiscoveryDecision({
-        parsed,
-        utterance: clean,
-        requestedBy,
-        availableCapabilities,
-        semanticEvidence,
-        requirementSegments,
-      }),
+      ...discovery,
       costTrace: sanitizeOpenAiUsageTrace(response, "Compute capability discovery"),
     },
   };

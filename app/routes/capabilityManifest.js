@@ -360,8 +360,12 @@ function normalizeOperation(raw, capabilityId = null) {
   if (operation.pathContracts != null || operation.pattern != null || operation.signatureSlots != null) {
     throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} contains browser-owned Path fields`);
   }
-  if (operation.answerTemplate != null) {
-    const template = String(operation.answerTemplate).trim();
+  {
+    // The browser requires an answer template for every installable Compute
+    // Path. Keep server and browser validation aligned, while supplying the
+    // only lossless generic fallback available from the declared outputs.
+    const template = String(operation.answerTemplate || "").trim()
+      || outputs.map((output) => `{{${output.name}}}`).join(" ");
     if (!template || template.length > 1500) throw new CapabilityError("INVALID_MANIFEST", `operation ${operationId} has an invalid answerTemplate`);
     const declared = new Set([...inputs, ...outputs].map((field) => field.name));
     for (const match of template.matchAll(/\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g)) {
@@ -451,6 +455,21 @@ function validateCapabilityBuildRequest(raw) {
   const operations = canonicalizeGeneratedOperations(request.operations)
     .map((operation) => normalizeOperation(operation, canonicalId));
   if (!operations.length) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
+  const answerPlan = isObject(request.answerPlan) ? {
+    source: String(request.answerPlan.source || "").trim().toLowerCase(),
+    operationId: request.answerPlan.operationId == null
+      ? null
+      : canonicalizeGeneratedIdentifier(request.answerPlan.operationId),
+    subject: request.answerPlan.subject == null ? null : String(request.answerPlan.subject).trim(),
+    property: request.answerPlan.property == null ? null : String(request.answerPlan.property).trim(),
+    inputName: request.answerPlan.inputName == null
+      ? null
+      : canonicalizeGeneratedIdentifier(request.answerPlan.inputName),
+    outputName: request.answerPlan.outputName == null
+      ? null
+      : canonicalizeGeneratedIdentifier(request.answerPlan.outputName),
+    statement: String(request.answerPlan.statement || "").trim().slice(0, 800),
+  } : null;
   return {
     schemaVersion: CAPABILITY_SCHEMA_VERSION,
     kind,
@@ -459,6 +478,7 @@ function validateCapabilityBuildRequest(raw) {
     ...(request.name != null ? { name: String(request.name).trim().slice(0, 160) } : {}),
     ...(canonicalId ? { capabilityIdHint: canonicalId } : {}),
     ...(request.requestedBy != null ? { requestedBy: String(request.requestedBy) } : {}),
+    ...(answerPlan ? { answerPlan } : {}),
   };
 }
 

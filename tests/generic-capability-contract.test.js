@@ -867,6 +867,8 @@ test("discovery uses strict Structured Outputs with nonempty operations and outp
   assert.equal(result.decision, "build");
   assert.equal(request.response_format.type, "json_schema");
   assert.equal(request.response_format.json_schema.strict, true);
+  assert.ok(request.response_format.json_schema.schema.properties.answerPlan);
+  assert.ok(request.response_format.json_schema.schema.required.includes("answerPlan"));
   assert.equal(options.timeout <= 18_000, true);
   assert.equal(options.timeout >= 17_900, true);
   assert.equal(options.maxRetries, 0);

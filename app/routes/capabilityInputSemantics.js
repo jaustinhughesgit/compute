@@ -166,6 +166,214 @@ function inputUsedBySemanticContract(operation, rawName) {
   return templateUse || calculationUse;
 }
 
+function semanticContractError(code, message) {
+  const error = new Error(message);
+  error.code = code;
+  return error;
+}
+
+function normalizeAnswerPlan(rawPlan) {
+  if (!isObject(rawPlan)) return null;
+  const source = String(rawPlan.source || "").trim().toLowerCase();
+  const operationId = canonicalizeGeneratedIdentifier(rawPlan.operationId);
+  const inputName = canonicalizeGeneratedIdentifier(rawPlan.inputName);
+  const outputName = canonicalizeGeneratedIdentifier(rawPlan.outputName);
+  const subject = source === "contextdb"
+    ? normalizeContextBindingSubject(rawPlan.subject || "speaker")
+    : String(rawPlan.subject || "").trim();
+  const property = String(rawPlan.property || "").trim();
+  return {
+    source,
+    operationId,
+    inputName,
+    outputName,
+    subject,
+    property,
+    statement: String(rawPlan.statement || "").trim(),
+  };
+}
+
+/**
+ * Freezes the model's semantic answer decision before the executable contract
+ * is accepted. This is deliberately generic: every plan must select a declared
+ * operation/output, and browser-resolved sources must select a compatible input.
+ */
+function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = []) {
+  const request = clone(rawRequest || {});
+  const plan = normalizeAnswerPlan(rawPlan);
+  if (!plan) return request;
+  request.answerPlan = plan;
+  if (!plan.operationId || !plan.outputName) {
+    throw semanticContractError(
+      "INCOMPLETE_ANSWER_PLAN",
+      "an answer plan requires operationId and outputName"
+    );
+  }
+
+  const operations = Array.isArray(request.operations) ? request.operations : [];
+  const operation = operations.find((candidate) =>
+    canonicalizeGeneratedIdentifier(candidate?.operationId) === plan.operationId
+  );
+  if (!operation) {
+    throw semanticContractError(
+      "ANSWER_PLAN_OPERATION_MISMATCH",
+      `the answer plan references undeclared operation ${plan.operationId}`
+    );
+  }
+  operation.inputs = Array.isArray(operation.inputs) ? operation.inputs : [];
+  operation.outputs = Array.isArray(operation.outputs) ? operation.outputs : [];
+  const output = operation.outputs.find((candidate) =>
+    canonicalizeGeneratedIdentifier(candidate?.name) === plan.outputName
+  );
+  if (!output) {
+    throw semanticContractError(
+      "ANSWER_PLAN_OUTPUT_MISMATCH",
+      `the answer plan references undeclared output ${plan.outputName}`
+    );
+  }
+
+  if (plan.source === "calculation") {
+    if (
+      !isObject(operation.calculation)
+      || canonicalizeGeneratedIdentifier(operation.calculation.outputName) !== plan.outputName
+    ) {
+      throw semanticContractError(
+        "ANSWER_PLAN_CALCULATION_MISMATCH",
+        `the answer plan output ${plan.outputName} is not produced by the declared calculation`
+      );
+    }
+    return request;
+  }
+  if (plan.source === "none") {
+    throw semanticContractError(
+      "ANSWER_PLAN_SOURCE_MISSING",
+      "a build answer plan must identify where its declared output comes from"
+    );
+  }
+  if (plan.source === "provider") return request;
+
+  if (!plan.inputName) {
+    throw semanticContractError(
+      "INCOMPLETE_ANSWER_PLAN",
+      `an answer plan with source ${plan.source || "(blank)"} requires inputName`
+    );
+  }
+  if (plan.source !== "contextdb") {
+    const input = operation.inputs.find((candidate) =>
+      canonicalizeGeneratedIdentifier(candidate?.name) === plan.inputName
+    );
+    if (!input) {
+      throw semanticContractError(
+        "ANSWER_PLAN_INPUT_MISMATCH",
+        `the answer plan input ${plan.inputName} is not represented by the generated operation`
+      );
+    }
+    const generatedSource = String(input?.bindingHint?.source || "utterance").trim().toLowerCase();
+    if (generatedSource !== plan.source) {
+      throw semanticContractError(
+        "ANSWER_PLAN_SOURCE_MISMATCH",
+        `the answer plan source ${plan.source} disagrees with input ${plan.inputName} source ${generatedSource}`
+      );
+    }
+    return request;
+  }
+
+  if (!plan.property) {
+    throw semanticContractError(
+      "INCOMPLETE_ANSWER_PLAN",
+      "a ContextDB answer plan requires subject and property"
+    );
+  }
+  if (plan.subject !== "speaker") {
+    throw semanticContractError(
+      "UNSUPPORTED_ANSWER_PLAN_SUBJECT",
+      `the ContextDB answer plan subject ${plan.subject || "(blank)"} is not the current speaker`
+    );
+  }
+
+  const plannedInput = operation.inputs.find((candidate) =>
+    canonicalizeGeneratedIdentifier(candidate?.name) === plan.inputName
+  );
+  const addressedInput = operation.inputs.find((candidate) => {
+    const address = contextAddress(candidate);
+    return address
+      && String(address.subject).toLowerCase() === "speaker"
+      && canonicalizeGeneratedIdentifier(address.property) === canonicalizeGeneratedIdentifier(plan.property);
+  });
+  const deicticOwnerInput = operation.inputs.find((candidate) => {
+    if (!isCurrentSpeakerIdentifier(candidate?.name)) return false;
+    if (explicitInputDeclaration(requirementSegments, candidate?.name)) return false;
+    const values = exampleValuesForInput(operation, candidate?.name);
+    return values.length === 0 || values.every(isCurrentSpeakerValue);
+  });
+  const candidate = plannedInput || addressedInput || deicticOwnerInput;
+  if (!candidate) {
+    throw semanticContractError(
+      "ANSWER_PLAN_INPUT_MISMATCH",
+      `the answer plan input ${plan.inputName} is not represented by the generated operation`
+    );
+  }
+
+  const conflictingInput = operation.inputs.find((other) =>
+    other !== candidate
+    && canonicalizeGeneratedIdentifier(other?.name) === plan.inputName
+  );
+  if (conflictingInput) {
+    throw semanticContractError(
+      "ANSWER_PLAN_INPUT_CONFLICT",
+      `the answer plan input ${plan.inputName} conflicts with another generated input`
+    );
+  }
+
+  const candidateAddress = contextAddress(candidate);
+  if (!candidateAddress && explicitInputDeclaration(requirementSegments, candidate?.name)) {
+    throw semanticContractError(
+      "ANSWER_PLAN_SOURCE_MISMATCH",
+      `the answer plan cannot rewrite explicitly declared input ${candidate.name} as ContextDB data`
+    );
+  }
+  const candidateExamples = exampleValuesForInput(operation, candidate?.name);
+  if (!candidateAddress && candidateExamples.some((value) => !isCurrentSpeakerValue(value))) {
+    throw semanticContractError(
+      "ANSWER_PLAN_SOURCE_MISMATCH",
+      `the answer plan cannot rewrite input ${candidate.name} because its examples contain ordinary values`
+    );
+  }
+
+  const oldName = candidate.name;
+  candidate.name = plan.inputName;
+  candidate.bindingHint = {
+    source: "contextdb",
+    subject: "speaker",
+    property: plan.property,
+    resolver: null,
+    aliases: null,
+    value: null,
+  };
+  candidate.required = true;
+  candidate.clarification = null;
+  candidate.defaultValue = null;
+  remapInputReferences(operation, oldName, plan.inputName);
+
+  // ContextDB values are resolved at invocation time. Model-authored example
+  // annotations such as {user: "my"} are grammatical evidence, not values.
+  operation.utteranceExamples = (operation.utteranceExamples || []).map((example) => {
+    if (!isObject(example)) return example;
+    const next = clone(example);
+    if (isObject(next.inputs)) delete next.inputs[plan.inputName];
+    if (Array.isArray(next.inputValues)) {
+      next.inputValues = next.inputValues.filter((item) =>
+        canonicalizeGeneratedIdentifier(item?.name) !== plan.inputName
+      );
+    }
+    return next;
+  });
+  if (!String(operation.answerTemplate || "").trim()) {
+    operation.answerTemplate = `{{${plan.outputName}}}`;
+  }
+  return request;
+}
+
 function normalizeGeneratedConvertOwnerBindings(rawRequest, requirementSegments = []) {
   const request = clone(rawRequest || {});
   if (!Array.isArray(requirementSegments) || !requirementSegments.length) return request;
@@ -290,6 +498,7 @@ function filterGeneratedOwnerInputRequirements(rawBuildRequest, rawGroups, origi
 
 module.exports = {
   isCurrentSpeakerIdentifier,
+  applyGeneratedAnswerPlan,
   normalizeGeneratedConvertOwnerBindings,
   filterGeneratedOwnerInputRequirements,
 };

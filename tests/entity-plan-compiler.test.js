@@ -231,6 +231,41 @@ test("a multi-input semantic transformation is not guessed as a local projection
   assert.equal(hasDeclaredDeterministicImplementation(request), false);
 });
 
+test("a provider answer plan prevents a shape-compatible input from being mistaken for the answer", () => {
+  const request = {
+    schemaVersion: 1,
+    kind: "computeCapabilityBuild",
+    capabilityIdHint: "generic_lookup",
+    name: "Generic lookup",
+    description: "Looks up a provider value.",
+    answerPlan: {
+      source: "provider",
+      operationId: "lookup",
+      subject: null,
+      property: null,
+      inputName: "query",
+      outputName: "result",
+      statement: "A provider response supplies the result for the query.",
+    },
+    operations: [{
+      operationId: "lookup",
+      description: "Look up the query.",
+      inputs: [{
+        name: "query",
+        type: "string",
+        required: true,
+        bindingHint: { source: "utterance", resolver: "string" },
+        clarification: "What should I look up?",
+      }],
+      outputs: [{ name: "result", type: "string", required: true }],
+      utteranceExamples: [{ text: "Look up purple.", inputs: { query: "purple" } }],
+      answerTemplate: "{{result}}",
+    }],
+  };
+  assert.equal(declaredInputProjectionImplementation(request), null);
+  assert.equal(hasDeclaredDeterministicImplementation(request), false);
+});
+
 test("generated duplicate examples keep the literal spoken temporal value", () => {
   const request = JSON.parse(JSON.stringify(baseRequest));
   request.operations[0].inputs = [{

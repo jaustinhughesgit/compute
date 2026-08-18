@@ -95,6 +95,22 @@ function shorthandExecutionSource(retrieved, capabilityBuild) {
   return retrieved?.published ? retrieved : null;
 }
 
+function buildConvertArtifacts({ arrayLogic = null, shorthand = null, materializedEntity = null } = {}) {
+  const published = materializedEntity?.published;
+  const hasJpl = published && typeof published === "object"
+    && (Array.isArray(published.actions) || (published.modules && typeof published.modules === "object"));
+  return {
+    schemaVersion: 1,
+    kind: "convertArtifacts",
+    arrayLogic: Array.isArray(arrayLogic) ? arrayLogic : null,
+    shorthand: Array.isArray(shorthand) ? shorthand : null,
+    jpl: hasJpl ? {
+      modules: published.modules && typeof published.modules === "object" ? published.modules : {},
+      actions: Array.isArray(published.actions) ? published.actions : [],
+    } : null,
+  };
+}
+
 function normalizeCreatedEntityId(reference, depth = 0) {
   if (depth > 8 || reference == null) return "";
   if (["string", "number", "bigint"].includes(typeof reference)) {
@@ -366,6 +382,7 @@ function register({ on, use }) {
           parseResults: null,
           newShorthand: null,
           arrayLogic: null,
+          convertArtifacts: buildConvertArtifacts(),
           conclusion: null,
           entity: manifest?.entityId || record?.capabilityEntityId || "",
           createdEntities: created,
@@ -1376,6 +1393,11 @@ function subdomains(domain){
         parseResults,
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
+        convertArtifacts: buildConvertArtifacts({
+          arrayLogic: parseResults?.arrayLogic,
+          shorthand: parseResults?.shorthand,
+          materializedEntity: newShorthand,
+        }),
         conclusion,
         entity: entityFromConclusion || "",
         createdEntities: responseCreatedEntities,
@@ -1430,6 +1452,7 @@ module.exports = {
   seedCreatedComputeOwnerGrant,
   seedCreatedComputePublicUseGrant,
   shorthandExecutionSource,
+  buildConvertArtifacts,
   convertErrorDetails,
   markBackgroundDiscoveryError,
   markBackgroundBuildError,

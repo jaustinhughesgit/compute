@@ -182,6 +182,74 @@ test("background discovery drops mistyped teaching annotations and keeps literal
   );
 });
 
+test("background discovery gets one semantic correction when the answer plan contradicts the contract", async () => {
+  const invalid = {
+    decision: "build_compute",
+    confidence: 0.99,
+    reason: "Return a remembered property.",
+    capabilityId: "property_report",
+    entityId: null,
+    operationId: "report",
+    answerPlan: {
+      source: "contextdb",
+      operationId: "report",
+      subject: "speaker",
+      property: "register_status",
+      inputName: "status",
+      outputName: "report",
+      statement: "The speaker's register_status property answers the request.",
+    },
+    inputValues: [],
+    capabilityRequest: {
+      ...buildRequest,
+      capabilityIdHint: "property_report",
+      operations: [{ ...buildRequest.operations[0], operationId: "different_operation" }],
+    },
+  };
+  let correctionBody;
+  const corrected = await retrieveComputeCapabilityDiscovery({
+    jobId: "resp_invalid_semantics",
+    utterance: "Create an entity that tells me my register status.",
+    requestedBy: "u:2",
+    requirementSegments: ["Create an entity that tells me my register status."],
+    retrieveResponse: async () => ({
+      id: "resp_invalid_semantics",
+      status: "completed",
+      output_text: JSON.stringify(invalid),
+    }),
+    startResponse: async (body) => {
+      correctionBody = body;
+      return { id: "resp_corrected_semantics", status: "queued" };
+    },
+  });
+
+  assert.equal(corrected.pending, true);
+  assert.equal(corrected.jobId, "compute-discovery-correction:1:resp_corrected_semantics");
+  assert.match(correctionBody.input.at(-1).content, /Reconsider the answerPlan first/);
+  assert.match(correctionBody.input.at(-1).content, /ANSWER_PLAN_OPERATION_MISMATCH/);
+});
+
+test("a second invalid background discovery result fails closed instead of starting a loop", async () => {
+  let starts = 0;
+  await assert.rejects(
+    retrieveComputeCapabilityDiscovery({
+      jobId: "compute-discovery-correction:1:resp_still_invalid",
+      utterance: "Build the requested capability.",
+      retrieveResponse: async (jobId) => ({
+        id: jobId,
+        status: "completed",
+        output_text: "not json",
+      }),
+      startResponse: async () => {
+        starts += 1;
+        return { id: "must_not_start", status: "queued" };
+      },
+    }),
+    (error) => error?.code === "INVALID_MODEL_JSON"
+  );
+  assert.equal(starts, 0);
+});
+
 test("background entity generation returns JSON for server validation after polling", async () => {
   let submitted;
   const started = await startComputeEntitySpecBackground({
