@@ -160,7 +160,7 @@ function validateFieldValue(field, value, label) {
   }
 }
 
-function canonicalizeGeneratedOperations(rawOperations) {
+function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
   const typeAliases = new Map([
     ["text", "string"], ["enum", "string"], ["location", "string"],
     ["float", "number"], ["double", "number"], ["decimal", "number"],
@@ -336,13 +336,17 @@ function canonicalizeGeneratedOperations(rawOperations) {
     const effectCurrentValues = new Set(operation.contextEffects.map((effect) =>
       String(effect.currentValue ?? "").trim().toLowerCase()
     ));
+    const literalEffectOperation = String(rawAnswerPlan?.source || "").trim().toLowerCase() === "literal"
+      && canonicalizeGeneratedIdentifier(rawAnswerPlan?.operationId) === operation.operationId
+      && operation.contextEffects.length > 0;
     const redundantContextInputNames = new Set(operation.inputs.filter((input) => {
       if (
         input.bindingHint?.source !== "contextdb"
-        || !Object.prototype.hasOwnProperty.call(input, "defaultValue")
-        || !effectCurrentValues.has(String(input.defaultValue ?? "").trim().toLowerCase())
         || effectSubjectNames.has(input.name)
       ) return false;
+      const defaultMatchesPrecondition = Object.prototype.hasOwnProperty.call(input, "defaultValue")
+        && effectCurrentValues.has(String(input.defaultValue ?? "").trim().toLowerCase());
+      if (!literalEffectOperation && !defaultMatchesPrecondition) return false;
       const escaped = input.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const usedByAnswer = new RegExp(`{{\\s*${escaped}\\s*}}`, "i")
         .test(String(operation.answerTemplate || ""));
@@ -655,7 +659,7 @@ function validateCapabilityBuildRequest(raw) {
   if (!description) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request description is required");
   const capabilityIdHint = request.capabilityIdHint || request.capabilityId || request.name;
   const canonicalId = capabilityIdHint ? normalizeId(canonicalizeGeneratedIdentifier(capabilityIdHint), "capabilityIdHint") : null;
-  const operations = canonicalizeGeneratedOperations(request.operations)
+  const operations = canonicalizeGeneratedOperations(request.operations, request.answerPlan)
     .map((operation) => normalizeOperation(operation, canonicalId));
   if (!operations.length) throw new CapabilityError("INVALID_BUILD_REQUEST", "capability build request must declare at least one operation");
   const answerPlan = isObject(request.answerPlan) ? {

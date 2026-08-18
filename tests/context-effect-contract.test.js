@@ -167,6 +167,15 @@ test("an effect current value cannot masquerade as its annotated spoken subject"
 
 test("an effect precondition removes a redundant defaulted ContextDB input", () => {
   const generated = carwashBuildRequest();
+  generated.answerPlan = {
+    source: "literal",
+    operationId: "wash",
+    subject: null,
+    property: null,
+    inputName: null,
+    outputName: "state",
+    statement: "The resulting state is clean.",
+  };
   generated.operations[0].inputs.push({
     name: "current_status",
     type: "string",
@@ -180,6 +189,29 @@ test("an effect precondition removes a redundant defaulted ContextDB input", () 
   const request = validateCapabilityBuildRequest(generated);
   assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
   assert.equal(request.operations[0].utteranceExamples[0].inputs.current_status, undefined);
+});
+
+test("a literal fixed-effect plan removes an unreferenced ContextDB precondition input", () => {
+  const generated = carwashBuildRequest();
+  generated.answerPlan = {
+    source: "literal",
+    operationId: "wash",
+    subject: null,
+    property: null,
+    inputName: null,
+    outputName: "state",
+    statement: "The resulting state is clean.",
+  };
+  generated.operations[0].inputs.push({
+    name: "condition",
+    type: "string",
+    required: true,
+    description: "The locally stored condition.",
+    bindingHint: { source: "contextdb", subject: "speaker", property: "condition" },
+    clarification: "What is the condition?",
+  });
+  const request = validateCapabilityBuildRequest(generated);
+  assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
 });
 
 test("a subject sample hard-coded in the answer becomes the invocation placeholder", () => {
