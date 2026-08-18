@@ -16,6 +16,7 @@ const {
   repairGeneratedContextEffectTransitions,
   repairGeneratedEffectResponseTemplates,
   repairGeneratedEffectSpokenInputs,
+  finalizeGeneratedBuildRequest,
 } = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
@@ -302,6 +303,37 @@ test("a one-slot declared command family removes invented required spoken inputs
     repaired.operations[0].utteranceExamples.map((example) => Object.keys(example.inputs)),
     [["vehicle"], ["vehicle"], ["vehicle"]]
   );
+});
+
+test("validated effect semantics make declared responses authoritative before publication", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your {{vehicle}} is clean.";
+  generated.operations[0].inputs.push(
+    {
+      name: "make",
+      type: "string",
+      required: true,
+      bindingHint: { source: "utterance" },
+      clarification: "Which make?",
+    },
+    {
+      name: "model",
+      type: "string",
+      required: true,
+      bindingHint: { source: "utterance" },
+      clarification: "Which model?",
+    }
+  );
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { vehicle: "car", make: "Toyota", model: "Camry" },
+  }));
+  const repaired = finalizeGeneratedBuildRequest(generated, [
+    "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
+    "It will respond \"Your car is clean\", \"Your Camry is clean\" or \"Your Toyota is clean\".",
+  ]);
+  assert.deepEqual(repaired.operations[0].inputs.map((input) => input.name), ["vehicle"]);
+  assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean");
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {

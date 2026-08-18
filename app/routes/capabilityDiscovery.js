@@ -830,6 +830,27 @@ function repairGeneratedEffectSpokenInputs(rawRequest, requirementSegments = [],
   return request;
 }
 
+function finalizeGeneratedBuildRequest(rawRequest, requirementSegments = [], operationId = "") {
+  const request = JSON.parse(JSON.stringify(rawRequest || {}));
+  preserveDeclaredInvocationExamples(request, requirementSegments, operationId);
+  const initiallyRepaired = repairGeneratedEffectSpokenInputs(
+    request,
+    requirementSegments,
+    operationId
+  );
+  const canonicalRequest = validateCapabilityBuildRequest(initiallyRepaired);
+  const responseRepaired = repairGeneratedEffectResponseTemplates(
+    canonicalRequest,
+    requirementSegments
+  );
+  const inputRepaired = repairGeneratedEffectSpokenInputs(
+    responseRepaired,
+    requirementSegments,
+    operationId
+  );
+  return validateCapabilityBuildRequest(inputRepaired);
+}
+
 function summarizeCapabilities(manifests) {
   const ranked = (Array.isArray(manifests) ? manifests : [])
     .filter((manifest) => manifest?.capabilityId && manifest?.entityId)
@@ -1309,14 +1330,10 @@ function parseDiscoveryDecision({
       requestedBy,
       requirementSegments
     );
-    preserveDeclaredInvocationExamples(normalizedRequest, requirementSegments, operationId);
-    const inputRepairedRequest = repairGeneratedEffectSpokenInputs(
+    const buildRequest = finalizeGeneratedBuildRequest(
       normalizedRequest,
       requirementSegments,
       operationId
-    );
-    const buildRequest = validateCapabilityBuildRequest(
-      inputRepairedRequest
     );
     const selectedOperation = buildRequest.operations.find((item) =>
       String(item?.operationId || "") === String(operationId || "")
@@ -1411,6 +1428,7 @@ module.exports = {
   repairGeneratedContextEffectTransitions,
   repairGeneratedEffectResponseTemplates,
   repairGeneratedEffectSpokenInputs,
+  finalizeGeneratedBuildRequest,
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
   semanticEvidenceContext,
