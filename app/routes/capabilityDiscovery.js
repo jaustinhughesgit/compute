@@ -615,8 +615,12 @@ function normalizeGeneratedBuildRequest(parsed, utterance, requestedBy, requirem
     answerPlannedRequest,
     requirementSegments
   );
+  const transitionRepairedRequest = repairGeneratedContextEffectTransitions(
+    ownerNormalizedRequest,
+    requirementSegments
+  );
   return {
-    ...repairGeneratedContextEffectTransitions(ownerNormalizedRequest, requirementSegments),
+    ...repairGeneratedEffectResponseTemplates(transitionRepairedRequest, requirementSegments),
     requestedBy,
   };
 }
@@ -652,6 +656,82 @@ function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments
       };
     }),
   }));
+  return request;
+}
+
+function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments = []) {
+  const request = JSON.parse(JSON.stringify(rawRequest || {}));
+  if (!Array.isArray(request.operations)) return request;
+  const responses = (Array.isArray(requirementSegments) ? requirementSegments : [])
+    .filter((segment) => /\b(?:respond|return|answer|reply)\b/i.test(String(segment || "")))
+    .flatMap((segment) => [...String(segment || "").matchAll(/["“‘']([^"”’']+)["”’']/g)])
+    .map((match) => String(match[1] || "").trim())
+    .filter(Boolean);
+  const groups = new Map();
+  for (const response of responses) {
+    const words = response.match(/[A-Za-z0-9]+/g) || [];
+    if (!words.length) continue;
+    const group = groups.get(words.length) || [];
+    group.push({ response, words, normalized: words.map((word) => word.toLowerCase()) });
+    groups.set(words.length, group);
+  }
+  const templates = [];
+  for (const group of groups.values()) {
+    if (group.length < 2) continue;
+    let prefixLength = 0;
+    while (
+      prefixLength < group[0].words.length
+      && group.every((item) => item.normalized[prefixLength] === group[0].normalized[prefixLength])
+    ) prefixLength += 1;
+    let suffixLength = 0;
+    while (
+      suffixLength < group[0].words.length - prefixLength
+      && group.every((item) =>
+        item.normalized[item.normalized.length - 1 - suffixLength]
+          === group[0].normalized[group[0].normalized.length - 1 - suffixLength]
+      )
+    ) suffixLength += 1;
+    const varyingValues = group.map((item) =>
+      item.normalized.slice(prefixLength, item.normalized.length - suffixLength).join(" ")
+    );
+    if (varyingValues.some((value) => !value) || new Set(varyingValues).size < 2) continue;
+    templates.push({ group, prefixLength, suffixLength, varyingValues });
+  }
+  request.operations = request.operations.map((operation) => {
+    if (!Array.isArray(operation?.contextEffects) || !operation.contextEffects.length) return operation;
+    const utteranceInputs = (operation.inputs || []).filter((input) =>
+      input?.required !== false
+      && input?.type === "string"
+      && String(input?.bindingHint?.source || "").toLowerCase() === "utterance"
+    );
+    for (const effect of operation.contextEffects) {
+      const exactSubject = utteranceInputs.find((input) =>
+        canonicalizeGeneratedIdentifier(input.name)
+          === canonicalizeGeneratedIdentifier(effect.subjectInput)
+      );
+      const subjectInput = exactSubject?.name
+        || (utteranceInputs.length === 1 ? utteranceInputs[0].name : "");
+      if (!subjectInput) continue;
+      const exampleValues = new Set((operation.utteranceExamples || []).flatMap((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return [];
+        return Object.entries(example.inputs)
+          .filter(([name]) => canonicalizeGeneratedIdentifier(name) === canonicalizeGeneratedIdentifier(subjectInput))
+          .map(([, value]) => String(value ?? "").trim().toLowerCase());
+      }).filter(Boolean));
+      const candidate = templates.find((template) =>
+        template.varyingValues.every((value) => exampleValues.has(value))
+      );
+      if (!candidate) continue;
+      const first = candidate.group[0].words;
+      operation.answerTemplate = [
+        ...first.slice(0, candidate.prefixLength),
+        `{{${subjectInput}}}`,
+        ...first.slice(first.length - candidate.suffixLength),
+      ].join(" ");
+      effect.subjectInput = subjectInput;
+    }
+    return operation;
+  });
   return request;
 }
 
@@ -1229,6 +1309,7 @@ module.exports = {
   summarizeCapabilities,
   normalizeGeneratedBuildRequest,
   repairGeneratedContextEffectTransitions,
+  repairGeneratedEffectResponseTemplates,
   normalizeDiscoveryInputValues,
   semanticEvidenceRows,
   semanticEvidenceContext,

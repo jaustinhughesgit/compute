@@ -391,6 +391,9 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
     }
     if (operation.answerTemplate != null) {
       operation.answerTemplate = String(operation.answerTemplate).replace(
+        /\{\{\{\s*([^{}]+?)\s*\}\}\}/g,
+        "{{$1}}"
+      ).replace(
         /(^|[^\{])\{\s*([^{}]+?)\s*\}(?!\})/g,
         (_whole, prefix, rawName) => {
           const name = String(rawName).trim();

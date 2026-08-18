@@ -14,6 +14,7 @@ const {
   DISCOVERY_RESPONSE_SCHEMA,
   normalizeGeneratedBuildRequest,
   repairGeneratedContextEffectTransitions,
+  repairGeneratedEffectResponseTemplates,
 } = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
@@ -260,6 +261,15 @@ test("a unique operation and output complete omitted answer-plan identifiers", (
   ]);
   assert.equal(request.answerPlan.operationId, "wash");
   assert.equal(request.answerPlan.outputName, "state");
+});
+
+test("declared response variants own the exact effect answer template", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your {{{vehicle}}} is clean.";
+  const repaired = repairGeneratedEffectResponseTemplates(generated, [
+    "It will respond \"Your car is clean\", \"Your Camry is clean\" or \"Your Toyota is clean\".",
+  ]);
+  assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean");
 });
 
 test("a capability with ContextDB effects is built as non-read-only JPL", async () => {
