@@ -5,9 +5,11 @@ const assert = require("node:assert/strict");
 const {
   discoverComputeCapability,
   localGraphOnlyDiscovery,
+  normalizeEntityUseBindings,
   semanticEvidenceContext,
 } = require("../app/routes/capabilityDiscovery");
 const { buildComputeEntitySpec, GENERIC_BLUEPRINT_ID } = require("../app/routes/capabilityBlueprints");
+const { validateCapabilityManifest } = require("../app/routes/capabilityManifest");
 
 const request = {
   schemaVersion: 1,
@@ -250,6 +252,70 @@ test("discovery preserves multiple explicit utterance inputs for the entity oper
     location: "New York",
     time_reference: "today",
   });
+});
+
+test("entity use reconciliation accepts only exact IDs from the selected app and 20/200 evidence", () => {
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.clean",
+    entityId: "compute-carwash",
+    version: 1,
+    status: "active",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash",
+      inputs: [{
+        name: "vehicle", type: "string", required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [{ text: "wash my car", inputs: { vehicle: "car" } }],
+      answerTemplate: "Your {{vehicle}} is {{state}}",
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }],
+  });
+  const operation = manifest.operations[0];
+  const semanticEvidence = [{
+    recentInputs: ["I have a car", "My car is dirty", "Wash my car"],
+    relatedContext: {
+      entities: [
+        { id: "car-id", names: ["car"], lemmas: ["car"] },
+        { id: "condition-id", names: ["condition"], lemmas: ["condition"] },
+        { id: "dirty-id", names: ["dirty"], lemmas: ["dirty"] },
+      ],
+      relations: [{ id: "car-condition-relation", subj: "car-id", prop: "condition-id", obj: "dirty-id" }],
+    },
+  }];
+  const binding = {
+    sourceDependencyId: operation.entityDependencies[0].dependencyId,
+    targetEntityId: "condition-id",
+    targetRelationId: "car-condition-relation",
+    targetSubjectEntityId: "car-id",
+    confidence: 0.99,
+    reason: "The owned car's condition currently holds dirty.",
+  };
+  const normalized = normalizeEntityUseBindings({
+    parsedBindings: [binding], operation, semanticEvidence,
+  });
+  assert.equal(normalized[0].sourceDependencyId, "compute-carwash::v1::wash::context_effect_1");
+  assert.equal(normalized[0].targetRelationId, "car-condition-relation");
+  assert.equal(normalized[0].access, "read_write");
+
+  assert.throws(() => normalizeEntityUseBindings({
+    parsedBindings: [{ ...binding, sourceDependencyId: "register-app::v1::report::context_effect_1" }],
+    operation,
+    semanticEvidence,
+  }), /outside the chosen Compute operation/);
+  assert.throws(() => normalizeEntityUseBindings({
+    parsedBindings: [{ ...binding, targetRelationId: "invented-relation" }],
+    operation,
+    semanticEvidence,
+  }), /exact entity and relation IDs/);
 });
 
 test("the generic builder validates entity-owned declarative implementation data", async () => {

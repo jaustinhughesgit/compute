@@ -76,6 +76,26 @@ test("a ContextDB replacement effect is part of the validated capability contrac
     execution: { type: "remote", readOnly: true, timeoutMs: 15000 },
     operations: request.operations,
   }), /cannot be cached|read-only|context effect/i);
+
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.clean",
+    entityId: "entity-carwash",
+    version: 3,
+    status: "active",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: request.operations,
+  });
+  assert.deepEqual(manifest.operations[0].entityDependencies, [{
+    schemaVersion: 1,
+    dependencyId: "entity-carwash::v3::wash::context_effect_1",
+    name: "current_state",
+    kind: "contextdb_relation",
+    access: "read_write",
+    effectIndex: 0,
+    subjectInput: "vehicle",
+    description: "The browser-local relation changed from dirty to clean.",
+  }]);
 });
 
 test("an effect subject repairs a model-generated spoken-string resolver", () => {

@@ -10,7 +10,7 @@ const {
 } = require("./protectedAssetContract");
 
 const CAPABILITY_SCHEMA_VERSION = 1;
-const IMPLEMENTATION_POLICY_VERSION = 12;
+const IMPLEMENTATION_POLICY_VERSION = 13;
 const CAPABILITY_STATUSES = new Set(["testing", "active", "disabled", "failed"]);
 const EXECUTION_TYPES = new Set(["remote", "local"]);
 const VALUE_TYPES = new Set([
@@ -604,6 +604,32 @@ function normalizeOperation(raw, capabilityId = null) {
   return normalized;
 }
 
+function attachEntityDependencies(operations, { entityId, version } = {}) {
+  const ownerEntityId = String(entityId || "").trim();
+  const capabilityVersion = Number(version);
+  return operations.map((operation) => ({
+    ...operation,
+    entityDependencies: (operation.contextEffects || []).map((effect, effectIndex) => ({
+      schemaVersion: 1,
+      // This is the app-owned logical entity identity. It is deliberately
+      // scoped by the exact Compute entity/version/operation so an unrelated
+      // app's similarly named state can never satisfy it by name alone.
+      dependencyId: [
+        ownerEntityId,
+        `v${capabilityVersion}`,
+        operation.operationId,
+        `context_effect_${effectIndex + 1}`,
+      ].join("::"),
+      name: "current_state",
+      kind: "contextdb_relation",
+      access: "read_write",
+      effectIndex,
+      subjectInput: effect.subjectInput,
+      description: `The browser-local relation changed from ${effect.currentValue} to ${effect.newValue}.`,
+    })),
+  }));
+}
+
 function validateCapabilityManifest(raw, options = {}) {
   const manifest = requireObject(raw, "capability manifest");
   if (Number(manifest.schemaVersion) !== CAPABILITY_SCHEMA_VERSION) {
@@ -622,8 +648,11 @@ function validateCapabilityManifest(raw, options = {}) {
   if (!EXECUTION_TYPES.has(type) || !Number.isFinite(timeoutMs) || timeoutMs < 250 || timeoutMs > 120000) {
     throw new CapabilityError("INVALID_MANIFEST", "execution contract is invalid");
   }
-  const operations = (Array.isArray(manifest.operations) ? manifest.operations : [])
-    .map((operation) => normalizeOperation(operation, capabilityId));
+  const operations = attachEntityDependencies(
+    (Array.isArray(manifest.operations) ? manifest.operations : [])
+      .map((operation) => normalizeOperation(operation, capabilityId)),
+    { entityId, version }
+  );
   if (!operations.length) throw new CapabilityError("INVALID_MANIFEST", "capability must declare at least one operation");
   const ids = new Set();
   operations.forEach((operation) => {

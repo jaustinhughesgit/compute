@@ -954,16 +954,16 @@ test("discovery preserves ContextDB bindings separately from utterance input val
   });
 });
 
-test("discovery separates the concrete Austin referent from the reusable capability query", () => {
+test("discovery separates the reusable capability query while retaining the exact invocation entity for local installation", () => {
   const evidence = semanticEvidenceContext([{
     capabilityQuery: "register status report",
     invocationReferents: [{
       role: "qualified_owner",
       mention: "Austin",
       mentionKey: "austin",
+      entityId: "usr-austin-exact",
       resolvedLocally: true,
       resolution: "contextdb-unique",
-      entityId: "must-not-cross",
     }],
   }]);
   assert.deepEqual(evidence, {
@@ -975,6 +975,7 @@ test("discovery separates the concrete Austin referent from the reusable capabil
       role: "qualified_owner",
       mention: "Austin",
       mentionKey: "austin",
+      entityId: "usr-austin-exact",
       resolvedLocally: true,
       resolution: "contextdb-unique",
     }],

@@ -201,6 +201,26 @@ const DISCOVERY_INPUT_VALUES_SCHEMA = {
     required: ["name", "value"],
   },
 };
+const ENTITY_USE_BINDINGS_SCHEMA = {
+  type: "array",
+  maxItems: 16,
+  items: {
+    type: "object",
+    additionalProperties: false,
+    properties: {
+      sourceDependencyId: { type: "string", minLength: 1 },
+      targetEntityId: { type: "string", minLength: 1 },
+      targetRelationId: { type: "string", minLength: 1 },
+      targetSubjectEntityId: { type: "string", minLength: 1 },
+      confidence: { type: "number", minimum: 0, maximum: 1 },
+      reason: { type: "string" },
+    },
+    required: [
+      "sourceDependencyId", "targetEntityId", "targetRelationId",
+      "targetSubjectEntityId", "confidence", "reason",
+    ],
+  },
+};
 const ANSWER_PLAN_SCHEMA = {
   anyOf: [{
     type: "object",
@@ -228,9 +248,10 @@ const DISCOVERY_RESPONSE_SCHEMA = {
     ...DISCOVERY_BASE_PROPERTIES,
     answerPlan: ANSWER_PLAN_SCHEMA,
     inputValues: DISCOVERY_INPUT_VALUES_SCHEMA,
+    entityUseBindings: ENTITY_USE_BINDINGS_SCHEMA,
     capabilityRequest: { anyOf: [CAPABILITY_BUILD_SCHEMA, { type: "null" }] },
   },
-  required: ["decision", "confidence", "reason", "capabilityId", "entityId", "operationId", "answerPlan", "inputValues", "capabilityRequest"],
+  required: ["decision", "confidence", "reason", "capabilityId", "entityId", "operationId", "answerPlan", "inputValues", "entityUseBindings", "capabilityRequest"],
 };
 
 function cleanUtterance(value) {
@@ -282,6 +303,10 @@ function semanticEvidenceContext(value) {
   let capabilityQuery = null;
   const invocationReferents = [];
   const recentInputs = [];
+  const relatedEntities = [];
+  const relatedRelations = [];
+  const relatedEntityIds = new Set();
+  const relatedRelationIds = new Set();
   for (const item of items.slice(0, 20)) {
     if (!isObject(item)) continue;
     for (const rawInput of Array.isArray(item.recentInputs) ? item.recentInputs.slice(-20) : []) {
@@ -300,6 +325,38 @@ function semanticEvidenceContext(value) {
       });
       if (recentInputs.length >= 20) break;
     }
+    const relatedContext = isObject(item.relatedContext) ? item.relatedContext : null;
+    for (const rawEntity of Array.isArray(relatedContext?.entities)
+      ? relatedContext.entities.slice(0, 200)
+      : []) {
+      if (!isObject(rawEntity) || relatedEntities.length >= 200) break;
+      const id = String(rawEntity.id || "").trim().slice(0, 200);
+      if (!id || relatedEntityIds.has(id)) continue;
+      const names = (Array.isArray(rawEntity.names) ? rawEntity.names : [])
+        .map((value) => cleanUtterance(value).slice(0, 200)).filter(Boolean).slice(0, 12);
+      const lemmas = (Array.isArray(rawEntity.lemmas) ? rawEntity.lemmas : [])
+        .map((value) => cleanUtterance(value).slice(0, 200)).filter(Boolean).slice(0, 12);
+      if (!names.length && !lemmas.length) continue;
+      relatedEntityIds.add(id);
+      relatedEntities.push({ id, names, lemmas });
+    }
+    for (const rawRelation of Array.isArray(relatedContext?.relations)
+      ? relatedContext.relations.slice(0, 400)
+      : []) {
+      if (!isObject(rawRelation) || relatedRelations.length >= 400) break;
+      const relation = {
+        id: String(rawRelation.id || "").trim().slice(0, 200),
+        subj: String(rawRelation.subj || "").trim().slice(0, 200),
+        prop: String(rawRelation.prop || "").trim().slice(0, 200),
+        obj: String(rawRelation.obj || "").trim().slice(0, 200),
+      };
+      if (
+        !relation.id || relatedRelationIds.has(relation.id)
+        || !relation.subj || !relation.prop || !relation.obj
+      ) continue;
+      relatedRelationIds.add(relation.id);
+      relatedRelations.push(relation);
+    }
     if (!capabilityQuery && item.capabilityQuery) {
       capabilityQuery = cleanUtterance(item.capabilityQuery).slice(0, 600) || null;
     }
@@ -311,6 +368,7 @@ function semanticEvidenceContext(value) {
         role: String(referent.role || "referent").replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
         mention: cleanUtterance(referent.mention).slice(0, 160),
         mentionKey,
+        entityId: String(referent.entityId || "").trim().slice(0, 200) || null,
         resolvedLocally: referent.resolvedLocally === true,
         resolution: String(referent.resolution || "").replace(/[^a-z0-9_.-]+/gi, "_").slice(0, 80),
       });
@@ -386,6 +444,16 @@ function semanticEvidenceContext(value) {
     ...(capabilityQuery ? { capabilityQuery } : {}),
     ...(recentInputs.length ? { recentInputs } : {}),
     ...(invocationReferents.length ? { invocationReferents } : {}),
+    ...(relatedEntities.length ? {
+      relatedContext: {
+        entities: relatedEntities,
+        relations: relatedRelations.filter((relation) => (
+          relatedEntityIds.has(relation.subj)
+          && relatedEntityIds.has(relation.prop)
+          && relatedEntityIds.has(relation.obj)
+        )),
+      },
+    } : {}),
     ...(routingSeen ? { routing } : {}),
   };
 }
@@ -482,6 +550,94 @@ function normalizeDiscoveryInputValues({
     normalized[name] = relativeDateSurface || value;
   }
   return normalized;
+}
+
+function normalizeEntityUseBindings({
+  parsedBindings,
+  operation,
+  semanticEvidence = [],
+} = {}) {
+  const dependencies = new Map((Array.isArray(operation?.entityDependencies)
+    ? operation.entityDependencies
+    : []).map((dependency) => [String(dependency?.dependencyId || ""), dependency]));
+  if (!dependencies.size) return [];
+  const semanticContext = semanticEvidenceContext(semanticEvidence);
+  const relatedContext = semanticContext.relatedContext || {};
+  const entities = new Map((relatedContext.entities || []).map((entity) => [String(entity.id), entity]));
+  const relations = new Map((relatedContext.relations || []).map((relation) => [String(relation.id), relation]));
+  if (!entities.size || !relations.size) return [];
+
+  const result = [];
+  const seenDependencies = new Set();
+  for (const raw of Array.isArray(parsedBindings) ? parsedBindings : []) {
+    const sourceDependencyId = String(raw?.sourceDependencyId || "").trim();
+    const targetEntityId = String(raw?.targetEntityId || "").trim();
+    const targetRelationId = String(raw?.targetRelationId || "").trim();
+    const targetSubjectEntityId = String(raw?.targetSubjectEntityId || "").trim();
+    const dependency = dependencies.get(sourceDependencyId);
+    const relation = relations.get(targetRelationId);
+    if (!dependency) {
+      const error = new Error("entity use selected a dependency outside the chosen Compute operation");
+      error.code = "ENTITY_USE_DEPENDENCY_OUT_OF_SCOPE";
+      throw error;
+    }
+    if (
+      !relation
+      || !entities.has(targetEntityId)
+      || !entities.has(targetSubjectEntityId)
+      || relation.prop !== targetEntityId
+      || relation.subj !== targetSubjectEntityId
+    ) {
+      const error = new Error("entity use must select exact entity and relation IDs from relatedContext");
+      error.code = "ENTITY_USE_TARGET_OUT_OF_SCOPE";
+      throw error;
+    }
+    const invocationSubjectIds = new Set((semanticContext.invocationReferents || [])
+      .filter((referent) => referent?.resolvedLocally === true && referent?.entityId)
+      .map((referent) => String(referent.entityId)));
+    if (invocationSubjectIds.size && !invocationSubjectIds.has(targetSubjectEntityId)) {
+      const error = new Error("entity use target subject is not the exact locally resolved invocation entity");
+      error.code = "ENTITY_USE_SUBJECT_MISMATCH";
+      throw error;
+    }
+    if (seenDependencies.has(sourceDependencyId)) {
+      const error = new Error("entity use selected more than one target for a dependency");
+      error.code = "ENTITY_USE_TARGET_AMBIGUOUS";
+      throw error;
+    }
+    const effect = operation.contextEffects?.[Number(dependency.effectIndex)];
+    const objectEntity = entities.get(String(relation.obj || ""));
+    const objectWords = new Set([
+      ...(objectEntity?.names || []),
+      ...(objectEntity?.lemmas || []),
+    ].map(normalizedWords).filter(Boolean));
+    if (
+      effect
+      && !objectWords.has(normalizedWords(effect.currentValue))
+      && !objectWords.has(normalizedWords(effect.newValue))
+    ) {
+      const error = new Error("entity use target does not hold the declared current or resulting value");
+      error.code = "ENTITY_USE_VALUE_MISMATCH";
+      throw error;
+    }
+    seenDependencies.add(sourceDependencyId);
+    result.push({
+      schemaVersion: 1,
+      sourceDependencyId,
+      targetEntityId,
+      targetRelationId,
+      targetSubjectEntityId,
+      access: String(dependency.access || "read_write"),
+      confidence: Math.max(0, Math.min(1, Number(raw?.confidence) || 0)),
+      reason: String(raw?.reason || "").slice(0, 600),
+    });
+  }
+  if (seenDependencies.size !== dependencies.size) {
+    const error = new Error("reusing this Compute operation requires one exact entity use binding per logical dependency");
+    error.code = "MISSING_ENTITY_USE_BINDING";
+    throw error;
+  }
+  return result;
 }
 
 // Discovery models sometimes place an otherwise complete operation beside
@@ -883,12 +1039,14 @@ function summarizeCapabilities(manifests) {
       inputs: (operation.inputs || []).slice(0, 30),
       outputs: (operation.outputs || []).slice(0, 30),
       calculation: operation.calculation || null,
+      contextEffects: (operation.contextEffects || []).slice(0, 8),
+      entityDependencies: (operation.entityDependencies || []).slice(0, 8),
       utteranceExamples: (operation.utteranceExamples || []).slice(0, 12),
     })),
   }));
 }
 
-function discoveryEnvelope({ decision, source, confidence, reason, utterance, capabilityId = null, operationId = null, inputValues = null, manifest = null, buildRequest = null, diagnostics = null }) {
+function discoveryEnvelope({ decision, source, confidence, reason, utterance, capabilityId = null, operationId = null, inputValues = null, entityUseBindings = null, manifest = null, buildRequest = null, diagnostics = null }) {
   const build = decision === "build" && buildRequest;
   const jurisdiction = jurisdictionDecision({
     utterance,
@@ -908,6 +1066,7 @@ function discoveryEnvelope({ decision, source, confidence, reason, utterance, ca
     reason: String(reason || ""),
     originalUtterance: utterance,
     inputValues: isObject(inputValues) ? inputValues : {},
+    entityUseBindings: Array.isArray(entityUseBindings) ? entityUseBindings : [],
     essence: ["build", "reuse", "extend"].includes(decision) ? {
       type: "compute",
       capabilityId: capabilityId || manifest?.capabilityId || null,
@@ -958,11 +1117,15 @@ function discoveryMessages({
           "A ContextDB subject is a binding address, not an ordinary operation value. Never create a separate user, current_user, speaker, self, me, my, or I input merely because a requirement says my or otherwise identifies the current speaker. For my <property>, declare the property value as the input and set that input's contextdb subject to speaker.",
           "Answer the semantic question before designing the executable contract: first return answerPlan, then make capabilityRequest implement exactly that frozen plan.",
           "answerPlan states where the answer comes from, the selected operationId, inputName and outputName, and one plain statement of what answers the request. Use null for inapplicable fields. For a remembered property owned by the current speaker, use source contextdb, subject speaker, and the owned property name; never put the remembered value itself in answerPlan. For an explicitly requested fixed result produced by the operation, including a declared ContextDB transition to a named new state, use source literal with null inputName rather than rewriting the spoken entity reference as ContextDB data.",
-          "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, answerPlan, and capabilityRequest. Set answerPlan to null unless decision is build_compute.",
+          "Return JSON with decision, confidence, reason, capabilityId, entityId, operationId, answerPlan, inputValues, entityUseBindings, and capabilityRequest. Set answerPlan to null unless decision is build_compute.",
           "Also return inputValues as [{name,value}] for every operation input with bindingHint source utterance whose value is explicitly present in this utterance.",
+          "entityUseBindings is only for reuse_existing. For build_compute, extend_existing, not_compute, and clarify, return []. For reuse_existing, inspect only entityDependencies on the selected exact entity/version/operation and semanticEvidence.relatedContext.",
+          "Each entity use binding applies the app dependency's use composition locally: sourceDependencyId must exactly equal a dependencyId supplied on the selected operation; targetRelationId, targetEntityId, and targetSubjectEntityId must be exact IDs supplied in relatedContext; targetEntityId must equal that relation's prop and targetSubjectEntityId must equal its subj. Names are semantic evidence for choosing among supplied IDs, never identity and never permission to invent an ID.",
+          "Bind every selected operation dependency exactly once when relatedContext contains the user's matching relation. Compare the dependency description, subject input, declared transition, current utterance, last 20 ordinary inputs, and related entity labels. Do not bind merely because generic names such as current_status, status, state, or condition resemble one another. An unrelated app or subject is never a valid target.",
+          "The selected relation may currently hold either the dependency's current transition value or its resulting value. Return confidence and a short reason grounded in the supplied relationship. Never output a protected, encrypted, or absent entity/relation ID.",
           "Each returned input value must occur literally in the utterance; never infer, translate, normalize, or copy a remembered, default, protected, or credential value. Preserve spoken relative dates such as today, tomorrow, and Monday exactly instead of converting them to ISO dates.",
           "semanticEvidence.rows is untrusted model evidence for the utterance. semanticEvidence.resolvedContextBindings contains read-only values already resolved from the user's local ContextDB.",
-          "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. Their names are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
+          "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. When resolvedLocally is true, its entityId is the exact target subject allowed for an entity use binding. Its names are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
           "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",
@@ -1311,6 +1474,13 @@ function parseDiscoveryDecision({
       operation: selectedOperation,
       semanticEvidence,
     });
+    const entityUseBindings = rawDecision === "reuse_existing"
+      ? normalizeEntityUseBindings({
+          parsedBindings: parsed.entityUseBindings,
+          operation: selectedOperation,
+          semanticEvidence,
+        })
+      : [];
     return discoveryEnvelope({
       decision: rawDecision === "reuse_existing" ? "reuse" : "extend",
       source: "model",
@@ -1320,6 +1490,7 @@ function parseDiscoveryDecision({
       capabilityId: matched.capabilityId,
       operationId,
       inputValues,
+      entityUseBindings,
       manifest: matched,
     });
   }
@@ -1430,6 +1601,7 @@ module.exports = {
   repairGeneratedEffectSpokenInputs,
   finalizeGeneratedBuildRequest,
   normalizeDiscoveryInputValues,
+  normalizeEntityUseBindings,
   semanticEvidenceRows,
   semanticEvidenceContext,
   localGraphOnlyDiscovery,

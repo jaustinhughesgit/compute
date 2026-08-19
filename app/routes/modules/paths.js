@@ -274,6 +274,46 @@ function validateComputeCapabilityState(state, pattern) {
       }
     }
   }
+  const entityDependencies = Array.isArray(compute.entityDependencies)
+    ? compute.entityDependencies
+    : [];
+  const dependencyIds = new Set();
+  for (const [index, dependency] of entityDependencies.entries()) {
+    const dependencyId = String(dependency?.dependencyId || "").trim();
+    const effectIndex = Number(dependency?.effectIndex);
+    const effect = compute.contextEffects?.[effectIndex];
+    if (
+      Number(dependency?.schemaVersion) !== 1
+      || !dependencyId
+      || dependencyIds.has(dependencyId)
+      || dependency?.kind !== "contextdb_relation"
+      || dependency?.access !== "read_write"
+      || !Number.isInteger(effectIndex)
+      || effectIndex < 0
+      || !effect
+      || String(dependency?.subjectInput || "") !== String(effect.subjectInput || "")
+    ) throw new Error(`compute entity dependency ${index + 1} is invalid`);
+    dependencyIds.add(dependencyId);
+  }
+  if (compute.entityUseBindings != null) {
+    if (!Array.isArray(compute.entityUseBindings) || compute.entityUseBindings.length > 16) {
+      throw new Error("compute entityUseBindings must be a bounded array");
+    }
+    const usedDependencies = new Set();
+    for (const [index, binding] of compute.entityUseBindings.entries()) {
+      const sourceDependencyId = String(binding?.sourceDependencyId || "").trim();
+      if (
+        Number(binding?.schemaVersion) !== 1
+        || !dependencyIds.has(sourceDependencyId)
+        || usedDependencies.has(sourceDependencyId)
+        || !String(binding?.targetEntityId || "").trim()
+        || !String(binding?.targetRelationId || "").trim()
+        || !String(binding?.targetSubjectEntityId || "").trim()
+        || binding?.access !== "read_write"
+      ) throw new Error(`compute entity use binding ${index + 1} is invalid`);
+      usedDependencies.add(sourceDependencyId);
+    }
+  }
   if (compute.contextBindingHints != null) {
     if (!compute.contextBindingHints || typeof compute.contextBindingHints !== "object" || Array.isArray(compute.contextBindingHints)) {
       throw new Error("compute contextBindingHints must be an object");

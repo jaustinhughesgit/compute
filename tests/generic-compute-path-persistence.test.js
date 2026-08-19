@@ -134,6 +134,41 @@ test("compute Path persistence accepts identity-scoped referent memory for a Con
   );
 });
 
+test("compute Path persistence accepts an app-scoped exact entity use binding", () => {
+  const path = computePath("{{conditions}}");
+  const dependencyId = "entity-1::v1::lookup::context_effect_1";
+  path.right.state.compute.contextEffects = [{
+    type: "contextdb.replace_object",
+    subjectInput: "place",
+    currentValue: "dirty",
+    newValue: "clean",
+  }];
+  path.right.state.compute.entityDependencies = [{
+    schemaVersion: 1,
+    dependencyId,
+    name: "current_state",
+    kind: "contextdb_relation",
+    access: "read_write",
+    effectIndex: 0,
+    subjectInput: "place",
+  }];
+  path.right.state.compute.entityUseBindings = [{
+    schemaVersion: 1,
+    sourceDependencyId: dependencyId,
+    targetEntityId: "property-condition",
+    targetRelationId: "relation-car-condition",
+    targetSubjectEntityId: "entity-car",
+    access: "read_write",
+  }];
+
+  assert.equal(pathsTest.validatePathForPersistence(path), true);
+  path.right.state.compute.entityUseBindings[0].sourceDependencyId = "another-app::v1::lookup::context_effect_1";
+  assert.throws(
+    () => pathsTest.validatePathForPersistence(path),
+    /compute entity use binding 1 is invalid/
+  );
+});
+
 test("Path persistence accepts the shared repeated-role structural slot", () => {
   const path = computePath("{{conditions}}");
   path.left.state.pattern.core = [{ kind: "slot", slot: "objects" }];
