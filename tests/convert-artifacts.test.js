@@ -28,6 +28,30 @@ test("Convert returns ArrayLogic, compiled Shorthand, and materialized JPL as on
   });
 });
 
+test("Convert retains accepted compute JPL when Shorthand returns only its summary row", () => {
+  const published = {
+    modules: {},
+    actions: [{ target: "{|res|}!", chain: [{ access: "send", params: [{ status: "clean" }] }] }],
+    data: { capabilityId: "state.transition" },
+  };
+  const arrayLogic = [{
+    computeEntity: {
+      capabilityId: "state.transition",
+      approved: true,
+      published,
+    },
+  }];
+
+  assert.deepEqual(buildConvertArtifacts({
+    arrayLogic,
+    shorthand: [["ROWRESULT", "000", "023!!"]],
+    materializedEntity: { conclusion: { ok: true } },
+  }).jpl, {
+    modules: {},
+    actions: published.actions,
+  });
+});
+
 test("Convert reuse and pending responses expose an empty artifact contract", () => {
   assert.deepEqual(buildConvertArtifacts(), {
     schemaVersion: 1,

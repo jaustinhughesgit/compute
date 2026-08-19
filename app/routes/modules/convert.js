@@ -95,19 +95,38 @@ function shorthandExecutionSource(retrieved, capabilityBuild) {
   return retrieved?.published ? retrieved : null;
 }
 
+function inspectableJpl(published) {
+  if (!published || typeof published !== "object" || Array.isArray(published)) return null;
+  const hasActions = Array.isArray(published.actions);
+  const hasModules = published.modules && typeof published.modules === "object"
+    && !Array.isArray(published.modules);
+  if (!hasActions && !hasModules) return null;
+  return {
+    modules: hasModules ? published.modules : {},
+    actions: hasActions ? published.actions : [],
+  };
+}
+
+function arrayLogicJpl(arrayLogic) {
+  if (!Array.isArray(arrayLogic)) return null;
+  const candidates = arrayLogic
+    .map((row) => inspectableJpl(row?.computeEntity?.published))
+    .filter(Boolean);
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 function buildConvertArtifacts({ arrayLogic = null, shorthand = null, materializedEntity = null } = {}) {
-  const published = materializedEntity?.published;
-  const hasJpl = published && typeof published === "object"
-    && (Array.isArray(published.actions) || (published.modules && typeof published.modules === "object"));
+  // Successful Shorthand execution may return only its ROWRESULT summary. The
+  // accepted computeEntity is still the exact source that Shorthand
+  // materialized, so retain its published actions/modules as inspection
+  // evidence when the execution result does not echo the full entity.
+  const jpl = inspectableJpl(materializedEntity?.published) || arrayLogicJpl(arrayLogic);
   return {
     schemaVersion: 1,
     kind: "convertArtifacts",
     arrayLogic: Array.isArray(arrayLogic) ? arrayLogic : null,
     shorthand: Array.isArray(shorthand) ? shorthand : null,
-    jpl: hasJpl ? {
-      modules: published.modules && typeof published.modules === "object" ? published.modules : {},
-      actions: Array.isArray(published.actions) ? published.actions : [],
-    } : null,
+    jpl,
   };
 }
 
