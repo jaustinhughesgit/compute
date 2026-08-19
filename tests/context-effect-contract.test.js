@@ -622,6 +622,29 @@ test("a one-slot declared command family removes invented required and optional 
   );
 });
 
+test("a one-slot declared command family removes a mislabeled constant action selector", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";
+  generated.operations[0].inputs.push({
+    name: "action",
+    type: "string",
+    required: true,
+    bindingHint: { source: "default", resolver: "string" },
+    defaultValue: null,
+  });
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { ...example.inputs, action: "wash" },
+  }));
+  const repaired = repairGeneratedEffectSpokenInputs(generated, [
+    "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
+  ]);
+  assert.deepEqual(repaired.operations[0].inputs.map((input) => input.name), ["vehicle"]);
+  assert.ok(repaired.operations[0].utteranceExamples.every((example) => (
+    !Object.hasOwn(example.inputs, "action")
+  )));
+});
+
 test("a one-slot command family retains an explicitly named optional input", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";

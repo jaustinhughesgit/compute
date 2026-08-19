@@ -1058,7 +1058,6 @@ function repairGeneratedEffectSpokenInputs(rawRequest, requirementSegments = [],
         !name
         || effectSubjects.has(name)
         || explicitInputDeclaration(requirementSegments, input?.name)
-        || String(input?.bindingHint?.source || "").toLowerCase() !== "utterance"
         || usedByCalculation.has(name)
       ) return false;
       const escaped = name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
