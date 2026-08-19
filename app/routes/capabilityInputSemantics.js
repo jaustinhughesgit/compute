@@ -218,6 +218,25 @@ function normalizeAnswerPlan(rawPlan) {
   };
 }
 
+function repairFixedEffectAnswerPlan(rawPlan, operation) {
+  if (rawPlan?.source !== "contextdb" || !rawPlan?.inputName) return rawPlan;
+  const effect = (Array.isArray(operation?.contextEffects) ? operation.contextEffects : [])
+    .find((candidate) => (
+      candidate?.type === "contextdb.replace_object"
+      && canonicalizeGeneratedIdentifier(candidate?.subjectInput) === rawPlan.inputName
+      && String(candidate?.newValue ?? "").trim()
+    ));
+  if (!effect) return rawPlan;
+  return {
+    ...rawPlan,
+    source: "literal",
+    inputName: "",
+    subject: "",
+    property: "",
+    statement: `The declared fixed transition result ${String(effect.newValue).trim()} answers the request.`,
+  };
+}
+
 /**
  * Freezes the model's semantic answer decision before the executable contract
  * is accepted. This is deliberately generic: every plan must select a declared
@@ -225,7 +244,7 @@ function normalizeAnswerPlan(rawPlan) {
  */
 function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = []) {
   const request = clone(rawRequest || {});
-  const plan = normalizeAnswerPlan(rawPlan);
+  let plan = normalizeAnswerPlan(rawPlan);
   if (!plan) return request;
   request.answerPlan = plan;
   if (!plan.operationId || !plan.outputName) {
@@ -256,6 +275,9 @@ function applyGeneratedAnswerPlan(rawRequest, rawPlan, requirementSegments = [])
       `the answer plan references undeclared output ${plan.outputName}`
     );
   }
+
+  plan = repairFixedEffectAnswerPlan(plan, operation);
+  request.answerPlan = plan;
 
   if (plan.source === "calculation") {
     if (

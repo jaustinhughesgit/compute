@@ -110,6 +110,74 @@ test("a fixed transition result has a literal semantic answer source", () => {
   );
 });
 
+test("an effect subject misidentified as ContextDB answer data repairs to the fixed result", () => {
+  for (const { currentValue, newValue, reference } of [
+    { currentValue: "dirty", newValue: "clean", reference: "car" },
+    { currentValue: "locked", newValue: "unlocked", reference: "cabinet" },
+  ]) {
+    const generated = carwashBuildRequest();
+    const operation = generated.operations[0];
+    operation.inputs[0].name = `${reference}_input`;
+    operation.utteranceExamples = operation.utteranceExamples.map((example) => ({
+      ...example,
+      inputs: { [`${reference}_input`]: example.inputs.vehicle },
+    }));
+    operation.contextEffects[0] = {
+      type: "contextdb.replace_object",
+      subjectInput: `${reference}_input`,
+      currentValue,
+      newValue,
+    };
+
+    const request = applyGeneratedAnswerPlan(generated, {
+      source: "contextdb",
+      operationId: "wash",
+      subject: "speaker",
+      property: "status",
+      inputName: `${reference}_input`,
+      outputName: "state",
+      statement: `The referenced ${reference} supplies its resulting state.`,
+    });
+
+    assert.equal(request.answerPlan.source, "literal");
+    assert.equal(request.answerPlan.inputName, "");
+    assert.equal(request.answerPlan.subject, "");
+    assert.equal(request.answerPlan.property, "");
+    assert.equal(request.operations[0].inputs[0].bindingHint.source, "utterance");
+    assert.equal(request.operations[0].contextEffects[0].newValue, newValue);
+  }
+});
+
+test("a distinct ContextDB answer input is not rewritten by an unrelated effect", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs.push({
+    name: "receipt_status",
+    type: "string",
+    required: true,
+    description: "The current receipt status.",
+    bindingHint: {
+      source: "contextdb",
+      subject: "speaker",
+      property: "receipt_status",
+    },
+    clarification: "What is the receipt status?",
+  });
+
+  const request = applyGeneratedAnswerPlan(generated, {
+    source: "contextdb",
+    operationId: "wash",
+    subject: "speaker",
+    property: "receipt_status",
+    inputName: "receipt_status",
+    outputName: "state",
+    statement: "The stored receipt status answers the request.",
+  });
+
+  assert.equal(request.answerPlan.source, "contextdb");
+  assert.equal(request.answerPlan.inputName, "receipt_status");
+  assert.equal(request.operations[0].inputs.at(-1).bindingHint.source, "contextdb");
+});
+
 test("deictic input repair remaps the ContextDB effect subject with the input", () => {
   const generated = carwashBuildRequest();
   const operation = generated.operations[0];
