@@ -7,6 +7,8 @@ const anchors = require("../app/routes/anchors");
 const {
   createCapabilitySignature,
   semanticCapabilityText,
+  semanticCapabilityDocuments,
+  semanticUtterancePatterns,
   indexCapabilityManifest,
 } = require("../app/routes/capabilitySignature");
 const { loadCapabilityCandidates } = require("../app/routes/capabilityCandidates");
@@ -55,7 +57,11 @@ test("capability fingerprints ignore ownership/revision metadata but change with
   const multiplied = manifest();
   multiplied.operations[0].description = "Multiply two numbers.";
   assert.notEqual(first.contractHash, createCapabilitySignature(multiplied).contractHash);
+  assert.equal(first.schemaVersion, 2);
+  assert.deepEqual(semanticUtterancePatterns(manifest().operations[0]), ["What is {left} plus {right}?"]);
   assert.doesNotMatch(semanticCapabilityText(manifest()), /8|13/);
+  assert.match(semanticCapabilityText(manifest()), /utterance pattern What is \{left\} plus \{right\}\?/);
+  assert.equal(semanticCapabilityDocuments(manifest()).length, 2);
 });
 
 test("public capability positioning writes tenant and global v2 postings", async (t) => {
@@ -63,7 +69,12 @@ test("public capability positioning writes tenant and global v2 postings", async
   const originalAssign = anchors.assign;
   t.after(() => { anchors.loadAnchors = originalLoad; anchors.assign = originalAssign; });
   anchors.loadAnchors = async () => ({ setId: "anchors_v1", d: 2, band_scale: 2000, num_shards: 8 });
-  anchors.assign = () => [{ l0: 2, l1: 7, band: 31, dist_q16: 100 }];
+  anchors.assign = (unit) => [{
+    l0: unit[0] > unit[1] ? 2 : 3,
+    l1: 7,
+    band: unit[0] > unit[1] ? 31 : 42,
+    dist_q16: 100,
+  }];
   const writes = [];
   let position = null;
   const result = await indexCapabilityManifest({
@@ -76,12 +87,16 @@ test("public capability positioning writes tenant and global v2 postings", async
       retrieval: { batchPut: async (items) => writes.push(...items) },
     },
     s3: {},
-    openai: { embeddings: { create: async () => ({ data: [{ embedding: [1, 0] }] }) } },
+    openai: { embeddings: { create: async ({ input }) => ({
+      data: input.map((_value, index) => ({ embedding: index === 0 ? [1, 0] : [0, 1] })),
+    }) } },
   });
   assert.equal(result.indexed, true);
-  assert.equal(writes.length, 2);
+  assert.equal(writes.length, 4);
   assert.ok(writes.some((row) => row.pk.includes("#U=10#")));
   assert.ok(writes.some((row) => !row.pk.includes("#U=")));
+  assert.equal(result.position.semanticProjectionCount, 2);
+  assert.equal(result.position.assigns.length, 2);
   assert.equal(position.contractHash, createCapabilitySignature(manifest()).contractHash);
 });
 
