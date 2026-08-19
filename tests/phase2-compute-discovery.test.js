@@ -318,6 +318,83 @@ test("entity use reconciliation accepts only exact IDs from the selected app and
   }), /exact entity and relation IDs/);
 });
 
+test("one exact invocation subject and transition derive using IDs without model ID copying", () => {
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.clean",
+    entityId: "compute-carwash",
+    version: 1,
+    status: "active",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash",
+      inputs: [{
+        name: "vehicle", type: "string", required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [{ text: "wash my car", inputs: { vehicle: "car" } }],
+      answerTemplate: "Your {{vehicle}} is {{state}}",
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }],
+  });
+  const operation = manifest.operations[0];
+  const evidence = [{
+    invocationReferents: [{
+      mention: "car", mentionKey: "car", entityId: "car-id", resolvedLocally: true,
+    }],
+    relatedContext: {
+      entities: [
+        { id: "car-id", names: ["car"] },
+        { id: "clean-status-id", names: ["clean status"] },
+        { id: "dirty-id", names: ["dirty"] },
+      ],
+      relations: [{
+        id: "car-clean-status-relation",
+        subj: "car-id",
+        prop: "clean-status-id",
+        obj: "dirty-id",
+      }],
+    },
+  }];
+  const bindings = normalizeEntityUseBindings({
+    parsedBindings: [{
+      sourceDependencyId: "invented dependency",
+      targetEntityId: "current_status",
+      targetRelationId: "invented relation",
+      targetSubjectEntityId: "car",
+    }],
+    operation,
+    semanticEvidence: evidence,
+  });
+  assert.deepEqual(bindings.map((item) => ({
+    sourceDependencyId: item.sourceDependencyId,
+    targetEntityId: item.targetEntityId,
+    targetRelationId: item.targetRelationId,
+    targetSubjectEntityId: item.targetSubjectEntityId,
+  })), [{
+    sourceDependencyId: "compute-carwash::v1::wash::context_effect_1",
+    targetEntityId: "clean-status-id",
+    targetRelationId: "car-clean-status-relation",
+    targetSubjectEntityId: "car-id",
+  }]);
+
+  evidence[0].relatedContext.relations.push({
+    id: "second-dirty-relation",
+    subj: "car-id",
+    prop: "clean-status-id",
+    obj: "dirty-id",
+  });
+  assert.throws(() => normalizeEntityUseBindings({
+    parsedBindings: [], operation, semanticEvidence: evidence,
+  }), /one exact entity use binding/);
+});
+
 test("the generic builder validates entity-owned declarative implementation data", async () => {
   const result = await buildComputeEntitySpec({
     capabilityRequest: request,

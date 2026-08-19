@@ -566,6 +566,59 @@ function normalizeEntityUseBindings({
   const entities = new Map((relatedContext.entities || []).map((entity) => [String(entity.id), entity]));
   const relations = new Map((relatedContext.relations || []).map((relation) => [String(relation.id), relation]));
   if (!entities.size || !relations.size) return [];
+  const invocationSubjectIds = new Set((semanticContext.invocationReferents || [])
+    .filter((referent) => referent?.resolvedLocally === true && referent?.entityId)
+    .map((referent) => String(referent.entityId)));
+
+  // The model selects the semantic Compute operation. Once that operation,
+  // one browser-resolved subject, and one declared transition identify a
+  // single supplied relation, installing `using` is exact graph selection,
+  // not another language decision. Prefer those canonical IDs over asking a
+  // model to reproduce opaque identifiers. Ambiguity still falls through to
+  // the validated model proposal below.
+  if (invocationSubjectIds.size === 1) {
+    const exactBindings = [];
+    const usedRelationIds = new Set();
+    for (const [sourceDependencyId, dependency] of dependencies) {
+      const effect = operation.contextEffects?.[Number(dependency.effectIndex)];
+      if (!effect || effect.type !== "contextdb.replace_object") {
+        exactBindings.length = 0;
+        break;
+      }
+      const candidates = [...relations.values()].filter((relation) => {
+        if (
+          !invocationSubjectIds.has(String(relation.subj || ""))
+          || !entities.has(String(relation.subj || ""))
+          || !entities.has(String(relation.prop || ""))
+          || !entities.has(String(relation.obj || ""))
+        ) return false;
+        const objectEntity = entities.get(String(relation.obj));
+        const objectWords = new Set([
+          ...(objectEntity?.names || []),
+          ...(objectEntity?.lemmas || []),
+        ].map(normalizedWords).filter(Boolean));
+        return objectWords.has(normalizedWords(effect.currentValue))
+          || objectWords.has(normalizedWords(effect.newValue));
+      });
+      if (candidates.length !== 1 || usedRelationIds.has(String(candidates[0].id))) {
+        exactBindings.length = 0;
+        break;
+      }
+      const relation = candidates[0];
+      usedRelationIds.add(String(relation.id));
+      exactBindings.push({
+        schemaVersion: 1,
+        sourceDependencyId,
+        targetEntityId: String(relation.prop),
+        targetRelationId: String(relation.id),
+        targetSubjectEntityId: String(relation.subj),
+        access: String(dependency.access || "read_write"),
+        confidence: 1,
+        reason: "The exact invocation subject and declared transition identify one supplied relation.",
+      });
+    }
+    if (exactBindings.length === dependencies.size) return exactBindings;
+  }
 
   const result = [];
   const seenDependencies = new Set();
@@ -592,9 +645,6 @@ function normalizeEntityUseBindings({
       error.code = "ENTITY_USE_TARGET_OUT_OF_SCOPE";
       throw error;
     }
-    const invocationSubjectIds = new Set((semanticContext.invocationReferents || [])
-      .filter((referent) => referent?.resolvedLocally === true && referent?.entityId)
-      .map((referent) => String(referent.entityId)));
     if (invocationSubjectIds.size && !invocationSubjectIds.has(targetSubjectEntityId)) {
       const error = new Error("entity use target subject is not the exact locally resolved invocation entity");
       error.code = "ENTITY_USE_SUBJECT_MISMATCH";
