@@ -242,6 +242,51 @@ test("authoritative ids remain stable when a later local mutation reuses acknowl
   assert.ok(second.response.nodes.every((node) => node.resolution === "previously-acknowledged"));
 });
 
+test("a later relation rewire preserves its acknowledged canonical relation identity", async () => {
+  const doc = memoryDocumentClient();
+  const handlers = installRuntime(doc);
+  const meta = { cookie: { e: "1" } };
+  const first = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: publicationBody() },
+  }, meta);
+  assert.equal(first.ok, true);
+  const nodeIds = Object.fromEntries(first.response.nodes.map((node) => [node.localId, node.serverId]));
+  const relationId = first.response.relations.find((relation) => relation.localId === "rel_1").serverId;
+  const rewired = await handlers.get("contextGraphPublish")({
+    path: "/workspace-alice",
+    req: { body: {
+      schemaVersion: 1,
+      idempotencyKey: "input-rewire",
+      source: { sentence: "Update the relation." },
+      userReferences: [],
+      nodes: [
+        { localId: nodeIds.ent_3, lemmas: ["event_1"] },
+        { localId: nodeIds.ent_2, lemmas: ["actor"] },
+        { localId: nodeIds.ent_4, lemmas: ["pass"] },
+      ],
+      relations: [{
+        localId: relationId,
+        subjectLocalId: nodeIds.ent_3,
+        predicateLocalId: nodeIds.ent_2,
+        objectLocalId: nodeIds.ent_4,
+        tombstone: false,
+      }],
+    } },
+  }, meta);
+  assert.equal(rewired.ok, true);
+  assert.equal(rewired.response.relations[0].serverId, relationId);
+  assert.equal(rewired.response.relations[0].version, 2);
+
+  const hydrated = await handlers.get("contextGraphHydrate")({
+    path: "/workspace-alice",
+    req: { body: { schemaVersion: 1 } },
+  }, meta);
+  const relation = hydrated.response.relations.find((item) => item.serverId === relationId);
+  assert.equal(relation.object, nodeIds.ent_4);
+  assert.equal(hydrated.response.relations.filter((item) => item.serverId === relationId).length, 1);
+});
+
 test("workspace ownership and ambiguous user handles fail closed", async () => {
   const doc = memoryDocumentClient();
   const handlers = installRuntime(doc, [

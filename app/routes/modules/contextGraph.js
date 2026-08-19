@@ -776,7 +776,14 @@ function register({ on, use }) {
       const subject = resolutions.get(relation.subjectLocalId).serverId;
       const predicate = resolutions.get(relation.predicateLocalId).serverId;
       const object = resolutions.get(relation.objectLocalId).serverId;
-      const serverId = stableId("rel", principalId, relation.localId);
+      const acknowledgedRelation = /^rel_[a-f0-9]{32}$/.test(relation.localId)
+        ? await persistence.context.get(ownerAudience, `relation#${relation.localId}`)
+        : null;
+      const serverId = acknowledgedRelation?.Item?.recordType === "relation"
+        && acknowledgedRelation.Item.publisherId === principalId
+        && text(acknowledgedRelation.Item.serverId, 180) === relation.localId
+        ? relation.localId
+        : stableId("rel", principalId, relation.localId);
       const currentAudienceIds = audiencesByNode.get(relation.subjectLocalId) || [ownerAudience];
       const publicRecord = !!publicAudience && currentAudienceIds.includes(publicAudience);
       const relationPayload = {
