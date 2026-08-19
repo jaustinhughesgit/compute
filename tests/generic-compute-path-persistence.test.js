@@ -155,6 +155,30 @@ test("Path persistence accepts a browser-validated Pattern Schema v4 subpattern 
   assert.equal(pathsTest.validatePathForPersistence(path), true);
 });
 
+test("Path persistence accepts a whenNone-only conditional row", () => {
+  const path = composedComputePath();
+  path.sig = "pattern:v4:negative_guard_contract";
+  path.left.state.pattern.patternId = "negative_guard_contract";
+  path.right.lib = "essenceTransform";
+  path.right.state.familyId = "negative_guard_contract";
+  path.right.state.bindings = [{
+    name: "related_subject",
+    source: "currentSpeaker",
+    value: "resolvedEntity",
+  }];
+  path.right.state.rows = [];
+  path.right.state.forEach = [];
+  path.right.state.conditionalRows = [{
+    whenAll: [],
+    whenAny: [],
+    whenNone: ["related_subject"],
+    rows: [["present", "speaker", "{prop:status}", "open"]],
+  }];
+  delete path.right.state.compute;
+
+  assert.equal(pathsTest.validatePathForPersistence(path), true);
+});
+
 test("Pattern Schema v4 persistence rejects an incomplete network contract", () => {
   const path = composedComputePath();
   path.left.state.pattern.network.components = [];

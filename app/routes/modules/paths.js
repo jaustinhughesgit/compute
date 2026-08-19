@@ -491,8 +491,9 @@ function validatePathForPersistence(path) {
     const names = [
       ...(Array.isArray(condition?.whenAll) ? condition.whenAll : []),
       ...(Array.isArray(condition?.whenAny) ? condition.whenAny : []),
+      ...(Array.isArray(condition?.whenNone) ? condition.whenNone : []),
     ];
-    if (!names.length) throw new Error("conditionalRows requires whenAll or whenAny");
+    if (!names.length) throw new Error("conditionalRows requires whenAll, whenAny, or whenNone");
     for (const name of names) {
       if (!bindingNames.has(String(name))) throw new Error(`conditionalRows references unknown binding ${name}`);
     }
