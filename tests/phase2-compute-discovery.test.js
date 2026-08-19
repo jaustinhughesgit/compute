@@ -395,6 +395,80 @@ test("one exact invocation subject and transition derive using IDs without model
   }), /one exact entity use binding/);
 });
 
+test("a model cannot turn a new value for an open entity referent into an app extension", async () => {
+  const manifest = validateCapabilityManifest({
+    schemaVersion: 1,
+    capabilityId: "vehicle.clean",
+    entityId: "compute-carwash",
+    version: 1,
+    status: "active",
+    execution: { type: "remote", readOnly: false, timeoutMs: 15000 },
+    operations: [{
+      operationId: "wash",
+      inputs: [{
+        name: "vehicle", type: "string", required: true,
+        bindingHint: { source: "utterance", resolver: "entity_reference" },
+      }],
+      outputs: [{ name: "state", type: "string", required: true }],
+      utteranceExamples: [
+        { text: "wash my car", inputs: { vehicle: "car" } },
+        { text: "wash my Camry", inputs: { vehicle: "Camry" } },
+      ],
+      answerTemplate: "Your {{vehicle}} is clean",
+      contextEffects: [{
+        type: "contextdb.replace_object",
+        subjectInput: "vehicle",
+        currentValue: "dirty",
+        newValue: "clean",
+      }],
+    }],
+  });
+  const operation = manifest.operations[0];
+  const result = await discoverComputeCapability({
+    openai: model({
+      decision: "extend_existing",
+      confidence: 0.92,
+      reason: "The Ford F150 needs a new confirmation boundary.",
+      capabilityId: manifest.capabilityId,
+      entityId: manifest.entityId,
+      operationId: "wash",
+      inputValues: [{ name: "vehicle", value: "Ford F150" }],
+      entityUseBindings: [],
+      capabilityRequest: null,
+    }),
+    utterance: "Wash my Ford F150",
+    requestedBy: "u:2",
+    availableCapabilities: [manifest],
+    semanticEvidence: [{
+      invocationReferents: [{
+        mention: "Ford F150",
+        mentionKey: "ford f150",
+        entityId: "ford-id",
+        resolvedLocally: true,
+      }],
+      relatedContext: {
+        entities: [
+          { id: "ford-id", names: ["Ford F150"] },
+          { id: "condition-id", names: ["clean status"] },
+          { id: "dirty-id", names: ["dirty"] },
+        ],
+        relations: [{
+          id: "ford-condition-relation",
+          subj: "ford-id",
+          prop: "condition-id",
+          obj: "dirty-id",
+        }],
+      },
+    }],
+  });
+  assert.equal(result.decision, "reuse");
+  assert.equal(result.source, "contract-reconciled");
+  assert.equal(result.inputValues.vehicle, "Ford F150");
+  assert.equal(result.entityUseBindings.length, 1);
+  assert.equal(result.entityUseBindings[0].sourceDependencyId, operation.entityDependencies[0].dependencyId);
+  assert.equal(result.entityUseBindings[0].targetRelationId, "ford-condition-relation");
+});
+
 test("the generic builder validates entity-owned declarative implementation data", async () => {
   const result = await buildComputeEntitySpec({
     capabilityRequest: request,

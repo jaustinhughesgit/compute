@@ -555,6 +555,63 @@ function normalizeDiscoveryInputValues({
   return normalized;
 }
 
+function invocationFrame(rawText, rawValue) {
+  const textTokens = normalizedWords(rawText).split(" ").filter(Boolean);
+  const valueTokens = normalizedWords(rawValue).split(" ").filter(Boolean);
+  if (!textTokens.length || !valueTokens.length || valueTokens.length > textTokens.length) return "";
+  for (let index = 0; index <= textTokens.length - valueTokens.length; index += 1) {
+    if (!valueTokens.every((token, offset) => textTokens[index + offset] === token)) continue;
+    return [
+      ...textTokens.slice(0, index),
+      "{entity_reference}",
+      ...textTokens.slice(index + valueTokens.length),
+    ].join(" ");
+  }
+  return "";
+}
+
+function openEntityReferentInvocationMatches({
+  operation,
+  utterance,
+  inputValues = {},
+  semanticEvidence = [],
+  requirementSegments = [],
+} = {}) {
+  if ((Array.isArray(requirementSegments) ? requirementSegments : []).length) return false;
+  const utteranceInputs = (operation?.inputs || []).filter((input) => (
+    input?.required !== false
+    && String(input?.bindingHint?.source || "").toLowerCase() === "utterance"
+  ));
+  if (utteranceInputs.length !== 1) return false;
+  const input = utteranceInputs[0];
+  if (
+    !["entity", "entity_reference", "resolved_entity"].includes(
+      String(input?.bindingHint?.resolver || "").toLowerCase()
+    )
+    || String(input?.validation?.pattern || "").trim()
+  ) return false;
+  const candidateValues = new Set();
+  if (Object.prototype.hasOwnProperty.call(inputValues, input.name)) {
+    candidateValues.add(String(inputValues[input.name] ?? "").trim());
+  }
+  for (const referent of semanticEvidenceContext(semanticEvidence).invocationReferents || []) {
+    if (referent?.resolvedLocally === true && referent?.mention) {
+      candidateValues.add(String(referent.mention).trim());
+    }
+  }
+  const candidateFrames = new Set([...candidateValues]
+    .map((value) => invocationFrame(utterance, value))
+    .filter(Boolean));
+  if (!candidateFrames.size) return false;
+  return (operation?.utteranceExamples || []).some((example) => {
+    if (!isObject(example) || !isObject(example.inputs)) return false;
+    const sample = Object.entries(example.inputs).find(([name]) =>
+      canonicalizeGeneratedIdentifier(name) === canonicalizeGeneratedIdentifier(input.name)
+    );
+    return sample && candidateFrames.has(invocationFrame(example.text, sample[1]));
+  });
+}
+
 function normalizeEntityUseBindings({
   parsedBindings,
   operation,
@@ -1289,6 +1346,7 @@ function discoveryMessages({
           "semanticEvidence.invocationReferents contains concrete entities referenced only for this invocation. When resolvedLocally is true, its entityId is the exact target subject allowed for an entity use binding. Its names are values, not capability identity. Compare available capabilities using semanticEvidence.capabilityQuery when present, reuse compatible generic behavior, and never create an owner-specific capability merely because the utterance names an owner.",
           "Resolved ContextDB values are not utterance inputValues. Use their matching Essence row to declare a contextdb bindingHint with the row's subject and property; never copy a resolved remembered value into a default or utterance binding.",
           "decision is reuse_existing when an active entity contract already supports the exact request.",
+          "A new concrete value for an open entity_reference input is reuse_existing when the invocation frame otherwise matches an operation example. The examples teach the command shape; they do not enumerate the only entities the operation accepts.",
           "decision is extend_existing when a related entity is the right owner of the behavior but its contract or examples do not yet support the request.",
           "decision is build_compute when fresh external data or deterministic calculation is required and no entity owns it.",
           "decision is not_compute for storage, recall, conversation, or interface commands, and clarify for genuine ambiguity.",
@@ -1629,19 +1687,29 @@ function parseDiscoveryDecision({
     const selectedOperation = (matched.operations || []).find((item) =>
       String(item?.operationId || "") === String(operationId || "")
     ) || (matched.operations || [])[0] || null;
-    if (rawDecision === "reuse_existing") {
-      assertReusableCapabilityMeetsConvertRequirements(
-        selectedOperation,
-        requirementSegments
-      );
-    }
     const inputValues = normalizeDiscoveryInputValues({
       parsedValues: parsed.inputValues,
       utterance,
       operation: selectedOperation,
       semanticEvidence,
     });
-    const entityUseBindings = rawDecision === "reuse_existing"
+    const reconciledOpenReferentReuse = rawDecision === "extend_existing"
+      && matched.status === "active"
+      && openEntityReferentInvocationMatches({
+        operation: selectedOperation,
+        utterance,
+        inputValues,
+        semanticEvidence,
+        requirementSegments,
+      });
+    const reusesExisting = rawDecision === "reuse_existing" || reconciledOpenReferentReuse;
+    if (reusesExisting) {
+      assertReusableCapabilityMeetsConvertRequirements(
+        selectedOperation,
+        requirementSegments
+      );
+    }
+    const entityUseBindings = reusesExisting
       ? normalizeEntityUseBindings({
           parsedBindings: parsed.entityUseBindings,
           operation: selectedOperation,
@@ -1649,10 +1717,12 @@ function parseDiscoveryDecision({
         })
       : [];
     return discoveryEnvelope({
-      decision: rawDecision === "reuse_existing" ? "reuse" : "extend",
-      source: "model",
-      confidence,
-      reason,
+      decision: reusesExisting ? "reuse" : "extend",
+      source: reconciledOpenReferentReuse ? "contract-reconciled" : "model",
+      confidence: reconciledOpenReferentReuse ? 1 : confidence,
+      reason: reconciledOpenReferentReuse
+        ? "The open entity-reference operation accepts this new referent and its invocation frame matches the declared command."
+        : reason,
       utterance,
       capabilityId: matched.capabilityId,
       operationId,
@@ -1769,6 +1839,7 @@ module.exports = {
   finalizeGeneratedBuildRequest,
   assertReusableCapabilityMeetsConvertRequirements,
   normalizeDiscoveryInputValues,
+  openEntityReferentInvocationMatches,
   normalizeEntityUseBindings,
   semanticEvidenceRows,
   semanticEvidenceContext,
