@@ -368,6 +368,53 @@ function canonicalizeGeneratedOperations(rawOperations, rawAnswerPlan = null) {
         };
       });
     }
+    const effectFixedValues = new Set(operation.contextEffects.flatMap((effect) => [
+      String(effect.currentValue ?? "").trim().toLowerCase(),
+      String(effect.newValue ?? "").trim().toLowerCase(),
+    ]).filter(Boolean));
+    const redundantUnspokenTransitionInputNames = new Set(operation.inputs.filter((input) => {
+      if (
+        input.bindingHint?.source !== "utterance"
+        || effectSubjectNames.has(input.name)
+      ) return false;
+      const escaped = input.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const usedByAnswer = new RegExp(`{{\\s*${escaped}\\s*}}`, "i")
+        .test(String(operation.answerTemplate || ""));
+      const usedByCalculation = (operation.calculation?.operands || []).some((operand) =>
+        operand?.source === "input"
+        && canonicalizeGeneratedIdentifier(operand?.inputName) === input.name
+      );
+      if (usedByAnswer || usedByCalculation) return false;
+      const annotations = operation.utteranceExamples.flatMap((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return [];
+        return Object.entries(example.inputs)
+          .filter(([name]) => canonicalizeGeneratedIdentifier(name) === input.name)
+          .map(([, value]) => ({ text: String(example.text || ""), value: String(value ?? "").trim() }))
+          .filter(({ value }) => value);
+      });
+      if (!annotations.length) return false;
+      return annotations.every(({ text, value }) => {
+        const normalizedValue = value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+        const normalizedText = ` ${text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim()} `;
+        return effectFixedValues.has(value.toLowerCase())
+          && normalizedValue
+          && !normalizedText.includes(` ${normalizedValue} `);
+      });
+    }).map((input) => input.name));
+    if (redundantUnspokenTransitionInputNames.size) {
+      operation.inputs = operation.inputs.filter((input) =>
+        !redundantUnspokenTransitionInputNames.has(input.name)
+      );
+      operation.utteranceExamples = operation.utteranceExamples.map((example) => {
+        if (!isObject(example) || !isObject(example.inputs)) return example;
+        return {
+          ...example,
+          inputs: Object.fromEntries(Object.entries(example.inputs).filter(([name]) =>
+            !redundantUnspokenTransitionInputNames.has(canonicalizeGeneratedIdentifier(name))
+          )),
+        };
+      });
+    }
     for (const effect of operation.contextEffects) {
       const sampleValues = [...new Set(operation.utteranceExamples.flatMap((example) => {
         if (!isObject(example) || !isObject(example.inputs)) return [];

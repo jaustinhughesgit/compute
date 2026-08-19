@@ -305,6 +305,59 @@ test("a literal fixed-effect plan removes an unreferenced ContextDB precondition
   assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
 });
 
+test("unspoken model-invented transition inputs are removed from a fixed effect contract", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs.push(
+    {
+      name: "status_from",
+      type: "string",
+      required: true,
+      description: "The state before washing.",
+      bindingHint: { source: "utterance", resolver: "string" },
+      clarification: "What is the current status?",
+    },
+    {
+      name: "status_to",
+      type: "string",
+      required: true,
+      description: "The state after washing.",
+      bindingHint: { source: "utterance", resolver: "string" },
+      clarification: "What status should it become?",
+    }
+  );
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    inputs: { ...example.inputs, status_from: "dirty", status_to: "clean" },
+  }));
+
+  const request = validateCapabilityBuildRequest(generated);
+  assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle"]);
+  assert.ok(request.operations[0].utteranceExamples.every((example) => (
+    !Object.hasOwn(example.inputs, "status_from")
+    && !Object.hasOwn(example.inputs, "status_to")
+  )));
+});
+
+test("a transition value explicitly spoken at invocation remains an ordinary input", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].inputs.push({
+    name: "status_from",
+    type: "string",
+    required: true,
+    description: "The explicitly supplied prior state.",
+    bindingHint: { source: "utterance", resolver: "string" },
+    clarification: "What is the current status?",
+  });
+  generated.operations[0].utteranceExamples = generated.operations[0].utteranceExamples.map((example) => ({
+    ...example,
+    text: `${example.text} from dirty`,
+    inputs: { ...example.inputs, status_from: "dirty" },
+  }));
+
+  const request = validateCapabilityBuildRequest(generated);
+  assert.deepEqual(request.operations[0].inputs.map((input) => input.name), ["vehicle", "status_from"]);
+});
+
 test("a subject sample hard-coded in the answer becomes the invocation placeholder", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your car is clean";
