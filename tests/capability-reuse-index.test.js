@@ -57,11 +57,14 @@ test("capability fingerprints ignore ownership/revision metadata but change with
   const multiplied = manifest();
   multiplied.operations[0].description = "Multiply two numbers.";
   assert.notEqual(first.contractHash, createCapabilitySignature(multiplied).contractHash);
-  assert.equal(first.schemaVersion, 2);
+  assert.equal(first.schemaVersion, 3);
   assert.deepEqual(semanticUtterancePatterns(manifest().operations[0]), ["What is {left} plus {right}?"]);
   assert.doesNotMatch(semanticCapabilityText(manifest()), /8|13/);
   assert.match(semanticCapabilityText(manifest()), /utterance pattern What is \{left\} plus \{right\}\?/);
-  assert.equal(semanticCapabilityDocuments(manifest()).length, 2);
+  assert.deepEqual(semanticCapabilityDocuments(manifest()), [
+    { kind: "contract", text: semanticCapabilityText(manifest()) },
+    { kind: "utterance-pattern", text: "What is left plus right?" },
+  ]);
 });
 
 test("public capability positioning writes tenant and global v2 postings", async (t) => {

@@ -7,7 +7,7 @@
 const crypto = require("node:crypto");
 const anchors = require("./anchors");
 
-const SIGNATURE_VERSION = 2;
+const SIGNATURE_VERSION = 3;
 const EMBEDDING_MODEL = process.env.EMB_MODEL || "text-embedding-3-large";
 
 function stableValue(value) {
@@ -183,11 +183,7 @@ function semanticCapabilityDocuments(manifest = {}) {
     for (const pattern of semanticUtterancePatterns(operation)) {
       documents.push({
         kind: "utterance-pattern",
-        text: cleanSemanticText([
-          `capability ${String(manifest.name || manifest.capabilityId || "compute")}`,
-          `operation ${String(operation.operationId || "")} ${String(operation.description || "")}`,
-          `utterance pattern ${pattern}`,
-        ].join(" ")).slice(0, 2000),
+        text: cleanSemanticText(pattern.replace(/\{([^{}]+)\}/g, "$1")).slice(0, 2000),
       });
       if (documents.length >= 16) return documents;
     }
