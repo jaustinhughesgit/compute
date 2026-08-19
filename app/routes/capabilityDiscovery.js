@@ -1130,6 +1130,72 @@ function finalizeGeneratedBuildRequest(rawRequest, requirementSegments = [], ope
   return validateCapabilityBuildRequest(inputRepaired);
 }
 
+function assertReusableCapabilityMeetsConvertRequirements(
+  operation,
+  requirementSegments = []
+) {
+  const requirements = Array.isArray(requirementSegments)
+    ? requirementSegments.map(cleanUtterance).filter(Boolean)
+    : [];
+  if (!requirements.length) return operation;
+  if (!isObject(operation)) {
+    const error = new Error("the selected reusable capability has no matching operation");
+    error.code = "CAPABILITY_REQUIREMENT_MISMATCH";
+    throw error;
+  }
+
+  const original = JSON.parse(JSON.stringify(operation));
+  let repaired;
+  try {
+    repaired = repairGeneratedContextEffectTransitions({ operations: [original] }, requirements)
+      .operations[0];
+  } catch (cause) {
+    const error = new Error(
+      "the selected reusable capability does not satisfy the explicit Convert state-transition requirement"
+    );
+    error.code = "CAPABILITY_REQUIREMENT_MISMATCH";
+    error.cause = cause;
+    throw error;
+  }
+  if (JSON.stringify(repaired.contextEffects || []) !== JSON.stringify(original.contextEffects || [])) {
+    const error = new Error(
+      "the selected reusable capability does not implement the explicit Convert state transition"
+    );
+    error.code = "CAPABILITY_REQUIREMENT_MISMATCH";
+    throw error;
+  }
+
+  const responseRepaired = repairGeneratedEffectResponseTemplates(
+    { operations: [original] },
+    requirements
+  ).operations[0];
+  if (String(responseRepaired.answerTemplate || "") !== String(original.answerTemplate || "")) {
+    const error = new Error(
+      "the selected reusable capability does not preserve the explicit Convert response family"
+    );
+    error.code = "CAPABILITY_REQUIREMENT_MISMATCH";
+    throw error;
+  }
+
+  const declaredInvocations = declaredInvocationExamples(requirements);
+  if (declaredInvocations.length) {
+    const examples = new Set((Array.isArray(original.utteranceExamples)
+      ? original.utteranceExamples
+      : []).map((example) => normalizedWords(
+        typeof example === "string" ? example : example?.text || example?.utterance
+      )).filter(Boolean));
+    const missing = declaredInvocations.filter((example) => !examples.has(normalizedWords(example)));
+    if (missing.length) {
+      const error = new Error(
+        `the selected reusable capability is missing ${missing.length} explicitly required invocation example${missing.length === 1 ? "" : "s"}`
+      );
+      error.code = "CAPABILITY_REQUIREMENT_MISMATCH";
+      throw error;
+    }
+  }
+  return operation;
+}
+
 function summarizeCapabilities(manifests) {
   const ranked = (Array.isArray(manifests) ? manifests : [])
     .filter((manifest) => manifest?.capabilityId && manifest?.entityId)
@@ -1591,6 +1657,12 @@ function parseDiscoveryDecision({
     const selectedOperation = (matched.operations || []).find((item) =>
       String(item?.operationId || "") === String(operationId || "")
     ) || (matched.operations || [])[0] || null;
+    if (rawDecision === "reuse_existing") {
+      assertReusableCapabilityMeetsConvertRequirements(
+        selectedOperation,
+        requirementSegments
+      );
+    }
     const inputValues = normalizeDiscoveryInputValues({
       parsedValues: parsed.inputValues,
       utterance,
@@ -1723,6 +1795,7 @@ module.exports = {
   repairGeneratedEffectResponseTemplates,
   repairGeneratedEffectSpokenInputs,
   finalizeGeneratedBuildRequest,
+  assertReusableCapabilityMeetsConvertRequirements,
   normalizeDiscoveryInputValues,
   normalizeEntityUseBindings,
   semanticEvidenceRows,

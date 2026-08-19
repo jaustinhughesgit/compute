@@ -17,6 +17,7 @@ const {
   repairGeneratedEffectResponseTemplates,
   repairGeneratedEffectSpokenInputs,
   finalizeGeneratedBuildRequest,
+  assertReusableCapabilityMeetsConvertRequirements,
 } = require("../app/routes/capabilityDiscovery");
 
 function carwashBuildRequest() {
@@ -400,6 +401,41 @@ test("an explicit hard-stop transition cannot disappear from a model-generated o
     currentValue: "dirty",
     newValue: "clean",
   }]);
+});
+
+test("Convert reuses only an operation that satisfies every deterministic hard stop", () => {
+  const operation = carwashBuildRequest().operations[0];
+  operation.answerTemplate = "Your {{vehicle}} is clean";
+  const requirements = [
+    'I can say, "wash my car", "wash my camry" or "wash my toyota".',
+    "It will switch my car from dirty to clean.",
+    'It will respond "Your car is clean", "Your Camry is clean" or "Your Toyota is clean".',
+  ];
+  assert.equal(
+    assertReusableCapabilityMeetsConvertRequirements(operation, requirements),
+    operation
+  );
+
+  const missingEffect = structuredClone(operation);
+  missingEffect.contextEffects = [];
+  assert.throws(
+    () => assertReusableCapabilityMeetsConvertRequirements(missingEffect, requirements),
+    (error) => error?.code === "CAPABILITY_REQUIREMENT_MISMATCH"
+  );
+
+  const wrongResponse = structuredClone(operation);
+  wrongResponse.answerTemplate = "Washing your {{vehicle}} is in progress.";
+  assert.throws(
+    () => assertReusableCapabilityMeetsConvertRequirements(wrongResponse, requirements),
+    (error) => error?.code === "CAPABILITY_REQUIREMENT_MISMATCH"
+  );
+
+  const missingInvocation = structuredClone(operation);
+  missingInvocation.utteranceExamples = missingInvocation.utteranceExamples.slice(0, 1);
+  assert.throws(
+    () => assertReusableCapabilityMeetsConvertRequirements(missingInvocation, requirements),
+    (error) => error?.code === "CAPABILITY_REQUIREMENT_MISMATCH"
+  );
 });
 
 test("an explicit hard-stop transition repairs only the answer-plan operation", () => {
