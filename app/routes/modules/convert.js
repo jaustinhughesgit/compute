@@ -367,6 +367,7 @@ function register({ on, use }) {
         backgroundJob = null,
         retryable = false,
         errorDetails = null,
+        artifacts = null,
       }) => {
         const created = manifest ? [{
           entity: manifest.entityId,
@@ -382,7 +383,9 @@ function register({ on, use }) {
           parseResults: null,
           newShorthand: null,
           arrayLogic: null,
-          convertArtifacts: buildConvertArtifacts(),
+          convertArtifacts: artifacts?.kind === "convertArtifacts"
+            ? artifacts
+            : buildConvertArtifacts(),
           conclusion: null,
           entity: manifest?.entityId || record?.capabilityEntityId || "",
           createdEntities: created,
@@ -447,13 +450,14 @@ function register({ on, use }) {
               { includeInactive: true }
             );
             return capabilityStateResponse({
-              status: completedManifest ? "CAPABILITY_REUSED" : "BUILD_FAILED",
+              status: completedManifest ? "BUILT_AND_REGISTERED" : "BUILD_FAILED",
               manifest: completedManifest,
               buildId,
               record,
               reason: completedManifest
-                ? "The capability build completed and was reused."
+                ? "The requested capability build completed and was registered."
                 : "The completed build no longer has a readable capability manifest.",
+              artifacts: record.capabilityBuildArtifacts,
             });
           }
           if (record.capabilityBuildStatus !== "building") {
@@ -596,7 +600,7 @@ function register({ on, use }) {
               }
               return capabilityStateResponse({
                 status: finalizedManifest
-                  ? "CAPABILITY_REUSED"
+                  ? "BUILT_AND_REGISTERED"
                   : finalization.record?.capabilityBuildStatus === "completed"
                   ? "BUILD_FAILED"
                   : finalization.record?.capabilityBuildStatus === "failed"
@@ -616,6 +620,7 @@ function register({ on, use }) {
                   : finalization.record?.capabilityBuildStatus === "completed"
                   ? "The completed build no longer has a readable capability manifest."
                   : "Another Lambda is finalizing this completed capability build.",
+                artifacts: finalization.record?.capabilityBuildArtifacts,
               });
             }
             claim = { ...claim, finalizeToken: finalization.finalizeToken };
@@ -1301,6 +1306,11 @@ function subdomains(domain){
       let capabilityManifest = null;
       let manifestValidation = null;
       let capabilityRegistration = null;
+      const generatedConvertArtifacts = buildConvertArtifacts({
+        arrayLogic: parseResults?.arrayLogic,
+        shorthand: parseResults?.shorthand,
+        materializedEntity: newShorthand,
+      });
       if (capabilityManifestCandidate) {
         try {
           const resolvedCapabilityEntityId = entityFromConclusion
@@ -1335,7 +1345,8 @@ function subdomains(domain){
             try {
               await preparedCapabilityBuild.coordinator.complete(
                 preparedCapabilityBuild.claim,
-                capabilityManifest
+                capabilityManifest,
+                { convertArtifacts: generatedConvertArtifacts }
               );
             } catch (coordinationError) {
               console.warn("compute build completion marker failed", {
@@ -1395,11 +1406,7 @@ function subdomains(domain){
         parseResults,
         newShorthand,
         arrayLogic: parseResults?.arrayLogic,
-        convertArtifacts: buildConvertArtifacts({
-          arrayLogic: parseResults?.arrayLogic,
-          shorthand: parseResults?.shorthand,
-          materializedEntity: newShorthand,
-        }),
+        convertArtifacts: generatedConvertArtifacts,
         conclusion,
         entity: entityFromConclusion || "",
         createdEntities: responseCreatedEntities,

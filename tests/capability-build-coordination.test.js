@@ -4,6 +4,8 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const Module = require("node:module");
 const {
+  MAX_BUILD_ARTIFACT_BYTES,
+  boundedBuildArtifacts,
   createCapabilityBuildCoordinator,
   failureReason,
 } = require("../app/routes/capabilityBuildCoordinator");
@@ -124,11 +126,37 @@ test("completed background output has one leased finalizer", async () => {
   assert.match(dynamodb.updates[0].ConditionExpression, /attribute_not_exists\(#finalizeLease\)/);
   assert.equal(dynamodb.updates[0].ExpressionAttributeValues[":jobId"], "resp_one");
 
+  const artifacts = {
+    schemaVersion: 1,
+    kind: "convertArtifacts",
+    arrayLogic: [{ computeEntity: { capabilityId: "car_washing" } }],
+    shorthand: [["ROUTE", {}, {}, "newGroup", "Carwash", "Carwash"]],
+    jpl: { modules: {}, actions: [] },
+  };
   await coordinator.complete(
     { ...claim, finalizeToken: finalization.finalizeToken },
-    { entityId: "entity_one", version: 1 }
+    { entityId: "entity_one", version: 1 },
+    { convertArtifacts: artifacts }
   );
   assert.match(dynamodb.updates[1].ConditionExpression, /#finalizeToken = :finalizeToken/);
+  assert.deepEqual(dynamodb.updates[1].ExpressionAttributeValues[":artifacts"], artifacts);
+  assert.match(dynamodb.updates[1].UpdateExpression, /#artifacts = :artifacts/);
+});
+
+test("build artifact continuation evidence is typed and bounded below DynamoDB's item limit", () => {
+  const valid = {
+    schemaVersion: 1,
+    kind: "convertArtifacts",
+    arrayLogic: [],
+    shorthand: [],
+    jpl: { modules: {}, actions: [] },
+  };
+  assert.deepEqual(boundedBuildArtifacts(valid), valid);
+  assert.equal(boundedBuildArtifacts({ kind: "other", schemaVersion: 1 }), null);
+  assert.equal(boundedBuildArtifacts({
+    ...valid,
+    arrayLogic: ["x".repeat(MAX_BUILD_ARTIFACT_BYTES)],
+  }), null);
 });
 
 test("a validation retry releases its finalization lease", async () => {

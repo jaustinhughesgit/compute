@@ -9,6 +9,7 @@ const crypto = require("node:crypto");
 const DEFAULT_TABLE = process.env.SUBDOMAINS_TABLE || "subdomains";
 const DEFAULT_LEASE_SECONDS = 120;
 const DEFAULT_FINALIZE_LEASE_SECONDS = 45;
+const MAX_BUILD_ARTIFACT_BYTES = 192 * 1024;
 
 function promiseOf(request) {
   return request && typeof request.promise === "function" ? request.promise() : request;
@@ -24,6 +25,19 @@ function cleanFailureMessage(value, limit = 800) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, limit);
+}
+
+function boundedBuildArtifacts(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  if (value.kind !== "convertArtifacts" || Number(value.schemaVersion) !== 1) return null;
+  let serialized;
+  try {
+    serialized = JSON.stringify(value);
+  } catch {
+    return null;
+  }
+  if (Buffer.byteLength(serialized, "utf8") > MAX_BUILD_ARTIFACT_BYTES) return null;
+  return JSON.parse(serialized);
 }
 
 function failureReason(record) {
@@ -86,7 +100,7 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     }
   }
 
-  async function complete(claimResult, manifest) {
+  async function complete(claimResult, manifest, { convertArtifacts = null } = {}) {
     const now = new Date().toISOString();
     const names = {
       "#status": "capabilityBuildStatus",
@@ -103,6 +117,13 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
       ":version": manifest.version,
       ":completed": now,
     };
+    const artifacts = boundedBuildArtifacts(convertArtifacts);
+    let updateExpression = "SET #status = :status, #entity = :entity, #version = :version, #completed = :completed";
+    if (artifacts) {
+      names["#artifacts"] = "capabilityBuildArtifacts";
+      values[":artifacts"] = artifacts;
+      updateExpression += ", #artifacts = :artifacts";
+    }
     let condition = "#status = :building AND #buildId = :buildId";
     if (claimResult.finalizeToken) {
       names["#finalizeToken"] = "capabilityBuildFinalizeToken";
@@ -112,7 +133,7 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
     await promiseOf(dynamodb.update({
       TableName: tableName,
       Key: { su: claimResult.key },
-      UpdateExpression: "SET #status = :status, #entity = :entity, #version = :version, #completed = :completed",
+      UpdateExpression: updateExpression,
       ConditionExpression: condition,
       ExpressionAttributeNames: names,
       ExpressionAttributeValues: values,
@@ -254,6 +275,8 @@ function createCapabilityBuildCoordinator({ dynamodb, tableName = DEFAULT_TABLE,
 }
 
 module.exports = {
+  MAX_BUILD_ARTIFACT_BYTES,
+  boundedBuildArtifacts,
   stableHash,
   cleanFailureMessage,
   failureReason,
