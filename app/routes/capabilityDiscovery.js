@@ -826,36 +826,69 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
     .flatMap((segment) => [...String(segment || "").matchAll(/["“‘']([^"”’']+)["”’']/g)])
     .map((match) => String(match[1] || "").trim())
     .filter(Boolean);
-  const groups = new Map();
-  for (const response of responses) {
-    const words = response.match(/[A-Za-z0-9]+/g) || [];
-    if (!words.length) continue;
-    const group = groups.get(words.length) || [];
-    group.push({ response, words, normalized: words.map((word) => word.toLowerCase()) });
-    groups.set(words.length, group);
-  }
-  const templates = [];
-  for (const group of groups.values()) {
-    if (group.length < 2) continue;
+  const tokenized = (value) => [...String(value || "").matchAll(/[A-Za-z0-9]+/g)].map((match) => ({
+    value: match[0],
+    normalized: match[0].toLowerCase(),
+    start: match.index,
+    end: Number(match.index) + match[0].length,
+  }));
+  const varyingFamily = (values) => {
+    const group = values.map((value) => ({
+      source: String(value || ""),
+      tokens: tokenized(value),
+    })).filter((item) => item.tokens.length);
+    if (group.length < 2) return null;
     let prefixLength = 0;
     while (
-      prefixLength < group[0].words.length
-      && group.every((item) => item.normalized[prefixLength] === group[0].normalized[prefixLength])
+      prefixLength < group[0].tokens.length
+      && group.every((item) => item.tokens[prefixLength]?.normalized === group[0].tokens[prefixLength].normalized)
     ) prefixLength += 1;
     let suffixLength = 0;
     while (
-      suffixLength < group[0].words.length - prefixLength
+      suffixLength < group[0].tokens.length - prefixLength
       && group.every((item) =>
-        item.normalized[item.normalized.length - 1 - suffixLength]
-          === group[0].normalized[group[0].normalized.length - 1 - suffixLength]
+        item.tokens.length - suffixLength > prefixLength
+        && item.tokens[item.tokens.length - 1 - suffixLength]?.normalized
+          === group[0].tokens[group[0].tokens.length - 1 - suffixLength].normalized
       )
     ) suffixLength += 1;
     const varyingValues = group.map((item) =>
-      item.normalized.slice(prefixLength, item.normalized.length - suffixLength).join(" ")
+      item.tokens.slice(prefixLength, item.tokens.length - suffixLength)
+        .map((token) => token.normalized).join(" ")
     );
-    if (varyingValues.some((value) => !value) || new Set(varyingValues).size < 2) continue;
-    templates.push({ group, prefixLength, suffixLength, varyingValues });
-  }
+    if (varyingValues.some((value) => !value) || new Set(varyingValues).size < 2) return null;
+    return { group, prefixLength, suffixLength, varyingValues };
+  };
+  const groupedFamilies = (values) => {
+    const groups = new Map();
+    for (const value of values) {
+      const count = tokenized(value).length;
+      if (!count) continue;
+      const group = groups.get(count) || [];
+      group.push(value);
+      groups.set(count, group);
+    }
+    return [
+      varyingFamily(values),
+      ...[...groups.values()].map(varyingFamily),
+    ].filter(Boolean);
+  };
+  const templates = groupedFamilies(responses);
+  const invocationFamilies = groupedFamilies(declaredInvocationExamples(requirementSegments));
+  const sameVaryingValues = (left, right) => {
+    const leftSet = new Set(left);
+    const rightSet = new Set(right);
+    return leftSet.size === rightSet.size && [...leftSet].every((value) => rightSet.has(value));
+  };
+  const exactTemplate = (candidate, subjectInput) => {
+    const first = candidate.group[0];
+    const variableTokens = first.tokens.slice(
+      candidate.prefixLength,
+      first.tokens.length - candidate.suffixLength
+    );
+    if (!variableTokens.length) return "";
+    return `${first.source.slice(0, variableTokens[0].start)}{{${subjectInput}}}${first.source.slice(variableTokens.at(-1).end)}`;
+  };
   request.operations = request.operations.map((operation) => {
     if (!Array.isArray(operation?.contextEffects) || !operation.contextEffects.length) return operation;
     const utteranceInputs = (operation.inputs || []).filter((input) =>
@@ -879,14 +912,12 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
       }).filter(Boolean));
       const candidate = templates.find((template) =>
         template.varyingValues.every((value) => exampleValues.has(value))
+        || invocationFamilies.some((family) =>
+          sameVaryingValues(template.varyingValues, family.varyingValues)
+        )
       );
       if (!candidate) continue;
-      const first = candidate.group[0].words;
-      operation.answerTemplate = [
-        ...first.slice(0, candidate.prefixLength),
-        `{{${subjectInput}}}`,
-        ...first.slice(first.length - candidate.suffixLength),
-      ].join(" ");
+      operation.answerTemplate = exactTemplate(candidate, subjectInput);
       effect.subjectInput = subjectInput;
     }
     return operation;

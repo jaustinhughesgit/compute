@@ -415,6 +415,28 @@ test("declared response variants own the exact effect answer template", () => {
   assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean");
 });
 
+test("declared command variants repair the exact response without model example annotations", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Your {{vehicle}} is clean.";
+  generated.operations[0].utteranceExamples = ["Wash the selected vehicle"];
+  const repaired = repairGeneratedEffectResponseTemplates(generated, [
+    "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
+    "It will respond \"Your car is clean\", \"Your Camry is clean\" or \"Your Toyota is clean\".",
+  ]);
+  assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean");
+});
+
+test("declared response punctuation and multiword subject variants remain exact", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "Vehicle cleaned";
+  generated.operations[0].utteranceExamples = ["Wash the selected vehicle"];
+  const repaired = repairGeneratedEffectResponseTemplates(generated, [
+    "I can say, \"wash my car\", \"wash my Honda Accord\" or \"wash my Ford F150\".",
+    "It will respond \"Your car is clean!\", \"Your Honda Accord is clean!\" or \"Your Ford F150 is clean!\".",
+  ]);
+  assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean!");
+});
+
 test("a one-slot declared command family removes invented required spoken inputs", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";
