@@ -6,6 +6,7 @@
 
 const {
   declaredInvocationExamples,
+  declaredResponseExamples,
   preserveDeclaredInvocationExamples,
 } = require("./convertRequirements");
 
@@ -913,11 +914,7 @@ function repairGeneratedContextEffectTransitions(rawRequest, requirementSegments
 function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments = []) {
   const request = JSON.parse(JSON.stringify(rawRequest || {}));
   if (!Array.isArray(request.operations)) return request;
-  const responses = (Array.isArray(requirementSegments) ? requirementSegments : [])
-    .filter((segment) => /\b(?:respond|return|answer|reply)\b/i.test(String(segment || "")))
-    .flatMap((segment) => [...String(segment || "").matchAll(/["“‘']([^"”’']+)["”’']/g)])
-    .map((match) => String(match[1] || "").trim())
-    .filter(Boolean);
+  const responses = declaredResponseExamples(requirementSegments);
   const tokenized = (value) => [...String(value || "").matchAll(/[A-Za-z0-9]+/g)].map((match) => ({
     value: match[0],
     normalized: match[0].toLowerCase(),
@@ -967,6 +964,10 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
   };
   const templates = groupedFamilies(responses);
   const invocationFamilies = groupedFamilies(declaredInvocationExamples(requirementSegments));
+  const containsVaryingValues = (available, required) => {
+    const availableSet = new Set(available);
+    return required.every((value) => availableSet.has(value));
+  };
   const sameVaryingValues = (left, right) => {
     const leftSet = new Set(left);
     const rightSet = new Set(right);
@@ -1006,6 +1007,7 @@ function repairGeneratedEffectResponseTemplates(rawRequest, requirementSegments 
         template.varyingValues.every((value) => exampleValues.has(value))
         || invocationFamilies.some((family) =>
           sameVaryingValues(template.varyingValues, family.varyingValues)
+          || containsVaryingValues(family.varyingValues, template.varyingValues)
         )
       );
       if (!candidate) continue;

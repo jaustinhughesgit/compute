@@ -530,6 +530,34 @@ test("declared response punctuation and multiword subject variants remain exact"
   assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean!");
 });
 
+test("unquoted general vehicle variants replace a model's one-example specialization", () => {
+  const generated = carwashBuildRequest();
+  generated.operations[0].answerTemplate = "The Toyota Camry is washed.";
+  generated.operations[0].utteranceExamples = [{
+    text: "Wash my Toyota Camry.",
+    inputs: { vehicle: "Toyota Camry" },
+  }];
+  const repaired = finalizeGeneratedBuildRequest(generated, [
+    "I can say wash my car, wash my Camry, or wash my Toyota, or wash my Toyota Camry.",
+    "I should be able to use any car, not just a Toyota Camry.",
+    "It will switch my car from dirty to clean.",
+    "It will respond, Your car is clean, your Camry is clean, your Toyota Camry is clean, whichever is correct.",
+    "It will update the status from dirty to clean.",
+  ]);
+  assert.equal(repaired.operations[0].answerTemplate, "Your {{vehicle}} is clean");
+  assert.deepEqual(
+    repaired.operations[0].utteranceExamples.map((example) =>
+      typeof example === "string" ? example : example.text
+    ),
+    [
+      "Wash my Toyota Camry.",
+      "wash my car",
+      "wash my Camry",
+      "wash my Toyota",
+    ]
+  );
+});
+
 test("a one-slot declared command family removes invented required and optional spoken inputs", () => {
   const generated = carwashBuildRequest();
   generated.operations[0].answerTemplate = "Your {{vehicle}} is clean";

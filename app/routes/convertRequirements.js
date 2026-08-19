@@ -11,6 +11,8 @@ const MAX_DECLARED_INVOCATION_EXAMPLES = 8;
 const MAX_AUTHORING_RECENT_INPUTS = 20;
 const MAX_AUTHORING_ESSENCE_ROWS = 120;
 
+const DECLARED_LIST_CONJUNCTION = /\s*(?:,\s*(?:(?:and|or)\s+)?|\s+(?:and|or)\s+)\s*/i;
+
 function cleanRequirementText(value) {
   return String(value ?? "")
     .replace(/[\u0000-\u001f\u007f]/g, " ")
@@ -98,6 +100,21 @@ function invocationComparisonKey(value) {
     .trim();
 }
 
+function unquotedDeclaredList(value, { stop = () => false } = {}) {
+  const source = cleanRequirementText(value)
+    .replace(/[.!?]+$/g, "")
+    .trim();
+  if (!source || /["“”‘’']/.test(source)) return [];
+  const parts = source.split(DECLARED_LIST_CONJUNCTION).map(cleanRequirementText).filter(Boolean);
+  if (parts.length < 2) return source ? [source] : [];
+  const retained = [];
+  for (const part of parts) {
+    if (stop(part)) break;
+    retained.push(part);
+  }
+  return retained;
+}
+
 function declaredInvocationExamples(requirementSegments = []) {
   const segments = Array.isArray(requirementSegments)
     ? requirementSegments.map(cleanRequirementText).filter(Boolean)
@@ -127,6 +144,44 @@ function declaredInvocationExamples(requirementSegments = []) {
 
     if (/\bi\s+can\s+(?:ask|say|type|enter|request)\b/i.test(segment)) {
       for (const match of segment.matchAll(/["“‘']([^"”’']+)["”’']/g)) add(match[1]);
+      const unquoted = segment.match(
+        /\bi\s+can\s+(?:ask|say|type|enter|request)\b\s*[,,:-]?\s*(.+)$/i
+      );
+      if (unquoted?.[1]) {
+        for (const example of unquotedDeclaredList(unquoted[1])) add(example);
+      }
+    }
+    if (examples.length >= MAX_DECLARED_INVOCATION_EXAMPLES) break;
+  }
+  return examples.slice(0, MAX_DECLARED_INVOCATION_EXAMPLES);
+}
+
+function declaredResponseExamples(requirementSegments = []) {
+  const segments = Array.isArray(requirementSegments)
+    ? requirementSegments.map(cleanRequirementText).filter(Boolean)
+    : [];
+  const examples = [];
+  const seen = new Set();
+  const add = (value) => {
+    const text = cleanRequirementText(value)
+      .replace(/^["'“”‘’]+|["'“”‘’]+$/g, "")
+      .trim();
+    const key = invocationComparisonKey(text);
+    if (!text || !key || seen.has(key) || text.length > 300) return;
+    seen.add(key);
+    examples.push(text);
+  };
+
+  for (const segment of segments) {
+    if (!/\b(?:respond|return|answer|reply)\b/i.test(segment)) continue;
+    for (const match of segment.matchAll(/["“‘']([^"”’']+)["”’']/g)) add(match[1]);
+    const unquoted = segment.match(
+      /\b(?:respond|return|answer|reply)\b\s*[,,:-]?\s*(.+)$/i
+    );
+    if (unquoted?.[1]) {
+      for (const example of unquotedDeclaredList(unquoted[1], {
+        stop: (part) => /^(?:whichever|whatever|depending\b|as appropriate\b)/i.test(part),
+      })) add(example);
     }
     if (examples.length >= MAX_DECLARED_INVOCATION_EXAMPLES) break;
   }
@@ -202,6 +257,7 @@ function normalizeConvertPrompt(value) {
 module.exports = {
   MAX_REQUIREMENT_SEGMENTS,
   declaredInvocationExamples,
+  declaredResponseExamples,
   normalizeConvertAuthoringContext,
   normalizeRequirementSegments,
   normalizeConvertPrompt,

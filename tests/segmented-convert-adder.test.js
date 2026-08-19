@@ -6,6 +6,7 @@ const Module = require("node:module");
 
 const {
   declaredInvocationExamples,
+  declaredResponseExamples,
   normalizeConvertAuthoringContext,
   normalizeConvertPrompt,
 } = require("../app/routes/convertRequirements");
@@ -297,6 +298,24 @@ test("Convert preserves every quoted invocation in an I-can-say requirement", ()
   assert.deepEqual(declaredInvocationExamples([
     "I can say, \"wash my car\", \"wash my camry\" or \"wash my toyota\".",
   ]), ["wash my car", "wash my camry", "wash my toyota"]);
+});
+
+test("Convert preserves an unquoted invocation and response family", () => {
+  assert.deepEqual(declaredInvocationExamples([
+    "I can say wash my car, wash my Camry, or wash my Toyota, or wash my Toyota Camry.",
+  ]), [
+    "wash my car",
+    "wash my Camry",
+    "wash my Toyota",
+    "wash my Toyota Camry",
+  ]);
+  assert.deepEqual(declaredResponseExamples([
+    "It will respond, Your car is clean, your Camry is clean, your Toyota Camry is clean, whichever is correct.",
+  ]), [
+    "Your car is clean",
+    "your Camry is clean",
+    "your Toyota Camry is clean",
+  ]);
 });
 
 test("the generated Shorthand materializes the validated JPL into the created entity", async () => {
